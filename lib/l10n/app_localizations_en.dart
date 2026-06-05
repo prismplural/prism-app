@@ -161,6 +161,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNavigation => 'Navigation';
 
   @override
+  String get settingsAccessibility => 'Accessibility';
+
+  @override
   String get settingsFeatures => 'Features';
 
   @override
@@ -198,6 +201,33 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appearanceTitle => 'Appearance';
+
+  @override
+  String get accessibilityTitle => 'Accessibility';
+
+  @override
+  String get accessibilityVisualSection => 'Visual';
+
+  @override
+  String get accessibilityDimSheetsTitle => 'Dim behind side sheets';
+
+  @override
+  String get accessibilityDimSheetsSubtitle =>
+      'Tint the rest of the app when a side pane is open.';
+
+  @override
+  String get accessibilitySheetsSection => 'Sheets';
+
+  @override
+  String get accessibilityForceCenteredSheetsTitle => 'Use centered sheets';
+
+  @override
+  String get accessibilityForceCenteredSheetsSubtitle =>
+      'Open forms and detail sheets in the centered sheet style on desktop.';
+
+  @override
+  String get accessibilityPreferencesLoadError =>
+      'Could not load accessibility preferences.';
 
   @override
   String get appearanceBrightness => 'Brightness';

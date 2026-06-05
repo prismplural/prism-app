@@ -25,6 +25,7 @@ import 'domain/models/system_settings.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_icons.dart';
+import 'shared/providers/accessibility_preferences_provider.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/theme/prism_shapes.dart' as ui_shapes;
 import 'shared/widgets/prism_button.dart';
@@ -437,6 +438,10 @@ class _DatabaseStartupApp extends ConsumerWidget {
     final schemaVersionBeforeOpen = ref.watch(
       databaseSchemaVersionBeforeOpenProvider,
     );
+    if (databaseReady.hasValue) {
+      ref.watch(dimBackgroundBehindSheetsProvider);
+      ref.watch(forceCenteredSheetsProvider);
+    }
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {

@@ -17,6 +17,7 @@ import 'package:prism_plurality/features/members/views/member_detail_screen.dart
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
@@ -132,6 +133,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       _clearOptimisticGroupsAfterBuild(optimisticGroups!);
     }
     final groups = [for (final item in flatItems) item.group];
+    // Embedded desktop drill stack.
     final usePrimaryGroupStack = shouldUseDetailSideSheet(context);
     final showingGroup = usePrimaryGroupStack && _paneGroupStack.isNotEmpty;
 
@@ -237,10 +239,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   void _openMemberDetailSheet(String id) {
     unawaited(
-      showDetailSideSheet<void>(
-        context,
+      showAdaptiveDetailSurface<void>(
+        context: context,
         builder: (context) =>
             MemberDetailScreen(memberId: id, branch: widget.branch),
+        route: (context) => context.push(widget.branch.memberPath(id)),
       ),
     );
   }

@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
@@ -434,18 +435,15 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   }
 
   void _showSessionPreview(BuildContext context, FrontingSession session) {
-    // On wide layouts the detail already opens as a side sheet, so the compact
-    // preview is a redundant empty-looking step — skip straight to the detail.
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet(
-        context,
-        builder: (_) => SessionDetailScreen(sessionId: session.id),
-      );
-      return;
-    }
-    PrismSheet.show(
+    showAdaptiveDetailSurface<void>(
       context: context,
-      builder: (sheetContext) => _SessionPreviewSheet(session: session),
+      builder: (_) => SessionDetailScreen(sessionId: session.id),
+      route: (context) {
+        PrismSheet.show(
+          context: context,
+          builder: (sheetContext) => _SessionPreviewSheet(session: session),
+        );
+      },
     );
   }
 
@@ -602,6 +600,7 @@ class _SessionPreviewSheet extends ConsumerWidget {
             tone: PrismButtonTone.filled,
             expanded: true,
             onPressed: () {
+              // Compact preview keeps its width-only handoff.
               final useSheet = shouldUseDetailSideSheet(context);
               Navigator.of(context).pop();
               if (useSheet) {

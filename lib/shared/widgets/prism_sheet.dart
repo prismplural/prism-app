@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/sheet_presentation.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Adaptive Prism sheet wrapper.
@@ -41,8 +42,18 @@ class PrismSheet extends StatelessWidget {
     bool isDismissible = true,
     double? minHeightFactor,
     double? maxHeightFactor,
-  }) {
-    if (shouldUseDetailSideSheet(context)) {
+  }) async {
+    AdaptiveSheetLayout layout;
+    if (supportsDesktopDetailLayout(context)) {
+      layout = resolveAdaptiveSheetLayout(
+        context,
+        role: AdaptiveSheetRole.transientSheet,
+      );
+    } else {
+      layout = AdaptiveSheetLayout.centeredSheet;
+    }
+
+    if (layout == AdaptiveSheetLayout.sideSheet) {
       return _showSideSheet<T>(
         context: context,
         builder: builder,
@@ -122,8 +133,18 @@ class PrismSheet extends StatelessWidget {
     builder,
     bool useRootNavigator = true,
     bool isDismissible = true,
-  }) {
-    if (shouldUseDetailSideSheet(context)) {
+  }) async {
+    AdaptiveSheetLayout layout;
+    if (supportsDesktopDetailLayout(context)) {
+      layout = resolveAdaptiveSheetLayout(
+        context,
+        role: AdaptiveSheetRole.transientSheet,
+      );
+    } else {
+      layout = AdaptiveSheetLayout.centeredSheet;
+    }
+
+    if (layout == AdaptiveSheetLayout.sideSheet) {
       return _showFullScreenSideSheet<T>(
         context: context,
         builder: builder,

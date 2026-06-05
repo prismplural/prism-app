@@ -52,9 +52,31 @@ const composerDefaultMemberPreference = PreferenceDefinition<String>(
   introducedInSchemaVersion: 30,
 );
 
+/// Dims the app behind modal side sheets.
+const dimBackgroundBehindSheetsPreference = PreferenceDefinition<bool>(
+  key: 'accessibility.dim_background_behind_sheets',
+  scope: PreferenceScope.appSynced,
+  defaultValue: false,
+  codec: BoolPreferenceCodec(),
+  introducedInAppVersion: '0.12.0',
+  introducedInSchemaVersion: 31,
+);
+
+/// Prefers centered sheets for modal surfaces on wide windows.
+const forceCenteredSheetsPreference = PreferenceDefinition<bool>(
+  key: 'accessibility.force_centered_sheets',
+  scope: PreferenceScope.appSynced,
+  defaultValue: false,
+  codec: BoolPreferenceCodec(),
+  introducedInAppVersion: '0.12.0',
+  introducedInSchemaVersion: 31,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideTotalMemberCountPreference,
   frontingReminderSuppressMinutesPreference,
   composerDefaultMemberPreference,
+  dimBackgroundBehindSheetsPreference,
+  forceCenteredSheetsPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);

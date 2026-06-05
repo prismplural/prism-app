@@ -14,7 +14,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -162,13 +162,10 @@ class BoardMessageSection extends ConsumerWidget {
   }
 
   void _openPost(BuildContext context, String postId) {
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet<void>(
-        context,
-        builder: (_) => PostDetailScreen(postId: postId),
-      );
-    } else {
-      context.push(AppRoutePaths.boardPost(postId));
-    }
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => PostDetailScreen(postId: postId),
+      route: (context) => context.push(AppRoutePaths.boardPost(postId)),
+    );
   }
 }

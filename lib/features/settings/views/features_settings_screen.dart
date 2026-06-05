@@ -12,7 +12,7 @@ import 'package:prism_plurality/features/settings/views/notes_feature_settings_s
 import 'package:prism_plurality/features/settings/views/reminders_feature_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/boards_feature_settings_screen.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
@@ -165,19 +165,17 @@ class FeaturesSettingsScreen extends ConsumerWidget {
     );
   }
 
-  /// Navigates to a per-feature settings sub-screen. On wide desktop windows
-  /// the target opens in a modal side sheet over the settings pane; on narrow
-  /// windows it falls back to the existing full-screen route navigation.
+  /// Navigates to a per-feature settings sub-screen.
   void _openFeature(
     BuildContext context, {
     required String path,
     required WidgetBuilder builder,
   }) {
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet(context, builder: builder);
-    } else {
-      context.go(path);
-    }
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: builder,
+      route: (context) => context.go(path),
+    );
   }
 
   Widget _featureRow(

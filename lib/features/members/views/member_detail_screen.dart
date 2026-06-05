@@ -35,7 +35,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
@@ -573,14 +573,11 @@ class _SessionTile extends StatelessWidget {
   }
 
   void _openSession(BuildContext context) {
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet<void>(
-        context,
-        builder: (_) => SessionDetailScreen(sessionId: session.id),
-      );
-    } else {
-      context.push(AppRoutePaths.session(session.id));
-    }
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => SessionDetailScreen(sessionId: session.id),
+      route: (context) => context.push(AppRoutePaths.session(session.id)),
+    );
   }
 }
 

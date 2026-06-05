@@ -10,7 +10,7 @@ import 'package:prism_plurality/features/members/providers/notes_providers.dart'
 import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -190,14 +190,11 @@ class _NoteTile extends StatelessWidget {
   }
 
   void _openNote(BuildContext context) {
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet<void>(
-        context,
-        builder: (_) => NoteDetailScreen(noteId: note.id),
-      );
-    } else {
-      context.push(AppRoutePaths.settingsNote(note.id));
-    }
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => NoteDetailScreen(noteId: note.id),
+      route: (context) => context.push(AppRoutePaths.settingsNote(note.id)),
+    );
   }
 
   Color _parseColor(String hex) {

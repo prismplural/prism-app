@@ -22,7 +22,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_selector_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -51,14 +51,11 @@ enum _BoardsSubTab { public, inbox }
 /// sheet over the clamped feed; narrow windows push the full-screen route
 /// (matching [PostTile]'s default tap behavior).
 void _openBoardPost(BuildContext context, String postId) {
-  if (shouldUseDetailSideSheet(context)) {
-    showDetailSideSheet(
-      context,
-      builder: (_) => PostDetailScreen(postId: postId),
-    );
-  } else {
-    context.push(AppRoutePaths.boardPost(postId));
-  }
+  showAdaptiveDetailSurface<void>(
+    context: context,
+    builder: (_) => PostDetailScreen(postId: postId),
+    route: (context) => context.push(AppRoutePaths.boardPost(postId)),
+  );
 }
 
 // ---------------------------------------------------------------------------

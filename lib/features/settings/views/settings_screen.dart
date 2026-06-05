@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 // Leaf settings screens shown inline in the detail pane on wide windows.
 import 'package:prism_plurality/features/settings/views/appearance_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/accessibility_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/navigation_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/features_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/notification_settings_screen.dart';
@@ -252,6 +253,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       selectionKey: 'navigation',
                       route: AppRoutePaths.settingsNavigation,
                       builder: (_) => const NavigationSettingsScreen(),
+                    ),
+                    _leafLink(
+                      icon: Icons.accessibility_new_rounded,
+                      iconColor: Colors.green,
+                      title: context.l10n.settingsAccessibility,
+                      selectionKey: 'accessibility',
+                      route: AppRoutePaths.settingsAccessibility,
+                      builder: (_) => const AccessibilitySettingsScreen(),
                     ),
                     _leafLink(
                       icon: AppIcons.toggleOnOutlined,

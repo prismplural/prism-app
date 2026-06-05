@@ -37,8 +37,7 @@ import 'package:prism_plurality/features/fronting/widgets/session_comments_secti
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
-import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 
@@ -99,15 +98,11 @@ class SessionDetailScreen extends ConsumerWidget {
   }
 
   void _editFrontSession(BuildContext context) {
-    if (ModalSideSheetMarker.of(context)) {
-      showDetailSideSheet(
-        context,
-        builder: (_) => EditFrontSessionScreen(sessionId: sessionId),
-      );
-      return;
-    }
-
-    context.push(AppRoutePaths.sessionEdit(sessionId));
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => EditFrontSessionScreen(sessionId: sessionId),
+      route: (context) => context.push(AppRoutePaths.sessionEdit(sessionId)),
+    );
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -176,17 +171,14 @@ class SessionDetailScreen extends ConsumerWidget {
 }
 
 void _openMemberDetail(BuildContext context, String memberId) {
-  if (shouldUseDetailSideSheet(context)) {
-    showDetailSideSheet<void>(
-      context,
-      builder: (_) => MemberDetailScreen(
-        memberId: memberId,
-        branch: MemberNavigationBranch.settings,
-      ),
-    );
-  } else {
-    context.push(AppRoutePaths.settingsMember(memberId));
-  }
+  showAdaptiveDetailSurface<void>(
+    context: context,
+    builder: (_) => MemberDetailScreen(
+      memberId: memberId,
+      branch: MemberNavigationBranch.settings,
+    ),
+    route: (context) => context.push(AppRoutePaths.settingsMember(memberId)),
+  );
 }
 
 class _SleepSessionBody extends StatelessWidget {

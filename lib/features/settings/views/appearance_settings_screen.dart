@@ -11,7 +11,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart'
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/features/settings/views/palette_settings_screen.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/terminology_picker.dart';
 import 'package:prism_plurality/features/settings/widgets/font_settings_section.dart';
@@ -238,16 +238,11 @@ class _PaletteSummaryCard extends ConsumerWidget {
 
     return PrismSectionCard(
       onTap: () {
-        // On wide windows present Palette as a side sheet over the settings
-        // pane instead of taking over full-screen; push the route on narrow.
-        if (shouldUseDetailSideSheet(context)) {
-          showDetailSideSheet(
-            context,
-            builder: (_) => const PaletteSettingsScreen(),
-          );
-        } else {
-          context.push(AppRoutePaths.settingsPalette);
-        }
+        showAdaptiveDetailSurface<void>(
+          context: context,
+          builder: (_) => const PaletteSettingsScreen(),
+          route: (context) => context.push(AppRoutePaths.settingsPalette),
+        );
       },
       accentColor: preview.primary,
       child: Row(

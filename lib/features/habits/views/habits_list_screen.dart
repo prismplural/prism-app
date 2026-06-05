@@ -13,8 +13,8 @@ import 'package:prism_plurality/features/habits/widgets/today_habits_container.d
 import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/habit_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -41,16 +41,11 @@ class HabitsListScreen extends ConsumerWidget {
   };
 
   void _openHabit(BuildContext context, Habit habit) {
-    // Habits is a content-primary feed: open the detail in a modal side sheet
-    // over the clamped list on wide windows, push the route on narrow.
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet(
-        context,
-        builder: (_) => HabitDetailScreen(habitId: habit.id),
-      );
-    } else {
-      context.push(_habitPath(habit.id));
-    }
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => HabitDetailScreen(habitId: habit.id),
+      route: (context) => context.push(_habitPath(habit.id)),
+    );
   }
 
   @override

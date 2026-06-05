@@ -161,6 +161,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsNavigation => 'Navegación';
 
   @override
+  String get settingsAccessibility => 'Accesibilidad';
+
+  @override
   String get settingsFeatures => 'Funciones';
 
   @override
@@ -199,6 +202,34 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get appearanceTitle => 'Apariencia';
+
+  @override
+  String get accessibilityTitle => 'Accesibilidad';
+
+  @override
+  String get accessibilityVisualSection => 'Visual';
+
+  @override
+  String get accessibilityDimSheetsTitle =>
+      'Atenuar detrás de paneles laterales';
+
+  @override
+  String get accessibilityDimSheetsSubtitle =>
+      'Tiñe el resto de la app cuando hay un panel lateral abierto.';
+
+  @override
+  String get accessibilitySheetsSection => 'Paneles';
+
+  @override
+  String get accessibilityForceCenteredSheetsTitle => 'Usar paneles centrados';
+
+  @override
+  String get accessibilityForceCenteredSheetsSubtitle =>
+      'Abre formularios y paneles de detalle con el estilo centrado en escritorio.';
+
+  @override
+  String get accessibilityPreferencesLoadError =>
+      'No se pudieron cargar las preferencias de accesibilidad.';
 
   @override
   String get appearanceBrightness => 'Brillo';

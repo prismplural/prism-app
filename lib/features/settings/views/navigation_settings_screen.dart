@@ -9,7 +9,7 @@ import 'package:prism_plurality/features/settings/views/features_settings_screen
 import 'package:prism_plurality/features/settings/widgets/navigation_layout_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -83,14 +83,12 @@ class NavigationSettingsScreen extends ConsumerWidget {
             flags: flags,
             terminologyPlural: terms.plural,
             onDisabledFeatureTap: () {
-              if (shouldUseDetailSideSheet(context)) {
-                showDetailSideSheet(
-                  context,
-                  builder: (_) => const FeaturesSettingsScreen(),
-                );
-              } else {
-                context.push(AppRoutePaths.settingsFeatures);
-              }
+              showAdaptiveDetailSurface<void>(
+                context: context,
+                builder: (_) => const FeaturesSettingsScreen(),
+                route: (context) =>
+                    context.push(AppRoutePaths.settingsFeatures),
+              );
             },
             onLayoutChanged: (primary, overflow) {
               ref

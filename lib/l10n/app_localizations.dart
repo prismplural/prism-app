@@ -374,6 +374,12 @@ abstract class AppLocalizations {
   /// **'Navigation'**
   String get settingsNavigation;
 
+  /// Settings link: Accessibility
+  ///
+  /// In en, this message translates to:
+  /// **'Accessibility'**
+  String get settingsAccessibility;
+
   /// Settings link: Features
   ///
   /// In en, this message translates to:
@@ -451,6 +457,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Appearance'**
   String get appearanceTitle;
+
+  /// Accessibility settings screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Accessibility'**
+  String get accessibilityTitle;
+
+  /// Accessibility settings section for visual preferences
+  ///
+  /// In en, this message translates to:
+  /// **'Visual'**
+  String get accessibilityVisualSection;
+
+  /// Accessibility setting title for dimming the app behind modal side sheets
+  ///
+  /// In en, this message translates to:
+  /// **'Dim behind side sheets'**
+  String get accessibilityDimSheetsTitle;
+
+  /// Accessibility setting subtitle for dimming the app behind modal side sheets
+  ///
+  /// In en, this message translates to:
+  /// **'Tint the rest of the app when a side pane is open.'**
+  String get accessibilityDimSheetsSubtitle;
+
+  /// Accessibility settings section for sheet presentation preferences
+  ///
+  /// In en, this message translates to:
+  /// **'Sheets'**
+  String get accessibilitySheetsSection;
+
+  /// Accessibility setting title for forcing centered/mobile-style sheets on wide layouts
+  ///
+  /// In en, this message translates to:
+  /// **'Use centered sheets'**
+  String get accessibilityForceCenteredSheetsTitle;
+
+  /// Accessibility setting subtitle for forcing centered/mobile-style sheets on wide layouts
+  ///
+  /// In en, this message translates to:
+  /// **'Open forms and detail sheets in the centered sheet style on desktop.'**
+  String get accessibilityForceCenteredSheetsSubtitle;
+
+  /// Error shown when accessibility preferences fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load accessibility preferences.'**
+  String get accessibilityPreferencesLoadError;
 
   /// Appearance settings section: Brightness
   ///

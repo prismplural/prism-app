@@ -243,30 +243,48 @@ void main() {
     test('bio and custom-field stack a MemberDetailScreen', () {
       expect(
         action(ref(TagUsageKind.bio, '/settings/members/m1')),
-        isA<StackDetailSheet>().having(
-          (a) => a.screen,
-          'screen',
-          isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm1'),
-        ),
+        isA<StackDetailSheet>()
+            .having(
+              (a) => a.screen,
+              'screen',
+              isA<MemberDetailScreen>().having(
+                (s) => s.memberId,
+                'memberId',
+                'm1',
+              ),
+            )
+            .having((a) => a.route, 'route', '/settings/members/m1'),
       );
       expect(
         action(ref(TagUsageKind.customField, '/settings/members/m2')),
-        isA<StackDetailSheet>().having(
-          (a) => a.screen,
-          'screen',
-          isA<MemberDetailScreen>().having((s) => s.memberId, 'memberId', 'm2'),
-        ),
+        isA<StackDetailSheet>()
+            .having(
+              (a) => a.screen,
+              'screen',
+              isA<MemberDetailScreen>().having(
+                (s) => s.memberId,
+                'memberId',
+                'm2',
+              ),
+            )
+            .having((a) => a.route, 'route', '/settings/members/m2'),
       );
     });
 
     test('group stacks a GroupDetailScreen', () {
       expect(
         action(ref(TagUsageKind.group, '/settings/members/groups/g1')),
-        isA<StackDetailSheet>().having(
-          (a) => a.screen,
-          'screen',
-          isA<GroupDetailScreen>().having((s) => s.groupId, 'groupId', 'g1'),
-        ),
+        isA<StackDetailSheet>()
+            .having(
+              (a) => a.screen,
+              'screen',
+              isA<GroupDetailScreen>().having(
+                (s) => s.groupId,
+                'groupId',
+                'g1',
+              ),
+            )
+            .having((a) => a.route, 'route', '/settings/members/groups/g1'),
       );
     });
 
@@ -279,7 +297,10 @@ void main() {
 
     test('note falls back to full-screen when the notes tab is disabled', () {
       expect(
-        action(ref(TagUsageKind.note, '/settings/notes/n1'), notesEnabled: false),
+        action(
+          ref(TagUsageKind.note, '/settings/notes/n1'),
+          notesEnabled: false,
+        ),
         isA<NavigateFullScreen>().having(
           (a) => a.route,
           'route',
@@ -288,14 +309,17 @@ void main() {
       );
     });
 
-    test('chat opens the chat pane at the message when the chat tab is enabled', () {
-      expect(
-        action(ref(TagUsageKind.chat, '/chat/c1?messageId=m1')),
-        isA<OpenChatPane>()
-            .having((a) => a.conversationId, 'conversationId', 'c1')
-            .having((a) => a.messageId, 'messageId', 'm1'),
-      );
-    });
+    test(
+      'chat opens the chat pane at the message when the chat tab is enabled',
+      () {
+        expect(
+          action(ref(TagUsageKind.chat, '/chat/c1?messageId=m1')),
+          isA<OpenChatPane>()
+              .having((a) => a.conversationId, 'conversationId', 'c1')
+              .having((a) => a.messageId, 'messageId', 'm1'),
+        );
+      },
+    );
 
     test('chat with no message id leaves messageId null', () {
       expect(
@@ -308,7 +332,10 @@ void main() {
 
     test('chat falls back to full-screen when the chat tab is disabled', () {
       expect(
-        action(ref(TagUsageKind.chat, '/chat/c1?messageId=m1'), chatEnabled: false),
+        action(
+          ref(TagUsageKind.chat, '/chat/c1?messageId=m1'),
+          chatEnabled: false,
+        ),
         isA<NavigateFullScreen>().having(
           (a) => a.route,
           'route',

@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
-import 'package:prism_plurality/l10n/app_localizations.dart';
+
+import '../../helpers/fake_repositories.dart';
 
 void main() {
   testWidgets('PrismSheet.show renders title and content', (tester) async {
@@ -236,23 +241,30 @@ void main() {
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1000, 700);
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () {
-              PrismSheet.show(
-                context: context,
-                title: 'Wide sheet',
-                builder: (_) => const Text('Wide content'),
-              );
-            },
-            child: const Text('Open'),
+      ProviderScope(
+        overrides: [
+          appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                PrismSheet.show(
+                  context: context,
+                  title: 'Wide sheet',
+                  builder: (_) => const Text('Wide content'),
+                );
+              },
+              child: const Text('Open'),
+            ),
           ),
         ),
       ),
@@ -275,34 +287,122 @@ void main() {
     expect(panelBottomRight.dy, closeTo(688, 1));
     expect(panelMaterial.shape, isA<RoundedRectangleBorder>());
     expect(panelMaterial.clipBehavior, Clip.antiAlias);
-    final barriers = tester
-        .widgetList<Widget>(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is ModalBarrier || widget is AnimatedModalBarrier,
-          ),
-        )
-        .toList();
-    expect(barriers, isNotEmpty);
-    final barrierColors = barriers
-        .map(
-          (barrier) => switch (barrier) {
-            ModalBarrier(:final color) => color,
-            AnimatedModalBarrier(:final color) => color.value,
-            _ => null,
-          },
-        )
-        .toList();
+    final barrierColors = _modalBarrierColors(tester);
+    expect(barrierColors, isNotEmpty);
     expect(barrierColors, everyElement(anyOf(isNull, Colors.transparent)));
     expect(contentTopLeft.dx, greaterThan(480));
     expect(contentTopLeft.dy, lessThan(120));
   });
 
   testWidgets(
+    'PrismSheet.show tints behind side sheets when accessibility dimming is enabled',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1000, 700);
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(dimBackgroundBehindSheetsPreference, true);
+      addTearDown(appPrefs.close);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+          ],
+          child: MaterialApp(
+            home: _AccessibilityPreferenceWarmup(
+              child: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.show(
+                      context: context,
+                      title: 'Tinted sheet',
+                      builder: (_) => const Text('Tinted content'),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final barrierColors = _modalBarrierColors(tester);
+
+      expect(find.byKey(const Key('detailSideSheetPanel')), findsOneWidget);
+      expect(find.text('Tinted content'), findsOneWidget);
+      expect(barrierColors, isNotEmpty);
+      expect(
+        barrierColors,
+        anyElement(
+          isA<Color>().having((color) => color.a, 'alpha', greaterThan(0)),
+        ),
+      );
+    },
+  );
+
+  testWidgets(
+    'PrismSheet.show uses centered sheets on wide windows when forced',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1000, 700);
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(forceCenteredSheetsPreference, true);
+      addTearDown(appPrefs.close);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+          ],
+          child: MaterialApp(
+            home: _AccessibilityPreferenceWarmup(
+              child: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.show(
+                      context: context,
+                      title: 'Forced centered sheet',
+                      builder: (_) => const Text('Centered content'),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Centered content'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'PrismSheet.showFullScreen presents as a side sheet on wide windows',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(1000, 700);
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
       addTearDown(() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
@@ -312,6 +412,9 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+          ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: const [Locale('en')],
@@ -360,23 +463,30 @@ void main() {
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1000, 700);
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () {
-              PrismSheet.show(
-                context: context,
-                isDismissible: false,
-                builder: (_) => const Text('Locked content'),
-              );
-            },
-            child: const Text('Open'),
+      ProviderScope(
+        overrides: [
+          appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                PrismSheet.show(
+                  context: context,
+                  isDismissible: false,
+                  builder: (_) => const Text('Locked content'),
+                );
+              },
+              child: const Text('Open'),
+            ),
           ),
         ),
       ),
@@ -397,6 +507,8 @@ void main() {
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1000, 700);
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
@@ -404,6 +516,9 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+        ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: const [Locale('en')],
@@ -927,4 +1042,34 @@ void main() {
       );
     },
   );
+}
+
+class _AccessibilityPreferenceWarmup extends ConsumerWidget {
+  const _AccessibilityPreferenceWarmup({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(dimBackgroundBehindSheetsProvider);
+    ref.watch(forceCenteredSheetsProvider);
+    return child;
+  }
+}
+
+List<Color?> _modalBarrierColors(WidgetTester tester) {
+  return tester
+      .widgetList<Widget>(
+        find.byWidgetPredicate(
+          (widget) => widget is ModalBarrier || widget is AnimatedModalBarrier,
+        ),
+      )
+      .map(
+        (barrier) => switch (barrier) {
+          ModalBarrier(:final color) => color,
+          AnimatedModalBarrier(:final color) => color.value,
+          _ => null,
+        },
+      )
+      .toList();
 }

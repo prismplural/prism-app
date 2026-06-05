@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
@@ -81,16 +81,11 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
   }
 
   void _openSessionDetail(FrontingSession session) {
-    // Open the sleep session detail in the modal side sheet over the clamped
-    // list on wide windows; push the full-screen route on narrow.
-    if (shouldUseDetailSideSheet(context)) {
-      showDetailSideSheet(
-        context,
-        builder: (_) => SessionDetailScreen(sessionId: session.id),
-      );
-    } else {
-      context.push(AppRoutePaths.sleepSession(session.id));
-    }
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => SessionDetailScreen(sessionId: session.id),
+      route: (context) => context.push(AppRoutePaths.sleepSession(session.id)),
+    );
   }
 
   @override

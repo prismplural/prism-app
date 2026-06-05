@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
 import 'package:prism_plurality/domain/models/models.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
@@ -61,14 +61,12 @@ class AlwaysPresentHeader extends ConsumerWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: () {
-              if (shouldUseDetailSideSheet(context)) {
-                showDetailSideSheet(
-                  context,
-                  builder: (_) => SessionDetailScreen(sessionId: sessionId),
-                );
-              } else {
-                context.go(AppRoutePaths.session(sessionId));
-              }
+              showAdaptiveDetailSurface<void>(
+                context: context,
+                builder: (_) => SessionDetailScreen(sessionId: sessionId),
+                route: (context) =>
+                    context.go(AppRoutePaths.session(sessionId)),
+              );
             },
             child: GlassSurface(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

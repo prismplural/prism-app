@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -114,6 +115,98 @@ void main() {
 
         expect(container.read(hideTotalMemberCountProvider).value, true);
         expect(await prefs.get(hideTotalMemberCountPreference), true);
+      },
+    );
+  });
+
+  group('dimBackgroundBehindSheetsProvider', () {
+    test('defaults to false', () async {
+      final prefs = FakeAppPreferenceRepository();
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(dimBackgroundBehindSheetsProvider.future),
+        false,
+      );
+    });
+
+    test('reads the synced app preference', () async {
+      final prefs = FakeAppPreferenceRepository()
+        ..seed(dimBackgroundBehindSheetsPreference, true);
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(dimBackgroundBehindSheetsProvider.future),
+        true,
+      );
+    });
+
+    test(
+      'persists changes through the synced app preference repository',
+      () async {
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = ProviderContainer(
+          overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(dimBackgroundBehindSheetsProvider.notifier)
+            .set(true);
+
+        expect(container.read(dimBackgroundBehindSheetsProvider).value, true);
+        expect(await prefs.get(dimBackgroundBehindSheetsPreference), true);
+      },
+    );
+  });
+
+  group('forceCenteredSheetsProvider', () {
+    test('defaults to false', () async {
+      final prefs = FakeAppPreferenceRepository();
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      expect(await container.read(forceCenteredSheetsProvider.future), false);
+    });
+
+    test('reads the synced app preference', () async {
+      final prefs = FakeAppPreferenceRepository()
+        ..seed(forceCenteredSheetsPreference, true);
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      expect(await container.read(forceCenteredSheetsProvider.future), true);
+    });
+
+    test(
+      'persists changes through the synced app preference repository',
+      () async {
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = ProviderContainer(
+          overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(forceCenteredSheetsProvider.notifier).set(true);
+
+        expect(container.read(forceCenteredSheetsProvider).value, true);
+        expect(await prefs.get(forceCenteredSheetsPreference), true);
       },
     );
   });

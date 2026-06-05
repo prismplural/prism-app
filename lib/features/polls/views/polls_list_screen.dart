@@ -7,8 +7,8 @@ import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/features/polls/models/poll_summary.dart';
 import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
 import 'package:prism_plurality/features/polls/views/poll_detail_screen.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -272,16 +272,11 @@ class _PollCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        // Wide windows open the poll in a modal side sheet over the clamped
-        // feed; narrow windows push the full-screen route.
-        if (shouldUseDetailSideSheet(context)) {
-          showDetailSideSheet(
-            context,
-            builder: (_) => PollDetailScreen(pollId: poll.id),
-          );
-        } else {
-          context.go(AppRoutePaths.poll(poll.id));
-        }
+        showAdaptiveDetailSurface<void>(
+          context: context,
+          builder: (_) => PollDetailScreen(pollId: poll.id),
+          route: (context) => context.go(AppRoutePaths.poll(poll.id)),
+        );
       },
       child: PrismSurface(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

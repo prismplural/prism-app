@@ -34,6 +34,7 @@ import '../../features/boards/views/post_detail_screen.dart';
 import '../../features/settings/views/reminders_feature_settings_screen.dart';
 import '../../features/settings/views/sync_settings_screen.dart';
 import '../../features/settings/views/notification_settings_screen.dart';
+import '../../features/settings/views/accessibility_settings_screen.dart';
 import '../../features/settings/views/appearance_settings_screen.dart';
 import '../../features/settings/views/palette_settings_screen.dart';
 import '../../features/settings/views/statistics_screen.dart';
@@ -482,8 +483,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                       GoRoute(
                         name: AppRouteNames.settingsSyncVerifyBackup,
                         path: 'verify-backup',
-                        builder: (context, state) =>
-                            const VerifyBackupScreen(),
+                        builder: (context, state) => const VerifyBackupScreen(),
                       ),
                     ],
                   ),
@@ -503,6 +503,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                             const PaletteSettingsScreen(),
                       ),
                     ],
+                  ),
+                  GoRoute(
+                    path: 'accessibility',
+                    builder: (context, state) =>
+                        const AccessibilitySettingsScreen(),
                   ),
                   GoRoute(
                     path: 'statistics',

@@ -35,7 +35,7 @@ import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -1250,16 +1250,11 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
   }
 
   void _showUsage() {
-    // Wide windows open the usage list as a modal side sheet; narrow windows
-    // push it onto the active branch's navigator (back retraces usage list →
-    // Media) using the branch-native route.
-    if (shouldUseDetailSideSheet(context)) {
-      // Capture the router + root navigator outside the sheet so the tap handler
-      // can dismiss the usage sheet when jumping to another tab.
-      final router = GoRouter.of(context);
-      final rootNavigator = Navigator.of(context, rootNavigator: true);
-      showDetailSideSheet(
-        context,
+    final router = GoRouter.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    unawaited(
+      showAdaptiveDetailSurface<void>(
+        context: context,
         builder: (_) => TagUsageScreen(
           usages: widget.usedBy,
           onNavigate: (sheetContext, usage) {
@@ -1270,10 +1265,12 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
               notesEnabled: flags.notes,
             );
             switch (action) {
-              case StackDetailSheet(:final screen):
-                // Self-contained target: stack it over the usage sheet so
-                // closing it returns to the list.
-                showDetailSideSheet(sheetContext, builder: (_) => screen);
+              case StackDetailSheet(:final screen, :final route):
+                showAdaptiveDetailSurface<void>(
+                  context: sheetContext,
+                  builder: (_) => screen,
+                  route: (_) => router.push(route),
+                );
               case OpenChatPane(:final conversationId, :final messageId):
                 // Open the conversation in the chat tab's detail pane, scrolled
                 // to the referenced message.
@@ -1293,17 +1290,14 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
             }
           },
         ),
-      );
-    } else {
-      unawaited(
-        context.push(
+        route: (context) => context.push(
           widget.branch == MediaNavigationBranch.media
               ? AppRoutePaths.mediaUsage
               : AppRoutePaths.settingsMediaUsage,
           extra: widget.usedBy,
         ),
-      );
-    }
+      ),
+    );
   }
 }
 
@@ -1746,8 +1740,9 @@ sealed class UsageTapAction {
 /// Stack a self-contained Settings detail screen over the usage list.
 @visibleForTesting
 class StackDetailSheet extends UsageTapAction {
-  const StackDetailSheet(this.screen);
+  const StackDetailSheet(this.screen, this.route);
   final Widget screen;
+  final String route;
 }
 
 /// Open the chat tab's list + detail pane with [conversationId] selected,
@@ -1785,9 +1780,9 @@ UsageTapAction usageTapAction(
   final id = segments.isEmpty ? '' : segments.last;
   switch (usage.kind) {
     case TagUsageKind.bio || TagUsageKind.customField:
-      return StackDetailSheet(MemberDetailScreen(memberId: id));
+      return StackDetailSheet(MemberDetailScreen(memberId: id), usage.route);
     case TagUsageKind.group:
-      return StackDetailSheet(GroupDetailScreen(groupId: id));
+      return StackDetailSheet(GroupDetailScreen(groupId: id), usage.route);
     case TagUsageKind.note:
       return notesEnabled && id.isNotEmpty
           ? OpenNotesPane(id)

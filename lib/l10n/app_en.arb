@@ -225,6 +225,10 @@
   "@settingsNavigation": {
     "description": "Settings link: Navigation"
   },
+  "settingsAccessibility": "Accessibility",
+  "@settingsAccessibility": {
+    "description": "Settings link: Accessibility"
+  },
   "settingsFeatures": "Features",
   "@settingsFeatures": {
     "description": "Settings link: Features"
@@ -276,6 +280,38 @@
   "appearanceTitle": "Appearance",
   "@appearanceTitle": {
     "description": "Appearance settings screen title"
+  },
+  "accessibilityTitle": "Accessibility",
+  "@accessibilityTitle": {
+    "description": "Accessibility settings screen title"
+  },
+  "accessibilityVisualSection": "Visual",
+  "@accessibilityVisualSection": {
+    "description": "Accessibility settings section for visual preferences"
+  },
+  "accessibilityDimSheetsTitle": "Dim behind side sheets",
+  "@accessibilityDimSheetsTitle": {
+    "description": "Accessibility setting title for dimming the app behind modal side sheets"
+  },
+  "accessibilityDimSheetsSubtitle": "Tint the rest of the app when a side pane is open.",
+  "@accessibilityDimSheetsSubtitle": {
+    "description": "Accessibility setting subtitle for dimming the app behind modal side sheets"
+  },
+  "accessibilitySheetsSection": "Sheets",
+  "@accessibilitySheetsSection": {
+    "description": "Accessibility settings section for sheet presentation preferences"
+  },
+  "accessibilityForceCenteredSheetsTitle": "Use centered sheets",
+  "@accessibilityForceCenteredSheetsTitle": {
+    "description": "Accessibility setting title for forcing centered/mobile-style sheets on wide layouts"
+  },
+  "accessibilityForceCenteredSheetsSubtitle": "Open forms and detail sheets in the centered sheet style on desktop.",
+  "@accessibilityForceCenteredSheetsSubtitle": {
+    "description": "Accessibility setting subtitle for forcing centered/mobile-style sheets on wide layouts"
+  },
+  "accessibilityPreferencesLoadError": "Could not load accessibility preferences.",
+  "@accessibilityPreferencesLoadError": {
+    "description": "Error shown when accessibility preferences fail to load"
   },
   "appearanceBrightness": "Brightness",
   "@appearanceBrightness": {

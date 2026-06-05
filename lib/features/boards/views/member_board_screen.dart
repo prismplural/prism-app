@@ -14,7 +14,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -60,14 +60,11 @@ class MemberBoardScreen extends ConsumerWidget {
 /// sheet over the clamped feed; narrow windows push the full-screen route
 /// (matching [PostTile]'s default tap behavior).
 void _openMemberBoardPost(BuildContext context, String postId) {
-  if (shouldUseDetailSideSheet(context)) {
-    showDetailSideSheet(
-      context,
-      builder: (_) => PostDetailScreen(postId: postId),
-    );
-  } else {
-    context.push(AppRoutePaths.boardPost(postId));
-  }
+  showAdaptiveDetailSurface<void>(
+    context: context,
+    builder: (_) => PostDetailScreen(postId: postId),
+    route: (context) => context.push(AppRoutePaths.boardPost(postId)),
+  );
 }
 
 // ---------------------------------------------------------------------------

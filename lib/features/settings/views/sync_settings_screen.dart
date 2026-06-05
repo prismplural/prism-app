@@ -14,7 +14,7 @@ import 'package:prism_plurality/features/settings/views/device_management_screen
 import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
 import 'package:prism_plurality/features/settings/views/verify_backup_screen.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -755,14 +755,12 @@ class _ConfiguredView extends ConsumerWidget {
                     title: context.l10n.syncManageDevices,
                     subtitle: context.l10n.syncManageDevicesSubtitle,
                     onTap: () {
-                      if (shouldUseDetailSideSheet(context)) {
-                        showDetailSideSheet(
-                          context,
-                          builder: (_) => const DeviceManagementScreen(),
-                        );
-                      } else {
-                        context.push(AppRoutePaths.settingsDevices);
-                      }
+                      showAdaptiveDetailSurface<void>(
+                        context: context,
+                        builder: (_) => const DeviceManagementScreen(),
+                        route: (context) =>
+                            context.push(AppRoutePaths.settingsDevices),
+                      );
                     },
                   ),
                 ],
@@ -791,14 +789,12 @@ class _ConfiguredView extends ConsumerWidget {
                 title: context.l10n.verifyBackupRowTitle,
                 subtitle: context.l10n.verifyBackupRowSubtitle,
                 onTap: () {
-                  if (shouldUseDetailSideSheet(context)) {
-                    showDetailSideSheet(
-                      context,
-                      builder: (_) => const VerifyBackupScreen(),
-                    );
-                  } else {
-                    context.push(AppRoutePaths.settingsSyncVerifyBackup);
-                  }
+                  showAdaptiveDetailSurface<void>(
+                    context: context,
+                    builder: (_) => const VerifyBackupScreen(),
+                    route: (context) =>
+                        context.push(AppRoutePaths.settingsSyncVerifyBackup),
+                  );
                 },
               ),
             ),
@@ -906,14 +902,13 @@ class _ConfiguredView extends ConsumerWidget {
                   icon: AppIcons.buildCircleOutlined,
                   title: context.l10n.syncTroubleshootingLink,
                   onTap: () {
-                    if (shouldUseDetailSideSheet(context)) {
-                      showDetailSideSheet(
-                        context,
-                        builder: (_) => const SyncTroubleshootingScreen(),
-                      );
-                    } else {
-                      context.push(AppRoutePaths.settingsSyncTroubleshooting);
-                    }
+                    showAdaptiveDetailSurface<void>(
+                      context: context,
+                      builder: (_) => const SyncTroubleshootingScreen(),
+                      route: (context) => context.push(
+                        AppRoutePaths.settingsSyncTroubleshooting,
+                      ),
+                    );
                   },
                 ),
               ],

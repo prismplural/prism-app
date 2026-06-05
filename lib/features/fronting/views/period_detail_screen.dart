@@ -38,7 +38,7 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 
 /// Detail screen for a multi-contributor fronting period.
 ///
@@ -67,28 +67,22 @@ class PeriodDetailScreen extends ConsumerStatefulWidget {
 }
 
 void _openSessionDetail(BuildContext context, String sessionId) {
-  if (shouldUseDetailSideSheet(context)) {
-    showDetailSideSheet<void>(
-      context,
-      builder: (_) => SessionDetailScreen(sessionId: sessionId),
-    );
-  } else {
-    context.push(AppRoutePaths.session(sessionId));
-  }
+  showAdaptiveDetailSurface<void>(
+    context: context,
+    builder: (_) => SessionDetailScreen(sessionId: sessionId),
+    route: (context) => context.push(AppRoutePaths.session(sessionId)),
+  );
 }
 
 void _openMemberDetail(BuildContext context, String memberId) {
-  if (shouldUseDetailSideSheet(context)) {
-    showDetailSideSheet<void>(
-      context,
-      builder: (_) => MemberDetailScreen(
-        memberId: memberId,
-        branch: MemberNavigationBranch.members,
-      ),
-    );
-  } else {
-    context.push(AppRoutePaths.member(memberId));
-  }
+  showAdaptiveDetailSurface<void>(
+    context: context,
+    builder: (_) => MemberDetailScreen(
+      memberId: memberId,
+      branch: MemberNavigationBranch.members,
+    ),
+    route: (context) => context.push(AppRoutePaths.member(memberId)),
+  );
 }
 
 class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {

@@ -17,8 +17,8 @@ import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
-import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -667,14 +667,12 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         ],
       ),
       onTap: () {
-        if (shouldUseDetailSideSheet(context)) {
-          showDetailSideSheet(
-            context,
-            builder: (_) => CustomFieldDetailScreen(fieldId: field.id),
-          );
-        } else {
-          context.push(AppRoutePaths.settingsCustomField(field.id));
-        }
+        showAdaptiveDetailSurface<void>(
+          context: context,
+          builder: (_) => CustomFieldDetailScreen(fieldId: field.id),
+          route: (context) =>
+              context.push(AppRoutePaths.settingsCustomField(field.id)),
+        );
       },
     );
 
