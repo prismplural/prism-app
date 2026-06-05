@@ -281,6 +281,35 @@ void main() {
       expect(state.appDbKey, SlotState.ok);
     });
 
+    test(
+      'ready via legacy macOS keychain when primary slot is missing',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        storageStub.isolateLegacyStore = true;
+        final hex = _hexKeyForByte(0xb7);
+        final dbPath = '${tempDir.path}/prism.db';
+        _createEncryptedDb(dbPath, hex, userVersion: 31);
+        storageStub.legacyStore[kDatabaseKeyStorageKey] = hex;
+
+        final report = await probeAppDatabaseStartup(
+          directory: tempDir,
+          degradedStateService: degradedStateService,
+        );
+
+        expect(report.state, DbStartupState.ready);
+        expect(report.usedRecoverySlot, 'primary');
+        expect(report.keyInMemory, equals(hex));
+        expect(report.schemaVersionBeforeOpen, 31);
+        expect(
+          report.diagnostic!.slotOutcomes[DiagnosticSlotIds.appDbPrimary],
+          'ok',
+        );
+        expect(await isKeychainRepairPending(), isFalse);
+        final state = await degradedStateService.read();
+        expect(state.appDbKey, SlotState.ok);
+      },
+    );
+
     test('cipher-failing primary + valid sync slot → ready via sync, '
         'repair-pending set', () async {
       final hex = _hexKeyForByte(0xcd);

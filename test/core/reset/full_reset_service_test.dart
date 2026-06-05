@@ -663,7 +663,7 @@ void main() {
 
       expect(platformSecureStore.primaryFailureCalls, greaterThan(0));
       expect(
-        platformSecureStore.legacyReadAllCalls,
+        platformSecureStore.legacyDeleteAllCalls,
         greaterThan(0),
         reason: 'deleteAll should sweep legacy keychain entries after -34018',
       );
@@ -734,7 +734,7 @@ void main() {
 
       expect(platformSecureStore.primaryFailureCalls, greaterThan(0));
       expect(
-        platformSecureStore.legacyReadAllCalls,
+        platformSecureStore.legacyDeleteAllCalls,
         greaterThan(0),
         reason: 'deleteAll should sweep legacy keychain entries after -50',
       );
@@ -1285,7 +1285,7 @@ class _FakePlatformSecureStorage {
   final Map<String, String> store = <String, String>{};
   PlatformException? throwOnPrimarySecureStorage;
   int primaryFailureCalls = 0;
-  int legacyReadAllCalls = 0;
+  int legacyDeleteAllCalls = 0;
 
   void install() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -1311,12 +1311,12 @@ class _FakePlatformSecureStorage {
               case 'read':
                 return store[call.arguments['key'] as String];
               case 'readAll':
-                if (!isPrimary) legacyReadAllCalls += 1;
                 return Map<String, String>.from(store);
               case 'delete':
                 store.remove(call.arguments['key'] as String);
                 return null;
               case 'deleteAll':
+                if (!isPrimary) legacyDeleteAllCalls += 1;
                 store.clear();
                 return null;
               case 'containsKey':

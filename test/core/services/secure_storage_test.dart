@@ -475,6 +475,20 @@ void main() {
       expect(result.value, isNull);
     });
 
+    test(
+      'reads legacy macOS keychain when primary keychain reports missing',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.isolateLegacyStore = true;
+        fake.legacyStore['db_key'] = 'abc123';
+
+        final result = await safeSecureRead('db_key', storage: secureStorage);
+
+        expect(result.ok, isTrue);
+        expect(result.value, 'abc123');
+      },
+    );
+
     test('classifies cipher PlatformException', () async {
       fake.throwOnRead = _fssCipherException(
         message: 'AEADBadTagException: bad tag',
@@ -785,6 +799,25 @@ void main() {
       expect(fake.store, isEmpty);
     });
 
+    test('safeSecureDeleteAll also clears legacy macOS entries', () async {
+      debugForceMacSecureStorageEntitlementFallback = true;
+      fake.isolateLegacyStore = true;
+      fake.store['a'] = '1';
+      fake.legacyStore['b'] = '2';
+
+      final result = await safeSecureDeleteAll(storage: secureStorage);
+
+      expect(
+        result.ok,
+        isTrue,
+        reason:
+            'failure=${result.failure} code=${result.code} '
+            'message=${result.message}',
+      );
+      expect(fake.store, isEmpty);
+      expect(fake.legacyStore, isEmpty);
+    });
+
     test('safeSecureDeleteAll classifies cipher failure', () async {
       fake.throwOnDeleteAll = _fssCipherException(
         message: 'AEADBadTagException',
@@ -856,6 +889,29 @@ void main() {
               'message=${result.message}',
         );
         expect(fake.store, isEmpty);
+      },
+    );
+
+    test(
+      'safeSecureDeleteAll uses legacy deleteAll when legacy readAll is rejected',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake
+          ..isolateLegacyStore = true
+          ..throwOnPrimarySecureStorage = _macInvalidParameterException()
+          ..throwOnReadAll = _macInvalidParameterException();
+        fake.legacyStore['db_key'] = 'abc123';
+
+        final result = await safeSecureDeleteAll(storage: secureStorage);
+
+        expect(
+          result.ok,
+          isTrue,
+          reason:
+              'failure=${result.failure} code=${result.code} '
+              'message=${result.message}',
+        );
+        expect(fake.legacyStore, isEmpty);
       },
     );
   });
@@ -956,9 +1012,13 @@ void main() {
     setUp(() {
       fake = _FakeSecureStorage();
       fake.install();
+      debugForceMacSecureStorageEntitlementFallback = false;
     });
 
-    tearDown(() => fake.uninstall());
+    tearDown(() {
+      debugForceMacSecureStorageEntitlementFallback = false;
+      fake.uninstall();
+    });
 
     test('returns every entry on success', () async {
       fake.store['a'] = '1';
@@ -969,6 +1029,21 @@ void main() {
       expect(result.ok, isTrue);
       expect(result.entries, {'a': '1', 'b': '2'});
     });
+
+    test(
+      'includes legacy macOS entries when primary readAll succeeds',
+      () async {
+        debugForceMacSecureStorageEntitlementFallback = true;
+        fake.isolateLegacyStore = true;
+        fake.store['primary'] = 'one';
+        fake.legacyStore['legacy'] = 'two';
+
+        final result = await safeSecureReadAll(storage: secureStorage);
+
+        expect(result.ok, isTrue);
+        expect(result.entries, {'primary': 'one', 'legacy': 'two'});
+      },
+    );
 
     test('classifies cipher failure', () async {
       fake.throwOnReadAll = _fssCipherException(

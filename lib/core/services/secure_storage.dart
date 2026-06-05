@@ -347,6 +347,13 @@ Future<SecureReadResult> safeSecureRead(
     );
     if (injected != null) throw injected;
     final value = await storage.read(key: key);
+    if (value == null && _shouldProbeMacLegacyKeychain(storage)) {
+      final legacy = await safeSecureRead(
+        key,
+        storage: _macLegacySecureStorage,
+      );
+      if (!legacy.ok || legacy.value != null) return legacy;
+    }
     return SecureReadResult(value: value);
   } on PlatformException catch (e) {
     if (_shouldTryMacLegacyKeychain(e, storage)) {
@@ -371,7 +378,20 @@ Future<SecureReadAllResult> safeSecureReadAll({
     );
     if (injected != null) throw injected;
     final all = await storage.readAll();
-    return SecureReadAllResult(entries: Map<String, String>.from(all));
+    final entries = Map<String, String>.from(all);
+    if (_shouldProbeMacLegacyKeychain(storage)) {
+      final legacy = await safeSecureReadAll(storage: _macLegacySecureStorage);
+      if (!legacy.ok) {
+        if (entries.isEmpty) return legacy;
+        return SecureReadAllResult(entries: entries);
+      }
+      if (legacy.entries.isNotEmpty) {
+        return SecureReadAllResult(
+          entries: <String, String>{...legacy.entries, ...entries},
+        );
+      }
+    }
+    return SecureReadAllResult(entries: entries);
   } on PlatformException catch (e) {
     if (_shouldTryMacLegacyKeychain(e, storage)) {
       return safeSecureReadAll(storage: _macLegacySecureStorage);
@@ -573,6 +593,9 @@ Future<SecureDeleteResult> safeSecureDeleteAll({
     );
     if (injected != null) throw injected;
     await storage.deleteAll();
+    if (_shouldProbeMacLegacyKeychain(storage)) {
+      return _deleteAllMacLegacyKeychainEntries();
+    }
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
     if (_shouldTryMacLegacyKeychain(e, storage)) {
@@ -598,13 +621,15 @@ bool _shouldTryMacLegacyKeychain(
   return _isMissingEntitlement(e) || _isMacDataProtectionKeychainParamError(e);
 }
 
-bool _shouldRetryVerifiedWriteInMacLegacyKeychain(
-  FlutterSecureStorage storage,
-) {
+bool _shouldProbeMacLegacyKeychain(FlutterSecureStorage storage) {
   if (identical(storage, _macLegacySecureStorage)) return false;
   if (kIsWeb) return false;
   return Platform.isMacOS || debugForceMacSecureStorageEntitlementFallback;
 }
+
+bool _shouldRetryVerifiedWriteInMacLegacyKeychain(
+  FlutterSecureStorage storage,
+) => _shouldProbeMacLegacyKeychain(storage);
 
 bool _shouldRetryVerifiedWriteFailureInMacLegacyKeychain(
   FlutterSecureStorage storage,
@@ -666,6 +691,14 @@ Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {
 }
 
 Future<SecureDeleteResult> _deleteAllMacLegacyKeychainEntries() async {
+  try {
+    await _macLegacySecureStorage.deleteAll();
+    return const SecureDeleteResult();
+  } on PlatformException {
+    // Fall back to per-entry deletion for plugin versions whose deleteAll
+    // query is rejected but read/delete still work.
+  }
+
   try {
     final entries = await _macLegacySecureStorage.readAll();
     for (final key in entries.keys) {
