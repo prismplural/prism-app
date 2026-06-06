@@ -35,6 +35,10 @@ dependencies:
   # Share sheet for backup export
   share_plus: ^12.0.1
 
+  # Process-global lock serializing the single-file Windows secure-storage
+  # backend (flutter_secure_storage.dat). See core/services/secure_storage.dart.
+  synchronized: ^3.3.0
+
   # QR code display
   qr_flutter: ^4.1.0
 

@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:synchronized/synchronized.dart';
 
 /// Centralized FlutterSecureStorage instance with correct platform options.
 ///
@@ -48,6 +49,36 @@ const _macLegacySecureStorage = FlutterSecureStorage(
 
 @visibleForTesting
 bool debugForceMacSecureStorageEntitlementFallback = false;
+
+// flutter_secure_storage_windows 4.1.0 keeps all entries in one
+// `flutter_secure_storage.dat` with no concurrency control: concurrent backend
+// ops corrupt it, then its recovery path can't delete the locked file (errno
+// 32) — the pairing-drain failure. Serialize every backend call behind a
+// process-global lock — the same in-process mutex fss_windows 4.2.x added for
+// issue #634 (we can't take that bump: win32 5→6 cascade via file_picker /
+// package_info_plus / share_plus). Windows-only: other backends are
+// transactional, and skipping Android keeps the lock off its interactive
+// biometric prompt. All FlutterSecureStorage instances route through
+// [runLockedSecureStorageOp].
+final Lock _secureStorageLock = Lock();
+
+/// Test seam: force [runLockedSecureStorageOp] to serialize regardless of the
+/// host platform, so the lock can be exercised off-Windows. Mirrors
+/// [debugForceMacSecureStorageEntitlementFallback].
+@visibleForTesting
+bool debugForceSecureStorageSerialization = false;
+
+/// Run a single raw secure-storage backend call under the process-global
+/// Windows serialization lock; a pass-through off Windows. Exposed so
+/// BiometricService's separate instance serializes against the same file.
+/// Non-reentrant: wrap only raw backend calls, never another locked helper.
+Future<T> runLockedSecureStorageOp<T>(Future<T> Function() op) {
+  if (!debugForceSecureStorageSerialization &&
+      (kIsWeb || !Platform.isWindows)) {
+    return op();
+  }
+  return _secureStorageLock.synchronized(op);
+}
 
 const _nativeSecureStorageChannel = MethodChannel(
   'com.prism.prism_plurality/runtime_dek_wrap',
@@ -346,7 +377,7 @@ Future<SecureReadResult> safeSecureRead(
       key: key,
     );
     if (injected != null) throw injected;
-    final value = await storage.read(key: key);
+    final value = await runLockedSecureStorageOp(() => storage.read(key: key));
     if (value == null && _shouldProbeMacLegacyKeychain(storage)) {
       final legacy = await safeSecureRead(
         key,
@@ -377,7 +408,7 @@ Future<SecureReadAllResult> safeSecureReadAll({
       SecureStorageFaultOperation.readAll,
     );
     if (injected != null) throw injected;
-    final all = await storage.readAll();
+    final all = await runLockedSecureStorageOp(() => storage.readAll());
     final entries = Map<String, String>.from(all);
     if (_shouldProbeMacLegacyKeychain(storage)) {
       final legacy = await safeSecureReadAll(storage: _macLegacySecureStorage);
@@ -447,7 +478,7 @@ Future<SecureWriteResult> safeSecureWrite(
       key: key,
     );
     if (injected != null) throw injected;
-    await storage.write(key: key, value: value);
+    await runLockedSecureStorageOp(() => storage.write(key: key, value: value));
     final commitFailure = await _commitAndroidSecureStoragePrefs();
     if (commitFailure != null) return commitFailure;
     return const SecureWriteResult();
@@ -568,7 +599,7 @@ Future<SecureDeleteResult> safeSecureDelete(
       key: key,
     );
     if (injected != null) throw injected;
-    await storage.delete(key: key);
+    await runLockedSecureStorageOp(() => storage.delete(key: key));
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
     if (_shouldTryMacLegacyKeychain(e, storage)) {
@@ -592,7 +623,7 @@ Future<SecureDeleteResult> safeSecureDeleteAll({
       SecureStorageFaultOperation.deleteAll,
     );
     if (injected != null) throw injected;
-    await storage.deleteAll();
+    await runLockedSecureStorageOp(() => storage.deleteAll());
     if (_shouldProbeMacLegacyKeychain(storage)) {
       return _deleteAllMacLegacyKeychainEntries();
     }
@@ -677,9 +708,11 @@ bool _isMacDataProtectionKeychainParamText(
 
 Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {
   try {
-    final existing = await _macLegacySecureStorage.read(key: key);
+    final existing = await runLockedSecureStorageOp(
+      () => _macLegacySecureStorage.read(key: key),
+    );
     if (existing == null) return const SecureDeleteResult();
-    await _macLegacySecureStorage.delete(key: key);
+    await runLockedSecureStorageOp(() => _macLegacySecureStorage.delete(key: key));
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
     return SecureDeleteResult(
@@ -692,7 +725,7 @@ Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {
 
 Future<SecureDeleteResult> _deleteAllMacLegacyKeychainEntries() async {
   try {
-    await _macLegacySecureStorage.deleteAll();
+    await runLockedSecureStorageOp(() => _macLegacySecureStorage.deleteAll());
     return const SecureDeleteResult();
   } on PlatformException {
     // Fall back to per-entry deletion for plugin versions whose deleteAll
@@ -700,9 +733,11 @@ Future<SecureDeleteResult> _deleteAllMacLegacyKeychainEntries() async {
   }
 
   try {
-    final entries = await _macLegacySecureStorage.readAll();
+    final entries = await runLockedSecureStorageOp(
+      () => _macLegacySecureStorage.readAll(),
+    );
     for (final key in entries.keys) {
-      await _macLegacySecureStorage.delete(key: key);
+      await runLockedSecureStorageOp(() => _macLegacySecureStorage.delete(key: key));
     }
     return const SecureDeleteResult();
   } on PlatformException catch (e) {

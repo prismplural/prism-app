@@ -4,6 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+// Windows serialization helper only — not the shared `secureStorage` instance
+// (see class doc). This store and the shared one hit the same
+// `flutter_secure_storage.dat` on Windows, so both serialize through one lock.
+import 'package:prism_plurality/core/services/secure_storage.dart'
+    show runLockedSecureStorageOp;
 
 /// Sanctioned exception to the "always use `secureStorage` from
 /// `core/services/secure_storage.dart`" rule. The biometric DEK MUST be stored
@@ -89,7 +94,9 @@ class BiometricService {
   /// Call isAvailable() before this to avoid a throw on devices with no
   /// enrolled biometric or device credential.
   Future<void> enroll(Uint8List dekBytes) async {
-    await _storage.write(key: _bioKey, value: base64Encode(dekBytes));
+    await runLockedSecureStorageOp(
+      () => _storage.write(key: _bioKey, value: base64Encode(dekBytes)),
+    );
   }
 
   /// Authenticate: reading the stored DEK triggers Face ID/Touch ID (iOS) or
@@ -98,7 +105,9 @@ class BiometricService {
   /// (resetOnError cleared the stored value). Callers must fall back to PIN.
   Future<Uint8List?> authenticate() async {
     try {
-      final b64 = await _storage.read(key: _bioKey);
+      final b64 = await runLockedSecureStorageOp(
+        () => _storage.read(key: _bioKey),
+      );
       if (b64 == null) return null;
       return base64Decode(b64);
     } catch (_) {
@@ -111,7 +120,7 @@ class BiometricService {
         await _clearAndroidNamespaceIfAvailable()) {
       return;
     }
-    await _storage.delete(key: _bioKey);
+    await runLockedSecureStorageOp(() => _storage.delete(key: _bioKey));
   }
 
   Future<bool> _clearAndroidNamespaceIfAvailable() async {
