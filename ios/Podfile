@@ -39,33 +39,6 @@ target 'Runner' do
 end
 
 post_install do |installer|
-  flutter_soloud_build_script = File.expand_path('../.symlinks/plugins/flutter_soloud/ios/build_cmake.sh', __FILE__)
-  if File.exist?(flutter_soloud_build_script)
-    original_script = File.read(flutter_soloud_build_script)
-    patched_script = original_script.gsub(
-      "echo \"  Using cmake: $(which cmake)\"\n",
-      <<~SCRIPT
-        echo "  Using cmake: $(which cmake)"
-
-        # Xcode 26 exports deployment targets for several Apple platforms into
-        # script phases. CMake's raw compiler probes choke on that mixed
-        # environment, so keep only the iPhone target before configuring.
-        unset TVOS_DEPLOYMENT_TARGET
-        unset WATCHOS_DEPLOYMENT_TARGET
-        unset XROS_DEPLOYMENT_TARGET
-        unset DRIVERKIT_DEPLOYMENT_TARGET
-        unset MACOSX_DEPLOYMENT_TARGET
-        export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-#{ios_deployment_target}}"
-      SCRIPT
-    ).gsub(
-      '-DCMAKE_OSX_DEPLOYMENT_TARGET="13.0" \\',
-      "-DCMAKE_OSX_DEPLOYMENT_TARGET=\"${IPHONEOS_DEPLOYMENT_TARGET:-#{ios_deployment_target}}\" \\"
-    )
-    if patched_script != original_script
-      File.write(flutter_soloud_build_script, patched_script)
-    end
-  end
-
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     # Route C/C++ compilation through ccache for faster incremental pod builds.
