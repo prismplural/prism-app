@@ -115,7 +115,7 @@ dependencies:
   flutter_soloud:
     git:
       url: https://github.com/skylartaylor/flutter_soloud.git
-      ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+      ref: 65c4d727f3032992e5040c136ef9017f73ddc218
   ogg_caf_converter:
     git:
       url: https://github.com/skylartaylor/ogg_caf_converter.git
