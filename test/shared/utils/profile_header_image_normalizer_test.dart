@@ -116,22 +116,107 @@ void main() {
       },
     );
 
-    test('throws when hard max cannot be met', () async {
-      final source = img.Image(width: 900, height: 300);
-      img.fill(source, color: img.ColorRgb8(12, 34, 56));
+    test(
+      'downscales lossless output past the byte cap instead of throwing',
+      () async {
+        // A detailed transparent banner routes to lossless WebP in production,
+        // which ignores quality — so the quality ladder can't shrink it. This
+        // fake reproduces that: size depends only on pixel count. At 1800x600 it
+        // exceeds hardMaxBytes (this used to throw StateError); the normalizer
+        // must downscale until it fits.
+        final source = img.Image(width: 1800, height: 600, numChannels: 4);
+        img.fill(source, color: img.ColorRgba8(10, 20, 30, 255));
+        img.fillRect(
+          source,
+          x1: 0,
+          y1: 0,
+          x2: 899,
+          y2: 599,
+          color: img.ColorRgba8(0, 0, 0, 0), // genuine transparency
+        );
 
-      final encoder = _FakeWebpEncoder.fixed(
-        ProfileHeaderImageNormalizer.hardMaxBytes + 1,
-      );
+        final encoder = _FakeWebpEncoder.proportional(1.5);
 
-      await expectLater(
-        normalizeProfileHeaderImage(
+        final normalized = await normalizeProfileHeaderImage(
           Uint8List.fromList(img.encodePng(source)),
           encoder: encoder,
-        ),
-        throwsStateError,
-      );
-    });
+        );
+
+        // Lands under the hard byte cap without throwing...
+        expect(
+          normalized.length,
+          lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+        );
+        // ...because the fallback downscaled below the 1800x600 max.
+        final encodedImage = encoder.images.last;
+        expect(
+          encodedImage.width,
+          lessThan(ProfileHeaderImageNormalizer.maxWidth),
+        );
+        expect(
+          encodedImage.height,
+          lessThan(ProfileHeaderImageNormalizer.maxHeight),
+        );
+      },
+    );
+
+    test(
+      'keeps shrinking below a 900px banner so output still fits the cap',
+      () async {
+        // Dense alpha art whose lossless size is high enough that even a
+        // 900-wide 3:1 banner blows the 512 KB cap. The fallback must keep
+        // shrinking rather than store an oversized, unsyncable blob — otherwise
+        // the banner shows as a broken image on other devices.
+        final source = img.Image(width: 1800, height: 600, numChannels: 4);
+        img.fill(source, color: img.ColorRgba8(10, 20, 30, 200));
+
+        final encoder = _FakeWebpEncoder.proportional(2.2);
+
+        final normalized = await normalizeProfileHeaderImage(
+          Uint8List.fromList(img.encodePng(source)),
+          encoder: encoder,
+        );
+
+        // 900x300 at 2.2 B/px would be ~594 KB — over the cap — so it must have
+        // shrunk past 900 to land in budget.
+        expect(
+          normalized.length,
+          lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+        );
+        expect(encoder.images.last.width, lessThan(900));
+      },
+    );
+
+    test(
+      'returns best effort without throwing when even the floor exceeds '
+      'the hard cap',
+      () async {
+        final source = img.Image(width: 1800, height: 600);
+        img.fill(source, color: img.ColorRgb8(12, 34, 56));
+
+        // Degenerate encoder: ignores both quality and dimensions, so no amount
+        // of downscaling helps. The normalizer must still return best effort
+        // rather than failing the upload (matching AvatarNormalizer's contract).
+        final encoder = _FakeWebpEncoder.fixed(
+          ProfileHeaderImageNormalizer.hardMaxBytes + 1,
+        );
+
+        final normalized = await normalizeProfileHeaderImage(
+          Uint8List.fromList(img.encodePng(source)),
+          encoder: encoder,
+        );
+
+        expect(
+          normalized.length,
+          ProfileHeaderImageNormalizer.hardMaxBytes + 1,
+        );
+        // It exhausted the downscale ladder before giving up.
+        expect(
+          encoder.images.last.width,
+          lessThan(ProfileHeaderImageNormalizer.maxWidth),
+        );
+      },
+    );
 
     test('rejects empty and undecodable input', () async {
       final encoder = _FakeWebpEncoder.fixed(100);
@@ -197,12 +282,23 @@ void main() {
 }
 
 class _FakeWebpEncoder implements ProfileHeaderWebpEncoder {
-  _FakeWebpEncoder.fixed(this.length) : lengthsByQuality = null;
+  _FakeWebpEncoder.fixed(this.length)
+    : lengthsByQuality = null,
+      bytesPerPixel = null;
 
-  _FakeWebpEncoder.byQuality(this.lengthsByQuality) : length = null;
+  _FakeWebpEncoder.byQuality(this.lengthsByQuality)
+    : length = null,
+      bytesPerPixel = null;
+
+  /// Mimics real lossless WebP: output size is driven purely by pixel count and
+  /// is unaffected by `quality`. Only downscaling can shrink it.
+  _FakeWebpEncoder.proportional(this.bytesPerPixel)
+    : length = null,
+      lengthsByQuality = null;
 
   final Map<int, int>? lengthsByQuality;
   final int? length;
+  final double? bytesPerPixel;
   final qualities = <int>[];
   final images = <img.Image>[];
 
@@ -211,7 +307,10 @@ class _FakeWebpEncoder implements ProfileHeaderWebpEncoder {
     qualities.add(quality);
     images.add(img.Image.from(image));
 
-    final outputLength = lengthsByQuality?[quality] ?? length ?? 1;
+    final bytesPerPixel = this.bytesPerPixel;
+    final outputLength = bytesPerPixel != null
+        ? (image.width * image.height * bytesPerPixel).round()
+        : lengthsByQuality?[quality] ?? length ?? 1;
     return Uint8List(outputLength);
   }
 }
