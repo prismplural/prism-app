@@ -996,4 +996,44 @@ void main() {
       () => expect(perms.isMemberDeparted(null), isFalse),
     );
   });
+
+  group('ConversationPermissions — archive for everyone', () {
+    test('creator on a group can archive for everyone', () {
+      final perms = ConversationPermissions(
+        conversation: makeGroupConversation(creatorId: 'creator'),
+        speakingAsMemberId: 'creator',
+        speakingAsMember: makeMember(id: 'creator'),
+      );
+      expect(perms.canArchiveForEveryone, isTrue);
+      expect(perms.canUnarchiveForEveryone, isTrue);
+    });
+
+    test('admin on a group can archive for everyone', () {
+      final perms = ConversationPermissions(
+        conversation: makeGroupConversation(creatorId: 'creator'),
+        speakingAsMemberId: 'member1',
+        speakingAsMember: makeMember(id: 'member1', isAdmin: true),
+      );
+      expect(perms.canArchiveForEveryone, isTrue);
+    });
+
+    test('regular participant cannot archive for everyone', () {
+      final perms = ConversationPermissions(
+        conversation: makeGroupConversation(creatorId: 'creator'),
+        speakingAsMemberId: 'member1',
+        speakingAsMember: makeMember(id: 'member1'),
+      );
+      expect(perms.canArchiveForEveryone, isFalse);
+    });
+
+    test('admin cannot archive a DM for everyone (no DM override)', () {
+      final perms = ConversationPermissions(
+        conversation: makeDmConversation(),
+        speakingAsMemberId: 'member1',
+        speakingAsMember: makeMember(id: 'member1', isAdmin: true),
+      );
+      expect(perms.canArchiveForEveryone, isFalse);
+      expect(perms.canUnarchiveForEveryone, isFalse);
+    });
+  });
 }

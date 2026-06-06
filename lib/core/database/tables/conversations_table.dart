@@ -25,6 +25,9 @@ class Conversations extends Table {
   // to list each in participantIds.
   BoolColumn get includesAllMembers =>
       boolean().withDefault(const Constant(false))();
+  // Convo-level "archived for everyone" flag (vs per-member archivedByMemberIds).
+  BoolColumn get archivedForEveryone =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};

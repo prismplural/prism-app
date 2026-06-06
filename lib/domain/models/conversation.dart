@@ -18,6 +18,9 @@ abstract class Conversation with _$Conversation {
     // a sync op per member on toggle and on every membership change after.
     @Default(false) bool includesAllMembers,
     @Default([]) List<String> archivedByMemberIds,
+    // Convo-level archive (vs the per-member archivedByMemberIds). Separate
+    // field so a per-member archive can't clobber it under field-level LWW.
+    @Default(false) bool archivedForEveryone,
     @Default([]) List<String> mutedByMemberIds,
     @Default({}) Map<String, DateTime> lastReadTimestamps,
     String? description,

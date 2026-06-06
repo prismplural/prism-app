@@ -80,6 +80,9 @@ class DriftConversationRepository
     if (conversation.includesAllMembers) {
       fields['includes_all_members'] = true;
     }
+    if (conversation.archivedForEveryone) {
+      fields['archived_for_everyone'] = true;
+    }
     await syncRecordCreate(_table, conversation.id, fields);
   }
 
@@ -93,15 +96,20 @@ class DriftConversationRepository
       _conversationFields(conversation),
     );
 
-    // Sparse-emit for pre-v25 peers — kept outside the diff helper because
+    // Sparse-emit for pre-schema peers — kept outside the diff helper because
     // diffSyncFields can't represent sparse semantics. `_conversationFields`
-    // and `_conversationFieldsFromRow` both omit `includes_all_members`, so
-    // the diff can never surface the transition; emit it inline whenever the
-    // boolean changes, mirroring `setIncludesAllMembers`.
+    // and `_conversationFieldsFromRow` both omit `includes_all_members` and
+    // `archived_for_everyone`, so the diff can never surface either transition;
+    // emit each inline whenever its boolean changes, mirroring the setters.
     final previousIncludesAll = existingRow.includesAllMembers;
     final nextIncludesAll = conversation.includesAllMembers;
     if (previousIncludesAll != nextIncludesAll) {
       changedFields['includes_all_members'] = nextIncludesAll;
+    }
+    final previousArchivedForEveryone = existingRow.archivedForEveryone;
+    final nextArchivedForEveryone = conversation.archivedForEveryone;
+    if (previousArchivedForEveryone != nextArchivedForEveryone) {
+      changedFields['archived_for_everyone'] = nextArchivedForEveryone;
     }
 
     if (changedFields.isEmpty) return;
@@ -111,6 +119,10 @@ class DriftConversationRepository
       changedFields,
       includesAllMembers: previousIncludesAll != nextIncludesAll
           ? nextIncludesAll
+          : null,
+      archivedForEveryone:
+          previousArchivedForEveryone != nextArchivedForEveryone
+          ? nextArchivedForEveryone
           : null,
     );
     await _dao.updateConversation(companion);
@@ -169,6 +181,14 @@ class DriftConversationRepository
     await _dao.updateIncludesAllMembers(conversationId, value);
     await syncRecordUpdate(_table, conversationId, {
       'includes_all_members': value,
+    });
+  }
+
+  @override
+  Future<void> setArchivedForEveryone(String conversationId, bool value) async {
+    await _dao.updateArchivedForEveryone(conversationId, value);
+    await syncRecordUpdate(_table, conversationId, {
+      'archived_for_everyone': value,
     });
   }
 
@@ -260,11 +280,12 @@ class DriftConversationRepository
   /// Mirror of [conversationFields] built from a Drift row. Used by the
   /// patch-style update flow as the "previous" side of the diff.
   ///
-  /// **Carve-out**: `includes_all_members` is intentionally absent from both
-  /// this helper and [conversationFields]. The on-wire field is sparse-emitted
-  /// (only present when `true`) for pre-v25 peers, and [diffSyncFields] can't
-  /// represent sparse semantics — see `updateConversation` for the inline
-  /// emit handling the false→true / true→false transition.
+  /// **Carve-out**: `includes_all_members` and `archived_for_everyone` are
+  /// intentionally absent from both this helper and [conversationFields]. Each
+  /// on-wire field is sparse-emitted (only present when `true`) for pre-schema
+  /// peers, and [diffSyncFields] can't represent sparse semantics — see
+  /// `updateConversation` for the inline emit handling the false→true /
+  /// true→false transition.
   ///
   /// The "previous" side must encode through the same pipeline as the
   /// "next" side ([conversationFields]). `lastReadTimestamps` is stored as
@@ -292,12 +313,14 @@ class DriftConversationRepository
   /// Build a sparse [db.ConversationsCompanion] from a patch map.
   ///
   /// [id] is required because the DAO's `updateConversation` asserts
-  /// `companion.id.present`. [includesAllMembers] is plumbed separately
-  /// because it lives outside the diff map (sparse-field carve-out).
+  /// `companion.id.present`. [includesAllMembers] and [archivedForEveryone]
+  /// are plumbed separately because they live outside the diff map
+  /// (sparse-field carve-outs).
   db.ConversationsCompanion _partialConversationCompanion(
     String id,
     Map<String, dynamic> fields, {
     bool? includesAllMembers,
+    bool? archivedForEveryone,
   }) {
     return db.ConversationsCompanion(
       id: Value(id),
@@ -343,6 +366,9 @@ class DriftConversationRepository
       includesAllMembers: includesAllMembers != null
           ? Value(includesAllMembers)
           : const Value.absent(),
+      archivedForEveryone: archivedForEveryone != null
+          ? Value(archivedForEveryone)
+          : const Value.absent(),
     );
   }
 
@@ -353,11 +379,10 @@ class DriftConversationRepository
   /// `createConversation()` for the bulk insert. See
   /// `docs/plans/sp-import-perf-quick-wins.md` (Phase 5 "Field-map reuse").
   ///
-  /// **Note**: `includes_all_members` is *not* included here. It is
-  /// sparse-emitted (only when `true`) directly by `createConversation` and
-  /// `setIncludesAllMembers`, and inline-emitted on transitions by
-  /// `updateConversation`. See `_conversationFieldsFromRow` for the
-  /// rationale.
+  /// **Note**: `includes_all_members` and `archived_for_everyone` are *not*
+  /// included here. Each is sparse-emitted (only when `true`) directly by
+  /// `createConversation` and its setter, and inline-emitted on transitions by
+  /// `updateConversation`. See `_conversationFieldsFromRow` for the rationale.
   static Map<String, dynamic> conversationFields(domain.Conversation c) {
     final lastReadTimestampsJson = jsonEncode(
       c.lastReadTimestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),

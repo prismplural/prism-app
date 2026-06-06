@@ -1431,6 +1431,7 @@ class DataImportService {
               creatorId: c.creatorId,
               participantIds: c.participantIds,
               includesAllMembers: c.includesAllMembers,
+              archivedForEveryone: c.archivedForEveryone,
               archivedByMemberIds: c.archivedByMemberIds != null
                   ? (jsonDecode(c.archivedByMemberIds!) as List).cast<String>()
                   : [],

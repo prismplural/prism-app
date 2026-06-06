@@ -121,7 +121,8 @@
       "category_id": "conversation-category-1",
       "display_order": 1,
       "is_deleted": false,
-      "includes_all_members": true
+      "includes_all_members": true,
+      "archived_for_everyone": true
     },
     "chat_messages": {
       "content": "hello",

@@ -101,7 +101,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 31;
+  static const currentSchemaVersion = 32;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -847,6 +847,20 @@ class AppDatabase extends _$AppDatabase {
         );
         current = 31;
       }
+      if (current == 31 && to >= 32) {
+        // archived_for_everyone — convo-level archive flag. Idempotent:
+        // dev/test DBs created at the current schema may already have it.
+        final convoNames = (await customSelect(
+          'PRAGMA table_info(conversations)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!convoNames.contains('archived_for_everyone')) {
+          await migrator.addColumn(
+            conversations,
+            conversations.archivedForEveryone,
+          );
+        }
+        current = 32;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -914,6 +928,11 @@ class AppDatabase extends _$AppDatabase {
       'system_settings',
       'members_show_groups',
       'INTEGER NOT NULL DEFAULT 1 CHECK ("members_show_groups" IN (0, 1))',
+    );
+    await ensure(
+      'conversations',
+      'archived_for_everyone',
+      'INTEGER NOT NULL DEFAULT 0 CHECK ("archived_for_everyone" IN (0, 1))',
     );
   }
 

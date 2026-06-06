@@ -147,6 +147,7 @@ void main() {
     Map<String, DateTime>? lastReadTimestamps,
     List<String> mutedBy = const [],
     List<String> archivedBy = const [],
+    bool archivedForEveryone = false,
   }) {
     return Conversation(
       id: id,
@@ -157,6 +158,7 @@ void main() {
       participantIds: participants,
       mutedByMemberIds: mutedBy,
       archivedByMemberIds: archivedBy,
+      archivedForEveryone: archivedForEveryone,
       lastReadTimestamps: lastReadTimestamps ?? const {},
     );
   }
@@ -302,6 +304,28 @@ void main() {
       await settle(container);
 
       expect(container.read(unreadDmCountProvider), 1);
+    });
+
+    test('group archived for everyone is excluded from unread counts', () async {
+      // A for-everyone archive hides the chat from the list, so it must not
+      // drive the unread count / nav badge either — otherwise members get a
+      // phantom badge they can't clear. Mirrors the per-member archive case.
+      final container = buildContainer(
+        speakingAs: 'alice',
+        conversations: [
+          groupChat(
+            'g-1',
+            participants: ['alice', 'bob'],
+            archivedForEveryone: true,
+          ),
+          groupChat('g-2', participants: ['alice', 'bob']),
+        ],
+      );
+      addTearDown(container.dispose);
+      await settle(container);
+
+      expect(container.read(unreadGroupCountProvider), 1);
+      expect(container.read(unreadConversationCountProvider), 1);
     });
 
     test('metadata-only activity is not counted as unread', () async {

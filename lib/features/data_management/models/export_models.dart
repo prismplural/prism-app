@@ -827,6 +827,7 @@ class V1Conversation {
     this.creatorId,
     this.participantIds = const [],
     this.includesAllMembers = false,
+    this.archivedForEveryone = false,
     this.lastReadTimestamps = const {},
     this.archivedByMemberIds,
     this.mutedByMemberIds,
@@ -844,6 +845,7 @@ class V1Conversation {
   final String? creatorId;
   final List<String> participantIds;
   final bool includesAllMembers;
+  final bool archivedForEveryone;
   final Map<String, String> lastReadTimestamps;
   final String? archivedByMemberIds; // JSON-encoded string list
   final String? mutedByMemberIds; // JSON-encoded string list
@@ -875,6 +877,7 @@ class V1Conversation {
     if (creatorId != null) 'creatorId': creatorId,
     'participantIds': participantIds,
     'includesAllMembers': includesAllMembers,
+    'archivedForEveryone': archivedForEveryone,
     'lastReadTimestamps': lastReadTimestamps,
     if (archivedByMemberIds != null) 'archivedByMemberIds': archivedByMemberIds,
     if (mutedByMemberIds != null) 'mutedByMemberIds': mutedByMemberIds,
@@ -907,6 +910,7 @@ class V1Conversation {
       creatorId: json['creatorId'] as String?,
       participantIds: participantIds,
       includesAllMembers: json['includesAllMembers'] as bool? ?? false,
+      archivedForEveryone: json['archivedForEveryone'] as bool? ?? false,
       lastReadTimestamps:
           (json['lastReadTimestamps'] as Map<String, dynamic>?)?.map(
             (k, v) => MapEntry(k, v.toString()),

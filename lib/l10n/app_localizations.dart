@@ -7175,6 +7175,42 @@ abstract class AppLocalizations {
   /// **'Conversation unarchived'**
   String get chatInfoConversationUnarchived;
 
+  /// Admin/creator action row to archive a conversation for every member at once (system-wide), shown alongside the per-member archive row
+  ///
+  /// In en, this message translates to:
+  /// **'Archive for everyone'**
+  String get chatInfoArchiveForEveryone;
+
+  /// Admin/creator action row to clear a system-wide (for-everyone) archive
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchive for everyone'**
+  String get chatInfoUnarchiveForEveryone;
+
+  /// Non-interactive row shown to non-admin members when a conversation has been archived for everyone, so they understand why it is hidden
+  ///
+  /// In en, this message translates to:
+  /// **'Archived for everyone'**
+  String get chatInfoArchivedForEveryone;
+
+  /// Subtitle explaining the effect of a for-everyone archive
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden from everyone\'s chat list'**
+  String get chatInfoArchivedForEveryoneSubtitle;
+
+  /// Toast shown after archiving a conversation for everyone
+  ///
+  /// In en, this message translates to:
+  /// **'Archived for everyone'**
+  String get chatInfoConversationArchivedForEveryone;
+
+  /// Toast shown after clearing a for-everyone archive
+  ///
+  /// In en, this message translates to:
+  /// **'Unarchived for everyone'**
+  String get chatInfoConversationUnarchivedForEveryone;
+
   /// Toast when saving conversation title fails
   ///
   /// In en, this message translates to:

@@ -143,6 +143,10 @@ class ConversationPermissions {
       conversation.participantIds.contains(speakingAsMemberId);
   // Personal list-state — if you can see it, you can mute/archive/read it.
   bool get canArchive => canView;
+  // System-wide archive is a moderation action: admins/creators only (canManage),
+  // and never on DMs. Per-member archive (canArchive) stays open to all members.
+  bool get canArchiveForEveryone => !isDirectMessage && canManage;
+  bool get canUnarchiveForEveryone => canArchiveForEveryone;
   bool get canMute => canView;
   bool get canMarkRead => canView;
   bool get canSendMessages => canWrite;

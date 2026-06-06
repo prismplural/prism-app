@@ -900,11 +900,15 @@ class SpImporter {
           final convFields = DriftConversationRepository.conversationFields(
             conversation,
           );
-          // Sparse-emit for pre-v25 peers — `conversationFields` deliberately
-          // omits this field (carve-out for the patch-style update flow);
-          // mirror `createConversation`'s inline-emit-when-true contract.
+          // Sparse-emit for pre-schema peers — `conversationFields` deliberately
+          // omits these fields (carve-out for the patch-style update flow);
+          // mirror `createConversation`'s inline-emit-when-true contract so the
+          // captured create op matches the local row (else peers diverge).
           if (conversation.includesAllMembers) {
             convFields['includes_all_members'] = true;
+          }
+          if (conversation.archivedForEveryone) {
+            convFields['archived_for_everyone'] = true;
           }
           conversationEmissions.add(
             CapturedSyncOp(

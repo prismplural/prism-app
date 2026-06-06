@@ -17,7 +17,12 @@ mixin _$Conversation {
 
  String get id; DateTime get createdAt; DateTime get lastActivityAt; String? get title; String? get emoji; bool get isDirectMessage; String? get creatorId; List<String> get participantIds;// When true, every active member is implicitly a participant — avoids
 // a sync op per member on toggle and on every membership change after.
- bool get includesAllMembers; List<String> get archivedByMemberIds; List<String> get mutedByMemberIds; Map<String, DateTime> get lastReadTimestamps; String? get description; String? get categoryId; int get displayOrder;
+ bool get includesAllMembers; List<String> get archivedByMemberIds;// Admin "archive for everyone" — convo-level archive flag (twin of
+// includesAllMembers). When true, the chat is hidden for every member
+// regardless of archivedByMemberIds, and stays hidden for members added
+// later. Independent field so it can't be clobbered by a per-member
+// archive under field-level LWW.
+ bool get archivedForEveryone; List<String> get mutedByMemberIds; Map<String, DateTime> get lastReadTimestamps; String? get description; String? get categoryId; int get displayOrder;
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,16 +35,16 @@ $ConversationCopyWith<Conversation> get copyWith => _$ConversationCopyWithImpl<C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.lastActivityAt, lastActivityAt) || other.lastActivityAt == lastActivityAt)&&(identical(other.title, title) || other.title == title)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.isDirectMessage, isDirectMessage) || other.isDirectMessage == isDirectMessage)&&(identical(other.creatorId, creatorId) || other.creatorId == creatorId)&&const DeepCollectionEquality().equals(other.participantIds, participantIds)&&(identical(other.includesAllMembers, includesAllMembers) || other.includesAllMembers == includesAllMembers)&&const DeepCollectionEquality().equals(other.archivedByMemberIds, archivedByMemberIds)&&const DeepCollectionEquality().equals(other.mutedByMemberIds, mutedByMemberIds)&&const DeepCollectionEquality().equals(other.lastReadTimestamps, lastReadTimestamps)&&(identical(other.description, description) || other.description == description)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.lastActivityAt, lastActivityAt) || other.lastActivityAt == lastActivityAt)&&(identical(other.title, title) || other.title == title)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.isDirectMessage, isDirectMessage) || other.isDirectMessage == isDirectMessage)&&(identical(other.creatorId, creatorId) || other.creatorId == creatorId)&&const DeepCollectionEquality().equals(other.participantIds, participantIds)&&(identical(other.includesAllMembers, includesAllMembers) || other.includesAllMembers == includesAllMembers)&&const DeepCollectionEquality().equals(other.archivedByMemberIds, archivedByMemberIds)&&(identical(other.archivedForEveryone, archivedForEveryone) || other.archivedForEveryone == archivedForEveryone)&&const DeepCollectionEquality().equals(other.mutedByMemberIds, mutedByMemberIds)&&const DeepCollectionEquality().equals(other.lastReadTimestamps, lastReadTimestamps)&&(identical(other.description, description) || other.description == description)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,createdAt,lastActivityAt,title,emoji,isDirectMessage,creatorId,const DeepCollectionEquality().hash(participantIds),includesAllMembers,const DeepCollectionEquality().hash(archivedByMemberIds),const DeepCollectionEquality().hash(mutedByMemberIds),const DeepCollectionEquality().hash(lastReadTimestamps),description,categoryId,displayOrder);
+int get hashCode => Object.hash(runtimeType,id,createdAt,lastActivityAt,title,emoji,isDirectMessage,creatorId,const DeepCollectionEquality().hash(participantIds),includesAllMembers,const DeepCollectionEquality().hash(archivedByMemberIds),archivedForEveryone,const DeepCollectionEquality().hash(mutedByMemberIds),const DeepCollectionEquality().hash(lastReadTimestamps),description,categoryId,displayOrder);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, createdAt: $createdAt, lastActivityAt: $lastActivityAt, title: $title, emoji: $emoji, isDirectMessage: $isDirectMessage, creatorId: $creatorId, participantIds: $participantIds, includesAllMembers: $includesAllMembers, archivedByMemberIds: $archivedByMemberIds, mutedByMemberIds: $mutedByMemberIds, lastReadTimestamps: $lastReadTimestamps, description: $description, categoryId: $categoryId, displayOrder: $displayOrder)';
+  return 'Conversation(id: $id, createdAt: $createdAt, lastActivityAt: $lastActivityAt, title: $title, emoji: $emoji, isDirectMessage: $isDirectMessage, creatorId: $creatorId, participantIds: $participantIds, includesAllMembers: $includesAllMembers, archivedByMemberIds: $archivedByMemberIds, archivedForEveryone: $archivedForEveryone, mutedByMemberIds: $mutedByMemberIds, lastReadTimestamps: $lastReadTimestamps, description: $description, categoryId: $categoryId, displayOrder: $displayOrder)';
 }
 
 
@@ -50,7 +55,7 @@ abstract mixin class $ConversationCopyWith<$Res>  {
   factory $ConversationCopyWith(Conversation value, $Res Function(Conversation) _then) = _$ConversationCopyWithImpl;
 @useResult
 $Res call({
- String id, DateTime createdAt, DateTime lastActivityAt, String? title, String? emoji, bool isDirectMessage, String? creatorId, List<String> participantIds, bool includesAllMembers, List<String> archivedByMemberIds, List<String> mutedByMemberIds, Map<String, DateTime> lastReadTimestamps, String? description, String? categoryId, int displayOrder
+ String id, DateTime createdAt, DateTime lastActivityAt, String? title, String? emoji, bool isDirectMessage, String? creatorId, List<String> participantIds, bool includesAllMembers, List<String> archivedByMemberIds, bool archivedForEveryone, List<String> mutedByMemberIds, Map<String, DateTime> lastReadTimestamps, String? description, String? categoryId, int displayOrder
 });
 
 
@@ -67,7 +72,7 @@ class _$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? createdAt = null,Object? lastActivityAt = null,Object? title = freezed,Object? emoji = freezed,Object? isDirectMessage = null,Object? creatorId = freezed,Object? participantIds = null,Object? includesAllMembers = null,Object? archivedByMemberIds = null,Object? mutedByMemberIds = null,Object? lastReadTimestamps = null,Object? description = freezed,Object? categoryId = freezed,Object? displayOrder = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? createdAt = null,Object? lastActivityAt = null,Object? title = freezed,Object? emoji = freezed,Object? isDirectMessage = null,Object? creatorId = freezed,Object? participantIds = null,Object? includesAllMembers = null,Object? archivedByMemberIds = null,Object? archivedForEveryone = null,Object? mutedByMemberIds = null,Object? lastReadTimestamps = null,Object? description = freezed,Object? categoryId = freezed,Object? displayOrder = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
@@ -79,7 +84,8 @@ as bool,creatorId: freezed == creatorId ? _self.creatorId : creatorId // ignore:
 as String?,participantIds: null == participantIds ? _self.participantIds : participantIds // ignore: cast_nullable_to_non_nullable
 as List<String>,includesAllMembers: null == includesAllMembers ? _self.includesAllMembers : includesAllMembers // ignore: cast_nullable_to_non_nullable
 as bool,archivedByMemberIds: null == archivedByMemberIds ? _self.archivedByMemberIds : archivedByMemberIds // ignore: cast_nullable_to_non_nullable
-as List<String>,mutedByMemberIds: null == mutedByMemberIds ? _self.mutedByMemberIds : mutedByMemberIds // ignore: cast_nullable_to_non_nullable
+as List<String>,archivedForEveryone: null == archivedForEveryone ? _self.archivedForEveryone : archivedForEveryone // ignore: cast_nullable_to_non_nullable
+as bool,mutedByMemberIds: null == mutedByMemberIds ? _self.mutedByMemberIds : mutedByMemberIds // ignore: cast_nullable_to_non_nullable
 as List<String>,lastReadTimestamps: null == lastReadTimestamps ? _self.lastReadTimestamps : lastReadTimestamps // ignore: cast_nullable_to_non_nullable
 as Map<String, DateTime>,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable
@@ -169,10 +175,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime lastActivityAt,  String? title,  String? emoji,  bool isDirectMessage,  String? creatorId,  List<String> participantIds,  bool includesAllMembers,  List<String> archivedByMemberIds,  List<String> mutedByMemberIds,  Map<String, DateTime> lastReadTimestamps,  String? description,  String? categoryId,  int displayOrder)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime lastActivityAt,  String? title,  String? emoji,  bool isDirectMessage,  String? creatorId,  List<String> participantIds,  bool includesAllMembers,  List<String> archivedByMemberIds,  bool archivedForEveryone,  List<String> mutedByMemberIds,  Map<String, DateTime> lastReadTimestamps,  String? description,  String? categoryId,  int displayOrder)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.emoji,_that.isDirectMessage,_that.creatorId,_that.participantIds,_that.includesAllMembers,_that.archivedByMemberIds,_that.mutedByMemberIds,_that.lastReadTimestamps,_that.description,_that.categoryId,_that.displayOrder);case _:
+return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.emoji,_that.isDirectMessage,_that.creatorId,_that.participantIds,_that.includesAllMembers,_that.archivedByMemberIds,_that.archivedForEveryone,_that.mutedByMemberIds,_that.lastReadTimestamps,_that.description,_that.categoryId,_that.displayOrder);case _:
   return orElse();
 
 }
@@ -190,10 +196,10 @@ return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime lastActivityAt,  String? title,  String? emoji,  bool isDirectMessage,  String? creatorId,  List<String> participantIds,  bool includesAllMembers,  List<String> archivedByMemberIds,  List<String> mutedByMemberIds,  Map<String, DateTime> lastReadTimestamps,  String? description,  String? categoryId,  int displayOrder)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  DateTime createdAt,  DateTime lastActivityAt,  String? title,  String? emoji,  bool isDirectMessage,  String? creatorId,  List<String> participantIds,  bool includesAllMembers,  List<String> archivedByMemberIds,  bool archivedForEveryone,  List<String> mutedByMemberIds,  Map<String, DateTime> lastReadTimestamps,  String? description,  String? categoryId,  int displayOrder)  $default,) {final _that = this;
 switch (_that) {
 case _Conversation():
-return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.emoji,_that.isDirectMessage,_that.creatorId,_that.participantIds,_that.includesAllMembers,_that.archivedByMemberIds,_that.mutedByMemberIds,_that.lastReadTimestamps,_that.description,_that.categoryId,_that.displayOrder);case _:
+return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.emoji,_that.isDirectMessage,_that.creatorId,_that.participantIds,_that.includesAllMembers,_that.archivedByMemberIds,_that.archivedForEveryone,_that.mutedByMemberIds,_that.lastReadTimestamps,_that.description,_that.categoryId,_that.displayOrder);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -210,10 +216,10 @@ return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime createdAt,  DateTime lastActivityAt,  String? title,  String? emoji,  bool isDirectMessage,  String? creatorId,  List<String> participantIds,  bool includesAllMembers,  List<String> archivedByMemberIds,  List<String> mutedByMemberIds,  Map<String, DateTime> lastReadTimestamps,  String? description,  String? categoryId,  int displayOrder)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  DateTime createdAt,  DateTime lastActivityAt,  String? title,  String? emoji,  bool isDirectMessage,  String? creatorId,  List<String> participantIds,  bool includesAllMembers,  List<String> archivedByMemberIds,  bool archivedForEveryone,  List<String> mutedByMemberIds,  Map<String, DateTime> lastReadTimestamps,  String? description,  String? categoryId,  int displayOrder)?  $default,) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.emoji,_that.isDirectMessage,_that.creatorId,_that.participantIds,_that.includesAllMembers,_that.archivedByMemberIds,_that.mutedByMemberIds,_that.lastReadTimestamps,_that.description,_that.categoryId,_that.displayOrder);case _:
+return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.emoji,_that.isDirectMessage,_that.creatorId,_that.participantIds,_that.includesAllMembers,_that.archivedByMemberIds,_that.archivedForEveryone,_that.mutedByMemberIds,_that.lastReadTimestamps,_that.description,_that.categoryId,_that.displayOrder);case _:
   return null;
 
 }
@@ -225,7 +231,7 @@ return $default(_that.id,_that.createdAt,_that.lastActivityAt,_that.title,_that.
 @JsonSerializable()
 
 class _Conversation implements Conversation {
-  const _Conversation({required this.id, required this.createdAt, required this.lastActivityAt, this.title, this.emoji, this.isDirectMessage = false, this.creatorId, final  List<String> participantIds = const [], this.includesAllMembers = false, final  List<String> archivedByMemberIds = const [], final  List<String> mutedByMemberIds = const [], final  Map<String, DateTime> lastReadTimestamps = const {}, this.description, this.categoryId, this.displayOrder = 0}): _participantIds = participantIds,_archivedByMemberIds = archivedByMemberIds,_mutedByMemberIds = mutedByMemberIds,_lastReadTimestamps = lastReadTimestamps;
+  const _Conversation({required this.id, required this.createdAt, required this.lastActivityAt, this.title, this.emoji, this.isDirectMessage = false, this.creatorId, final  List<String> participantIds = const [], this.includesAllMembers = false, final  List<String> archivedByMemberIds = const [], this.archivedForEveryone = false, final  List<String> mutedByMemberIds = const [], final  Map<String, DateTime> lastReadTimestamps = const {}, this.description, this.categoryId, this.displayOrder = 0}): _participantIds = participantIds,_archivedByMemberIds = archivedByMemberIds,_mutedByMemberIds = mutedByMemberIds,_lastReadTimestamps = lastReadTimestamps;
   factory _Conversation.fromJson(Map<String, dynamic> json) => _$ConversationFromJson(json);
 
 @override final  String id;
@@ -252,6 +258,12 @@ class _Conversation implements Conversation {
   return EqualUnmodifiableListView(_archivedByMemberIds);
 }
 
+// Admin "archive for everyone" — convo-level archive flag (twin of
+// includesAllMembers). When true, the chat is hidden for every member
+// regardless of archivedByMemberIds, and stays hidden for members added
+// later. Independent field so it can't be clobbered by a per-member
+// archive under field-level LWW.
+@override@JsonKey() final  bool archivedForEveryone;
  final  List<String> _mutedByMemberIds;
 @override@JsonKey() List<String> get mutedByMemberIds {
   if (_mutedByMemberIds is EqualUnmodifiableListView) return _mutedByMemberIds;
@@ -283,16 +295,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.lastActivityAt, lastActivityAt) || other.lastActivityAt == lastActivityAt)&&(identical(other.title, title) || other.title == title)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.isDirectMessage, isDirectMessage) || other.isDirectMessage == isDirectMessage)&&(identical(other.creatorId, creatorId) || other.creatorId == creatorId)&&const DeepCollectionEquality().equals(other._participantIds, _participantIds)&&(identical(other.includesAllMembers, includesAllMembers) || other.includesAllMembers == includesAllMembers)&&const DeepCollectionEquality().equals(other._archivedByMemberIds, _archivedByMemberIds)&&const DeepCollectionEquality().equals(other._mutedByMemberIds, _mutedByMemberIds)&&const DeepCollectionEquality().equals(other._lastReadTimestamps, _lastReadTimestamps)&&(identical(other.description, description) || other.description == description)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.lastActivityAt, lastActivityAt) || other.lastActivityAt == lastActivityAt)&&(identical(other.title, title) || other.title == title)&&(identical(other.emoji, emoji) || other.emoji == emoji)&&(identical(other.isDirectMessage, isDirectMessage) || other.isDirectMessage == isDirectMessage)&&(identical(other.creatorId, creatorId) || other.creatorId == creatorId)&&const DeepCollectionEquality().equals(other._participantIds, _participantIds)&&(identical(other.includesAllMembers, includesAllMembers) || other.includesAllMembers == includesAllMembers)&&const DeepCollectionEquality().equals(other._archivedByMemberIds, _archivedByMemberIds)&&(identical(other.archivedForEveryone, archivedForEveryone) || other.archivedForEveryone == archivedForEveryone)&&const DeepCollectionEquality().equals(other._mutedByMemberIds, _mutedByMemberIds)&&const DeepCollectionEquality().equals(other._lastReadTimestamps, _lastReadTimestamps)&&(identical(other.description, description) || other.description == description)&&(identical(other.categoryId, categoryId) || other.categoryId == categoryId)&&(identical(other.displayOrder, displayOrder) || other.displayOrder == displayOrder));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,createdAt,lastActivityAt,title,emoji,isDirectMessage,creatorId,const DeepCollectionEquality().hash(_participantIds),includesAllMembers,const DeepCollectionEquality().hash(_archivedByMemberIds),const DeepCollectionEquality().hash(_mutedByMemberIds),const DeepCollectionEquality().hash(_lastReadTimestamps),description,categoryId,displayOrder);
+int get hashCode => Object.hash(runtimeType,id,createdAt,lastActivityAt,title,emoji,isDirectMessage,creatorId,const DeepCollectionEquality().hash(_participantIds),includesAllMembers,const DeepCollectionEquality().hash(_archivedByMemberIds),archivedForEveryone,const DeepCollectionEquality().hash(_mutedByMemberIds),const DeepCollectionEquality().hash(_lastReadTimestamps),description,categoryId,displayOrder);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, createdAt: $createdAt, lastActivityAt: $lastActivityAt, title: $title, emoji: $emoji, isDirectMessage: $isDirectMessage, creatorId: $creatorId, participantIds: $participantIds, includesAllMembers: $includesAllMembers, archivedByMemberIds: $archivedByMemberIds, mutedByMemberIds: $mutedByMemberIds, lastReadTimestamps: $lastReadTimestamps, description: $description, categoryId: $categoryId, displayOrder: $displayOrder)';
+  return 'Conversation(id: $id, createdAt: $createdAt, lastActivityAt: $lastActivityAt, title: $title, emoji: $emoji, isDirectMessage: $isDirectMessage, creatorId: $creatorId, participantIds: $participantIds, includesAllMembers: $includesAllMembers, archivedByMemberIds: $archivedByMemberIds, archivedForEveryone: $archivedForEveryone, mutedByMemberIds: $mutedByMemberIds, lastReadTimestamps: $lastReadTimestamps, description: $description, categoryId: $categoryId, displayOrder: $displayOrder)';
 }
 
 
@@ -303,7 +315,7 @@ abstract mixin class _$ConversationCopyWith<$Res> implements $ConversationCopyWi
   factory _$ConversationCopyWith(_Conversation value, $Res Function(_Conversation) _then) = __$ConversationCopyWithImpl;
 @override @useResult
 $Res call({
- String id, DateTime createdAt, DateTime lastActivityAt, String? title, String? emoji, bool isDirectMessage, String? creatorId, List<String> participantIds, bool includesAllMembers, List<String> archivedByMemberIds, List<String> mutedByMemberIds, Map<String, DateTime> lastReadTimestamps, String? description, String? categoryId, int displayOrder
+ String id, DateTime createdAt, DateTime lastActivityAt, String? title, String? emoji, bool isDirectMessage, String? creatorId, List<String> participantIds, bool includesAllMembers, List<String> archivedByMemberIds, bool archivedForEveryone, List<String> mutedByMemberIds, Map<String, DateTime> lastReadTimestamps, String? description, String? categoryId, int displayOrder
 });
 
 
@@ -320,7 +332,7 @@ class __$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? createdAt = null,Object? lastActivityAt = null,Object? title = freezed,Object? emoji = freezed,Object? isDirectMessage = null,Object? creatorId = freezed,Object? participantIds = null,Object? includesAllMembers = null,Object? archivedByMemberIds = null,Object? mutedByMemberIds = null,Object? lastReadTimestamps = null,Object? description = freezed,Object? categoryId = freezed,Object? displayOrder = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? createdAt = null,Object? lastActivityAt = null,Object? title = freezed,Object? emoji = freezed,Object? isDirectMessage = null,Object? creatorId = freezed,Object? participantIds = null,Object? includesAllMembers = null,Object? archivedByMemberIds = null,Object? archivedForEveryone = null,Object? mutedByMemberIds = null,Object? lastReadTimestamps = null,Object? description = freezed,Object? categoryId = freezed,Object? displayOrder = null,}) {
   return _then(_Conversation(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
@@ -332,7 +344,8 @@ as bool,creatorId: freezed == creatorId ? _self.creatorId : creatorId // ignore:
 as String?,participantIds: null == participantIds ? _self._participantIds : participantIds // ignore: cast_nullable_to_non_nullable
 as List<String>,includesAllMembers: null == includesAllMembers ? _self.includesAllMembers : includesAllMembers // ignore: cast_nullable_to_non_nullable
 as bool,archivedByMemberIds: null == archivedByMemberIds ? _self._archivedByMemberIds : archivedByMemberIds // ignore: cast_nullable_to_non_nullable
-as List<String>,mutedByMemberIds: null == mutedByMemberIds ? _self._mutedByMemberIds : mutedByMemberIds // ignore: cast_nullable_to_non_nullable
+as List<String>,archivedForEveryone: null == archivedForEveryone ? _self.archivedForEveryone : archivedForEveryone // ignore: cast_nullable_to_non_nullable
+as bool,mutedByMemberIds: null == mutedByMemberIds ? _self._mutedByMemberIds : mutedByMemberIds // ignore: cast_nullable_to_non_nullable
 as List<String>,lastReadTimestamps: null == lastReadTimestamps ? _self._lastReadTimestamps : lastReadTimestamps // ignore: cast_nullable_to_non_nullable
 as Map<String, DateTime>,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,categoryId: freezed == categoryId ? _self.categoryId : categoryId // ignore: cast_nullable_to_non_nullable

@@ -39,7 +39,10 @@ bool isImplicitParticipantOf(Conversation conversation, String memberId) {
 bool _tracksUnreadFor(Conversation conversation, String memberId) {
   return isImplicitParticipantOf(conversation, memberId) &&
       !conversation.mutedByMemberIds.contains(memberId) &&
-      !conversation.archivedByMemberIds.contains(memberId);
+      !conversation.archivedByMemberIds.contains(memberId) &&
+      // Also drop from unread/badge counts, like per-member archive above —
+      // else a hidden chat shows a badge no one can clear.
+      !conversation.archivedForEveryone;
 }
 
 ConversationPermissions conversationPermissionsForViewer(
@@ -131,16 +134,18 @@ final showArchivedProvider = NotifierProvider<ShowArchivedNotifier, bool>(
   ShowArchivedNotifier.new,
 );
 
-/// Whether the current speaking-as member has any archived conversations.
+/// Whether there are any archived conversations to surface to the current
+/// member — either archived-for-everyone, or archived by the speaking-as member.
 final hasArchivedConversationsProvider = Provider<bool>((ref) {
   final conversationsAsync = ref.watch(conversationsProvider);
   final speakingAs = ref.watch(speakingAsProvider);
   return conversationsAsync.whenOrNull(
-        data: (conversations) =>
-            speakingAs != null &&
-            conversations.any(
-              (c) => c.archivedByMemberIds.contains(speakingAs),
-            ),
+        data: (conversations) => conversations.any(
+          (c) =>
+              c.archivedForEveryone ||
+              (speakingAs != null &&
+                  c.archivedByMemberIds.contains(speakingAs)),
+        ),
       ) ??
       false;
 });
@@ -160,8 +165,9 @@ final filteredConversationsProvider = Provider<AsyncValue<List<Conversation>>>((
         : conversations
               .where(
                 (c) =>
-                    speakingAs == null ||
-                    !c.archivedByMemberIds.contains(speakingAs),
+                    !c.archivedForEveryone &&
+                    (speakingAs == null ||
+                        !c.archivedByMemberIds.contains(speakingAs)),
               )
               .toList();
     // Sort by last activity descending (newest first).
@@ -526,9 +532,15 @@ class ChatNotifier extends AsyncNotifier<void> {
     // Fetch once for both post-send mutations.
     final conv = await convRepo.getConversationById(conversationId);
     if (conv != null) {
-      // Auto-unarchive if any member had it archived.
-      if (conv.archivedByMemberIds.isNotEmpty) {
-        await convRepo.setArchivedByMemberIds(conversationId, []);
+      // Unarchive only the author (they're engaging); leave other members'
+      // archives and the for-everyone flag alone — the old code cleared the
+      // whole list. archivedByMemberIds is whole-field LWW, so concurrent
+      // edits can still clobber (pre-existing).
+      if (conv.archivedByMemberIds.contains(authorId)) {
+        await convRepo.setArchivedByMemberIds(
+          conversationId,
+          conv.archivedByMemberIds.where((id) => id != authorId).toList(),
+        );
       }
 
       // Mark as read for the author. Without this, lastActivityAt > lastRead
@@ -677,6 +689,48 @@ class ChatNotifier extends AsyncNotifier<void> {
             .where((id) => id != memberId)
             .toList();
         await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+      });
+    });
+  }
+
+  /// Admin/creator action: archive this conversation for every member at once.
+  /// Independent of per-member archive — sets a convo-level flag that hides the
+  /// chat for all members (and any added later) until unarchived for everyone.
+  /// Gated on [ConversationPermissions.canArchiveForEveryone].
+  Future<void> archiveForEveryone(String conversationId) async {
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final convRepo = ref.read(conversationRepositoryProvider);
+        final conv = await convRepo.getConversationById(conversationId);
+        if (conv == null) return;
+        await _requireConversationAction(
+          conversationId,
+          (permissions) => permissions.canArchiveForEveryone,
+          speakingAsMemberId: ref.read(speakingAsProvider),
+        );
+
+        if (conv.archivedForEveryone) return;
+        await convRepo.setArchivedForEveryone(conversationId, true);
+      });
+    });
+  }
+
+  /// Admin/creator action: clear the system-wide archive set by
+  /// [archiveForEveryone]. Per-member archive state is left untouched.
+  Future<void> unarchiveForEveryone(String conversationId) async {
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final convRepo = ref.read(conversationRepositoryProvider);
+        final conv = await convRepo.getConversationById(conversationId);
+        if (conv == null) return;
+        await _requireConversationAction(
+          conversationId,
+          (permissions) => permissions.canUnarchiveForEveryone,
+          speakingAsMemberId: ref.read(speakingAsProvider),
+        );
+
+        if (!conv.archivedForEveryone) return;
+        await convRepo.setArchivedForEveryone(conversationId, false);
       });
     });
   }

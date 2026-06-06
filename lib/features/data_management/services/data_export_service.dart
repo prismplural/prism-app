@@ -541,6 +541,7 @@ class DataExportService {
     creatorId: c.creatorId,
     participantIds: c.participantIds,
     includesAllMembers: c.includesAllMembers,
+    archivedForEveryone: c.archivedForEveryone,
     lastReadTimestamps: c.lastReadTimestamps.map(
       (k, v) => MapEntry(k, v.toUtc().toIso8601String()),
     ),

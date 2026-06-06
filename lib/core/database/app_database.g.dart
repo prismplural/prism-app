@@ -3489,6 +3489,20 @@ class $ConversationsTable extends Conversations
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _archivedForEveryoneMeta =
+      const VerificationMeta('archivedForEveryone');
+  @override
+  late final GeneratedColumn<bool> archivedForEveryone = GeneratedColumn<bool>(
+    'archived_for_everyone',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("archived_for_everyone" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3507,6 +3521,7 @@ class $ConversationsTable extends Conversations
     displayOrder,
     isDeleted,
     includesAllMembers,
+    archivedForEveryone,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3646,6 +3661,15 @@ class $ConversationsTable extends Conversations
         ),
       );
     }
+    if (data.containsKey('archived_for_everyone')) {
+      context.handle(
+        _archivedForEveryoneMeta,
+        archivedForEveryone.isAcceptableOrUnknown(
+          data['archived_for_everyone']!,
+          _archivedForEveryoneMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3719,6 +3743,10 @@ class $ConversationsTable extends Conversations
         DriftSqlType.bool,
         data['${effectivePrefix}includes_all_members'],
       )!,
+      archivedForEveryone: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}archived_for_everyone'],
+      )!,
     );
   }
 
@@ -3745,6 +3773,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
   final int displayOrder;
   final bool isDeleted;
   final bool includesAllMembers;
+  final bool archivedForEveryone;
   const Conversation({
     required this.id,
     required this.createdAt,
@@ -3762,6 +3791,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     required this.displayOrder,
     required this.isDeleted,
     required this.includesAllMembers,
+    required this.archivedForEveryone,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3792,6 +3822,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     map['display_order'] = Variable<int>(displayOrder);
     map['is_deleted'] = Variable<bool>(isDeleted);
     map['includes_all_members'] = Variable<bool>(includesAllMembers);
+    map['archived_for_everyone'] = Variable<bool>(archivedForEveryone);
     return map;
   }
 
@@ -3823,6 +3854,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       displayOrder: Value(displayOrder),
       isDeleted: Value(isDeleted),
       includesAllMembers: Value(includesAllMembers),
+      archivedForEveryone: Value(archivedForEveryone),
     );
   }
 
@@ -3852,6 +3884,9 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       includesAllMembers: serializer.fromJson<bool>(json['includesAllMembers']),
+      archivedForEveryone: serializer.fromJson<bool>(
+        json['archivedForEveryone'],
+      ),
     );
   }
   @override
@@ -3874,6 +3909,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       'displayOrder': serializer.toJson<int>(displayOrder),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'includesAllMembers': serializer.toJson<bool>(includesAllMembers),
+      'archivedForEveryone': serializer.toJson<bool>(archivedForEveryone),
     };
   }
 
@@ -3894,6 +3930,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     int? displayOrder,
     bool? isDeleted,
     bool? includesAllMembers,
+    bool? archivedForEveryone,
   }) => Conversation(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -3911,6 +3948,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     displayOrder: displayOrder ?? this.displayOrder,
     isDeleted: isDeleted ?? this.isDeleted,
     includesAllMembers: includesAllMembers ?? this.includesAllMembers,
+    archivedForEveryone: archivedForEveryone ?? this.archivedForEveryone,
   );
   Conversation copyWithCompanion(ConversationsCompanion data) {
     return Conversation(
@@ -3950,6 +3988,9 @@ class Conversation extends DataClass implements Insertable<Conversation> {
       includesAllMembers: data.includesAllMembers.present
           ? data.includesAllMembers.value
           : this.includesAllMembers,
+      archivedForEveryone: data.archivedForEveryone.present
+          ? data.archivedForEveryone.value
+          : this.archivedForEveryone,
     );
   }
 
@@ -3971,7 +4012,8 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           ..write('categoryId: $categoryId, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('includesAllMembers: $includesAllMembers')
+          ..write('includesAllMembers: $includesAllMembers, ')
+          ..write('archivedForEveryone: $archivedForEveryone')
           ..write(')'))
         .toString();
   }
@@ -3994,6 +4036,7 @@ class Conversation extends DataClass implements Insertable<Conversation> {
     displayOrder,
     isDeleted,
     includesAllMembers,
+    archivedForEveryone,
   );
   @override
   bool operator ==(Object other) =>
@@ -4014,7 +4057,8 @@ class Conversation extends DataClass implements Insertable<Conversation> {
           other.categoryId == this.categoryId &&
           other.displayOrder == this.displayOrder &&
           other.isDeleted == this.isDeleted &&
-          other.includesAllMembers == this.includesAllMembers);
+          other.includesAllMembers == this.includesAllMembers &&
+          other.archivedForEveryone == this.archivedForEveryone);
 }
 
 class ConversationsCompanion extends UpdateCompanion<Conversation> {
@@ -4034,6 +4078,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
   final Value<int> displayOrder;
   final Value<bool> isDeleted;
   final Value<bool> includesAllMembers;
+  final Value<bool> archivedForEveryone;
   final Value<int> rowid;
   const ConversationsCompanion({
     this.id = const Value.absent(),
@@ -4052,6 +4097,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     this.displayOrder = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.includesAllMembers = const Value.absent(),
+    this.archivedForEveryone = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ConversationsCompanion.insert({
@@ -4071,6 +4117,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     this.displayOrder = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.includesAllMembers = const Value.absent(),
+    this.archivedForEveryone = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -4092,6 +4139,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     Expression<int>? displayOrder,
     Expression<bool>? isDeleted,
     Expression<bool>? includesAllMembers,
+    Expression<bool>? archivedForEveryone,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4114,6 +4162,8 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (includesAllMembers != null)
         'includes_all_members': includesAllMembers,
+      if (archivedForEveryone != null)
+        'archived_for_everyone': archivedForEveryone,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4135,6 +4185,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     Value<int>? displayOrder,
     Value<bool>? isDeleted,
     Value<bool>? includesAllMembers,
+    Value<bool>? archivedForEveryone,
     Value<int>? rowid,
   }) {
     return ConversationsCompanion(
@@ -4154,6 +4205,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
       displayOrder: displayOrder ?? this.displayOrder,
       isDeleted: isDeleted ?? this.isDeleted,
       includesAllMembers: includesAllMembers ?? this.includesAllMembers,
+      archivedForEveryone: archivedForEveryone ?? this.archivedForEveryone,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4211,6 +4263,9 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
     if (includesAllMembers.present) {
       map['includes_all_members'] = Variable<bool>(includesAllMembers.value);
     }
+    if (archivedForEveryone.present) {
+      map['archived_for_everyone'] = Variable<bool>(archivedForEveryone.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4236,6 +4291,7 @@ class ConversationsCompanion extends UpdateCompanion<Conversation> {
           ..write('displayOrder: $displayOrder, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('includesAllMembers: $includesAllMembers, ')
+          ..write('archivedForEveryone: $archivedForEveryone, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -27247,6 +27303,7 @@ typedef $$ConversationsTableCreateCompanionBuilder =
       Value<int> displayOrder,
       Value<bool> isDeleted,
       Value<bool> includesAllMembers,
+      Value<bool> archivedForEveryone,
       Value<int> rowid,
     });
 typedef $$ConversationsTableUpdateCompanionBuilder =
@@ -27267,6 +27324,7 @@ typedef $$ConversationsTableUpdateCompanionBuilder =
       Value<int> displayOrder,
       Value<bool> isDeleted,
       Value<bool> includesAllMembers,
+      Value<bool> archivedForEveryone,
       Value<int> rowid,
     });
 
@@ -27356,6 +27414,11 @@ class $$ConversationsTableFilterComposer
 
   ColumnFilters<bool> get includesAllMembers => $composableBuilder(
     column: $table.includesAllMembers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get archivedForEveryone => $composableBuilder(
+    column: $table.archivedForEveryone,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -27448,6 +27511,11 @@ class $$ConversationsTableOrderingComposer
     column: $table.includesAllMembers,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get archivedForEveryone => $composableBuilder(
+    column: $table.archivedForEveryone,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ConversationsTableAnnotationComposer
@@ -27526,6 +27594,11 @@ class $$ConversationsTableAnnotationComposer
     column: $table.includesAllMembers,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get archivedForEveryone => $composableBuilder(
+    column: $table.archivedForEveryone,
+    builder: (column) => column,
+  );
 }
 
 class $$ConversationsTableTableManager
@@ -27575,6 +27648,7 @@ class $$ConversationsTableTableManager
                 Value<int> displayOrder = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<bool> includesAllMembers = const Value.absent(),
+                Value<bool> archivedForEveryone = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ConversationsCompanion(
                 id: id,
@@ -27593,6 +27667,7 @@ class $$ConversationsTableTableManager
                 displayOrder: displayOrder,
                 isDeleted: isDeleted,
                 includesAllMembers: includesAllMembers,
+                archivedForEveryone: archivedForEveryone,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -27613,6 +27688,7 @@ class $$ConversationsTableTableManager
                 Value<int> displayOrder = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<bool> includesAllMembers = const Value.absent(),
+                Value<bool> archivedForEveryone = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ConversationsCompanion.insert(
                 id: id,
@@ -27631,6 +27707,7 @@ class $$ConversationsTableTableManager
                 displayOrder: displayOrder,
                 isDeleted: isDeleted,
                 includesAllMembers: includesAllMembers,
+                archivedForEveryone: archivedForEveryone,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

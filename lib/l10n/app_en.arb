@@ -5716,6 +5716,30 @@
   "@chatInfoConversationUnarchived": {
     "description": "Toast shown after unarchiving a conversation"
   },
+  "chatInfoArchiveForEveryone": "Archive for everyone",
+  "@chatInfoArchiveForEveryone": {
+    "description": "Admin/creator action row to archive a conversation for every member at once (system-wide), shown alongside the per-member archive row"
+  },
+  "chatInfoUnarchiveForEveryone": "Unarchive for everyone",
+  "@chatInfoUnarchiveForEveryone": {
+    "description": "Admin/creator action row to clear a system-wide (for-everyone) archive"
+  },
+  "chatInfoArchivedForEveryone": "Archived for everyone",
+  "@chatInfoArchivedForEveryone": {
+    "description": "Non-interactive row shown to non-admin members when a conversation has been archived for everyone, so they understand why it is hidden"
+  },
+  "chatInfoArchivedForEveryoneSubtitle": "Hidden from everyone's chat list",
+  "@chatInfoArchivedForEveryoneSubtitle": {
+    "description": "Subtitle explaining the effect of a for-everyone archive"
+  },
+  "chatInfoConversationArchivedForEveryone": "Archived for everyone",
+  "@chatInfoConversationArchivedForEveryone": {
+    "description": "Toast shown after archiving a conversation for everyone"
+  },
+  "chatInfoConversationUnarchivedForEveryone": "Unarchived for everyone",
+  "@chatInfoConversationUnarchivedForEveryone": {
+    "description": "Toast shown after clearing a for-everyone archive"
+  },
   "chatInfoFailedSaveTitle": "Failed to save title: {error}",
   "@chatInfoFailedSaveTitle": {
     "description": "Toast when saving conversation title fails",

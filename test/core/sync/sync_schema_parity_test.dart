@@ -505,15 +505,15 @@ const _writeOmittedFields = <String, Set<String>>{
   //   but the emit path for each is a discrete syncRecordUpdate, not the bulk
   //   helper.
   'system_settings': {'boards_enabled', 'sp_boards_backfilled_at'},
-  // `includes_all_members` is sparse-emitted (only when `true`) for pre-v25
-  //   peers. The sparse semantics are incompatible with `diffSyncFields`
-  //   (which iterates `next.entries` and would miss a field absent from
-  //   `next`), so the field is carved out of `_conversationFields` /
-  //   `_conversationFieldsFromRow` and emitted inline by `createConversation`,
-  //   `setIncludesAllMembers`, and `updateConversation`'s transition handler.
-  //   See the "Sparse-field carve-out" section of
+  // `includes_all_members` and `archived_for_everyone` are sparse-emitted
+  //   (only when `true`) for pre-schema peers. The sparse semantics are
+  //   incompatible with `diffSyncFields` (which iterates `next.entries` and
+  //   would miss a field absent from `next`), so each field is carved out of
+  //   `_conversationFields` / `_conversationFieldsFromRow` and emitted inline
+  //   by `createConversation`, its setter, and `updateConversation`'s
+  //   transition handler. See the "Sparse-field carve-out" section of
   //   docs/plans/2026-05-25-drift-repo-patch-update-migration.md.
-  'conversations': {'includes_all_members'},
+  'conversations': {'includes_all_members', 'archived_for_everyone'},
   // PK-link columns are not owned by `updateGroup` — the domain
   //   `MemberGroup` model doesn't carry them, and they're written via the
   //   dedicated PluralKit linker code paths (see the PK-link gating helpers
@@ -664,10 +664,12 @@ Future<void> _seedDummyRows(AppDatabase db) async {
           id: 'c1',
           createdAt: now,
           lastActivityAt: now,
-          // includesAllMembers=true so the parity test sees the field
-          // emitted. The producer sparse-emits when false (pre-v25 peers
-          // would otherwise quarantine every conversation write).
+          // includesAllMembers / archivedForEveryone = true so the parity test
+          // sees the fields emitted. The producer sparse-emits when false
+          // (pre-schema peers would otherwise quarantine every conversation
+          // write).
           includesAllMembers: const Value(true),
+          archivedForEveryone: const Value(true),
         ),
       );
 

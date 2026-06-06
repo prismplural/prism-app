@@ -89,7 +89,8 @@ const String prismSyncSchema = '''
         "category_id": "String",
         "display_order": "Int",
         "is_deleted": "Bool",
-        "includes_all_members": "Bool"
+        "includes_all_members": "Bool",
+        "archived_for_everyone": "Bool"
       }
     },
     "chat_messages": {

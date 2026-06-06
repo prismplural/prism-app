@@ -209,6 +209,32 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     }
   }
 
+  Future<void> _archiveForEveryone(String conversationId) async {
+    await ref
+        .read(chatNotifierProvider.notifier)
+        .archiveForEveryone(conversationId);
+    if (mounted) {
+      PrismToast.success(
+        context,
+        message: context.l10n.chatInfoConversationArchivedForEveryone,
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _unarchiveForEveryone(String conversationId) async {
+    await ref
+        .read(chatNotifierProvider.notifier)
+        .unarchiveForEveryone(conversationId);
+    if (mounted) {
+      PrismToast.success(
+        context,
+        message: context.l10n.chatInfoConversationUnarchivedForEveryone,
+      );
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _confirmLeave(
     Conversation conversation,
     ConversationPermissions permissions,
@@ -804,25 +830,63 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   ) {
     return Column(
       children: [
-        if (permissions.canArchive)
-          Builder(
-            builder: (context) {
-              final isArchived =
-                  speakingAsMemberId != null &&
-                  conversation.archivedByMemberIds.contains(speakingAsMemberId);
-              return PrismListRow(
+        // When archived for everyone, the per-member toggle is moot — show the
+        // system-wide state instead (actionable for managers, informational
+        // for everyone else).
+        if (conversation.archivedForEveryone) ...[
+          if (permissions.canUnarchiveForEveryone)
+            MergeSemantics(
+              child: PrismListRow(
                 leading: Icon(AppIcons.archiveOutlined),
-                title: Text(
-                  isArchived
-                      ? context.l10n.chatInfoUnarchiveConversation
-                      : context.l10n.chatInfoArchiveConversation,
+                title: Text(context.l10n.chatInfoUnarchiveForEveryone),
+                subtitle: Text(
+                  context.l10n.chatInfoArchivedForEveryoneSubtitle,
                 ),
-                onTap: () => isArchived
-                    ? _unarchive(conversation.id, speakingAsMemberId)
-                    : _archive(conversation.id, speakingAsMemberId),
-              );
-            },
-          ),
+                onTap: () => _unarchiveForEveryone(conversation.id),
+              ),
+            )
+          else
+            MergeSemantics(
+              child: PrismListRow(
+                leading: Icon(AppIcons.archiveOutlined),
+                title: Text(context.l10n.chatInfoArchivedForEveryone),
+                subtitle: Text(
+                  context.l10n.chatInfoArchivedForEveryoneSubtitle,
+                ),
+                enabled: false,
+              ),
+            ),
+        ] else ...[
+          if (permissions.canArchive)
+            Builder(
+              builder: (context) {
+                final isArchived =
+                    speakingAsMemberId != null &&
+                    conversation.archivedByMemberIds.contains(
+                      speakingAsMemberId,
+                    );
+                return PrismListRow(
+                  leading: Icon(AppIcons.archiveOutlined),
+                  title: Text(
+                    isArchived
+                        ? context.l10n.chatInfoUnarchiveConversation
+                        : context.l10n.chatInfoArchiveConversation,
+                  ),
+                  onTap: () => isArchived
+                      ? _unarchive(conversation.id, speakingAsMemberId)
+                      : _archive(conversation.id, speakingAsMemberId),
+                );
+              },
+            ),
+          if (permissions.canArchiveForEveryone)
+            MergeSemantics(
+              child: PrismListRow(
+                leading: Icon(AppIcons.archiveOutlined),
+                title: Text(context.l10n.chatInfoArchiveForEveryone),
+                onTap: () => _archiveForEveryone(conversation.id),
+              ),
+            ),
+        ],
 
         // Leave
         if (permissions.canLeave)

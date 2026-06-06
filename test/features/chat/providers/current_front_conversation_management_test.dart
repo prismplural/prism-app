@@ -401,6 +401,125 @@ void main() {
       },
     );
   });
+
+  group('archive for everyone', () {
+    test('admin current front can archive the group for everyone', () async {
+      final repo = FakeConversationRepository()
+        ..conversations.add(groupConversation());
+      final container = buildContainer(
+        conversation: groupConversation(),
+        members: [member('alice'), member('bob', isAdmin: true)],
+        fronts: [front('bob')],
+        conversationRepo: repo,
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(chatNotifierProvider.notifier)
+          .archiveForEveryone('conv-1');
+
+      expect(repo.conversations.single.archivedForEveryone, isTrue);
+      expect(container.read(chatNotifierProvider).hasError, isFalse);
+    });
+
+    test('creator current front can archive the group for everyone', () async {
+      final repo = FakeConversationRepository()
+        ..conversations.add(groupConversation());
+      final container = buildContainer(
+        conversation: groupConversation(),
+        members: [member('alice'), member('bob'), member('carol')],
+        fronts: [front('alice')], // alice is the creator
+        conversationRepo: repo,
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(chatNotifierProvider.notifier)
+          .archiveForEveryone('conv-1');
+
+      expect(repo.conversations.single.archivedForEveryone, isTrue);
+      expect(container.read(chatNotifierProvider).hasError, isFalse);
+    });
+
+    test(
+      'archiveForEveryone is rejected for a non-admin, non-creator front',
+      () async {
+        final repo = FakeConversationRepository()
+          ..conversations.add(groupConversation());
+        final container = buildContainer(
+          conversation: groupConversation(),
+          members: [member('alice'), member('bob'), member('carol')],
+          fronts: [front('carol')], // regular participant — cannot moderate
+          conversationRepo: repo,
+        );
+        addTearDown(container.dispose);
+
+        await container
+            .read(chatNotifierProvider.notifier)
+            .archiveForEveryone('conv-1');
+
+        expect(repo.conversations.single.archivedForEveryone, isFalse);
+        expect(container.read(chatNotifierProvider).hasError, isTrue);
+      },
+    );
+
+    test('unarchiveForEveryone clears the flag for an admin front', () async {
+      final repo = FakeConversationRepository()
+        ..conversations.add(
+          groupConversation().copyWith(archivedForEveryone: true),
+        );
+      final container = buildContainer(
+        conversation: groupConversation(),
+        members: [member('alice'), member('bob', isAdmin: true)],
+        fronts: [front('bob')],
+        conversationRepo: repo,
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(chatNotifierProvider.notifier)
+          .unarchiveForEveryone('conv-1');
+
+      expect(repo.conversations.single.archivedForEveryone, isFalse);
+      expect(container.read(chatNotifierProvider).hasError, isFalse);
+    });
+
+    test(
+      'sendMessage unarchives only the author and never the for-everyone flag',
+      () async {
+        // Both alice and bob personally archived it, and an admin archived it
+        // for everyone. bob sends a message: only bob's personal archive should
+        // clear; alice's and the system-wide flag must survive.
+        final repo = FakeConversationRepository()
+          ..conversations.add(
+            groupConversation().copyWith(
+              archivedByMemberIds: const ['alice', 'bob'],
+              archivedForEveryone: true,
+            ),
+          );
+        final messages = _FakeChatMessageRepository();
+        final container = buildContainer(
+          conversation: groupConversation(),
+          members: [member('alice'), member('bob'), member('carol')],
+          fronts: [front('bob')],
+          conversationRepo: repo,
+          messageRepo: messages,
+        );
+        addTearDown(container.dispose);
+
+        await container.read(chatNotifierProvider.notifier).sendMessage(
+          conversationId: 'conv-1',
+          content: 'hello',
+          authorId: 'bob',
+        );
+
+        expect(repo.conversations.single.archivedByMemberIds, ['alice']);
+        expect(repo.conversations.single.archivedForEveryone, isTrue);
+        expect(messages.messages.single.content, 'hello');
+        expect(container.read(chatNotifierProvider).hasError, isFalse);
+      },
+    );
+  });
 }
 
 class _FakeChatMessageRepository implements ChatMessageRepository {

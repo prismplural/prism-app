@@ -26,6 +26,7 @@ _Conversation _$ConversationFromJson(Map<String, dynamic> json) =>
               ?.map((e) => e as String)
               .toList() ??
           const [],
+      archivedForEveryone: json['archivedForEveryone'] as bool? ?? false,
       mutedByMemberIds:
           (json['mutedByMemberIds'] as List<dynamic>?)
               ?.map((e) => e as String)
@@ -53,6 +54,7 @@ Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
       'participantIds': instance.participantIds,
       'includesAllMembers': instance.includesAllMembers,
       'archivedByMemberIds': instance.archivedByMemberIds,
+      'archivedForEveryone': instance.archivedForEveryone,
       'mutedByMemberIds': instance.mutedByMemberIds,
       'lastReadTimestamps': instance.lastReadTimestamps.map(
         (k, e) => MapEntry(k, e.toIso8601String()),

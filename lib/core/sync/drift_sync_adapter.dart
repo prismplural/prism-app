@@ -2283,6 +2283,7 @@ DriftSyncEntity _conversationsEntity(
         'display_order': r.displayOrder,
         'is_deleted': r.isDeleted,
         if (r.includesAllMembers) 'includes_all_members': true,
+        if (r.archivedForEveryone) 'archived_for_everyone': true,
       };
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
@@ -2345,6 +2346,7 @@ DriftSyncEntity _conversationsEntity(
         displayOrder: f.intField('display_order'),
         isDeleted: f.boolField('is_deleted'),
         includesAllMembers: f.boolField('includes_all_members'),
+        archivedForEveryone: f.boolField('archived_for_everyone'),
       );
       await _insertOrUpdateById(
         db,
@@ -2377,6 +2379,7 @@ DriftSyncEntity _conversationsEntity(
         'display_order': row.displayOrder,
         'is_deleted': row.isDeleted,
         if (row.includesAllMembers) 'includes_all_members': true,
+        if (row.archivedForEveryone) 'archived_for_everyone': true,
       };
     },
     isDeleted: (String id) async {

@@ -26,10 +26,10 @@ void main() {
       expect(definition.scope, PreferenceScope.appSynced);
       expect(definition.defaultValue, isFalse);
       expect(definition.introducedInAppVersion, '0.12.0');
-      expect(
-        definition.introducedInSchemaVersion,
-        AppDatabase.currentSchemaVersion,
-      );
+      // These prefs shipped with schema v31 (0.12.0). Pin to that fixed
+      // version rather than currentSchemaVersion — introducedInSchemaVersion
+      // is historical, so coupling it to "current" breaks on every later bump.
+      expect(definition.introducedInSchemaVersion, 31);
     }
   });
 
@@ -49,9 +49,8 @@ void main() {
     expect(typographyLetterSpacingPreference.codec.isValid(-0.6), isFalse);
     expect(typographyLetterSpacingPreference.codec.isValid(2.1), isFalse);
     expect(typographyLetterSpacingPreference.introducedInAppVersion, '0.12.1');
-    expect(
-      typographyLetterSpacingPreference.introducedInSchemaVersion,
-      AppDatabase.currentSchemaVersion,
-    );
+    // Shipped at schema v31; pin to the historical version so a later schema
+    // bump doesn't break this (see the accessibility-prefs test above).
+    expect(typographyLetterSpacingPreference.introducedInSchemaVersion, 31);
   });
 }

@@ -4281,6 +4281,26 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatInfoConversationUnarchived => 'Conversación desarchivada';
 
   @override
+  String get chatInfoArchiveForEveryone => 'Archivar para todos';
+
+  @override
+  String get chatInfoUnarchiveForEveryone => 'Desarchivar para todos';
+
+  @override
+  String get chatInfoArchivedForEveryone => 'Archivado para todos';
+
+  @override
+  String get chatInfoArchivedForEveryoneSubtitle =>
+      'Oculto de la lista de chats de todos';
+
+  @override
+  String get chatInfoConversationArchivedForEveryone => 'Archivada para todos';
+
+  @override
+  String get chatInfoConversationUnarchivedForEveryone =>
+      'Desarchivada para todos';
+
+  @override
   String chatInfoFailedSaveTitle(Object error) {
     return 'Error al guardar el título: $error';
   }
