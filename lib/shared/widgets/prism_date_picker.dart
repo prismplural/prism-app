@@ -236,41 +236,26 @@ class _DatePickerContentState extends State<_DatePickerContent> {
 
   @override
   Widget build(BuildContext context) {
-    final localizations = MaterialLocalizations.of(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CalendarDatePicker(
-          initialDate: _selectedDate,
-          firstDate: widget.firstDate,
-          lastDate: widget.lastDate,
-          currentDate: DateTime.now(),
-          initialCalendarMode: widget.initialCalendarMode,
-          onDateChanged: (date) {
-            setState(() {
-              _selectedDate = _dateOnly(date);
-            });
-          },
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(localizations.cancelButtonLabel),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(_selectedDate),
-                child: Text(localizations.okButtonLabel),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return CalendarDatePicker(
+      initialDate: _selectedDate,
+      firstDate: widget.firstDate,
+      lastDate: widget.lastDate,
+      currentDate: DateTime.now(),
+      initialCalendarMode: widget.initialCalendarMode,
+      onDateChanged: (date) {
+        final picked = _dateOnly(date);
+        final isYearOnlyChange =
+            picked.year != _selectedDate.year &&
+            picked.month == _selectedDate.month &&
+            picked.day == _selectedDate.day;
+        setState(() {
+          _selectedDate = picked;
+        });
+        if (widget.initialCalendarMode == DatePickerMode.year ||
+            !isYearOnlyChange) {
+          Navigator.of(context).pop(picked);
+        }
+      },
     );
   }
 }

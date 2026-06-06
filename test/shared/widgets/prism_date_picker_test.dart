@@ -130,48 +130,49 @@ void main() {
     expect(pickerRect.bottom, lessThanOrEqualTo(568 - 16));
   });
 
-  testWidgets(
-    'returns a changed year instead of snapping to the initial date',
-    (tester) async {
-      DateTime? picked;
+  testWidgets('full date year navigation waits for day selection', (
+    tester,
+  ) async {
+    DateTime? picked;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => Builder(
-                builder: (anchorContext) => TextButton(
-                  onPressed: () async {
-                    picked = await showPrismDatePicker(
-                      context: context,
-                      anchorContext: anchorContext,
-                      initialDate: DateTime(2000, 12, 15),
-                      firstDate: DateTime(1900),
-                      lastDate: DateTime(2100),
-                    );
-                  },
-                  child: const Text('Open picker'),
-                ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Builder(
+              builder: (anchorContext) => TextButton(
+                onPressed: () async {
+                  picked = await showPrismDatePicker(
+                    context: context,
+                    anchorContext: anchorContext,
+                    initialDate: DateTime(2000, 12, 15),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime(2100),
+                  );
+                },
+                child: const Text('Open picker'),
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.tap(find.text('Open picker'));
-      await tester.pump();
-      await tester.tap(find.text('December 2000'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('2001'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Open picker'));
+    await tester.pump();
+    await tester.tap(find.text('December 2000'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2001'));
+    await tester.pumpAndSettle();
 
-      expect(picked, isNull);
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+    expect(find.text('OK'), findsNothing);
+    expect(picked, isNull);
 
-      expect(picked, DateTime(2001, 12, 15));
-    },
-  );
+    await tester.tap(find.text('15'));
+    await tester.pumpAndSettle();
+
+    expect(picked, DateTime(2001, 12, 15));
+  });
 
   testWidgets(
     'month picker returns a changed month instead of snapping to December 2000',
@@ -210,6 +211,78 @@ void main() {
       expect(picked, DateTime(2000, 11, 15));
     },
   );
+
+  testWidgets('birthday date bounds commit a concrete day selection', (
+    tester,
+  ) async {
+    DateTime? picked;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Builder(
+              builder: (anchorContext) => TextButton(
+                onPressed: () async {
+                  picked = await showPrismDatePicker(
+                    context: context,
+                    anchorContext: anchorContext,
+                    initialDate: DateTime(2006, 1, 1),
+                    firstDate: DateTime(1),
+                    lastDate: DateTime(9999, 12, 31),
+                  );
+                },
+                child: const Text('Open picker'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open picker'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15'));
+    await tester.pumpAndSettle();
+
+    expect(picked, DateTime(2006, 1, 15));
+  });
+
+  testWidgets('year mode commits the selected year', (tester) async {
+    DateTime? picked;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Builder(
+              builder: (anchorContext) => TextButton(
+                onPressed: () async {
+                  picked = await showPrismDatePicker(
+                    context: context,
+                    anchorContext: anchorContext,
+                    initialDate: DateTime(2000, 12, 15),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime(2100),
+                    initialDatePickerMode: DatePickerMode.year,
+                  );
+                },
+                child: const Text('Open picker'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open picker'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2001'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('OK'), findsNothing);
+    expect(picked, DateTime(2001, 12, 15));
+  });
 
   testWidgets('month-year picker returns the selected year and month', (
     tester,
