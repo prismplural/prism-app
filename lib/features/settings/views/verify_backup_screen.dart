@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -91,14 +93,14 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
     WidgetsBinding.instance.removeObserver(this);
     _pin.clear();
     _mnemonic = null;
-    _scannerController?.dispose();
+    unawaited(_disposeScanner());
     super.dispose();
   }
 
-  void _resetToPhrase() {
+  Future<void> _resetToPhrase() async {
     _pin.clear();
-    _scannerController?.dispose();
-    _scannerController = null;
+    await _disposeScanner();
+    if (!mounted) return;
     setState(() {
       _mnemonic = null;
       _result = null;
@@ -116,6 +118,20 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
 
   MobileScannerController _ensureScanner() {
     return _scannerController ??= MobileScannerController();
+  }
+
+  Future<void> _disposeScanner() async {
+    final scanner = _scannerController;
+    if (scanner == null) return;
+    _scannerController = null;
+
+    try {
+      await scanner.stop();
+    } catch (_) {}
+
+    try {
+      await scanner.dispose();
+    } catch (_) {}
   }
 
   @override
@@ -298,9 +314,10 @@ class VerifyBackupScreenState extends ConsumerState<VerifyBackupScreen>
         l10n.verifyBackupStepPhrase,
       ),
       ensureScanner: _ensureScanner,
-      onSubmit: (mnemonic) {
-        _scannerController?.dispose();
-        _scannerController = null;
+      disposeScanner: _disposeScanner,
+      onSubmit: (mnemonic) async {
+        await _disposeScanner();
+        if (!mounted) return;
         setState(() {
           _mnemonic = mnemonic;
           _step = _VerifyStep.enterPin;
@@ -361,12 +378,14 @@ class _VerifyPhraseView extends StatefulWidget {
   const _VerifyPhraseView({
     required this.stepIndicator,
     required this.ensureScanner,
+    required this.disposeScanner,
     required this.onSubmit,
   });
 
   final Widget stepIndicator;
   final MobileScannerController Function() ensureScanner;
-  final void Function(String mnemonic) onSubmit;
+  final Future<void> Function() disposeScanner;
+  final Future<void> Function(String mnemonic) onSubmit;
 
   @override
   State<_VerifyPhraseView> createState() => _VerifyPhraseViewState();
@@ -376,15 +395,17 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
   final _controller = TextEditingController();
   String? _error;
   bool _scanning = false;
+  bool _scanHandled = false;
 
   @override
   void dispose() {
+    unawaited(widget.disposeScanner());
     _controller.clear();
     _controller.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final normalized = PrismMnemonicField.normalize(_controller.text);
     if (normalized.isEmpty) {
       setState(() => _error = context.l10n.changePinMnemonicRequired);
@@ -394,7 +415,24 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
       setState(() => _error = context.l10n.changePinMnemonicInvalid);
       return;
     }
-    widget.onSubmit(normalized);
+    await widget.onSubmit(normalized);
+  }
+
+  Future<void> _stopScanning({String? error}) async {
+    await widget.disposeScanner();
+    if (!mounted) return;
+    setState(() {
+      _scanning = false;
+      _error = error;
+    });
+  }
+
+  void _startScanning() {
+    setState(() {
+      _error = null;
+      _scanHandled = false;
+      _scanning = true;
+    });
   }
 
   @override
@@ -434,7 +472,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
             hintText: l10n.changePinMnemonicHint,
             errorText: _error,
             autofocus: true,
-            onSubmitted: (_) => _submit(),
+            onSubmitted: (_) => unawaited(_submit()),
           ),
           const SizedBox(height: 16),
           Row(
@@ -442,17 +480,14 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
               Expanded(
                 child: PrismButton(
                   label: l10n.setupDeviceMnemonicContinue,
-                  onPressed: _submit,
+                  onPressed: () => unawaited(_submit()),
                   tone: PrismButtonTone.filled,
                 ),
               ),
               const SizedBox(width: 12),
               PrismButton(
                 label: l10n.verifyBackupScanQrButton,
-                onPressed: () => setState(() {
-                  _error = null;
-                  _scanning = true;
-                }),
+                onPressed: _startScanning,
                 icon: AppIcons.qrCode,
                 tone: PrismButtonTone.subtle,
               ),
@@ -476,10 +511,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
             alignment: Alignment.centerLeft,
             child: PrismButton(
               label: l10n.back,
-              onPressed: () => setState(() {
-                _scanning = false;
-                _error = null;
-              }),
+              onPressed: () => unawaited(_stopScanning()),
               icon: AppIcons.arrowBackIosNew,
               tone: PrismButtonTone.subtle,
             ),
@@ -493,19 +525,16 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
               height: 280,
               child: MobileScanner(
                 controller: widget.ensureScanner(),
-                onDetect: (capture) {
+                onDetect: (capture) async {
+                  if (_scanHandled) return;
                   final raw = capture.barcodes.firstOrNull?.rawValue;
                   if (raw == null) return;
                   final normalized = PrismMnemonicField.normalize(raw);
+                  _scanHandled = true;
                   if (validateBip39Mnemonic(normalized)) {
-                    widget.onSubmit(normalized);
+                    await widget.onSubmit(normalized);
                   } else {
-                    if (context.mounted) {
-                      setState(() {
-                        _scanning = false;
-                        _error = l10n.verifyBackupScanInvalid;
-                      });
-                    }
+                    await _stopScanning(error: l10n.verifyBackupScanInvalid);
                   }
                 },
               ),

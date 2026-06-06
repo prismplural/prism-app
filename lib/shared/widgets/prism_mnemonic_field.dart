@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -652,16 +653,35 @@ class _MnemonicQrScannerDialog extends StatefulWidget {
 
 class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
   final _controller = MobileScannerController();
+  Future<void>? _disposeScannerFuture;
   bool _handled = false;
   String? _error;
 
   @override
   void dispose() {
-    _controller.dispose();
+    unawaited(_stopAndDisposeScanner());
     super.dispose();
   }
 
-  void _onDetect(BarcodeCapture capture) {
+  Future<void> _stopAndDisposeScanner() {
+    return _disposeScannerFuture ??= () async {
+      try {
+        await _controller.stop();
+      } catch (_) {}
+
+      try {
+        await _controller.dispose();
+      } catch (_) {}
+    }();
+  }
+
+  Future<void> _cancel() async {
+    await _stopAndDisposeScanner();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_handled) return;
     final rawValue = capture.barcodes.firstOrNull?.rawValue;
     if (rawValue == null) return;
@@ -676,6 +696,8 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
     }
 
     _handled = true;
+    await _stopAndDisposeScanner();
+    if (!mounted) return;
     Navigator.of(context).pop(normalized);
   }
 
@@ -735,7 +757,7 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
                 ],
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => unawaited(_cancel()),
                   child: Text(context.l10n.cancel),
                 ),
               ],

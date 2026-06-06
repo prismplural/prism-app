@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -17,6 +18,17 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 const _validMnemonic =
     'abandon abandon abandon abandon abandon abandon '
     'abandon abandon abandon abandon abandon about';
+
+bool _scannerControllerIsDisposed(MobileScannerController controller) {
+  void listener() {}
+  try {
+    controller.addListener(listener);
+    controller.removeListener(listener);
+    return false;
+  } on FlutterError {
+    return true;
+  }
+}
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
   const _FakePrismSyncHandle();
@@ -191,6 +203,53 @@ void main() {
 
       // Should now show PIN entry (lock icon or PIN title)
       expect(find.textContaining('Enter your PIN'), findsOneWidget);
+    });
+
+    testWidgets('scan back returns to manual flow and disposes scanner', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(_buildScreen());
+      await tester.pumpAndSettle();
+
+      final scanButton = find.widgetWithText(PrismButton, 'Scan QR');
+      await tester.ensureVisible(scanButton);
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      final scannerController = scanner.controller!;
+
+      await tester.tap(find.widgetWithText(PrismButton, 'Back'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MobileScanner), findsNothing);
+      expect(find.byType(TextField), findsWidgets);
+      expect(_scannerControllerIsDisposed(scannerController), isTrue);
+    });
+
+    testWidgets('valid scan advances to PIN step and disposes scanner', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(_buildScreen());
+      await tester.pumpAndSettle();
+
+      final scanButton = find.widgetWithText(PrismButton, 'Scan QR');
+      await tester.ensureVisible(scanButton);
+      await tester.tap(scanButton);
+      await tester.pumpAndSettle();
+
+      final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      final scannerController = scanner.controller!;
+
+      scanner.onDetect!(
+        const BarcodeCapture(barcodes: [Barcode(rawValue: _validMnemonic)]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Enter your PIN'), findsOneWidget);
+      expect(_scannerControllerIsDisposed(scannerController), isTrue);
     });
   });
 
@@ -550,10 +609,10 @@ void main() {
                 const AsyncValue<bool>.data(false),
               ),
             ],
-            child: MaterialApp(
+            child: const MaterialApp(
               localizationsDelegates: AppLocalizations.localizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
-              home: const Scaffold(body: VerifyBackupScreen()),
+              home: Scaffold(body: VerifyBackupScreen()),
             ),
           ),
         );

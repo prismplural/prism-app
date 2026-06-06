@@ -28,6 +28,17 @@ const _validPhrase =
     'abandon abandon abandon abandon abandon abandon '
     'abandon abandon abandon abandon abandon about';
 
+bool _scannerControllerIsDisposed(MobileScannerController controller) {
+  void listener() {}
+  try {
+    controller.addListener(listener);
+    controller.removeListener(listener);
+    return false;
+  } on FlutterError {
+    return true;
+  }
+}
+
 void main() {
   group('PrismMnemonicField', () {
     testWidgets('counter increments as valid BIP39 words are typed', (
@@ -235,6 +246,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      final scannerController = scanner.controller!;
       scanner.onDetect!(
         const BarcodeCapture(barcodes: [Barcode(rawValue: _validPhrase)]),
       );
@@ -242,6 +254,7 @@ void main() {
 
       expect(controller.text, _validPhrase);
       expect(find.text('12 of 12 words'), findsOneWidget);
+      expect(_scannerControllerIsDisposed(scannerController), isTrue);
     });
 
     testWidgets('scanner keeps dialog open for an invalid QR payload', (
@@ -437,6 +450,36 @@ void main() {
 
       expect(find.byType(MobileScanner), findsOneWidget);
       expect(find.text('Camera permission needed'), findsNothing);
+    });
+
+    testWidgets('canceling scanner dialog disposes the scanner controller', (
+      tester,
+    ) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          PrismMnemonicField(
+            controller: controller,
+            cameraPermissionChecker: () async =>
+                CameraPermissionOutcome.granted,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Scan QR code'));
+      await tester.pumpAndSettle();
+
+      final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+      final scannerController = scanner.controller!;
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MobileScanner), findsNothing);
+      expect(_scannerControllerIsDisposed(scannerController), isTrue);
     });
   });
 

@@ -6218,6 +6218,26 @@
   "@syncSetupPasteCodeLink": {
     "description": "Fallback link beneath the joiner QR viewfinder that switches to the paste-a-code view."
   },
+  "syncSetupDesktopCameraLabel": "Camera",
+  "@syncSetupDesktopCameraLabel": {
+    "description": "Label for the desktop webcam picker in the set up another device QR scanner"
+  },
+  "syncSetupDesktopCameraRefresh": "Refresh cameras",
+  "@syncSetupDesktopCameraRefresh": {
+    "description": "Tooltip and accessibility label for refreshing the desktop webcam list"
+  },
+  "syncSetupDesktopCameraOpening": "Opening camera...",
+  "@syncSetupDesktopCameraOpening": {
+    "description": "Status text shown while opening a selected desktop webcam"
+  },
+  "syncSetupDesktopCameraNoCameras": "No camera was found.",
+  "@syncSetupDesktopCameraNoCameras": {
+    "description": "Status text shown when the desktop webcam picker finds no cameras"
+  },
+  "syncSetupDesktopCameraOpenFailed": "Could not open the selected camera. Check camera privacy settings and try another camera.",
+  "@syncSetupDesktopCameraOpenFailed": {
+    "description": "Status text shown when the selected desktop webcam cannot be opened"
+  },
   "syncSetupPasteCodeTitle": "Paste a pairing code",
   "@syncSetupPasteCodeTitle": {
     "description": "Title of the camera-less paste fallback view on the initiator desktop."

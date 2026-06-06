@@ -4631,6 +4631,23 @@ class AppLocalizationsEs extends AppLocalizations {
       '¿Sin cámara? Pega un código en su lugar';
 
   @override
+  String get syncSetupDesktopCameraLabel => 'Cámara';
+
+  @override
+  String get syncSetupDesktopCameraRefresh => 'Actualizar cámaras';
+
+  @override
+  String get syncSetupDesktopCameraOpening => 'Abriendo cámara...';
+
+  @override
+  String get syncSetupDesktopCameraNoCameras =>
+      'No se encontró ninguna cámara.';
+
+  @override
+  String get syncSetupDesktopCameraOpenFailed =>
+      'No se pudo abrir la cámara seleccionada. Revisa los permisos de cámara e intenta con otra cámara.';
+
+  @override
   String get syncSetupPasteCodeTitle => 'Pega un código de emparejamiento';
 
   @override

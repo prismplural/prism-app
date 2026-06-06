@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_lite_camera/flutter_lite_camera.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -24,6 +22,7 @@ import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/human_bytes.dart';
 import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
+import 'package:prism_plurality/shared/widgets/desktop_qr_scanner.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -33,10 +32,6 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_cell.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
-
-import 'setup_device_sheet_desktop_decoder_stub.dart'
-    if (dart.library.io) 'setup_device_sheet_desktop_decoder.dart'
-    as desktop_qr;
 
 class SetupDeviceSheet {
   static Future<void> show(BuildContext context, WidgetRef ref) async {
@@ -637,11 +632,18 @@ class SetupDeviceSheetContentState
       ),
       _InitiatorStep.scanning =>
         _useDesktopPairingScanner
-            ? _DesktopJoinerQrScannerView(
+            ? DesktopQrScanner(
                 scanned: _joinerScanned,
                 error: _error,
                 onBack: _reset,
-                onScanned: (bytes) {
+                isValidScan: (raw) => _decodePairingQrBytes(raw) != null,
+                onInvalidScan: _showInvalidPairingQrToast,
+                onScanned: (raw) {
+                  final bytes = _decodePairingQrBytes(raw);
+                  if (bytes == null) {
+                    _showInvalidPairingQrToast();
+                    return;
+                  }
                   setState(() => _joinerScanned = true);
                   _startInitiatorCeremony(bytes);
                 },
@@ -735,6 +737,19 @@ class SetupDeviceSheetContentState
         onTryAgain: _reset,
       ),
     };
+  }
+
+  Uint8List? _decodePairingQrBytes(String raw) {
+    try {
+      return Uint8List.fromList(base64Decode(raw));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _showInvalidPairingQrToast() {
+    if (!mounted) return;
+    PrismToast.show(context, message: context.l10n.syncSetupInvalidPairingQr);
   }
 }
 
@@ -1353,277 +1368,6 @@ class _JoinerQrScannerView extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             error!,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.error,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-/// Windows/Linux scanner backed by desktop camera frames plus a Dart QR decoder.
-class _DesktopJoinerQrScannerView extends StatefulWidget {
-  const _DesktopJoinerQrScannerView({
-    required this.scanned,
-    required this.error,
-    required this.onBack,
-    required this.onScanned,
-    required this.onPasteFallback,
-  });
-
-  final bool scanned;
-  final String? error;
-  final VoidCallback onBack;
-  final void Function(Uint8List bytes) onScanned;
-  final VoidCallback onPasteFallback;
-
-  @override
-  State<_DesktopJoinerQrScannerView> createState() =>
-      _DesktopJoinerQrScannerViewState();
-}
-
-class _DesktopJoinerQrScannerViewState
-    extends State<_DesktopJoinerQrScannerView> {
-  static const _captureDelay = Duration(milliseconds: 100);
-  static const _decodeDelay = Duration(milliseconds: 350);
-
-  final FlutterLiteCamera _camera = FlutterLiteCamera();
-  bool _capturing = false;
-  bool _reportedScan = false;
-  bool _decoding = false;
-  String? _status;
-  String? _cameraError;
-  DateTime _nextDecodeAt = DateTime.fromMillisecondsSinceEpoch(0);
-  DateTime? _lastInvalidToastAt;
-  ui.Image? _latestFrame;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_startCamera());
-  }
-
-  @override
-  void dispose() {
-    _capturing = false;
-    unawaited(_releaseCamera());
-    _latestFrame?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _releaseCamera() async {
-    try {
-      await _camera.release();
-    } catch (error) {
-      debugPrint('[SYNC] Desktop pairing camera release failed: $error');
-    }
-  }
-
-  Future<void> _startCamera() async {
-    try {
-      final devices = await _camera.getDeviceList();
-      if (!mounted) return;
-      if (devices.isEmpty) {
-        setState(() {
-          _status = null;
-          _cameraError = 'No camera was found.';
-        });
-        return;
-      }
-
-      final opened = await _camera.open(0);
-      if (!mounted) return;
-      if (!opened) {
-        setState(() {
-          _status = null;
-          _cameraError = 'Could not open the camera.';
-        });
-        return;
-      }
-
-      setState(() {
-        _status = null;
-        _cameraError = null;
-      });
-      _capturing = true;
-      unawaited(_captureLoop());
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _status = null;
-        _cameraError = error.toString();
-      });
-    }
-  }
-
-  Future<void> _captureLoop() async {
-    while (mounted && _capturing && !_reportedScan) {
-      await _captureFrame();
-      if (mounted && _capturing && !_reportedScan) {
-        await Future<void>.delayed(_captureDelay);
-      }
-    }
-  }
-
-  Future<void> _captureFrame() async {
-    try {
-      final frame = await _camera.captureFrame();
-      final data = frame['data'];
-      final width = (frame['width'] as num?)?.toInt();
-      final height = (frame['height'] as num?)?.toInt();
-      if (data is! Uint8List || width == null || height == null) {
-        return;
-      }
-
-      final rgba = _rgb888ToRgba8888(data, width, height);
-      await _showPreview(rgba, width, height);
-
-      final now = DateTime.now();
-      if (!_decoding && now.isAfter(_nextDecodeAt)) {
-        _nextDecodeAt = now.add(_decodeDelay);
-        unawaited(_decodeFrame(rgba, width, height));
-      }
-    } catch (error) {
-      debugPrint('[SYNC] Desktop pairing camera frame failed: $error');
-    }
-  }
-
-  Future<void> _showPreview(Uint8List rgba, int width, int height) async {
-    final image = await _decodeRgbaImage(rgba, width, height);
-    if (!mounted) {
-      image.dispose();
-      return;
-    }
-
-    final previous = _latestFrame;
-    setState(() => _latestFrame = image);
-    previous?.dispose();
-  }
-
-  Future<void> _decodeFrame(Uint8List rgba, int width, int height) async {
-    _decoding = true;
-    try {
-      final raw = await desktop_qr.decodePairingQr(rgba, width, height);
-      if (!mounted || raw == null || raw.isEmpty) return;
-      _handleRawQr(raw);
-    } catch (error) {
-      debugPrint('[SYNC] Desktop pairing QR decode failed: $error');
-    } finally {
-      _decoding = false;
-    }
-  }
-
-  void _handleRawQr(String raw) {
-    if (widget.scanned || _reportedScan) return;
-    try {
-      final bytes = Uint8List.fromList(base64Decode(raw));
-      _reportedScan = true;
-      _capturing = false;
-      widget.onScanned(bytes);
-    } catch (_) {
-      final now = DateTime.now();
-      final last = _lastInvalidToastAt;
-      if (last != null && now.difference(last) < const Duration(seconds: 2)) {
-        return;
-      }
-      _lastInvalidToastAt = now;
-      if (mounted) {
-        PrismToast.show(
-          context,
-          message: context.l10n.syncSetupInvalidPairingQr,
-        );
-      }
-    }
-  }
-
-  Uint8List _rgb888ToRgba8888(Uint8List rgb, int width, int height) {
-    final pixelCount = width * height;
-    final rgba = Uint8List(pixelCount * 4);
-    final availablePixels = (rgb.length ~/ 3).clamp(0, pixelCount).toInt();
-    for (var pixel = 0; pixel < availablePixels; pixel++) {
-      final src = pixel * 3;
-      final dst = pixel * 4;
-      rgba[dst] = rgb[src];
-      rgba[dst + 1] = rgb[src + 1];
-      rgba[dst + 2] = rgb[src + 2];
-      rgba[dst + 3] = 0xff;
-    }
-    return rgba;
-  }
-
-  Future<ui.Image> _decodeRgbaImage(Uint8List rgba, int width, int height) {
-    final completer = Completer<ui.Image>();
-    ui.decodeImageFromPixels(
-      rgba,
-      width,
-      height,
-      ui.PixelFormat.rgba8888,
-      completer.complete,
-    );
-    return completer.future;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: PrismButton(
-            label: context.l10n.back,
-            onPressed: widget.onBack,
-            icon: AppIcons.arrowBackIosNew,
-            tone: PrismButtonTone.subtle,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          context.l10n.syncSetupScanJoinerDescription,
-          style: theme.textTheme.bodyMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(
-            PrismShapes.of(context).radius(16),
-          ),
-          child: SizedBox(
-            height: 280,
-            child: ColoredBox(
-              color: Colors.black,
-              child: _latestFrame != null
-                  ? RawImage(image: _latestFrame, fit: BoxFit.cover)
-                  : Center(
-                      child: Text(
-                        _cameraError ?? _status ?? context.l10n.loading,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: PrismButton(
-            label: context.l10n.syncSetupPasteCodeLink,
-            onPressed: widget.onPasteFallback,
-            density: PrismControlDensity.compact,
-            tone: PrismButtonTone.subtle,
-          ),
-        ),
-        if (widget.error != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            widget.error!,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.error,
             ),

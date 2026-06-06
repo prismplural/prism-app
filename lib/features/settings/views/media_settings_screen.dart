@@ -230,6 +230,17 @@ final tagUsageProvider = FutureProvider.autoDispose
 
 enum _AddSource { camera, photoLibrary, file, url }
 
+bool _isDesktopPlatform(TargetPlatform platform) {
+  return switch (platform) {
+    TargetPlatform.linux ||
+    TargetPlatform.macOS ||
+    TargetPlatform.windows => true,
+    TargetPlatform.android ||
+    TargetPlatform.fuchsia ||
+    TargetPlatform.iOS => false,
+  };
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 class MediaSettingsScreen extends ConsumerWidget {
@@ -246,6 +257,8 @@ class MediaSettingsScreen extends ConsumerWidget {
     final libraryAsync = ref.watch(imageLibraryProvider);
     final chatAsync = ref.watch(_allChatMediaProvider);
     final membersAsync = ref.watch(allMembersProvider);
+    final targetPlatform = ref.watch(targetPlatformProvider);
+    final showCameraSource = !_isDesktopPlatform(targetPlatform);
 
     return PrismPageScaffold(
       topBarMaxWidth: PrismTokens.contentMaxWidth,
@@ -258,11 +271,12 @@ class MediaSettingsScreen extends ConsumerWidget {
             tooltip: l10n.mediaAddImageTooltip,
             width: 200,
             items: [
-              PrismMenuItem(
-                value: _AddSource.camera,
-                label: l10n.mediaSourceCamera,
-                icon: AppIcons.cameraAlt,
-              ),
+              if (showCameraSource)
+                PrismMenuItem(
+                  value: _AddSource.camera,
+                  label: l10n.mediaSourceCamera,
+                  icon: AppIcons.cameraAlt,
+                ),
               PrismMenuItem(
                 value: _AddSource.photoLibrary,
                 label: l10n.mediaSourcePhotoLibrary,

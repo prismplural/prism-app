@@ -7721,6 +7721,36 @@ abstract class AppLocalizations {
   /// **'No camera? Paste a code instead'**
   String get syncSetupPasteCodeLink;
 
+  /// Label for the desktop webcam picker in the set up another device QR scanner
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get syncSetupDesktopCameraLabel;
+
+  /// Tooltip and accessibility label for refreshing the desktop webcam list
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh cameras'**
+  String get syncSetupDesktopCameraRefresh;
+
+  /// Status text shown while opening a selected desktop webcam
+  ///
+  /// In en, this message translates to:
+  /// **'Opening camera...'**
+  String get syncSetupDesktopCameraOpening;
+
+  /// Status text shown when the desktop webcam picker finds no cameras
+  ///
+  /// In en, this message translates to:
+  /// **'No camera was found.'**
+  String get syncSetupDesktopCameraNoCameras;
+
+  /// Status text shown when the selected desktop webcam cannot be opened
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open the selected camera. Check camera privacy settings and try another camera.'**
+  String get syncSetupDesktopCameraOpenFailed;
+
   /// Title of the camera-less paste fallback view on the initiator desktop.
   ///
   /// In en, this message translates to:

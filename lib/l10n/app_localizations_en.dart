@@ -4551,6 +4551,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSetupPasteCodeLink => 'No camera? Paste a code instead';
 
   @override
+  String get syncSetupDesktopCameraLabel => 'Camera';
+
+  @override
+  String get syncSetupDesktopCameraRefresh => 'Refresh cameras';
+
+  @override
+  String get syncSetupDesktopCameraOpening => 'Opening camera...';
+
+  @override
+  String get syncSetupDesktopCameraNoCameras => 'No camera was found.';
+
+  @override
+  String get syncSetupDesktopCameraOpenFailed =>
+      'Could not open the selected camera. Check camera privacy settings and try another camera.';
+
+  @override
   String get syncSetupPasteCodeTitle => 'Paste a pairing code';
 
   @override

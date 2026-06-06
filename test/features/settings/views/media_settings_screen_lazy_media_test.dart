@@ -14,6 +14,7 @@ import 'package:prism_plurality/domain/repositories/media_attachment_repository.
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/media_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -69,6 +70,36 @@ class _FakeMediaAttachmentRepository implements MediaAttachmentRepository {
 }
 
 void main() {
+  testWidgets('add menu hides Camera on desktop platforms', (tester) async {
+    await _pumpMediaSettingsScreen(
+      tester,
+      targetPlatform: TargetPlatform.macOS,
+    );
+
+    await tester.tap(find.byTooltip('Add image'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Camera'), findsNothing);
+    expect(find.text('Photo library'), findsOneWidget);
+    expect(find.text('File'), findsOneWidget);
+    expect(find.text('URL'), findsOneWidget);
+  });
+
+  testWidgets('add menu keeps Camera on mobile platforms', (tester) async {
+    await _pumpMediaSettingsScreen(
+      tester,
+      targetPlatform: TargetPlatform.android,
+    );
+
+    await tester.tap(find.byTooltip('Add image'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Camera'), findsOneWidget);
+    expect(find.text('Photo library'), findsOneWidget);
+    expect(find.text('File'), findsOneWidget);
+    expect(find.text('URL'), findsOneWidget);
+  });
+
   testWidgets('image library thumbnails only request visible media', (
     tester,
   ) async {
@@ -164,6 +195,34 @@ void main() {
     expect(requestedMediaIds.length, greaterThan(initiallyRequested));
     expect(requestedMediaIds.length, lessThan(chatAttachments.length));
   });
+}
+
+Future<void> _pumpMediaSettingsScreen(
+  WidgetTester tester, {
+  required TargetPlatform targetPlatform,
+}) async {
+  final repo = _FakeMediaAttachmentRepository();
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        targetPlatformProvider.overrideWithValue(targetPlatform),
+        mediaAttachmentRepositoryProvider.overrideWithValue(repo),
+        imageLibraryProvider.overrideWith((ref) => Stream.value(const [])),
+        allMembersProvider.overrideWith(
+          (ref) => Stream.value(const <Member>[]),
+        ),
+        tagUsageProvider.overrideWith((ref, l10n) async => const {}),
+        mediaFileProvider.overrideWith((ref, params) async => null),
+      ],
+      child: const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: [Locale('en')],
+        home: Scaffold(body: MediaSettingsScreen()),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 MediaAttachment _libraryImage(int index) => MediaAttachment(
