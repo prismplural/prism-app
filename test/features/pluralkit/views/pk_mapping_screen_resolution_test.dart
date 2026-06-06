@@ -24,17 +24,11 @@ import '../../../helpers/fake_repositories.dart';
 // Helpers
 // ---------------------------------------------------------------------------
 
-PKSwitch _emptySwitch() => PKSwitch(
-      id: 'sw-test',
-      timestamp: DateTime(2026),
-      members: const [],
-    );
+PKSwitch _emptySwitch() =>
+    PKSwitch(id: 'sw-test', timestamp: DateTime(2026), members: const []);
 
-domain.Member _localMember(String id, String name) => domain.Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2026),
-    );
+domain.Member _localMember(String id, String name) =>
+    domain.Member(id: id, name: name, createdAt: DateTime(2026));
 
 // ---------------------------------------------------------------------------
 // Fake PluralKitSyncNotifier: returns disconnected state so profile disclosure
@@ -43,8 +37,7 @@ domain.Member _localMember(String id, String name) => domain.Member(
 
 class _FakeSyncNotifier extends PluralKitSyncNotifier {
   @override
-  PluralKitSyncState build() =>
-      const PluralKitSyncState(isConnected: false);
+  PluralKitSyncState build() => const PluralKitSyncState(isConnected: false);
 
   @override
   Future<PKSystem?> fetchSystemProfile() async => null;
@@ -59,16 +52,19 @@ class _OutcomeFakePkMappingController extends PkMappingController {
   _OutcomeFakePkMappingController({
     required PkMappingState initialState,
     required this.applyOutcome,
+    this.resolutionOutcome = const PkMappingApplyOutcomeApplied(),
   }) : _initialState = initialState;
 
   final PkMappingState _initialState;
   final PkMappingApplyOutcome? applyOutcome;
+  final PkMappingApplyOutcome? resolutionOutcome;
 
   // Spy counters.
   int applyCallCount = 0;
   int applyFronterResolutionCallCount = 0;
   int deferBootstrapCallCount = 0;
   Set<String>? lastChosenLocalMemberIds;
+  String? lastResolvingFrontersStatus;
 
   @override
   Future<PkMappingState> build() async => _initialState;
@@ -84,16 +80,19 @@ class _OutcomeFakePkMappingController extends PkMappingController {
   }
 
   @override
-  Future<void> applyFronterResolution({
+  Future<PkMappingApplyOutcome?> applyFronterResolution({
     required Set<String> chosenLocalMemberIds,
     required PkSyncDirection direction,
     required PkSyncMode mode,
     required PKSwitch pkCurrentSwitch,
+    String? resolvingFrontersStatus,
     String? importingHistoryStatus,
     String? pushingHistoryStatus,
   }) async {
     applyFronterResolutionCallCount++;
     lastChosenLocalMemberIds = chosenLocalMemberIds;
+    lastResolvingFrontersStatus = resolvingFrontersStatus;
+    return resolutionOutcome;
   }
 
   @override
@@ -120,9 +119,7 @@ PkMappingState _minimalState() {
   return PkMappingState(
     pkMembers: [pkAlice],
     localMembers: [_localMember('l1', 'Alice Local')],
-    decisionsByPkUuid: {
-      'pk-alice-uuid': PkImportDecision(pkMember: pkAlice),
-    },
+    decisionsByPkUuid: {'pk-alice-uuid': PkImportDecision(pkMember: pkAlice)},
   );
 }
 
@@ -163,9 +160,7 @@ Widget _wrapWithRoute(
           body: ElevatedButton(
             onPressed: () async {
               await Navigator.of(ctx).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => const PkMappingScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const PkMappingScreen()),
               );
               onPopped?.call();
             },
@@ -192,35 +187,34 @@ void main() {
   // (a) Applied → screen pops; sheet NOT pushed
   // -------------------------------------------------------------------------
   group('outcome: Applied', () {
-    testWidgets(
-      'pops back after Applied outcome; no sheet shown',
-      (tester) async {
-        final controller = _OutcomeFakePkMappingController(
-          initialState: _minimalState(),
-          applyOutcome: const PkMappingApplyOutcomeApplied(),
-        );
+    testWidgets('pops back after Applied outcome; no sheet shown', (
+      tester,
+    ) async {
+      final controller = _OutcomeFakePkMappingController(
+        initialState: _minimalState(),
+        applyOutcome: const PkMappingApplyOutcomeApplied(),
+      );
 
-        var popped = false;
-        await tester.pumpWidget(
-          _wrapWithRoute(controller, onPopped: () => popped = true),
-        );
+      var popped = false;
+      await tester.pumpWidget(
+        _wrapWithRoute(controller, onPopped: () => popped = true),
+      );
 
-        // Open the mapping screen.
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
 
-        // Tap "Apply mapping".
-        await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
+      await tester.pumpAndSettle();
 
-        expect(popped, isTrue,
-            reason: 'Applied outcome should pop the screen');
-        expect(find.byType(PkWhoIsFrontingSheet), findsNothing,
-            reason: 'No resolution sheet should appear for Applied outcome');
-        expect(controller.applyCallCount, 1);
-        expect(controller.applyFronterResolutionCallCount, 0);
-      },
-    );
+      expect(popped, isTrue, reason: 'Applied outcome should pop the screen');
+      expect(
+        find.byType(PkWhoIsFrontingSheet),
+        findsNothing,
+        reason: 'No resolution sheet should appear for Applied outcome',
+      );
+      expect(controller.applyCallCount, 1);
+      expect(controller.applyFronterResolutionCallCount, 0);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -253,24 +247,77 @@ void main() {
         await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
         await tester.pumpAndSettle();
 
-        // The sheet must be visible.
-        expect(find.byType(PkWhoIsFrontingSheet), findsOneWidget,
-            reason: 'Resolution sheet should appear for NeedsFronterResolution');
+        expect(
+          find.byType(PkWhoIsFrontingSheet),
+          findsOneWidget,
+          reason: 'Resolution sheet should appear for NeedsFronterResolution',
+        );
 
-        // Tap first choice card (not "Decide later").
         final choiceCards = find.byType(PkFronterChoiceCard);
-        expect(choiceCards, findsWidgets,
-            reason: 'At least one fronter choice card should be shown');
+        expect(
+          choiceCards,
+          findsWidgets,
+          reason: 'At least one fronter choice card should be shown',
+        );
 
         await tester.tap(choiceCards.first);
         await tester.pumpAndSettle();
 
-        expect(controller.applyFronterResolutionCallCount, 1,
-            reason:
-                'applyFronterResolution should be called once after the user picks');
+        expect(
+          controller.applyFronterResolutionCallCount,
+          1,
+          reason:
+              'applyFronterResolution should be called once after the user picks',
+        );
+        expect(
+          controller.lastResolvingFrontersStatus,
+          'Resolving fronter choice…',
+        );
         expect(controller.deferBootstrapCallCount, 0);
-        expect(popped, isTrue,
-            reason: 'Screen should pop after fronter resolution');
+        expect(
+          popped,
+          isTrue,
+          reason: 'Screen should pop after fronter resolution',
+        );
+      },
+    );
+
+    testWidgets(
+      'keeps the mapping screen open when fronter resolution returns null',
+      (tester) async {
+        final pkSwitch = _emptySwitch();
+        final controller = _OutcomeFakePkMappingController(
+          initialState: _minimalState().copyWith(error: 'Resolution failed'),
+          applyOutcome: PkMappingApplyOutcomeNeedsFronterResolution(
+            localFronterMemberIds: {'l1'},
+            pkFronterMemberIds: {'l2'},
+            direction: PkSyncDirection.bidirectional,
+            mode: PkSyncMode.fullSync,
+            pkCurrentSwitch: pkSwitch,
+          ),
+          resolutionOutcome: null,
+        );
+
+        var popped = false;
+        await tester.pumpWidget(
+          _wrapWithRoute(controller, onPopped: () => popped = true),
+        );
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
+        await tester.pumpAndSettle();
+
+        final choiceCards = find.byType(PkFronterChoiceCard);
+        expect(choiceCards, findsWidgets);
+
+        await tester.tap(choiceCards.first);
+        await tester.pumpAndSettle();
+
+        expect(controller.applyFronterResolutionCallCount, 1);
+        expect(popped, isFalse);
+        expect(find.byType(PkMappingScreen), findsOneWidget);
       },
     );
   });
@@ -305,19 +352,31 @@ void main() {
         await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
         await tester.pumpAndSettle();
 
-        expect(find.byType(PkWhoIsFrontingSheet), findsOneWidget,
-            reason: 'Sheet should be shown');
+        expect(
+          find.byType(PkWhoIsFrontingSheet),
+          findsOneWidget,
+          reason: 'Sheet should be shown',
+        );
 
         // Tap "Decide later".
         await tester.tap(find.widgetWithText(PrismButton, 'Decide later'));
         await tester.pumpAndSettle();
 
-        expect(controller.deferBootstrapCallCount, 1,
-            reason: '"Decide later" should call deferBootstrap');
-        expect(controller.applyFronterResolutionCallCount, 0,
-            reason: 'applyFronterResolution must NOT be called on "Decide later"');
-        expect(popped, isTrue,
-            reason: 'Screen should pop after "Decide later"');
+        expect(
+          controller.deferBootstrapCallCount,
+          1,
+          reason: '"Decide later" should call deferBootstrap',
+        );
+        expect(
+          controller.applyFronterResolutionCallCount,
+          0,
+          reason: 'applyFronterResolution must NOT be called on "Decide later"',
+        );
+        expect(
+          popped,
+          isTrue,
+          reason: 'Screen should pop after "Decide later"',
+        );
       },
     );
   });
@@ -326,72 +385,64 @@ void main() {
   // (d) Failed → failure UI shown; screen does NOT pop
   // -------------------------------------------------------------------------
   group('outcome: Failed', () {
-    testWidgets(
-      'Failed outcome keeps the screen open',
-      (tester) async {
-        final pkAlice = _pkAlice();
-        final failedResult = PkApplyResult(
-          decision: PkImportDecision(pkMember: pkAlice),
-          outcome: PkApplyOutcome.failed,
-          error: 'Network timeout',
-        );
+    testWidgets('Failed outcome keeps the screen open', (tester) async {
+      final pkAlice = _pkAlice();
+      final failedResult = PkApplyResult(
+        decision: PkImportDecision(pkMember: pkAlice),
+        outcome: PkApplyOutcome.failed,
+        error: 'Network timeout',
+      );
 
-        final controller = _OutcomeFakePkMappingController(
-          initialState: _minimalState().copyWith(lastResults: [failedResult]),
-          applyOutcome: PkMappingApplyOutcomeFailed([failedResult]),
-        );
+      final controller = _OutcomeFakePkMappingController(
+        initialState: _minimalState().copyWith(lastResults: [failedResult]),
+        applyOutcome: PkMappingApplyOutcomeFailed([failedResult]),
+      );
 
-        var popped = false;
-        await tester.pumpWidget(
-          _wrapWithRoute(controller, onPopped: () => popped = true),
-        );
+      var popped = false;
+      await tester.pumpWidget(
+        _wrapWithRoute(controller, onPopped: () => popped = true),
+      );
 
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
+      await tester.pumpAndSettle();
 
-        // Screen must still be visible.
-        expect(find.byType(PkMappingScreen), findsOneWidget);
-        expect(popped, isFalse,
-            reason: 'Failed outcome must NOT pop the screen');
-        expect(find.byType(PkWhoIsFrontingSheet), findsNothing);
-        expect(controller.applyCallCount, 1);
-      },
-    );
+      expect(find.byType(PkMappingScreen), findsOneWidget);
+      expect(popped, isFalse, reason: 'Failed outcome must NOT pop the screen');
+      expect(find.byType(PkWhoIsFrontingSheet), findsNothing);
+      expect(controller.applyCallCount, 1);
+    });
   });
 
   // -------------------------------------------------------------------------
   // (e) Null outcome → screen stays, no crash
   // -------------------------------------------------------------------------
   group('outcome: null', () {
-    testWidgets(
-      'null outcome keeps the screen open without throwing',
-      (tester) async {
-        final controller = _OutcomeFakePkMappingController(
-          initialState:
-              _minimalState().copyWith(error: 'Something went wrong'),
-          applyOutcome: null,
-        );
+    testWidgets('null outcome keeps the screen open without throwing', (
+      tester,
+    ) async {
+      final controller = _OutcomeFakePkMappingController(
+        initialState: _minimalState().copyWith(error: 'Something went wrong'),
+        applyOutcome: null,
+      );
 
-        var popped = false;
-        await tester.pumpWidget(
-          _wrapWithRoute(controller, onPopped: () => popped = true),
-        );
+      var popped = false;
+      await tester.pumpWidget(
+        _wrapWithRoute(controller, onPopped: () => popped = true),
+      );
 
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
 
-        await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PrismButton, 'Apply'));
+      await tester.pumpAndSettle();
 
-        expect(find.byType(PkMappingScreen), findsOneWidget);
-        expect(popped, isFalse,
-            reason: 'Null outcome must NOT pop the screen');
-        expect(find.byType(PkWhoIsFrontingSheet), findsNothing);
-        expect(controller.applyCallCount, 1);
-      },
-    );
+      expect(find.byType(PkMappingScreen), findsOneWidget);
+      expect(popped, isFalse, reason: 'Null outcome must NOT pop the screen');
+      expect(find.byType(PkWhoIsFrontingSheet), findsNothing);
+      expect(controller.applyCallCount, 1);
+    });
   });
 }

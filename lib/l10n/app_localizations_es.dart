@@ -10577,6 +10577,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pkMappingImportingHistory => 'Importando historial de fronts…';
 
   @override
+  String get pkMappingResolvingFronters => 'Resolviendo elección de fronters…';
+
+  @override
   String get pkMappingPushingHistory =>
       'Enviando cambios de frente a PluralKit…';
 

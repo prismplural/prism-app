@@ -3248,8 +3248,9 @@ void _registerWs3PrDTests() {
           result,
           isNull,
           reason:
-              'Network failures stay retry-friendly: caller treats null as '
-              '"skip cursor advance" and lets the next sync reconcile.',
+              'Network failures stay retry-friendly at the service boundary: '
+              'callers decide whether a null push can be reconciled or must '
+              'abort the user-visible flow.',
         );
       },
     );

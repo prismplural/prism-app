@@ -82,7 +82,9 @@ class _MappingBody extends ConsumerWidget {
     // Pre-resolve the localized phase status strings here so the controller
     // (which has no BuildContext) can use them when transitioning into the
     // importing / pushing phases.
-    final outcome = await ref.read(pkMappingControllerProvider.notifier).apply(
+    final outcome = await ref
+        .read(pkMappingControllerProvider.notifier)
+        .apply(
           importingHistoryStatus: l10n.pkMappingImportingHistory,
           pushingHistoryStatus: l10n.pkMappingPushingHistory,
           offlineErrorMessage: l10n.pkMappingNetworkErrorOffline,
@@ -105,12 +107,12 @@ class _MappingBody extends ConsumerWidget {
         Navigator.of(context).pop();
 
       case PkMappingApplyOutcomeNeedsFronterResolution(
-          :final localFronterMemberIds,
-          :final pkFronterMemberIds,
-          :final direction,
-          :final mode,
-          :final pkCurrentSwitch,
-        ):
+        :final localFronterMemberIds,
+        :final pkFronterMemberIds,
+        :final direction,
+        :final mode,
+        :final pkCurrentSwitch,
+      ):
         // Resolve local member IDs to (id, name) pairs for the sheet.
         final memberRepo = ref.read(memberRepositoryProvider);
 
@@ -124,8 +126,7 @@ class _MappingBody extends ConsumerWidget {
           // trips regardless of system size.
           final members = await memberRepo.getMembersByIds(ids.toList());
           return [
-            for (final m in members)
-              (id: m.id, name: m.displayName ?? m.name),
+            for (final m in members) (id: m.id, name: m.displayName ?? m.name),
           ];
         }
 
@@ -149,18 +150,19 @@ class _MappingBody extends ConsumerWidget {
           return;
         }
 
-        // User chose a set — apply fronter resolution then pop.
-        await ref
+        final resolutionOutcome = await ref
             .read(pkMappingControllerProvider.notifier)
             .applyFronterResolution(
               chosenLocalMemberIds: chosen,
               direction: direction,
               mode: mode,
               pkCurrentSwitch: pkCurrentSwitch,
+              resolvingFrontersStatus: l10n.pkMappingResolvingFronters,
               importingHistoryStatus: l10n.pkMappingImportingHistory,
               pushingHistoryStatus: l10n.pkMappingPushingHistory,
             );
         if (!context.mounted) return;
+        if (resolutionOutcome is! PkMappingApplyOutcomeApplied) return;
 
         final syncState = ref.read(pluralKitSyncProvider);
         await maybeShowPkProfileDisclosure(
@@ -385,10 +387,10 @@ class _PkMemberRow extends ConsumerWidget {
     }
 
     bool isLinkCandidate(domain.Member m) => !hasResolvablePluralKitLink(
-          m,
-          fetchedPkUuids: state.fetchedPkUuids,
-          fetchedPkIds: state.fetchedPkIds,
-        );
+      m,
+      fetchedPkUuids: state.fetchedPkUuids,
+      fetchedPkIds: state.fetchedPkIds,
+    );
 
     final linkableMembers = state.localMembers
         .where((m) => isLinkCandidate(m) && !consumedElsewhere.contains(m.id))
@@ -524,7 +526,8 @@ class _LocalMemberRow extends ConsumerWidget {
     // member. Build() defaults these to Skip; surface a caption explaining
     // the asymmetric default and the Push override path. Truly-unlinked
     // locals the user manually switched to Skip don't get this caption.
-    final isUnresolvedLink = hasPluralKitLink(localMember) &&
+    final isUnresolvedLink =
+        hasPluralKitLink(localMember) &&
         !hasResolvablePluralKitLink(
           localMember,
           fetchedPkUuids: state.fetchedPkUuids,
@@ -650,10 +653,7 @@ class _ResponsiveMappingRow extends StatelessWidget {
         Expanded(child: name),
         const SizedBox(width: 12),
         SizedBox(width: _selectWidth, child: select),
-        if (trailing != null) ...[
-          const SizedBox(width: 8),
-          trailing!,
-        ],
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }

@@ -36,10 +36,8 @@ class _PrismSpinnerState extends State<PrismSpinner>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    )..repeat();
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat();
   }
 
   @override
@@ -61,25 +59,37 @@ class _PrismSpinnerState extends State<PrismSpinner>
   }
 
   Widget _buildStatic() {
-    return CustomPaint(
-      size: Size.square(widget.size),
-      painter: _SpinnerPainter(
-        color: widget.color,
-        dotCount: widget.dotCount,
-        t: 0,
-        animate: false,
+    return Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: SizedBox.square(
+        dimension: widget.size,
+        child: CustomPaint(
+          painter: _SpinnerPainter(
+            color: widget.color,
+            dotCount: widget.dotCount,
+            t: 0,
+            animate: false,
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildAnimated(double t) {
-    return CustomPaint(
-      size: Size.square(widget.size),
-      painter: _SpinnerPainter(
-        color: widget.color,
-        dotCount: widget.dotCount,
-        t: t,
-        animate: true,
+    return Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: SizedBox.square(
+        dimension: widget.size,
+        child: CustomPaint(
+          painter: _SpinnerPainter(
+            color: widget.color,
+            dotCount: widget.dotCount,
+            t: t,
+            animate: true,
+          ),
+        ),
       ),
     );
   }

@@ -592,6 +592,39 @@ void main() {
     );
 
     testWidgets(
+      'phase=resolvingFronters renders statusText with stable button label',
+      (tester) async {
+        final pkAlice = _pk('pk-alice', 'Alice');
+        final locals = [_local('l1', 'Alice')];
+
+        final state = PkMappingState(
+          pkMembers: [pkAlice],
+          localMembers: locals,
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkLinkDecision(
+              localMemberId: 'l1',
+              pkMember: pkAlice,
+            ),
+          },
+          isApplying: true,
+          applyProgress: 0.0,
+          phase: PkMappingPhase.resolvingFronters,
+          statusText: 'Resolving fronter choice…',
+        );
+
+        final controller = _FakePkMappingController(state);
+        await tester.pumpWidget(_wrap(controller));
+        await tester.pump();
+
+        expect(find.text('Resolving fronter choice…'), findsOneWidget);
+        final applyButton = tester.widget<PrismButton>(
+          find.byWidgetPredicate((w) => w is PrismButton && w.label == 'Apply'),
+        );
+        expect(applyButton.label, 'Apply');
+      },
+    );
+
+    testWidgets(
       'no statusText is rendered when not applying, even with a phase set',
       (tester) async {
         final pkAlice = _pk('pk-alice', 'Alice');
@@ -613,15 +646,14 @@ void main() {
         await tester.pumpWidget(_wrap(controller));
         await tester.pumpAndSettle();
 
-        // Neither status string should be visible while idle.
+        expect(find.text('Resolving fronter choice…'), findsNothing);
         expect(find.text('Importing switch history…'), findsNothing);
         expect(find.text('Pushing switch updates to PluralKit…'), findsNothing);
-        // The Apply button is enabled (not loading) when not applying.
         expect(find.text('Apply'), findsOneWidget);
       },
     );
 
-    testWidgets('Apply button stays disabled across all three phases', (
+    testWidgets('Apply button stays disabled across all apply phases', (
       tester,
     ) async {
       final pkAlice = _pk('pk-alice', 'Alice');
@@ -658,29 +690,32 @@ void main() {
         );
       }
 
-      // Phase 1 — applyingDecisions: no statusText set yet, but button is
-      // disabled because isApplying = true.
       final applyButton1 = await pumpAndGetApplyButton(
         PkMappingPhase.applyingDecisions,
       );
       expect(applyButton1.enabled, isFalse);
       expect(applyButton1.isLoading, isTrue);
 
-      // Phase 2 — importingSwitches: button still disabled, statusText shown.
       final applyButton2 = await pumpAndGetApplyButton(
-        PkMappingPhase.importingSwitches,
-        statusText: 'Importing switch history…',
+        PkMappingPhase.resolvingFronters,
+        statusText: 'Resolving fronter choice…',
       );
       expect(applyButton2.enabled, isFalse);
       expect(applyButton2.isLoading, isTrue);
 
-      // Phase 3 — pushingSwitches: same invariant.
       final applyButton3 = await pumpAndGetApplyButton(
-        PkMappingPhase.pushingSwitches,
-        statusText: 'Pushing switch updates to PluralKit…',
+        PkMappingPhase.importingSwitches,
+        statusText: 'Importing switch history…',
       );
       expect(applyButton3.enabled, isFalse);
       expect(applyButton3.isLoading, isTrue);
+
+      final applyButton4 = await pumpAndGetApplyButton(
+        PkMappingPhase.pushingSwitches,
+        statusText: 'Pushing switch updates to PluralKit…',
+      );
+      expect(applyButton4.enabled, isFalse);
+      expect(applyButton4.isLoading, isTrue);
     });
 
     testWidgets(
@@ -876,7 +911,9 @@ void main() {
         final state = PkMappingState(
           pkMembers: [pkAlice],
           localMembers: [unresolvedLocal],
-          decisionsByPkUuid: {pkAlice.uuid: PkImportDecision(pkMember: pkAlice)},
+          decisionsByPkUuid: {
+            pkAlice.uuid: PkImportDecision(pkMember: pkAlice),
+          },
           fetchedPkUuids: const {'pk-alice'},
           fetchedPkIds: const {'aaaaa'},
         );
@@ -885,9 +922,9 @@ void main() {
         await tester.pumpWidget(_wrap(controller));
         await tester.pumpAndSettle();
 
-        final pkSelect = _selectsFor(tester).firstWhere(
-          (s) => s.value == kPkRowImportSentinel,
-        );
+        final pkSelect = _selectsFor(
+          tester,
+        ).firstWhere((s) => s.value == kPkRowImportSentinel);
         final l1Item = pkSelect.items.firstWhere((i) => i.value == 'l1');
         expect(
           l1Item.subtitle,
@@ -899,32 +936,30 @@ void main() {
       },
     );
 
-    testWidgets(
-      'resolved local has no unresolved-candidate caption',
-      (tester) async {
-        // l2 has no PK fields at all → no caption.
-        final pkAlice = _pk('pk-alice', 'Alice');
-        final locals = [_local('l2', 'Bob')];
+    testWidgets('resolved local has no unresolved-candidate caption', (
+      tester,
+    ) async {
+      final pkAlice = _pk('pk-alice', 'Alice');
+      final locals = [_local('l2', 'Bob')];
 
-        final state = PkMappingState(
-          pkMembers: [pkAlice],
-          localMembers: locals,
-          decisionsByPkUuid: {pkAlice.uuid: PkImportDecision(pkMember: pkAlice)},
-          fetchedPkUuids: const {'pk-alice'},
-          fetchedPkIds: const {'aaaaa'},
-        );
+      final state = PkMappingState(
+        pkMembers: [pkAlice],
+        localMembers: locals,
+        decisionsByPkUuid: {pkAlice.uuid: PkImportDecision(pkMember: pkAlice)},
+        fetchedPkUuids: const {'pk-alice'},
+        fetchedPkIds: const {'aaaaa'},
+      );
 
-        final controller = _FakePkMappingController(state);
-        await tester.pumpWidget(_wrap(controller));
-        await tester.pumpAndSettle();
+      final controller = _FakePkMappingController(state);
+      await tester.pumpWidget(_wrap(controller));
+      await tester.pumpAndSettle();
 
-        final pkSelect = _selectsFor(tester).firstWhere(
-          (s) => s.value == kPkRowImportSentinel,
-        );
-        final l2Item = pkSelect.items.firstWhere((i) => i.value == 'l2');
-        expect(l2Item.subtitle, isNull);
-      },
-    );
+      final pkSelect = _selectsFor(
+        tester,
+      ).firstWhere((s) => s.value == kPkRowImportSentinel);
+      final l2Item = pkSelect.items.firstWhere((i) => i.value == 'l2');
+      expect(l2Item.subtitle, isNull);
+    });
 
     testWidgets(
       '"No candidates" caption appears under PK row with zero linkable locals',
@@ -954,8 +989,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.text('No candidates — import as new or open Manage links to '
-              'resolve'),
+          find.text(
+            'No candidates — import as new or open Manage links to '
+            'resolve',
+          ),
           findsOneWidget,
           reason:
               'PK row with zero linkable locals must show the recovery '
@@ -981,9 +1018,7 @@ void main() {
         final state = PkMappingState(
           pkMembers: const [],
           localMembers: [unresolvedLocal],
-          decisionsByLocalId: {
-            'l1': const PkSkipDecision(localMemberId: 'l1'),
-          },
+          decisionsByLocalId: {'l1': const PkSkipDecision(localMemberId: 'l1')},
           fetchedPkUuids: const {'pk-alice'},
           fetchedPkIds: const {'aaaaa'},
         );
@@ -1050,45 +1085,37 @@ void main() {
       },
     );
 
-    testWidgets(
-      'cleared-unresolved clause is OMITTED when N == 0',
-      (tester) async {
-        // No local had stale PK fields → the clause must not appear in the
-        // rendered summary.
-        final freshLocal = _local('l1', 'Fresh');
-        final results = <PkApplyResult>[
-          const PkApplyResult(
-            decision: PkPushNewDecision(localMemberId: 'l1'),
-            outcome: PkApplyOutcome.applied,
-          ),
-        ];
-        final state = PkMappingState(
-          pkMembers: const [],
-          localMembers: [freshLocal],
-          decisionsByLocalId: {
-            'l1': const PkPushNewDecision(localMemberId: 'l1'),
-          },
-          // No stale locals → no unresolvedCleared.
-          fetchedPkUuids: const {'pk-alice'},
-          fetchedPkIds: const {'aaaaa'},
-          lastResults: results,
-        );
+    testWidgets('cleared-unresolved clause is OMITTED when N == 0', (
+      tester,
+    ) async {
+      final freshLocal = _local('l1', 'Fresh');
+      final results = <PkApplyResult>[
+        const PkApplyResult(
+          decision: PkPushNewDecision(localMemberId: 'l1'),
+          outcome: PkApplyOutcome.applied,
+        ),
+      ];
+      final state = PkMappingState(
+        pkMembers: const [],
+        localMembers: [freshLocal],
+        decisionsByLocalId: {
+          'l1': const PkPushNewDecision(localMemberId: 'l1'),
+        },
+        fetchedPkUuids: const {'pk-alice'},
+        fetchedPkIds: const {'aaaaa'},
+        lastResults: results,
+      );
 
-        final controller = _FakePkMappingController(state);
-        await tester.pumpWidget(_wrap(controller));
-        await tester.pumpAndSettle();
+      final controller = _FakePkMappingController(state);
+      await tester.pumpWidget(_wrap(controller));
+      await tester.pumpAndSettle();
 
-        expect(
-          find.textContaining('cleared'),
-          findsNothing,
-          reason:
-              'Clause must be omitted when no unresolved links were cleared',
-        );
-        // Sanity: summary IS visible. The summary line includes the full
-        // counter prefix; check for "1 pushed" specifically to avoid the
-        // "Push to PK" row label collision.
-        expect(find.textContaining('1 pushed'), findsOneWidget);
-      },
-    );
+      expect(
+        find.textContaining('cleared'),
+        findsNothing,
+        reason: 'Clause must be omitted when no unresolved links were cleared',
+      );
+      expect(find.textContaining('1 pushed'), findsOneWidget);
+    });
   });
 }

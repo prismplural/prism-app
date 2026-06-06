@@ -10396,6 +10396,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pkMappingImportingHistory => 'Importing switch history…';
 
   @override
+  String get pkMappingResolvingFronters => 'Resolving fronter choice…';
+
+  @override
   String get pkMappingPushingHistory => 'Pushing switch updates to PluralKit…';
 
   @override

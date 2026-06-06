@@ -16691,6 +16691,12 @@ abstract class AppLocalizations {
   /// **'Importing switch history…'**
   String get pkMappingImportingHistory;
 
+  /// Status text shown above the Apply button while the user's selected current-fronter set is being applied after the PluralKit mapping decisions.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolving fronter choice…'**
+  String get pkMappingResolvingFronters;
+
   /// Status text shown above the Apply button while pending switch updates are being pushed to PluralKit after the mapping decisions have all applied.
   ///
   /// In en, this message translates to:

@@ -28,6 +28,24 @@ import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 /// string they can match against.
 const _defaultOfflineErrorMessage =
     "Couldn't reach PluralKit. Check your internet connection and try again.";
+const _overrideSwitchPushFailedMessage =
+    "Couldn't push the chosen fronter set to PluralKit. Check your internet "
+    'connection and try again.';
+
+class _PendingFronterResolutionPush {
+  _PendingFronterResolutionPush({
+    required this.chosenLocalMemberIds,
+    required this.switchEntry,
+  });
+
+  final Set<String> chosenLocalMemberIds;
+  final PKSwitch switchEntry;
+  bool cursorAdvanced = false;
+
+  bool matches(Set<String> chosen) =>
+      chosenLocalMemberIds.length == chosen.length &&
+      chosenLocalMemberIds.containsAll(chosen);
+}
 
 // ---------------------------------------------------------------------------
 // Outcome type
@@ -57,8 +75,9 @@ class PkMappingApplyOutcomeApplied extends PkMappingApplyOutcome {
 /// disagree AND the chosen direction can act on the difference. The post-apply
 /// bootstrap has NOT yet run — it is deferred until the user resolves the
 /// conflict via [PkMappingController.applyFronterResolution] or defers it via
-/// [PkMappingController.deferBootstrap] (both T9 / T10, not yet implemented).
-class PkMappingApplyOutcomeNeedsFronterResolution extends PkMappingApplyOutcome {
+/// [PkMappingController.deferBootstrap].
+class PkMappingApplyOutcomeNeedsFronterResolution
+    extends PkMappingApplyOutcome {
   /// Local Prism member IDs of active (non-sleep) sessions.
   final Set<String> localFronterMemberIds;
 
@@ -97,7 +116,7 @@ class PkMappingApplyOutcomeFailed extends PkMappingApplyOutcome {
 
 /// Phase tracker for the mapping screen's Apply pipeline.
 ///
-/// The Apply button stays disabled across all three phases. The accompanying
+/// The Apply button stays disabled across all phases. The accompanying
 /// status text widget (rendered above the button) communicates which phase the
 /// pipeline is in. The button label itself stays stable while the adjacent
 /// status text communicates progress through the pipeline.
@@ -105,6 +124,10 @@ enum PkMappingPhase {
   /// The per-decision loop is running — applier handles link/import/push/skip
   /// for each row.
   applyingDecisions,
+
+  /// Post-decisions: the user-selected fronter resolution is being applied
+  /// locally and, when direction permits, pushed to PK.
+  resolvingFronters,
 
   /// Post-decisions: PK switch history is being walked and imported via the
   /// diff sweep.
@@ -235,6 +258,8 @@ class PkMappingState {
 
 /// Controller for the PluralKit mapping screen.
 class PkMappingController extends AsyncNotifier<PkMappingState> {
+  _PendingFronterResolutionPush? _pendingFronterResolutionPush;
+
   @override
   Future<PkMappingState> build() async {
     final syncService = ref.read(pluralKitSyncServiceProvider);
@@ -564,10 +589,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       // Phase 1: per-decision loop.
       final results = <PkApplyResult>[];
       for (var i = 0; i < decisions.length; i++) {
-        final r = await applier.apply(
-          [decisions[i]],
-          resolution: resolution,
-        );
+        final r = await applier.apply([decisions[i]], resolution: resolution);
         if (!ref.mounted) return null;
         results.addAll(r);
         final next = state.value;
@@ -629,13 +651,15 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       PKSwitch? pkCurrentSwitch;
       var skipDisagreementCheck = false;
       try {
-        pkCurrentSwitch = await client
-            .getCurrentFronters()
-            .timeout(const Duration(seconds: 5));
+        pkCurrentSwitch = await client.getCurrentFronters().timeout(
+          const Duration(seconds: 5),
+        );
       } on Object catch (e) {
         // Network or timeout — log and skip the disagreement check.
-        debugPrint('[PK_MAPPING] getCurrentFronters failed; skipping fronter '
-            'disagreement check: $e');
+        debugPrint(
+          '[PK_MAPPING] getCurrentFronters failed; skipping fronter '
+          'disagreement check: $e',
+        );
         skipDisagreementCheck = true;
       }
 
@@ -645,8 +669,8 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
           (direction.pullEnabled || direction.pushEnabled)) {
         // Compute the local active fronter set.
         final frontingRepo = ref.read(frontingSessionRepositoryProvider);
-        final activeSessions =
-            await frontingRepo.getAllActiveSessionsUnfiltered();
+        final activeSessions = await frontingRepo
+            .getAllActiveSessionsUnfiltered();
         final localFronterIds = activeSessions
             .where((s) => s.memberId != null && !s.isSleep && !s.isDeleted)
             .map((s) => s.memberId!)
@@ -718,12 +742,9 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
             pkFronterMemberIds: pkFronterLocalIds,
             direction: direction,
             mode: mode,
-            pkCurrentSwitch: pkCurrentSwitch ??
-                PKSwitch(
-                  id: '',
-                  timestamp: DateTime.now(),
-                  members: const [],
-                ),
+            pkCurrentSwitch:
+                pkCurrentSwitch ??
+                PKSwitch(id: '', timestamp: DateTime.now(), members: const []),
           );
         }
       }
@@ -872,168 +893,180 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
 
   /// Called by the "Who's fronting?" sheet after the user picks an option.
   ///
-  /// Writes the chosen fronter set locally (ends any active sessions not in
-  /// the set; starts sessions for chosen members not currently fronting),
-  /// optionally pushes to PK with cursor advancement (when direction allows),
-  /// then runs the deferred post-apply bootstrap.
+  /// Applies the user's fronter-resolution choice, then runs the deferred
+  /// post-apply bootstrap.
   ///
-  /// Sub-case: empty [chosenLocalMemberIds] (user picked "Leave no one
-  /// fronting" / "Match PK no one") — all non-sleep sessions are ended. If
-  /// push is enabled, an empty switch is still POSTed to PK so PK clears its
-  /// current fronters; otherwise the bootstrap pull would re-apply PK's old
-  /// fronters and silently undo the user's clear. See bug C1.
+  /// Push-enabled directions write PK first, advance the import cursor, and
+  /// then apply local diff writes so interrupted flows can recover from PK.
+  /// Empty choices are pushed too, allowing PK to clear current fronters.
   ///
-  /// Operation ordering (I1 — atomicity):
-  ///   1. PK push (when applicable) — irreversible-but-recoverable.
-  ///   2. Cursor advance — prevents re-import of the just-pushed switch.
-  ///   3. Local writes via [FrontingMutationService.replaceFronting] —
-  ///      atomic in a single MutationRunner transaction. App-kill mid-write
-  ///      leaves prior state intact rather than a half-applied set.
-  ///   4. Post-apply bootstrap.
-  ///   5. `acknowledgeMapping()` — locked in only after the flow completes,
-  ///      so `canAutoSync` does not flip true prematurely (see bug C5).
-  /// If the app is killed between step 1 and step 3, PK has the new truth
-  /// and the next reconcile pull syncs local from PK.
-  Future<void> applyFronterResolution({
+  /// Returns [PkMappingApplyOutcomeApplied] when the deferred resolution and
+  /// bootstrap complete. Returns `null` for early exits or unhandled failures;
+  /// when still mounted, failures are also stored in [PkMappingState.error].
+  Future<PkMappingApplyOutcome?> applyFronterResolution({
     required Set<String> chosenLocalMemberIds,
     required PkSyncDirection direction,
     required PkSyncMode mode,
     required PKSwitch pkCurrentSwitch,
+    String? resolvingFrontersStatus,
     String? importingHistoryStatus,
     String? pushingHistoryStatus,
   }) async {
-    // Migration gate: when the per-member fronting migration is blocked /
-    // in-progress, fronting rows on disk may be in an intermediate shape and
-    // local writes are unsafe. The setup screen surfaces a banner steering
-    // the user to the migration screen; bail out here too so we never write
-    // a partial fronting state under a half-completed migration.
-    //
-    // We skip the PK push too: pushing without the matching local write
-    // would create a phantom PK switch that local can't reconcile against.
-    if (ref.read(frontingMigrationWritesBlockedProvider)) return;
+    // Fronting rows may be mid-migration; skip PK and local writes until safe.
+    if (ref.read(frontingMigrationWritesBlockedProvider)) return null;
 
     final syncService = ref.read(pluralKitSyncServiceProvider);
-
-    // 1. PK push (when direction allows). Push happens BEFORE local writes so
-    // PK is the durable source of truth if the app dies mid-flow — see I1.
-    //
-    // Empty chosen set is ALSO pushed when push is enabled: PK's API accepts
-    // `members: []` and this is the only way to clear PK's current fronters.
-    // Without this, the bootstrap pull below would re-apply PK's old
-    // fronters and silently undo the user's "Leave no one fronting" choice
-    // (bug C1).
-    final now = DateTime.now();
-    PKSwitch? pushedSwitch;
-    var pushAttempted = false;
-    if (direction.pushEnabled) {
-      pushAttempted = true;
-      pushedSwitch = await syncService.pushOverrideSwitch(
-        chosenLocalMemberIds.toList(),
-        now,
+    final before = state.value;
+    if (before?.isApplying ?? false) return null;
+    if (before != null) {
+      state = AsyncData(
+        before.copyWith(
+          isApplying: true,
+          applyProgress: 0.0,
+          phase: PkMappingPhase.resolvingFronters,
+          statusText: resolvingFrontersStatus,
+          clearError: true,
+        ),
       );
-      if (!ref.mounted) return;
-      if (pushedSwitch != null) {
-        // 2. Cursor advance — use PK's stored timestamp + ID, NOT the local
-        // `now`. Clock skew or PK truncation could otherwise leapfrog real
-        // PK switches when the diff sweep next runs. See bug C4.
-        await syncService.advanceImportCursorPast(
-          switchId: pushedSwitch.id,
-          timestamp: pushedSwitch.timestamp,
-        );
-        if (!ref.mounted) return;
-      }
     }
 
-    // 3. Local writes — wrapped in a single drift transaction so app-kill
-    // mid-flow leaves prior local state intact (atomicity) rather than a
-    // partial set with some sessions ended and others not started. See I1.
-    //
-    // We DON'T use FrontingMutationService.replaceFronting here because that
-    // helper ends every active session and creates new ones for the chosen
-    // members — including members who were ALREADY fronting. That would
-    // create a spurious session boundary at `now` for members the user just
-    // confirmed are still fronting. Instead we preserve already-fronting
-    // sessions and only mutate the diff:
-    //   - End sessions whose memberId is NOT in chosenLocalMemberIds.
-    //   - Start sessions for chosen members not currently fronting.
-    final db = ref.read(databaseProvider);
-    final repo = ref.read(frontingSessionRepositoryProvider);
-    final mutationService = ref.read(frontingMutationServiceProvider);
-    var startedNewFronts = false;
-    await db.transaction(() async {
-      final activeSessions = await repo.getAllActiveSessionsUnfiltered();
+    var completedSuccessfully = false;
+    try {
+      // Push first so PK remains the recoverable truth if the flow stops.
+      // Empty choices clear PK's current fronters.
+      final now = DateTime.now();
+      PKSwitch? pushedSwitch;
+      var pushAttempted = false;
+      if (direction.pushEnabled) {
+        pushAttempted = true;
+        final pending = _pendingFronterResolutionPush;
+        if (pending != null && pending.matches(chosenLocalMemberIds)) {
+          pushedSwitch = pending.switchEntry;
+        } else {
+          if (pending != null) {
+            _pendingFronterResolutionPush = null;
+          }
+          pushedSwitch = await syncService.pushOverrideSwitch(
+            chosenLocalMemberIds.toList(),
+            now,
+          );
+          if (!ref.mounted) return null;
+          if (pushedSwitch == null) {
+            final after = state.value;
+            if (after != null) {
+              state = AsyncData(
+                after.copyWith(
+                  isApplying: false,
+                  error: _overrideSwitchPushFailedMessage,
+                ),
+              );
+            }
+            return null;
+          }
+          _pendingFronterResolutionPush = _PendingFronterResolutionPush(
+            chosenLocalMemberIds: Set.unmodifiable(chosenLocalMemberIds),
+            switchEntry: pushedSwitch,
+          );
+        }
 
-      // End sessions not in the chosen set (skip sleep sessions — they are
-      // managed independently of the fronting-resolution flow).
-      for (final s in activeSessions) {
-        if (s.memberId == null || s.isSleep) continue;
-        if (!chosenLocalMemberIds.contains(s.memberId)) {
-          await repo.endSession(s.id, now);
+        final activePush = _pendingFronterResolutionPush;
+        if (activePush == null || !activePush.cursorAdvanced) {
+          // Use PK's stored timestamp/id to avoid re-importing the override.
+          await syncService.advanceImportCursorPast(
+            switchId: pushedSwitch.id,
+            timestamp: pushedSwitch.timestamp,
+          );
+          if (!ref.mounted) return null;
+          activePush?.cursorAdvanced = true;
         }
       }
 
-      // Start sessions for chosen members not currently fronting.
-      final currentlyFronting = activeSessions
-          .where((s) => s.memberId != null && !s.isSleep)
-          .map((s) => s.memberId!)
-          .toSet();
-      final toStart = chosenLocalMemberIds.difference(currentlyFronting);
-      if (toStart.isNotEmpty) {
-        // startFronting uses its own MutationRunner.run — drift supports
-        // nested transactions, so this composes correctly.
-        await mutationService.startFronting(toStart.toList(), startTime: now);
-        startedNewFronts = true;
+      // Preserve unchanged fronter sessions; mutate only the difference.
+      final db = ref.read(databaseProvider);
+      final repo = ref.read(frontingSessionRepositoryProvider);
+      final mutationService = ref.read(frontingMutationServiceProvider);
+      var startedNewFronts = false;
+      await db.transaction(() async {
+        final activeSessions = await repo.getAllActiveSessionsUnfiltered();
+
+        for (final s in activeSessions) {
+          if (s.memberId == null || s.isSleep) continue;
+          if (!chosenLocalMemberIds.contains(s.memberId)) {
+            await repo.endSession(s.id, now);
+          }
+        }
+
+        final currentlyFronting = activeSessions
+            .where((s) => s.memberId != null && !s.isSleep)
+            .map((s) => s.memberId!)
+            .toSet();
+        final toStart = chosenLocalMemberIds.difference(currentlyFronting);
+        if (toStart.isNotEmpty) {
+          await mutationService.startFronting(toStart.toList(), startTime: now);
+          startedNewFronts = true;
+        }
+      });
+
+      if (!ref.mounted) return null;
+
+      // This path bypasses FrontingNotifier's usual re-anchor hook.
+      if (startedNewFronts) {
+        scheduleFrontingReminderReanchorBestEffort(ref);
       }
-    });
 
-    if (!ref.mounted) return;
+      // Push paths bootstrap from the override switch; pull-only uses the
+      // fetched PK switch.
+      final PKSwitch? bootstrapKnown;
+      if (pushAttempted) {
+        bootstrapKnown = pushedSwitch; // new switch on success, null on failure
+      } else {
+        bootstrapKnown = pkCurrentSwitch;
+      }
 
-    // FrontingNotifier's re-anchor hook only fires when fronts are created
-    // through it; this path goes through the mutation service directly.
-    if (startedNewFronts) {
-      scheduleFrontingReminderReanchorBestEffort(ref);
+      await _runPostApplyBootstrap(
+        mode: mode,
+        direction: direction,
+        syncService: syncService,
+        importingHistoryStatus: importingHistoryStatus,
+        pushingHistoryStatus: pushingHistoryStatus,
+        knownCurrentFronters: bootstrapKnown,
+      );
+
+      if (!ref.mounted) return null;
+
+      // Acknowledge only after bootstrap so auto-sync cannot run mid-resolution.
+      await syncService.acknowledgeMapping();
+      if (!ref.mounted) return null;
+
+      ref.invalidate(pluralKitSyncProvider);
+      _pendingFronterResolutionPush = null;
+      completedSuccessfully = true;
+      return const PkMappingApplyOutcomeApplied();
+    } catch (e, st) {
+      if (!ref.mounted) return null;
+      final after = state.value;
+      if (after != null) {
+        state = AsyncData(
+          after.copyWith(isApplying: false, error: e.toString()),
+        );
+      } else {
+        state = AsyncError(e, st);
+      }
+      return null;
+    } finally {
+      if (ref.mounted) {
+        final after = state.value;
+        if (after != null && completedSuccessfully) {
+          state = AsyncData(
+            after.copyWith(
+              isApplying: false,
+              applyProgress: 1.0,
+              clearStatusText: true,
+            ),
+          );
+        }
+      }
     }
-
-    // 4. Post-apply bootstrap.
-    //
-    // knownCurrentFronters decision tree (bug C2):
-    //   - Push happened and returned a switch → pass the NEW switch. The
-    //     pre-resolution pkCurrentSwitch is now stale; passing it would
-    //     cause syncLiveFrontersOnly to re-apply PK's old fronters and
-    //     silently undo the user's choice.
-    //   - Push attempted but returned null (network failure) → pass null
-    //     so syncLiveFrontersOnly fetches fresh from PK. A synthetic state
-    //     would lie about PK's actual state.
-    //   - Push NOT attempted (pull-only direction) → the caller-supplied
-    //     pkCurrentSwitch is still PK's truth, pass it through as a cache.
-    final PKSwitch? bootstrapKnown;
-    if (pushAttempted) {
-      bootstrapKnown = pushedSwitch; // new switch on success, null on failure
-    } else {
-      bootstrapKnown = pkCurrentSwitch;
-    }
-
-    // Pass the caller-supplied pkCurrentSwitch as a cache so the liveFrontsOnly
-    // bootstrap branch can skip a redundant getCurrentFronters network call.
-    await _runPostApplyBootstrap(
-      mode: mode,
-      direction: direction,
-      syncService: syncService,
-      importingHistoryStatus: importingHistoryStatus,
-      pushingHistoryStatus: pushingHistoryStatus,
-      knownCurrentFronters: bootstrapKnown,
-    );
-
-    if (!ref.mounted) return;
-
-    // 5. Lock in the mapping acknowledgement. Deferred until here so
-    // `canAutoSync` does not flip true while the "Who's fronting?" sheet was
-    // open — auto-poll is gated on canAutoSync and would have fired a sync
-    // that the user hadn't yet decided on. See bug C5.
-    await syncService.acknowledgeMapping();
-    if (!ref.mounted) return;
-
-    ref.invalidate(pluralKitSyncProvider);
   }
 
   /// Called by the setup screen after the user picks "Decide later" in the

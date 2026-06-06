@@ -109,10 +109,7 @@ class _FakeMemberRepo implements MemberRepository {
   ) async => throw UnimplementedError();
 
   @override
-  Future<int> applyPluralKitLink(
-    String id,
-    Map<String, dynamic> patch,
-  ) async {
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async {
     final existing = _byId[id];
     if (existing == null || existing.isDeleted) return 0;
     _byId[id] = existing.copyWith(
@@ -121,7 +118,7 @@ class _FakeMemberRepo implements MemberRepository {
       pluralkitId: patch['pluralkit_id'] as String? ?? existing.pluralkitId,
       pluralkitDisplayName:
           patch['pluralkit_display_name'] as String? ??
-              existing.pluralkitDisplayName,
+          existing.pluralkitDisplayName,
       pluralkitSyncIgnored: false,
     );
     return 1;
@@ -140,7 +137,7 @@ class _FakeMemberRepo implements MemberRepository {
       pluralkitId: patch['pluralkit_id'] as String? ?? existing.pluralkitId,
       pluralkitDisplayName:
           patch['pluralkit_display_name'] as String? ??
-              existing.pluralkitDisplayName,
+          existing.pluralkitDisplayName,
     );
     return 1;
   }
@@ -211,8 +208,8 @@ class _StubFrontingSessionRepo implements FrontingSessionRepository {
   _StubFrontingSessionRepo({this.activeSessions = const []});
 
   @override
-  Future<List<fronting.FrontingSession>> getAllActiveSessionsUnfiltered() async =>
-      activeSessions;
+  Future<List<fronting.FrontingSession>>
+  getAllActiveSessionsUnfiltered() async => activeSessions;
 
   @override
   Future<List<fronting.FrontingSession>> getAllSessions() async => const [];
@@ -222,7 +219,8 @@ class _StubFrontingSessionRepo implements FrontingSessionRepository {
       const [];
 
   @override
-  Future<List<fronting.FrontingSession>> getFrontingSessions() async => const [];
+  Future<List<fronting.FrontingSession>> getFrontingSessions() async =>
+      const [];
 
   @override
   Future<List<fronting.FrontingSession>> getActiveSessions() async =>
@@ -247,10 +245,11 @@ class _TrackingFrontingSessionRepo implements FrontingSessionRepository {
   final List<fronting.FrontingSession> createdSessions = [];
 
   _TrackingFrontingSessionRepo(List<fronting.FrontingSession> initial)
-      : _sessions = List.of(initial);
+    : _sessions = List.of(initial);
 
   @override
-  Future<List<fronting.FrontingSession>> getAllActiveSessionsUnfiltered() async =>
+  Future<List<fronting.FrontingSession>>
+  getAllActiveSessionsUnfiltered() async =>
       _sessions.where((s) => s.endTime == null && !s.isDeleted).toList();
 
   @override
@@ -258,13 +257,16 @@ class _TrackingFrontingSessionRepo implements FrontingSessionRepository {
       _sessions.where((s) => s.endTime == null && !s.isDeleted).toList();
 
   @override
-  Future<List<fronting.FrontingSession>> getAllSessions() async => List.of(_sessions);
+  Future<List<fronting.FrontingSession>> getAllSessions() async =>
+      List.of(_sessions);
 
   @override
-  Future<List<fronting.FrontingSession>> getFrontingSessions() async => const [];
+  Future<List<fronting.FrontingSession>> getFrontingSessions() async =>
+      const [];
 
   @override
-  Future<List<fronting.FrontingSession>> getDeletedLinkedSessions() async => const [];
+  Future<List<fronting.FrontingSession>> getDeletedLinkedSessions() async =>
+      const [];
 
   @override
   Future<void> endSession(String id, DateTime endTime) async {
@@ -294,7 +296,10 @@ class _TrackingFrontingSessionRepo implements FrontingSessionRepository {
 
   @override
   Future<fronting.FrontingSession?> getSessionById(String id) async =>
-      _sessions.firstWhere((s) => s.id == id, orElse: () => throw StateError('not found'));
+      _sessions.firstWhere(
+        (s) => s.id == id,
+        orElse: () => throw StateError('not found'),
+      );
 
   @override
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError(
@@ -361,7 +366,10 @@ class _ConfigurableClient extends PluralKitClient {
   }
 
   @override
-  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
     getSwitchesCallCount++;
     return const [];
   }
@@ -399,6 +407,11 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
   int liveFrontsOnlyCallCount = 0;
   int pushOverrideSwitchCallCount = 0;
   int advanceCursorCallCount = 0;
+  Completer<void>? importSwitchesEntered;
+  Completer<void>? importSwitchesBlocker;
+  Completer<void>? pushOverrideSwitchEntered;
+  Completer<void>? pushOverrideSwitchBlocker;
+  bool throwOnAcknowledgeMapping = false;
 
   /// Member IDs passed to the last [pushOverrideSwitch] call.
   List<String>? lastPushOverrideMemberIds;
@@ -421,6 +434,9 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
     void Function(double fraction, String status)? onProgress,
   }) async {
     importSwitchesCallCount++;
+    importSwitchesEntered?.complete();
+    final blocker = importSwitchesBlocker;
+    if (blocker != null) await blocker.future;
     // Don't call super — we just count the call.
   }
 
@@ -453,6 +469,9 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
   ) async {
     pushOverrideSwitchCallCount++;
     lastPushOverrideMemberIds = List.of(localMemberIds);
+    pushOverrideSwitchEntered?.complete();
+    final blocker = pushOverrideSwitchBlocker;
+    if (blocker != null) await blocker.future;
     return pushOverrideSwitchReturn;
   }
 
@@ -463,6 +482,14 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
   }) async {
     advanceCursorCallCount++;
     lastAdvanceCursorArgs = (switchId: switchId, timestamp: timestamp);
+  }
+
+  @override
+  Future<void> acknowledgeMapping() async {
+    if (throwOnAcknowledgeMapping) {
+      throw StateError('forced acknowledgement failure');
+    }
+    await super.acknowledgeMapping();
   }
 
   /// True if any bootstrap method was invoked at least once.
@@ -487,10 +514,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     _installSecureStorageStub();
     db = AppDatabase(NativeDatabase.memory());
-    repo = _FakeMemberRepo([
-      _local('l1', 'Alice'),
-      _local('l2', 'Bob'),
-    ]);
+    repo = _FakeMemberRepo([_local('l1', 'Alice'), _local('l2', 'Bob')]);
     client = _ConfigurableClient([
       const PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
     ]);
@@ -587,7 +611,11 @@ void main() {
         isTrue,
       );
       // Bootstrap must NOT run on failure.
-      expect(svc.bootstrapRan, isFalse, reason: 'Bootstrap should not run on failure');
+      expect(
+        svc.bootstrapRan,
+        isFalse,
+        reason: 'Bootstrap should not run on failure',
+      );
     },
   );
 
@@ -631,7 +659,8 @@ void main() {
       expect(
         outcome,
         isA<PkMappingApplyOutcomeApplied>(),
-        reason: 'Matching fronter sets should return PkMappingApplyOutcomeApplied',
+        reason:
+            'Matching fronter sets should return PkMappingApplyOutcomeApplied',
       );
       // Bootstrap must have run.
       expect(
@@ -685,7 +714,8 @@ void main() {
       expect(
         outcome,
         isA<PkMappingApplyOutcomeNeedsFronterResolution>(),
-        reason: 'Differing sets + bidirectional should return NeedsFronterResolution',
+        reason:
+            'Differing sets + bidirectional should return NeedsFronterResolution',
       );
       final needsRes = outcome as PkMappingApplyOutcomeNeedsFronterResolution;
       // Local set has Alice.
@@ -713,14 +743,16 @@ void main() {
       expect(
         svc.state.mappingAcknowledged,
         isFalse,
-        reason: 'mappingAcknowledged must stay false on the '
+        reason:
+            'mappingAcknowledged must stay false on the '
             'NeedsFronterResolution path — otherwise auto-poll could fire '
             'while the "Who\'s fronting?" sheet is pending',
       );
       expect(
         svc.state.canAutoSync,
         isFalse,
-        reason: 'canAutoSync must stay false while the resolution sheet '
+        reason:
+            'canAutoSync must stay false while the resolution sheet '
             'is pending',
       );
     },
@@ -812,11 +844,16 @@ void main() {
       expect(
         outcome,
         isA<PkMappingApplyOutcomeApplied>(),
-        reason: 'direction=disabled means disagreement is not actionable → Applied',
+        reason:
+            'direction=disabled means disagreement is not actionable → Applied',
       );
       // Direction=disabled means bootstrap body does nothing (no pull, no push).
       // The important assertion is that we returned Applied, not NeedsFronterResolution.
-      expect(svc.bootstrapRan, isFalse, reason: 'disabled direction has nothing to bootstrap');
+      expect(
+        svc.bootstrapRan,
+        isFalse,
+        reason: 'disabled direction has nothing to bootstrap',
+      );
     },
   );
 
@@ -857,6 +894,73 @@ void main() {
     );
     return (container, svc);
   }
+
+  test(
+    'P1 regression: apply() leaves resolution path idle so applyFronterResolution can run',
+    () async {
+      repo = _FakeMemberRepo([_local('l1', 'Alice'), _local('l2', 'Bob')]);
+      client = _ConfigurableClient([
+        const PKMember(id: 'aaaaa', uuid: 'pk-uuid-alice', name: 'Alice'),
+        const PKMember(id: 'bbbbb', uuid: 'pk-uuid-bob', name: 'Bob'),
+      ]);
+      client.currentFrontersResult = PKSwitch(
+        id: 'pk-sw-bob',
+        timestamp: DateTime(2026, 1, 1),
+        members: const ['bbbbb'],
+      );
+
+      final activeSession = fronting.FrontingSession(
+        id: 'sess-alice',
+        memberId: 'l1',
+        startTime: DateTime(2026, 1, 1),
+      );
+      final trackingRepo = _TrackingFrontingSessionRepo([activeSession]);
+      final (container, svc) = makeResolutionContainer(
+        trackingRepo: trackingRepo,
+        direction: PkSyncDirection.bidirectional,
+      );
+      addTearDown(container.dispose);
+
+      await svc.setToken('fake');
+      await svc.confirmDirection();
+      await container
+          .read(pkSyncDirectionProvider.notifier)
+          .setDirection(PkSyncDirection.bidirectional);
+      await container.read(pkMappingControllerProvider.future);
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+
+      final outcome = await ctrl.apply();
+
+      expect(outcome, isA<PkMappingApplyOutcomeNeedsFronterResolution>());
+      expect(
+        ctrl.state.value?.isApplying,
+        isFalse,
+        reason:
+            'apply() must leave the controller idle before the user picks a '
+            'fronter-resolution option.',
+      );
+
+      final resolution = outcome as PkMappingApplyOutcomeNeedsFronterResolution;
+      final resolutionOutcome = await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1', 'l2'},
+        direction: resolution.direction,
+        mode: resolution.mode,
+        pkCurrentSwitch: resolution.pkCurrentSwitch,
+      );
+
+      expect(resolutionOutcome, isA<PkMappingApplyOutcomeApplied>());
+      expect(
+        svc.pushOverrideSwitchCallCount,
+        equals(1),
+        reason:
+            'The isApplying re-entry guard must not block the real chained '
+            'apply() → applyFronterResolution() flow.',
+      );
+      expect(svc.bootstrapRan, isTrue);
+      expect(svc.state.mappingAcknowledged, isTrue);
+      expect(ctrl.state.value?.isApplying, isFalse);
+    },
+  );
 
   // ---------------------------------------------------------------------------
   // T9 scenario 1: chosen [A,B], bidirectional → write local + push + cursor + bootstrap
@@ -899,12 +1003,13 @@ void main() {
       );
 
       final ctrl = container.read(pkMappingControllerProvider.notifier);
-      await ctrl.applyFronterResolution(
+      final outcome = await ctrl.applyFronterResolution(
         chosenLocalMemberIds: {'l1', 'l2'},
         direction: PkSyncDirection.bidirectional,
         mode: PkSyncMode.fullSync,
         pkCurrentSwitch: pkSwitch,
       );
+      expect(outcome, isA<PkMappingApplyOutcomeApplied>());
 
       // (a) Local: Alice's session NOT ended (already in chosen set).
       expect(
@@ -916,14 +1021,16 @@ void main() {
       expect(
         trackingRepo.createdSessions.any((s) => s.memberId == 'l2'),
         isTrue,
-        reason: 'Bob was not fronting → startFronting should create a session for l2',
+        reason:
+            'Bob was not fronting → startFronting should create a session for l2',
       );
 
       // (b) PK push: pushOverrideSwitch called with chosen member IDs.
       expect(
         svc.pushOverrideSwitchCallCount,
         equals(1),
-        reason: 'pushOverrideSwitch must be called once for bidirectional + non-empty set',
+        reason:
+            'pushOverrideSwitch must be called once for bidirectional + non-empty set',
       );
       expect(
         svc.lastPushOverrideMemberIds,
@@ -935,7 +1042,8 @@ void main() {
       expect(
         svc.advanceCursorCallCount,
         equals(1),
-        reason: 'advanceImportCursorPast must be called once after successful push',
+        reason:
+            'advanceImportCursorPast must be called once after successful push',
       );
       expect(
         svc.lastAdvanceCursorArgs?.switchId,
@@ -1031,7 +1139,9 @@ void main() {
     'applyFronterResolution(chosen={A}, pullOnly) → creates local session, no PK push, bootstrap runs',
     () async {
       // Local: empty. PK has B fronting. User chose A locally.
-      final trackingRepo = _TrackingFrontingSessionRepo([]); // no active sessions
+      final trackingRepo = _TrackingFrontingSessionRepo(
+        [],
+      ); // no active sessions
 
       final (container, svc) = makeResolutionContainer(
         trackingRepo: trackingRepo,
@@ -1083,16 +1193,15 @@ void main() {
   );
 
   // ---------------------------------------------------------------------------
-  // M3: pushOverrideSwitch returns null (network failure) → no cursor advance,
-  //     local writes still happened, bootstrap still ran. Includes both the
-  //     non-empty and empty (C1) chosen-set sub-cases.
+  // M3: failed PK override push stops before local writes/bootstrap.
   // ---------------------------------------------------------------------------
 
   test(
-    'M3 (non-empty): pushOverrideSwitch null → local writes + bootstrap still run; no cursor advance',
+    'M3 (non-empty): pushOverrideSwitch null → resolution fails before local writes or acknowledgement',
     () async {
       repo = _FakeMemberRepo([
         _local('l1', 'Alice', pkUuid: 'pk-uuid-alice', pkId: 'aaaaa'),
+        _local('l2', 'Bob'),
       ]);
 
       final trackingRepo = _TrackingFrontingSessionRepo([]); // nobody fronting
@@ -1104,7 +1213,6 @@ void main() {
       addTearDown(container.dispose);
       await svc.setToken('fake');
 
-      // Simulate network failure on push.
       svc.pushOverrideSwitchReturn = null;
 
       final pkSwitch = PKSwitch(
@@ -1114,36 +1222,46 @@ void main() {
       );
 
       final ctrl = container.read(pkMappingControllerProvider.notifier);
-      await ctrl.applyFronterResolution(
+      await container.read(pkMappingControllerProvider.future);
+
+      final outcome = await ctrl.applyFronterResolution(
         chosenLocalMemberIds: {'l1'},
         direction: PkSyncDirection.bidirectional,
         mode: PkSyncMode.fullSync,
         pkCurrentSwitch: pkSwitch,
       );
+      expect(outcome, isNull);
 
-      // Push attempted.
       expect(svc.pushOverrideSwitchCallCount, equals(1));
-      // Cursor NOT advanced (null return).
       expect(
         svc.advanceCursorCallCount,
         equals(0),
         reason: 'Null push must NOT advance the cursor',
       );
-      // Local writes still happened.
       expect(
-        trackingRepo.createdSessions.any((s) => s.memberId == 'l1'),
-        isTrue,
-        reason: 'Local write must proceed even when push fails',
+        trackingRepo.createdSessions,
+        isEmpty,
+        reason:
+            'Push-enabled resolution must not write local truth after the PK push failed',
       );
-      // Bootstrap still ran.
-      expect(svc.bootstrapRan, isTrue);
+      expect(svc.bootstrapRan, isFalse);
+      expect(svc.state.mappingAcknowledged, isFalse);
+      final value = ctrl.state.value;
+      expect(value?.isApplying, isFalse);
+      expect(
+        value?.error,
+        equals(
+          "Couldn't push the chosen fronter set to PluralKit. Check your "
+          'internet connection and try again.',
+        ),
+      );
+      expect(value?.error, isNot(startsWith('Bad state:')));
     },
   );
 
   test(
-    'M3 (empty/C1): pushOverrideSwitch null on empty resolution → local end happens; no cursor advance',
+    'M3 (empty/C1): pushOverrideSwitch null on empty resolution fails before ending local sessions',
     () async {
-      // C1 path: empty chosen set, push enabled. Network fails.
       final activeSession = fronting.FrontingSession(
         id: 'sess-alice',
         memberId: 'l1',
@@ -1167,26 +1285,36 @@ void main() {
       );
 
       final ctrl = container.read(pkMappingControllerProvider.notifier);
-      await ctrl.applyFronterResolution(
+      await container.read(pkMappingControllerProvider.future);
+
+      final outcome = await ctrl.applyFronterResolution(
         chosenLocalMemberIds: {},
         direction: PkSyncDirection.bidirectional,
         mode: PkSyncMode.fullSync,
         pkCurrentSwitch: pkSwitch,
       );
+      expect(outcome, isNull);
 
-      // C1: empty push was attempted (the whole point of the fix).
       expect(
         svc.pushOverrideSwitchCallCount,
         equals(1),
         reason: 'C1: empty chosen set must still attempt PK push',
       );
       expect(svc.lastPushOverrideMemberIds, isEmpty);
-      // Null push → no cursor advance.
       expect(svc.advanceCursorCallCount, equals(0));
-      // Local end still happened.
-      expect(trackingRepo.endedSessionIds, contains('sess-alice'));
-      // Bootstrap still ran.
-      expect(svc.bootstrapRan, isTrue);
+      expect(trackingRepo.endedSessionIds, isEmpty);
+      expect(svc.bootstrapRan, isFalse);
+      expect(svc.state.mappingAcknowledged, isFalse);
+      final value = ctrl.state.value;
+      expect(value?.isApplying, isFalse);
+      expect(
+        value?.error,
+        equals(
+          "Couldn't push the chosen fronter set to PluralKit. Check your "
+          'internet connection and try again.',
+        ),
+      );
+      expect(value?.error, isNot(startsWith('Bad state:')));
     },
   );
 
@@ -1281,6 +1409,224 @@ void main() {
     },
   );
 
+  test(
+    'applyFronterResolution uses resolvingFronters phase while applying the chosen set',
+    () async {
+      final trackingRepo = _TrackingFrontingSessionRepo([]);
+      final (container, svc) = makeResolutionContainer(
+        trackingRepo: trackingRepo,
+        direction: PkSyncDirection.bidirectional,
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+      svc.pushOverrideSwitchEntered = Completer<void>();
+      svc.pushOverrideSwitchBlocker = Completer<void>();
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await container.read(pkMappingControllerProvider.future);
+
+      final resolutionFuture = ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.bidirectional,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: PKSwitch(
+          id: 'pk-sw-1',
+          timestamp: DateTime(2026, 1, 1),
+          members: const ['aaaaa'],
+        ),
+        resolvingFrontersStatus: 'Resolving fronter choice',
+      );
+
+      await svc.pushOverrideSwitchEntered!.future;
+
+      final duringResolution = ctrl.state.value;
+      expect(duringResolution?.isApplying, isTrue);
+      expect(duringResolution?.phase, PkMappingPhase.resolvingFronters);
+      expect(duringResolution?.applyProgress, 0.0);
+      expect(duringResolution?.statusText, 'Resolving fronter choice');
+
+      svc.pushOverrideSwitchBlocker!.complete();
+      final outcome = await resolutionFuture;
+
+      expect(outcome, isA<PkMappingApplyOutcomeApplied>());
+      expect(ctrl.state.value?.isApplying, isFalse);
+    },
+  );
+
+  test(
+    'applyFronterResolution marks the controller applying during deferred bootstrap',
+    () async {
+      final activeSession = fronting.FrontingSession(
+        id: 'sess-alice',
+        memberId: 'l1',
+        startTime: DateTime(2026, 1, 1),
+      );
+      final trackingRepo = _TrackingFrontingSessionRepo([activeSession]);
+      final svc = _BootstrapCountingSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: trackingRepo,
+        syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      svc.importSwitchesEntered = Completer<void>();
+      svc.importSwitchesBlocker = Completer<void>();
+      final mutSvc = FrontingMutationService(
+        repository: trackingRepo,
+        mutationRunner: MutationRunner.forDatabase(db),
+        memberRepository: repo,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(svc),
+          frontingSessionRepositoryProvider.overrideWithValue(trackingRepo),
+          frontingMutationServiceProvider.overrideWithValue(mutSvc),
+          frontingMigrationWritesBlockedProvider.overrideWithValue(false),
+        ],
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await container.read(pkMappingControllerProvider.future);
+
+      final resolutionFuture = ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.pullOnly,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: PKSwitch(
+          id: 'pk-sw-1',
+          timestamp: DateTime(2026, 1, 1),
+          members: const ['aaaaa'],
+        ),
+      );
+
+      await svc.importSwitchesEntered!.future;
+
+      expect(
+        ctrl.state.value?.isApplying,
+        isTrue,
+        reason:
+            'The mapping screen must show progress while the deferred '
+            'post-resolution bootstrap is still running.',
+      );
+
+      svc.importSwitchesBlocker!.complete();
+      await resolutionFuture;
+
+      expect(ctrl.state.value?.isApplying, isFalse);
+      expect(svc.state.mappingAcknowledged, isTrue);
+    },
+  );
+
+  test(
+    'applyFronterResolution failure leaves controller not applying without false completion',
+    () async {
+      final trackingRepo = _TrackingFrontingSessionRepo([]);
+      final (container, svc) = makeResolutionContainer(
+        trackingRepo: trackingRepo,
+        direction: PkSyncDirection.pullOnly,
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+      svc.throwOnAcknowledgeMapping = true;
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await container.read(pkMappingControllerProvider.future);
+
+      final outcome = await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.pullOnly,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: PKSwitch(
+          id: 'pk-sw-1',
+          timestamp: DateTime(2026, 1, 1),
+          members: const ['aaaaa'],
+        ),
+        importingHistoryStatus: 'Importing history',
+      );
+      expect(outcome, isNull);
+
+      final value = ctrl.state.value;
+      expect(value?.isApplying, isFalse);
+      expect(
+        value?.applyProgress,
+        isNot(1.0),
+        reason: 'Failed resolution must not report complete progress.',
+      );
+      expect(value?.statusText, equals('Importing history'));
+      expect(value?.error, contains('forced acknowledgement failure'));
+      expect(svc.state.mappingAcknowledged, isFalse);
+    },
+  );
+
+  test(
+    'applyFronterResolution retry after post-push failure does not create a duplicate PK switch',
+    () async {
+      final trackingRepo = _TrackingFrontingSessionRepo([]);
+      final (container, svc) = makeResolutionContainer(
+        trackingRepo: trackingRepo,
+        direction: PkSyncDirection.bidirectional,
+      );
+      addTearDown(container.dispose);
+      await svc.setToken('fake');
+      svc.throwOnAcknowledgeMapping = true;
+
+      final ctrl = container.read(pkMappingControllerProvider.notifier);
+      await container.read(pkMappingControllerProvider.future);
+
+      final pkSwitch = PKSwitch(
+        id: 'pk-sw-1',
+        timestamp: DateTime(2026, 1, 1),
+        members: const ['aaaaa'],
+      );
+
+      final firstOutcome = await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.bidirectional,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: pkSwitch,
+      );
+
+      expect(firstOutcome, isNull);
+      expect(svc.pushOverrideSwitchCallCount, equals(1));
+      expect(svc.advanceCursorCallCount, equals(1));
+      expect(svc.state.mappingAcknowledged, isFalse);
+      expect(
+        ctrl.state.value?.error,
+        contains('forced acknowledgement failure'),
+      );
+
+      svc.throwOnAcknowledgeMapping = false;
+      final secondOutcome = await ctrl.applyFronterResolution(
+        chosenLocalMemberIds: {'l1'},
+        direction: PkSyncDirection.bidirectional,
+        mode: PkSyncMode.fullSync,
+        pkCurrentSwitch: pkSwitch,
+      );
+
+      expect(secondOutcome, isA<PkMappingApplyOutcomeApplied>());
+      expect(
+        svc.pushOverrideSwitchCallCount,
+        equals(1),
+        reason:
+            'Retry should reuse the already-created override switch instead '
+            'of POSTing a duplicate switch to PluralKit.',
+      );
+      expect(
+        svc.advanceCursorCallCount,
+        equals(1),
+        reason: 'Retry should not re-advance an already advanced cursor.',
+      );
+      expect(trackingRepo.createdSessions, hasLength(1));
+      expect(svc.state.mappingAcknowledged, isTrue);
+      expect(ctrl.state.value?.isApplying, isFalse);
+    },
+  );
+
   // ---------------------------------------------------------------------------
   // T10: deferBootstrap() — sets SharedPreferences flag; no bootstrap ran
   // ---------------------------------------------------------------------------
@@ -1317,8 +1663,11 @@ void main() {
       final ctrl = container.read(pkMappingControllerProvider.notifier);
 
       final outcome = await ctrl.apply();
-      expect(outcome, isA<PkMappingApplyOutcomeNeedsFronterResolution>(),
-          reason: 'Precondition: outcome must be NeedsFronterResolution');
+      expect(
+        outcome,
+        isA<PkMappingApplyOutcomeNeedsFronterResolution>(),
+        reason: 'Precondition: outcome must be NeedsFronterResolution',
+      );
 
       // Act.
       await ctrl.deferBootstrap();
@@ -1412,8 +1761,12 @@ void main() {
 
       // Act: apply() → NeedsFronterResolution; then applyFronterResolution().
       final outcome = await ctrl.apply();
-      expect(outcome, isA<PkMappingApplyOutcomeNeedsFronterResolution>(),
-          reason: 'Precondition: disagreement must produce NeedsFronterResolution');
+      expect(
+        outcome,
+        isA<PkMappingApplyOutcomeNeedsFronterResolution>(),
+        reason:
+            'Precondition: disagreement must produce NeedsFronterResolution',
+      );
 
       final res = outcome as PkMappingApplyOutcomeNeedsFronterResolution;
       await ctrl.applyFronterResolution(
@@ -1428,7 +1781,8 @@ void main() {
       expect(
         client.getCurrentFrontersCallCount,
         equals(1),
-        reason: 'getCurrentFronters must be called exactly once across apply + applyFronterResolution',
+        reason:
+            'getCurrentFronters must be called exactly once across apply + applyFronterResolution',
       );
     },
   );

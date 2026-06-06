@@ -3204,6 +3204,7 @@
   "pkMappingSectionLocalToPush": "Miembros locales para enviar",
   "pkMappingApplyProgress": "Aplicando… {percent}%",
   "pkMappingImportingHistory": "Importando historial de fronts…",
+  "pkMappingResolvingFronters": "Resolviendo elección de fronters…",
   "pkMappingPushingHistory": "Enviando cambios de frente a PluralKit…",
   "pkMappingNetworkErrorOffline": "No se pudo conectar con PluralKit. Revisa tu conexión a Internet y vuelve a tocar Aplicar.",
   "pkMappingApply": "Aplicar",
