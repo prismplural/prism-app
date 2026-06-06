@@ -11,10 +11,64 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
+import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 void main() {
   const memberId = 'member-1';
+
+  testWidgets('slider anchor labels align to the track position', (
+    tester,
+  ) async {
+    final field = CustomField(
+      id: 'gender-fluidity',
+      name: 'Gender Fluidity',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Masculine',
+        centerLabel: 'Flux',
+        rightLabel: 'Feminine',
+        gradientPresetId: 'solid-accent',
+      ),
+      createdAt: DateTime(2026, 1, 1),
+    );
+    const value = CustomFieldValue(
+      id: 'gender-fluidity-value',
+      customFieldId: 'gender-fluidity',
+      memberId: memberId,
+      value: '50',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 360,
+              child: Builder(
+                builder: (context) =>
+                    buildSliderEditor(context, field, value, memberId),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sliderCenter = tester.getCenter(find.byType(Slider));
+    final centerLabelCenter = tester.getCenter(find.text('Flux'));
+
+    expect(
+      (centerLabelCenter.dx - sliderCenter.dx).abs(),
+      lessThanOrEqualTo(0.5),
+    );
+  });
 
   testWidgets('long text value is staged locally and is NOT persisted '
       'when the editor unmounts without commit', (tester) async {

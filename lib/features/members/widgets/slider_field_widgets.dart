@@ -404,7 +404,12 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
         sliderRow,
         if (isLabeled) ...[
           const SizedBox(height: 6),
-          _SliderLabelRow(config: config),
+          Row(
+            children: [
+              Expanded(child: _SliderLabelRow(config: config)),
+              const SizedBox(width: _kClearButtonSlotSize),
+            ],
+          ),
         ],
       ],
     );
@@ -1525,17 +1530,35 @@ class _SliderLabelRow extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    // The slider's zero-inset thumb makes its track land flush with the
-    // parent's content edges, so anchor labels sit flush there too.
     return Row(
       children: [
-        Text(left, style: labelStyle, overflow: TextOverflow.ellipsis),
-        if (center != null) ...[
-          const Spacer(),
-          Text(center, style: labelStyle, overflow: TextOverflow.ellipsis),
-        ],
-        const Spacer(),
-        Text(right, style: labelStyle, overflow: TextOverflow.ellipsis),
+        Expanded(
+          child: Text(
+            left,
+            style: labelStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (center != null)
+          Expanded(
+            child: Text(
+              center,
+              style: labelStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        Expanded(
+          child: Text(
+            right,
+            style: labelStyle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+          ),
+        ),
       ],
     );
   }
