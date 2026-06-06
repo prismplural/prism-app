@@ -17,8 +17,11 @@ void main() {
         contains('PRODUCT_BUNDLE_IDENTIFIER = com.prismplural.prism.dev;'),
       );
       expect(config, contains('PRODUCT_NAME = "Prism Dev";'));
-      expect(config, contains('CODE_SIGN_IDENTITY = "-";'));
-      expect(config, contains('CODE_SIGN_STYLE = Manual;'));
+      // Stable signing, not ad-hoc — a per-build signature breaks the keychain
+      // ACL. Isolation comes from the .dev bundle id, not from "-".
+      expect(config, isNot(contains('CODE_SIGN_IDENTITY = "-";')));
+      expect(config, contains('CODE_SIGN_STYLE = Automatic;'));
+      expect(config, contains('DEVELOPMENT_TEAM = GF2W9X3Y6L;'));
       expect(
         config,
         contains('CODE_SIGN_ENTITLEMENTS = Runner/DebugProfile.entitlements;'),
@@ -28,7 +31,9 @@ void main() {
     final debugEntitlements = File(
       'macos/Runner/DebugProfile.entitlements',
     ).readAsStringSync();
-    expect(debugEntitlements, isNot(contains('keychain-access-groups')));
+    // Required for the .dev build's data-protection keychain; the separate
+    // bundle id already isolates it from the shipping install.
+    expect(debugEntitlements, contains('keychain-access-groups'));
   });
 
   test('mac Release build keeps the shipping app identity', () {
