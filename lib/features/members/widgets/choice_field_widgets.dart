@@ -471,7 +471,6 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     return BlurPopupAnchor(
       key: popupKey,
       trigger: BlurPopupTrigger.manual,
-      preferredDirection: BlurPopupDirection.down,
       width: 220,
       maxHeight: 180,
       itemCount: 3,

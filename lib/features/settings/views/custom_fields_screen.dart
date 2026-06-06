@@ -682,7 +682,6 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     return BlurPopupAnchor(
       key: _popupKey,
       trigger: BlurPopupTrigger.manual,
-      preferredDirection: BlurPopupDirection.down,
       width: 240,
       maxHeight: 360,
       itemCount: _menuItemCount(

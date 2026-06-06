@@ -640,6 +640,54 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets('settings row long-press menu opens upward near bottom edge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 360);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final database = db.AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    for (final (:id, :name, :order) in [
+      (id: 'sleepy', name: 'Sleepy?', order: 0),
+      (id: 'options', name: 'Options?', order: 1),
+      (id: 'focus', name: 'Focus?', order: 2),
+    ]) {
+      await database.customFieldsDao.createField(
+        db.CustomFieldsCompanion.insert(
+          id: id,
+          name: name,
+          fieldType: 0,
+          displayOrder: Value(order),
+          createdAt: DateTime(2026, 1, order + 1),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(_testRouterApp(database));
+    await tester.pumpAndSettle();
+
+    final row = find.text('Focus?');
+    expect(row, findsOneWidget);
+
+    await tester.longPress(row);
+    await tester.pumpAndSettle();
+
+    final edit = find.text('Edit');
+    expect(edit, findsOneWidget);
+    expect(
+      tester.getTopLeft(edit).dy,
+      lessThan(tester.getTopLeft(row).dy),
+      reason: 'bottom-edge row menus should open upward instead of clipping',
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('group child reorder failure reverts optimistic order', (
     tester,
   ) async {

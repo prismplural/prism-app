@@ -698,6 +698,7 @@ void main() {
       expect(anchors.length, equals(2));
       for (final anchor in anchors) {
         expect(anchor.trigger, equals(BlurPopupTrigger.manual));
+        expect(anchor.preferredDirection, isNull);
       }
     });
   });
