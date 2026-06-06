@@ -32,13 +32,9 @@ Future<DateTime?> showPrismDatePicker({
     maximumDate,
   );
 
-  return showGeneralDialog<DateTime?>(
-    context: context,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierDismissible: true,
-    barrierColor: Colors.transparent,
-    transitionDuration: Duration.zero,
-    pageBuilder: (dialogContext, _, _) => _AnchoredDatePickerRoute(
+  return Navigator.of(context).push<DateTime?>(
+    _AnchoredPickerRoute<DateTime?>(
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       anchorRenderBox: renderBox,
       theme: theme,
       child: _DatePickerContent(
@@ -73,13 +69,9 @@ Future<DateTime?> showPrismMonthYearPicker({
     maximumDate,
   );
 
-  return showGeneralDialog<DateTime?>(
-    context: context,
-    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierDismissible: true,
-    barrierColor: Colors.transparent,
-    transitionDuration: Duration.zero,
-    pageBuilder: (dialogContext, _, _) => _AnchoredDatePickerRoute(
+  return Navigator.of(context).push<DateTime?>(
+    _AnchoredPickerRoute<DateTime?>(
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       anchorRenderBox: renderBox,
       theme: theme,
       child: _MonthYearPicker(
@@ -100,15 +92,65 @@ DateTime _clampDate(DateTime date, DateTime minimum, DateTime maximum) {
   return date;
 }
 
+class _AnchoredPickerRoute<T> extends PopupRoute<T> {
+  _AnchoredPickerRoute({
+    required this.barrierLabel,
+    required this.anchorRenderBox,
+    required this.theme,
+    required this.child,
+  });
+
+  final RenderBox? anchorRenderBox;
+  final ThemeData theme;
+  final Widget child;
+
+  @override
+  final String barrierLabel;
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  Color? get barrierColor => Colors.transparent;
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 200);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 150);
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return _AnchoredDatePickerRoute(
+      anchorRenderBox: anchorRenderBox,
+      theme: theme,
+      animation: curved,
+      child: child,
+    );
+  }
+}
+
 class _AnchoredDatePickerRoute extends StatelessWidget {
   const _AnchoredDatePickerRoute({
     required this.anchorRenderBox,
     required this.theme,
+    required this.animation,
     this.child,
   });
 
   final RenderBox? anchorRenderBox;
   final ThemeData theme;
+  final Animation<double> animation;
   final Widget? child;
 
   @override
@@ -136,6 +178,9 @@ class _AnchoredDatePickerRoute extends StatelessWidget {
       bottomLimit: bottomLimit,
       screenHeight: screenSize.height,
     );
+    final alignment = position.bottom == null
+        ? Alignment.topCenter
+        : Alignment.bottomCenter;
 
     return Theme(
       data: theme,
@@ -146,16 +191,25 @@ class _AnchoredDatePickerRoute extends StatelessWidget {
             top: position.top,
             bottom: position.bottom,
             width: width,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: position.maxHeight),
-              child: SingleChildScrollView(
-                child: Material(
-                  color: theme.colorScheme.surface,
-                  elevation: 8,
-                  shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: child,
+            child: FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+                alignment: alignment,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: position.maxHeight),
+                  child: SingleChildScrollView(
+                    child: Material(
+                      color: theme.colorScheme.surface,
+                      elevation: 8,
+                      shadowColor: theme.colorScheme.shadow.withValues(
+                        alpha: 0.18,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      clipBehavior: Clip.antiAlias,
+                      child: child,
+                    ),
+                  ),
                 ),
               ),
             ),
