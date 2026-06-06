@@ -9,7 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
-import 'package:drift/drift.dart' show TableUpdate, Variable;
+import 'package:drift/drift.dart'
+    show InvalidDataException, TableUpdate, Variable;
 import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
@@ -2938,7 +2939,8 @@ Future<void> runPostHealthySyncCatchUp({
   )?
   reemitOversizedInlineImages,
   @visibleForTesting
-  Future<void> Function(ffi.PrismSyncHandle handle)? repairQuarantinedPushBatches,
+  Future<void> Function(ffi.PrismSyncHandle handle)?
+  repairQuarantinedPushBatches,
   @visibleForTesting
   Future<PkGroupSyncV2CatchupResult> Function(
     ffi.PrismSyncHandle handle,
@@ -3518,6 +3520,24 @@ Future<ApplyResult> applyRemoteChanges(
           onProgress?.call(rowsApplied, changes.length);
         } catch (e, st) {
           final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
+          final skipUnknownSparsePatch =
+              await _shouldSkipUnknownSparsePatchFailure(
+                adapter,
+                tableRaw,
+                entityIdRaw,
+                e,
+              );
+          if (skipUnknownSparsePatch) {
+            ErrorReportingService.instance.report(
+              'Skipped sparse remote update for missing '
+              '$tableRaw/$entityIdRaw: $e (fields: $fieldKeys)',
+              severity: ErrorSeverity.warning,
+              stackTrace: st,
+            );
+            rowsApplied++;
+            onProgress?.call(rowsApplied, changes.length);
+            continue;
+          }
           if (strict) {
             // Abort the entire batch. Callers catch StrictApplyFailure to
             // surface a retry UI without ACKing the snapshot.
@@ -3544,6 +3564,32 @@ Future<ApplyResult> applyRemoteChanges(
   }
 
   return ApplyResult(rowsApplied: rowsApplied);
+}
+
+Future<bool> _shouldSkipUnknownSparsePatchFailure(
+  DriftSyncAdapter adapter,
+  Object? table,
+  Object? entityId,
+  Object error,
+) async {
+  if (table is! String || entityId is! String) return false;
+  if (!_isMissingRequiredColumnFailure(error)) return false;
+  final entity = adapter.entityForTable(table);
+  if (entity == null) return false;
+  try {
+    return await entity.readRow(entityId) == null;
+  } catch (_) {
+    return false;
+  }
+}
+
+bool _isMissingRequiredColumnFailure(Object error) {
+  if (error is InvalidDataException) {
+    return error.message.contains("This value was required, but isn't present");
+  }
+  return error.toString().contains(
+    "This value was required, but isn't present",
+  );
 }
 
 Future<bool> _shouldSkipUnknownRemoteTombstone(

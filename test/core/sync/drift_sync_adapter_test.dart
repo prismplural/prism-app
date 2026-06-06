@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
@@ -9,6 +11,8 @@ import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as database;
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 
@@ -42,7 +46,35 @@ class _DelayedQuarantineService extends SyncQuarantineService {
   }
 }
 
+SyncEvent _eventFromChanges(List<Map<String, dynamic>> changes) {
+  return SyncEvent.fromJson({'type': 'RemoteChanges', 'changes': changes});
+}
+
+const _fullRemotePayloadFixturePath =
+    'test/fixtures/sync/full_remote_payloads.json';
+
+late final List<String> _remoteCreateOrder;
+late final Map<String, String> _remoteCreateIds;
+late final Map<String, Map<String, dynamic>> _remoteCreatePayloads;
+
+Future<void> _loadFullRemotePayloadFixture() async {
+  final fixture =
+      jsonDecode(await File(_fullRemotePayloadFixturePath).readAsString())
+          as Map<String, dynamic>;
+
+  _remoteCreateOrder = List<String>.from(fixture['order'] as List<dynamic>);
+  _remoteCreateIds = Map<String, String>.from(
+    fixture['ids'] as Map<String, dynamic>,
+  );
+  _remoteCreatePayloads = {
+    for (final entry in (fixture['payloads'] as Map<String, dynamic>).entries)
+      entry.key: Map<String, dynamic>.from(entry.value as Map<String, dynamic>),
+  };
+}
+
 void main() {
+  setUpAll(_loadFullRemotePayloadFixture);
+
   test(
     'quarantined field writes are tracked before sync batch completion',
     () async {
@@ -417,6 +449,13 @@ void main() {
       addTearDown(db.close);
       final adapter = buildSyncAdapterWithCompletion(db).adapter;
       final failures = <String, Object>{};
+      expect(
+        _remoteCreateOrder.toSet(),
+        adapter.entities.map((entity) => entity.tableName).toSet(),
+        reason:
+            'The full remote payload fixture must cover every registered '
+            'sync entity.',
+      );
 
       for (final table in _remoteCreateOrder) {
         final entity = adapter.entities.singleWhere(
@@ -427,17 +466,13 @@ void main() {
         try {
           await entity.applyFields(id, fields);
           final row = await entity.readRow(id);
-          if (row == null) {
-            failures[table] = 'applyFields completed but readRow returned null';
-          } else {
-            final expected = _expectedReadRowForRemotePayload(table, fields);
-            for (final entry in expected.entries) {
-              if (row[entry.key] != entry.value) {
-                failures['$table.${entry.key}'] =
-                    'expected ${entry.value}, got ${row[entry.key]}';
-              }
-            }
-          }
+          _recordFullRemotePayloadReadBackFailures(
+            failures: failures,
+            table: table,
+            row: row,
+            fields: fields,
+            nullRowMessage: 'applyFields completed but readRow returned null',
+          );
         } catch (e) {
           failures[table] = e;
         }
@@ -452,6 +487,78 @@ void main() {
             'A failure here usually means Drift has a NOT NULL local-only '
             'column that remote/snapshot apply does not populate, or an '
             'applyFields mapper silently skipped a synced field.',
+      );
+    },
+  );
+
+  test(
+    'strict pairing apply can restore every entity from full remote payloads',
+    () async {
+      final db = database.AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final adapter = buildSyncAdapterWithCompletion(db).adapter;
+      final failures = <String, Object>{};
+      final progress = <int>[];
+      expect(
+        _remoteCreateOrder.toSet(),
+        adapter.entities.map((entity) => entity.tableName).toSet(),
+        reason:
+            'The strict pairing restore fixture must cover every registered '
+            'sync entity.',
+      );
+
+      final event = _eventFromChanges([
+        for (final table in _remoteCreateOrder)
+          {
+            'table': table,
+            'entity_id': _remoteCreateIds[table]!,
+            'is_delete': false,
+            'fields': Map<String, dynamic>.from(_remoteCreatePayloads[table]!),
+          },
+      ]);
+
+      final result = await applyRemoteChanges(
+        db,
+        adapter,
+        event,
+        strict: true,
+        onProgress: (applied, total) {
+          expect(total, _remoteCreateOrder.length);
+          progress.add(applied);
+        },
+      );
+
+      expect(result.rowsApplied, _remoteCreateOrder.length);
+      expect(result.failedTables, isEmpty);
+      expect(
+        progress,
+        List<int>.generate(_remoteCreateOrder.length, (i) => i + 1),
+      );
+
+      for (final table in _remoteCreateOrder) {
+        final entity = adapter.entities.singleWhere(
+          (e) => e.tableName == table,
+        );
+        final id = _remoteCreateIds[table]!;
+        final fields = _remoteCreatePayloads[table]!;
+        final row = await entity.readRow(id);
+        _recordFullRemotePayloadReadBackFailures(
+          failures: failures,
+          table: table,
+          row: row,
+          fields: fields,
+          nullRowMessage:
+              'applyRemoteChanges completed but readRow returned null',
+        );
+      }
+
+      expect(
+        failures,
+        isEmpty,
+        reason:
+            'The strict pairing restore path must accept the full synced '
+            'field shape for every entity and round-trip every supplied '
+            'field through readRow.',
       );
     },
   );
@@ -1431,6 +1538,36 @@ void main() {
   });
 }
 
+void _recordFullRemotePayloadReadBackFailures({
+  required Map<String, Object> failures,
+  required String table,
+  required Map<String, dynamic>? row,
+  required Map<String, dynamic> fields,
+  required String nullRowMessage,
+}) {
+  if (row == null) {
+    failures[table] = nullRowMessage;
+    return;
+  }
+
+  final expected = _expectedReadRowForRemotePayload(table, fields);
+  final expectedKeys = expected.keys.toSet();
+  final actualKeys = row.keys.toSet();
+  final missingKeys = expectedKeys.difference(actualKeys);
+  final unexpectedKeys = actualKeys.difference(expectedKeys);
+  if (missingKeys.isNotEmpty || unexpectedKeys.isNotEmpty) {
+    failures['$table.<field-set>'] =
+        'missing ${missingKeys.toList()}, unexpected ${unexpectedKeys.toList()}';
+  }
+
+  for (final entry in expected.entries) {
+    if (row[entry.key] != entry.value) {
+      failures['$table.${entry.key}'] =
+          'expected ${entry.value}, got ${row[entry.key]}';
+    }
+  }
+}
+
 Map<String, dynamic> _expectedReadRowForRemotePayload(
   String table,
   Map<String, dynamic> fields,
@@ -1450,356 +1587,3 @@ Map<String, dynamic> _expectedReadRowForRemotePayload(
   }
   return expected;
 }
-
-const _remoteIso = '2026-04-29T12:00:00.000Z';
-const _remoteIsoLater = '2026-04-29T12:05:00.000Z';
-
-const _remoteCreateOrder = <String>[
-  'members',
-  'fronting_sessions',
-  'conversations',
-  'chat_messages',
-  'system_settings',
-  'polls',
-  'poll_options',
-  'poll_votes',
-  'habits',
-  'habit_completions',
-  'conversation_categories',
-  'reminders',
-  'member_groups',
-  'member_group_entries',
-  'custom_fields',
-  'custom_field_values',
-  'notes',
-  'front_session_comments',
-  'friends',
-  'media_attachments',
-];
-
-const _remoteCreateIds = <String, String>{
-  'members': 'member-1',
-  'fronting_sessions': 'front-1',
-  'conversations': 'conversation-1',
-  'chat_messages': 'message-1',
-  'system_settings': 'singleton',
-  'polls': 'poll-1',
-  'poll_options': 'poll-option-1',
-  'poll_votes': 'poll-vote-1',
-  'habits': 'habit-1',
-  'habit_completions': 'habit-completion-1',
-  'conversation_categories': 'conversation-category-1',
-  'reminders': 'reminder-1',
-  'member_groups': 'pk-group:pk-group-uuid',
-  'member_group_entries': 'member-group-entry-1',
-  'custom_fields': 'custom-field-1',
-  'custom_field_values': 'custom-field-value-1',
-  'notes': 'note-1',
-  'front_session_comments': 'front-comment-1',
-  'friends': 'friend-1',
-  'media_attachments': 'media-attachment-1',
-};
-
-const _remoteCreatePayloads = <String, Map<String, dynamic>>{
-  'members': {
-    'name': 'Ada',
-    'pronouns': 'they/them',
-    'emoji': '*',
-    'age': 33,
-    'bio': 'bio',
-    'avatar_image_data': 'AQID',
-    'pk_avatar_cached_url': 'https://example.invalid/avatar.png',
-    'is_active': true,
-    'created_at': _remoteIso,
-    'display_order': 1,
-    'is_admin': false,
-    'custom_color_enabled': true,
-    'custom_color_hex': '#112233',
-    'parent_system_id': 'system-1',
-    'pluralkit_uuid': 'pk-member-uuid',
-    'pluralkit_id': 'abcde',
-    'pluralkit_display_name': 'Ada PK Display',
-    'markdown_enabled': true,
-    'display_name': 'Ada Display',
-    'birthday': '2000-01-01',
-    'proxy_tags_json': '[]',
-    'pk_banner_url': 'https://example.invalid/banner.png',
-    'profile_header_source': 0,
-    'profile_header_layout': 1,
-    'profile_header_visible': true,
-    'name_style_font': 1,
-    'name_style_bold': false,
-    'name_style_italic': true,
-    'name_style_color_mode': 2,
-    'name_style_color_hex': '#445566',
-    'profile_header_image_data': 'BAUG',
-    'pk_banner_image_data': 'BwgJ',
-    'pk_banner_cached_url': 'https://example.invalid/banner.png',
-    'pluralkit_sync_ignored': false,
-    'delete_push_started_at': 0,
-    'is_always_fronting': false,
-    'is_deleted': false,
-  },
-  'fronting_sessions': {
-    'start_time': _remoteIso,
-    'end_time': _remoteIsoLater,
-    'member_id': 'member-1',
-    'notes': 'notes',
-    'confidence': 1,
-    'session_type': 0,
-    'quality': 1,
-    'is_health_kit_import': false,
-    'pluralkit_uuid': 'pk-switch-uuid',
-    'pk_import_source': 'file',
-    'pk_file_switch_id': 'remote-switch-1',
-    'delete_push_started_at': 0,
-    'is_deleted': false,
-  },
-  'conversations': {
-    'created_at': _remoteIso,
-    'last_activity_at': _remoteIsoLater,
-    'title': 'Conversation',
-    'emoji': '*',
-    'is_direct_message': false,
-    'creator_id': 'member-1',
-    'participant_ids': '["member-1"]',
-    'archived_by_member_ids': '[]',
-    'muted_by_member_ids': '["member-1"]',
-    'last_read_timestamps': '{}',
-    'description': 'description',
-    'category_id': 'conversation-category-1',
-    'display_order': 1,
-    'is_deleted': false,
-  },
-  'chat_messages': {
-    'content': 'hello',
-    'timestamp': _remoteIso,
-    'is_system_message': false,
-    'edited_at': _remoteIsoLater,
-    'author_id': 'member-1',
-    'conversation_id': 'conversation-1',
-    'reactions': '[]',
-    'reply_to_id': 'reply-1',
-    'reply_to_author_id': 'member-1',
-    'reply_to_content': 'reply',
-    'is_deleted': false,
-  },
-  'system_settings': {
-    'system_name': 'System',
-    'sharing_id': 'share-1',
-    'show_quick_front': true,
-    'accent_color_hex': '#112233',
-    'per_member_accent_colors': true,
-    'terminology': 0,
-    'custom_terminology': 'headmate',
-    'custom_plural_terminology': 'system',
-    'terminology_use_english': false,
-    'fronting_reminders_enabled': true,
-    'fronting_reminder_interval_minutes': 60,
-    'theme_mode': 0,
-    'theme_brightness': 0,
-    'theme_style': 0,
-    'theme_corner_style': 0,
-    'chat_enabled': true,
-    'gif_search_enabled': true,
-    'voice_notes_enabled': true,
-    'locale_override': 'en',
-    'polls_enabled': true,
-    'habits_enabled': true,
-    'sleep_tracking_enabled': true,
-    'quick_switch_threshold_seconds': 30,
-    'identity_generation': 1,
-    'sleep_suggestion_enabled': true,
-    'sleep_suggestion_hour': 22,
-    'sleep_suggestion_minute': 0,
-    'wake_suggestion_enabled': true,
-    'wake_suggestion_after_hours': 8.0,
-    'chat_logs_front': false,
-    'sync_theme_enabled': true,
-    'timing_mode': 0,
-    'notes_enabled': true,
-    'pk_group_sync_v2_enabled': true,
-    'system_color': '#445566',
-    'system_description': 'description',
-    'system_tag': 'tag',
-    'system_avatar_data': 'AQID',
-    'reminders_enabled': true,
-    'sync_navigation_enabled': true,
-    'habits_badge_enabled': true,
-    'nav_bar_items': '["fronting"]',
-    'nav_bar_overflow_items': '[]',
-    'chat_badge_preferences': '{}',
-    'fronting_list_view_mode': 0,
-    'add_front_default_behavior': 0,
-    'quick_front_default_behavior': 0,
-    'is_deleted': false,
-  },
-  'polls': {
-    'question': 'Question?',
-    'description': 'description',
-    'is_anonymous': false,
-    'allows_multiple_votes': true,
-    'is_closed': false,
-    'expires_at': _remoteIsoLater,
-    'created_at': _remoteIso,
-    'is_deleted': false,
-  },
-  'poll_options': {
-    'poll_id': 'poll-1',
-    'option_text': 'Option',
-    'sort_order': 1,
-    'is_other_option': false,
-    'color_hex': '#112233',
-    'is_deleted': false,
-  },
-  'poll_votes': {
-    'poll_option_id': 'poll-option-1',
-    'member_id': 'member-1',
-    'voted_at': _remoteIso,
-    'response_text': 'response',
-    'is_deleted': false,
-  },
-  'habits': {
-    'name': 'Habit',
-    'description': 'description',
-    'icon': 'check',
-    'color_hex': '#112233',
-    'is_active': true,
-    'created_at': _remoteIso,
-    'modified_at': _remoteIsoLater,
-    'frequency': 'daily',
-    'weekly_days': '[1,2]',
-    'interval_days': 1,
-    'reminder_time': '08:00',
-    'notifications_enabled': true,
-    'notification_message': 'do it',
-    'assigned_member_id': 'member-1',
-    'only_notify_when_fronting': false,
-    'is_private': false,
-    'current_streak': 1,
-    'best_streak': 2,
-    'total_completions': 3,
-    'is_deleted': false,
-  },
-  'habit_completions': {
-    'habit_id': 'habit-1',
-    'completed_at': _remoteIso,
-    'completed_by_member_id': 'member-1',
-    'notes': 'notes',
-    'was_fronting': true,
-    'rating': 5,
-    'created_at': _remoteIso,
-    'modified_at': _remoteIsoLater,
-    'is_deleted': false,
-  },
-  'conversation_categories': {
-    'name': 'Category',
-    'display_order': 1,
-    'created_at': _remoteIso,
-    'modified_at': _remoteIsoLater,
-    'is_deleted': false,
-  },
-  'reminders': {
-    'name': 'Reminder',
-    'message': 'message',
-    'trigger': 0,
-    'interval_days': 1,
-    'time_of_day': '09:00',
-    'delay_hours': 1,
-    'target_member_id': 'member-1',
-    'is_active': true,
-    'created_at': _remoteIso,
-    'modified_at': _remoteIsoLater,
-    'frequency': 'daily',
-    'weekly_days': '[1,2]',
-    'is_deleted': false,
-  },
-  'member_groups': {
-    'name': 'Group',
-    'description': 'description',
-    'color_hex': '#112233',
-    'emoji': '*',
-    'display_order': 1,
-    'parent_group_id': 'parent-group',
-    'group_type': 0,
-    'filter_rules': '{}',
-    'created_at': _remoteIso,
-    'pluralkit_id': 'abcde',
-    'pluralkit_uuid': 'pk-group-uuid',
-    'last_seen_from_pk_at': _remoteIso,
-    'is_deleted': false,
-  },
-  'member_group_entries': {
-    'group_id': 'sender-local-group',
-    'member_id': 'sender-local-member',
-    'pk_group_uuid': 'pk-group-uuid',
-    'pk_member_uuid': 'pk-member-uuid',
-    'is_deleted': false,
-  },
-  'custom_fields': {
-    'name': 'Field',
-    'field_type': 0,
-    'date_precision': 0,
-    'display_order': 1,
-    'created_at': _remoteIso,
-    'is_deleted': false,
-  },
-  'custom_field_values': {
-    'custom_field_id': 'custom-field-1',
-    'member_id': 'member-1',
-    'value': 'value',
-    'is_deleted': false,
-  },
-  'notes': {
-    'title': 'Note',
-    'body': 'body',
-    'color_hex': '#112233',
-    'member_id': 'member-1',
-    'date': _remoteIso,
-    'created_at': _remoteIso,
-    'modified_at': _remoteIsoLater,
-    'is_deleted': false,
-  },
-  'front_session_comments': {
-    'session_id': 'session-1',
-    'body': 'comment',
-    'timestamp': _remoteIso,
-    'created_at': _remoteIsoLater,
-    'is_deleted': false,
-  },
-  'friends': {
-    'display_name': 'Friend',
-    'peer_sharing_id': 'peer-1',
-    'pairwise_secret': 'AQID',
-    'pinned_identity': 'BAUG',
-    'offered_scopes': '[]',
-    'public_key_hex': 'deadbeef',
-    'shared_secret_hex': 'secret',
-    'granted_scopes': '[]',
-    'is_verified': true,
-    'init_id': 'init-1',
-    'created_at': _remoteIso,
-    'established_at': _remoteIso,
-    'last_sync_at': _remoteIsoLater,
-    'is_deleted': false,
-  },
-  'media_attachments': {
-    'message_id': 'message-1',
-    'media_id': 'media-1',
-    'media_type': 'image',
-    'encryption_key_b64': 'AQID',
-    'content_hash': 'hash',
-    'plaintext_hash': 'plain',
-    'mime_type': 'image/png',
-    'size_bytes': 12,
-    'width': 10,
-    'height': 10,
-    'duration_ms': 0,
-    'blurhash': 'blur',
-    'waveform_b64': '',
-    'thumbnail_media_id': '',
-    'source_url': '',
-    'preview_url': '',
-    'is_deleted': false,
-  },
-};

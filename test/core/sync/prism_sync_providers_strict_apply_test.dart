@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,6 +38,32 @@ DriftSyncEntity _fakeEntity({
 
 SyncEvent _eventFromChanges(List<Map<String, dynamic>> changes) {
   return SyncEvent.fromJson({'type': 'RemoteChanges', 'changes': changes});
+}
+
+Map<String, dynamic> _frontingFields({
+  required String notes,
+  required String pkUuid,
+  String? memberId = 'member-1',
+  int sessionType = 0,
+  DateTime? startTime,
+  bool isDeleted = false,
+}) {
+  final startedAt = startTime ?? DateTime.utc(2026, 6, 5, 12);
+  return <String, dynamic>{
+    'start_time': startedAt.toIso8601String(),
+    'end_time': startedAt.add(const Duration(hours: 1)).toIso8601String(),
+    'member_id': memberId,
+    'notes': notes,
+    'confidence': 1,
+    'session_type': sessionType,
+    'quality': null,
+    'is_health_kit_import': false,
+    'pluralkit_uuid': pkUuid,
+    'pk_import_source': 'api',
+    'pk_file_switch_id': 'switch-1',
+    'delete_push_started_at': null,
+    'is_deleted': isDeleted,
+  };
 }
 
 void main() {
@@ -251,6 +281,533 @@ void main() {
       )..where((t) => t.id.equals('missing-message'))).getSingleOrNull();
       expect(message, isNull);
     });
+
+    test(
+      'sparse conversation visibility patch does not abort strict pairing apply',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'conversations',
+              'entity_id': 'conversation-1',
+              'is_delete': false,
+              'fields': {'includes_all_members': true},
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final row = await (db.select(
+          db.conversations,
+        )..where((t) => t.id.equals('conversation-1'))).getSingle();
+        expect(row.includesAllMembers, isTrue);
+        expect(row.isDeleted, isFalse);
+      },
+    );
+
+    test(
+      'unknown sparse row patch does not abort strict pairing apply',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'chat_messages',
+              'entity_id': 'message-1',
+              'is_delete': false,
+              'fields': {
+                'edited_at': DateTime.utc(2026, 6, 5, 12).toIso8601String(),
+              },
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final row = await (db.select(
+          db.chatMessages,
+        )..where((t) => t.id.equals('message-1'))).getSingleOrNull();
+        expect(row, isNull);
+      },
+    );
+
+    test(
+      'duplicate PK-backed group-entry records do not abort strict pairing apply',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final now = DateTime.utc(2026, 6, 5, 12);
+
+        await db
+            .into(db.memberGroups)
+            .insert(
+              database.MemberGroupsCompanion.insert(
+                id: 'pk-group:pk-group-1',
+                name: 'PK Group',
+                createdAt: now,
+                pluralkitUuid: const drift.Value('pk-group-1'),
+              ),
+            );
+        await db
+            .into(db.members)
+            .insert(
+              database.MembersCompanion.insert(
+                id: 'member-1',
+                name: 'Member',
+                createdAt: now,
+                pluralkitUuid: const drift.Value('pk-member-1'),
+              ),
+            );
+
+        final canonicalEntryId = sha256
+            .convert(utf8.encode('pk-group-1\u0000pk-member-1'))
+            .toString()
+            .substring(0, 16);
+        final fields = <String, dynamic>{
+          'group_id': 'sender-local-group',
+          'member_id': 'member-1',
+          'pk_group_uuid': 'pk-group-1',
+          'pk_member_uuid': 'pk-member-1',
+          'is_deleted': false,
+        };
+        final event = _eventFromChanges([
+          {
+            'table': 'member_group_entries',
+            'entity_id': 'legacy-entry-id',
+            'is_delete': false,
+            'fields': fields,
+          },
+          {
+            'table': 'member_group_entries',
+            'entity_id': canonicalEntryId,
+            'is_delete': false,
+            'fields': fields,
+          },
+        ]);
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          event,
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 2);
+        final rows = await db.select(db.memberGroupEntries).get();
+        final activeRows = rows.where((row) => !row.isDeleted).toList();
+        expect(activeRows, hasLength(1));
+        expect(activeRows.single.id, canonicalEntryId);
+        expect(activeRows.single.groupId, 'pk-group:pk-group-1');
+        expect(activeRows.single.memberId, 'member-1');
+        expect(
+          rows.singleWhere((row) => row.id == 'legacy-entry-id').isDeleted,
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'canonical PK-backed group-entry remains canonical after legacy duplicate',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final now = DateTime.utc(2026, 6, 5, 12);
+
+        await db
+            .into(db.memberGroups)
+            .insert(
+              database.MemberGroupsCompanion.insert(
+                id: 'pk-group:pk-group-1',
+                name: 'PK Group',
+                createdAt: now,
+                pluralkitUuid: const drift.Value('pk-group-1'),
+              ),
+            );
+        await db
+            .into(db.members)
+            .insert(
+              database.MembersCompanion.insert(
+                id: 'member-1',
+                name: 'Member',
+                createdAt: now,
+                pluralkitUuid: const drift.Value('pk-member-1'),
+              ),
+            );
+
+        final canonicalEntryId = sha256
+            .convert(utf8.encode('pk-group-1\u0000pk-member-1'))
+            .toString()
+            .substring(0, 16);
+        final fields = <String, dynamic>{
+          'group_id': 'sender-local-group',
+          'member_id': 'member-1',
+          'pk_group_uuid': 'pk-group-1',
+          'pk_member_uuid': 'pk-member-1',
+          'is_deleted': false,
+        };
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'member_group_entries',
+              'entity_id': canonicalEntryId,
+              'is_delete': false,
+              'fields': fields,
+            },
+            {
+              'table': 'member_group_entries',
+              'entity_id': 'legacy-entry-id',
+              'is_delete': false,
+              'fields': fields,
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 2);
+        final rows = await db.select(db.memberGroupEntries).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, canonicalEntryId);
+        expect(rows.single.groupId, 'pk-group:pk-group-1');
+        expect(rows.single.memberId, 'member-1');
+        expect(rows.single.isDeleted, isFalse);
+      },
+    );
+
+    test(
+      'duplicate PK-backed fronting-session records do not abort strict pairing apply',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final fields = <String, dynamic>{
+          'start_time': DateTime.utc(2026, 6, 5, 12).toIso8601String(),
+          'end_time': DateTime.utc(2026, 6, 5, 13).toIso8601String(),
+          'member_id': 'member-1',
+          'notes': 'initial',
+          'confidence': 1,
+          'session_type': 0,
+          'quality': null,
+          'is_health_kit_import': false,
+          'pluralkit_uuid': 'pk-switch-1',
+          'pk_import_source': 'api',
+          'pk_file_switch_id': 'switch-1',
+          'delete_push_started_at': null,
+          'is_deleted': false,
+        };
+
+        await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'fronting_sessions',
+              'entity_id': 'front-existing',
+              'is_delete': false,
+              'fields': fields,
+            },
+          ]),
+          strict: true,
+        );
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'fronting_sessions',
+              'entity_id': 'front-incoming',
+              'is_delete': false,
+              'fields': {...fields, 'notes': 'incoming'},
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final rows = await db.select(db.frontingSessions).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'front-existing');
+        expect(rows.single.notes, 'incoming');
+        expect(rows.single.pluralkitUuid, 'pk-switch-1');
+        expect(rows.single.memberId, 'member-1');
+      },
+    );
+
+    test(
+      'orphan PK-backed fronting-session records do not abort strict pairing apply',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+
+        await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'fronting_sessions',
+              'entity_id': 'front-orphan-existing',
+              'is_delete': false,
+              'fields': _frontingFields(
+                notes: 'initial',
+                pkUuid: 'pk-orphan-switch-1',
+                memberId: null,
+                sessionType: 1,
+              ),
+            },
+          ]),
+          strict: true,
+        );
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'fronting_sessions',
+              'entity_id': 'front-orphan-incoming',
+              'is_delete': false,
+              'fields': _frontingFields(
+                notes: 'incoming',
+                pkUuid: 'pk-orphan-switch-1',
+                memberId: null,
+                sessionType: 1,
+              ),
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final rows = await db.select(db.frontingSessions).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'front-orphan-existing');
+        expect(rows.single.notes, 'incoming');
+        expect(rows.single.pluralkitUuid, 'pk-orphan-switch-1');
+        expect(rows.single.memberId, isNull);
+        expect(rows.single.sessionType, 1);
+      },
+    );
+
+    test(
+      'deleted PK-backed fronting-session holder does not block active restore',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final now = DateTime.utc(2026, 6, 5, 12);
+        await db
+            .into(db.frontingSessions)
+            .insert(
+              database.FrontingSessionsCompanion.insert(
+                id: 'deleted-front-holder',
+                startTime: now,
+                memberId: const drift.Value('member-1'),
+                pluralkitUuid: const drift.Value('pk-switch-1'),
+                isDeleted: const drift.Value(true),
+              ),
+            );
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'fronting_sessions',
+              'entity_id': 'front-active',
+              'is_delete': false,
+              'fields': {
+                'start_time': now.toIso8601String(),
+                'end_time': DateTime.utc(2026, 6, 5, 13).toIso8601String(),
+                'member_id': 'member-1',
+                'notes': 'active',
+                'confidence': null,
+                'session_type': 0,
+                'quality': null,
+                'is_health_kit_import': false,
+                'pluralkit_uuid': 'pk-switch-1',
+                'pk_import_source': 'api',
+                'pk_file_switch_id': 'switch-1',
+                'delete_push_started_at': null,
+                'is_deleted': false,
+              },
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final rows = await db.select(db.frontingSessions).get();
+        final deleted = rows.singleWhere(
+          (row) => row.id == 'deleted-front-holder',
+        );
+        final active = rows.singleWhere((row) => row.id == 'front-active');
+        expect(deleted.isDeleted, isTrue);
+        expect(deleted.pluralkitUuid, isNull);
+        expect(active.isDeleted, isFalse);
+        expect(active.pluralkitUuid, 'pk-switch-1');
+        expect(active.memberId, 'member-1');
+      },
+    );
+
+    test(
+      'deleted orphan PK-backed fronting-session holder does not block active restore',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final now = DateTime.utc(2026, 6, 5, 12);
+        await db
+            .into(db.frontingSessions)
+            .insert(
+              database.FrontingSessionsCompanion.insert(
+                id: 'deleted-front-orphan-holder',
+                startTime: now,
+                memberId: const drift.Value(null),
+                sessionType: const drift.Value(1),
+                pluralkitUuid: const drift.Value('pk-orphan-switch-1'),
+                isDeleted: const drift.Value(true),
+              ),
+            );
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'fronting_sessions',
+              'entity_id': 'front-orphan-active',
+              'is_delete': false,
+              'fields': _frontingFields(
+                notes: 'active',
+                pkUuid: 'pk-orphan-switch-1',
+                memberId: null,
+                sessionType: 1,
+                startTime: now,
+              ),
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final rows = await db.select(db.frontingSessions).get();
+        final deleted = rows.singleWhere(
+          (row) => row.id == 'deleted-front-orphan-holder',
+        );
+        final active = rows.singleWhere(
+          (row) => row.id == 'front-orphan-active',
+        );
+        expect(deleted.isDeleted, isTrue);
+        expect(deleted.pluralkitUuid, isNull);
+        expect(deleted.memberId, isNull);
+        expect(active.isDeleted, isFalse);
+        expect(active.pluralkitUuid, 'pk-orphan-switch-1');
+        expect(active.memberId, isNull);
+        expect(active.sessionType, 1);
+      },
+    );
+
+    test(
+      'duplicate member profile preference records do not abort strict pairing apply',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final fields = <String, dynamic>{
+          'member_id': 'member-1',
+          'key': 'profile.header.visible',
+          'value_type': 'bool',
+          'value_json': 'true',
+          'is_deleted': false,
+        };
+
+        await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'member_profile_preference_values',
+              'entity_id': 'legacy-pref-id',
+              'is_delete': false,
+              'fields': fields,
+            },
+          ]),
+          strict: true,
+        );
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'member_profile_preference_values',
+              'entity_id': 'bWVtYmVyLTE:profile.header.visible',
+              'is_delete': false,
+              'fields': {...fields, 'value_json': 'false'},
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final rows = await db.select(db.memberProfilePreferenceValues).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'bWVtYmVyLTE:profile.header.visible');
+        expect(rows.single.memberId, 'member-1');
+        expect(rows.single.key, 'profile.header.visible');
+        expect(rows.single.valueJson, 'false');
+      },
+    );
+
+    test(
+      'deleted member profile preference holder does not block active restore',
+      () async {
+        final adapter = buildSyncAdapterWithCompletion(db).adapter;
+        final fields = <String, dynamic>{
+          'member_id': 'member-1',
+          'key': 'profile.header.visible',
+          'value_type': 'bool',
+          'value_json': null,
+          'is_deleted': true,
+        };
+
+        await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'member_profile_preference_values',
+              'entity_id': 'legacy-pref-id',
+              'is_delete': false,
+              'fields': fields,
+            },
+          ]),
+          strict: true,
+        );
+
+        final result = await applyRemoteChanges(
+          db,
+          adapter,
+          _eventFromChanges([
+            {
+              'table': 'member_profile_preference_values',
+              'entity_id': 'bWVtYmVyLTE:profile.header.visible',
+              'is_delete': false,
+              'fields': {...fields, 'value_json': 'true', 'is_deleted': false},
+            },
+          ]),
+          strict: true,
+        );
+
+        expect(result.rowsApplied, 1);
+        final rows = await db.select(db.memberProfilePreferenceValues).get();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'bWVtYmVyLTE:profile.header.visible');
+        expect(rows.single.memberId, 'member-1');
+        expect(rows.single.key, 'profile.header.visible');
+        expect(rows.single.valueJson, 'true');
+        expect(rows.single.isDeleted, isFalse);
+      },
+    );
   });
 
   group('StrictApplyCoordinator', () {

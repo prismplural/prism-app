@@ -143,20 +143,21 @@ void main() {
       },
     );
 
-    test('active duplicate PK holder still fails strict apply', () async {
-      await _runStrictApply(db, [
-        _memberChange(
-          'active-holder',
-          _memberFields(
-            name: 'Active holder',
-            pkUuid: 'pk-member-uuid',
-            pkId: 'abcde',
+    test(
+      'active duplicate PK holder merges without aborting pairing',
+      () async {
+        await _runStrictApply(db, [
+          _memberChange(
+            'active-holder',
+            _memberFields(
+              name: 'Active holder',
+              pkUuid: 'pk-member-uuid',
+              pkId: 'abcde',
+            ),
           ),
-        ),
-      ]);
+        ]);
 
-      await expectLater(
-        _runStrictApply(db, [
+        await _runStrictApply(db, [
           _memberChange(
             'active-replacement',
             _memberFields(
@@ -165,9 +166,81 @@ void main() {
               pkId: 'abcde',
             ),
           ),
-        ]),
-        throwsA(isA<StrictApplyFailure>()),
-      );
-    });
+        ]);
+
+        final rows = await db.select(db.members).get();
+        expect(rows, hasLength(1));
+        final active = rows.single;
+        expect(active.id, 'active-holder');
+        expect(active.name, 'Active replacement');
+        expect(active.pluralkitUuid, 'pk-member-uuid');
+        expect(active.pluralkitId, 'abcde');
+      },
+    );
+
+    test(
+      'active duplicate PK short-id holder merges without aborting pairing',
+      () async {
+        await _runStrictApply(db, [
+          _memberChange(
+            'active-holder',
+            _memberFields(name: 'Active holder', pkId: 'abcde'),
+          ),
+        ]);
+
+        await _runStrictApply(db, [
+          _memberChange(
+            'active-replacement',
+            _memberFields(name: 'Active replacement', pkId: 'abcde'),
+          ),
+        ]);
+
+        final rows = await db.select(db.members).get();
+        expect(rows, hasLength(1));
+        final active = rows.single;
+        expect(active.id, 'active-holder');
+        expect(active.name, 'Active replacement');
+        expect(active.pluralkitUuid, isNull);
+        expect(active.pluralkitId, 'abcde');
+      },
+    );
+
+    test(
+      'stale PK tombstone after active holder does not abort pairing',
+      () async {
+        await _runStrictApply(db, [
+          _memberChange(
+            'active-holder',
+            _memberFields(
+              name: 'Active holder',
+              pkUuid: 'pk-member-uuid',
+              pkId: 'abcde',
+            ),
+          ),
+          _memberChange(
+            'stale-tombstone',
+            _memberFields(
+              name: 'Stale tombstone',
+              pkUuid: 'pk-member-uuid',
+              pkId: 'abcde',
+              isDeleted: true,
+            ),
+          ),
+        ]);
+
+        final rows = await db.select(db.members).get();
+        expect(rows, hasLength(2));
+        final active = rows.singleWhere((row) => row.id == 'active-holder');
+        final tombstone = rows.singleWhere(
+          (row) => row.id == 'stale-tombstone',
+        );
+        expect(active.isDeleted, isFalse);
+        expect(active.pluralkitUuid, 'pk-member-uuid');
+        expect(active.pluralkitId, 'abcde');
+        expect(tombstone.isDeleted, isTrue);
+        expect(tombstone.pluralkitUuid, isNull);
+        expect(tombstone.pluralkitId, isNull);
+      },
+    );
   });
 }

@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart'
     show sanitizeSortStateForEmission, tryDecodeSortState;
+import 'package:prism_plurality/domain/preferences/preference_entity_id.dart';
 
 /// Applies remote CRDT changes from the Rust sync engine to the local Drift DB.
 ///
@@ -537,6 +538,70 @@ Future<void> _insertOrUpdateCustomFieldValueForApply(
   await db.into(db.customFieldValues).insertOnConflictUpdate(targetCompanion);
 }
 
+Future<void> _insertOrUpdateMemberProfilePreferenceValueForApply(
+  AppDatabase db,
+  String id,
+  MemberProfilePreferenceValuesCompanion companion,
+  Map<String, dynamic> fields,
+) async {
+  final memberId = _asString(fields['member_id']);
+  final key = _asString(fields['key']);
+  var targetId = id;
+  MemberProfilePreferenceValueRow? existingLogical;
+  if (memberId != null && key != null) {
+    final deterministicId = isValidPreferenceKey(key)
+        ? PreferenceEntityId.memberProfile(memberId, key)
+        : null;
+    existingLogical =
+        await (db.select(db.memberProfilePreferenceValues)
+              ..where((t) => t.memberId.equals(memberId) & t.key.equals(key)))
+            .getSingleOrNull();
+    if (existingLogical != null) {
+      if (existingLogical.id == id) {
+        targetId = id;
+      } else if (deterministicId != null &&
+          existingLogical.id == deterministicId) {
+        targetId = deterministicId;
+      } else if (deterministicId != null && id == deterministicId) {
+        final existingDeterministic = await (db.select(
+          db.memberProfilePreferenceValues,
+        )..where((t) => t.id.equals(deterministicId))).getSingleOrNull();
+        targetId =
+            existingDeterministic == null ||
+                existingDeterministic.id == existingLogical.id
+            ? deterministicId
+            : existingLogical.id;
+      } else {
+        targetId = existingLogical.id;
+      }
+    }
+  }
+  final targetCompanion = targetId == id
+      ? companion
+      : companion.copyWith(id: Value(targetId));
+
+  final existingByTarget = await (db.select(
+    db.memberProfilePreferenceValues,
+  )..where((t) => t.id.equals(targetId))).getSingleOrNull();
+  if (existingByTarget != null) {
+    await (db.update(
+      db.memberProfilePreferenceValues,
+    )..where((t) => t.id.equals(targetId))).write(targetCompanion);
+    return;
+  }
+
+  if (existingLogical != null) {
+    await (db.update(
+      db.memberProfilePreferenceValues,
+    )..where((t) => t.id.equals(existingLogical!.id))).write(targetCompanion);
+    return;
+  }
+
+  await db
+      .into(db.memberProfilePreferenceValues)
+      .insertOnConflictUpdate(targetCompanion);
+}
+
 /// Sync-inbound normalization for a `custom_fields.parent_field_id` value.
 ///
 /// Returns [Value.absent] when [rawParent] is also absent so an existing
@@ -603,6 +668,129 @@ Future<void> _releaseDeletedPkIdentityHoldersForMemberApply(
           pluralkitId: Value(null),
         ),
       );
+}
+
+Future<bool> _memberPkIdentityHeldByOtherRow(
+  AppDatabase db, {
+  required String incomingId,
+  required String? pkUuid,
+  required String? pkId,
+}) async {
+  final normalizedPkUuid = _nonEmptySyncString(pkUuid);
+  final normalizedPkId = _nonEmptySyncString(pkId);
+  if (normalizedPkUuid == null && normalizedPkId == null) return false;
+
+  final row =
+      await (db.select(db.members)
+            ..where((t) {
+              final matchingUuid = normalizedPkUuid == null
+                  ? const Constant<bool>(false)
+                  : t.pluralkitUuid.equals(normalizedPkUuid);
+              final matchingId = normalizedPkId == null
+                  ? const Constant<bool>(false)
+                  : t.pluralkitId.equals(normalizedPkId);
+
+              return t.id.equals(incomingId).not() &
+                  (matchingUuid | matchingId);
+            })
+            ..limit(1))
+          .getSingleOrNull();
+  return row != null;
+}
+
+Future<List<Member>> _activeMemberRowsByPkIdentityForApply(
+  AppDatabase db, {
+  required String? pkUuid,
+  required String? pkId,
+}) async {
+  final normalizedPkUuid = _nonEmptySyncString(pkUuid);
+  final normalizedPkId = _nonEmptySyncString(pkId);
+  if (normalizedPkUuid == null && normalizedPkId == null) {
+    return const <Member>[];
+  }
+
+  final rows =
+      await (db.select(db.members)..where((t) {
+            final matchingUuid = normalizedPkUuid == null
+                ? const Constant<bool>(false)
+                : t.pluralkitUuid.equals(normalizedPkUuid);
+            final matchingId = normalizedPkId == null
+                ? const Constant<bool>(false)
+                : t.pluralkitId.equals(normalizedPkId);
+
+            return t.isDeleted.equals(false) & (matchingUuid | matchingId);
+          }))
+          .get();
+
+  int matchScore(Member row) {
+    if (normalizedPkUuid != null && row.pluralkitUuid == normalizedPkUuid) {
+      return 0;
+    }
+    if (normalizedPkId != null && row.pluralkitId == normalizedPkId) {
+      return 1;
+    }
+    return 2;
+  }
+
+  rows.sort((left, right) {
+    final scoreCompare = matchScore(left).compareTo(matchScore(right));
+    if (scoreCompare != 0) return scoreCompare;
+
+    final createdCompare = left.createdAt.compareTo(right.createdAt);
+    if (createdCompare != 0) return createdCompare;
+
+    return left.id.compareTo(right.id);
+  });
+  return rows;
+}
+
+Future<void> _releaseDeletedPkIdentityHoldersForFrontingSessionApply(
+  AppDatabase db, {
+  required String incomingId,
+  required String? pkUuid,
+  required String? memberId,
+}) async {
+  final normalizedPkUuid = _nonEmptySyncString(pkUuid);
+  if (normalizedPkUuid == null) return;
+
+  await (db.update(db.frontingSessions)..where((t) {
+        final matchingMember = memberId == null
+            ? t.memberId.isNull()
+            : t.memberId.equals(memberId);
+        return t.id.equals(incomingId).not() &
+            t.isDeleted.equals(true) &
+            t.pluralkitUuid.equals(normalizedPkUuid) &
+            matchingMember;
+      }))
+      .write(const FrontingSessionsCompanion(pluralkitUuid: Value(null)));
+}
+
+Future<List<FrontingSession>> _activeFrontingSessionRowsByPkIdentityForApply(
+  AppDatabase db, {
+  required String? pkUuid,
+  required String? memberId,
+}) async {
+  final normalizedPkUuid = _nonEmptySyncString(pkUuid);
+  if (normalizedPkUuid == null) return const <FrontingSession>[];
+
+  final rows =
+      await (db.select(db.frontingSessions)..where((t) {
+            final matchingMember = memberId == null
+                ? t.memberId.isNull()
+                : t.memberId.equals(memberId);
+            return t.isDeleted.equals(false) &
+                t.pluralkitUuid.equals(normalizedPkUuid) &
+                matchingMember;
+          }))
+          .get();
+
+  rows.sort((left, right) {
+    final startCompare = left.startTime.compareTo(right.startTime);
+    if (startCompare != 0) return startCompare;
+
+    return left.id.compareTo(right.id);
+  });
+  return rows;
 }
 
 String? _nonEmptySyncString(String? value) {
@@ -1037,6 +1225,20 @@ Future<void> _appendMemberGroupEntryPkFields(
   }
 }
 
+Future<MemberGroupEntryRow?> _activeMemberGroupEntryByResolvedRefs(
+  AppDatabase db, {
+  required String groupId,
+  required String memberId,
+}) {
+  return (db.select(db.memberGroupEntries)..where(
+        (t) =>
+            t.groupId.equals(groupId) &
+            t.memberId.equals(memberId) &
+            t.isDeleted.equals(false),
+      ))
+      .getSingleOrNull();
+}
+
 Future<bool> _deferPkBackedMemberGroupEntryOp(
   AppDatabase db, {
   required String entityId,
@@ -1159,8 +1361,36 @@ Future<bool> _applyMemberGroupEntryFields(
     );
   }
 
+  final logicalEdge = _pkMemberGroupEntryLogicalEdge(
+    pkGroupUuid: pkGroupUuid,
+    pkMemberUuid: pkMemberUuid,
+  );
+  var targetId = id;
+
+  if (logicalEdge != null) {
+    final canonicalId = _canonicalPkMemberGroupEntryEntityId(
+      logicalEdge.pkGroupUuid,
+      logicalEdge.pkMemberUuid,
+    );
+    final activeLogicalRow = await _activeMemberGroupEntryByResolvedRefs(
+      db,
+      groupId: resolvedGroupId,
+      memberId: resolvedMemberId,
+    );
+    if (activeLogicalRow != null && activeLogicalRow.id != targetId) {
+      targetId = id == canonicalId || activeLogicalRow.id == canonicalId
+          ? canonicalId
+          : activeLogicalRow.id;
+    }
+    if (activeLogicalRow != null && activeLogicalRow.id != targetId) {
+      await (db.update(db.memberGroupEntries)
+            ..where((t) => t.id.equals(activeLogicalRow.id)))
+          .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
+    }
+  }
+
   final companion = MemberGroupEntriesCompanion(
-    id: Value(id),
+    id: Value(targetId),
     groupId: Value(resolvedGroupId),
     memberId: Value(resolvedMemberId),
     isDeleted: f.boolField('is_deleted'),
@@ -1169,11 +1399,11 @@ Future<bool> _applyMemberGroupEntryFields(
     db,
     db.memberGroupEntries,
     companion,
-    (t) => t.id.equals(id),
+    (t) => t.id.equals(targetId),
   );
   await _writeMemberGroupEntryPkFields(
     db,
-    id: id,
+    id: targetId,
     pkGroupUuid: pkGroupUuid,
     pkMemberUuid: pkMemberUuid,
   );
@@ -1610,7 +1840,7 @@ DriftSyncEntity _membersEntity(
               db.members,
             )..where((t) => t.id.equals(id))).getSingleOrNull()
           : null;
-      final priorPkUuid = shouldCheckPkUuidChange
+      var priorPkUuid = shouldCheckPkUuidChange
           ? existing?.pluralkitUuid
           : null;
       final nextPkUuid = shouldCheckPkUuidChange
@@ -1637,6 +1867,12 @@ DriftSyncEntity _membersEntity(
           db,
           pkMemberUuid: tombstonePkMemberUuid,
         );
+        final hasPkIdentityConflict = await _memberPkIdentityHeldByOtherRow(
+          db,
+          incomingId: id,
+          pkUuid: nextPkUuid,
+          pkId: nextPkId,
+        );
         await _insertOrUpdateById(
           db,
           db.members,
@@ -1647,7 +1883,9 @@ DriftSyncEntity _membersEntity(
                 : const Value(''),
             createdAt: createdAt.present ? createdAt : Value(fallbackTimestamp),
             pluralkitUuid: fields.containsKey('pluralkit_uuid')
-                ? f.stringFieldNullable('pluralkit_uuid')
+                ? hasPkIdentityConflict
+                      ? const Value(null)
+                      : f.stringFieldNullable('pluralkit_uuid')
                 : const Value.absent(),
             isDeleted: const Value(true),
           ),
@@ -1655,6 +1893,7 @@ DriftSyncEntity _membersEntity(
         );
         return;
       }
+      var targetId = id;
       if (!remoteTombstone) {
         await _releaseDeletedPkIdentityHoldersForMemberApply(
           db,
@@ -1662,9 +1901,41 @@ DriftSyncEntity _membersEntity(
           pkUuid: nextPkUuid,
           pkId: nextPkId,
         );
+        final activeIdentityRows = await _activeMemberRowsByPkIdentityForApply(
+          db,
+          pkUuid: nextPkUuid,
+          pkId: nextPkId,
+        );
+        Member? targetRow;
+        for (final row in activeIdentityRows) {
+          if (row.id == id) {
+            targetRow = row;
+            break;
+          }
+        }
+        if (targetRow == null && activeIdentityRows.isNotEmpty) {
+          targetRow = activeIdentityRows.first;
+        }
+        if (targetRow != null) {
+          targetId = targetRow.id;
+          if (shouldCheckPkUuidChange) {
+            priorPkUuid = targetRow.pluralkitUuid;
+          }
+          for (final row in activeIdentityRows) {
+            if (row.id == targetId) continue;
+            await (db.update(
+              db.members,
+            )..where((t) => t.id.equals(row.id))).write(
+              const MembersCompanion(
+                pluralkitUuid: Value(null),
+                pluralkitId: Value(null),
+              ),
+            );
+          }
+        }
       }
       final companion = MembersCompanion(
-        id: Value(id),
+        id: Value(targetId),
         name: f.stringField('name'),
         pronouns: f.stringFieldNullable('pronouns'),
         emoji: f.stringField('emoji'),
@@ -1710,7 +1981,7 @@ DriftSyncEntity _membersEntity(
         db,
         db.members,
         companion,
-        (t) => t.id.equals(id),
+        (t) => t.id.equals(targetId),
       );
       if (remoteTombstone) {
         await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
@@ -1834,6 +2105,9 @@ DriftSyncEntity _frontingSessionsEntity(
     },
     applyFields: (String id, Map<String, dynamic> fields) async {
       final remoteTombstone = _isRemoteTombstone(fields);
+      final shouldCheckPkIdentity =
+          fields.containsKey('pluralkit_uuid') ||
+          fields.containsKey('member_id');
       // Migration gate (WS1 step 4 + 5): if the per-member fronting
       // migration is `blocked` or `inProgress`, the local schema is in
       // a transitional shape (single-column unique index still in
@@ -1856,11 +2130,55 @@ DriftSyncEntity _frontingSessionsEntity(
         );
         return;
       }
+      final existing = (remoteTombstone || shouldCheckPkIdentity)
+          ? await (db.select(
+              db.frontingSessions,
+            )..where((t) => t.id.equals(id))).getSingleOrNull()
+          : null;
       if (remoteTombstone) {
-        final existing = await (db.select(
-          db.frontingSessions,
-        )..where((t) => t.id.equals(id))).getSingleOrNull();
         if (existing == null) return;
+      }
+      final nextPkUuid = fields.containsKey('pluralkit_uuid')
+          ? _asString(fields['pluralkit_uuid'])
+          : existing?.pluralkitUuid;
+      final nextMemberId = fields.containsKey('member_id')
+          ? _asString(fields['member_id'])
+          : existing?.memberId;
+      var targetId = id;
+      if (!remoteTombstone) {
+        await _releaseDeletedPkIdentityHoldersForFrontingSessionApply(
+          db,
+          incomingId: id,
+          pkUuid: nextPkUuid,
+          memberId: nextMemberId,
+        );
+        final activeIdentityRows =
+            await _activeFrontingSessionRowsByPkIdentityForApply(
+              db,
+              pkUuid: nextPkUuid,
+              memberId: nextMemberId,
+            );
+        FrontingSession? targetRow;
+        for (final row in activeIdentityRows) {
+          if (row.id == id) {
+            targetRow = row;
+            break;
+          }
+        }
+        if (targetRow == null && activeIdentityRows.isNotEmpty) {
+          targetRow = activeIdentityRows.first;
+        }
+        if (targetRow != null) {
+          targetId = targetRow.id;
+          for (final row in activeIdentityRows) {
+            if (row.id == targetId) continue;
+            await (db.update(
+              db.frontingSessions,
+            )..where((t) => t.id.equals(row.id))).write(
+              const FrontingSessionsCompanion(pluralkitUuid: Value(null)),
+            );
+          }
+        }
       }
       final f = _FieldContext(
         entityType: 'fronting_sessions',
@@ -1870,7 +2188,7 @@ DriftSyncEntity _frontingSessionsEntity(
         trackQuarantineWrite: trackQuarantineWrite,
       );
       final companion = FrontingSessionsCompanion(
-        id: Value(id),
+        id: Value(targetId),
         startTime: f.dateTimeField('start_time'),
         endTime: f.dateTimeFieldNullable('end_time'),
         memberId: f.stringFieldNullable('member_id'),
@@ -1893,7 +2211,7 @@ DriftSyncEntity _frontingSessionsEntity(
         db,
         db.frontingSessions,
         companion,
-        (t) => t.id.equals(id),
+        (t) => t.id.equals(targetId),
       );
     },
     hardDelete: (String id) async {
@@ -1978,22 +2296,28 @@ DriftSyncEntity _conversationsEntity(
       final existing = await (db.select(
         db.conversations,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
+      final createdAt = f.dateTimeField('created_at');
+      final lastActivityAt = f.dateTimeField('last_activity_at');
+      final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
+        0,
+        isUtc: true,
+      );
+      final insertCreatedAt = createdAt.present
+          ? createdAt
+          : Value(fallbackTimestamp);
+      final insertLastActivityAt = lastActivityAt.present
+          ? lastActivityAt
+          : createdAt.present
+          ? Value(createdAt.value)
+          : Value(fallbackTimestamp);
       if (existing == null && _isRemoteTombstone(fields)) {
-        final createdAt = f.dateTimeField('created_at');
-        final lastActivityAt = f.dateTimeField('last_activity_at');
-        final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
-          0,
-          isUtc: true,
-        );
         await _insertOrUpdateById(
           db,
           db.conversations,
           ConversationsCompanion(
             id: Value(id),
-            createdAt: createdAt.present ? createdAt : Value(fallbackTimestamp),
-            lastActivityAt: lastActivityAt.present
-                ? lastActivityAt
-                : Value(fallbackTimestamp),
+            createdAt: insertCreatedAt,
+            lastActivityAt: insertLastActivityAt,
             isDeleted: const Value(true),
           ),
           (t) => t.id.equals(id),
@@ -2002,8 +2326,12 @@ DriftSyncEntity _conversationsEntity(
       }
       final companion = ConversationsCompanion(
         id: Value(id),
-        createdAt: f.dateTimeField('created_at'),
-        lastActivityAt: f.dateTimeField('last_activity_at'),
+        createdAt: existing == null && !createdAt.present
+            ? insertCreatedAt
+            : createdAt,
+        lastActivityAt: existing == null && !lastActivityAt.present
+            ? insertLastActivityAt
+            : lastActivityAt,
         title: f.stringFieldNullable('title'),
         emoji: f.stringFieldNullable('emoji'),
         isDirectMessage: f.boolField('is_direct_message'),
@@ -2509,11 +2837,11 @@ DriftSyncEntity _memberProfilePreferenceValuesEntity(
         valueJson: f.stringFieldNullable('value_json'),
         isDeleted: f.boolField('is_deleted'),
       );
-      await _insertOrUpdateById(
+      await _insertOrUpdateMemberProfilePreferenceValueForApply(
         db,
-        db.memberProfilePreferenceValues,
+        id,
         companion,
-        (t) => t.id.equals(id),
+        fields,
       );
     },
     hardDelete: (String id) async {
