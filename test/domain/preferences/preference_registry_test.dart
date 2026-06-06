@@ -32,4 +32,26 @@ void main() {
       );
     }
   });
+
+  test('typography letter spacing is an accessibility app preference', () {
+    expect(
+      appPreferenceRegistry.definitions,
+      contains(typographyLetterSpacingPreference),
+    );
+    expect(
+      typographyLetterSpacingPreference.key,
+      'accessibility.typography_letter_spacing',
+    );
+    expect(typographyLetterSpacingPreference.scope, PreferenceScope.appSynced);
+    expect(typographyLetterSpacingPreference.defaultValue, 0.0);
+    expect(typographyLetterSpacingPreference.codec.isValid(-0.5), isTrue);
+    expect(typographyLetterSpacingPreference.codec.isValid(2.0), isTrue);
+    expect(typographyLetterSpacingPreference.codec.isValid(-0.6), isFalse);
+    expect(typographyLetterSpacingPreference.codec.isValid(2.1), isFalse);
+    expect(typographyLetterSpacingPreference.introducedInAppVersion, '0.12.1');
+    expect(
+      typographyLetterSpacingPreference.introducedInSchemaVersion,
+      AppDatabase.currentSchemaVersion,
+    );
+  });
 }

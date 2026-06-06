@@ -230,6 +230,42 @@ class AppLocalizationsEn extends AppLocalizations {
       'Could not load accessibility preferences.';
 
   @override
+  String get accessibilityTypographySection => 'Typography';
+
+  @override
+  String get accessibilityFontFamilyLabel => 'Family';
+
+  @override
+  String get accessibilityFontSizeLabel => 'Size';
+
+  @override
+  String accessibilityFontSizeValue(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String get accessibilityLetterSpacingLabel => 'Letter spacing';
+
+  @override
+  String accessibilityLetterSpacingValue(String value) {
+    return '$value logical px';
+  }
+
+  @override
+  String get accessibilityTypographyPreviewText =>
+      'The quick brown fox jumps over the lazy dog.';
+
+  @override
+  String get accessibilityResetTypographyButton => 'Reset to default';
+
+  @override
+  String get accessibilityUseDisplayFontTitle => 'Use display font';
+
+  @override
+  String get accessibilityUseDisplayFontSubtitle =>
+      'Use Unbounded for titles and headings';
+
+  @override
   String get appearanceBrightness => 'Brightness';
 
   @override

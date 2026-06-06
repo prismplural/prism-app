@@ -69,3 +69,36 @@ class ForceCenteredSheetsNotifier extends AsyncNotifier<bool> {
     state = AsyncValue.data(value);
   }
 }
+
+/// Synced app preference for app-wide typography letter spacing.
+final typographyLetterSpacingProvider =
+    AsyncNotifierProvider<TypographyLetterSpacingNotifier, double>(
+      TypographyLetterSpacingNotifier.new,
+    );
+
+class TypographyLetterSpacingNotifier extends AsyncNotifier<double> {
+  @override
+  Future<double> build() async {
+    final repo = ref.watch(appPreferenceRepositoryProvider);
+    final initial = await repo.get(typographyLetterSpacingPreference);
+    final subscription = repo
+        .watch(typographyLetterSpacingPreference)
+        .listen(
+          (value) {
+            state = AsyncValue.data(value);
+          },
+          onError: (Object error, StackTrace stackTrace) {
+            state = AsyncValue.error(error, stackTrace);
+          },
+        );
+    ref.onDispose(subscription.cancel);
+    return initial;
+  }
+
+  Future<void> set(double value) async {
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(typographyLetterSpacingPreference, value);
+    state = AsyncValue.data(value);
+  }
+}

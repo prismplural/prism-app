@@ -506,6 +506,66 @@ abstract class AppLocalizations {
   /// **'Could not load accessibility preferences.'**
   String get accessibilityPreferencesLoadError;
 
+  /// Accessibility settings section for font, text size, and letter spacing controls
+  ///
+  /// In en, this message translates to:
+  /// **'Typography'**
+  String get accessibilityTypographySection;
+
+  /// Label for the app font family picker in accessibility settings
+  ///
+  /// In en, this message translates to:
+  /// **'Family'**
+  String get accessibilityFontFamilyLabel;
+
+  /// Label for the app text size slider in accessibility settings
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get accessibilityFontSizeLabel;
+
+  /// Displayed value for the app text size slider
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String accessibilityFontSizeValue(int percent);
+
+  /// Label for the app letter spacing slider in accessibility settings
+  ///
+  /// In en, this message translates to:
+  /// **'Letter spacing'**
+  String get accessibilityLetterSpacingLabel;
+
+  /// Displayed value for the app letter spacing slider. The value is measured in logical pixels.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} logical px'**
+  String accessibilityLetterSpacingValue(String value);
+
+  /// Preview sentence shown below typography accessibility controls
+  ///
+  /// In en, this message translates to:
+  /// **'The quick brown fox jumps over the lazy dog.'**
+  String get accessibilityTypographyPreviewText;
+
+  /// Button that resets font family, text size, and letter spacing to defaults
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to default'**
+  String get accessibilityResetTypographyButton;
+
+  /// Accessibility typography toggle title for using Prism's display font on titles and headings
+  ///
+  /// In en, this message translates to:
+  /// **'Use display font'**
+  String get accessibilityUseDisplayFontTitle;
+
+  /// Accessibility typography toggle subtitle for using Prism's display font on titles and headings
+  ///
+  /// In en, this message translates to:
+  /// **'Use Unbounded for titles and headings'**
+  String get accessibilityUseDisplayFontSubtitle;
+
   /// Appearance settings section: Brightness
   ///
   /// In en, this message translates to:

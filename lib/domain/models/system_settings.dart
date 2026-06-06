@@ -163,7 +163,8 @@ enum FontFamily {
     };
   }
 
-  double get minimumScale => this == FontFamily.system ? 0.8 : 1.0;
+  /// Shared lower bound for wider faces like OpenDyslexic.
+  double get minimumScale => 0.7;
 }
 
 enum GifConsentState { unknown, enabled, declined }

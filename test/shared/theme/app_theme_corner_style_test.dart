@@ -108,6 +108,36 @@ void main() {
       );
     });
 
+    test('letter spacing preference applies to text and component themes', () {
+      final theme = AppTheme.light();
+      final adjusted = AppTheme.withLetterSpacing(theme, -0.4);
+
+      expect(
+        adjusted.textTheme.bodyMedium?.letterSpacing,
+        closeTo(-0.4, 0.001),
+      );
+      expect(
+        adjusted.textTheme.headlineLarge?.letterSpacing,
+        closeTo(0.1, 0.001),
+      );
+      expect(
+        adjusted.primaryTextTheme.bodyMedium?.letterSpacing,
+        closeTo(-0.4, 0.001),
+      );
+      expect(
+        adjusted.snackBarTheme.contentTextStyle?.letterSpacing,
+        closeTo(-0.4, 0.001),
+      );
+      expect(
+        adjusted.chipTheme.labelStyle?.letterSpacing,
+        closeTo(-0.4, 0.001),
+      );
+      expect(
+        adjusted.tooltipTheme.textStyle?.letterSpacing,
+        closeTo(-0.4, 0.001),
+      );
+    });
+
     test('text themes do not install symbol fallbacks globally', () {
       final theme = AppTheme.light();
       final fallback = theme.textTheme.bodyMedium?.fontFamilyFallback;

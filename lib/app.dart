@@ -22,6 +22,7 @@ import 'features/fronting/providers/fronting_session_repair_provider.dart';
 import 'features/habits/providers/habit_providers.dart';
 import 'features/onboarding/providers/onboarding_providers.dart';
 import 'domain/models/system_settings.dart';
+import 'domain/preferences/preference_registry.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_icons.dart';
@@ -315,6 +316,11 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     final fontFamily = ref.watch(fontFamilySettingProvider);
     final useDisplayFont = ref.watch(displayFontInAppBarProvider);
     final rawFontScale = ref.watch(fontScaleSettingProvider);
+    final letterSpacing =
+        ref
+            .watch(typographyLetterSpacingProvider)
+            .whenOrNull(data: (value) => value) ??
+        typographyLetterSpacingPreference.defaultValue;
     final appFontFamily = fontFamily.assetFontFamily;
     final fontScale = rawFontScale < fontFamily.minimumScale
         ? fontFamily.minimumScale
@@ -380,6 +386,11 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             appFontFamily,
             preserveDisplayFont: useDisplayFont,
           );
+        }
+
+        if (letterSpacing != 0.0) {
+          lightTheme = AppTheme.withLetterSpacing(lightTheme, letterSpacing);
+          darkTheme = AppTheme.withLetterSpacing(darkTheme, letterSpacing);
         }
 
         return MaterialApp.router(

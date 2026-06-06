@@ -72,11 +72,22 @@ const forceCenteredSheetsPreference = PreferenceDefinition<bool>(
   introducedInSchemaVersion: 31,
 );
 
+/// App-wide text letter spacing adjustment, in logical pixels.
+const typographyLetterSpacingPreference = PreferenceDefinition<double>(
+  key: 'accessibility.typography_letter_spacing',
+  scope: PreferenceScope.appSynced,
+  defaultValue: 0.0,
+  codec: DoublePreferenceCodec(min: -0.5, max: 2.0),
+  introducedInAppVersion: '0.12.1',
+  introducedInSchemaVersion: 31,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideTotalMemberCountPreference,
   frontingReminderSuppressMinutesPreference,
   composerDefaultMemberPreference,
   dimBackgroundBehindSheetsPreference,
   forceCenteredSheetsPreference,
+  typographyLetterSpacingPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);

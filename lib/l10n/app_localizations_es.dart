@@ -232,6 +232,42 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudieron cargar las preferencias de accesibilidad.';
 
   @override
+  String get accessibilityTypographySection => 'Tipografía';
+
+  @override
+  String get accessibilityFontFamilyLabel => 'Familia';
+
+  @override
+  String get accessibilityFontSizeLabel => 'Tamaño';
+
+  @override
+  String accessibilityFontSizeValue(int percent) {
+    return '$percent%';
+  }
+
+  @override
+  String get accessibilityLetterSpacingLabel => 'Espaciado entre letras';
+
+  @override
+  String accessibilityLetterSpacingValue(String value) {
+    return '$value px lógicos';
+  }
+
+  @override
+  String get accessibilityTypographyPreviewText =>
+      'El veloz murciélago hindú comía feliz cardillo y kiwi.';
+
+  @override
+  String get accessibilityResetTypographyButton => 'Restablecer predeterminado';
+
+  @override
+  String get accessibilityUseDisplayFontTitle => 'Usar fuente de títulos';
+
+  @override
+  String get accessibilityUseDisplayFontSubtitle =>
+      'Usa Unbounded para títulos y encabezados';
+
+  @override
   String get appearanceBrightness => 'Brillo';
 
   @override

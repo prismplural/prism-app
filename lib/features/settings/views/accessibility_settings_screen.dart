@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/widgets/font_settings_section.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -19,6 +22,7 @@ class AccessibilitySettingsScreen extends ConsumerWidget {
       dimBackgroundBehindSheetsProvider,
     );
     final forceCenteredSheetsAsync = ref.watch(forceCenteredSheetsProvider);
+    final settingsAsync = ref.watch(systemSettingsProvider);
 
     final dimBackgroundBehindSheets = dimBackgroundBehindSheetsAsync.hasValue
         ? dimBackgroundBehindSheetsAsync.value ?? false
@@ -41,6 +45,21 @@ class AccessibilitySettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
         children: [
+          settingsAsync.when(
+            loading: () => PrismSection(
+              title: context.l10n.accessibilityTypographySection,
+              child: const PrismSectionCard(
+                child: SizedBox(height: 64, child: PrismLoadingState(size: 28)),
+              ),
+            ),
+            error: (e, _) => PrismSection(
+              title: context.l10n.accessibilityTypographySection,
+              child: PrismSectionCard(
+                child: Text(context.l10n.errorWithDetail(e)),
+              ),
+            ),
+            data: (settings) => FontSettingsSection(settings: settings),
+          ),
           PrismSection(
             title: context.l10n.accessibilityVisualSection,
             child: PrismSectionCard(

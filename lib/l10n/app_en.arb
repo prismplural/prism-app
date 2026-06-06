@@ -313,6 +313,56 @@
   "@accessibilityPreferencesLoadError": {
     "description": "Error shown when accessibility preferences fail to load"
   },
+  "accessibilityTypographySection": "Typography",
+  "@accessibilityTypographySection": {
+    "description": "Accessibility settings section for font, text size, and letter spacing controls"
+  },
+  "accessibilityFontFamilyLabel": "Family",
+  "@accessibilityFontFamilyLabel": {
+    "description": "Label for the app font family picker in accessibility settings"
+  },
+  "accessibilityFontSizeLabel": "Size",
+  "@accessibilityFontSizeLabel": {
+    "description": "Label for the app text size slider in accessibility settings"
+  },
+  "accessibilityFontSizeValue": "{percent}%",
+  "@accessibilityFontSizeValue": {
+    "description": "Displayed value for the app text size slider",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "accessibilityLetterSpacingLabel": "Letter spacing",
+  "@accessibilityLetterSpacingLabel": {
+    "description": "Label for the app letter spacing slider in accessibility settings"
+  },
+  "accessibilityLetterSpacingValue": "{value} logical px",
+  "@accessibilityLetterSpacingValue": {
+    "description": "Displayed value for the app letter spacing slider. The value is measured in logical pixels.",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "accessibilityTypographyPreviewText": "The quick brown fox jumps over the lazy dog.",
+  "@accessibilityTypographyPreviewText": {
+    "description": "Preview sentence shown below typography accessibility controls"
+  },
+  "accessibilityResetTypographyButton": "Reset to default",
+  "@accessibilityResetTypographyButton": {
+    "description": "Button that resets font family, text size, and letter spacing to defaults"
+  },
+  "accessibilityUseDisplayFontTitle": "Use display font",
+  "@accessibilityUseDisplayFontTitle": {
+    "description": "Accessibility typography toggle title for using Prism's display font on titles and headings"
+  },
+  "accessibilityUseDisplayFontSubtitle": "Use Unbounded for titles and headings",
+  "@accessibilityUseDisplayFontSubtitle": {
+    "description": "Accessibility typography toggle subtitle for using Prism's display font on titles and headings"
+  },
   "appearanceBrightness": "Brightness",
   "@appearanceBrightness": {
     "description": "Appearance settings section: Brightness"

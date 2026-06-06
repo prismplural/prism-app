@@ -276,6 +276,51 @@ class AppTheme {
     );
   }
 
+  /// Apply a user-controlled letter-spacing delta to all text styles.
+  static ThemeData withLetterSpacing(ThemeData theme, double letterSpacing) {
+    TextStyle? applyToStyle(TextStyle? style) {
+      if (style == null) return null;
+      return style.copyWith(
+        letterSpacing: (style.letterSpacing ?? 0) + letterSpacing,
+      );
+    }
+
+    TextTheme applyToTextTheme(TextTheme textTheme) {
+      return textTheme.copyWith(
+        displayLarge: applyToStyle(textTheme.displayLarge),
+        displayMedium: applyToStyle(textTheme.displayMedium),
+        displaySmall: applyToStyle(textTheme.displaySmall),
+        headlineLarge: applyToStyle(textTheme.headlineLarge),
+        headlineMedium: applyToStyle(textTheme.headlineMedium),
+        headlineSmall: applyToStyle(textTheme.headlineSmall),
+        titleLarge: applyToStyle(textTheme.titleLarge),
+        titleMedium: applyToStyle(textTheme.titleMedium),
+        titleSmall: applyToStyle(textTheme.titleSmall),
+        bodyLarge: applyToStyle(textTheme.bodyLarge),
+        bodyMedium: applyToStyle(textTheme.bodyMedium),
+        bodySmall: applyToStyle(textTheme.bodySmall),
+        labelLarge: applyToStyle(textTheme.labelLarge),
+        labelMedium: applyToStyle(textTheme.labelMedium),
+        labelSmall: applyToStyle(textTheme.labelSmall),
+      );
+    }
+
+    return theme.copyWith(
+      textTheme: applyToTextTheme(theme.textTheme),
+      primaryTextTheme: applyToTextTheme(theme.primaryTextTheme),
+      snackBarTheme: theme.snackBarTheme.copyWith(
+        contentTextStyle: applyToStyle(theme.snackBarTheme.contentTextStyle),
+      ),
+      chipTheme: theme.chipTheme.copyWith(
+        labelStyle: applyToStyle(theme.chipTheme.labelStyle),
+        secondaryLabelStyle: applyToStyle(theme.chipTheme.secondaryLabelStyle),
+      ),
+      tooltipTheme: theme.tooltipTheme.copyWith(
+        textStyle: applyToStyle(theme.tooltipTheme.textStyle),
+      ),
+    );
+  }
+
   static bool _isMonochromePaletteSeed(Color seedColor) {
     return HSLColor.fromColor(seedColor).saturation <= 0.05;
   }
