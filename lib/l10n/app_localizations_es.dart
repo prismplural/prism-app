@@ -254,8 +254,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get accessibilityLetterSpacingNormal => 'Normal';
+
+  @override
+  String accessibilityLetterSpacingOffsetValue(String value) {
+    return '$value de lo normal';
+  }
+
+  @override
   String get accessibilityTypographyPreviewText =>
-      'El veloz murciélago hindú comía feliz cardillo y kiwi.';
+      'El veloz murciélago hindú comía feliz cardillo y kiwi. 0123456789 /?.,:;';
 
   @override
   String get accessibilityResetTypographyButton => 'Restablecer predeterminado';

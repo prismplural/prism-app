@@ -44,10 +44,10 @@ void main() {
     );
     expect(typographyLetterSpacingPreference.scope, PreferenceScope.appSynced);
     expect(typographyLetterSpacingPreference.defaultValue, 0.0);
-    expect(typographyLetterSpacingPreference.codec.isValid(-0.5), isTrue);
-    expect(typographyLetterSpacingPreference.codec.isValid(2.0), isTrue);
-    expect(typographyLetterSpacingPreference.codec.isValid(-0.6), isFalse);
-    expect(typographyLetterSpacingPreference.codec.isValid(2.1), isFalse);
+    expect(typographyLetterSpacingPreference.codec.isValid(-1.0), isTrue);
+    expect(typographyLetterSpacingPreference.codec.isValid(1.0), isTrue);
+    expect(typographyLetterSpacingPreference.codec.isValid(-1.1), isFalse);
+    expect(typographyLetterSpacingPreference.codec.isValid(1.1), isFalse);
     expect(typographyLetterSpacingPreference.introducedInAppVersion, '0.12.1');
     // Shipped at schema v31; pin to the historical version so a later schema
     // bump doesn't break this (see the accessibility-prefs test above).

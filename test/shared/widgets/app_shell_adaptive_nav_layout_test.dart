@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
+import 'package:prism_plurality/shared/utils/nav_bar_layout.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
 
@@ -29,8 +30,8 @@ void main() {
 
   setUpAll(() async {
     final fontLoader = FontLoader('OpenDyslexic')
-      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic-Regular.otf'))
-      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic-Bold.otf'));
+      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic3-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic3-Bold.ttf'));
     await fontLoader.load();
   });
 
@@ -403,9 +404,7 @@ void main() {
                 terminologyPlural: terminology.plural,
               ),
           ],
-          labelStyle: DefaultTextStyle.of(appShellContext).style.merge(
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
+          labelStyle: navBarLabelTextStyle(appShellContext, isSelected: true),
           textScaler: MediaQuery.textScalerOf(appShellContext),
           textDirection: Directionality.of(appShellContext),
         );
@@ -716,7 +715,9 @@ void main() {
           overrides: [
             activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
             navBarOverflowTabsProvider.overrideWithValue(const <AppShellTab>[]),
-            systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(settings),
+            ),
             isPinSetProvider.overrideWith((ref) async => false),
             syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
             pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
@@ -753,7 +754,10 @@ void main() {
       );
       final settingsLabel = appShellTabs
           .firstWhere((tab) => tab.id == AppShellTabId.settings)
-          .localizedLabel(appShellContext, terminologyPlural: terminology.plural);
+          .localizedLabel(
+            appShellContext,
+            terminologyPlural: terminology.plural,
+          );
 
       final labelFinder = find.text(settingsLabel);
       expect(labelFinder, findsOneWidget);
@@ -787,7 +791,10 @@ void main() {
 
       final paintedFill = tester
           .widgetList<DecoratedBox>(
-            find.descendant(of: itemRegion, matching: find.byType(DecoratedBox)),
+            find.descendant(
+              of: itemRegion,
+              matching: find.byType(DecoratedBox),
+            ),
           )
           .map((box) => box.decoration)
           .whereType<BoxDecoration>()

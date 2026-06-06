@@ -10,8 +10,8 @@ Prism bundles third-party assets under their respective open-source licenses.
 - Homepage: <https://fonts.google.com/specimen/Unbounded>
 - License: SIL Open Font License 1.1 (<https://openfontlicense.org/>)
 
-### OpenDyslexic
-- Files: `assets/fonts/OpenDyslexic-Regular.otf`, `assets/fonts/OpenDyslexic-Bold.otf`, `assets/fonts/OpenDyslexic-Italic.otf`
+### OpenDyslexic 3
+- Files: `assets/fonts/OpenDyslexic3-Regular.ttf`, `assets/fonts/OpenDyslexic3-Bold.ttf`
 - Designer: Abbie Gonzalez
 - Homepage: <https://opendyslexic.org/>
 - License: SIL Open Font License 1.1 (<https://openfontlicense.org/>)

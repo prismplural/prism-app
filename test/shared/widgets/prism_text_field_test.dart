@@ -34,4 +34,41 @@ void main() {
 
     expect(editableText.scrollPhysics, isA<NeverScrollableScrollPhysics>());
   });
+
+  testWidgets('merges partial style overrides with typography theme', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          textTheme: const TextTheme(
+            bodyLarge: TextStyle(
+              fontFamily: 'OpenDyslexic',
+              fontSize: 18,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ),
+        home: const Scaffold(
+          body: PrismTextField(
+            initialValue: 'Styled field',
+            hintText: 'Styled hint',
+            style: TextStyle(color: Colors.red),
+            hintStyle: TextStyle(color: Colors.blue),
+          ),
+        ),
+      ),
+    );
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+
+    expect(field.style?.fontFamily, 'OpenDyslexic');
+    expect(field.style?.letterSpacing, 0.6);
+    expect(field.style?.fontSize, 18);
+    expect(field.style?.color, Colors.red);
+    expect(field.decoration?.hintStyle?.fontFamily, 'OpenDyslexic');
+    expect(field.decoration?.hintStyle?.letterSpacing, 0.6);
+    expect(field.decoration?.hintStyle?.fontSize, 18);
+    expect(field.decoration?.hintStyle?.color, Colors.blue);
+  });
 }

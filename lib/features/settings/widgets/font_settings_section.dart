@@ -25,20 +25,33 @@ class FontSettingsSection extends ConsumerWidget {
     final fontFamily = settings.fontFamily;
     final rawFontScale = settings.fontScale;
     final minimumFontScale = fontFamily.minimumScale;
-    final fontScale = rawFontScale < minimumFontScale
-        ? minimumFontScale
-        : rawFontScale;
+    final maximumFontScale = fontFamily.maximumScale;
+    final fontScale = rawFontScale
+        .clamp(minimumFontScale, maximumFontScale)
+        .toDouble();
     final letterSpacingAsync = ref.watch(typographyLetterSpacingProvider);
     final letterSpacing =
         letterSpacingAsync.whenOrNull(data: (value) => value) ??
         typographyLetterSpacingPreference.defaultValue;
     final letterSpacingEnabled =
         letterSpacingAsync.hasValue && !letterSpacingAsync.hasError;
+    final letterSpacingIsDefault =
+        (letterSpacing - typographyLetterSpacingPreference.defaultValue).abs() <
+        0.05;
     final isDefault =
         fontFamily == FontFamily.system &&
         fontScale == 1.0 &&
-        letterSpacing == typographyLetterSpacingPreference.defaultValue;
+        letterSpacingIsDefault;
     final l10n = context.l10n;
+    String letterSpacingLabel(double value) {
+      if ((value - typographyLetterSpacingPreference.defaultValue).abs() <
+          0.05) {
+        return l10n.accessibilityLetterSpacingNormal;
+      }
+      final formatted = value.toStringAsFixed(1);
+      final signed = value > 0 ? '+$formatted' : formatted;
+      return l10n.accessibilityLetterSpacingOffsetValue(signed);
+    }
 
     return PrismSection(
       title: l10n.accessibilityTypographySection,
@@ -60,6 +73,10 @@ class FontSettingsSection extends ConsumerWidget {
                 ref
                     .read(settingsNotifierProvider.notifier)
                     .updateFontScale(newFamily.minimumScale);
+              } else if (rawFontScale > newFamily.maximumScale) {
+                ref
+                    .read(settingsNotifierProvider.notifier)
+                    .updateFontScale(newFamily.maximumScale);
               }
             },
           ),
@@ -91,8 +108,9 @@ class FontSettingsSection extends ConsumerWidget {
                   Slider(
                     value: fontScale,
                     min: minimumFontScale,
-                    max: 1.5,
-                    divisions: ((1.5 - minimumFontScale) * 10).round(),
+                    max: maximumFontScale,
+                    divisions: ((maximumFontScale - minimumFontScale) * 10)
+                        .round(),
                     label: l10n.accessibilityFontSizeValue(
                       (fontScale * 100).round(),
                     ),
@@ -112,9 +130,7 @@ class FontSettingsSection extends ConsumerWidget {
                       ),
                       const Spacer(),
                       Text(
-                        l10n.accessibilityLetterSpacingValue(
-                          letterSpacing.toStringAsFixed(1),
-                        ),
+                        letterSpacingLabel(letterSpacing),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -124,12 +140,10 @@ class FontSettingsSection extends ConsumerWidget {
                   ),
                   Slider(
                     value: letterSpacing,
-                    min: -0.5,
-                    max: 2.0,
-                    divisions: 25,
-                    label: l10n.accessibilityLetterSpacingValue(
-                      letterSpacing.toStringAsFixed(1),
-                    ),
+                    min: typographyLetterSpacingMin,
+                    max: typographyLetterSpacingMax,
+                    divisions: typographyLetterSpacingDivisions,
+                    label: letterSpacingLabel(letterSpacing),
                     onChanged: letterSpacingEnabled
                         ? (value) {
                             final rounded = (value * 10).round() / 10;

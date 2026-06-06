@@ -542,10 +542,22 @@ abstract class AppLocalizations {
   /// **'{value} logical px'**
   String accessibilityLetterSpacingValue(String value);
 
+  /// Displayed letter spacing value when the app uses the selected font's normal spacing
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get accessibilityLetterSpacingNormal;
+
+  /// Displayed letter spacing offset from the selected font's normal spacing
+  ///
+  /// In en, this message translates to:
+  /// **'{value} from normal'**
+  String accessibilityLetterSpacingOffsetValue(String value);
+
   /// Preview sentence shown below typography accessibility controls
   ///
   /// In en, this message translates to:
-  /// **'The quick brown fox jumps over the lazy dog.'**
+  /// **'The quick brown fox jumps over the lazy dog. 0123456789 /?.,:;'**
   String get accessibilityTypographyPreviewText;
 
   /// Button that resets font family, text size, and letter spacing to defaults

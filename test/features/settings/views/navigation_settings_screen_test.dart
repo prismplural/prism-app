@@ -23,8 +23,8 @@ void main() {
 
   setUpAll(() async {
     final fontLoader = FontLoader('OpenDyslexic')
-      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic-Regular.otf'))
-      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic-Bold.otf'));
+      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic3-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic3-Bold.ttf'));
     await fontLoader.load();
   });
 
@@ -330,7 +330,7 @@ void main() {
             tabs: tabs,
             overflowTabs: [appShellTabs[3]], // Polls
             mediaSize: const Size(320, 800),
-            textScaler: const TextScaler.linear(1.3),
+            textScaler: const TextScaler.linear(1.8),
             theme: ThemeData(fontFamily: 'OpenDyslexic'),
           ),
         );

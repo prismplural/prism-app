@@ -148,7 +148,7 @@ enum FontFamily {
   String get displayName {
     return switch (this) {
       FontFamily.system => 'System',
-      FontFamily.openDyslexic => 'Open Dyslexic',
+      FontFamily.openDyslexic => 'OpenDyslexic',
       FontFamily.atkinsonHyperlegible => 'Atkinson Hyperlegible',
       FontFamily.lexend => 'Lexend',
     };
@@ -163,8 +163,9 @@ enum FontFamily {
     };
   }
 
-  /// Shared lower bound for wider faces like OpenDyslexic.
-  double get minimumScale => 0.7;
+  double get minimumScale => 0.5;
+
+  double get maximumScale => 1.5;
 }
 
 enum GifConsentState { unknown, enabled, declined }

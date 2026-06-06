@@ -73,11 +73,18 @@ const forceCenteredSheetsPreference = PreferenceDefinition<bool>(
 );
 
 /// App-wide text letter spacing adjustment, in logical pixels.
+const typographyLetterSpacingMin = -1.0;
+const typographyLetterSpacingMax = 1.0;
+const typographyLetterSpacingDivisions = 20;
+
 const typographyLetterSpacingPreference = PreferenceDefinition<double>(
   key: 'accessibility.typography_letter_spacing',
   scope: PreferenceScope.appSynced,
   defaultValue: 0.0,
-  codec: DoublePreferenceCodec(min: -0.5, max: 2.0),
+  codec: DoublePreferenceCodec(
+    min: typographyLetterSpacingMin,
+    max: typographyLetterSpacingMax,
+  ),
   introducedInAppVersion: '0.12.1',
   introducedInSchemaVersion: 31,
 );

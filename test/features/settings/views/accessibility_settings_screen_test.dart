@@ -132,17 +132,58 @@ void main() {
 
     expect(find.text('Typography'), findsOneWidget);
     expect(find.text('Letter spacing'), findsOneWidget);
+    expect(find.text('Normal'), findsOneWidget);
 
     final fontSizeSlider = tester.widget<Slider>(find.byType(Slider).first);
-    expect(fontSizeSlider.min, 0.7);
+    expect(fontSizeSlider.min, 0.5);
+    expect(fontSizeSlider.max, 1.5);
+    expect(fontSizeSlider.divisions, 10);
+    expect(fontSizeSlider.value, (fontSizeSlider.min + fontSizeSlider.max) / 2);
 
     final letterSpacingSlider = tester.widget<Slider>(
       find.byType(Slider).at(1),
     );
-    letterSpacingSlider.onChanged!(0.4);
-    await tester.pump();
+    expect(letterSpacingSlider.min, -1.0);
+    expect(letterSpacingSlider.max, 1.0);
+    expect(letterSpacingSlider.divisions, 20);
+    expect(
+      letterSpacingSlider.value,
+      (letterSpacingSlider.min + letterSpacingSlider.max) / 2,
+    );
 
-    expect(await prefs.get(typographyLetterSpacingPreference), 0.4);
+    letterSpacingSlider.onChanged!(-0.6);
+    await tester.pumpAndSettle();
+
+    expect(await prefs.get(typographyLetterSpacingPreference), -0.6);
+    expect(find.text('-0.6 from normal'), findsOneWidget);
+    expect(find.text('Reset spacing'), findsNothing);
+  });
+
+  testWidgets('renders current typography preview', (tester) async {
+    final prefs = FakeAppPreferenceRepository();
+    final settings = FakeSystemSettingsRepository()
+      ..settings = const SystemSettings(fontFamily: FontFamily.openDyslexic);
+    addTearDown(prefs.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appPreferenceRepositoryProvider.overrideWithValue(prefs),
+          systemSettingsRepositoryProvider.overrideWithValue(settings),
+        ],
+        child: const _AccessibilitySettingsTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'The quick brown fox jumps over the lazy dog. 0123456789 /?.,:;',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('-1.0'), findsNothing);
+    expect(find.text('-0.5'), findsNothing);
   });
 
   testWidgets('typography reset preserves display font preference', (
@@ -167,6 +208,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Reset to default'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Reset to default'));
     await tester.pump();
 

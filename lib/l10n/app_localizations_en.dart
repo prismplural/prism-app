@@ -252,8 +252,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get accessibilityLetterSpacingNormal => 'Normal';
+
+  @override
+  String accessibilityLetterSpacingOffsetValue(String value) {
+    return '$value from normal';
+  }
+
+  @override
   String get accessibilityTypographyPreviewText =>
-      'The quick brown fox jumps over the lazy dog.';
+      'The quick brown fox jumps over the lazy dog. 0123456789 /?.,:;';
 
   @override
   String get accessibilityResetTypographyButton => 'Reset to default';

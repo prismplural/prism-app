@@ -322,9 +322,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             .whenOrNull(data: (value) => value) ??
         typographyLetterSpacingPreference.defaultValue;
     final appFontFamily = fontFamily.assetFontFamily;
-    final fontScale = rawFontScale < fontFamily.minimumScale
-        ? fontFamily.minimumScale
-        : rawFontScale;
+    final fontScale = rawFontScale
+        .clamp(fontFamily.minimumScale, fontFamily.maximumScale)
+        .toDouble();
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {

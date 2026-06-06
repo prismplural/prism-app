@@ -107,6 +107,11 @@ class PrismTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final inputTheme = theme.inputDecorationTheme;
+    final baseInputStyle = theme.textTheme.bodyLarge;
+    final effectiveTextStyle = baseInputStyle?.merge(style) ?? style;
+    final effectiveHintStyle = hintStyle == null
+        ? null
+        : baseInputStyle?.merge(hintStyle) ?? hintStyle;
 
     // Multi-line fields use a slightly tighter radius than single-line
     // since the taller container looks better with less rounding.
@@ -197,7 +202,7 @@ class PrismTextField extends StatelessWidget {
       suffixIconConstraints: effectiveSuffix != null
           ? const BoxConstraints(minHeight: 0, minWidth: 0)
           : null,
-      hintStyle: hintStyle,
+      hintStyle: effectiveHintStyle,
       contentPadding: contentPadding,
       prefixText: prefixText,
       isDense: isDense,
@@ -241,7 +246,7 @@ class PrismTextField extends StatelessWidget {
       textCapitalization: textCapitalization,
       minLines: minLines,
       maxLines: maxLines,
-      style: style ?? theme.textTheme.bodyLarge,
+      style: effectiveTextStyle,
       cursorColor: cursorColor ?? theme.colorScheme.primary,
       decoration: decoration,
       inputFormatters: inputFormatters,

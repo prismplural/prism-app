@@ -27,8 +27,8 @@ void main() {
 
   setUpAll(() async {
     final fontLoader = FontLoader('OpenDyslexic')
-      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic-Regular.otf'))
-      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic-Bold.otf'));
+      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic3-Regular.ttf'))
+      ..addFont(rootBundle.load('assets/fonts/OpenDyslexic3-Bold.ttf'));
     await fontLoader.load();
   });
 
@@ -756,8 +756,7 @@ List<StatefulShellBranch> _contractBranches() {
       routes: [
         GoRoute(
           path: AppRoutePaths.media,
-          builder: (context, state) =>
-              const _ProbePage(title: _mediaRootTitle),
+          builder: (context, state) => const _ProbePage(title: _mediaRootTitle),
         ),
       ],
     ),

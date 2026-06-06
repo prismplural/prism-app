@@ -347,7 +347,20 @@
       }
     }
   },
-  "accessibilityTypographyPreviewText": "The quick brown fox jumps over the lazy dog.",
+  "accessibilityLetterSpacingNormal": "Normal",
+  "@accessibilityLetterSpacingNormal": {
+    "description": "Displayed letter spacing value when the app uses the selected font's normal spacing"
+  },
+  "accessibilityLetterSpacingOffsetValue": "{value} from normal",
+  "@accessibilityLetterSpacingOffsetValue": {
+    "description": "Displayed letter spacing offset from the selected font's normal spacing",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "accessibilityTypographyPreviewText": "The quick brown fox jumps over the lazy dog. 0123456789 /?.,:;",
   "@accessibilityTypographyPreviewText": {
     "description": "Preview sentence shown below typography accessibility controls"
   },
