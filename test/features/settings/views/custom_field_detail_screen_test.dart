@@ -86,7 +86,24 @@ class _FailingReorderCustomFieldNotifier extends CustomFieldNotifier {
   }
 }
 
-Widget _testRouterApp(db.AppDatabase database) {
+class _RecordingDeleteCustomFieldNotifier extends CustomFieldNotifier {
+  String? deletedId;
+  bool? deletedChildren;
+
+  @override
+  Future<void> build() async {}
+
+  @override
+  Future<void> deleteField(String id, {bool deleteChildren = false}) async {
+    deletedId = id;
+    deletedChildren = deleteChildren;
+  }
+}
+
+Widget _testRouterApp(
+  db.AppDatabase database, {
+  CustomFieldNotifier? notifier,
+}) {
   final router = GoRouter(
     initialLocation: AppRoutePaths.settingsCustomFields,
     routes: [
@@ -113,6 +130,8 @@ Widget _testRouterApp(db.AppDatabase database) {
         customPlural: null,
         useEnglish: false,
       )),
+      if (notifier != null)
+        customFieldNotifierProvider.overrideWith(() => notifier),
     ],
     child: MaterialApp.router(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -820,4 +839,59 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  testWidgets(
+    'settings list group delete action closes dialog without popping route',
+    (tester) async {
+      _useTallViewport(tester);
+      final database = db.AppDatabase(NativeDatabase.memory());
+      final notifier = _RecordingDeleteCustomFieldNotifier();
+      addTearDown(database.close);
+      addTearDown(PrismToast.resetForTest);
+
+      await database.customFieldsDao.createField(
+        db.CustomFieldsCompanion.insert(
+          id: 'profile-section',
+          name: 'Profile section',
+          fieldType: 5,
+          fieldTypeId: const Value('group'),
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+      await database.customFieldsDao.createField(
+        db.CustomFieldsCompanion.insert(
+          id: 'birthday',
+          name: 'Birthday',
+          fieldType: 4,
+          parentFieldId: const Value('profile-section'),
+          displayOrder: const Value(0),
+          createdAt: DateTime(2026, 1, 2),
+        ),
+      );
+
+      await tester.pumpWidget(_testRouterApp(database, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('Profile section'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete Profile section?'), findsOneWidget);
+      expect(find.text('Delete them too'), findsOneWidget);
+
+      await tester.tap(find.text('Delete them too'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(tester.takeException(), isNull);
+      expect(notifier.deletedId, 'profile-section');
+      expect(notifier.deletedChildren, isTrue);
+      expect(find.text('Custom Fields'), findsOneWidget);
+      expect(find.text('Delete them too'), findsNothing);
+
+      PrismToast.resetForTest();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 }

@@ -9,6 +9,7 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/views/custom_field_group_delete_actions.dart';
 import 'package:prism_plurality/features/settings/views/custom_field_detail_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -20,7 +21,6 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -498,23 +498,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         context: context,
         title: context.l10n.customFieldGroupDeleteTitle(displayName),
         message: context.l10n.customFieldGroupDeleteMessage,
-        actions: [
-          PrismButton(
-            label: context.l10n.cancel,
-            tone: PrismButtonTone.outlined,
-            onPressed: () => Navigator.of(context).pop(null),
-          ),
-          PrismButton(
-            label: context.l10n.customFieldGroupDeleteChildren,
-            tone: PrismButtonTone.destructive,
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-          PrismButton(
-            label: context.l10n.customFieldGroupPromoteChildren,
-            tone: PrismButtonTone.filled,
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-        ],
+        actions: buildCustomFieldGroupDeleteActions(context),
         builder: (_) => const SizedBox.shrink(),
       );
       if (deleteChildren == null) return; // user cancelled
