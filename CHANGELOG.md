@@ -4,6 +4,49 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-06-06
+
+Patch release: desktop build reliability, sync and pairing hardening, safer chat
+authorship, and several custom-field, media, and fronting fixes. The sync pin
+moves to `prism-sync v0.12.2` (`1405c5c`).
+
+### Added
+- Group chat admins can now archive a chat for everyone.
+- Desktop settings now include an explicit webcam picker.
+
+### Changed
+- Accessibility typography controls moved to the Accessibility settings area and
+  were tuned for the new placement.
+- The iOS Soloud Xcode 26 patch now lives in the `flutter_soloud` fork instead
+  of release Podfile plumbing, and the fork has been slimmed to upstream
+  `v4.0.7`.
+
+### Fixed
+- macOS desktop signing and keychain recovery are more reliable across Developer
+  ID sideloads, local debug builds, first launch after keychain clear failures,
+  and legacy-keychain reads.
+- Windows secure-storage writes are serialized to avoid corrupting the
+  single-file backend.
+- Pairing restore now applies restored data more defensively and retries
+  transient relay errors while polling pairing slots.
+- Sync delete tombstones are absorbing, so a stale live snapshot can no longer
+  resurrect records that another device already deleted.
+- Custom-field slider labels align with the track, context menus can open
+  upward near the bottom of the viewport, group delete dialogs close safely, and
+  shared date-picker selections commit and animate correctly.
+- Embedded detail deletes stay pane-local instead of popping the wider shell.
+- Oversized lossless banners are downscaled instead of failing to process.
+- Group chat author candidates are limited to members who belong to the
+  conversation.
+- Sleep loading, empty, and error states preserve viewport layout without
+  intrinsic-height sliver failures.
+- PluralKit mapping completion is more stable.
+
+### Internal
+- Added regression coverage for board-post delete resurrection, pairing snapshot
+  restore fields, chat author filtering, sleep state layout, relay
+  `is_deleted=false` fixture encoding, and real database startup timer cleanup.
+
 ## [0.12.1] - 2026-06-05
 
 Patch release: optional centered sheets, wide-screen improvements, and a few more performance fixes. The 0.12.0 sync pin (`v0.12.0`, `417d4ac6`) is unchanged.

@@ -604,11 +604,11 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
-      resolved-ref: a59b81032599e0c54f9a85a66c0f7e6193fa2aa1
+      ref: "32a5a1f1c408735c788593e415cf182558a5064f"
+      resolved-ref: "32a5a1f1c408735c788593e415cf182558a5064f"
       url: "https://github.com/skylartaylor/flutter_soloud.git"
     source: git
-    version: "4.0.6"
+    version: "4.0.7"
   flutter_staggered_grid_view:
     dependency: "direct main"
     description:
@@ -1218,8 +1218,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync"
-      ref: "417d4ac65bdafcf80f07d35b610c8d13c1963ca0"
-      resolved-ref: "417d4ac65bdafcf80f07d35b610c8d13c1963ca0"
+      ref: "1405c5ce8fbb46a107bc54b5f299310a7bdccddc"
+      resolved-ref: "1405c5ce8fbb46a107bc54b5f299310a7bdccddc"
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1227,8 +1227,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_drift"
-      ref: "417d4ac65bdafcf80f07d35b610c8d13c1963ca0"
-      resolved-ref: "417d4ac65bdafcf80f07d35b610c8d13c1963ca0"
+      ref: "1405c5ce8fbb46a107bc54b5f299310a7bdccddc"
+      resolved-ref: "1405c5ce8fbb46a107bc54b5f299310a7bdccddc"
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1236,8 +1236,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_flutter"
-      ref: "417d4ac65bdafcf80f07d35b610c8d13c1963ca0"
-      resolved-ref: "417d4ac65bdafcf80f07d35b610c8d13c1963ca0"
+      ref: "1405c5ce8fbb46a107bc54b5f299310a7bdccddc"
+      resolved-ref: "1405c5ce8fbb46a107bc54b5f299310a7bdccddc"
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
