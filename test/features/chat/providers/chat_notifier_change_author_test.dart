@@ -35,11 +35,9 @@ class _SpyChatMessageRepository implements ChatMessageRepository {
   }
 
   @override
-  Future<ChatMessage?> getMessageById(String id) async =>
-      _messages.cast<ChatMessage?>().firstWhere(
-        (m) => m?.id == id,
-        orElse: () => null,
-      );
+  Future<ChatMessage?> getMessageById(String id) async => _messages
+      .cast<ChatMessage?>()
+      .firstWhere((m) => m?.id == id, orElse: () => null);
 
   @override
   Future<void> updateMessage(ChatMessage message) async {
@@ -58,10 +56,9 @@ class _SpyChatMessageRepository implements ChatMessageRepository {
 
   @override
   Future<ChatMessage?> getLatestMessage(String conversationId) async {
-    final candidates = _messages
-        .where((m) => m.conversationId == conversationId)
-        .toList()
-      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final candidates =
+        _messages.where((m) => m.conversationId == conversationId).toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return candidates.isEmpty ? null : candidates.first;
   }
 
@@ -71,9 +68,7 @@ class _SpyChatMessageRepository implements ChatMessageRepository {
     int? limit,
     int? offset,
   }) async =>
-      _messages
-          .where((m) => m.conversationId == conversationId)
-          .toList();
+      _messages.where((m) => m.conversationId == conversationId).toList();
 
   @override
   Future<List<ChatMessage>> getAllMessages() async =>
@@ -111,15 +106,13 @@ class _SpyChatMessageRepository implements ChatMessageRepository {
   @override
   Stream<List<ChatMessage>> watchMessagesForConversation(
     String conversationId,
-  ) =>
-      Stream.fromFuture(getMessagesForConversation(conversationId));
+  ) => Stream.fromFuture(getMessagesForConversation(conversationId));
 
   @override
   Stream<List<ChatMessage>> watchRecentMessages(
     String conversationId, {
     required int limit,
-  }) =>
-      Stream.fromFuture(getMessagesForConversation(conversationId));
+  }) => Stream.fromFuture(getMessagesForConversation(conversationId));
 
   @override
   Stream<int> watchUnreadCount(String conversationId, DateTime since) =>
@@ -163,6 +156,7 @@ void main() {
     String id = 'conv-1',
     String creatorId = 'alice',
     List<String> participantIds = const ['alice', 'bob', 'carol'],
+    bool includesAllMembers = false,
   }) => Conversation(
     id: id,
     createdAt: now,
@@ -170,6 +164,7 @@ void main() {
     title: 'General',
     creatorId: creatorId,
     participantIds: participantIds,
+    includesAllMembers: includesAllMembers,
   );
 
   ChatMessage msg({
@@ -213,191 +208,223 @@ void main() {
   // Happy path
   // -------------------------------------------------------------------------
 
-  test('changeMessageAuthor writes new authorId without touching editedAt',
-      () async {
-    final conv = groupConv();
-    final original = msg(authorId: 'bob', editedAt: now);
+  test(
+    'changeMessageAuthor writes new authorId without touching editedAt',
+    () async {
+      final conv = groupConv();
+      final original = msg(authorId: 'bob', editedAt: now);
 
-    final convRepo = FakeConversationRepository()..conversations.add(conv);
-    final msgRepo = _SpyChatMessageRepository()..seed([original]);
-    final memberRepo = FakeMemberRepository()
-      ..seed([member('alice'), member('bob'), member('carol')]);
+      final convRepo = FakeConversationRepository()..conversations.add(conv);
+      final msgRepo = _SpyChatMessageRepository()..seed([original]);
+      final memberRepo = FakeMemberRepository()
+        ..seed([member('alice'), member('bob'), member('carol')]);
 
-    // alice is fronting → speakingAs = 'alice' (conversation creator).
-    final container = buildContainer(
-      convRepo: convRepo,
-      msgRepo: msgRepo,
-      memberRepo: memberRepo,
-      fronts: [front('alice')],
-    );
-    addTearDown(container.dispose);
+      // alice is fronting → speakingAs = 'alice' (conversation creator).
+      final container = buildContainer(
+        convRepo: convRepo,
+        msgRepo: msgRepo,
+        memberRepo: memberRepo,
+        fronts: [front('alice')],
+      );
+      addTearDown(container.dispose);
 
-    await container
-        .read(chatNotifierProvider.notifier)
-        .changeMessageAuthor('msg-1', 'carol');
+      await container
+          .read(chatNotifierProvider.notifier)
+          .changeMessageAuthor('msg-1', 'carol');
 
-    expect(container.read(chatNotifierProvider).hasError, isFalse);
+      expect(container.read(chatNotifierProvider).hasError, isFalse);
 
-    final updated = await msgRepo.getMessageById('msg-1');
-    expect(updated?.authorId, 'carol', reason: 'authorId must be updated');
-    expect(
-      updated?.editedAt,
-      now,
-      reason: 'editedAt must NOT be bumped by re-attribution',
-    );
-  });
+      final updated = await msgRepo.getMessageById('msg-1');
+      expect(updated?.authorId, 'carol', reason: 'authorId must be updated');
+      expect(
+        updated?.editedAt,
+        now,
+        reason: 'editedAt must NOT be bumped by re-attribution',
+      );
+    },
+  );
 
   // -------------------------------------------------------------------------
   // No-op: same author
   // -------------------------------------------------------------------------
 
-  test('changeMessageAuthor is a no-op when newAuthorId equals current authorId',
-      () async {
-    final conv = groupConv();
-    final original = msg(authorId: 'bob');
+  test(
+    'changeMessageAuthor is a no-op when newAuthorId equals current authorId',
+    () async {
+      final conv = groupConv();
+      final original = msg(authorId: 'bob');
 
-    final convRepo = FakeConversationRepository()..conversations.add(conv);
-    final msgRepo = _SpyChatMessageRepository()..seed([original]);
-    final memberRepo = FakeMemberRepository()
-      ..seed([member('alice'), member('bob'), member('carol')]);
+      final convRepo = FakeConversationRepository()..conversations.add(conv);
+      final msgRepo = _SpyChatMessageRepository()..seed([original]);
+      final memberRepo = FakeMemberRepository()
+        ..seed([member('alice'), member('bob'), member('carol')]);
 
-    final container = buildContainer(
-      convRepo: convRepo,
-      msgRepo: msgRepo,
-      memberRepo: memberRepo,
-      fronts: [front('alice')],
-    );
-    addTearDown(container.dispose);
+      final container = buildContainer(
+        convRepo: convRepo,
+        msgRepo: msgRepo,
+        memberRepo: memberRepo,
+        fronts: [front('alice')],
+      );
+      addTearDown(container.dispose);
 
-    await container
-        .read(chatNotifierProvider.notifier)
-        .changeMessageAuthor('msg-1', 'bob');
+      await container
+          .read(chatNotifierProvider.notifier)
+          .changeMessageAuthor('msg-1', 'bob');
 
-    expect(msgRepo.updateCallCount, 0, reason: 'no write should occur');
-  });
+      expect(msgRepo.updateCallCount, 0, reason: 'no write should occur');
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Permission denial
   // -------------------------------------------------------------------------
 
-  test('changeMessageAuthor throws StateError when permission is denied',
-      () async {
-    // Use a DM: 'dave' is not a participant, so canWrite = false and
-    // canManage = false → canChangeMessageAuthor returns false.
-    final dmConv = Conversation(
-      id: 'conv-dm',
-      createdAt: now,
-      lastActivityAt: now,
-      isDirectMessage: true,
-      // alice and bob are the DM participants; dave is not.
-      participantIds: const ['alice', 'bob'],
-    );
-    final original = ChatMessage(
-      id: 'msg-1',
-      content: 'Hey',
-      timestamp: now,
-      conversationId: 'conv-dm',
-      authorId: 'alice',
-    );
+  test(
+    'changeMessageAuthor throws StateError when permission is denied',
+    () async {
+      // Use a DM: 'dave' is not a participant, so canWrite = false and
+      // canManage = false → canChangeMessageAuthor returns false.
+      final dmConv = Conversation(
+        id: 'conv-dm',
+        createdAt: now,
+        lastActivityAt: now,
+        isDirectMessage: true,
+        // alice and bob are the DM participants; dave is not.
+        participantIds: const ['alice', 'bob'],
+      );
+      final original = ChatMessage(
+        id: 'msg-1',
+        content: 'Hey',
+        timestamp: now,
+        conversationId: 'conv-dm',
+        authorId: 'alice',
+      );
 
-    final convRepo = FakeConversationRepository()..conversations.add(dmConv);
-    final msgRepo = _SpyChatMessageRepository()..seed([original]);
-    final members = [
-      member('alice'),
-      member('bob'),
-      member('dave'),
-    ];
-    final memberRepo = FakeMemberRepository()..seed(members);
+      final convRepo = FakeConversationRepository()..conversations.add(dmConv);
+      final msgRepo = _SpyChatMessageRepository()..seed([original]);
+      final members = [member('alice'), member('bob'), member('dave')];
+      final memberRepo = FakeMemberRepository()..seed(members);
 
-    // dave is fronting but is NOT a participant of the DM.
-    final container = buildContainer(
-      convRepo: convRepo,
-      msgRepo: msgRepo,
-      memberRepo: memberRepo,
-      activeMembers: members,
-      fronts: [front('dave')],
-    );
-    addTearDown(container.dispose);
+      // dave is fronting but is NOT a participant of the DM.
+      final container = buildContainer(
+        convRepo: convRepo,
+        msgRepo: msgRepo,
+        memberRepo: memberRepo,
+        activeMembers: members,
+        fronts: [front('dave')],
+      );
+      addTearDown(container.dispose);
 
-    await container
-        .read(chatNotifierProvider.notifier)
-        .changeMessageAuthor('msg-1', 'bob');
+      await container
+          .read(chatNotifierProvider.notifier)
+          .changeMessageAuthor('msg-1', 'bob');
 
-    expect(
-      container.read(chatNotifierProvider).hasError,
-      isTrue,
-      reason: 'non-participant should be denied',
-    );
-    expect(
-      container.read(chatNotifierProvider).error,
-      isA<StateError>(),
-    );
-  });
+      expect(
+        container.read(chatNotifierProvider).hasError,
+        isTrue,
+        reason: 'non-participant should be denied',
+      );
+      expect(container.read(chatNotifierProvider).error, isA<StateError>());
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Invalid candidate
   // -------------------------------------------------------------------------
 
-  test('changeMessageAuthor throws StateError for unknown candidate id',
-      () async {
-    final conv = groupConv();
-    final original = msg(authorId: 'bob');
+  test(
+    'changeMessageAuthor throws StateError for unknown candidate id',
+    () async {
+      final conv = groupConv();
+      final original = msg(authorId: 'bob');
 
-    final convRepo = FakeConversationRepository()..conversations.add(conv);
-    final msgRepo = _SpyChatMessageRepository()..seed([original]);
-    final memberRepo = FakeMemberRepository()
-      ..seed([member('alice'), member('bob'), member('carol')]);
+      final convRepo = FakeConversationRepository()..conversations.add(conv);
+      final msgRepo = _SpyChatMessageRepository()..seed([original]);
+      final memberRepo = FakeMemberRepository()
+        ..seed([member('alice'), member('bob'), member('carol')]);
 
-    final container = buildContainer(
-      convRepo: convRepo,
-      msgRepo: msgRepo,
-      memberRepo: memberRepo,
-      fronts: [front('alice')],
-    );
-    addTearDown(container.dispose);
+      final container = buildContainer(
+        convRepo: convRepo,
+        msgRepo: msgRepo,
+        memberRepo: memberRepo,
+        fronts: [front('alice')],
+      );
+      addTearDown(container.dispose);
 
-    await container
-        .read(chatNotifierProvider.notifier)
-        .changeMessageAuthor('msg-1', 'nonexistent-member');
+      await container
+          .read(chatNotifierProvider.notifier)
+          .changeMessageAuthor('msg-1', 'nonexistent-member');
 
-    expect(container.read(chatNotifierProvider).hasError, isTrue);
-    expect(container.read(chatNotifierProvider).error, isA<StateError>());
-  });
+      expect(container.read(chatNotifierProvider).hasError, isTrue);
+      expect(container.read(chatNotifierProvider).error, isA<StateError>());
+    },
+  );
+
+  test(
+    'changeMessageAuthor rejects unknown sentinel in limited groups',
+    () async {
+      final conv = groupConv();
+      final original = msg(authorId: 'bob');
+
+      final convRepo = FakeConversationRepository()..conversations.add(conv);
+      final msgRepo = _SpyChatMessageRepository()..seed([original]);
+      final memberRepo = FakeMemberRepository()
+        ..seed([member('alice'), member('bob'), member('carol')]);
+
+      final container = buildContainer(
+        convRepo: convRepo,
+        msgRepo: msgRepo,
+        memberRepo: memberRepo,
+        fronts: [front('alice')],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(chatNotifierProvider.notifier)
+          .changeMessageAuthor('msg-1', unknownSentinelMemberId);
+
+      expect(container.read(chatNotifierProvider).hasError, isTrue);
+      expect(container.read(chatNotifierProvider).error, isA<StateError>());
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Sentinel accepted
   // -------------------------------------------------------------------------
 
-  test('changeMessageAuthor accepts unknownSentinelMemberId', () async {
-    final conv = groupConv();
-    final original = msg(authorId: 'bob');
+  test(
+    'changeMessageAuthor accepts unknownSentinelMemberId in everyone groups',
+    () async {
+      final conv = groupConv(includesAllMembers: true);
+      final original = msg(authorId: 'bob');
 
-    final convRepo = FakeConversationRepository()..conversations.add(conv);
-    final msgRepo = _SpyChatMessageRepository()..seed([original]);
-    final memberRepo = FakeMemberRepository()
-      ..seed([member('alice'), member('bob'), member('carol')]);
+      final convRepo = FakeConversationRepository()..conversations.add(conv);
+      final msgRepo = _SpyChatMessageRepository()..seed([original]);
+      final memberRepo = FakeMemberRepository()
+        ..seed([member('alice'), member('bob'), member('carol')]);
 
-    final container = buildContainer(
-      convRepo: convRepo,
-      msgRepo: msgRepo,
-      memberRepo: memberRepo,
-      fronts: [front('alice')],
-    );
-    addTearDown(container.dispose);
+      final container = buildContainer(
+        convRepo: convRepo,
+        msgRepo: msgRepo,
+        memberRepo: memberRepo,
+        fronts: [front('alice')],
+      );
+      addTearDown(container.dispose);
 
-    await container
-        .read(chatNotifierProvider.notifier)
-        .changeMessageAuthor('msg-1', unknownSentinelMemberId);
+      await container
+          .read(chatNotifierProvider.notifier)
+          .changeMessageAuthor('msg-1', unknownSentinelMemberId);
 
-    expect(container.read(chatNotifierProvider).hasError, isFalse);
+      expect(container.read(chatNotifierProvider).hasError, isFalse);
 
-    final updated = await msgRepo.getMessageById('msg-1');
-    expect(
-      updated?.authorId,
-      unknownSentinelMemberId,
-      reason: 'sentinel should be written as new authorId',
-    );
-  });
+      final updated = await msgRepo.getMessageById('msg-1');
+      expect(
+        updated?.authorId,
+        unknownSentinelMemberId,
+        reason: 'sentinel should be written as new authorId',
+      );
+    },
+  );
 
   // -------------------------------------------------------------------------
   // Tombstoned message — silent no-op

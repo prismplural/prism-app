@@ -180,22 +180,56 @@ void main() {
     expect(find.text('Unknown'), findsNothing);
   });
 
-  testWidgets('speaking-as popup in group chats keeps all active members', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      buildSubject(activeMembersOverride: [alice, bob, carol, unknown]),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'speaking-as popup in limited group chats lists participants only',
+    (tester) async {
+      await tester.pumpWidget(
+        buildSubject(activeMembersOverride: [alice, bob, carol, unknown]),
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(BlurPopupAnchor).first);
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(BlurPopupAnchor).first);
+      await tester.pumpAndSettle();
 
-    expect(find.text('Alice'), findsOneWidget);
-    expect(find.text('Bob'), findsOneWidget);
-    expect(find.text('Carol'), findsOneWidget);
-    expect(find.text('Unknown'), findsOneWidget);
-  });
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Bob'), findsOneWidget);
+      expect(find.text('Carol'), findsNothing);
+      expect(find.text('Unknown'), findsNothing);
+
+      await tester.tap(find.text('Search'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Bob'), findsOneWidget);
+      expect(find.text('Carol'), findsNothing);
+      expect(find.text('Unknown'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'speaking-as popup in everyone group chats keeps all active members',
+    (tester) async {
+      await tester.pumpWidget(
+        buildSubject(
+          conversationOverride: conversation.copyWith(
+            participantIds: const [],
+            includesAllMembers: true,
+          ),
+          activeMembersOverride: [alice, bob, carol, unknown],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(BlurPopupAnchor).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Bob'), findsOneWidget);
+      expect(find.text('Carol'), findsOneWidget);
+      expect(find.text('Unknown'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'speaking-as popup Search row closes popup and shows sheet without '

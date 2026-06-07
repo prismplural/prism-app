@@ -61,11 +61,12 @@ Set<String> chatAuthorCandidateIds(
   );
   final ids = body.map((m) => m.id).toSet();
 
+  final restrictToParticipantIds =
+      !conversationIncludesImplicitMembers(conversation) &&
+      conversation.participantIds.isNotEmpty;
   final bool addUnknown;
-  if (isDirectMessageConversation(conversation) &&
-      conversation.participantIds.isNotEmpty) {
-    addUnknown =
-        conversation.participantIds.contains(unknownSentinelMemberId);
+  if (restrictToParticipantIds) {
+    addUnknown = conversation.participantIds.contains(unknownSentinelMemberId);
   } else {
     addUnknown = true;
   }
@@ -73,13 +74,15 @@ Set<String> chatAuthorCandidateIds(
   return ids;
 }
 
-/// Ordered author candidates for [conversation]. The Unknown sentinel is the
-/// last entry. The member matching [currentAuthorId] is pinned to index 0;
-/// supply [currentAuthor] when the current author is no longer in
-/// [activeMembers] (departed/deleted).
+/// Ordered active author candidates for [conversation]. The Unknown sentinel
+/// is the last entry. The member matching [currentAuthorId] is pinned to index
+/// 0; supply [currentAuthor] when the current author is no longer in
+/// [activeMembers] (departed/deleted) but still needs to render as the current
+/// historical author.
 ///
-/// DMs with a non-empty [Conversation.participantIds] are restricted to those
-/// participants and exclude Unknown unless the sentinel id is listed.
+/// Conversations with explicit [Conversation.participantIds] are restricted to
+/// those participants unless they include all members implicitly. Unknown is
+/// excluded unless the sentinel id is listed.
 List<Member> chatAuthorCandidates(
   Conversation conversation,
   List<Member> activeMembers,
@@ -94,11 +97,12 @@ List<Member> chatAuthorCandidates(
     currentAuthor: currentAuthor,
   );
 
+  final restrictToParticipantIds =
+      !conversationIncludesImplicitMembers(conversation) &&
+      conversation.participantIds.isNotEmpty;
   final bool addUnknown;
-  if (isDirectMessageConversation(conversation) &&
-      conversation.participantIds.isNotEmpty) {
-    addUnknown =
-        conversation.participantIds.contains(unknownSentinelMemberId);
+  if (restrictToParticipantIds) {
+    addUnknown = conversation.participantIds.contains(unknownSentinelMemberId);
   } else {
     addUnknown = true;
   }
@@ -127,11 +131,13 @@ List<Member> _buildCandidateMembers(
   Member? currentAuthor,
 }) {
   final visible = activeMembers
-      .where((m) => m.id != unknownSentinelMemberId)
+      .where(
+        (m) => m.id != unknownSentinelMemberId && m.isActive && !m.isDeleted,
+      )
       .toList(growable: false);
 
   final List<Member> pool;
-  if (isDirectMessageConversation(conversation) &&
+  if (!conversationIncludesImplicitMembers(conversation) &&
       conversation.participantIds.isNotEmpty) {
     final participantSet = conversation.participantIds
         .where((id) => id != unknownSentinelMemberId)
@@ -151,8 +157,5 @@ List<Member> _buildCandidateMembers(
 
   if (current == null) return pool;
 
-  return [
-    current,
-    ...pool.where((m) => m.id != currentAuthorId),
-  ];
+  return [current, ...pool.where((m) => m.id != currentAuthorId)];
 }

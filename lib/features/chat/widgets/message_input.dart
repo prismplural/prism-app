@@ -229,7 +229,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     List<Member> members,
     Conversation? conversation,
   ) {
-    if (conversation == null || !conversation.isDirectMessage) return members;
+    // Functional @mentions follow chat membership. Non-participants can still
+    // be referenced as plain text, but autocomplete/badges stay in-room.
+    if (conversation == null ||
+        conversationIncludesImplicitMembers(conversation) ||
+        conversation.participantIds.isEmpty) {
+      return members;
+    }
     final participantIds = conversation.participantIds.toSet();
     return members
         .where((member) => participantIds.contains(member.id))
