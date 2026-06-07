@@ -142,6 +142,19 @@ class DownloadManager {
     }
   }
 
+  /// Whether the encrypted blob for [mediaId] is already present in the local
+  /// `.enc` cache. Lets background hydration skip a needless download + decrypt
+  /// for media that's already on disk, using the exact same path resolution
+  /// (including the test cache-dir override) that [getMedia] uses.
+  Future<bool> isCached(String mediaId, {String fileExtension = ''}) async {
+    final encFile = await _cacheFileFor(
+      mediaId,
+      fileExtension: fileExtension,
+      encrypted: true,
+    );
+    return encFile.existsSync();
+  }
+
   /// Pre-caches [ciphertext] locally so that a subsequent [getMedia] call
   /// for [mediaId] can decrypt from disk without hitting the relay.
   /// Used after encrypting a locally-created media item (voice note, image)

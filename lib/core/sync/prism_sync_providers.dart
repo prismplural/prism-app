@@ -3122,6 +3122,16 @@ final driftSyncAdapterProvider = Provider<SyncAdapterWithCompletion>((ref) {
 // Sync event stream
 // ---------------------------------------------------------------------------
 
+/// True when a RemoteChanges batch carried at least one `media_attachments`
+/// change (insert/update/delete). Used to gate the eager-hydration walk so we
+/// don't re-scan the whole table after every unrelated sync batch.
+bool _batchTouchedMediaAttachments(SyncEvent event) {
+  for (final change in event.changes) {
+    if (change['table'] == 'media_attachments') return true;
+  }
+  return false;
+}
+
 final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
   final handle = ref.watch(prismSyncHandleProvider).value;
   if (handle == null) return const Stream.empty();
@@ -3194,6 +3204,24 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       // latch resolves with success. No-op when not in strict mode.
       if (strict) {
         strictCoordinator.signalBatchComplete();
+      }
+      // Hydrate media referenced by rows this batch applied — the trigger that
+      // fixes the fresh-pair incident, since the pairing snapshot's
+      // media_attachments rows arrive here as a RemoteChanges batch.
+      // enqueuePending reads committed DB state, so firing post-commit is safe
+      // and idempotent; fire-and-forget so it can't stall the sync cycle.
+      if (_batchTouchedMediaAttachments(event)) {
+        unawaited(
+          Future<void>.sync(
+            () => ref.read(mediaHydratorProvider).enqueuePending(),
+          ).catchError((Object e) {
+            if (kDebugMode) {
+              debugPrint(
+                '[SYNC_STREAM] media hydration trigger failed (non-fatal): $e',
+              );
+            }
+          }),
+        );
       }
       if (kDebugMode) {
         debugPrint(

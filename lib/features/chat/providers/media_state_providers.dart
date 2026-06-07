@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/services/media/upload_queue.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/features/chat/providers/media_available_provider.dart';
 
 typedef MediaFileParams = ({
   String mediaId,
@@ -55,6 +56,16 @@ void evictMediaCache(String mediaId) {
 
 final mediaFileProvider = FutureProvider.autoDispose
     .family<Uint8List?, MediaFileParams>((ref, params) async {
+      // Repaint when background hydration pulls *this* blob into the cache.
+      // A first resolve that returned null (placeholder) re-runs and now finds
+      // the freshly-downloaded `.enc` file. The listener is torn down with the
+      // provider (autoDispose), so off-screen images stop listening for free.
+      ref.listen(mediaAvailableProvider, (previous, next) {
+        if (next.value?.mediaId == params.mediaId) {
+          ref.invalidateSelf();
+        }
+      });
+
       // Return from memory cache if available — no disk read or decryption needed.
       final cached = _imageMemoryCache[params.mediaId];
       if (cached != null) return cached;

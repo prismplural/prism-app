@@ -11,6 +11,7 @@ import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/media/bio_media_reconciler.dart';
+import 'core/services/media/media_providers.dart';
 import 'core/services/media/orphan_media_reconciler.dart';
 import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
@@ -56,6 +57,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   late final AppLifecycleListener _appLifecycleListener;
   bool _ranOrphanMediaReconcile = false;
   bool _ranBioMediaReconcile = false;
+  bool _ranMediaHydration = false;
   bool _ranPrimaryDatabaseKeyRepair = false;
 
   @override
@@ -105,6 +107,30 @@ class _PrismAppState extends ConsumerState<PrismApp> {
         // reconcile path can never crash app startup.
         debugPrint('Bio media reconcile threw out (non-fatal): $e');
         return 0;
+      }),
+    );
+  }
+
+  /// Kick off eager media hydration once per launch, after
+  /// `prismSyncHandleProvider` has finished its first resolve. Walks every
+  /// non-deleted `media_attachments` row and background-downloads any blob not
+  /// already cached. This covers relaunch + reinstall of an already-paired
+  /// device (its rows are in the local DB at startup); a *fresh* pair is
+  /// covered separately by the post-sync-batch trigger in syncEventStreamProvider
+  /// once the snapshot's rows commit. Fire-and-forget and self-swallowing.
+  void _maybeRunMediaHydration(
+    AsyncValue<ffi.PrismSyncHandle?>? previous,
+    AsyncValue<ffi.PrismSyncHandle?> next,
+  ) {
+    if (_ranMediaHydration) return;
+    if (next is AsyncLoading) return;
+    _ranMediaHydration = true;
+    unawaited(
+      runMediaHydrationFromRef(ref).catchError((Object e) {
+        // runMediaHydrationFromRef already swallows + logs internally; this
+        // catchError is a final safety net so a programmer bug in the
+        // hydration path can never crash app startup.
+        debugPrint('Media hydration startup walk threw out (non-fatal): $e');
       }),
     );
   }
@@ -223,6 +249,13 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // has finished its first init pass (same timing rationale as above).
     ref.listen(prismSyncHandleProvider, _maybeRunBioMediaReconcile);
     _maybeRunBioMediaReconcile(null, ref.read(prismSyncHandleProvider));
+
+    // Eagerly hydrate referenced media in the background once the sync layer
+    // has finished its first init pass. Fixes "I paired a new device and all
+    // my media is missing": without this, a device only fetches a blob when
+    // the user happens to scroll its image into view.
+    ref.listen(prismSyncHandleProvider, _maybeRunMediaHydration);
+    _maybeRunMediaHydration(null, ref.read(prismSyncHandleProvider));
 
     // Keep the FFI event stream alive for the lifetime of the app.
     ref.listen(syncEventStreamProvider, (_, _) {});
