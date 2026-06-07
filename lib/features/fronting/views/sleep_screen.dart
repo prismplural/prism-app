@@ -159,22 +159,11 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     return sessionsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const [
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 360,
-            child: Center(child: PrismLoadingState()),
-          ),
-        ),
+        _SleepStateSliver(child: Center(child: PrismLoadingState())),
       ],
       error: (e, _) => [
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 360,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('$e'),
-            ),
-          ),
+        _SleepStateSliver(
+          child: Padding(padding: const EdgeInsets.all(24), child: Text('$e')),
         ),
       ],
       data: (sessions) {
@@ -183,17 +172,14 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
         final activeSleep = ref.read(activeSleepSessionProvider).value;
         if (sessions.isEmpty && activeSleep == null) {
           return [
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 360,
-                child: EmptyState(
-                  icon: Icon(AppIcons.navSleep),
-                  title: l10n.sleepEmptyTitle,
-                  subtitle: l10n.sleepEmptyBody,
-                  actionLabel: l10n.sleepScreenAddTooltip,
-                  actionIcon: AppIcons.add,
-                  onAction: _openAddSheet,
-                ),
+            _SleepStateSliver(
+              child: EmptyState(
+                icon: Icon(AppIcons.navSleep),
+                title: l10n.sleepEmptyTitle,
+                subtitle: l10n.sleepEmptyBody,
+                actionLabel: l10n.sleepScreenAddTooltip,
+                actionIcon: AppIcons.add,
+                onAction: _openAddSheet,
               ),
             ),
           ];
@@ -250,5 +236,32 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
       Haptics.heavy();
       await ref.read(sleepNotifierProvider.notifier).deleteSleep(session.id);
     }
+  }
+}
+
+class _SleepStateSliver extends StatelessWidget {
+  const _SleepStateSliver({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        final remainingExtent =
+            constraints.viewportMainAxisExtent -
+            constraints.precedingScrollExtent;
+        final minHeight = remainingExtent.isFinite && remainingExtent > 0
+            ? remainingExtent
+            : 0.0;
+
+        return SliverToBoxAdapter(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: child,
+          ),
+        );
+      },
+    );
   }
 }

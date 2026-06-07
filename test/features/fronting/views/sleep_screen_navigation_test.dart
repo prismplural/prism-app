@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,8 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/views/sleep_screen.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_session_row.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 FrontingSession _sleepSession() => FrontingSession(
   id: 'sleep-1',
@@ -18,7 +22,18 @@ FrontingSession _sleepSession() => FrontingSession(
   quality: SleepQuality.good,
 );
 
-Widget _buildSubject(FrontingSession session) {
+SleepStatsView _sleepStats({FrontingSession? session}) => SleepStatsView(
+  totalEverCount: session == null ? 0 : 1,
+  lastNight: session,
+  avg7d: (count: session == null ? 0 : 1, avgDuration: session?.duration),
+  avg7dPrior: (count: 0, avgDuration: null),
+);
+
+Widget _buildSubject({
+  Stream<List<FrontingSession>>? history,
+  Stream<FrontingSession?>? activeSleep,
+  Future<SleepStatsView>? stats,
+}) {
   final router = GoRouter(
     initialLocation: AppRoutePaths.sleep,
     routes: [
@@ -38,17 +53,14 @@ Widget _buildSubject(FrontingSession session) {
 
   return ProviderScope(
     overrides: [
-      activeSleepSessionProvider.overrideWith((ref) => Stream.value(null)),
-      sleepHistoryProvider.overrideWith((ref) => Stream.value([session])),
+      activeSleepSessionProvider.overrideWith(
+        (ref) => activeSleep ?? Stream.value(null),
+      ),
+      sleepHistoryProvider.overrideWith(
+        (ref) => history ?? Stream.value([_sleepSession()]),
+      ),
       sleepStatsProvider.overrideWith(
-        (ref) => Future.value(
-          SleepStatsView(
-            totalEverCount: 1,
-            lastNight: session,
-            avg7d: (count: 1, avgDuration: session.duration),
-            avg7dPrior: (count: 0, avgDuration: null),
-          ),
-        ),
+        (ref) => stats ?? Future.value(_sleepStats()),
       ),
     ],
     child: MaterialApp.router(
@@ -59,11 +71,33 @@ Widget _buildSubject(FrontingSession session) {
   );
 }
 
+void _useCompactViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(320, 320);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Future<void> _pumpUntilFound(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 10; i += 1) {
+    await tester.pump(const Duration(milliseconds: 10));
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+  }
+  expect(finder, findsOneWidget);
+}
+
 void main() {
   testWidgets('tapping a sleep row opens session details', (tester) async {
     final session = _sleepSession();
 
-    await tester.pumpWidget(_buildSubject(session));
+    await tester.pumpWidget(
+      _buildSubject(
+        history: Stream.value([session]),
+        stats: Future.value(_sleepStats(session: session)),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(SleepSessionRow), findsOneWidget);
@@ -72,5 +106,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('detail-sleep-1'), findsOneWidget);
+  });
+
+  testWidgets('loading state uses compact viewport without layout errors', (
+    tester,
+  ) async {
+    _useCompactViewport(tester);
+    final history = StreamController<List<FrontingSession>>();
+    addTearDown(history.close);
+
+    await tester.pumpWidget(_buildSubject(history: history.stream));
+    await tester.pump();
+
+    expect(find.byType(PrismLoadingState), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('empty state uses compact viewport without layout errors', (
+    tester,
+  ) async {
+    _useCompactViewport(tester);
+
+    await tester.pumpWidget(
+      _buildSubject(
+        history: Stream.value(const []),
+        stats: Future.value(_sleepStats()),
+      ),
+    );
+    await tester.pump();
+    await _pumpUntilFound(tester, find.byType(EmptyState));
+
+    expect(find.byType(EmptyState), findsOneWidget);
+    expect(find.text('No sleep sessions yet'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('error state uses compact viewport without layout errors', (
+    tester,
+  ) async {
+    _useCompactViewport(tester);
+
+    await tester.pumpWidget(
+      _buildSubject(
+        history: Stream<List<FrontingSession>>.error(
+          Exception('sleep history failed'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await _pumpUntilFound(tester, find.text('Exception: sleep history failed'));
+
+    expect(find.text('Exception: sleep history failed'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
