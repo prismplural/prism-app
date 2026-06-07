@@ -159,15 +159,22 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     return sessionsAsync.when(
       skipLoadingOnReload: true,
       loading: () => const [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(child: PrismLoadingState()),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 360,
+            child: Center(child: PrismLoadingState()),
+          ),
         ),
       ],
       error: (e, _) => [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Padding(padding: const EdgeInsets.all(24), child: Text('$e')),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 360,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('$e'),
+            ),
+          ),
         ),
       ],
       data: (sessions) {
@@ -176,15 +183,17 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
         final activeSleep = ref.read(activeSleepSessionProvider).value;
         if (sessions.isEmpty && activeSleep == null) {
           return [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: EmptyState(
-                icon: Icon(AppIcons.navSleep),
-                title: l10n.sleepEmptyTitle,
-                subtitle: l10n.sleepEmptyBody,
-                actionLabel: l10n.sleepScreenAddTooltip,
-                actionIcon: AppIcons.add,
-                onAction: _openAddSheet,
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 360,
+                child: EmptyState(
+                  icon: Icon(AppIcons.navSleep),
+                  title: l10n.sleepEmptyTitle,
+                  subtitle: l10n.sleepEmptyBody,
+                  actionLabel: l10n.sleepScreenAddTooltip,
+                  actionIcon: AppIcons.add,
+                  onAction: _openAddSheet,
+                ),
               ),
             ),
           ];
