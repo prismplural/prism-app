@@ -32,6 +32,25 @@ const _syncDatabaseRepairRequiredMessage =
     'Sync database needs repair before setup can continue. Open Sync '
     'troubleshooting, reset sync, then pair again.';
 
+/// Shown for a permanently-unreadable keychain (cipher/entitlement failure),
+/// where retrying re-runs the same failing `readAll` forever — so it points at
+/// the reset that clears it instead of inviting a futile retry.
+const _secureStorageUnreadableMessage =
+    "This device's secure storage can't be read, so sync setup can't "
+    'continue — retrying will keep failing. Go to Settings → Reset Data to '
+    'clear it, then enter your recovery phrase again.';
+
+/// Keychain enumeration failure during the pre-setup snapshot. Carries the
+/// classified [failure] so the guard can split transient (retry) from permanent
+/// (reset), plus the raw platform [code]/[message] — the only diagnostic we can
+/// get off a release device, where the in-app keychain tools are debug-gated.
+class _KeychainSnapshotException implements Exception {
+  const _KeychainSnapshotException(this.failure, {this.code, this.message});
+  final SecureStorageFailure? failure;
+  final String? code;
+  final String? message;
+}
+
 class SyncSetupState {
   final SyncSetupStep step;
   final String relayUrl;
@@ -550,9 +569,22 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   }
 
   Future<Map<String, String>> _snapshotPrismSyncKeychain() async {
-    final all = await readPrefixed('prism_sync.');
+    // Enumerate directly (not via readPrefixed) so the classified failure
+    // survives to the guard — a thrown StateError would erase transient-ness.
+    final result = await safeSecureReadAll();
+    if (!result.ok) {
+      throw _KeychainSnapshotException(
+        result.failure,
+        code: result.code,
+        message: result.message,
+      );
+    }
     return Map.fromEntries(
-      all.entries.where((e) => !kProtectedFromReset.contains(e.key)),
+      result.entries.entries.where(
+        (e) =>
+            e.key.startsWith('prism_sync.') &&
+            !kProtectedFromReset.contains(e.key),
+      ),
     );
   }
 
@@ -560,7 +592,32 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   _snapshotPrismSyncKeychainWithSetupGuard() async {
     try {
       return await _snapshotPrismSyncKeychain();
-    } catch (_) {
+    } on _KeychainSnapshotException catch (e) {
+      // Release-build observability: keychain diagnostics are debug-gated, so
+      // capture the raw platform fields here and (via the token below) on the
+      // error itself, where a screenshot can carry the OSStatus to support.
+      ErrorReportingService.instance.report(
+        'Sync setup keychain snapshot failed: '
+        'failure=${e.failure?.name ?? 'unknown'} code=${e.code} '
+        'message=${e.message}',
+      );
+      // Transient (e.g. device not yet unlocked) can succeed on retry; a
+      // cipher/unknown failure is permanent, so route to the reset instead.
+      final retryable = e.failure == SecureStorageFailure.transient;
+      state = state.copyWith(
+        isProcessing: false,
+        currentProgress: null,
+        error: retryable
+            ? 'Could not read secure storage. Please retry.'
+            : _withDiagnosticToken(_secureStorageUnreadableMessage, e),
+      );
+      return null;
+    } catch (e, st) {
+      // Defensive: unexpected throw keeps the retry copy, still captured.
+      ErrorReportingService.instance.report(
+        'Sync setup keychain snapshot failed (unexpected): $e',
+        stackTrace: st,
+      );
       state = state.copyWith(
         isProcessing: false,
         currentProgress: null,
@@ -568,6 +625,27 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       );
       return null;
     }
+  }
+
+  /// Append a copyable diagnostic token so a release user's screenshot carries
+  /// the OSStatus. iOS may put it at either end of [message], so a long message
+  /// keeps both ends.
+  String _withDiagnosticToken(
+    String baseMessage,
+    _KeychainSnapshotException e,
+  ) {
+    final parts = <String>[e.failure?.name ?? 'error'];
+    if (e.code != null && e.code!.isNotEmpty) parts.add(e.code!);
+    final msg = e.message;
+    if (msg != null && msg.isNotEmpty) {
+      parts.add(
+        msg.length > 100
+            ? '${msg.substring(0, 60)}…${msg.substring(msg.length - 40)}'
+            : msg,
+      );
+    }
+    return '$baseMessage\n\nDiagnostic code: ${parts.join(' · ')} — '
+        'include this if you contact support.';
   }
 
   /// Roll back the `prism_sync.*` namespace to a previously captured

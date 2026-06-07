@@ -17,6 +17,11 @@ class _InMemoryKeychain {
       <String, List<PlatformException>>{};
   bool throwOnReadAll = false;
 
+  /// When set, `readAll` throws this exact exception instead of the default
+  /// unclassified [PlatformException]. Lets tests pick a failure that
+  /// classifies as transient vs. cipher/unknown.
+  PlatformException? readAllException;
+
   void install() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -50,6 +55,9 @@ class _InMemoryKeychain {
         values.remove(args['key'] as String);
         return null;
       case 'readAll':
+        if (readAllException != null) {
+          throw readAllException!;
+        }
         if (throwOnReadAll) {
           throw PlatformException(
             code: 'KeychainError',
@@ -107,6 +115,7 @@ void main() {
 
   setUp(() {
     keychain = _InMemoryKeychain()..install();
+    ErrorReportingService.instance.clear();
   });
 
   tearDown(() {
@@ -458,21 +467,20 @@ void main() {
       final container = makeContainer(handleNotifier: notifier);
       final setup = container.read(syncSetupProvider.notifier);
 
+      // The raw helper surfaces (never swallows) a keychain enumeration
+      // failure so the guard can classify it.
       await expectLater(
         setup.snapshotPrismSyncKeychainForTest(),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            contains('secure storage readAll failed'),
-          ),
-        ),
+        throwsA(isA<Exception>()),
       );
     });
 
     test(
-      'guarded snapshot failure resets setup state and records retryable error',
+      'guarded snapshot failure on a permanent read routes the user to reset, '
+      'not a futile retry',
       () async {
+        // Default fake failure (code KeychainError) classifies as `unknown` —
+        // permanent, so retrying loops; the copy must point at Reset Data.
         keychain.throwOnReadAll = true;
         addTearDown(() => keychain.throwOnReadAll = false);
 
@@ -491,7 +499,81 @@ void main() {
         final state = container.read(syncSetupProvider);
         expect(state.isProcessing, isFalse);
         expect(state.currentProgress, isNull);
+        // No futile-retry copy; surface the reachable recovery action.
+        expect(state.error, isNot(contains('Please retry')));
+        expect(state.error, contains('Reset Data'));
+        // Observability: raw code reaches the on-screen message (screenshot)...
+        expect(state.error, contains('Diagnostic code'));
+        expect(state.error, contains('KeychainError'));
+        // ...and the error log (support tooling).
+        expect(
+          ErrorReportingService.instance.errors.map((e) => e.message),
+          contains(
+            allOf(
+              contains('keychain snapshot failed'),
+              contains('KeychainError'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'guarded snapshot failure on a transient read keeps the retry message',
+      () async {
+        // UserNotAuthenticated classifies as `transient` — retry can succeed,
+        // so the retry copy is preserved.
+        keychain.readAllException = PlatformException(
+          code: 'UserNotAuthenticated',
+          message: 'device locked',
+        );
+        addTearDown(() => keychain.readAllException = null);
+
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+
+        final snapshot = await setup
+            .snapshotPrismSyncKeychainWithSetupGuardForTest(
+              initialProgress: SyncSetupProgress.cachingKeys,
+            );
+
+        expect(snapshot, isNull);
+        final state = container.read(syncSetupProvider);
+        expect(state.isProcessing, isFalse);
+        expect(state.currentProgress, isNull);
         expect(state.error, 'Could not read secure storage. Please retry.');
+      },
+    );
+
+    test(
+      'long platform message keeps both ends in the on-screen diagnostic token',
+      () async {
+        // iOS may put the OSStatus at either end of the message; trimming a
+        // long one must keep both so the screenshot never loses it.
+        const head = 'OSSTATUS_HEAD_MARKER';
+        const tail = 'OSSTATUS_TAIL_MARKER';
+        keychain.readAllException = PlatformException(
+          code: 'KeychainError',
+          message: '$head ${'x' * 120} $tail',
+        );
+        addTearDown(() => keychain.readAllException = null);
+
+        final notifier = _FakePrismSyncHandleNotifier(
+          const _FakePrismSyncHandle(),
+        );
+        final container = makeContainer(handleNotifier: notifier);
+        final setup = container.read(syncSetupProvider.notifier);
+
+        await setup.snapshotPrismSyncKeychainWithSetupGuardForTest(
+          initialProgress: SyncSetupProgress.cachingKeys,
+        );
+
+        final error = container.read(syncSetupProvider).error;
+        expect(error, contains(head));
+        expect(error, contains(tail));
       },
     );
   });
