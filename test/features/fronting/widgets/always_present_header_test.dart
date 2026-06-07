@@ -88,7 +88,7 @@ void main() {
         );
 
         expect(find.text('Host'), findsOneWidget);
-        expect(find.text('Long-running · 2 weeks'), findsOneWidget);
+        expect(find.text('Long-running · 14d 0h'), findsOneWidget);
         expect(find.textContaining('Always present'), findsNothing);
       },
     );
@@ -115,7 +115,7 @@ void main() {
       );
 
       expect(find.text('Host & Friend'), findsOneWidget);
-      expect(find.text('Long-running · 2 weeks'), findsOneWidget);
+      expect(find.text('Long-running · 14d 0h'), findsOneWidget);
     });
 
     testWidgets(
@@ -156,10 +156,10 @@ void main() {
         ]),
       );
 
-      expect(find.text('Always present · 3 days'), findsOneWidget);
+      expect(find.text('Always present · 3d 0h'), findsOneWidget);
     });
 
-    testWidgets('renders hours bucket when duration is < 1 day', (
+    testWidgets('renders hours when duration is < 1 day', (
       tester,
     ) async {
       final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
@@ -174,7 +174,25 @@ void main() {
         ]),
       );
 
-      expect(find.text('Always present · 5 hours'), findsOneWidget);
+      expect(find.text('Always present · 5h'), findsOneWidget);
+    });
+
+    testWidgets('renders minutes when duration is < 1 hour', (
+      tester,
+    ) async {
+      final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
+      await _pumpHeader(
+        tester,
+        value: AsyncValue.data([
+          AlwaysPresentMember(
+            member: host,
+            session: _session('s1', 'host'),
+            age: const Duration(minutes: 1),
+          ),
+        ]),
+      );
+
+      expect(find.text('Always present · 1m'), findsOneWidget);
     });
 
     testWidgets('uses long-running semantics when the member is not explicit', (
@@ -200,7 +218,7 @@ void main() {
 
       expect(
         find.bySemanticsLabel(
-          'Long-running fronters: Host & Friend, 2 weeks. Double tap to view details.',
+          'Long-running fronters: Host & Friend, 14d 0h. Double tap to view details.',
         ),
         findsOneWidget,
       );

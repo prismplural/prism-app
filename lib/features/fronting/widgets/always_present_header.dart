@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 
@@ -30,8 +31,7 @@ class AlwaysPresentHeader extends ConsumerWidget {
     final theme = Theme.of(context);
     final members = qualifying.map((q) => q.member).toList(growable: false);
     final names = _joinNames(members);
-    final duration = _shortestAge(qualifying);
-    final durationLabel = _formatDuration(context, duration);
+    final durationLabel = _shortestAge(qualifying).toRoundedString();
     final explicitCount = qualifying
         .where((q) => q.member.isAlwaysFronting)
         .length;
@@ -134,20 +134,6 @@ String _joinNames(List<Member> members) {
   if (members.length == 2) return '${members[0].name} & ${members[1].name}';
   final head = members.take(members.length - 1).map((m) => m.name).join(', ');
   return '$head & ${members.last.name}';
-}
-
-String _formatDuration(BuildContext context, Duration age) {
-  final l10n = context.l10n;
-  final totalDays = age.inDays;
-  if (totalDays >= 7) {
-    final weeks = totalDays ~/ 7;
-    return l10n.frontingAlwaysPresentDurationWeeks(weeks);
-  }
-  if (totalDays >= 1) {
-    return l10n.frontingAlwaysPresentDurationDays(totalDays);
-  }
-  final hours = age.inHours;
-  return l10n.frontingAlwaysPresentDurationHours(hours < 1 ? 1 : hours);
 }
 
 /// Sliver delegate that hosts the sticky [AlwaysPresentHeader].
