@@ -170,6 +170,8 @@ void main() {
       find.text('Prism could not finish opening its database.'),
       findsNothing,
     );
+
+    await _disposeAppAndFlushDriftCloseTimers(tester);
   });
 
   testWidgets('real database-ready path tolerates schema probe failure', (
@@ -192,6 +194,8 @@ void main() {
       find.text('Prism could not finish opening its database.'),
       findsNothing,
     );
+
+    await _disposeAppAndFlushDriftCloseTimers(tester);
   });
 
   testWidgets('primary key repair waits for database readiness and runs once', (
@@ -336,4 +340,9 @@ Future<void> _pumpUntilFound(
     if (finder.evaluate().isNotEmpty) return;
   }
   expect(finder, findsOneWidget);
+}
+
+Future<void> _disposeAppAndFlushDriftCloseTimers(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await tester.pump(const Duration(milliseconds: 1));
 }
