@@ -43,8 +43,12 @@ void _check() {
     'macOS PRODUCT_NAME must be Prism.',
   );
   expect(
-    _fileContains('macos/Runner/Info.plist', '<string>Prism</string>'),
-    'macOS CFBundleName must be Prism.',
+    _fileContains('macos/Runner/Info.plist', '<string>Prism</string>') ||
+        _fileContains(
+          'macos/Runner/Info.plist',
+          r'<string>$(PRODUCT_NAME)</string>',
+        ),
+    'macOS CFBundleName must resolve to Prism.',
   );
   expect(
     _fileContains(
