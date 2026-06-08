@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -153,6 +155,68 @@ void main() {
     // safe fronter so the viewer gate never sees null.
     expect(container.read(speakingAsProvider), 'bob');
   });
+
+  test(
+    'latestFronter mode clears explicit selection when fronting sessions change',
+    () async {
+      final sessions = StreamController<List<FrontingSession>>.broadcast();
+      addTearDown(sessions.close);
+      final container = ProviderContainer(
+        overrides: [
+          activeSessionsProvider.overrideWith((ref) => sessions.stream),
+          activeMembersProvider.overrideWithValue(
+            AsyncValue.data([_member('alice'), _member('bob'), _member('carol')]),
+          ),
+          chatLogsFrontProvider.overrideWithValue(false),
+          composerDefaultMemberProvider.overrideWith(
+            () => _FakeMode(ComposerDefaultMember.latestFronter),
+          ),
+          lastUsedSpeakingAsMemberProvider.overrideWith(
+            () => _FakeLastUsed(null),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(composerDefaultMemberProvider.future);
+
+      // Start: alice and bob fronting, bob started later.
+      final bobSelected = Completer<void>();
+      final sub = container.listen<String?>(
+        speakingAsProvider,
+        (prev, next) {
+          if (next == 'bob' && !bobSelected.isCompleted) {
+            bobSelected.complete();
+          }
+        },
+      );
+      sessions.add([
+        _session('alice', DateTime(2026, 5, 7, 10)),
+        _session('bob', DateTime(2026, 5, 7, 11)),
+      ]);
+      await bobSelected.future;
+      expect(container.read(speakingAsProvider), 'bob');
+
+      // User explicitly picks alice — honored immediately.
+      container.read(speakingAsProvider.notifier).setMember('alice');
+      expect(container.read(speakingAsProvider), 'alice');
+
+      // Fronting sessions change: carol starts fronting, alice and bob end.
+      // latestFronter mode should clear the stale explicit selection.
+      final carolSelected = Completer<void>();
+      container.listen<String?>(
+        speakingAsProvider,
+        (prev, next) {
+          if (next == 'carol' && !carolSelected.isCompleted) {
+            carolSelected.complete();
+          }
+        },
+      );
+      sessions.add([_session('carol', DateTime(2026, 5, 7, 12))]);
+      await carolSelected.future;
+      sub.close();
+      expect(container.read(speakingAsProvider), 'carol');
+    },
+  );
 
   test('setMember persists the choice for last-used', () async {
     final container = await makeContainer(

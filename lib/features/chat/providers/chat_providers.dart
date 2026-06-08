@@ -234,6 +234,7 @@ final speakingAsProvider = NotifierProvider<SpeakingAsNotifier, String?>(
 
 class SpeakingAsNotifier extends Notifier<String?> {
   String? _explicitSelection;
+  Set<String>? _lastActiveSessionMemberIds;
 
   @override
   String? build() {
@@ -244,6 +245,21 @@ class SpeakingAsNotifier extends Notifier<String?> {
     final activeMembers = ref.watch(activeMembersProvider);
     final sessions = activeSessions.value ?? [];
     final activeMemberIds = activeMembers.value?.map((m) => m.id).toSet();
+
+    // In latestFronter mode, clear stale explicit selection when sessions change.
+    final currentSessionMemberIds = sessions
+        .map((s) => s.memberId)
+        .whereType<String>()
+        .toSet();
+    if (_lastActiveSessionMemberIds != null &&
+        !setEquals(_lastActiveSessionMemberIds, currentSessionMemberIds)) {
+      final mode = ref.watch(composerDefaultMemberProvider).value ??
+          ComposerDefaultMember.defaultValue;
+      if (mode == ComposerDefaultMember.latestFronter) {
+        _explicitSelection = null;
+      }
+    }
+    _lastActiveSessionMemberIds = currentSessionMemberIds;
 
     final explicitSelection = _explicitSelection;
     if (explicitSelection != null) {
