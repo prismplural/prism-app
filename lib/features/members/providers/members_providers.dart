@@ -137,8 +137,12 @@ final activeMemberByIdProvider = Provider.autoDispose
 
 /// Cached map of memberId → display name, derived from active members.
 /// Computed once and shared across all consumers (e.g., mention previews).
+///
+/// Watches the light list shape, not [activeMembersProvider]: this map only
+/// needs names, and it's always live, so the heavy shape would re-load every
+/// member's image blobs into memory on each insert or edit.
 final memberNameMapProvider = Provider<Map<String, String>>((ref) {
-  final members = ref.watch(activeMembersProvider).value;
+  final members = ref.watch(activeMemberListProvider).value;
   if (members == null) return const {};
   return {for (final m in members) m.id: m.name};
 });
