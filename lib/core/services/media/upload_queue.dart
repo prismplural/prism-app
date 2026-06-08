@@ -9,6 +9,7 @@ typedef UploadMediaFn =
       required String mediaId,
       required String contentHash,
       required Uint8List data,
+      BigInt? ttlSecs,
     });
 
 enum UploadState { pending, uploading, completed, failed }
@@ -32,12 +33,18 @@ class UploadTask {
   final void Function()? onSuccess;
   final void Function(String error)? onFailure;
 
+  /// Optional per-blob TTL (seconds) for the relay's short-TTL upload variant
+  /// (re-supply / pairing push). `null` ⇒ fresh send ⇒ the relay's default
+  /// retention. The relay clamps the value; an old relay ignores it.
+  final BigInt? ttlSecs;
+
   const UploadTask({
     required this.mediaId,
     required this.contentHash,
     required this.encryptedData,
     this.onSuccess,
     this.onFailure,
+    this.ttlSecs,
   });
 }
 
@@ -108,6 +115,7 @@ class UploadQueue {
           mediaId: task.mediaId,
           contentHash: task.contentHash,
           data: task.encryptedData,
+          ttlSecs: task.ttlSecs,
         );
 
         _emitProgress(task.mediaId, UploadState.completed);
@@ -137,12 +145,17 @@ class UploadQueue {
     required String mediaId,
     required String contentHash,
     required Uint8List data,
-  }) {
-    return ffi.uploadMedia(
+    BigInt? ttlSecs,
+  }) async {
+    // Fresh sends ignore the outcome (a brand-new media_id never returns a 202
+    // in-progress). The committed/in-progress distinction is consumed by the media heal's
+    // re-supply responder, not this queue.
+    await ffi.uploadMedia(
       handle: handle,
       mediaId: mediaId,
       contentHash: contentHash,
       data: data,
+      ttlSecs: ttlSecs,
     );
   }
 
