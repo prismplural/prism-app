@@ -3295,6 +3295,9 @@ class SyncEventLogEntry {
     if (event.type == 'DeviceJoined') {
       return 'Device joined: ${event.data['device_id'] ?? 'unknown'}';
     }
+    if (event.isEphemeralMessage) {
+      return 'Ephemeral ${event.ephemeralKind} for ${event.ephemeralMediaId}';
+    }
     return event.type;
   }
 }

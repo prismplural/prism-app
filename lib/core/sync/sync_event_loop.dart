@@ -37,6 +37,25 @@ class SyncEvent {
   /// surface a repair banner.
   bool get isQuarantinedBatch => type == 'QuarantinedBatch';
 
+  /// An ephemeral signal-lane message (ephemeral media signaling) drained from the
+  /// relay's device-message mailbox during a sync cycle. The demand-driven
+  /// heal (media heal) reacts to these; the relay never sees the decrypted
+  /// `ephemeralKind` / `ephemeralMediaId`.
+  bool get isEphemeralMessage => type == 'EphemeralMessage';
+
+  /// The authenticated device that sent an [isEphemeralMessage].
+  String get ephemeralSenderDeviceId =>
+      data['sender_device_id'] as String? ?? '';
+
+  /// App-level kind of an [isEphemeralMessage] (e.g. `'media_request'`).
+  String get ephemeralKind => data['kind'] as String? ?? '';
+
+  /// The media id an [isEphemeralMessage] concerns.
+  String get ephemeralMediaId => data['media_id'] as String? ?? '';
+
+  /// The epoch an [isEphemeralMessage] was sealed under.
+  int get ephemeralEpochId => (data['epoch_id'] as num?)?.toInt() ?? 0;
+
   /// Structured error-kind string as emitted by the Rust FFI (pascal-case).
   ///
   /// Populated on `SyncCompleted` events whose `result.error` is set, and
