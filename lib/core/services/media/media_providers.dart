@@ -22,19 +22,29 @@ final mediaEncryptionServiceProvider = Provider<MediaEncryptionService>(
 );
 
 final uploadQueueProvider = Provider<UploadQueue>((ref) {
-  final handleAsync = ref.watch(prismSyncHandleProvider);
-  final handleFuture = ref.watch(prismSyncHandleProvider.future);
+  // ONE long-lived worker. Crucially it does NOT watch the sync handle: that
+  // handle flips to null intermittently (the documented iOS "Sync disconnected"
+  // blip), and rebuilding the queue on every flip would dispose it mid-upload —
+  // double-sending rows and stranding awaited sends. keepAlive + lazy handle
+  // read keeps a single stable instance.
+  ref.keepAlive();
   final queue = UploadQueue(
     dao: ref.watch(databaseProvider).uploadQueueDao,
-    completeLocallyWhenUnconfigured: true,
     upload: ({
       required String mediaId,
       required String contentHash,
       required Uint8List data,
       BigInt? ttlSecs,
     }) async {
-      final handle = handleAsync.value ?? await handleFuture;
-      if (handle == null) return UploadAttemptResult.unconfigured;
+      // Resolve the handle lazily, per attempt. A momentarily-null handle
+      // (configured-but-disconnected) THROWS so the durable queue backs off and
+      // retries when sync returns — it must never drop a configured user's send.
+      final handle =
+          ref.read(prismSyncHandleProvider).value ??
+          await ref.read(prismSyncHandleProvider.future);
+      if (handle == null) {
+        throw StateError('sync handle unavailable; will retry');
+      }
       // Fresh sends ignore the outcome (a brand-new media_id never returns a
       // 202 in-progress); the committed/in-progress distinction is for media heal.
       await ffi.uploadMedia(

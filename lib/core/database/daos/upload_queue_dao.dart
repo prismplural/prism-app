@@ -4,6 +4,23 @@ import 'package:prism_plurality/core/database/tables/upload_queue_entries_table.
 
 part 'upload_queue_dao.g.dart';
 
+/// Lightweight projection of a due upload-queue row — everything needed to
+/// drive an upload EXCEPT the (potentially multi-MiB) ciphertext, which is
+/// loaded per-row just before upload via [UploadQueueDao.loadCiphertext].
+class UploadQueueDue {
+  final String mediaId;
+  final String contentHash;
+  final int? ttlSecs;
+  final int attempts;
+
+  const UploadQueueDue({
+    required this.mediaId,
+    required this.contentHash,
+    required this.ttlSecs,
+    required this.attempts,
+  });
+}
+
 /// Persistent store for the resumable media upload queue (upload queue).
 @DriftAccessor(tables: [UploadQueueEntries])
 class UploadQueueDao extends DatabaseAccessor<AppDatabase>
@@ -38,17 +55,45 @@ class UploadQueueDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  /// Pending rows due to run now (`nextAttemptAt <= nowMs`), oldest-enqueued
-  /// first (FIFO).
-  Future<List<UploadQueueEntry>> duePending(int nowMs) {
-    return (select(uploadQueueEntries)
-          ..where(
-            (t) =>
-                t.state.equals(statePending) &
-                t.nextAttemptAt.isSmallerOrEqualValue(nowMs),
-          )
-          ..orderBy([(t) => OrderingTerm(expression: t.createdAt)]))
-        .get();
+  /// Metadata for pending rows due to run now (`nextAttemptAt <= nowMs`),
+  /// oldest-enqueued first (FIFO). Deliberately does NOT select the `ciphertext`
+  /// BLOB: a backlog of due rows would otherwise materialise hundreds of MiB at
+  /// once. The bytes are loaded per-row via [loadCiphertext] immediately before
+  /// upload.
+  Future<List<UploadQueueDue>> duePending(int nowMs) async {
+    final q = selectOnly(uploadQueueEntries)
+      ..addColumns([
+        uploadQueueEntries.mediaId,
+        uploadQueueEntries.contentHash,
+        uploadQueueEntries.ttlSecs,
+        uploadQueueEntries.attempts,
+      ])
+      ..where(
+        uploadQueueEntries.state.equals(statePending) &
+            uploadQueueEntries.nextAttemptAt.isSmallerOrEqualValue(nowMs),
+      )
+      ..orderBy([OrderingTerm(expression: uploadQueueEntries.createdAt)]);
+    final rows = await q.get();
+    return rows
+        .map(
+          (r) => UploadQueueDue(
+            mediaId: r.read(uploadQueueEntries.mediaId)!,
+            contentHash: r.read(uploadQueueEntries.contentHash)!,
+            ttlSecs: r.read(uploadQueueEntries.ttlSecs),
+            attempts: r.read(uploadQueueEntries.attempts)!,
+          ),
+        )
+        .toList();
+  }
+
+  /// Load just the ciphertext bytes for one entry (or `null` if it's gone).
+  Future<Uint8List?> loadCiphertext(String mediaId) async {
+    final q = selectOnly(uploadQueueEntries)
+      ..addColumns([uploadQueueEntries.ciphertext])
+      ..where(uploadQueueEntries.mediaId.equals(mediaId))
+      ..limit(1);
+    final row = await q.getSingleOrNull();
+    return row?.read(uploadQueueEntries.ciphertext);
   }
 
   /// The earliest `nextAttemptAt` among pending rows not yet due — so the
@@ -98,7 +143,10 @@ class UploadQueueDao extends DatabaseAccessor<AppDatabase>
         );
   }
 
-  /// Retries exhausted — retain the row in a terminal state (never dropped).
+  /// Retries exhausted — retain a metadata tombstone in a terminal state (the
+  /// row is never silently dropped) but DROP the ciphertext bytes so a stream of
+  /// failed sends can't grow the encrypted DB without bound. A future "retry
+  /// failed sends" UI would re-derive bytes from the source, not this row.
   Future<void> markTerminal({
     required String mediaId,
     required int attempts,
@@ -111,6 +159,7 @@ class UploadQueueDao extends DatabaseAccessor<AppDatabase>
             state: const Value(stateTerminal),
             attempts: Value(attempts),
             lastError: Value(error),
+            ciphertext: Value(Uint8List(0)),
           ),
         );
   }

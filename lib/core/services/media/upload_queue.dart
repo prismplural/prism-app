@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:prism_plurality/core/database/app_database.dart'
-    show UploadQueueEntry;
 import 'package:prism_plurality/core/database/daos/upload_queue_dao.dart';
 
 /// Result of a single upload attempt by [UploadQueue].
@@ -11,9 +9,11 @@ enum UploadAttemptResult {
   /// The blob was uploaded (committed/servable) — remove it from the queue.
   ok,
 
-  /// Sync isn't configured (no relay handle). Depending on
-  /// `completeLocallyWhenUnconfigured`, the queue either completes the entry
-  /// locally (there are no peers to upload to) or treats it as a failure.
+  /// Sync is *not configured at all* (no relay identity). With
+  /// `completeLocallyWhenUnconfigured`, the queue completes the entry locally
+  /// (there are no peers to upload to). NOTE: production must NOT return this
+  /// for a merely-transient null handle (a configured-but-disconnected device)
+  /// — that must throw, so the durable queue retries instead of dropping a send.
   unconfigured,
 }
 
@@ -47,7 +47,17 @@ class UploadTask {
   final String mediaId;
   final String contentHash;
   final Uint8List encryptedData;
+
+  /// Called once the blob is **durably enqueued** (persisted to the queue DB),
+  /// not once it has uploaded. Because the queue is durable, a successful
+  /// enqueue guarantees the blob will eventually be delivered, so callers that
+  /// `await` a send (e.g. `uploadBioImageOrThrow`) can return as soon as it's
+  /// queued rather than blocking on the full upload + retry schedule.
   final void Function()? onSuccess;
+
+  /// Called only if the blob could not be **enqueued** (a DB write error).
+  /// Upload-time failures are handled by the queue's retry/terminal logic, not
+  /// surfaced here.
   final void Function(String error)? onFailure;
 
   /// Optional per-blob TTL (seconds) for the relay's short-TTL upload variant
@@ -72,13 +82,15 @@ class UploadTask {
 /// all) in the encrypted app DB via [UploadQueueDao]; the queue drains pending
 /// rows, uploading with exponential backoff. A successful (committed) upload
 /// deletes the row; a blob that exhausts its retries moves to a retained
-/// `terminal` state (never silently dropped) so it can be surfaced or retried.
+/// `terminal` tombstone (metadata kept, bytes dropped — never silently lost).
 /// On construction the queue resumes any rows left pending by a previous
 /// session.
 ///
-/// `onSuccess`/`onFailure` callbacks are best-effort and only fire for tasks
-/// enqueued in the current process (callers that need to await a send use them);
-/// rows resumed from a prior session upload fire-and-forget.
+/// The owning provider must keep a SINGLE long-lived instance (not rebuild it
+/// when the sync handle changes), so the handle is read lazily inside the
+/// injected [UploadFn] rather than captured at construction. A transient null
+/// handle must make that closure THROW (so the queue retries), never report
+/// `unconfigured` (which drops the send).
 class UploadQueue {
   UploadQueue({
     required this.dao,
@@ -108,9 +120,6 @@ class UploadQueue {
   final Duration _maxBackoff;
 
   final Map<String, StreamController<UploadProgress>> _progressControllers = {};
-  // In-process completion callbacks, keyed by media id. Only set for tasks
-  // enqueued this session.
-  final Map<String, UploadTask> _pendingCallbacks = {};
 
   bool _draining = false;
   bool _disposed = false;
@@ -123,19 +132,30 @@ class UploadQueue {
   }
 
   /// Persist a blob to the queue and start draining. Idempotent on `mediaId`.
+  ///
+  /// `onSuccess` fires here, on durable enqueue (the durability guarantee is
+  /// what the caller actually needs); the upload then proceeds in the
+  /// background with retry. `onFailure` fires only if the enqueue itself fails.
   Future<void> enqueue(UploadTask task) async {
-    if (task.onSuccess != null || task.onFailure != null) {
-      _pendingCallbacks[task.mediaId] = task;
+    try {
+      await dao.upsert(
+        mediaId: task.mediaId,
+        contentHash: task.contentHash,
+        ciphertext: task.encryptedData,
+        ttlSecs: task.ttlSecs?.toInt(),
+        createdAtMs: _nowMs(),
+      );
+    } catch (e) {
+      task.onFailure?.call(e.toString());
+      rethrow;
     }
-    await dao.upsert(
-      mediaId: task.mediaId,
-      contentHash: task.contentHash,
-      ciphertext: task.encryptedData,
-      ttlSecs: task.ttlSecs?.toInt(),
-      createdAtMs: _nowMs(),
-    );
     _emitProgress(task.mediaId, UploadState.pending);
-    await _kick();
+    task.onSuccess?.call();
+    // Fire-and-forget: the durable row is persisted, so the caller's `await
+    // enqueue(...)` returns now; the upload (and any retries) proceed in the
+    // background. Awaiting the drain here would re-block the caller on the full
+    // upload + backoff schedule, defeating the durability guarantee.
+    unawaited(_kick());
   }
 
   /// Trigger a drain if one isn't already running.
@@ -163,42 +183,46 @@ class UploadQueue {
     }
   }
 
-  Future<void> _process(UploadQueueEntry row) async {
+  Future<void> _process(UploadQueueDue row) async {
+    // Load the bytes for just this row, immediately before upload, so a backlog
+    // never materialises every blob in memory at once.
+    final ciphertext = await dao.loadCiphertext(row.mediaId);
+    if (ciphertext == null) {
+      // Row vanished (completed/reaped concurrently) — nothing to do.
+      return;
+    }
+
     _emitProgress(row.mediaId, UploadState.uploading);
     try {
       final result = await _upload(
         mediaId: row.mediaId,
         contentHash: row.contentHash,
-        data: row.ciphertext,
+        data: ciphertext,
         ttlSecs: row.ttlSecs == null ? null : BigInt.from(row.ttlSecs!),
       );
+      if (_disposed) return; // a newer instance owns the DB now
       if (result == UploadAttemptResult.unconfigured) {
         if (_completeLocallyWhenUnconfigured) {
-          // Sync isn't configured: no peers to upload to. Treat as done (the
-          // sender keeps its own local copy) — matches pre-upload queue behavior.
+          // Sync is genuinely not configured: no peers to upload to. Treat as
+          // done (the sender keeps its own local copy).
           await dao.markCompleted(row.mediaId);
-          _succeed(row.mediaId);
+          _emitProgress(row.mediaId, UploadState.completed);
         } else {
-          await _fail(row, 'Sync handle not available');
+          await _fail(row, 'Sync not configured');
         }
         return;
       }
       await dao.markCompleted(row.mediaId);
-      _succeed(row.mediaId);
+      _emitProgress(row.mediaId, UploadState.completed);
     } catch (e) {
+      if (_disposed) return;
       await _fail(row, e.toString());
     }
   }
 
-  void _succeed(String mediaId) {
-    _emitProgress(mediaId, UploadState.completed);
-    final task = _pendingCallbacks.remove(mediaId);
-    task?.onSuccess?.call();
-  }
-
-  /// Record a failed attempt: schedule a backoff retry, or move to terminal
-  /// once retries are exhausted (the row is retained, never dropped).
-  Future<void> _fail(UploadQueueEntry row, String error) async {
+  /// Record a failed attempt: schedule a backoff retry, or move to a terminal
+  /// tombstone once retries are exhausted (metadata retained, bytes dropped).
+  Future<void> _fail(UploadQueueDue row, String error) async {
     final attempts = row.attempts + 1;
     if (attempts >= _maxAttempts) {
       await dao.markTerminal(
@@ -207,8 +231,6 @@ class UploadQueue {
         error: error,
       );
       _emitProgress(row.mediaId, UploadState.failed, error: error);
-      final task = _pendingCallbacks.remove(row.mediaId);
-      task?.onFailure?.call(error);
       return;
     }
     await dao.recordFailure(
@@ -259,6 +281,5 @@ class UploadQueue {
       controller.close();
     }
     _progressControllers.clear();
-    _pendingCallbacks.clear();
   }
 }
