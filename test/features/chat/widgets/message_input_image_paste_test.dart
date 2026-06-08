@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:drift/native.dart';
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
+import 'package:prism_plurality/core/database/app_database.dart'
+    show AppDatabase;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
@@ -30,6 +33,21 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+
+/// A constructible upload queue for fakes that never exercise uploads. Built in
+/// initializer lists, so it can't register an `addTearDown`; the in-memory DB is
+/// freed when the test process exits.
+UploadQueue _noopUploadQueue() => UploadQueue(
+  dao: AppDatabase(NativeDatabase.memory()).uploadQueueDao,
+  upload:
+      ({
+        required String mediaId,
+        required String contentHash,
+        required Uint8List data,
+        BigInt? ttlSecs,
+      }) async => UploadAttemptResult.unconfigured,
+  resumeOnStart: false,
+);
 
 class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
   @override
@@ -489,7 +507,7 @@ class _BlockingUploadMediaService extends MediaService {
   }) : super(
          compression: ImageCompressionService(),
          encryption: MediaEncryptionService(),
-         uploadQueue: UploadQueue(handle: null),
+         uploadQueue: _noopUploadQueue(),
          downloadManager: DownloadManager(
            handle: null,
            encryption: MediaEncryptionService(),
@@ -538,7 +556,7 @@ class _FailingPrepareImageMediaService extends MediaService {
     : super(
         compression: ImageCompressionService(),
         encryption: MediaEncryptionService(),
-        uploadQueue: UploadQueue(handle: null),
+        uploadQueue: _noopUploadQueue(),
         downloadManager: DownloadManager(
           handle: null,
           encryption: MediaEncryptionService(),

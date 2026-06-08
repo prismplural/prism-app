@@ -30,3 +30,4 @@ export 'pk_mapping_state_table.dart';
 export 'member_board_posts_table.dart';
 export 'app_preference_values_table.dart';
 export 'member_profile_preference_values_table.dart';
+export 'upload_queue_entries_table.dart';

@@ -29,6 +29,7 @@ import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
+import 'package:prism_plurality/core/database/daos/upload_queue_dao.dart';
 import 'package:prism_plurality/core/services/fronting_migration_breadcrumb_log.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
@@ -68,6 +69,7 @@ part 'app_database.g.dart';
     PkMappingState,
     AppPreferenceValues,
     MemberProfilePreferenceValues,
+    UploadQueueEntries,
   ],
   daos: [
     MembersDao,
@@ -96,12 +98,13 @@ part 'app_database.g.dart';
     SpImportDao,
     PkMappingStateDao,
     PreferenceValuesDao,
+    UploadQueueDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 32;
+  static const currentSchemaVersion = 33;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -860,6 +863,17 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         current = 32;
+      }
+      if (current == 32 && to >= 33) {
+        // durable media upload queue: durable, resumable media upload queue. Idempotent
+        // — dev/test DBs created at the current schema may already have it.
+        final tables = (await customSelect(
+          "SELECT name FROM sqlite_master WHERE type = 'table'",
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!tables.contains('upload_queue_entries')) {
+          await migrator.createTable(uploadQueueEntries);
+        }
+        current = 33;
       }
       if (current != to) {
         throw UnsupportedError(

@@ -1,0 +1,84 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:drift/native.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqlite3/sqlite3.dart' as raw;
+
+import 'package:prism_plurality/core/database/app_database.dart';
+
+/// Seeds a v32 database: open via [AppDatabase] to materialise the current
+/// schema, then drop the upload queue `upload_queue_entries` table and reset
+/// PRAGMA user_version = 32 so the v32→v33 migration is forced to run on the
+/// next open.
+Future<void> _seedV32Db(File dbFile) async {
+  final seeded = AppDatabase(NativeDatabase(dbFile));
+  await seeded.customSelect('SELECT 1').get();
+  await seeded.close();
+
+  final rawDb = raw.sqlite3.open(dbFile.path);
+  try {
+    rawDb.execute('DROP TABLE IF EXISTS upload_queue_entries');
+    rawDb.execute('PRAGMA user_version = 32;');
+  } finally {
+    rawDb.close();
+  }
+}
+
+void main() {
+  test('v32→v33 migration creates the upload_queue_entries table', () async {
+    final dir = await Directory.systemTemp.createTemp('uq_migration');
+    addTearDown(() => dir.delete(recursive: true));
+    final dbFile = File('${dir.path}/app.db');
+
+    await _seedV32Db(dbFile);
+
+    // Confirm the table is gone pre-migration.
+    final before = raw.sqlite3.open(dbFile.path);
+    final missing = before
+        .select(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='upload_queue_entries'",
+        )
+        .isEmpty;
+    before.close();
+    expect(missing, isTrue, reason: 'seed removed the table');
+
+    // Reopen → onUpgrade 32→33 runs.
+    final upgraded = AppDatabase(NativeDatabase(dbFile));
+    addTearDown(upgraded.close);
+    await upgraded.customSelect('SELECT 1').get();
+
+    // The table now exists and the DAO round-trips.
+    await upgraded.uploadQueueDao.upsert(
+      mediaId: 'm',
+      contentHash: 'h',
+      ciphertext: Uint8List.fromList([1, 2, 3]),
+      createdAtMs: 1,
+    );
+    final row = await upgraded.uploadQueueDao.getById('m');
+    expect(row, isNotNull);
+    expect(row!.ciphertext, Uint8List.fromList([1, 2, 3]));
+    expect(row.state, 'pending');
+  });
+
+  test('v32→v33 migration is idempotent when the table already exists', () async {
+    final dir = await Directory.systemTemp.createTemp('uq_migration2');
+    addTearDown(() => dir.delete(recursive: true));
+    final dbFile = File('${dir.path}/app.db');
+
+    // Open at current schema (table present), then force user_version back to
+    // 32 WITHOUT dropping the table — the guarded createTable must not throw.
+    final seeded = AppDatabase(NativeDatabase(dbFile));
+    await seeded.customSelect('SELECT 1').get();
+    await seeded.close();
+    final rawDb = raw.sqlite3.open(dbFile.path);
+    rawDb.execute('PRAGMA user_version = 32;');
+    rawDb.close();
+
+    final upgraded = AppDatabase(NativeDatabase(dbFile));
+    addTearDown(upgraded.close);
+    // Should not throw despite the table already existing.
+    await upgraded.customSelect('SELECT 1').get();
+    expect(await upgraded.uploadQueueDao.pendingCount(), 0);
+  });
+}

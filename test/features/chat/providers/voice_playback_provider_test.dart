@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
@@ -13,6 +15,24 @@ import 'package:prism_plurality/features/chat/providers/voice_playback_provider.
 import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
 import 'package:prism_plurality/features/chat/services/voice/voice_playback_backend.dart';
 
+/// A constructible upload queue for tests that build a [MediaService] but never
+/// exercise uploads (the queue is a required arg here, nothing more).
+UploadQueue _noopUploadQueue() {
+  final db = AppDatabase(NativeDatabase.memory());
+  addTearDown(db.close);
+  return UploadQueue(
+    dao: db.uploadQueueDao,
+    upload:
+        ({
+          required String mediaId,
+          required String contentHash,
+          required Uint8List data,
+          BigInt? ttlSecs,
+        }) async => UploadAttemptResult.unconfigured,
+    resumeOnStart: false,
+  );
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   group('MediaService.prepareVoiceNote', () {
@@ -21,7 +41,7 @@ void main() {
       final service = MediaService(
         compression: ImageCompressionService(),
         encryption: encryption,
-        uploadQueue: UploadQueue(handle: null),
+        uploadQueue: _noopUploadQueue(),
         downloadManager: DownloadManager(
           handle: null,
           encryption: encryption,
@@ -43,7 +63,7 @@ void main() {
       final service = MediaService(
         compression: ImageCompressionService(),
         encryption: encryption,
-        uploadQueue: UploadQueue(handle: null),
+        uploadQueue: _noopUploadQueue(),
         downloadManager: DownloadManager(
           handle: null,
           encryption: encryption,

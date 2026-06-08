@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
@@ -20,10 +23,29 @@ final mediaEncryptionServiceProvider = Provider<MediaEncryptionService>(
 
 final uploadQueueProvider = Provider<UploadQueue>((ref) {
   final handleAsync = ref.watch(prismSyncHandleProvider);
+  final handleFuture = ref.watch(prismSyncHandleProvider.future);
   final queue = UploadQueue(
-    handle: handleAsync.value,
-    handleFuture: ref.watch(prismSyncHandleProvider.future),
+    dao: ref.watch(databaseProvider).uploadQueueDao,
     completeLocallyWhenUnconfigured: true,
+    upload: ({
+      required String mediaId,
+      required String contentHash,
+      required Uint8List data,
+      BigInt? ttlSecs,
+    }) async {
+      final handle = handleAsync.value ?? await handleFuture;
+      if (handle == null) return UploadAttemptResult.unconfigured;
+      // Fresh sends ignore the outcome (a brand-new media_id never returns a
+      // 202 in-progress); the committed/in-progress distinction is for media heal.
+      await ffi.uploadMedia(
+        handle: handle,
+        mediaId: mediaId,
+        contentHash: contentHash,
+        data: data,
+        ttlSecs: ttlSecs,
+      );
+      return UploadAttemptResult.ok;
+    },
   );
   ref.onDispose(queue.dispose);
   return queue;

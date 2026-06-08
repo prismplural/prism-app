@@ -25758,6 +25758,599 @@ class MemberProfilePreferenceValuesCompanion
   }
 }
 
+class $UploadQueueEntriesTable extends UploadQueueEntries
+    with TableInfo<$UploadQueueEntriesTable, UploadQueueEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UploadQueueEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _mediaIdMeta = const VerificationMeta(
+    'mediaId',
+  );
+  @override
+  late final GeneratedColumn<String> mediaId = GeneratedColumn<String>(
+    'media_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentHashMeta = const VerificationMeta(
+    'contentHash',
+  );
+  @override
+  late final GeneratedColumn<String> contentHash = GeneratedColumn<String>(
+    'content_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ciphertextMeta = const VerificationMeta(
+    'ciphertext',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> ciphertext = GeneratedColumn<Uint8List>(
+    'ciphertext',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ttlSecsMeta = const VerificationMeta(
+    'ttlSecs',
+  );
+  @override
+  late final GeneratedColumn<int> ttlSecs = GeneratedColumn<int>(
+    'ttl_secs',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextAttemptAtMeta = const VerificationMeta(
+    'nextAttemptAt',
+  );
+  @override
+  late final GeneratedColumn<int> nextAttemptAt = GeneratedColumn<int>(
+    'next_attempt_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    mediaId,
+    contentHash,
+    ciphertext,
+    ttlSecs,
+    attempts,
+    nextAttemptAt,
+    createdAt,
+    state,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'upload_queue_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UploadQueueEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('media_id')) {
+      context.handle(
+        _mediaIdMeta,
+        mediaId.isAcceptableOrUnknown(data['media_id']!, _mediaIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mediaIdMeta);
+    }
+    if (data.containsKey('content_hash')) {
+      context.handle(
+        _contentHashMeta,
+        contentHash.isAcceptableOrUnknown(
+          data['content_hash']!,
+          _contentHashMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contentHashMeta);
+    }
+    if (data.containsKey('ciphertext')) {
+      context.handle(
+        _ciphertextMeta,
+        ciphertext.isAcceptableOrUnknown(data['ciphertext']!, _ciphertextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ciphertextMeta);
+    }
+    if (data.containsKey('ttl_secs')) {
+      context.handle(
+        _ttlSecsMeta,
+        ttlSecs.isAcceptableOrUnknown(data['ttl_secs']!, _ttlSecsMeta),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('next_attempt_at')) {
+      context.handle(
+        _nextAttemptAtMeta,
+        nextAttemptAt.isAcceptableOrUnknown(
+          data['next_attempt_at']!,
+          _nextAttemptAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {mediaId};
+  @override
+  UploadQueueEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UploadQueueEntry(
+      mediaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}media_id'],
+      )!,
+      contentHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_hash'],
+      )!,
+      ciphertext: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}ciphertext'],
+      )!,
+      ttlSecs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ttl_secs'],
+      ),
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      nextAttemptAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}next_attempt_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $UploadQueueEntriesTable createAlias(String alias) {
+    return $UploadQueueEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class UploadQueueEntry extends DataClass
+    implements Insertable<UploadQueueEntry> {
+  /// The blob's media id (relay `X-Media-Id`). One queue entry per blob.
+  final String mediaId;
+
+  /// SHA-256 of the ciphertext (relay `X-Content-Hash`).
+  final String contentHash;
+
+  /// The encrypted blob bytes to upload.
+  final Uint8List ciphertext;
+
+  /// Optional short per-blob TTL (seconds) for the relay's re-supply variant.
+  /// `null` ⇒ a normal fresh send ⇒ the relay's default retention.
+  final int? ttlSecs;
+
+  /// Failed upload attempts so far. Drives the backoff schedule.
+  final int attempts;
+
+  /// Unix epoch **milliseconds** the entry is next eligible to upload. `0`
+  /// means "now". (Integer-ms, not DateTime, to avoid the seconds/ms decode
+  /// trap this DB has been bitten by before.)
+  final int nextAttemptAt;
+
+  /// Unix epoch milliseconds the entry was first enqueued (FIFO ordering).
+  final int createdAt;
+
+  /// `pending` (eligible / backing off) or `terminal` (retries exhausted,
+  /// retained for visibility / manual retry — never silently dropped).
+  final String state;
+
+  /// Last upload error, for diagnostics / the terminal state.
+  final String? lastError;
+  const UploadQueueEntry({
+    required this.mediaId,
+    required this.contentHash,
+    required this.ciphertext,
+    this.ttlSecs,
+    required this.attempts,
+    required this.nextAttemptAt,
+    required this.createdAt,
+    required this.state,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['media_id'] = Variable<String>(mediaId);
+    map['content_hash'] = Variable<String>(contentHash);
+    map['ciphertext'] = Variable<Uint8List>(ciphertext);
+    if (!nullToAbsent || ttlSecs != null) {
+      map['ttl_secs'] = Variable<int>(ttlSecs);
+    }
+    map['attempts'] = Variable<int>(attempts);
+    map['next_attempt_at'] = Variable<int>(nextAttemptAt);
+    map['created_at'] = Variable<int>(createdAt);
+    map['state'] = Variable<String>(state);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  UploadQueueEntriesCompanion toCompanion(bool nullToAbsent) {
+    return UploadQueueEntriesCompanion(
+      mediaId: Value(mediaId),
+      contentHash: Value(contentHash),
+      ciphertext: Value(ciphertext),
+      ttlSecs: ttlSecs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ttlSecs),
+      attempts: Value(attempts),
+      nextAttemptAt: Value(nextAttemptAt),
+      createdAt: Value(createdAt),
+      state: Value(state),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory UploadQueueEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UploadQueueEntry(
+      mediaId: serializer.fromJson<String>(json['mediaId']),
+      contentHash: serializer.fromJson<String>(json['contentHash']),
+      ciphertext: serializer.fromJson<Uint8List>(json['ciphertext']),
+      ttlSecs: serializer.fromJson<int?>(json['ttlSecs']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      nextAttemptAt: serializer.fromJson<int>(json['nextAttemptAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      state: serializer.fromJson<String>(json['state']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'mediaId': serializer.toJson<String>(mediaId),
+      'contentHash': serializer.toJson<String>(contentHash),
+      'ciphertext': serializer.toJson<Uint8List>(ciphertext),
+      'ttlSecs': serializer.toJson<int?>(ttlSecs),
+      'attempts': serializer.toJson<int>(attempts),
+      'nextAttemptAt': serializer.toJson<int>(nextAttemptAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'state': serializer.toJson<String>(state),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  UploadQueueEntry copyWith({
+    String? mediaId,
+    String? contentHash,
+    Uint8List? ciphertext,
+    Value<int?> ttlSecs = const Value.absent(),
+    int? attempts,
+    int? nextAttemptAt,
+    int? createdAt,
+    String? state,
+    Value<String?> lastError = const Value.absent(),
+  }) => UploadQueueEntry(
+    mediaId: mediaId ?? this.mediaId,
+    contentHash: contentHash ?? this.contentHash,
+    ciphertext: ciphertext ?? this.ciphertext,
+    ttlSecs: ttlSecs.present ? ttlSecs.value : this.ttlSecs,
+    attempts: attempts ?? this.attempts,
+    nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
+    createdAt: createdAt ?? this.createdAt,
+    state: state ?? this.state,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  UploadQueueEntry copyWithCompanion(UploadQueueEntriesCompanion data) {
+    return UploadQueueEntry(
+      mediaId: data.mediaId.present ? data.mediaId.value : this.mediaId,
+      contentHash: data.contentHash.present
+          ? data.contentHash.value
+          : this.contentHash,
+      ciphertext: data.ciphertext.present
+          ? data.ciphertext.value
+          : this.ciphertext,
+      ttlSecs: data.ttlSecs.present ? data.ttlSecs.value : this.ttlSecs,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      nextAttemptAt: data.nextAttemptAt.present
+          ? data.nextAttemptAt.value
+          : this.nextAttemptAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      state: data.state.present ? data.state.value : this.state,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UploadQueueEntry(')
+          ..write('mediaId: $mediaId, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('ciphertext: $ciphertext, ')
+          ..write('ttlSecs: $ttlSecs, ')
+          ..write('attempts: $attempts, ')
+          ..write('nextAttemptAt: $nextAttemptAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('state: $state, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    mediaId,
+    contentHash,
+    $driftBlobEquality.hash(ciphertext),
+    ttlSecs,
+    attempts,
+    nextAttemptAt,
+    createdAt,
+    state,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UploadQueueEntry &&
+          other.mediaId == this.mediaId &&
+          other.contentHash == this.contentHash &&
+          $driftBlobEquality.equals(other.ciphertext, this.ciphertext) &&
+          other.ttlSecs == this.ttlSecs &&
+          other.attempts == this.attempts &&
+          other.nextAttemptAt == this.nextAttemptAt &&
+          other.createdAt == this.createdAt &&
+          other.state == this.state &&
+          other.lastError == this.lastError);
+}
+
+class UploadQueueEntriesCompanion extends UpdateCompanion<UploadQueueEntry> {
+  final Value<String> mediaId;
+  final Value<String> contentHash;
+  final Value<Uint8List> ciphertext;
+  final Value<int?> ttlSecs;
+  final Value<int> attempts;
+  final Value<int> nextAttemptAt;
+  final Value<int> createdAt;
+  final Value<String> state;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const UploadQueueEntriesCompanion({
+    this.mediaId = const Value.absent(),
+    this.contentHash = const Value.absent(),
+    this.ciphertext = const Value.absent(),
+    this.ttlSecs = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.nextAttemptAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.state = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UploadQueueEntriesCompanion.insert({
+    required String mediaId,
+    required String contentHash,
+    required Uint8List ciphertext,
+    this.ttlSecs = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.nextAttemptAt = const Value.absent(),
+    required int createdAt,
+    this.state = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : mediaId = Value(mediaId),
+       contentHash = Value(contentHash),
+       ciphertext = Value(ciphertext),
+       createdAt = Value(createdAt);
+  static Insertable<UploadQueueEntry> custom({
+    Expression<String>? mediaId,
+    Expression<String>? contentHash,
+    Expression<Uint8List>? ciphertext,
+    Expression<int>? ttlSecs,
+    Expression<int>? attempts,
+    Expression<int>? nextAttemptAt,
+    Expression<int>? createdAt,
+    Expression<String>? state,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (mediaId != null) 'media_id': mediaId,
+      if (contentHash != null) 'content_hash': contentHash,
+      if (ciphertext != null) 'ciphertext': ciphertext,
+      if (ttlSecs != null) 'ttl_secs': ttlSecs,
+      if (attempts != null) 'attempts': attempts,
+      if (nextAttemptAt != null) 'next_attempt_at': nextAttemptAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (state != null) 'state': state,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UploadQueueEntriesCompanion copyWith({
+    Value<String>? mediaId,
+    Value<String>? contentHash,
+    Value<Uint8List>? ciphertext,
+    Value<int?>? ttlSecs,
+    Value<int>? attempts,
+    Value<int>? nextAttemptAt,
+    Value<int>? createdAt,
+    Value<String>? state,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return UploadQueueEntriesCompanion(
+      mediaId: mediaId ?? this.mediaId,
+      contentHash: contentHash ?? this.contentHash,
+      ciphertext: ciphertext ?? this.ciphertext,
+      ttlSecs: ttlSecs ?? this.ttlSecs,
+      attempts: attempts ?? this.attempts,
+      nextAttemptAt: nextAttemptAt ?? this.nextAttemptAt,
+      createdAt: createdAt ?? this.createdAt,
+      state: state ?? this.state,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (mediaId.present) {
+      map['media_id'] = Variable<String>(mediaId.value);
+    }
+    if (contentHash.present) {
+      map['content_hash'] = Variable<String>(contentHash.value);
+    }
+    if (ciphertext.present) {
+      map['ciphertext'] = Variable<Uint8List>(ciphertext.value);
+    }
+    if (ttlSecs.present) {
+      map['ttl_secs'] = Variable<int>(ttlSecs.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (nextAttemptAt.present) {
+      map['next_attempt_at'] = Variable<int>(nextAttemptAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UploadQueueEntriesCompanion(')
+          ..write('mediaId: $mediaId, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('ciphertext: $ciphertext, ')
+          ..write('ttlSecs: $ttlSecs, ')
+          ..write('attempts: $attempts, ')
+          ..write('nextAttemptAt: $nextAttemptAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('state: $state, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -25816,6 +26409,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $AppPreferenceValuesTable(this);
   late final $MemberProfilePreferenceValuesTable memberProfilePreferenceValues =
       $MemberProfilePreferenceValuesTable(this);
+  late final $UploadQueueEntriesTable uploadQueueEntries =
+      $UploadQueueEntriesTable(this);
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
     this as AppDatabase,
@@ -25874,6 +26469,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final PreferenceValuesDao preferenceValuesDao = PreferenceValuesDao(
     this as AppDatabase,
   );
+  late final UploadQueueDao uploadQueueDao = UploadQueueDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -25911,6 +26509,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     pkMappingState,
     appPreferenceValues,
     memberProfilePreferenceValues,
+    uploadQueueEntries,
   ];
 }
 
@@ -37836,6 +38435,301 @@ typedef $$MemberProfilePreferenceValuesTableProcessedTableManager =
       MemberProfilePreferenceValueRow,
       PrefetchHooks Function()
     >;
+typedef $$UploadQueueEntriesTableCreateCompanionBuilder =
+    UploadQueueEntriesCompanion Function({
+      required String mediaId,
+      required String contentHash,
+      required Uint8List ciphertext,
+      Value<int?> ttlSecs,
+      Value<int> attempts,
+      Value<int> nextAttemptAt,
+      required int createdAt,
+      Value<String> state,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$UploadQueueEntriesTableUpdateCompanionBuilder =
+    UploadQueueEntriesCompanion Function({
+      Value<String> mediaId,
+      Value<String> contentHash,
+      Value<Uint8List> ciphertext,
+      Value<int?> ttlSecs,
+      Value<int> attempts,
+      Value<int> nextAttemptAt,
+      Value<int> createdAt,
+      Value<String> state,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$UploadQueueEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $UploadQueueEntriesTable> {
+  $$UploadQueueEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get ciphertext => $composableBuilder(
+    column: $table.ciphertext,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ttlSecs => $composableBuilder(
+    column: $table.ttlSecs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UploadQueueEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $UploadQueueEntriesTable> {
+  $$UploadQueueEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get ciphertext => $composableBuilder(
+    column: $table.ciphertext,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ttlSecs => $composableBuilder(
+    column: $table.ttlSecs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UploadQueueEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UploadQueueEntriesTable> {
+  $$UploadQueueEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get mediaId =>
+      $composableBuilder(column: $table.mediaId, builder: (column) => column);
+
+  GeneratedColumn<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get ciphertext => $composableBuilder(
+    column: $table.ciphertext,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get ttlSecs =>
+      $composableBuilder(column: $table.ttlSecs, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<int> get nextAttemptAt => $composableBuilder(
+    column: $table.nextAttemptAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$UploadQueueEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UploadQueueEntriesTable,
+          UploadQueueEntry,
+          $$UploadQueueEntriesTableFilterComposer,
+          $$UploadQueueEntriesTableOrderingComposer,
+          $$UploadQueueEntriesTableAnnotationComposer,
+          $$UploadQueueEntriesTableCreateCompanionBuilder,
+          $$UploadQueueEntriesTableUpdateCompanionBuilder,
+          (
+            UploadQueueEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $UploadQueueEntriesTable,
+              UploadQueueEntry
+            >,
+          ),
+          UploadQueueEntry,
+          PrefetchHooks Function()
+        > {
+  $$UploadQueueEntriesTableTableManager(
+    _$AppDatabase db,
+    $UploadQueueEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UploadQueueEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UploadQueueEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UploadQueueEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> mediaId = const Value.absent(),
+                Value<String> contentHash = const Value.absent(),
+                Value<Uint8List> ciphertext = const Value.absent(),
+                Value<int?> ttlSecs = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<int> nextAttemptAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UploadQueueEntriesCompanion(
+                mediaId: mediaId,
+                contentHash: contentHash,
+                ciphertext: ciphertext,
+                ttlSecs: ttlSecs,
+                attempts: attempts,
+                nextAttemptAt: nextAttemptAt,
+                createdAt: createdAt,
+                state: state,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String mediaId,
+                required String contentHash,
+                required Uint8List ciphertext,
+                Value<int?> ttlSecs = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<int> nextAttemptAt = const Value.absent(),
+                required int createdAt,
+                Value<String> state = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => UploadQueueEntriesCompanion.insert(
+                mediaId: mediaId,
+                contentHash: contentHash,
+                ciphertext: ciphertext,
+                ttlSecs: ttlSecs,
+                attempts: attempts,
+                nextAttemptAt: nextAttemptAt,
+                createdAt: createdAt,
+                state: state,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UploadQueueEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UploadQueueEntriesTable,
+      UploadQueueEntry,
+      $$UploadQueueEntriesTableFilterComposer,
+      $$UploadQueueEntriesTableOrderingComposer,
+      $$UploadQueueEntriesTableAnnotationComposer,
+      $$UploadQueueEntriesTableCreateCompanionBuilder,
+      $$UploadQueueEntriesTableUpdateCompanionBuilder,
+      (
+        UploadQueueEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $UploadQueueEntriesTable,
+          UploadQueueEntry
+        >,
+      ),
+      UploadQueueEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -37915,4 +38809,6 @@ class $AppDatabaseManager {
         _db,
         _db.memberProfilePreferenceValues,
       );
+  $$UploadQueueEntriesTableTableManager get uploadQueueEntries =>
+      $$UploadQueueEntriesTableTableManager(_db, _db.uploadQueueEntries);
 }
