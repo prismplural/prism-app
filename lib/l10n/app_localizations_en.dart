@@ -3308,6 +3308,31 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get memberNoteSearchHint => 'Search notes…';
+
+  @override
+  String get memberNoteSearchNotes => 'Search notes';
+
+  @override
+  String get memberNoteFilterByMember => 'Filter by member';
+
+  @override
+  String get memberNoteNoFilteredNotes => 'No notes match your search';
+
+  @override
+  String get memberNoteNoFilteredNotesSubtitle =>
+      'Try a different search term or clear filters';
+
+  @override
+  String get memberNoteClearFilters => 'Clear filters';
+
+  @override
+  String get memberNoteFilterNoMember => 'No member';
+
+  @override
+  String get memberNoteFilterMemberDeleted => 'Filtered member was deleted';
+
+  @override
   String get memberSelectNone => 'None';
 
   @override

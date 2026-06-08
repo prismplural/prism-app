@@ -4477,6 +4477,38 @@
       }
     }
   },
+  "memberNoteSearchHint": "Search notes…",
+  "@memberNoteSearchHint": {
+    "description": "Hint text for the notes search field"
+  },
+  "memberNoteSearchNotes": "Search notes",
+  "@memberNoteSearchNotes": {
+    "description": "Tooltip for the search icon in the notes top bar"
+  },
+  "memberNoteFilterByMember": "Filter by member",
+  "@memberNoteFilterByMember": {
+    "description": "Tooltip for the filter-by-member icon in the notes top bar"
+  },
+  "memberNoteNoFilteredNotes": "No notes match your search",
+  "@memberNoteNoFilteredNotes": {
+    "description": "Empty state title when notes exist but filters produce no results"
+  },
+  "memberNoteNoFilteredNotesSubtitle": "Try a different search term or clear filters",
+  "@memberNoteNoFilteredNotesSubtitle": {
+    "description": "Empty state subtitle when notes exist but filters produce no results"
+  },
+  "memberNoteClearFilters": "Clear filters",
+  "@memberNoteClearFilters": {
+    "description": "Action label to clear all active search and filter criteria"
+  },
+  "memberNoteFilterNoMember": "No member",
+  "@memberNoteFilterNoMember": {
+    "description": "Label for filter chip showing notes with no member assigned"
+  },
+  "memberNoteFilterMemberDeleted": "Filtered member was deleted",
+  "@memberNoteFilterMemberDeleted": {
+    "description": "Toast shown when the member selected as a filter has been deleted"
+  },
   "memberSelectNone": "None",
   "@memberSelectNone": {
     "description": "Option to clear headmate selection in note sheet"

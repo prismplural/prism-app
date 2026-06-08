@@ -5692,6 +5692,54 @@ abstract class AppLocalizations {
   /// **'No {termLower} selected. Tap to choose'**
   String memberNoteNoHeadmateSemantics(String termLower);
 
+  /// Hint text for the notes search field
+  ///
+  /// In en, this message translates to:
+  /// **'Search notes…'**
+  String get memberNoteSearchHint;
+
+  /// Tooltip for the search icon in the notes top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Search notes'**
+  String get memberNoteSearchNotes;
+
+  /// Tooltip for the filter-by-member icon in the notes top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by member'**
+  String get memberNoteFilterByMember;
+
+  /// Empty state title when notes exist but filters produce no results
+  ///
+  /// In en, this message translates to:
+  /// **'No notes match your search'**
+  String get memberNoteNoFilteredNotes;
+
+  /// Empty state subtitle when notes exist but filters produce no results
+  ///
+  /// In en, this message translates to:
+  /// **'Try a different search term or clear filters'**
+  String get memberNoteNoFilteredNotesSubtitle;
+
+  /// Action label to clear all active search and filter criteria
+  ///
+  /// In en, this message translates to:
+  /// **'Clear filters'**
+  String get memberNoteClearFilters;
+
+  /// Label for filter chip showing notes with no member assigned
+  ///
+  /// In en, this message translates to:
+  /// **'No member'**
+  String get memberNoteFilterNoMember;
+
+  /// Toast shown when the member selected as a filter has been deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Filtered member was deleted'**
+  String get memberNoteFilterMemberDeleted;
+
   /// Option to clear headmate selection in note sheet
   ///
   /// In en, this message translates to:

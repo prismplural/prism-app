@@ -3376,6 +3376,32 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get memberNoteSearchHint => 'Buscar notas…';
+
+  @override
+  String get memberNoteSearchNotes => 'Buscar notas';
+
+  @override
+  String get memberNoteFilterByMember => 'Filtrar por miembro';
+
+  @override
+  String get memberNoteNoFilteredNotes => 'No hay notas que coincidan';
+
+  @override
+  String get memberNoteNoFilteredNotesSubtitle =>
+      'Prueba con otra búsqueda o borra los filtros';
+
+  @override
+  String get memberNoteClearFilters => 'Borrar filtros';
+
+  @override
+  String get memberNoteFilterNoMember => 'Sin miembro';
+
+  @override
+  String get memberNoteFilterMemberDeleted =>
+      'El miembro filtrado ha sido eliminado';
+
+  @override
   String get memberSelectNone => 'Ninguno';
 
   @override

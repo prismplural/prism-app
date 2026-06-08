@@ -13,10 +13,15 @@ import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/notes/views/notes_list_screen.dart';
+import 'package:prism_plurality/features/notes/widgets/notes_filter_bar.dart';
 
 void main() {
   final sampleNote = Note(
@@ -38,8 +43,16 @@ void main() {
     modifiedAt: DateTime(2026, 3, 20),
   );
 
+  final sampleMember = Member(
+    id: 'mem-a',
+    name: 'Alice',
+    emoji: '',
+    createdAt: DateTime(2024),
+  );
+
   Widget buildSubject({
     List<Note> notes = const [],
+    List<Member> members = const [],
     _FakeNotesRepository? notesRepository,
   }) {
     final repository = notesRepository ?? _FakeNotesRepository(notes);
@@ -47,6 +60,7 @@ void main() {
       overrides: [
         notesRepositoryProvider.overrideWithValue(repository),
         allNotesProvider.overrideWith((ref) => Stream.value(notes)),
+        activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
         currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
         systemSettingsProvider.overrideWithValue(
           const AsyncValue.data(SystemSettings()),
@@ -303,6 +317,101 @@ void main() {
       expect(find.byType(NotesListScreen), findsOneWidget);
       expect(find.text('Select a note'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('NotesListScreen search and filter', () {
+    testWidgets('search icon is present in top bar', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Search notes'), findsOneWidget);
+    });
+
+    testWidgets('filter icon is present in top bar', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Filter by member'), findsOneWidget);
+    });
+
+    testWidgets('filter icon is enabled even when no members exist',
+        (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: []),
+      );
+      await tester.pumpAndSettle();
+
+      // The filter button should still be enabled so users can access
+      // the "No member" option even with no active members.
+      final filterIconFinder = find.byIcon(AppIcons.filterList);
+      expect(filterIconFinder, findsOneWidget);
+      final buttonFinder = find.ancestor(
+        of: filterIconFinder,
+        matching: find.byType(PrismGlassIconButton),
+      );
+      final filterButton = tester.widget<PrismGlassIconButton>(buttonFinder);
+      expect(filterButton.onPressed, isNotNull);
+    });
+
+    testWidgets('tapping search icon shows filter bar', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Search notes'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotesFilterBar), findsOneWidget);
+    });
+
+    testWidgets('tapping search icon again hides filter bar', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Search notes'));
+      await tester.pumpAndSettle();
+      expect(find.byType(NotesFilterBar), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Search notes'));
+      await tester.pumpAndSettle();
+      expect(find.byType(NotesFilterBar), findsNothing);
+    });
+
+    testWidgets('filtered empty state differs from no-notes empty state',
+        (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      // Toggle search on and type something that won't match
+      await tester.tap(find.byTooltip('Search notes'));
+      await tester.pumpAndSettle();
+
+      final textField = find.byType(PrismTextField);
+      await tester.enterText(textField, 'xyzzynotfound');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No notes match your search'), findsOneWidget);
+      expect(find.text('Clear filters'), findsOneWidget);
+    });
+
+    testWidgets('add action button is still present', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(AppIcons.add), findsOneWidget);
     });
   });
 }
