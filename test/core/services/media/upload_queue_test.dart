@@ -254,6 +254,63 @@ void main() {
     });
   });
 
+  group('drain liveness', () {
+    test('a blob enqueued while a drain is in flight still uploads', () async {
+      final dao = _memDao();
+      final gate = Completer<void>();
+      var first = true;
+      final upload = _RecordingUpload(
+        behavior: (_) async {
+          if (first) {
+            first = false;
+            await gate.future; // hold the drain open
+          }
+          return UploadAttemptResult.ok;
+        },
+      );
+      final queue = UploadQueue(dao: dao, upload: upload.fn, resumeOnStart: false);
+      addTearDown(queue.dispose);
+
+      await queue.enqueue(
+        UploadTask(mediaId: 'a', contentHash: 'h', encryptedData: _bytes()),
+      );
+      // 'a' is mid-upload (gated); enqueue 'b' during the active drain.
+      await queue.enqueue(
+        UploadTask(mediaId: 'b', contentHash: 'h', encryptedData: _bytes()),
+      );
+      gate.complete();
+      await pumpEventQueue();
+
+      expect(upload.calls.map((c) => c.mediaId).toSet(), {'a', 'b'});
+      expect(await dao.pendingCount(), 0);
+    });
+
+    test('progress stream closes after a terminal state (no controller leak)', () async {
+      final dao = _memDao();
+      final queue = UploadQueue(
+        dao: dao,
+        upload: _RecordingUpload().fn,
+        resumeOnStart: false,
+      );
+      addTearDown(queue.dispose);
+
+      final events = <UploadState>[];
+      var done = false;
+      final sub = queue
+          .progressStream('m')
+          .listen((p) => events.add(p.state), onDone: () => done = true);
+      addTearDown(sub.cancel);
+
+      await queue.enqueue(
+        UploadTask(mediaId: 'm', contentHash: 'h', encryptedData: _bytes()),
+      );
+      await pumpEventQueue();
+
+      expect(events.last, UploadState.completed);
+      expect(done, isTrue, reason: 'controller is closed + freed after terminal');
+    });
+  });
+
   group('ordering + idempotency', () {
     test('drains multiple blobs in FIFO enqueue order', () async {
       final dao = _memDao();

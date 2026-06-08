@@ -122,6 +122,9 @@ class UploadQueue {
   final Map<String, StreamController<UploadProgress>> _progressControllers = {};
 
   bool _draining = false;
+  // Set when a kick arrives mid-drain; the active drain loops once more so a row
+  // enqueued just after the last `duePending` snapshot is never stranded.
+  bool _kickPending = false;
   bool _disposed = false;
   Timer? _retryTimer;
 
@@ -158,12 +161,26 @@ class UploadQueue {
     unawaited(_kick());
   }
 
-  /// Trigger a drain if one isn't already running.
+  /// Trigger a drain if one isn't already running. Always called via
+  /// `unawaited(...)`, so it must never let an error escape to the zone.
   Future<void> _kick() async {
-    if (_draining || _disposed) return;
+    if (_disposed) return;
+    if (_draining) {
+      // A drain is in progress; signal it to loop once more rather than no-op,
+      // so a row enqueued just after the last snapshot isn't left undrained.
+      _kickPending = true;
+      return;
+    }
     _draining = true;
     try {
-      await _drainAllDue();
+      do {
+        _kickPending = false;
+        await _drainAllDue();
+      } while (_kickPending && !_disposed);
+    } catch (_) {
+      // Contain unexpected DB/drain errors (per-row upload errors are already
+      // handled in _process). The drain is restarted by the next enqueue or
+      // retry-timer kick, so a transient failure self-heals.
     } finally {
       _draining = false;
     }
@@ -265,12 +282,17 @@ class UploadQueue {
   int _nowMs() => DateTime.now().millisecondsSinceEpoch;
 
   void _emitProgress(String mediaId, UploadState state, {String? error}) {
-    // ignore: close_sinks
     final controller = _progressControllers[mediaId];
-    if (controller != null && !controller.isClosed) {
-      controller.add(
-        UploadProgress(mediaId: mediaId, state: state, error: error),
-      );
+    if (controller == null || controller.isClosed) return;
+    controller.add(UploadProgress(mediaId: mediaId, state: state, error: error));
+    // Free the controller once the upload reaches a terminal state. The queue is
+    // a long-lived singleton (dispose ~never runs in normal use), so without
+    // this the map would grow one controller per distinct media id ever streamed
+    // (e.g. every image scrolled past in chat). A late subscriber to a finished
+    // upload gets a fresh empty stream, which is correct — the blob is done.
+    if (state == UploadState.completed || state == UploadState.failed) {
+      _progressControllers.remove(mediaId);
+      controller.close();
     }
   }
 
