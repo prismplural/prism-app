@@ -393,6 +393,27 @@ class DriftCustomFieldsRepository
     }
   }
 
+  @override
+  Future<T> commitValueBatch<T>(Future<T> Function() writes) async {
+    // One outer transaction so the per-field `upsertValue` transactions nest
+    // as savepoints (N fsyncs collapse to one), with emissions captured and
+    // replayed only after the durable commit — see the interface contract.
+    //
+    // KNOWN LIMITATION (liveness, not safety): [captured] is an in-memory
+    // outbox, so a crash between commit and replay leaves rows durable but
+    // their ops un-emitted (peers catch up on the next edit). Batching widens
+    // this from one row to N, but every commit-then-emit write shares the gap,
+    // so it's left to the planned sync-reconciliation layer rather than a
+    // durable outbox table here. The safety half (never emit for an
+    // uncommitted row) holds: a rolled-back batch captures nothing.
+    final captured = <CapturedSyncOp>[];
+    final result = await _dao.transaction(
+      () => SyncRecordMixin.suppressAndCapture(writes, captured.add),
+    );
+    await replayCapturedOps(captured, logLabel: 'Custom-field batch');
+    return result;
+  }
+
   // ── Sync field maps ────────────────────────────────────────────────
 
   Map<String, dynamic> _fieldFields(domain.CustomField f) => fieldFields(f);

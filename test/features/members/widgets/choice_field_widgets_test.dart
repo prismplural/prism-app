@@ -773,6 +773,9 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   }
 
   @override
+  Future<T> commitValueBatch<T>(Future<T> Function() writes) => writes();
+
+  @override
   Future<List<CustomField>> getAllFields() async => const [];
 
   @override

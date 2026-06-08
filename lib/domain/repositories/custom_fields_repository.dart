@@ -94,6 +94,22 @@ abstract class CustomFieldsRepository {
   Future<void> deleteValuesForField(String fieldId);
   Future<void> deleteValuesForMember(String memberId);
 
+  /// Run [writes] — a sweep of [upsertValue] / [deleteValue] calls (e.g. the
+  /// member edit sheet flushing every staged custom-field editor) — inside a
+  /// SINGLE Drift transaction so the per-call transactions nest as savepoints,
+  /// collapsing N fsyncs into one (the dominant cost of saving a member with
+  /// many filled fields on slow mobile storage).
+  ///
+  /// The Rust engine commits CRDT ops to its own store, which does NOT roll
+  /// back with the Drift transaction, so emitting mid-transaction would leak
+  /// ops for values that never durably committed. Emissions during [writes]
+  /// are therefore suppressed + captured and replayed only AFTER the commit.
+  ///
+  /// [writes] MUST catch its own per-item errors so the transaction commits the
+  /// survivors; a failed item's savepoint rolls back alone and emits nothing.
+  /// Returns whatever [writes] returns (e.g. the per-field failures map).
+  Future<T> commitValueBatch<T>(Future<T> Function() writes);
+
   /// Write a whole-config blob for [fieldId] using the LWW (last-write-wins)
   /// invariant: any config mutation writes the entire blob. No field-level
   /// merge inside the JSON. CRDT convergence depends on this contract.

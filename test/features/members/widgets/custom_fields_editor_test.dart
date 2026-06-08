@@ -833,6 +833,9 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   }
 
   @override
+  Future<T> commitValueBatch<T>(Future<T> Function() writes) => writes();
+
+  @override
   Stream<List<CustomField>> watchAllFields() => const Stream.empty();
 
   @override

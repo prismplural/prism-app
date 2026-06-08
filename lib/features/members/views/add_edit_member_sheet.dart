@@ -966,6 +966,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     );
   }
 
+  /// Flush staged custom-field edits, collapsing the per-field `upsertValue`
+  /// fsyncs into one via [CustomFieldsRepository.commitValueBatch]. `commit()`'s
+  /// per-field failure semantics are unchanged (it still catches each field and
+  /// returns the failures map).
+  Future<Map<String, Object>> _commitCustomFields() {
+    // Nothing staged → skip the transaction entirely (prior direct-commit path).
+    if (_customFieldsEditorController.dirtyCount == 0) {
+      return _customFieldsEditorController.commit();
+    }
+    return ref
+        .read(customFieldsRepositoryProvider)
+        .commitValueBatch(_customFieldsEditorController.commit);
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     if (!_formKey.currentState!.validate()) {
@@ -1085,7 +1099,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         // member's own columns and field N never persist, leaving peers and
         // the local profile out of sync with what the user sees.
         final perfCommitSw = Stopwatch()..start();
-        customFieldFailures = await _customFieldsEditorController.commit();
+        customFieldFailures = await _commitCustomFields();
         perfCommitMs = perfCommitSw.elapsedMilliseconds;
         final perfMemberSw = Stopwatch()..start();
         await notifier.updateMember(
@@ -1098,7 +1112,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         perfMemberMs = perfMemberSw.elapsedMilliseconds;
       } else {
         final perfCommitSw = Stopwatch()..start();
-        customFieldFailures = await _customFieldsEditorController.commit();
+        customFieldFailures = await _commitCustomFields();
         perfCommitMs = perfCommitSw.elapsedMilliseconds;
         final perfMemberSw = Stopwatch()..start();
         await notifier.createMember(
