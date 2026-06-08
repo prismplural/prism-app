@@ -4,15 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/core/services/screen_security_service.dart';
-import 'package:prism_plurality/core/services/screenshot_detector.dart';
 
-/// Wraps sensitive content with platform-level screen capture protection
-/// and post-capture screenshot warnings.
+/// Wraps sensitive content with platform-level screen capture protection.
 ///
 /// While this widget is mounted:
 /// - Android: FLAG_SECURE is set unless [allowAndroidScreenCapture] is true
 /// - iOS: secure text field overlay is applied (blocks screen recording)
-/// - Both: screenshot events trigger a warning dialog
 ///
 /// Uses ref-counting internally, so nesting multiple [SecureScope] widgets
 /// is safe.
@@ -26,7 +23,7 @@ class SecureScope extends StatefulWidget {
   final Widget child;
 
   /// Allow Android screenshots/recording for screens that intentionally show
-  /// backup or pairing key material. Screenshot warnings still run.
+  /// backup or pairing key material.
   final bool allowAndroidScreenCapture;
 
   @override
@@ -34,9 +31,6 @@ class SecureScope extends StatefulWidget {
 }
 
 class _SecureScopeState extends State<SecureScope> {
-  final _detector = ScreenshotDetector();
-  StreamSubscription<void>? _subscription;
-
   @override
   void initState() {
     super.initState();
@@ -45,12 +39,6 @@ class _SecureScopeState extends State<SecureScope> {
         blockAndroidScreenCapture: !widget.allowAndroidScreenCapture,
       ),
     );
-    _detector.startListening();
-    _subscription = _detector.onScreenshot.listen((_) {
-      if (mounted) {
-        ScreenshotDetector.showScreenshotWarning(context);
-      }
-    });
   }
 
   @override
@@ -76,8 +64,6 @@ class _SecureScopeState extends State<SecureScope> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
-    _detector.dispose();
     unawaited(
       ScreenSecurityService.disable(
         blockAndroidScreenCapture: !widget.allowAndroidScreenCapture,

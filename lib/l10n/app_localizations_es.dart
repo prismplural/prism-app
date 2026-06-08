@@ -826,7 +826,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get screenPrivacyToggleSubtitleIos =>
-      'Oculta Prism en el selector de apps y en las grabaciones de pantalla. Las capturas manuales todavía activan una advertencia.';
+      'Oculta Prism en el selector de apps y en las grabaciones de pantalla. iOS no puede bloquear las capturas manuales.';
 
   @override
   String get pinLockSection => 'Bloqueo por PIN';

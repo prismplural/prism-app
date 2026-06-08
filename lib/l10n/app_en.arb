@@ -1065,9 +1065,9 @@
   "@screenPrivacyToggleSubtitleAndroid": {
     "description": "Subtitle for the screen privacy toggle, Android wording"
   },
-  "screenPrivacyToggleSubtitleIos": "Hide Prism from the app switcher and screen recordings. Manual screenshots still trigger a warning.",
+  "screenPrivacyToggleSubtitleIos": "Hide Prism from the app switcher and screen recordings. iOS can't block manual screenshots.",
   "@screenPrivacyToggleSubtitleIos": {
-    "description": "Subtitle for the screen privacy toggle, iOS wording — explains that manual screenshots are still possible but trigger a warning"
+    "description": "Subtitle for the screen privacy toggle, iOS wording — notes that iOS cannot block manual screenshots"
   },
   "pinLockSection": "PIN Lock",
   "@pinLockSection": {

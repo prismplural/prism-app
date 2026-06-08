@@ -802,7 +802,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get screenPrivacyToggleSubtitleIos =>
-      'Hide Prism from the app switcher and screen recordings. Manual screenshots still trigger a warning.';
+      'Hide Prism from the app switcher and screen recordings. iOS can\'t block manual screenshots.';
 
   @override
   String get pinLockSection => 'PIN Lock';

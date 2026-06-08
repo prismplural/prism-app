@@ -294,8 +294,7 @@ private func secureResidueErrorDetails(
 /// iOS 26 on trait changes (Flutter #181120 / `screen_protector` pattern).
 /// Does NOT block active screenshots — iOS provides no app-level API for
 /// that; the previous trick blocked them as a side effect, this one
-/// doesn't. Screenshot detection still goes through
-/// `userDidTakeScreenshotNotification`.
+/// doesn't.
 final class PrivacyOverlay {
   private weak var protectedWindow: UIWindow?
   private var overlay: UIView?
@@ -405,7 +404,6 @@ final class PrivacyOverlay {
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate,
   UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
-  private var screenshotEventSink: FlutterEventSink?
   private var firstDeviceAdmissionChannel: FlutterMethodChannel?
   private var secureDisplayChannel: FlutterMethodChannel?
   private var runtimeDekWrapChannel: FlutterMethodChannel?
@@ -431,22 +429,12 @@ final class PrivacyOverlay {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     SensitiveFileProtection.applyKnownSensitiveProtection()
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(screenshotDetected),
-      name: UIApplication.userDidTakeScreenshotNotification,
-      object: nil
-    )
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "ScreenshotDetector") else { return }
-    FlutterEventChannel(
-      name: "com.prism.prism_plurality/screenshot_events",
-      binaryMessenger: registrar.messenger()
-    ).setStreamHandler(self)
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "PrismPlatformChannels") else { return }
     secureDisplayChannel = FlutterMethodChannel(
       name: "com.prism.prism_plurality/secure_display",
       binaryMessenger: registrar.messenger()
@@ -1257,10 +1245,6 @@ final class PrivacyOverlay {
     return active.first?.windows.first ?? scenes.first?.windows.first
   }
 
-  @objc private func screenshotDetected() {
-    screenshotEventSink?(nil)
-  }
-
   @MainActor
   private func collectFirstDeviceAdmissionProof(
     syncId: String,
@@ -1513,20 +1497,5 @@ final class PrivacyOverlay {
 
   deinit {
     NotificationCenter.default.removeObserver(self)
-  }
-}
-
-extension AppDelegate: FlutterStreamHandler {
-  func onListen(
-    withArguments arguments: Any?,
-    eventSink events: @escaping FlutterEventSink
-  ) -> FlutterError? {
-    screenshotEventSink = events
-    return nil
-  }
-
-  func onCancel(withArguments arguments: Any?) -> FlutterError? {
-    screenshotEventSink = nil
-    return nil
   }
 }

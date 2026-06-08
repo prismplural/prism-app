@@ -238,7 +238,7 @@
   "screenPrivacySection": "Privacidad de pantalla",
   "screenPrivacyToggleTitle": "Ocultar contenido de la app",
   "screenPrivacyToggleSubtitleAndroid": "Bloquea capturas de pantalla y oculta Prism en el selector de apps.",
-  "screenPrivacyToggleSubtitleIos": "Oculta Prism en el selector de apps y en las grabaciones de pantalla. Las capturas manuales todavía activan una advertencia.",
+  "screenPrivacyToggleSubtitleIos": "Oculta Prism en el selector de apps y en las grabaciones de pantalla. iOS no puede bloquear las capturas manuales.",
   "pinLockSection": "Bloqueo por PIN",
   "pinLockEnableTitle": "Activar bloqueo por PIN",
   "pinLockEnableSubtitle": "Requerir un PIN para abrir la app",

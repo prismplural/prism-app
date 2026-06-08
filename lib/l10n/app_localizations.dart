@@ -1526,10 +1526,10 @@ abstract class AppLocalizations {
   /// **'Block screenshots and hide Prism from the app switcher.'**
   String get screenPrivacyToggleSubtitleAndroid;
 
-  /// Subtitle for the screen privacy toggle, iOS wording — explains that manual screenshots are still possible but trigger a warning
+  /// Subtitle for the screen privacy toggle, iOS wording — notes that iOS cannot block manual screenshots
   ///
   /// In en, this message translates to:
-  /// **'Hide Prism from the app switcher and screen recordings. Manual screenshots still trigger a warning.'**
+  /// **'Hide Prism from the app switcher and screen recordings. iOS can\'t block manual screenshots.'**
   String get screenPrivacyToggleSubtitleIos;
 
   /// PIN lock section title
