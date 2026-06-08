@@ -424,10 +424,11 @@ class SpImporter {
     // calls (and their `jsonEncode` payload work) from the transaction
     // critical path is the dominant performance win — on unpaired devices
     // it also bypasses `SyncRecordMixin`'s 1s-per-row retry spin during
-    // `syncAutoConfigureInProgress`. If the transaction throws,
-    // `suppressAndCapture` clears `_suppressCapture` in its `finally`; the
-    // captured list is dropped and replay never runs (zero emissions on
-    // rollback — `sp_import_parity_test.dart` assertion 4).
+    // `syncAutoConfigureInProgress`. If the transaction throws, the exception
+    // propagates out of `suppressAndCapture` (whose suppression zone exits)
+    // and out of this method before the replay loop below — the captured list
+    // is dropped and replay never runs (zero emissions on rollback —
+    // `sp_import_parity_test.dart` assertion 4).
     final captured = <CapturedSyncOp>[];
     await SyncRecordMixin.suppressAndCapture(() async {
       await db.transaction(() async {
@@ -1140,34 +1141,16 @@ class SpImporter {
     final replayFailures = <CapturedSyncOp>[];
     var replaySkippedBecauseNoEmitter = false;
     if (captured.isNotEmpty && memberRepo is SyncRecordMixin) {
-      final replayEmitter = memberRepo as SyncRecordMixin;
-      for (final op in captured) {
-        try {
-          switch (op.opType) {
-            case SyncRecordOpType.create:
-              await replayEmitter.syncRecordCreate(
-                op.table,
-                op.entityId,
-                op.fields,
-              );
-            case SyncRecordOpType.update:
-              await replayEmitter.syncRecordUpdate(
-                op.table,
-                op.entityId,
-                op.fields,
-              );
-            case SyncRecordOpType.delete:
-              await replayEmitter.syncRecordDelete(op.table, op.entityId);
-          }
-        } catch (e, st) {
-          replayFailures.add(op);
-          ErrorReportingService.instance.report(
-            'SP import replay failed for ${op.table}/${op.entityId}: $e',
-            severity: ErrorSeverity.warning,
-            stackTrace: st,
-          );
-        }
-      }
+      // Shared capture-replay loop (see SyncRecordMixin.replayCapturedOps).
+      // Per-op try/catch + warning telemetry + failure collection live there;
+      // we keep the no-emitter gate here because memberRepo is an interface
+      // type that may not mix in SyncRecordMixin.
+      replayFailures.addAll(
+        await (memberRepo as SyncRecordMixin).replayCapturedOps(
+          captured,
+          logLabel: 'SP import',
+        ),
+      );
     } else if (captured.isNotEmpty) {
       replaySkippedBecauseNoEmitter = true;
       ErrorReportingService.instance.report(

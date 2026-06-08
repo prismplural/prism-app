@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -34,6 +35,14 @@ class CapturedSyncOp {
 /// Test-only callback type: invoked once per intercepted sync emission.
 typedef SyncRecordCaptureSink = void Function(CapturedSyncOp op);
 
+/// Active suppression context, carried as a [Zone] value. `null` [capture]
+/// drops emissions ([SyncRecordMixin.suppress]); a non-null [capture] receives
+/// them instead of the FFI ([SyncRecordMixin.suppressAndCapture]).
+class _SyncCaptureContext {
+  const _SyncCaptureContext(this.capture);
+  final void Function(CapturedSyncOp op)? capture;
+}
+
 /// Mixin for repositories that record mutations to the Rust sync engine.
 ///
 /// The handle may exist (Rust side constructed) but the engine may not be
@@ -47,47 +56,34 @@ typedef SyncRecordCaptureSink = void Function(CapturedSyncOp op);
 /// that race, writes retry only while startup auto-config is actively in
 /// progress, then fall back to the historical "skip quietly" behavior.
 ///
-/// **Suppression mode** ([SyncRecordMixin.suppress]). The fronting migration
-/// (and any future destructive bulk-rewrite path) needs to write to repository
-/// methods inside a Drift transaction WITHOUT emitting CRDT ops to the Rust
-/// engine — because the Rust engine commits to its own SQLite store, those
-/// ops would survive a Drift rollback and could leak to peers via auto-sync
-/// before the migration's `reset_sync_state` cutover runs. While
-/// `_suppressed` is true, every record method early-returns without touching
-/// the FFI. Process-wide static flag is sufficient — Dart UI is single-isolate
-/// and the migration runs mutually-exclusive with normal user activity.
+/// **Suppression mode** ([suppress] / [suppressAndCapture]). Destructive
+/// bulk-rewrite paths (e.g. the fronting migration) write through repository
+/// methods inside a Drift transaction without emitting CRDT ops — the Rust
+/// engine commits to its own store, so an emission would survive a Drift
+/// rollback and leak to peers. Suppression is [Zone]-scoped (see
+/// [_captureZoneKey]), so it covers exactly the suppressed `body` and not
+/// concurrent emissions from unrelated tasks.
 mixin SyncRecordMixin {
   ffi.PrismSyncHandle? get syncHandle;
 
   static final List<CapturedSyncOp> _startupDeferredOps = <CapturedSyncOp>[];
   static bool _flushingStartupDeferredOps = false;
 
-  /// While `true`, every `syncRecord*` call short-circuits before the FFI.
-  /// Toggled exclusively via [suppress]; never written directly.
-  static bool _suppressed = false;
+  /// Zone key for the active [_SyncCaptureContext]. As a zone value it follows
+  /// the suppressed `body`'s async chain — including nested Drift transactions,
+  /// whose executors fork child zones that inherit it — while a concurrent
+  /// emission in another zone (e.g. a background sync during a member save) is
+  /// unaffected.
+  static const Object _captureZoneKey = #prismSyncCaptureContext;
 
-  /// Returns whether suppression is currently active. Exposed for tests
-  /// that want to assert "suppression cleanly entered + exited."
-  static bool get isSuppressed => _suppressed;
+  static _SyncCaptureContext? get _activeCaptureContext =>
+      Zone.current[_captureZoneKey] as _SyncCaptureContext?;
 
-  /// Optional capture sink wired in by [suppressAndCapture]. When active,
-  /// every `syncRecord{Create,Update,Delete}` call inside the suppress
-  /// block hands its tuple to this sink *instead of* dropping it silently.
-  /// Used by the Phase 5 SP-import capture-replay path
-  /// (`docs/plans/sp-import-perf-quick-wins.md`) — the importer wraps its
-  /// transaction in `suppressAndCapture(body, list.add)`, then replays each
-  /// captured tuple post-commit so per-row FFI dispatch happens after the
-  /// transaction has committed (zero FFI hops inside the transaction).
-  ///
-  /// This is distinct from [_captureSink] (the test-only harness sink set
-  /// via [installCaptureSinkForTesting]). The harness sink intercepts
-  /// emissions when suppress is NOT active; this sink intercepts emissions
-  /// when suppress IS active. They never run together — if [_suppressed] is
-  /// true the harness sink is bypassed by the early-return.
-  ///
-  /// Production code may set this only via [suppressAndCapture]; the field
-  /// is cleared in the `finally` of [suppress] and [suppressAndCapture].
-  static void Function(CapturedSyncOp op)? _suppressCapture;
+  /// Whether the current async context is inside a [suppress] /
+  /// [suppressAndCapture] body. Zone-scoped — reflects the caller's own
+  /// suppression, not a process-wide flag. Exposed for tests that assert
+  /// "suppression cleanly entered + exited."
+  static bool get isSuppressed => _activeCaptureContext != null;
 
   /// Test-only sink that intercepts every sync emission before the FFI
   /// dispatch. Production code MUST NOT set this — the field is `null` in
@@ -100,9 +96,9 @@ mixin SyncRecordMixin {
   /// the FFI; the FFI call is then **skipped**. This avoids needing a real
   /// `PrismSyncHandle` in tests. Combined with `syncHandle == null` it lets
   /// the harness exercise the full repository code path including the
-  /// suppression early-return (`_suppressed == true` → no capture either,
-  /// because suppression bypasses everything; that's the intentional
-  /// semantics tested by the `failing_tx` fixture).
+  /// suppression early-return (an active suppression context → this sink is
+  /// bypassed because the zone context handles the emission first; that's the
+  /// intentional semantics tested by the `failing_tx` fixture).
   ///
   /// Use [installCaptureSinkForTesting] / [removeCaptureSinkForTesting] —
   /// never assign this field directly. The wrapper exists so tests can run
@@ -165,73 +161,35 @@ mixin SyncRecordMixin {
     }());
   }
 
-  /// Run [body] with sync emission suppressed.
-  ///
-  /// Used by the per-member fronting migration (`fronting_migration_service`)
-  /// so the intra-transaction repository writes don't emit Rust pending_ops
-  /// that would survive a Drift rollback. The `try`/`finally` ensures the
-  /// flag clears even if [body] throws — propagating the original exception.
-  ///
-  /// **Semantic: drop emissions.** Every `syncRecord{Create,Update,Delete}`
-  /// invocation inside [body] is silently dropped. Use [suppressAndCapture]
-  /// instead if you want to receive the would-be tuples (e.g., for the
-  /// Phase 5 SP-import post-commit replay path).
-  ///
-  /// **Nested suppress.** If [body] is itself running inside an outer
-  /// `suppressAndCapture(..., outerSink)` and calls `suppress(...)`, the
-  /// inner emissions are explicitly dropped — they do NOT bubble up to
-  /// `outerSink`. This preserves the historical "I am suppressing this
-  /// sub-operation entirely" intent at call sites that nest a drop inside a
-  /// capture. The prior sink is restored on exit.
-  static Future<T> suppress<T>(Future<T> Function() body) async {
-    final wasSuppressed = _suppressed;
-    final priorCapture = _suppressCapture;
-    _suppressed = true;
-    // Explicit-drop semantic: clear the inherited sink so emissions inside
-    // [body] are dropped even when nested inside an outer suppressAndCapture.
-    _suppressCapture = null;
-    try {
-      return await body();
-    } finally {
-      _suppressed = wasSuppressed;
-      _suppressCapture = priorCapture;
-    }
+  /// Run [body] with every `syncRecord*` emission silently dropped. Used by
+  /// the fronting migration so intra-transaction writes don't emit Rust
+  /// pending_ops that would survive a Drift rollback. Zone-scoped (see
+  /// [_captureZoneKey]): covers [body]'s async chain only. Nested inside a
+  /// [suppressAndCapture], the drop shadows the outer capture (emissions do
+  /// NOT bubble up). Use [suppressAndCapture] to receive the tuples instead.
+  static Future<T> suppress<T>(Future<T> Function() body) {
+    return runZoned(
+      body,
+      zoneValues: {_captureZoneKey: const _SyncCaptureContext(null)},
+    );
   }
 
-  /// Run [body] with sync emission suppressed AND captured.
-  ///
-  /// Phase 5 of `docs/plans/sp-import-perf-quick-wins.md`. Every
-  /// `syncRecord{Create,Update,Delete}` invocation inside [body] hands its
-  /// tuple to [capture] instead of being silently dropped or hitting the
-  /// FFI. The SP importer uses this to collect would-be emissions during
-  /// the transaction and replay them post-commit — keeping the FFI off the
-  /// transaction's critical path while preserving the per-row emission
-  /// multiset.
-  ///
-  /// **Nested calls.** If [body] itself calls `suppressAndCapture(...,
-  /// innerSink)`, only [capture] receives ops produced *directly* by
-  /// [body]; ops produced inside the nested call go to `innerSink` only.
-  /// If [body] calls plain `suppress(...)`, the inner emissions are dropped
-  /// — they do NOT bubble up to [capture]. This matches the call-site
-  /// intent: `suppress` historically means "drop entirely" and that
-  /// semantic is preserved verbatim regardless of an outer capture.
-  ///
-  /// The `try`/`finally` restores the prior capture sink (which may be
-  /// `null` or another capture from an outer call) even if [body] throws.
+  /// Run [body] with every `syncRecord*` emission handed to [capture] instead
+  /// of the FFI. Callers (the SP importer, [commitValueBatch]) collect the
+  /// tuples during a Drift transaction and replay them post-commit, keeping
+  /// the FFI off the transaction's critical path while preserving the per-row
+  /// emission multiset. Zone-scoped (see [_captureZoneKey]): covers [body]'s
+  /// async chain only, so a concurrent foreign emission isn't swept in. Nested
+  /// calls shadow this context — an inner [suppressAndCapture] routes to its
+  /// own sink, an inner [suppress] drops.
   static Future<T> suppressAndCapture<T>(
     Future<T> Function() body,
     void Function(CapturedSyncOp op) capture,
-  ) async {
-    final wasSuppressed = _suppressed;
-    final priorCapture = _suppressCapture;
-    _suppressed = true;
-    _suppressCapture = capture;
-    try {
-      return await body();
-    } finally {
-      _suppressed = wasSuppressed;
-      _suppressCapture = priorCapture;
-    }
+  ) {
+    return runZoned(
+      body,
+      zoneValues: {_captureZoneKey: _SyncCaptureContext(capture)},
+    );
   }
 
   /// Returns true if [error]'s string representation indicates the sync
@@ -368,11 +326,9 @@ mixin SyncRecordMixin {
       SyncRecordOpType.create,
       Map<String, dynamic>.of(fields),
     );
-    if (_suppressed) {
-      final captureSink = _suppressCapture;
-      if (captureSink != null) {
-        captureSink(op);
-      }
+    final ctx = _activeCaptureContext;
+    if (ctx != null) {
+      ctx.capture?.call(op);
       return;
     }
     final sink = _captureSink;
@@ -416,11 +372,9 @@ mixin SyncRecordMixin {
       SyncRecordOpType.update,
       Map<String, dynamic>.of(fields),
     );
-    if (_suppressed) {
-      final captureSink = _suppressCapture;
-      if (captureSink != null) {
-        captureSink(op);
-      }
+    final ctx = _activeCaptureContext;
+    if (ctx != null) {
+      ctx.capture?.call(op);
       return;
     }
     final sink = _captureSink;
@@ -456,11 +410,9 @@ mixin SyncRecordMixin {
       SyncRecordOpType.delete,
       const <String, dynamic>{},
     );
-    if (_suppressed) {
-      final captureSink = _suppressCapture;
-      if (captureSink != null) {
-        captureSink(op);
-      }
+    final ctx = _activeCaptureContext;
+    if (ctx != null) {
+      ctx.capture?.call(op);
       return;
     }
     final sink = _captureSink;
@@ -500,11 +452,12 @@ mixin SyncRecordMixin {
     CapturedSyncOp opFor(String id) =>
         CapturedSyncOp(table, id, SyncRecordOpType.delete, const <String, dynamic>{});
 
-    if (_suppressed) {
-      final captureSink = _suppressCapture;
-      if (captureSink != null) {
+    final ctx = _activeCaptureContext;
+    if (ctx != null) {
+      final capture = ctx.capture;
+      if (capture != null) {
         for (final id in entityIds) {
-          captureSink(opFor(id));
+          capture(opFor(id));
         }
       }
       return;
@@ -535,6 +488,45 @@ mixin SyncRecordMixin {
         stackTrace: st,
       );
     }
+  }
+
+  /// Replay [ops] through the live FFI path, in capture order — the post-commit
+  /// half of the capture-then-replay pattern ([suppressAndCapture] captures
+  /// inside a Drift transaction, this re-emits after it durably commits). Each
+  /// op re-dispatches through the same `syncRecord*` entry point with its
+  /// original type and `fields`.
+  ///
+  /// Caught per-op so one bad row can't abort the rest: `syncRecord*` swallows
+  /// FFI errors internally, but a few edge cases still throw (e.g. `jsonEncode`
+  /// on a non-serializable payload). Failures are reported (warning) and
+  /// returned — the local DB is already correct; only the peer emission for a
+  /// returned op didn't go out. [logLabel] prefixes the telemetry. Callers that
+  /// hold the emitter as an interface type must gate on `is SyncRecordMixin`.
+  Future<List<CapturedSyncOp>> replayCapturedOps(
+    List<CapturedSyncOp> ops, {
+    String logLabel = 'Sync',
+  }) async {
+    final failures = <CapturedSyncOp>[];
+    for (final op in ops) {
+      try {
+        switch (op.opType) {
+          case SyncRecordOpType.create:
+            await syncRecordCreate(op.table, op.entityId, op.fields);
+          case SyncRecordOpType.update:
+            await syncRecordUpdate(op.table, op.entityId, op.fields);
+          case SyncRecordOpType.delete:
+            await syncRecordDelete(op.table, op.entityId);
+        }
+      } catch (e, st) {
+        failures.add(op);
+        ErrorReportingService.instance.report(
+          '$logLabel replay failed for ${op.table}/${op.entityId}: $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    }
+    return failures;
   }
 
   /// Run [body] with all sync ops logically grouped into one batch.
