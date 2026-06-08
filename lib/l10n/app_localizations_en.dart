@@ -5588,7 +5588,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String habitsOnlyFrontingCaveat(String termSingularLower) {
-    return 'Reminders will fire even if this $termSingularLower isn\'t fronting — fronting-aware delivery requires background access.';
+    return 'Reminders for this $termSingularLower only check fronts when Prism is open or syncing; they may not fire while the app is closed.';
   }
 
   @override

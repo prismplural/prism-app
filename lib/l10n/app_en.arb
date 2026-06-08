@@ -7514,7 +7514,7 @@
   "@habitsOnlyNotifyWhenFronting": {
     "description": "Switch title for fronting-only notification in assignment section"
   },
-  "habitsOnlyFrontingCaveat": "Reminders will fire even if this {termSingularLower} isn't fronting — fronting-aware delivery requires background access.",
+  "habitsOnlyFrontingCaveat": "Reminders for this {termSingularLower} only check fronts when Prism is open or syncing; they may not fire while the app is closed.",
   "@habitsOnlyFrontingCaveat": {
     "description": "Helper text below the only-notify-when-fronting toggle",
     "placeholders": {

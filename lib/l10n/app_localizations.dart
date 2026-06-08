@@ -9489,7 +9489,7 @@ abstract class AppLocalizations {
   /// Helper text below the only-notify-when-fronting toggle
   ///
   /// In en, this message translates to:
-  /// **'Reminders will fire even if this {termSingularLower} isn\'t fronting — fronting-aware delivery requires background access.'**
+  /// **'Reminders for this {termSingularLower} only check fronts when Prism is open or syncing; they may not fire while the app is closed.'**
   String habitsOnlyFrontingCaveat(String termSingularLower);
 
   /// Switch title for private habit toggle

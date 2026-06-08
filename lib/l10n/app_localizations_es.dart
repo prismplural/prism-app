@@ -5687,7 +5687,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String habitsOnlyFrontingCaveat(String termSingularLower) {
-    return 'Los recordatorios se enviarán aunque $termSingularLower no esté al frente — la entrega consciente del frente requiere acceso en segundo plano.';
+    return 'Los recordatorios para este $termSingularLower solo comprueban el frente cuando Prism está abierto o sincronizando; es posible que no se envíen mientras la app esté cerrada.';
   }
 
   @override
