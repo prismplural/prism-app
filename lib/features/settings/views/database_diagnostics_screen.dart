@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/diagnostics/add_member_perf_log.dart';
 import 'package:prism_plurality/core/services/database_health_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/database_diagnostics_providers.dart';
@@ -148,6 +149,13 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
+          const SizedBox(height: 16),
+
+          // ── Add-Member Timing ─────────────────────────
+          const _AddMemberPerfCard(),
+
+          const SizedBox(height: 16),
+
           // ── Integrity Check ────────────────────────
           Center(
             child: PrismButton(
@@ -172,6 +180,96 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shows the last few member-save timing traces, copyable for diagnostics.
+class _AddMemberPerfCard extends StatelessWidget {
+  const _AddMemberPerfCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PrismSectionCard(
+      padding: const EdgeInsets.all(16),
+      child: ValueListenableBuilder<List<AddMemberPerfEntry>>(
+        valueListenable: AddMemberPerfLog.entries,
+        builder: (context, entries, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Add-Member Timing',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      if (entries.isNotEmpty)
+                        PrismInlineIconButton(
+                          icon: AppIcons.copy,
+                          iconSize: 18,
+                          tooltip: 'Copy all',
+                          onPressed: () {
+                            Clipboard.setData(
+                              ClipboardData(
+                                text: entries.map((e) => e.format()).join('\n'),
+                              ),
+                            );
+                            PrismToast.show(
+                              context,
+                              message: 'Copied ${entries.length} traces',
+                            );
+                          },
+                        ),
+                      if (entries.isNotEmpty)
+                        PrismInlineIconButton(
+                          icon: AppIcons.delete,
+                          iconSize: 18,
+                          tooltip: 'Clear',
+                          onPressed: AddMemberPerfLog.clear,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Recorded each time you save a member. Add a member, then come '
+                'back here and tap copy.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (entries.isEmpty)
+                Text(
+                  'No saves recorded yet.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                )
+              else
+                ...entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SelectableText(
+                      e.format(),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -22,6 +22,9 @@ class CustomFieldsEditorController extends ChangeNotifier {
 
   bool get hasPendingChanges => _dirtyCount > 0;
 
+  /// Number of fields currently staged with unsaved edits.
+  int get dirtyCount => _dirtyCount;
+
   void register(PendingFieldEditState state) {
     _dirty.putIfAbsent(state, () => false);
   }

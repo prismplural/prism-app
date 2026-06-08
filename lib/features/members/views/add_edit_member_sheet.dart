@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
+import 'package:prism_plurality/core/diagnostics/add_member_perf_log.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
@@ -982,6 +983,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
     setState(() => _saving = true);
 
+    // Per-phase save timing for AddMemberPerfLog.
+    final perfTotal = Stopwatch()..start();
+    final perfDirtyFields = _customFieldsEditorController.dirtyCount;
+    var perfCommitMs = 0;
+    var perfMemberMs = 0;
+    var perfPkMs = 0;
+    // Stamped before the PK push dialog; falls back to live elapsed when no
+    // dialog shows (e.g. edit).
+    int? perfTotalMs;
+
     final bioImagesReady = await _stageAndCommitBioImages();
     if (!bioImagesReady || !mounted) {
       if (mounted) setState(() => _saving = false);
@@ -1073,7 +1084,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         // member row write. Otherwise fields 1..N-1 land + emit but the
         // member's own columns and field N never persist, leaving peers and
         // the local profile out of sync with what the user sees.
+        final perfCommitSw = Stopwatch()..start();
         customFieldFailures = await _customFieldsEditorController.commit();
+        perfCommitMs = perfCommitSw.elapsedMilliseconds;
+        final perfMemberSw = Stopwatch()..start();
         await notifier.updateMember(
           updated,
           endPreviousAlwaysFrontingSessions:
@@ -1081,8 +1095,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           previousAlwaysFrontingSessionIdsToEnd:
               alwaysFrontingSessionChoice.sessionIdsToEnd,
         );
+        perfMemberMs = perfMemberSw.elapsedMilliseconds;
       } else {
+        final perfCommitSw = Stopwatch()..start();
         customFieldFailures = await _customFieldsEditorController.commit();
+        perfCommitMs = perfCommitSw.elapsedMilliseconds;
+        final perfMemberSw = Stopwatch()..start();
         await notifier.createMember(
           id: _memberId,
           name: name,
@@ -1111,6 +1129,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           nameStyleColorHex: nameStyleColorHex,
           profileHeaderImageData: _profileHeaderImageData,
         );
+        perfMemberMs = perfMemberSw.elapsedMilliseconds;
       }
 
       _saved = true;
@@ -1132,16 +1151,19 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         // (fire-and-forget in build()), so a synchronous read on the first
         // member creation after launch could see defaults and either prompt
         // when it shouldn't or skip when it should.
+        final perfPkSw = Stopwatch()..start();
         await Future.wait<void>([
           ref.read(pluralKitSyncServiceProvider).loadState(),
           ref.read(pkSyncDirectionProvider.notifier).load(),
           ref.read(pkSyncModeProvider.notifier).load(),
         ]);
+        perfPkMs = perfPkSw.elapsedMilliseconds;
         if (!mounted) return;
         final pkSyncState = ref.read(pluralKitSyncProvider);
         final pushEnabled = ref.read(pkSyncDirectionProvider).pushEnabled;
         final mode = ref.read(pkSyncModeProvider);
         final pushDisabled = !pushEnabled || mode == PkSyncMode.liveFrontsOnly;
+        perfTotalMs = perfTotal.elapsedMilliseconds;
         if (pkSyncState.canAutoSync && pushDisabled) {
           await showPkPushNewMemberDialog(
             context,
@@ -1150,6 +1172,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           );
         }
       }
+
+      AddMemberPerfLog.record(
+        AddMemberPerfEntry(
+          isEditing: widget.isEditing,
+          totalMs: perfTotalMs ?? perfTotal.elapsedMilliseconds,
+          customFieldCommitMs: perfCommitMs,
+          dirtyCustomFields: perfDirtyFields,
+          memberWriteMs: perfMemberMs,
+          pkReloadMs: perfPkMs,
+          avatarBytes: _avatarImageData?.length ?? 0,
+          headerBytes: _profileHeaderImageData?.length ?? 0,
+          memberCount: ref.read(activeMemberListProvider).value?.length ?? -1,
+        ),
+      );
 
       if (mounted) {
         if (customFieldFailures.isEmpty) {
