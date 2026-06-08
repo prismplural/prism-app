@@ -86,6 +86,21 @@ void main() {
       expect(out, contains('2:30'));
       expect(out.toUpperCase(), contains('PM'));
     });
+
+    testWidgets('includes year for dates outside current year', (tester) async {
+      final context = await _contextWith(tester, alwaysUse24HourFormat: false);
+      final dt = DateTime(2024, 3, 9, 14, 30);
+      final out = context.formatDateTime(dt);
+      expect(out, contains('2024'));
+    });
+
+    testWidgets('omits year for dates in current year', (tester) async {
+      final context = await _contextWith(tester, alwaysUse24HourFormat: false);
+      final now = DateTime.now();
+      final dt = DateTime(now.year, 3, 9, 14, 30);
+      final out = context.formatDateTime(dt);
+      expect(out, isNot(contains(now.year.toString())));
+    });
   });
 
   group('context.use24HourTime', () {

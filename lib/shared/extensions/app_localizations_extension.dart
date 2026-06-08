@@ -37,8 +37,13 @@ extension AppLocalizationsX on BuildContext {
 
   /// Format a date+time like "Mar 9, 2:30 PM" or "Mar 9, 14:30", honoring
   /// the regional locale (date ordering) and the OS 24-hour toggle.
+  ///
+  /// Includes the year only when the date is not in the current calendar year
+  /// (e.g. "Mar 9, 2025, 2:30 PM" vs "Mar 9, 2:30 PM").
   String formatDateTime(DateTime dt) {
-    final base = DateFormat.MMMd(dateLocale);
+    final base = dt.year == DateTime.now().year
+        ? DateFormat.MMMd(dateLocale)
+        : DateFormat.yMMMd(dateLocale);
     return use24HourTime
         ? base.add_Hm().format(dt)
         : base.addPattern('h:mm a').format(dt);
