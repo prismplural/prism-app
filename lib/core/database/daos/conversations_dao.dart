@@ -33,16 +33,78 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
     conversations,
   )..where((c) => c.id.equals(id))).watchSingleOrNull();
 
+  Expression<bool> _visibleToMember(Conversations c, String memberId) {
+    final quotedMember = '%"$memberId"%';
+    return (c.participantIds.like(quotedMember) |
+            c.includesAllMembers.equals(true)) &
+        c.isDeleted.equals(false) &
+        c.archivedForEveryone.equals(false) &
+        c.archivedByMemberIds.like(quotedMember).not();
+  }
+
   Future<List<Conversation>> getConversationsForMember(String memberId) =>
       (select(conversations)
-            ..where(
-              (c) =>
-                  (c.participantIds.like('%"$memberId"%') |
-                          c.includesAllMembers.equals(true)) &
-                      c.isDeleted.equals(false),
-            )
+            ..where((c) => _visibleToMember(c, memberId))
             ..orderBy([(c) => OrderingTerm.desc(c.lastActivityAt)]))
           .get();
+
+  Future<List<({Conversation conversation, int messageCount})>>
+  getConversationActivityForMember(String memberId, {int? limit}) async {
+    if (limit != null && limit <= 0) {
+      return const <({Conversation conversation, int messageCount})>[];
+    }
+
+    final limitSql = limit == null ? '' : 'LIMIT ?';
+    final rows = await customSelect(
+      '''
+      SELECT c.*, COUNT(m.id) AS message_count
+      FROM conversations c
+      LEFT JOIN chat_messages m
+        ON m.conversation_id = c.id
+       AND m.is_deleted = 0
+      WHERE (c.participant_ids LIKE ? OR c.includes_all_members = 1)
+        AND c.is_deleted = 0
+        AND c.archived_for_everyone = 0
+        AND c.archived_by_member_ids NOT LIKE ?
+      GROUP BY c.id
+      ORDER BY message_count DESC, c.last_activity_at DESC
+      $limitSql
+      ''',
+      variables: [
+        Variable.withString('%"$memberId"%'),
+        Variable.withString('%"$memberId"%'),
+        if (limit != null) Variable.withInt(limit),
+      ],
+      readsFrom: {conversations, attachedDatabase.chatMessages},
+    ).get();
+
+    return rows
+        .map(
+          (row) => (
+            conversation: Conversation(
+              id: row.read<String>('id'),
+              createdAt: row.read<DateTime>('created_at'),
+              lastActivityAt: row.read<DateTime>('last_activity_at'),
+              title: row.read<String?>('title'),
+              emoji: row.read<String?>('emoji'),
+              isDirectMessage: row.read<bool>('is_direct_message'),
+              creatorId: row.read<String?>('creator_id'),
+              participantIds: row.read<String>('participant_ids'),
+              lastReadTimestamps: row.read<String>('last_read_timestamps'),
+              archivedByMemberIds: row.read<String>('archived_by_member_ids'),
+              mutedByMemberIds: row.read<String>('muted_by_member_ids'),
+              description: row.read<String?>('description'),
+              categoryId: row.read<String?>('category_id'),
+              displayOrder: row.read<int>('display_order'),
+              isDeleted: row.read<bool>('is_deleted'),
+              includesAllMembers: row.read<bool>('includes_all_members'),
+              archivedForEveryone: row.read<bool>('archived_for_everyone'),
+            ),
+            messageCount: row.read<int>('message_count'),
+          ),
+        )
+        .toList();
+  }
 
   Future<int> insertConversation(ConversationsCompanion conversation) =>
       into(conversations).insert(conversation);
@@ -69,12 +131,14 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
       );
 
   Future<void> updateIncludesAllMembers(String id, bool value) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(includesAllMembers: Value(value)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(includesAllMembers: Value(value)),
+      );
 
   Future<void> updateArchivedForEveryone(String id, bool value) =>
-      (update(conversations)..where((c) => c.id.equals(id)))
-          .write(ConversationsCompanion(archivedForEveryone: Value(value)));
+      (update(conversations)..where((c) => c.id.equals(id))).write(
+        ConversationsCompanion(archivedForEveryone: Value(value)),
+      );
 
   Future<void> updateArchivedByMemberIds(String id, String archivedByJson) =>
       (update(conversations)..where((c) => c.id.equals(id))).write(

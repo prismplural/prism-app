@@ -2,7 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
+
+const memberConversationPreviewCount = 3;
 
 /// Fronting statistics for a single member.
 class MemberFrontingStats {
@@ -101,9 +104,30 @@ final memberRecentSessionsProvider = FutureProvider.autoDispose
       return sorted.take(5).toList();
     });
 
-/// Provides conversations that include a given member as a participant.
+/// Provides visible conversations that include a given member as a participant,
+/// sorted by non-deleted message count descending.
+final memberConversationActivityProvider = FutureProvider.autoDispose
+    .family<List<ConversationActivity>, String>((ref, memberId) async {
+      final repo = ref.watch(conversationRepositoryProvider);
+      return repo.getConversationActivityForMember(memberId);
+    });
+
+/// Provides one extra activity row beyond the profile preview count so the UI
+/// can decide whether to show "View All" without loading the full list.
+final memberConversationPreviewActivityProvider = FutureProvider.autoDispose
+    .family<List<ConversationActivity>, String>((ref, memberId) async {
+      final repo = ref.watch(conversationRepositoryProvider);
+      return repo.getConversationActivityForMember(
+        memberId,
+        limit: memberConversationPreviewCount + 1,
+      );
+    });
+
+/// Provides visible conversations that include a given member as a participant.
 final memberConversationsProvider = FutureProvider.autoDispose
     .family<List<Conversation>, String>((ref, memberId) async {
-      final repo = ref.watch(conversationRepositoryProvider);
-      return repo.getConversationsForMember(memberId);
+      final activity = await ref.watch(
+        memberConversationActivityProvider(memberId).future,
+      );
+      return activity.map((item) => item.conversation).toList();
     });

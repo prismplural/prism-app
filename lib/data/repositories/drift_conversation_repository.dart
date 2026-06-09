@@ -69,6 +69,25 @@ class DriftConversationRepository
   }
 
   @override
+  Future<List<ConversationActivity>> getConversationActivityForMember(
+    String memberId, {
+    int? limit,
+  }) async {
+    final rows = await _dao.getConversationActivityForMember(
+      memberId,
+      limit: limit,
+    );
+    return rows
+        .map(
+          (row) => (
+            conversation: ConversationMapper.toDomain(row.conversation),
+            messageCount: row.messageCount,
+          ),
+        )
+        .toList();
+  }
+
+  @override
   Future<void> createConversation(domain.Conversation conversation) async {
     final companion = ConversationMapper.toCompanion(conversation);
     await _dao.insertConversation(companion);

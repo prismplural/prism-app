@@ -212,6 +212,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       .read(systemSettingsProvider)
       .whenOrNull(data: (s) => s.hasCompletedOnboarding);
 
+  String? redirectIfChatDisabled(BuildContext context, GoRouterState state) {
+    final flags = ref.read(featureFlagsProvider);
+    return flags.chat ? null : AppRoutePaths.home;
+  }
+
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: AppRoutePaths.home,
@@ -450,6 +455,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                             path: 'fronting',
                             builder: (context, state) =>
                                 MemberFrontingHistoryScreen(
+                                  memberId: state.pathParameters['id']!,
+                                ),
+                          ),
+                          GoRoute(
+                            path: 'conversations',
+                            redirect: redirectIfChatDisabled,
+                            builder: (context, state) =>
+                                MemberConversationsScreen(
                                   memberId: state.pathParameters['id']!,
                                 ),
                           ),
@@ -735,6 +748,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                               memberId: state.pathParameters['id']!,
                             ),
                       ),
+                      GoRoute(
+                        path: 'conversations',
+                        redirect: redirectIfChatDisabled,
+                        builder: (context, state) => MemberConversationsScreen(
+                          memberId: state.pathParameters['id']!,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -890,6 +910,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                             path: 'fronting',
                             builder: (context, state) =>
                                 MemberFrontingHistoryScreen(
+                                  memberId: state.pathParameters['memberId']!,
+                                ),
+                          ),
+                          GoRoute(
+                            path: 'conversations',
+                            redirect: redirectIfChatDisabled,
+                            builder: (context, state) =>
+                                MemberConversationsScreen(
                                   memberId: state.pathParameters['memberId']!,
                                 ),
                           ),

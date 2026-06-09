@@ -37,4 +37,18 @@ extension MemberNavigationBranchPaths on MemberNavigationBranch {
             : AppRoutePaths.groupMemberFrontingHistory(groupId, memberId),
     };
   }
+
+  String memberConversationsPath(String memberId, {String? groupId}) {
+    return switch (this) {
+      MemberNavigationBranch.settings =>
+        AppRoutePaths.settingsMemberConversations(memberId),
+      MemberNavigationBranch.members => AppRoutePaths.memberConversations(
+        memberId,
+      ),
+      MemberNavigationBranch.groups =>
+        groupId == null
+            ? AppRoutePaths.memberConversations(memberId)
+            : AppRoutePaths.groupMemberConversations(groupId, memberId),
+    };
+  }
 }

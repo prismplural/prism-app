@@ -299,6 +299,17 @@ void main() {
         '/settings/members/m1/fronting',
       );
     });
+
+    test('builds member and settings member conversation paths', () {
+      expect(
+        AppRoutePaths.memberConversations('m1'),
+        '/members/m1/conversations',
+      );
+      expect(
+        AppRoutePaths.settingsMemberConversations('m1'),
+        '/settings/members/m1/conversations',
+      );
+    });
   });
 
   group('groups tab routes', () {
@@ -311,16 +322,20 @@ void main() {
     });
 
     test('builds nested member detail path under /groups branch', () {
-      expect(
-        AppRoutePaths.groupMember('g1', 'm1'),
-        '/groups/g1/member/m1',
-      );
+      expect(AppRoutePaths.groupMember('g1', 'm1'), '/groups/g1/member/m1');
     });
 
     test('builds nested fronting history path under /groups branch', () {
       expect(
         AppRoutePaths.groupMemberFrontingHistory('g1', 'm1'),
         '/groups/g1/member/m1/fronting',
+      );
+    });
+
+    test('builds nested conversations path under /groups branch', () {
+      expect(
+        AppRoutePaths.groupMemberConversations('g1', 'm1'),
+        '/groups/g1/member/m1/conversations',
       );
     });
 

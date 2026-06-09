@@ -13,6 +13,8 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/providers/pending_conversation_selection_provider.dart';
+import 'package:prism_plurality/features/chat/views/conversation_screen.dart';
 import 'package:prism_plurality/features/chat/views/chat_screen.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -233,6 +235,33 @@ void main() {
     expect(find.text('Select a conversation'), findsOneWidget);
     expect(find.text('Planning'), findsOneWidget);
     expect(find.text('No messages'), findsNothing);
+  });
+
+  testWidgets('wide layout opens pending conversation in detail pane', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    await tester.pumpWidget(_buildSubject());
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatScreen)),
+    );
+    container
+        .read(pendingConversationSelectionProvider.notifier)
+        .request('group-1');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ConversationScreen &&
+            widget.conversationId == 'group-1' &&
+            widget.showBackButton == false,
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('filters the chat list by direct messages and group chats', (

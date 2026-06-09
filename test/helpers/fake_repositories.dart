@@ -586,10 +586,25 @@ class FakeConversationRepository implements ConversationRepository {
     return conversations
         .where(
           (conversation) =>
-              conversation.participantIds.contains(memberId) ||
-              conversation.includesAllMembers,
+              (conversation.participantIds.contains(memberId) ||
+                  conversation.includesAllMembers) &&
+              !conversation.archivedForEveryone &&
+              !conversation.archivedByMemberIds.contains(memberId),
         )
         .toList();
+  }
+
+  @override
+  Future<List<ConversationActivity>> getConversationActivityForMember(
+    String memberId, {
+    int? limit,
+  }) async {
+    final conversations = await getConversationsForMember(memberId);
+    final activity = [
+      for (final conversation in conversations)
+        (conversation: conversation, messageCount: 0),
+    ];
+    return limit == null ? activity : activity.take(limit).toList();
   }
 
   @override

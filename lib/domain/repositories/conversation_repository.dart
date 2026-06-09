@@ -1,5 +1,10 @@
 import 'package:prism_plurality/domain/models/conversation.dart' as domain;
 
+typedef ConversationActivity = ({
+  domain.Conversation conversation,
+  int messageCount,
+});
+
 abstract class ConversationRepository {
   Future<List<domain.Conversation>> getAllConversations();
   Stream<List<domain.Conversation>> watchAllConversations();
@@ -7,6 +12,10 @@ abstract class ConversationRepository {
   Future<List<domain.Conversation>> getConversationsByIds(List<String> ids);
   Stream<domain.Conversation?> watchConversationById(String id);
   Future<List<domain.Conversation>> getConversationsForMember(String memberId);
+  Future<List<ConversationActivity>> getConversationActivityForMember(
+    String memberId, {
+    int? limit,
+  });
   Future<void> createConversation(domain.Conversation conversation);
   Future<void> updateConversation(domain.Conversation conversation);
   Future<void> deleteConversation(String id);
@@ -15,9 +24,18 @@ abstract class ConversationRepository {
   Future<void> removeParticipantId(String conversationId, String memberId);
   Future<void> setIncludesAllMembers(String conversationId, bool value);
   Future<void> setArchivedForEveryone(String conversationId, bool value);
-  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds);
-  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds);
-  Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps);
+  Future<void> setArchivedByMemberIds(
+    String conversationId,
+    List<String> memberIds,
+  );
+  Future<void> setMutedByMemberIds(
+    String conversationId,
+    List<String> memberIds,
+  );
+  Future<void> setLastReadTimestamps(
+    String conversationId,
+    Map<String, DateTime> timestamps,
+  );
   Future<void> updateLastActivity(String id);
   Future<int> getCount();
 }

@@ -253,7 +253,8 @@ class SpeakingAsNotifier extends Notifier<String?> {
         .toSet();
     if (_lastActiveSessionMemberIds != null &&
         !setEquals(_lastActiveSessionMemberIds, currentSessionMemberIds)) {
-      final mode = ref.watch(composerDefaultMemberProvider).value ??
+      final mode =
+          ref.watch(composerDefaultMemberProvider).value ??
           ComposerDefaultMember.defaultValue;
       if (mode == ComposerDefaultMember.latestFronter) {
         _explicitSelection = null;
@@ -447,6 +448,31 @@ class ChatNotifier extends AsyncNotifier<void> {
     );
   }
 
+  void _invalidateMemberConversationActivityFor(
+    Conversation conversation, {
+    Iterable<String> additionalMemberIds = const [],
+    bool includeAllMembers = false,
+  }) {
+    if (conversation.includesAllMembers || includeAllMembers) {
+      ref.invalidate(memberConversationPreviewActivityProvider);
+      ref.invalidate(memberConversationActivityProvider);
+      ref.invalidate(memberConversationsProvider);
+      return;
+    }
+
+    final memberIds = <String>{
+      ...conversation.participantIds,
+      ...conversation.archivedByMemberIds,
+      ...additionalMemberIds,
+    };
+
+    for (final memberId in memberIds) {
+      ref.invalidate(memberConversationPreviewActivityProvider(memberId));
+      ref.invalidate(memberConversationActivityProvider(memberId));
+      ref.invalidate(memberConversationsProvider(memberId));
+    }
+  }
+
   Future<Conversation> createGroupConversation({
     required String title,
     String? emoji,
@@ -470,9 +496,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       categoryId: categoryId,
     );
     await repo.createConversation(conversation);
-    for (final id in participantIds) {
-      ref.invalidate(memberConversationsProvider(id));
-    }
+    _invalidateMemberConversationActivityFor(conversation);
     return conversation;
   }
 
@@ -510,7 +534,14 @@ class ChatNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       await _requireConversationAction(conversationId, (p) => p.canManage);
       final repo = ref.read(conversationRepositoryProvider);
+      final conv = await repo.getConversationById(conversationId);
       await repo.setIncludesAllMembers(conversationId, value);
+      if (conv != null) {
+        _invalidateMemberConversationActivityFor(
+          conv.copyWith(includesAllMembers: value),
+          includeAllMembers: conv.includesAllMembers,
+        );
+      }
     });
   }
 
@@ -567,6 +598,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       );
       updatedTimestamps[authorId] = DateTime.now();
       await convRepo.setLastReadTimestamps(conversationId, updatedTimestamps);
+      _invalidateMemberConversationActivityFor(conv);
     }
 
     return id;
@@ -584,6 +616,10 @@ class ChatNotifier extends AsyncNotifier<void> {
     );
     await msgRepo.createMessage(message);
     await convRepo.updateLastActivity(conversationId);
+    final conv = await convRepo.getConversationById(conversationId);
+    if (conv != null) {
+      _invalidateMemberConversationActivityFor(conv);
+    }
   }
 
   Future<void> _removeParticipantCore(
@@ -596,7 +632,10 @@ class ChatNotifier extends AsyncNotifier<void> {
     if (conv == null) return;
 
     await convRepo.removeParticipantId(conversationId, memberId);
-    ref.invalidate(memberConversationsProvider(memberId));
+    _invalidateMemberConversationActivityFor(
+      conv,
+      additionalMemberIds: [memberId],
+    );
 
     if (removedByName != null) {
       final memberRepo = ref.read(memberRepositoryProvider);
@@ -682,6 +721,9 @@ class ChatNotifier extends AsyncNotifier<void> {
 
         final updatedArchived = [...conv.archivedByMemberIds, memberId];
         await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+        _invalidateMemberConversationActivityFor(
+          conv.copyWith(archivedByMemberIds: updatedArchived),
+        );
       });
     });
   }
@@ -705,6 +747,10 @@ class ChatNotifier extends AsyncNotifier<void> {
             .where((id) => id != memberId)
             .toList();
         await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+        _invalidateMemberConversationActivityFor(
+          conv.copyWith(archivedByMemberIds: updatedArchived),
+          additionalMemberIds: [memberId],
+        );
       });
     });
   }
@@ -727,6 +773,9 @@ class ChatNotifier extends AsyncNotifier<void> {
 
         if (conv.archivedForEveryone) return;
         await convRepo.setArchivedForEveryone(conversationId, true);
+        _invalidateMemberConversationActivityFor(
+          conv.copyWith(archivedForEveryone: true),
+        );
       });
     });
   }
@@ -747,6 +796,9 @@ class ChatNotifier extends AsyncNotifier<void> {
 
         if (!conv.archivedForEveryone) return;
         await convRepo.setArchivedForEveryone(conversationId, false);
+        _invalidateMemberConversationActivityFor(
+          conv.copyWith(archivedForEveryone: false),
+        );
       });
     });
   }
@@ -864,6 +916,7 @@ class ChatNotifier extends AsyncNotifier<void> {
                 conv.copyWith(lastActivityAt: newActivityAt),
               );
             }
+            _invalidateMemberConversationActivityFor(conv);
           }
         }
       });
@@ -898,6 +951,7 @@ class ChatNotifier extends AsyncNotifier<void> {
           categoryId: clearCategory ? null : (categoryId ?? conv.categoryId),
         );
         await repo.updateConversation(updated);
+        _invalidateMemberConversationActivityFor(updated);
       }
     });
   }
@@ -921,9 +975,10 @@ class ChatNotifier extends AsyncNotifier<void> {
             .where((id) => !existingIds.contains(id))
             .toList();
         await repo.addParticipantIds(conversationId, newIds);
-        for (final id in memberIds) {
-          ref.invalidate(memberConversationsProvider(id));
-        }
+        _invalidateMemberConversationActivityFor(
+          conv,
+          additionalMemberIds: memberIds,
+        );
         if (addedByName != null && newIds.isNotEmpty) {
           final memberRepo = ref.read(memberRepositoryProvider);
           final members = await memberRepo.getMembersByIds(newIds.toList());
@@ -949,9 +1004,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       );
       await repo.deleteConversation(id);
       if (conv != null) {
-        for (final pid in conv.participantIds) {
-          ref.invalidate(memberConversationsProvider(pid));
-        }
+        _invalidateMemberConversationActivityFor(conv);
       }
     });
   }

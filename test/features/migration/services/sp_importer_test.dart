@@ -97,11 +97,13 @@ class _FakeMemberRepository implements MemberRepository {
 
   // Stub: not exercised by this test file.
   @override
-  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> excludePluralKitSync(String id) async =>
+      throw UnimplementedError();
 
   // Stub: not exercised by this test file.
   @override
-  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> resumePluralKitSync(String id) async =>
+      throw UnimplementedError();
 
   @override
   Future<void> deleteMember(String id) async =>
@@ -353,8 +355,27 @@ class _FakeConversationRepository implements ConversationRepository {
   @override
   Future<List<domain.Conversation>> getConversationsForMember(
     String memberId,
-  ) async =>
-      conversations.where((c) => c.participantIds.contains(memberId)).toList();
+  ) async => conversations
+      .where(
+        (c) =>
+            (c.participantIds.contains(memberId) || c.includesAllMembers) &&
+            !c.archivedForEveryone &&
+            !c.archivedByMemberIds.contains(memberId),
+      )
+      .toList();
+
+  @override
+  Future<List<ConversationActivity>> getConversationActivityForMember(
+    String memberId, {
+    int? limit,
+  }) async {
+    final conversations = await getConversationsForMember(memberId);
+    final activity = [
+      for (final conversation in conversations)
+        (conversation: conversation, messageCount: 0),
+    ];
+    return limit == null ? activity : activity.take(limit).toList();
+  }
 
   @override
   Future<void> addParticipantId(String conversationId, String memberId) async {}
@@ -375,7 +396,10 @@ class _FakeConversationRepository implements ConversationRepository {
   Future<void> setIncludesAllMembers(String conversationId, bool value) async {}
 
   @override
-  Future<void> setArchivedForEveryone(String conversationId, bool value) async {}
+  Future<void> setArchivedForEveryone(
+    String conversationId,
+    bool value,
+  ) async {}
 
   @override
   Future<void> setArchivedByMemberIds(
@@ -477,7 +501,8 @@ class _ThrowingMemberRepository implements MemberRepository {
   Future<int> recordPluralKitIdentity(String id, Map<String, dynamic> patch) =>
       _inner.recordPluralKitIdentity(id, patch);
   @override
-  Future<int> excludePluralKitSync(String id) => _inner.excludePluralKitSync(id);
+  Future<int> excludePluralKitSync(String id) =>
+      _inner.excludePluralKitSync(id);
   @override
   Future<int> resumePluralKitSync(String id) => _inner.resumePluralKitSync(id);
   @override

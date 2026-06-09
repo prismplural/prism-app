@@ -12,7 +12,6 @@ import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
-import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -137,8 +136,14 @@ Widget _buildSubject({
       memberRecentSessionsProvider.overrideWith((ref, memberId) async {
         return const <FrontingSession>[];
       }),
-      memberConversationsProvider.overrideWith((ref, memberId) async {
-        return const <Conversation>[];
+      memberConversationActivityProvider.overrideWith((ref, memberId) async {
+        return const [];
+      }),
+      memberConversationPreviewActivityProvider.overrideWith((
+        ref,
+        memberId,
+      ) async {
+        return const [];
       }),
       memberBoardSectionProvider.overrideWith((ref, memberId) {
         return Stream.value(

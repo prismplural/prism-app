@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/chat/navigation/open_chat_conversation.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
@@ -234,7 +235,11 @@ class _MemberDetailBody extends ConsumerWidget {
         groupId: groupId,
       ),
       const SizedBox(height: 8),
-      _ConversationsSection(memberId: member.id),
+      _ConversationsSection(
+        memberId: member.id,
+        branch: branch,
+        groupId: groupId,
+      ),
       BoardMessageSection(memberId: member.id),
       const SizedBox(height: 24),
       _MemberCreatedAtFooter(member: member),
@@ -586,10 +591,75 @@ class _SessionTile extends StatelessWidget {
 
 // ── Conversations Section ───────────────────────────────────────────────────
 
-class _ConversationsSection extends ConsumerWidget {
-  const _ConversationsSection({required this.memberId});
+class MemberConversationsScreen extends ConsumerWidget {
+  const MemberConversationsScreen({super.key, required this.memberId});
 
   final String memberId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chatEnabled = ref.watch(chatEnabledProvider);
+    if (!chatEnabled) {
+      return PrismPageScaffold(
+        topBar: PrismTopBar(
+          title: context.l10n.memberSectionConversations,
+          showBackButton: true,
+        ),
+        body: const SizedBox.shrink(),
+      );
+    }
+
+    final memberAsync = ref.watch(activeMemberByIdProvider(memberId));
+
+    return memberAsync.when(
+      loading: () => const PrismPageScaffold(
+        topBar: PrismTopBar(title: '', showBackButton: true),
+        body: PrismLoadingState(),
+      ),
+      error: (e, _) => PrismPageScaffold(
+        topBar: const PrismTopBar(title: '', showBackButton: true),
+        body: Center(
+          child: Text(
+            'Error loading ${readTerminology(context, ref).singularLower}: $e',
+          ),
+        ),
+      ),
+      data: (member) {
+        if (member == null) {
+          return PrismPageScaffold(
+            topBar: const PrismTopBar(title: '', showBackButton: true),
+            body: Center(
+              child: Text(
+                '${readTerminology(context, ref).singular} not found',
+              ),
+            ),
+          );
+        }
+
+        return PrismPageScaffold(
+          topBar: PrismTopBar(
+            title: context.l10n.memberSectionConversations,
+            showBackButton: true,
+          ),
+          bodyPadding: EdgeInsets.zero,
+          safeAreaBottom: false,
+          body: _MemberConversationsList(memberId: member.id),
+        );
+      },
+    );
+  }
+}
+
+class _ConversationsSection extends ConsumerWidget {
+  const _ConversationsSection({
+    required this.memberId,
+    required this.branch,
+    required this.groupId,
+  });
+
+  final String memberId;
+  final MemberNavigationBranch branch;
+  final String? groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -597,25 +667,37 @@ class _ConversationsSection extends ConsumerWidget {
     if (!chatEnabled) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
-    final convsAsync = ref.watch(memberConversationsProvider(memberId));
+    final activityAsync = ref.watch(
+      memberConversationPreviewActivityProvider(memberId),
+    );
 
-    return convsAsync.when(
+    return activityAsync.when(
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
-      data: (conversations) {
-        if (conversations.isEmpty) return const SizedBox.shrink();
+      data: (activity) {
+        if (activity.isEmpty) return const SizedBox.shrink();
+        final preview = activity.take(memberConversationPreviewCount).toList();
+        final showViewAll = activity.length > preview.length;
 
         return _SectionCard(
           icon: AppIcons.chatOutlined,
           title: context.l10n.memberSectionConversations,
           theme: theme,
+          trailing: showViewAll
+              ? PrismButton(
+                  label: context.l10n.memberSectionFrontingSessionsViewAll,
+                  onPressed: () => context.go(_conversationsPath()),
+                  density: PrismControlDensity.compact,
+                )
+              : null,
           child: Column(
             children: [
-              for (var i = 0; i < conversations.length; i++) ...[
+              for (var i = 0; i < preview.length; i++) ...[
                 if (i > 0) const Divider(height: 1),
                 _ConversationTile(
-                  conversation: conversations[i],
+                  conversation: preview[i].conversation,
                   memberId: memberId,
+                  messageCount: preview[i].messageCount,
                 ),
               ],
             ],
@@ -624,13 +706,21 @@ class _ConversationsSection extends ConsumerWidget {
       },
     );
   }
+
+  String _conversationsPath() =>
+      branch.memberConversationsPath(memberId, groupId: groupId);
 }
 
 class _ConversationTile extends ConsumerWidget {
-  const _ConversationTile({required this.conversation, required this.memberId});
+  const _ConversationTile({
+    required this.conversation,
+    required this.memberId,
+    required this.messageCount,
+  });
 
   final Conversation conversation;
   final String memberId;
+  final int messageCount;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -641,7 +731,7 @@ class _ConversationTile extends ConsumerWidget {
         context.l10n.memberConversationFallback;
 
     final allMembersAsync = ref.watch(allMembersProvider);
-    final subtitle = allMembersAsync.whenOrNull(
+    final participantsSubtitle = allMembersAsync.whenOrNull(
       data: (members) {
         final others = members
             .where(
@@ -657,10 +747,17 @@ class _ConversationTile extends ConsumerWidget {
         return '${others[0].name}, ${others[1].name} +$extra more';
       },
     );
+    final messageCountText = context.l10n.settingsDataBrowserMessageCount(
+      messageCount,
+    );
+    final subtitle =
+        participantsSubtitle != null && participantsSubtitle.isNotEmpty
+        ? '$participantsSubtitle - $messageCountText'
+        : messageCountText;
 
     return InkWell(
       onTap: () =>
-          context.push(AppRoutePaths.chatConversation(conversation.id)),
+          openChatConversation(context, ref, conversationId: conversation.id),
       borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -687,15 +784,14 @@ class _ConversationTile extends ConsumerWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (subtitle != null && subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -708,6 +804,48 @@ class _ConversationTile extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MemberConversationsList extends ConsumerWidget {
+  const _MemberConversationsList({required this.memberId});
+
+  final String memberId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activityAsync = ref.watch(
+      memberConversationActivityProvider(memberId),
+    );
+
+    return activityAsync.when(
+      loading: () => const PrismLoadingState(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (activity) {
+        if (activity.isEmpty) {
+          return Center(child: Text(context.l10n.memberConversationFallback));
+        }
+
+        return ListView.separated(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            16,
+            24,
+            NavBarInset.of(context) + 16,
+          ),
+          itemCount: activity.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final item = activity[index];
+            return _ConversationTile(
+              conversation: item.conversation,
+              memberId: memberId,
+              messageCount: item.messageCount,
+            );
+          },
+        );
+      },
     );
   }
 }

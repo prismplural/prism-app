@@ -15,6 +15,7 @@ import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/chat/providers/pending_conversation_selection_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
@@ -113,7 +114,20 @@ GoRouter _router({required String memberId}) {
             routes: [
               GoRoute(
                 path: AppRoutePaths.chat,
-                builder: (_, _) => const Scaffold(body: Text('chat')),
+                builder: (_, _) => Consumer(
+                  builder: (context, ref, _) {
+                    final pending = ref.watch(
+                      pendingConversationSelectionProvider,
+                    );
+                    return Scaffold(
+                      body: Text(
+                        pending == null
+                            ? 'chat'
+                            : 'chat-pending-${pending.conversationId}',
+                      ),
+                    );
+                  },
+                ),
                 routes: [
                   GoRoute(
                     path: ':id',
@@ -145,6 +159,14 @@ GoRouter _router({required String memberId}) {
                       memberId: state.pathParameters['id']!,
                       branch: MemberNavigationBranch.members,
                     ),
+                    routes: [
+                      GoRoute(
+                        path: 'conversations',
+                        builder: (_, state) => MemberConversationsScreen(
+                          memberId: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -235,9 +257,25 @@ Widget _buildApp({
         onRecentSessionsProviderBuilt?.call();
         return recentSessions;
       }),
-      memberConversationsProvider(member.id).overrideWith((ref) async {
+      memberConversationActivityProvider(member.id).overrideWith((ref) async {
         onConversationsProviderBuilt?.call();
-        return conversations;
+        return [
+          for (var i = 0; i < conversations.length; i++)
+            (conversation: conversations[i], messageCount: i + 1),
+        ];
+      }),
+      memberConversationPreviewActivityProvider(member.id).overrideWith((
+        ref,
+      ) async {
+        onConversationsProviderBuilt?.call();
+        return [
+          for (
+            var i = 0;
+            i < conversations.length && i < memberConversationPreviewCount + 1;
+            i++
+          )
+            (conversation: conversations[i], messageCount: i + 1),
+        ];
       }),
       recentMemberNotesProvider(
         member.id,
@@ -598,6 +636,135 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.toString(),
       AppRoutePaths.member(member.id),
     );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('desktop member detail opens conversation in chat pane', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final member = _member('alice', 'Alice');
+    final conversation = _conversation(
+      id: 'c1',
+      title: 'Project chat',
+      participantIds: [member.id, 'bob'],
+    );
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(router: router, member: member, conversations: [conversation]),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Project chat'));
+    await tester.tap(find.text('Project chat'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('chat-pending-c1'), findsOneWidget);
+    expect(find.text('conversation-c1'), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      AppRoutePaths.chat,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member detail truncates conversations with view all route', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final conversations = [
+      _conversation(
+        id: 'c1',
+        title: 'Most active',
+        participantIds: [member.id, 'bob'],
+      ),
+      _conversation(
+        id: 'c2',
+        title: 'Second active',
+        participantIds: [member.id, 'bob'],
+      ),
+      _conversation(
+        id: 'c3',
+        title: 'Third active',
+        participantIds: [member.id, 'bob'],
+      ),
+      _conversation(
+        id: 'c4',
+        title: 'Fourth active',
+        participantIds: [member.id, 'bob'],
+      ),
+    ];
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(router: router, member: member, conversations: conversations),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Most active'), findsOneWidget);
+    expect(find.text('Second active'), findsOneWidget);
+    expect(find.text('Third active'), findsOneWidget);
+    expect(find.text('Fourth active'), findsNothing);
+
+    await tester.ensureVisible(find.text('View All'));
+    await tester.tap(find.text('View All'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fourth active'), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      AppRoutePaths.memberConversations(member.id),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member conversations route hides chat data when chat disabled', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final conversation = _conversation(
+      id: 'c1',
+      title: 'Hidden chat',
+      participantIds: [member.id, 'bob'],
+    );
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+    var conversationsProviderBuilds = 0;
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        conversations: [conversation],
+        settings: const SystemSettings(
+          chatEnabled: false,
+          notesEnabled: false,
+          boardsEnabled: false,
+        ),
+        onConversationsProviderBuilt: () => conversationsProviderBuilds += 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    conversationsProviderBuilds = 0;
+    router.go(AppRoutePaths.memberConversations(member.id));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Hidden chat'), findsNothing);
+    expect(conversationsProviderBuilds, 0);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

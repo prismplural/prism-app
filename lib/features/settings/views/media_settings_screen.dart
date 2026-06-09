@@ -15,6 +15,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/chat/navigation/open_chat_conversation.dart';
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/providers/pending_conversation_selection_provider.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_viewer.dart';
@@ -1488,9 +1489,11 @@ class _MediaThumbnail extends ConsumerWidget {
       );
       return;
     }
-    context.go(
-      '${AppRoutePaths.chatConversation(message.conversationId)}'
-      '?messageId=$messageId',
+    openChatConversation(
+      context,
+      ref,
+      conversationId: message.conversationId,
+      messageId: messageId,
     );
   }
 }

@@ -143,6 +143,33 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         : !permissions.isDirectMessage;
   }
 
+  void _consumePendingConversationSelection(
+    PendingConversationSelection pendingConversation, {
+    required bool isWide,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(pendingConversationSelectionProvider.notifier).clear();
+      if (isWide) {
+        setState(() {
+          selectedDetailId = pendingConversation.conversationId;
+          _paneMessageTarget = pendingConversation.messageId == null
+              ? null
+              : pendingConversation;
+        });
+        return;
+      }
+
+      final messageQuery = pendingConversation.messageId == null
+          ? ''
+          : '?messageId=${Uri.encodeQueryComponent(pendingConversation.messageId!)}';
+      context.go(
+        '${AppRoutePaths.chatConversation(pendingConversation.conversationId)}'
+        '$messageQuery',
+      );
+    });
+  }
+
   /// Create a default "All [Members]" conversation if none exist yet.
   void _seedDefaultConversation(List<Conversation> conversations) {
     if (_seeded || _seedAttemptInFlight || conversations.isNotEmpty) return;
@@ -393,23 +420,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
     ref.watch(activeMembersProvider);
 
-    // Honour a one-shot request to open a specific conversation in the pane
-    // (e.g. from the media-usage list), applied after this frame so it can
-    // setState safely. Only issued while the deep-linking sheet is up, i.e. on
-    // wide windows where the pane is shown.
+    // Honour a one-shot request to open a specific conversation, applied after
+    // layout so we know whether this screen is currently two-pane.
     final pendingConversation = ref.watch(pendingConversationSelectionProvider);
-    if (pendingConversation != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        ref.read(pendingConversationSelectionProvider.notifier).clear();
-        setState(() {
-          selectedDetailId = pendingConversation.conversationId;
-          _paneMessageTarget = pendingConversation.messageId == null
-              ? null
-              : pendingConversation;
-        });
-      });
-    }
 
     // Each pane owns its chrome: the conversation list (with its pinned top
     // bar) on the left, the open conversation filling the detail pane on the
@@ -424,6 +437,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ),
       list: (context, isWide) {
         setListDetailWide(isWide);
+        if (pendingConversation != null) {
+          _consumePendingConversationSelection(
+            pendingConversation,
+            isWide: isWide,
+          );
+        }
         return _buildConversationList(
           conversationsAsync: conversationsAsync,
           categoriesAsync: categoriesAsync,

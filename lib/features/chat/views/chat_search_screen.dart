@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/chat/navigation/open_chat_conversation.dart';
 import 'package:prism_plurality/features/chat/providers/chat_search_providers.dart';
 import 'package:prism_plurality/features/chat/widgets/search_result_tile.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -92,15 +92,18 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: TintedGlassSurface(
-                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(16),
+                        ),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Row(
                           children: [
                             Icon(
                               AppIcons.search,
                               size: 20,
-                              color: colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.5),
+                              color: colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -110,10 +113,10 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                                 hintText: context.l10n.chatSearchPlaceholder,
                                 fieldStyle: PrismTextFieldStyle.borderless,
                                 isDense: true,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                hintStyle:
-                                    theme.textTheme.bodyLarge?.copyWith(
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                hintStyle: theme.textTheme.bodyLarge?.copyWith(
                                   color: colorScheme.onSurfaceVariant
                                       .withValues(alpha: 0.5),
                                 ),
@@ -121,13 +124,13 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                                 onChanged: _onQueryChanged,
                               ),
                             ),
-                             if (_controller.text.isNotEmpty)
-                               Semantics(
-                                 button: true,
-                                 label: context.l10n.chatSearchClear,
-                                 child: GestureDetector(
-                                   onTap: () {
-                                     _controller.clear();
+                            if (_controller.text.isNotEmpty)
+                              Semantics(
+                                button: true,
+                                label: context.l10n.chatSearchClear,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _controller.clear();
                                     ref
                                         .read(chatSearchQueryProvider.notifier)
                                         .set('');
@@ -160,8 +163,9 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                     Icon(
                       AppIcons.search,
                       size: 64,
-                      color: colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.3),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.3,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -199,8 +203,9 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                           Icon(
                             AppIcons.searchOff,
                             size: 64,
-                            color: colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.3),
+                            color: colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.3,
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -240,9 +245,11 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                       result: result,
                       authorMap: authorMap,
                       onTap: () {
-                        context.go(
-                          '${AppRoutePaths.chatConversation(result.conversationId)}'
-                          '?messageId=${result.messageId}',
+                        openChatConversation(
+                          context,
+                          ref,
+                          conversationId: result.conversationId,
+                          messageId: result.messageId,
                         );
                       },
                     );
