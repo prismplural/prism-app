@@ -20,8 +20,11 @@ MemberGroup _group(String id, {String? parentGroupId}) => MemberGroup(
   createdAt: DateTime(2024, 1, 1),
 );
 
-MemberGroupEntry _entry(String groupId, String memberId) =>
-    MemberGroupEntry(id: '${groupId}_$memberId', groupId: groupId, memberId: memberId);
+MemberGroupEntry _entry(String groupId, String memberId) => MemberGroupEntry(
+  id: '${groupId}_$memberId',
+  groupId: groupId,
+  memberId: memberId,
+);
 
 const _kMemberId = 'member-1';
 
@@ -29,6 +32,7 @@ Widget _harness({
   required List<MemberGroup> groups,
   required List<MemberGroupEntry> entries,
   required List<MemberGroup> memberGroups,
+  double? height,
 }) {
   return ProviderScope(
     overrides: [
@@ -38,12 +42,14 @@ Widget _harness({
         _kMemberId,
       ).overrideWith((ref) => Stream.value(memberGroups)),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: [Locale('en')],
+      supportedLocales: const [Locale('en')],
       home: Scaffold(
-        body: SizedBox.expand(
-          child: ManageGroupsSheet(
+        body: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: const ManageGroupsSheet(
             memberId: _kMemberId,
             memberName: 'Member 1',
           ),
@@ -54,51 +60,63 @@ Widget _harness({
 }
 
 void main() {
-  testWidgets(
-    'shows loading indicator instead of empty list while '
-    'memberGroupsProvider is still loading',
-    (tester) async {
-      final memberGroupsCompleter = Completer<List<MemberGroup>>();
+  testWidgets('shows loading indicator instead of empty list while '
+      'memberGroupsProvider is still loading', (tester) async {
+    final memberGroupsCompleter = Completer<List<MemberGroup>>();
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            allGroupsProvider.overrideWith(
-              (ref) => Stream.value([_group('gender'), _group('age')]),
-            ),
-            allGroupEntriesProvider.overrideWith(
-              (ref) => Stream.value([_entry('gender', _kMemberId)]),
-            ),
-            memberGroupsProvider(_kMemberId).overrideWith(
-              (ref) => Stream.fromFuture(memberGroupsCompleter.future),
-            ),
-          ],
-          child: const MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: [Locale('en')],
-            home: Scaffold(
-              body: SizedBox.expand(
-                child: ManageGroupsSheet(
-                  memberId: _kMemberId,
-                  memberName: 'Member 1',
-                ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value([_group('gender'), _group('age')]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value([_entry('gender', _kMemberId)]),
+          ),
+          memberGroupsProvider(_kMemberId).overrideWith(
+            (ref) => Stream.fromFuture(memberGroupsCompleter.future),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(
+            body: SizedBox.expand(
+              child: ManageGroupsSheet(
+                memberId: _kMemberId,
+                memberName: 'Member 1',
               ),
             ),
           ),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      expect(find.byType(PrismListRow), findsNothing);
-      expect(find.byType(PrismSpinner), findsOneWidget);
+    expect(find.byType(PrismListRow), findsNothing);
+    expect(find.byType(PrismSpinner), findsOneWidget);
 
-      memberGroupsCompleter.complete([_group('gender')]);
-      await tester.pumpAndSettle();
+    memberGroupsCompleter.complete([_group('gender')]);
+    await tester.pumpAndSettle();
 
-      expect(find.byType(PrismSpinner), findsNothing);
-      expect(find.byType(PrismListRow), findsNWidgets(2));
-    },
-  );
+    expect(find.byType(PrismSpinner), findsNothing);
+    expect(find.byType(PrismListRow), findsNWidgets(2));
+  });
+
+  testWidgets('small-height layout does not flex overflow', (tester) async {
+    await tester.pumpWidget(
+      _harness(
+        groups: [_group('gender'), _group('age')],
+        entries: const [],
+        memberGroups: const [],
+        height: 24,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Groups'), findsOneWidget);
+  });
 
   testWidgets(
     'searching a parent group reveals its whole subtree; searching a child '

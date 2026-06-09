@@ -31,6 +31,8 @@ import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 List<MemberGroup> _chain(int n) => [
@@ -531,6 +533,51 @@ void main() {
 
     // Depth cap is removed — Add sub-group is always available.
     expect(find.text('Add sub-group'), findsOneWidget);
+  });
+
+  testWidgets('add subgroup flow uses searchable parent group picker', (
+    tester,
+  ) async {
+    final root = _group(id: 'root', name: 'Root');
+    final parent = _group(id: 'parent', name: 'Parent', parentGroupId: 'root');
+    final child = _group(id: 'child', name: 'Child', parentGroupId: 'parent');
+    final notifier = _FakeGroupNotifier();
+
+    await tester.pumpWidget(
+      _buildSubject(
+        group: parent,
+        allGroups: [root, parent, child],
+        allEntries: const [],
+        activeMembers: const [],
+        notifier: notifier,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('More options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add sub-group'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Parent group'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is PrismTextField && widget.hintText == 'Search groups',
+      ),
+      findsOneWidget,
+    );
+
+    Finder pickerRowLabel(String name) => find.descendant(
+      of: find.byType(PrismListRow),
+      matching: find.text(name),
+    );
+
+    expect(pickerRowLabel('Root'), findsOneWidget);
+    expect(pickerRowLabel('Parent'), findsOneWidget);
+    expect(pickerRowLabel('Child'), findsOneWidget);
   });
 
   testWidgets('keeps the inline add button when subgroups are visible', (

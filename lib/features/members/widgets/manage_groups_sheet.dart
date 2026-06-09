@@ -1,28 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
-import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
-import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/members/widgets/member_group_picker_list.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/widgets/empty_state.dart';
-import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
-
-const double _kRowExtent = 64.0;
-const double _kDepthIndent = 24.0;
 
 /// Full-screen sheet for managing which groups a member belongs to.
 ///
@@ -63,28 +52,10 @@ class ManageGroupsSheet extends ConsumerStatefulWidget {
 }
 
 class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
-  late final TextEditingController _searchController;
-  late final FocusNode _searchFocus;
-
-  String _query = '';
   Set<String>? _selectedGroupIds;
   Set<String>? _initialGroupIds;
   bool _initialized = false;
   bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-    _searchFocus = FocusNode();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _searchFocus.dispose();
-    super.dispose();
-  }
 
   void _initSelection(Set<String> memberGroupIds) {
     if (!_initialized) {
@@ -94,15 +65,13 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
     }
   }
 
-  void _onQueryChanged(String q) => setState(() => _query = q);
-
   void _toggleGroup(String groupId) => setState(() {
-        if (_selectedGroupIds!.contains(groupId)) {
-          _selectedGroupIds!.remove(groupId);
-        } else {
-          _selectedGroupIds!.add(groupId);
-        }
-      });
+    if (_selectedGroupIds!.contains(groupId)) {
+      _selectedGroupIds!.remove(groupId);
+    } else {
+      _selectedGroupIds!.add(groupId);
+    }
+  });
 
   Future<void> _confirm() async {
     if (_isSaving) return;
@@ -122,48 +91,6 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  List<({MemberGroup group, int depth})> _filterGroups(
-    List<({MemberGroup group, int depth})> flatGroups,
-    Map<String?, List<MemberGroup>> groupTree,
-  ) {
-    if (_query.isEmpty) return flatGroups;
-    final normalizedQuery = unorm.nfkc(_query).toLowerCase();
-
-    bool matches(MemberGroup g) =>
-        unorm.nfkc(g.name).toLowerCase().contains(normalizedQuery);
-
-    // Visible = matches, or descends from a match, so searching a parent's
-    // name surfaces its whole subtree.
-    final visibleIds = <String>{};
-    for (final entry in flatGroups) {
-      if (matches(entry.group)) {
-        visibleIds.add(entry.group.id);
-        visibleIds.addAll(
-          GroupTreeUtils.getDescendantGroupIds(entry.group.id, groupTree),
-        );
-      }
-    }
-
-    // Indent by visible ancestors, not original depth, so a match whose parent
-    // is filtered out sits flush-left. Walk every entry — not just visible ones
-    // — or a hidden node strands its parent's frame on the stack and
-    // over-indents a later match in a sibling subtree.
-    final result = <({MemberGroup group, int depth})>[];
-    final stack = <({int depth, bool visible})>[];
-    for (final entry in flatGroups) {
-      while (stack.isNotEmpty && stack.last.depth >= entry.depth) {
-        stack.removeLast();
-      }
-      final isVisible = visibleIds.contains(entry.group.id);
-      if (isVisible) {
-        final visibleAncestors = stack.where((f) => f.visible).length;
-        result.add((group: entry.group, depth: visibleAncestors));
-      }
-      stack.add((depth: entry.depth, visible: isVisible));
-    }
-    return result;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -172,9 +99,7 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
 
     if (!allGroupsAsync.hasValue || !memberGroupsAsync.hasValue) {
       final theme = Theme.of(context);
-      return Center(
-        child: PrismSpinner(color: theme.colorScheme.primary),
-      );
+      return Center(child: PrismSpinner(color: theme.colorScheme.primary));
     }
 
     final groups = allGroupsAsync.value!;
@@ -186,70 +111,21 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
       return _buildEmptyGroupsState();
     }
 
-    final flatGroups = ref.watch(flatGroupListProvider);
-    final memberCounts = ref.watch(groupMemberCountsProvider);
-    final hideMemberCount = ref
-            .watch(hideTotalMemberCountProvider)
-            .whenOrNull(data: (value) => value) ??
-        true;
-    final groupTree = ref.watch(groupTreeProvider);
-    final terms = watchTerminology(context, ref);
-    final filtered = _filterGroups(flatGroups, groupTree);
-
     final topBar = PrismSheetTopBar(
       title: l10n.memberGroupManageTitle,
       trailing: PrismGlassIconButton(
         icon: AppIcons.check,
         tooltip: l10n.save,
+        size: PrismTokens.topBarActionSize,
         onPressed: _isSaving ? null : _confirm,
       ),
     );
 
-    final body = CustomScrollView(
-      controller: widget.scrollController,
-      primary: widget.scrollController == null,
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: PrismTextField(
-              controller: _searchController,
-              focusNode: _searchFocus,
-              autofocus: false,
-              hintText: l10n.memberGroupSearchHint,
-              prefixIcon: Icon(AppIcons.search),
-              onChanged: _onQueryChanged,
-              textInputAction: TextInputAction.search,
-            ),
-          ),
-        ),
-        if (filtered.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: EmptyState(
-              icon: ExcludeSemantics(child: Icon(AppIcons.searchOff)),
-              title: l10n.memberGroupSearchEmpty,
-              subtitle: '',
-            ),
-          )
-        else
-          SliverFixedExtentList(
-            itemExtent: _kRowExtent,
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final entry = filtered[index];
-                return _buildGroupRow(
-                  entry.group,
-                  entry.depth,
-                  memberCounts[entry.group.id] ?? 0,
-                  terms,
-                  showMemberCount: !hideMemberCount,
-                );
-              },
-              childCount: filtered.length,
-            ),
-          ),
-      ],
+    final body = MemberGroupPickerList(
+      scrollController: widget.scrollController,
+      selectedGroupIds: _selectedGroupIds!,
+      enabled: !_isSaving,
+      onGroupTap: (group) => _toggleGroup(group.id),
     );
 
     return LayoutBuilder(
@@ -258,10 +134,7 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
           return CustomScrollView(
             controller: widget.scrollController,
             primary: widget.scrollController == null,
-            slivers: [
-              SliverToBoxAdapter(child: topBar),
-              ...body.slivers,
-            ],
+            slivers: [SliverToBoxAdapter(child: topBar)],
           );
         }
 
@@ -275,55 +148,9 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
     );
   }
 
-  Widget _buildGroupRow(
-    MemberGroup group,
-    int depth,
-    int memberCount,
-    Terminology terms, {
-    bool showMemberCount = true,
-  }) {
-    final isSelected = _selectedGroupIds!.contains(group.id);
-    final l10n = context.l10n;
-
-    return PrismListRow(
-      key: ValueKey(group.id),
-      selected: isSelected,
-      // Freeze toggles mid-save: the diff is already computed, so a late tap
-      // would be dropped before the pop.
-      enabled: !_isSaving,
-      padding: EdgeInsets.only(
-        left: 16 + (depth * _kDepthIndent),
-        right: 16,
-        top: 14,
-        bottom: 14,
-      ),
-      leading: GroupAvatar(
-        group: group,
-        size: 36,
-        showEmojiOnAvatar: false,
-      ),
-      title: Text(group.name),
-      subtitle: showMemberCount
-          ? Text(
-              l10n.memberCount(
-                memberCount,
-                terms.singularLower,
-                terms.pluralLower,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            )
-          : null,
-      trailing: isSelected ? Icon(AppIcons.check) : null,
-      onTap: () => _toggleGroup(group.id),
-    );
-  }
-
   Widget _buildEmptyGroupsState() {
     final l10n = context.l10n;
-    final topBar = PrismSheetTopBar(
-      title: l10n.memberGroupManageTitle,
-    );
+    final topBar = PrismSheetTopBar(title: l10n.memberGroupManageTitle);
 
     return Column(
       children: [

@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/widgets/group_parent_picker.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 MemberGroup _group({required String id, String? parentGroupId}) => MemberGroup(
   id: id,
@@ -15,7 +16,11 @@ MemberGroup _group({required String id, String? parentGroupId}) => MemberGroup(
   parentGroupId: parentGroupId,
 );
 
-Widget _buildPicker(List<MemberGroup> groups, {String? excludeGroupId}) {
+Widget _buildPicker(
+  List<MemberGroup> groups, {
+  String? excludeGroupId,
+  String? currentParentId,
+}) {
   return ProviderScope(
     overrides: [allGroupsProvider.overrideWithValue(AsyncValue.data(groups))],
     child: MaterialApp(
@@ -26,7 +31,7 @@ Widget _buildPicker(List<MemberGroup> groups, {String? excludeGroupId}) {
           height: 600,
           child: GroupParentPicker(
             excludeGroupId: excludeGroupId,
-            currentParentId: null,
+            currentParentId: currentParentId,
             onSelected: (_) {},
           ),
         ),
@@ -80,10 +85,12 @@ void main() {
     final sibling = _group(id: 'sibling', parentGroupId: 'root');
 
     await tester.pumpWidget(
-      _buildPicker(
-        [root, moving, movingChild, sibling],
-        excludeGroupId: 'moving',
-      ),
+      _buildPicker([
+        root,
+        moving,
+        movingChild,
+        sibling,
+      ], excludeGroupId: 'moving'),
     );
     await tester.pumpAndSettle();
 
@@ -100,6 +107,67 @@ void main() {
       expect(row, findsOneWidget);
       expect(tester.widget<PrismListRow>(row).enabled, isTrue);
     }
+  });
+
+  testWidgets(
+    'search keeps parent-picker cycle filtering for excluded descendants',
+    (tester) async {
+      final root = _group(id: 'root');
+      final moving = _group(id: 'moving', parentGroupId: 'root');
+      final movingChild = _group(id: 'moving-child', parentGroupId: 'moving');
+      final sibling = _group(id: 'sibling', parentGroupId: 'root');
+
+      await tester.pumpWidget(
+        _buildPicker([
+          root,
+          moving,
+          movingChild,
+          sibling,
+        ], excludeGroupId: 'moving'),
+      );
+      await tester.pumpAndSettle();
+
+      Finder rowLabel(String name) => find.descendant(
+        of: find.byType(PrismListRow),
+        matching: find.text(name),
+      );
+
+      await tester.enterText(find.byType(PrismTextField), 'moving');
+      await tester.pumpAndSettle();
+
+      expect(rowLabel('moving'), findsNothing);
+      expect(rowLabel('moving-child'), findsNothing);
+      expect(find.text('No groups found'), findsOneWidget);
+
+      await tester.enterText(find.byType(PrismTextField), 'root');
+      await tester.pumpAndSettle();
+
+      expect(rowLabel('root'), findsOneWidget);
+      expect(rowLabel('sibling'), findsOneWidget);
+      expect(rowLabel('moving'), findsNothing);
+      expect(rowLabel('moving-child'), findsNothing);
+    },
+  );
+
+  testWidgets('group rows expose hierarchy and selected semantics', (
+    tester,
+  ) async {
+    final root = _group(id: 'root');
+    final child = _group(id: 'child', parentGroupId: 'root');
+    final semantics = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      _buildPicker([root, child], currentParentId: 'child'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('root, top level group'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('child, nested group, selected'),
+      findsOneWidget,
+    );
+
+    semantics.dispose();
   });
 
   testWidgets('all groups in a formerly-blocked deep tree are now enabled', (
@@ -123,8 +191,11 @@ void main() {
         of: find.text(name),
         matching: find.byType(PrismListRow),
       );
-      expect(tester.widget<PrismListRow>(row).enabled, isTrue,
-          reason: '$name should be enabled with no depth limit');
+      expect(
+        tester.widget<PrismListRow>(row).enabled,
+        isTrue,
+        reason: '$name should be enabled with no depth limit',
+      );
     }
 
     // Old depth-limit subtitle must not appear.

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/members/widgets/member_group_picker_list.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -85,38 +84,31 @@ class GroupParentPicker extends ConsumerWidget {
           ),
         ],
       ),
-      data: (allGroups) {
-        final candidates = <_GroupPickerItem>[];
-        final depthsAll = GroupTreeUtils.getGroupDepthsAll(tree);
-
-        for (final group in allGroups) {
-          if (excludeGroupId != null && group.id == excludeGroupId) continue;
-
-          if (excludeGroupId != null &&
-              GroupTreeUtils.wouldCreateCycle(
-                excludeGroupId!,
-                group.id,
-                tree,
-              )) {
-            continue;
-          }
-
-          final depth = depthsAll[group.id] ?? 1;
-          candidates.add(_GroupPickerItem(group: group, depth: depth));
+      data: (_) {
+        bool includeGroup(String groupId) {
+          if (excludeGroupId != null && groupId == excludeGroupId) return false;
+          if (excludeGroupId == null) return true;
+          return !GroupTreeUtils.wouldCreateCycle(
+            excludeGroupId!,
+            groupId,
+            tree,
+          );
         }
 
-        final body = CustomScrollView(
-          controller: scrollController,
-          primary: scrollController == null,
-          slivers: [
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                if (index == 0) return _buildNoneTile(context);
-                if (index == 1) return const Divider(height: 1);
-                return _buildGroupTile(context, candidates[index - 2]);
-              }, childCount: candidates.length + 2),
-            ),
-          ],
+        final body = MemberGroupPickerList(
+          scrollController: scrollController,
+          selectedGroupIds: {?currentParentId},
+          showMemberCounts: false,
+          includeGroup: (group) => includeGroup(group.id),
+          semanticLabelBuilder: (group, depth, isSelected) {
+            final depthLabel = depth == 0 ? 'top level group' : 'nested group';
+            return '${group.name}, $depthLabel${isSelected ? ', selected' : ''}';
+          },
+          leadingRows: [_buildNoneTile(context), const Divider(height: 1)],
+          onGroupTap: (group) {
+            onSelected(group.id);
+            Navigator.of(context).pop();
+          },
         );
 
         return Column(
@@ -149,47 +141,4 @@ class GroupParentPicker extends ConsumerWidget {
       },
     );
   }
-
-  Widget _buildGroupTile(BuildContext context, _GroupPickerItem item) {
-    final theme = Theme.of(context);
-    final group = item.group;
-    final isSelected = group.id == currentParentId;
-
-    Color? groupColor;
-    if (group.colorHex != null) {
-      groupColor = AppColors.fromHex(group.colorHex!);
-    }
-
-    final tile = PrismListRow(
-      leading: group.emoji != null
-          ? Text(group.emoji!, style: const TextStyle(fontSize: 22))
-          : Icon(
-              AppIcons.folderOutlined,
-              color: groupColor ?? theme.colorScheme.onSurfaceVariant,
-            ),
-      title: Text(group.name),
-      trailing: isSelected
-          ? Icon(AppIcons.check, color: theme.colorScheme.primary)
-          : null,
-      onTap: () {
-        onSelected(group.id);
-        Navigator.of(context).pop();
-      },
-    );
-
-    final depthLabel = item.depth == 1 ? 'top level group' : 'nested group';
-    return Semantics(
-      button: true,
-      label: '${group.name}, $depthLabel${isSelected ? ', selected' : ''}',
-      excludeSemantics: true,
-      child: tile,
-    );
-  }
-}
-
-/// Internal data class bundling a group with its computed tree depth.
-class _GroupPickerItem {
-  const _GroupPickerItem({required this.group, required this.depth});
-  final MemberGroup group;
-  final int depth;
 }
