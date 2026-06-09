@@ -25,4 +25,27 @@ void main() {
     expect(find.textContaining('@[$aliceId]'), findsNothing);
     expect(find.textContaining('@[$ghostId]'), findsNothing);
   });
+
+  testWidgets('keeps tappable member mentions inline with surrounding text', (
+    tester,
+  ) async {
+    String? tappedMemberId;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MarkdownText(
+            data: 'hello @[$aliceId]',
+            memberMap: {alice.id: alice},
+            onTapMember: (id) => tappedMemberId = id,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('hello @Alice'), findsOneWidget);
+
+    await tester.tap(find.textContaining('hello @Alice'));
+    expect(tappedMemberId, aliceId);
+  });
 }

@@ -236,6 +236,7 @@ class _FullScreenMarkdownEditorSheetState
                                 memberId: widget.memberId,
                                 memberName: '',
                                 editSessionId: _editSessionId,
+                                mentionsInteractive: false,
                               ),
                           ],
                         )

@@ -77,6 +77,44 @@ void main() {
       expect(result.selection.baseOffset, text.indexOf('@['));
     });
 
+    test('arrowing right at a mention jumps to the end', () {
+      const text = 'Hi @[$aliceId] there';
+      final mentionStart = text.indexOf('@[');
+      final mentionEnd = text.indexOf(' there');
+
+      final result = formatter.formatEditUpdate(
+        TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: mentionStart),
+        ),
+        TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: mentionStart + 1),
+        ),
+      );
+
+      expect(result.selection.baseOffset, mentionEnd);
+    });
+
+    test('arrowing left at a mention jumps to the start', () {
+      const text = 'Hi @[$aliceId] there';
+      final mentionStart = text.indexOf('@[');
+      final mentionEnd = text.indexOf(' there');
+
+      final result = formatter.formatEditUpdate(
+        TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: mentionEnd),
+        ),
+        TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: mentionEnd - 1),
+        ),
+      );
+
+      expect(result.selection.baseOffset, mentionStart);
+    });
+
     test('typing inside a mention replaces the whole token', () {
       const oldText = 'Hi @[$aliceId] there';
       final insideMention = oldText.indexOf('@[') + 5;

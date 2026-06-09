@@ -36,6 +36,7 @@ class ListDetailLayout extends StatelessWidget {
     required this.list,
     required this.detail,
     this.onClearSelection,
+    this.onSelectDetail,
     this.listPaneWidth = PrismTokens.listPaneWidth,
     this.listPaneWidthXWide = PrismTokens.listPaneWidthXWide,
     this.breakpoint = PrismTokens.listDetailBreakpoint,
@@ -53,6 +54,9 @@ class ListDetailLayout extends StatelessWidget {
 
   /// Clears the current detail selection.
   final VoidCallback? onClearSelection;
+
+  /// Selects an item in the current detail pane from embedded pane content.
+  final ValueChanged<String>? onSelectDetail;
 
   /// List pane width in the "wide" tier ([breakpoint] up to [xWideBreakpoint]).
   final double listPaneWidth;
@@ -116,6 +120,7 @@ class ListDetailLayout extends StatelessWidget {
                 child: PrimaryScrollController.none(
                   child: ListDetailPaneControls(
                     clearSelection: clearSelection,
+                    selectDetail: onSelectDetail,
                     child: EmbeddedPaneMarker(
                       child: AnimatedSwitcher(
                         duration: MediaQuery.of(context).disableAnimations
@@ -195,17 +200,20 @@ class ListDetailPaneControls extends InheritedWidget {
   const ListDetailPaneControls({
     super.key,
     required this.clearSelection,
+    required this.selectDetail,
     required super.child,
   });
 
   final VoidCallback? clearSelection;
+  final ValueChanged<String>? selectDetail;
 
   static ListDetailPaneControls? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ListDetailPaneControls>();
 
   @override
   bool updateShouldNotify(ListDetailPaneControls oldWidget) =>
-      oldWidget.clearSelection != clearSelection;
+      oldWidget.clearSelection != clearSelection ||
+      oldWidget.selectDetail != selectDetail;
 }
 
 /// Closes a detail surface without popping the app shell from embedded panes.

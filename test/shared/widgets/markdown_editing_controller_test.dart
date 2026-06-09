@@ -242,17 +242,54 @@ void main() {
         expect(children, isNotNull);
         expect(children!.map((span) => (span as TextSpan).text).toList(), [
           'hi ',
-          '@Alice',
+          null,
           ' ',
           '**',
           'ok',
           '**',
         ]);
         final mentionSpan = children[1] as TextSpan;
-        expect(mentionSpan.style!.fontWeight, FontWeight.w600);
-        expect(mentionSpan.style!.color, const Color(0xFF12AB34));
-        expect(mentionSpan.style!.backgroundColor, isNotNull);
+        final visibleMention = mentionSpan.children!.first as TextSpan;
+        expect(visibleMention.text, '@Alice');
+        expect(mentionSpan.toPlainText().length, '@[$memberId]'.length);
+        expect(visibleMention.style!.fontWeight, FontWeight.w600);
+        expect(visibleMention.style!.color, const Color(0xFF12AB34));
+        expect(visibleMention.style!.backgroundColor, isNotNull);
       });
+
+      testWidgets(
+        'keeps display span length aligned across multiple mentions',
+        (tester) async {
+          const aliceId = '11111111-2222-3333-4444-555555555555';
+          const bobId = '22222222-3333-4444-5555-666666666666';
+          final alice = Member(
+            id: aliceId,
+            name: 'Alice',
+            createdAt: DateTime(2026),
+          );
+          final bob = Member(id: bobId, name: 'Bob', createdAt: DateTime(2026));
+          final controller = MarkdownEditingController(
+            text: 'hi @[$aliceId] @[$bobId] done',
+          )..updateMentionMembers({alice.id: alice, bob.id: bob});
+
+          await tester.pumpWidget(buildApp(controller));
+          final context = tester.element(find.byType(TextField));
+          controller.updateTheme(context);
+          await tester.pump();
+
+          final span = controller.buildTextSpan(
+            context: context,
+            style: const TextStyle(fontSize: 14),
+            withComposing: false,
+          );
+          final plainText = span.toPlainText();
+
+          expect(plainText.length, controller.text.length);
+          expect(plainText, contains('@Alice'));
+          expect(plainText, contains('@Bob'));
+          expect(plainText, isNot(contains('@Unknown')));
+        },
+      );
     });
 
     group('unclosed markers', () {

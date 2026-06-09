@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/members/services/markdown_table_parser.
 import 'package:prism_plurality/features/members/widgets/bio_image_element_builder.dart';
 import 'package:prism_plurality/features/members/widgets/prism_markdown_table.dart';
 import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
+import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 
 /// A [MarkdownText] variant that resolves image references to decrypted
@@ -35,6 +36,7 @@ class PrismMarkdownText extends ConsumerWidget {
     this.memberId,
     this.memberName,
     this.editSessionId,
+    this.mentionsInteractive = true,
   });
 
   /// The text content (plain or Markdown).
@@ -48,6 +50,9 @@ class PrismMarkdownText extends ConsumerWidget {
 
   /// Whether the rendered text is selectable.
   final bool selectable;
+
+  /// Whether resolved member mentions should respond to taps.
+  final bool mentionsInteractive;
 
   /// The member whose bio is rendered (for legacy prism-media lookups +
   /// semantics labels). The image library itself is shared across members.
@@ -114,8 +119,17 @@ class PrismMarkdownText extends ConsumerWidget {
       for (final member in mentionMembers) member.id: member,
     };
     void openMentionedMember(String memberId) {
+      final selectDetail = ListDetailPaneControls.maybeOf(
+        context,
+      )?.selectDetail;
+      if (selectDetail != null) {
+        selectDetail(memberId);
+        return;
+      }
       unawaited(context.push(AppRoutePaths.member(memberId)));
     }
+
+    final onTapMember = mentionsInteractive ? openMentionedMember : null;
 
     // Measure the available width so percent (`#50%`) image sizing has a real
     // basis: inline images render as WidgetSpan children (unbounded width), so
@@ -175,7 +189,7 @@ class PrismMarkdownText extends ConsumerWidget {
               imgElementBuilder: imgBuilder,
               baseStyle: baseStyle,
               memberMap: mentionMemberMap,
-              onTapMember: openMentionedMember,
+              onTapMember: onTapMember,
               borderless: seg.borderless,
               borderColor: seg.borderColor,
             );
@@ -192,7 +206,7 @@ class PrismMarkdownText extends ConsumerWidget {
             selectable: selectable,
             imgElementBuilder: imgBuilder,
             memberMap: mentionMemberMap,
-            onTapMember: openMentionedMember,
+            onTapMember: onTapMember,
             tableBorderless: seg.borderless,
             tableBorderColor: seg.borderColor,
           );
@@ -208,7 +222,7 @@ class PrismMarkdownText extends ConsumerWidget {
             baseStyle: baseStyle,
             selectable: selectable,
             memberMap: mentionMemberMap,
-            onTapMember: openMentionedMember,
+            onTapMember: onTapMember,
           );
         }
 

@@ -152,15 +152,29 @@ class MarkdownEditingController extends TextEditingController {
             ? AppColors.fromHex(member.customColorHex!)
             : _mentionFallbackColor;
         final display = '@${member?.name ?? 'Unknown'}';
+        final hiddenLength = mention.end - mention.start - display.length;
         spans.add(
           TextSpan(
-            text: display,
-            style: baseStyle.copyWith(
-              color: mentionColor,
-              fontWeight: FontWeight.w600,
-              backgroundColor: mentionColor.withValues(alpha: 0.16),
-            ),
-            semanticsLabel: display,
+            children: [
+              TextSpan(
+                text: display,
+                style: baseStyle.copyWith(
+                  color: mentionColor,
+                  fontWeight: FontWeight.w600,
+                  backgroundColor: mentionColor.withValues(alpha: 0.16),
+                ),
+                semanticsLabel: display,
+              ),
+              if (hiddenLength > 0)
+                TextSpan(
+                  text: '\u200B' * hiddenLength,
+                  style: baseStyle.copyWith(
+                    color: Colors.transparent,
+                    fontSize: 0,
+                    height: 0,
+                  ),
+                ),
+            ],
           ),
         );
         cursor = mention.end;

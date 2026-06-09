@@ -433,6 +433,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
           enabled: true,
           baseStyle: theme.textTheme.bodyLarge,
           editSessionId: _editSessionId,
+          mentionsInteractive: false,
         ),
     ];
   }

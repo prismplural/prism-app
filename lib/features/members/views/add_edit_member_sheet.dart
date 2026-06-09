@@ -1305,7 +1305,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
     final l10n = context.l10n;
+    final mentionCandidates =
+        ref.watch(userVisibleMemberListProvider).value ?? const <Member>[];
+    final mentionMemberMap = {
+      for (final member in mentionCandidates) member.id: member,
+    };
     _bioController.updateTheme(context);
+    _bioController.updateMentionMembers(mentionMemberMap);
 
     final canSave = _nameController.text.trim().isNotEmpty;
     final inDetailView = _view != _MemberEditView.main;
@@ -2086,6 +2092,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                             memberId: _memberId,
                             memberName: _nameController.text.trim(),
                             editSessionId: _bioEditSessionId,
+                            mentionsInteractive: false,
                           ),
                       ],
                     )
@@ -2267,6 +2274,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                             memberId: _memberId,
                             memberName: _nameController.text.trim(),
                             editSessionId: _customFieldLongTextEditSessionId,
+                            mentionsInteractive: false,
                           ),
                       ],
                     )

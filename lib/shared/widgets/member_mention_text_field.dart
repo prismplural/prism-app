@@ -103,6 +103,8 @@ class _MemberMentionTextFieldState
   String _mentionFilter = '';
   bool _mentionMenuVisible = false;
   Rect? _lastCaretGlobalRect;
+  int? _mentionAnchorAtIndex;
+  TextSelection? _lastSelection;
 
   @override
   void initState() {
@@ -116,6 +118,7 @@ class _MemberMentionTextFieldState
     if (oldWidget.controller == widget.controller) return;
     oldWidget.controller.removeListener(_onTextChanged);
     widget.controller.addListener(_onTextChanged);
+    _lastSelection = null;
     _onTextChanged();
   }
 
@@ -130,7 +133,19 @@ class _MemberMentionTextFieldState
 
   void _onTextChanged() {
     if (!mounted) return;
+    final snappedValue = snapMemberMentionSelectionOutOfToken(
+      widget.controller.text,
+      widget.controller.value,
+      previousSelection: _lastSelection,
+    );
+    if (snappedValue.selection != widget.controller.selection) {
+      _lastSelection = snappedValue.selection;
+      widget.controller.value = snappedValue;
+      return;
+    }
+
     final selection = widget.controller.selection;
+    _lastSelection = selection;
     var nextMentionVisible = false;
     var nextMentionFilter = '';
     if (selection.isValid && selection.isCollapsed) {
@@ -141,12 +156,19 @@ class _MemberMentionTextFieldState
       if (trigger != null) {
         nextMentionVisible = true;
         nextMentionFilter = trigger.filter;
-        _lastCaretGlobalRect = _readCaretGlobalRect();
+        final caretRect = _readCaretGlobalRect();
+        if (!_mentionMenuVisible ||
+            _lastCaretGlobalRect == null ||
+            _mentionAnchorAtIndex != trigger.atIndex ||
+            _hasMovedToAnotherLine(caretRect)) {
+          _lastCaretGlobalRect = caretRect;
+          _mentionAnchorAtIndex = trigger.atIndex;
+        }
       } else {
-        _lastCaretGlobalRect = null;
+        _clearMentionAnchor();
       }
     } else {
-      _lastCaretGlobalRect = null;
+      _clearMentionAnchor();
     }
 
     if (_mentionMenuVisible == nextMentionVisible &&
@@ -176,6 +198,7 @@ class _MemberMentionTextFieldState
     if (_overlayController.isShowing) {
       _overlayController.hide();
     }
+    _clearMentionAnchor();
     if (!_mentionMenuVisible && _mentionFilter.isEmpty) return;
     setState(() {
       _mentionMenuVisible = false;
@@ -204,6 +227,18 @@ class _MemberMentionTextFieldState
 
   List<TextInputFormatter> _inputFormatters() {
     return [const AtomicMemberMentionFormatter(), ...?widget.inputFormatters];
+  }
+
+  void _clearMentionAnchor() {
+    _lastCaretGlobalRect = null;
+    _mentionAnchorAtIndex = null;
+  }
+
+  bool _hasMovedToAnotherLine(Rect? caretRect) {
+    final anchor = _lastCaretGlobalRect;
+    if (anchor == null || caretRect == null) return false;
+    final threshold = math.max(4.0, anchor.height * 0.5);
+    return (caretRect.top - anchor.top).abs() > threshold;
   }
 
   _MentionOverlayPlacement _overlayPlacement(
@@ -530,6 +565,8 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
                             children: [
                               MemberAvatar(
                                 avatarImageData: member.avatarImageData,
+                                memberId: member.id,
+                                deferAvatarLookup: true,
                                 memberName: member.name,
                                 emoji: member.emoji,
                                 customColorEnabled: member.customColorEnabled,

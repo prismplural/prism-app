@@ -627,6 +627,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       onClearSelection: _detailPaneMode == _MemberDetailPaneMode.edit
           ? null
           : _clearDetailPane,
+      onSelectDetail: _openMemberInDetailPane,
       detail: (context) => _buildDetailPane(terms, membersAsync),
       list: (context, isWide) {
         setListDetailWide(isWide);
@@ -840,6 +841,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     setState(() {
       selectedDetailId = memberId;
       _detailPaneMode = _MemberDetailPaneMode.edit;
+    });
+  }
+
+  void _openMemberInDetailPane(String memberId) {
+    if (!isDetailPaneVisible) return;
+    setState(() {
+      selectedDetailId = memberId;
+      _detailPaneMode = _MemberDetailPaneMode.detail;
     });
   }
 

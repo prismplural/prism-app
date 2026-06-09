@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -81,12 +82,17 @@ class MemberMentionBuilder extends MarkdownElementBuilder {
       color: color,
       fontWeight: FontWeight.w600,
     );
-    final text = Text.rich(
-      TextSpan(text: display, style: merged, semanticsLabel: display),
+    final tap = member == null || onTapMember == null
+        ? null
+        : (TapGestureRecognizer()..onTap = () => onTapMember!(id));
+    return Text.rich(
+      TextSpan(
+        text: display,
+        style: merged,
+        recognizer: tap,
+        semanticsLabel: display,
+      ),
     );
-    final onTap = onTapMember;
-    if (member == null || onTap == null) return text;
-    return GestureDetector(onTap: () => onTap(id), child: text);
   }
 }
 
@@ -146,12 +152,20 @@ class AtomicMemberMentionFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     if (oldValue.text == newValue.text) {
-      return _snapSelectionOutOfMention(oldValue.text, newValue);
+      return snapMemberMentionSelectionOutOfToken(
+        oldValue.text,
+        newValue,
+        previousSelection: oldValue.selection,
+      );
     }
 
     final diff = _computeDiff(oldValue.text, newValue.text);
     if (diff == null) {
-      return _snapSelectionOutOfMention(newValue.text, newValue);
+      return snapMemberMentionSelectionOutOfToken(
+        newValue.text,
+        newValue,
+        previousSelection: oldValue.selection,
+      );
     }
 
     final affectedMentions =
@@ -162,7 +176,11 @@ class AtomicMemberMentionFormatter extends TextInputFormatter {
             .toList();
 
     if (affectedMentions.isEmpty) {
-      return _snapSelectionOutOfMention(newValue.text, newValue);
+      return snapMemberMentionSelectionOutOfToken(
+        newValue.text,
+        newValue,
+        previousSelection: oldValue.selection,
+      );
     }
 
     final expandedStart = affectedMentions
@@ -183,45 +201,6 @@ class AtomicMemberMentionFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: cursorOffset),
       composing: TextRange.empty,
     );
-  }
-
-  TextEditingValue _snapSelectionOutOfMention(
-    String text,
-    TextEditingValue value,
-  ) {
-    final selection = value.selection;
-    if (!selection.isValid) return value;
-
-    final baseRange = _mentionContaining(text, selection.baseOffset);
-    final extentRange = _mentionContaining(text, selection.extentOffset);
-    if (baseRange == null && extentRange == null) return value;
-
-    final snappedBase = _snapOffset(baseRange, selection.baseOffset);
-    final snappedExtent = _snapOffset(extentRange, selection.extentOffset);
-    return value.copyWith(
-      selection: TextSelection(
-        baseOffset: snappedBase,
-        extentOffset: snappedExtent,
-      ),
-      composing: TextRange.empty,
-    );
-  }
-
-  int _snapOffset(_MemberMentionRange? range, int offset) {
-    if (range == null) return offset;
-    final leftDistance = offset - range.start;
-    final rightDistance = range.end - offset;
-    return leftDistance < rightDistance ? range.start : range.end;
-  }
-
-  _MemberMentionRange? _mentionContaining(String text, int offset) {
-    if (offset < 0 || offset > text.length) return null;
-    for (final match in memberMentionRegex.allMatches(text)) {
-      if (match.start < offset && offset < match.end) {
-        return _MemberMentionRange(match.start, match.end);
-      }
-    }
-    return null;
   }
 
   List<_MemberMentionRange> _mentionsOverlapping(
@@ -269,6 +248,80 @@ class AtomicMemberMentionFormatter extends TextInputFormatter {
       newEnd: newSuffix,
     );
   }
+}
+
+TextEditingValue snapMemberMentionSelectionOutOfToken(
+  String text,
+  TextEditingValue value, {
+  TextSelection? previousSelection,
+}) {
+  final selection = value.selection;
+  if (!selection.isValid) return value;
+
+  final snapped = snapMemberMentionSelection(
+    text,
+    selection,
+    previousSelection: previousSelection?.isValid == true
+        ? previousSelection
+        : null,
+  );
+  if (snapped == selection) return value;
+  return value.copyWith(selection: snapped, composing: TextRange.empty);
+}
+
+TextSelection snapMemberMentionSelection(
+  String text,
+  TextSelection selection, {
+  TextSelection? previousSelection,
+}) {
+  if (!selection.isValid) return selection;
+
+  final baseRange = _mentionContaining(text, selection.baseOffset);
+  final extentRange = _mentionContaining(text, selection.extentOffset);
+  if (baseRange == null && extentRange == null) return selection;
+
+  final snappedBase = _snapMentionOffset(
+    baseRange,
+    selection.baseOffset,
+    previousSelection?.baseOffset,
+  );
+  final snappedExtent = _snapMentionOffset(
+    extentRange,
+    selection.extentOffset,
+    previousSelection?.extentOffset,
+  );
+  return TextSelection(
+    baseOffset: snappedBase,
+    extentOffset: snappedExtent,
+    affinity: selection.affinity,
+    isDirectional: selection.isDirectional,
+  );
+}
+
+int _snapMentionOffset(
+  _MemberMentionRange? range,
+  int offset,
+  int? previousOffset,
+) {
+  if (range == null) return offset;
+  if (previousOffset != null) {
+    if (offset > previousOffset) return range.end;
+    if (offset < previousOffset) return range.start;
+  }
+
+  final leftDistance = offset - range.start;
+  final rightDistance = range.end - offset;
+  return leftDistance < rightDistance ? range.start : range.end;
+}
+
+_MemberMentionRange? _mentionContaining(String text, int offset) {
+  if (offset < 0 || offset > text.length) return null;
+  for (final match in memberMentionRegex.allMatches(text)) {
+    if (match.start < offset && offset < match.end) {
+      return _MemberMentionRange(match.start, match.end);
+    }
+  }
+  return null;
 }
 
 class _MemberMentionRange {

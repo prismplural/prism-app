@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -126,6 +127,9 @@ void main() {
             FakeFrontingSessionRepository(),
           ),
           customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
+          memberAvatarImageDataProvider.overrideWith(
+            (ref, memberId) => Stream.value(null),
+          ),
           terminologySettingProvider.overrideWithValue((
             term: SystemTerminology.members,
             customSingular: null,
@@ -157,5 +161,73 @@ void main() {
       find.byKey(const PageStorageKey<String>('member-edit-bio')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('compact member bio editor resolves existing mentions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const aliceId = '11111111-2222-3333-4444-555555555555';
+    final alice = Member(
+      id: aliceId,
+      name: 'Alice',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final member = Member(
+      id: 'member-1',
+      name: 'Aster',
+      bio: 'talked to @[$aliceId]',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final repo = FakeMemberRepository()..seed([member, alice]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          memberRepositoryProvider.overrideWithValue(repo),
+          frontingSessionRepositoryProvider.overrideWithValue(
+            FakeFrontingSessionRepository(),
+          ),
+          customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
+          terminologySettingProvider.overrideWithValue((
+            term: SystemTerminology.members,
+            customSingular: null,
+            customPlural: null,
+            useEnglish: false,
+          )),
+          pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
+          pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: AddEditMemberSheet(member: member)),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final bioField = find.byWidgetPredicate(
+      (widget) =>
+          widget is EditableText && widget.controller.text.contains('@['),
+    );
+    expect(bioField, findsOneWidget);
+    final editable = tester.widget<EditableText>(bioField);
+    final displayText = editable.controller
+        .buildTextSpan(
+          context: tester.element(bioField),
+          style: editable.style,
+          withComposing: false,
+        )
+        .toPlainText();
+
+    expect(displayText, contains('@Alice'));
+    expect(displayText, isNot(contains('@Unknown')));
   });
 }
