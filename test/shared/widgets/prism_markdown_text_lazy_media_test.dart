@@ -6,6 +6,8 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 
@@ -78,43 +80,38 @@ void main() {
     expect(bioMediaBuilds, greaterThan(0));
   });
 
-  testWidgets(
-    'member mentions select an available detail pane before routing',
-    (tester) async {
-      const aliceId = '11111111-2222-3333-4444-555555555555';
-      final alice = Member(
-        id: aliceId,
-        name: 'Alice',
-        createdAt: DateTime(2026),
-      );
-      String? selectedMemberId;
+  testWidgets('member mentions open member detail as a sheet', (tester) async {
+    const aliceId = '11111111-2222-3333-4444-555555555555';
+    final alice = Member(id: aliceId, name: 'Alice', createdAt: DateTime(2026));
+    String? selectedMemberId;
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            activeMemberListProvider.overrideWithValue(
-              AsyncValue.data([alice]),
-            ),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: ListDetailPaneControls(
-                clearSelection: null,
-                selectDetail: (id) => selectedMemberId = id,
-                child: const PrismMarkdownText(data: 'hello @[$aliceId]'),
-              ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          activeMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
+          memberByIdProvider.overrideWith((ref, id) => Stream.value(alice)),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: ListDetailPaneControls(
+              clearSelection: null,
+              selectDetail: (id) => selectedMemberId = id,
+              child: const PrismMarkdownText(data: 'hello @[$aliceId]'),
             ),
           ),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      await tester.tap(find.textContaining('@Alice'));
-      await tester.pump();
+    await tester.tap(find.textContaining('@Alice'));
+    await tester.pump();
 
-      expect(selectedMemberId, aliceId);
-    },
-  );
+    expect(selectedMemberId, isNull);
+    expect(find.byType(MemberDetailScreen), findsOneWidget);
+  });
 
   testWidgets('non-interactive mentions still render without selecting pane', (
     tester,
@@ -150,6 +147,7 @@ void main() {
     await tester.pump();
 
     expect(selectedMemberId, isNull);
+    expect(find.byType(MemberDetailScreen), findsNothing);
   });
 
   testWidgets('non-interactive table mentions do not select pane', (
@@ -186,5 +184,6 @@ void main() {
     await tester.pump();
 
     expect(selectedMemberId, isNull);
+    expect(find.byType(MemberDetailScreen), findsNothing);
   });
 }

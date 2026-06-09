@@ -2,22 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_layout.dart';
 import 'package:prism_plurality/features/members/services/bio_markdown_segments.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/services/markdown_table_parser.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/bio_image_element_builder.dart';
 import 'package:prism_plurality/features/members/widgets/prism_markdown_table.dart';
 import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
-import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 /// A [MarkdownText] variant that resolves image references to decrypted
 /// [BioImageWidget] instances.
@@ -119,14 +119,15 @@ class PrismMarkdownText extends ConsumerWidget {
       for (final member in mentionMembers) member.id: member,
     };
     void openMentionedMember(String memberId) {
-      final selectDetail = ListDetailPaneControls.maybeOf(
-        context,
-      )?.selectDetail;
-      if (selectDetail != null) {
-        selectDetail(memberId);
-        return;
-      }
-      unawaited(context.push(AppRoutePaths.member(memberId)));
+      unawaited(
+        PrismSheet.showFullScreen<void>(
+          context: context,
+          builder: (context, _) => MemberDetailScreen(
+            memberId: memberId,
+            branch: MemberNavigationBranch.members,
+          ),
+        ),
+      );
     }
 
     final onTapMember = mentionsInteractive ? openMentionedMember : null;
