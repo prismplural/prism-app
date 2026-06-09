@@ -54,4 +54,49 @@ void main() {
     expect(controller.text, 'hi @[$aliceId] ');
     expect(find.byKey(const Key('memberMentionOverlaySurface')), findsNothing);
   });
+
+  testWidgets('keeps suggestions visible for tall multiline fields', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 260);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+              child: MemberMentionTextField(
+                controller: controller,
+                focusNode: focusNode,
+                mentionCandidates: [alice],
+                minLines: 12,
+                maxLines: null,
+                hintText: 'Body',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), '@al');
+    await tester.pumpAndSettle();
+
+    final overlay = find.byKey(const Key('memberMentionOverlaySurface'));
+    expect(overlay, findsOneWidget);
+    final topLeft = tester.getTopLeft(overlay);
+    final bottomRight = tester.getBottomRight(overlay);
+    expect(topLeft.dy, greaterThanOrEqualTo(0));
+    expect(bottomRight.dy, lessThanOrEqualTo(260));
+  });
 }

@@ -92,13 +92,17 @@ class MemberMentionTextField extends ConsumerStatefulWidget {
 
 class _MemberMentionTextFieldState
     extends ConsumerState<MemberMentionTextField> {
-  final _layerLink = LayerLink();
   final _fieldKey = GlobalKey();
   final _overlayController = OverlayPortalController();
   final _overlayKey = GlobalKey<_MemberMentionOverlayState>();
+  static const _overlayGap = 8.0;
+  static const _viewportMargin = 12.0;
+  static const _overlayMaxWidth = 320.0;
+  static const _overlayMaxHeight = 240.0;
 
   String _mentionFilter = '';
   bool _mentionMenuVisible = false;
+  Rect? _lastCaretGlobalRect;
 
   @override
   void initState() {
@@ -137,7 +141,12 @@ class _MemberMentionTextFieldState
       if (trigger != null) {
         nextMentionVisible = true;
         nextMentionFilter = trigger.filter;
+        _lastCaretGlobalRect = _readCaretGlobalRect();
+      } else {
+        _lastCaretGlobalRect = null;
       }
+    } else {
+      _lastCaretGlobalRect = null;
     }
 
     if (_mentionMenuVisible == nextMentionVisible &&
@@ -193,31 +202,101 @@ class _MemberMentionTextFieldState
     widget.onChanged?.call(nextText);
   }
 
-  double _overlayAvailableWidth(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final renderBox =
-        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return screenWidth - 20;
-    final anchorLeft = renderBox.localToGlobal(Offset.zero).dx;
-    return (screenWidth - anchorLeft - 12)
-        .clamp(0.0, screenWidth - 20)
-        .toDouble();
-  }
-
-  bool _shouldOpenOverlayAbove(BuildContext context) {
-    final renderBox =
-        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return false;
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final top = renderBox.localToGlobal(Offset.zero).dy;
-    final bottom = top + renderBox.size.height;
-    final spaceBelow = screenHeight - bottom;
-    final spaceAbove = top;
-    return spaceBelow < 260 && spaceAbove > spaceBelow;
-  }
-
   List<TextInputFormatter> _inputFormatters() {
     return [const AtomicMemberMentionFormatter(), ...?widget.inputFormatters];
+  }
+
+  _MentionOverlayPlacement _overlayPlacement(
+    BuildContext overlayContext,
+    List<Member> candidates,
+  ) {
+    final media = MediaQuery.of(overlayContext);
+    final screenSize = media.size;
+    final visibleBottom =
+        screenSize.height - media.viewInsets.bottom - _viewportMargin;
+    final width = math.min(
+      _overlayMaxWidth,
+      math.max(0.0, screenSize.width - (_viewportMargin * 2)),
+    );
+    final height = _estimatedOverlayHeight(candidates);
+    final anchor = _lastCaretGlobalRect ?? _fieldGlobalRect();
+    if (anchor == null) {
+      return _MentionOverlayPlacement(
+        left: _viewportMargin,
+        top: _viewportMargin,
+        width: width,
+      );
+    }
+
+    final overlayBox =
+        Overlay.maybeOf(overlayContext)?.context.findRenderObject()
+            as RenderBox?;
+    final overlayOrigin = overlayBox?.localToGlobal(Offset.zero) ?? Offset.zero;
+    final localAnchor = anchor.shift(-overlayOrigin);
+
+    final maxLeft = math.max(
+      _viewportMargin,
+      screenSize.width - width - _viewportMargin,
+    );
+    final left = localAnchor.left.clamp(_viewportMargin, maxLeft).toDouble();
+
+    final belowTop = localAnchor.bottom + _overlayGap;
+    final aboveTop = localAnchor.top - height - _overlayGap;
+    final hasRoomBelow = belowTop + height <= visibleBottom;
+    final preferredTop = hasRoomBelow ? belowTop : aboveTop;
+    final maxTop = math.max(_viewportMargin, visibleBottom - height);
+    final top = preferredTop.clamp(_viewportMargin, maxTop).toDouble();
+
+    return _MentionOverlayPlacement(left: left, top: top, width: width);
+  }
+
+  double _estimatedOverlayHeight(List<Member> candidates) {
+    final filter = _mentionFilter.toLowerCase();
+    final count = filter.isEmpty
+        ? candidates.length
+        : candidates
+              .where((member) => member.name.toLowerCase().contains(filter))
+              .length;
+    if (count == 0) return 0;
+    return math.min(_overlayMaxHeight, 8 + (count * 48.0));
+  }
+
+  Rect? _readCaretGlobalRect() {
+    final selection = widget.controller.selection;
+    if (!selection.isValid) return null;
+    final editable = _editableTextState()?.renderEditable;
+    if (editable == null) return null;
+    final endpoints = editable.getEndpointsForSelection(
+      TextSelection.collapsed(offset: selection.extentOffset),
+    );
+    if (endpoints.isEmpty) return null;
+    final point = editable.localToGlobal(endpoints.first.point);
+    return Rect.fromLTWH(point.dx, point.dy, 1, editable.preferredLineHeight);
+  }
+
+  EditableTextState? _editableTextState() {
+    final context = _fieldKey.currentContext;
+    if (context == null) return null;
+    EditableTextState? result;
+    void visit(Element element) {
+      if (result != null) return;
+      if (element.widget is EditableText && element is StatefulElement) {
+        result = element.state as EditableTextState;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    context.visitChildElements(visit);
+    return result;
+  }
+
+  Rect? _fieldGlobalRect() {
+    final renderBox =
+        _fieldKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return null;
+    final topLeft = renderBox.localToGlobal(Offset.zero);
+    return topLeft & renderBox.size;
   }
 
   void _updateControllerMentionMembers(Map<String, Member> memberMap) {
@@ -246,29 +325,24 @@ class _MemberMentionTextFieldState
       child: OverlayPortal(
         controller: _overlayController,
         overlayChildBuilder: (context) {
-          final openAbove = _shouldOpenOverlayAbove(context);
-          return CompositedTransformFollower(
-            link: _layerLink,
-            showWhenUnlinked: false,
-            targetAnchor: openAbove ? Alignment.topLeft : Alignment.bottomLeft,
-            followerAnchor: openAbove
-                ? Alignment.bottomLeft
-                : Alignment.topLeft,
-            offset: openAbove ? const Offset(0, -8) : const Offset(0, 8),
+          final placement = _overlayPlacement(context, candidates);
+          return Positioned(
+            left: placement.left,
+            top: placement.top,
+            width: placement.width,
             child: TextFieldTapRegion(
               child: _MemberMentionOverlay(
                 key: _overlayKey,
                 members: candidates,
                 filter: _mentionFilter,
-                availableWidth: _overlayAvailableWidth(context),
+                availableWidth: placement.width,
                 onSelect: _selectMember,
               ),
             ),
           );
         },
-        child: CompositedTransformTarget(
+        child: KeyedSubtree(
           key: _fieldKey,
-          link: _layerLink,
           child: PrismTextField(
             controller: widget.controller,
             focusNode: widget.focusNode,
@@ -317,6 +391,18 @@ class _MemberMentionTextFieldState
     final consumed = _overlayKey.currentState?.handleKeyEvent(event) ?? false;
     return consumed ? KeyEventResult.handled : KeyEventResult.ignored;
   }
+}
+
+class _MentionOverlayPlacement {
+  const _MentionOverlayPlacement({
+    required this.left,
+    required this.top,
+    required this.width,
+  });
+
+  final double left;
+  final double top;
+  final double width;
 }
 
 class _MemberMentionOverlay extends StatefulWidget {
@@ -390,92 +476,87 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
     final popupWidth = math.min(widget.availableWidth, 320.0);
     final minWidth = math.min(popupWidth, 220.0);
 
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: Material(
-        type: MaterialType.transparency,
-        child: SizedBox(
-          key: const Key('memberMentionOverlaySurface'),
-          width: popupWidth,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(
-              PrismShapes.of(context).radius(16),
-            ),
-            child: Container(
-              constraints: BoxConstraints(minWidth: minWidth, maxHeight: 240),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.warmBlack.withValues(alpha: 0.88)
-                    : theme.colorScheme.surface.withValues(alpha: 0.96),
-                borderRadius: BorderRadius.circular(
-                  PrismShapes.of(context).radius(16),
-                ),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.warmBlack.withValues(alpha: 0.18),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+    return Material(
+      type: MaterialType.transparency,
+      child: SizedBox(
+        key: const Key('memberMentionOverlaySurface'),
+        width: popupWidth,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(16),
+          ),
+          child: Container(
+            constraints: BoxConstraints(minWidth: minWidth, maxHeight: 240),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.warmBlack.withValues(alpha: 0.88)
+                  : theme.colorScheme.surface.withValues(alpha: 0.96),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(16),
               ),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) {
-                  final member = filtered[index];
-                  final isHighlighted = index == _selectedIndex;
-                  return Semantics(
-                    label: member.name,
-                    button: true,
-                    child: Container(
-                      color: isHighlighted
-                          ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                          : Colors.transparent,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => widget.onSelect(member),
-                        child: SizedBox(
-                          height: 48,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                MemberAvatar(
-                                  avatarImageData: member.avatarImageData,
-                                  memberName: member.name,
-                                  emoji: member.emoji,
-                                  customColorEnabled: member.customColorEnabled,
-                                  customColorHex: member.customColorHex,
-                                  size: 32,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    member.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      fontWeight: isHighlighted
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
-                                    ),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.warmBlack.withValues(alpha: 0.18),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: filtered.length,
+              itemBuilder: (context, index) {
+                final member = filtered[index];
+                final isHighlighted = index == _selectedIndex;
+                return Semantics(
+                  label: member.name,
+                  button: true,
+                  child: Container(
+                    color: isHighlighted
+                        ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                        : Colors.transparent,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => widget.onSelect(member),
+                      child: SizedBox(
+                        height: 48,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              MemberAvatar(
+                                avatarImageData: member.avatarImageData,
+                                memberName: member.name,
+                                emoji: member.emoji,
+                                customColorEnabled: member.customColorEnabled,
+                                customColorHex: member.customColorHex,
+                                size: 32,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  member.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: isHighlighted
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),
