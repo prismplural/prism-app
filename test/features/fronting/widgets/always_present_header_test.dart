@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +14,7 @@ import 'package:prism_plurality/features/fronting/providers/always_present_membe
 import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 
 Member _member({
@@ -33,6 +37,10 @@ FrontingSession _session(String id, String memberId) {
     startTime: DateTime.now().subtract(const Duration(days: 14)),
   );
 }
+
+Uint8List _pngBytes() => base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+);
 
 Future<void> _pumpHeader(
   WidgetTester tester, {
@@ -141,6 +149,112 @@ void main() {
       },
     );
 
+    testWidgets('hydrates avatar photo for lightweight always-present member', (
+      tester,
+    ) async {
+      final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
+      final header = find.byType(AlwaysPresentHeader);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            alwaysPresentMembersProvider.overrideWithValue(
+              AsyncValue.data([
+                AlwaysPresentMember(
+                  member: host,
+                  session: _session('s1', 'host'),
+                  age: const Duration(days: 3),
+                ),
+              ]),
+            ),
+            memberAvatarImageDataProvider.overrideWith(
+              (ref, memberId) =>
+                  Stream.value(memberId == 'host' ? _pngBytes() : null),
+            ),
+            terminologySettingProvider.overrideWithValue((
+              term: SystemTerminology.headmates,
+              customSingular: null,
+              customPlural: null,
+              useEnglish: false,
+            )),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en'), Locale('es')],
+            locale: Locale('en'),
+            home: Scaffold(body: AlwaysPresentHeader()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(header, findsOneWidget);
+      expect(
+        find.descendant(of: header, matching: find.byType(Image)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'hydrates avatar photos for lightweight always-present member group',
+      (tester) async {
+        final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
+        final friend = _member(
+          id: 'friend',
+          name: 'Friend',
+          isAlwaysFronting: true,
+        );
+        final header = find.byType(AlwaysPresentHeader);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              alwaysPresentMembersProvider.overrideWithValue(
+                AsyncValue.data([
+                  AlwaysPresentMember(
+                    member: host,
+                    session: _session('s1', 'host'),
+                    age: const Duration(days: 3),
+                  ),
+                  AlwaysPresentMember(
+                    member: friend,
+                    session: _session('s2', 'friend'),
+                    age: const Duration(days: 3),
+                  ),
+                ]),
+              ),
+              memberAvatarImageDataProvider.overrideWith(
+                (ref, memberId) => Stream.value(
+                  memberId == 'host' || memberId == 'friend'
+                      ? _pngBytes()
+                      : null,
+                ),
+              ),
+              terminologySettingProvider.overrideWithValue((
+                term: SystemTerminology.headmates,
+                customSingular: null,
+                customPlural: null,
+                useEnglish: false,
+              )),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en'), Locale('es')],
+              locale: Locale('en'),
+              home: Scaffold(body: AlwaysPresentHeader()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(header, findsOneWidget);
+        expect(
+          find.descendant(of: header, matching: find.byType(Image)),
+          findsNWidgets(2),
+        );
+      },
+    );
+
     testWidgets('explicit always-fronting members keep the label', (
       tester,
     ) async {
@@ -159,9 +273,7 @@ void main() {
       expect(find.text('Always present · 3d 0h'), findsOneWidget);
     });
 
-    testWidgets('renders hours when duration is < 1 day', (
-      tester,
-    ) async {
+    testWidgets('renders hours when duration is < 1 day', (tester) async {
       final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
       await _pumpHeader(
         tester,
@@ -177,9 +289,7 @@ void main() {
       expect(find.text('Always present · 5h'), findsOneWidget);
     });
 
-    testWidgets('renders minutes when duration is < 1 hour', (
-      tester,
-    ) async {
+    testWidgets('renders minutes when duration is < 1 hour', (tester) async {
       final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
       await _pumpHeader(
         tester,

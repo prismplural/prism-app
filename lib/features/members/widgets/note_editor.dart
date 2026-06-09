@@ -580,6 +580,8 @@ class _MemberToolbarChip extends StatelessWidget {
         onTap: onPickMember,
         leading: MemberAvatar(
           avatarImageData: selectedMember.avatarImageData,
+          memberId: selectedMember.id,
+          deferAvatarLookup: true,
           memberName: selectedMember.name,
           emoji: selectedMember.emoji,
           customColorEnabled: selectedMember.customColorEnabled,

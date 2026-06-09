@@ -77,7 +77,9 @@ class AlwaysPresentHeader extends ConsumerWidget {
                     members: [
                       for (final member in members)
                         GroupAvatarMember(
+                          memberId: member.id,
                           avatarImageData: member.avatarImageData,
+                          deferAvatarLookup: true,
                           emoji: member.emoji,
                           customColorEnabled: member.customColorEnabled,
                           customColorHex: member.customColorHex,

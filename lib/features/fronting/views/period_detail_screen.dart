@@ -394,7 +394,9 @@ class _Header extends ConsumerWidget {
               members: [
                 for (final m in activeMembers)
                   GroupAvatarMember(
+                    memberId: m.id,
                     avatarImageData: m.avatarImageData,
+                    deferAvatarLookup: true,
                     emoji: m.emoji,
                     customColorEnabled: m.customColorEnabled,
                     customColorHex: m.customColorHex,
