@@ -20,6 +20,7 @@ void main() {
       required String id,
       String participantIdsJson = '[]',
       bool includesAllMembers = false,
+      bool isDirectMessage = false,
       bool isDeleted = false,
       String archivedByMemberIdsJson = '[]',
       bool archivedForEveryone = false,
@@ -33,6 +34,7 @@ void main() {
               lastActivityAt: now,
               participantIds: Value(participantIdsJson),
               includesAllMembers: Value(includesAllMembers),
+              isDirectMessage: Value(isDirectMessage),
               isDeleted: Value(isDeleted),
               archivedByMemberIds: Value(archivedByMemberIdsJson),
               archivedForEveryone: Value(archivedForEveryone),
@@ -89,6 +91,34 @@ void main() {
         final ids = result.map((c) => c.id).toSet();
         expect(ids, contains('everyone'));
         expect(ids, isNot(contains('private')));
+      },
+    );
+
+    test(
+      'excludes direct messages from member profile conversations',
+      () async {
+        await insertConversation(
+          id: 'group',
+          participantIdsJson: '["alice","bob"]',
+        );
+        await insertConversation(
+          id: 'direct-message',
+          participantIdsJson: '["alice","bob"]',
+          isDirectMessage: true,
+        );
+        await insertConversation(
+          id: 'everyone',
+          participantIdsJson: '[]',
+          includesAllMembers: true,
+        );
+
+        final result = await db.conversationsDao.getConversationsForMember(
+          'alice',
+        );
+
+        final ids = result.map((c) => c.id).toSet();
+        expect(ids, containsAll(['group', 'everyone']));
+        expect(ids, isNot(contains('direct-message')));
       },
     );
 
@@ -172,6 +202,11 @@ void main() {
         participantIdsJson: '["alice"]',
         archivedByMemberIdsJson: '["alice"]',
       );
+      await insertConversation(
+        id: 'direct-message',
+        participantIdsJson: '["alice","bob"]',
+        isDirectMessage: true,
+      );
 
       await insertMessage(id: 'm1', conversationId: 'one-message');
       await insertMessage(id: 'm2', conversationId: 'three-messages');
@@ -184,6 +219,10 @@ void main() {
       );
       await insertMessage(id: 'm6', conversationId: 'archived');
       await insertMessage(id: 'm7', conversationId: 'archived');
+      await insertMessage(id: 'm8', conversationId: 'direct-message');
+      await insertMessage(id: 'm9', conversationId: 'direct-message');
+      await insertMessage(id: 'm10', conversationId: 'direct-message');
+      await insertMessage(id: 'm11', conversationId: 'direct-message');
 
       final result = await db.conversationsDao.getConversationActivityForMember(
         'alice',

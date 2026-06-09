@@ -38,6 +38,7 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
     return (c.participantIds.like(quotedMember) |
             c.includesAllMembers.equals(true)) &
         c.isDeleted.equals(false) &
+        c.isDirectMessage.equals(false) &
         c.archivedForEveryone.equals(false) &
         c.archivedByMemberIds.like(quotedMember).not();
   }
@@ -64,6 +65,7 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
        AND m.is_deleted = 0
       WHERE (c.participant_ids LIKE ? OR c.includes_all_members = 1)
         AND c.is_deleted = 0
+        AND c.is_direct_message = 0
         AND c.archived_for_everyone = 0
         AND c.archived_by_member_ids NOT LIKE ?
       GROUP BY c.id

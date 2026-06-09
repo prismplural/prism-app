@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
@@ -16,7 +17,9 @@ import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/chat/providers/pending_conversation_selection_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/member_fronting_history_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -49,10 +52,14 @@ Conversation _conversation({
   required String id,
   required List<String> participantIds,
   String? title,
+  bool isDirectMessage = false,
+  bool includesAllMembers = false,
 }) => Conversation(
   id: id,
   title: title,
   participantIds: participantIds,
+  isDirectMessage: isDirectMessage,
+  includesAllMembers: includesAllMembers,
   createdAt: _now,
   lastActivityAt: _now,
 );
@@ -215,6 +222,7 @@ Widget _buildApp({
   required Member member,
   List<FrontingSession> recentSessions = const [],
   List<Conversation> conversations = const [],
+  List<Member> extraMembers = const [],
   List<Note> notes = const [],
   MemberBoardSection? boardSection,
   List<MemberGroup> memberGroups = const [],
@@ -228,6 +236,7 @@ Widget _buildApp({
   VoidCallback? onBoardSectionProviderBuilt,
 }) {
   final bob = _member('bob', 'Bob');
+  final allMembers = [member, bob, ...extraMembers];
   final stats = recentSessions.isEmpty
       ? const MemberFrontingStats(
           totalSessions: 0,
@@ -241,13 +250,16 @@ Widget _buildApp({
           ),
           lastFronted: recentSessions.first.startTime,
         );
+  final visibleConversations = conversations
+      .where((conversation) => !conversation.isDirectMessage)
+      .toList();
 
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
-      allMembersProvider.overrideWith((ref) => Stream.value([member, bob])),
-      activeMembersProvider.overrideWith((ref) => Stream.value([member, bob])),
+      allMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
+      activeMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
       memberFrontingStatsProvider(member.id).overrideWith((ref) async {
         onStatsProviderBuilt?.call();
@@ -257,11 +269,22 @@ Widget _buildApp({
         onRecentSessionsProviderBuilt?.call();
         return recentSessions;
       }),
+      memberFrontingHistoryProvider.overrideWith((ref, requestedMemberId) {
+        return AsyncValue.data(
+          MemberFrontingHistoryData(
+            periods: const <FrontingPeriod>[],
+            targetSessions: requestedMemberId == member.id
+                ? recentSessions
+                : const <FrontingSession>[],
+            hasMore: false,
+          ),
+        );
+      }),
       memberConversationActivityProvider(member.id).overrideWith((ref) async {
         onConversationsProviderBuilt?.call();
         return [
-          for (var i = 0; i < conversations.length; i++)
-            (conversation: conversations[i], messageCount: i + 1),
+          for (var i = 0; i < visibleConversations.length; i++)
+            (conversation: visibleConversations[i], messageCount: i + 1),
         ];
       }),
       memberConversationPreviewActivityProvider(member.id).overrideWith((
@@ -271,10 +294,11 @@ Widget _buildApp({
         return [
           for (
             var i = 0;
-            i < conversations.length && i < memberConversationPreviewCount + 1;
+            i < visibleConversations.length &&
+                i < memberConversationPreviewCount + 1;
             i++
           )
-            (conversation: conversations[i], messageCount: i + 1),
+            (conversation: visibleConversations[i], messageCount: i + 1),
         ];
       }),
       recentMemberNotesProvider(
@@ -605,6 +629,43 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets('wide member detail opens fronting view all in a side sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final member = _member('alice', 'Alice');
+    final session = _session(
+      id: 's1',
+      memberId: member.id,
+      start: DateTime(2020, 1, 1, 10),
+      end: DateTime(2020, 1, 1, 11),
+    );
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(router: router, member: member, recentSessions: [session]),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('View All'));
+    await tester.tap(find.text('View All'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('detailSideSheetPanel')), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.toString(),
+      AppRoutePaths.member(member.id),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
   testWidgets('member detail pushes conversation so back returns', (
     tester,
   ) async {
@@ -640,6 +701,61 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
   });
+
+  testWidgets(
+    'wide member detail opens conversation view all in a side sheet',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final member = _member('alice', 'Alice');
+      final conversations = [
+        _conversation(
+          id: 'c1',
+          title: 'Most active',
+          participantIds: [member.id, 'bob'],
+        ),
+        _conversation(
+          id: 'c2',
+          title: 'Second active',
+          participantIds: [member.id, 'bob'],
+        ),
+        _conversation(
+          id: 'c3',
+          title: 'Third active',
+          participantIds: [member.id, 'bob'],
+        ),
+        _conversation(
+          id: 'c4',
+          title: 'Fourth active',
+          participantIds: [member.id, 'bob'],
+        ),
+      ];
+      final router = _router(memberId: member.id);
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        _buildApp(router: router, member: member, conversations: conversations),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('View All'));
+      await tester.tap(find.text('View All'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('detailSideSheetPanel')), findsOneWidget);
+      expect(find.text('Fourth active'), findsOneWidget);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        AppRoutePaths.member(member.id),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 
   testWidgets('desktop member detail opens conversation in chat pane', (
     tester,
@@ -726,6 +842,70 @@ void main() {
       router.routerDelegate.currentConfiguration.uri.toString(),
       AppRoutePaths.memberConversations(member.id),
     );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member detail excludes direct messages from conversations', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final conversations = [
+      _conversation(
+        id: 'dm',
+        title: 'Private DM',
+        participantIds: [member.id, 'bob'],
+        isDirectMessage: true,
+      ),
+      _conversation(
+        id: 'group',
+        title: 'Shared group',
+        participantIds: [member.id, 'bob'],
+      ),
+    ];
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(router: router, member: member, conversations: conversations),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Shared group'), findsOneWidget);
+    expect(find.text('Private DM'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member conversation subtitles exclude Unknown sentinel', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final unknown = _member(unknownSentinelMemberId, 'Unknown');
+    final conversation = _conversation(
+      id: 'everyone',
+      title: 'Everybody',
+      participantIds: const [],
+      includesAllMembers: true,
+    );
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        extraMembers: [unknown],
+        conversations: [conversation],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Everybody'), findsOneWidget);
+    expect(find.textContaining('Bob'), findsOneWidget);
+    expect(find.textContaining('Unknown'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

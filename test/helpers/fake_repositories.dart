@@ -588,6 +588,7 @@ class FakeConversationRepository implements ConversationRepository {
           (conversation) =>
               (conversation.participantIds.contains(memberId) ||
                   conversation.includesAllMembers) &&
+              !conversation.isDirectMessage &&
               !conversation.archivedForEveryone &&
               !conversation.archivedByMemberIds.contains(memberId),
         )

@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
@@ -20,6 +21,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_accent_color.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
+import 'package:prism_plurality/features/members/views/member_fronting_history_screen.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
@@ -496,7 +498,7 @@ class _RecentSessionsSection extends ConsumerWidget {
           theme: theme,
           trailing: PrismButton(
             label: context.l10n.memberSectionFrontingSessionsViewAll,
-            onPressed: () => context.go(_frontingHistoryPath()),
+            onPressed: () => _openFrontingHistory(context),
             density: PrismControlDensity.compact,
           ),
           child: Column(
@@ -514,6 +516,14 @@ class _RecentSessionsSection extends ConsumerWidget {
 
   String _frontingHistoryPath() =>
       branch.memberFrontingHistoryPath(memberId, groupId: groupId);
+
+  void _openFrontingHistory(BuildContext context) {
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => MemberFrontingHistoryScreen(memberId: memberId),
+      route: (context) => context.go(_frontingHistoryPath()),
+    );
+  }
 }
 
 class _SessionTile extends StatelessWidget {
@@ -686,7 +696,7 @@ class _ConversationsSection extends ConsumerWidget {
           trailing: showViewAll
               ? PrismButton(
                   label: context.l10n.memberSectionFrontingSessionsViewAll,
-                  onPressed: () => context.go(_conversationsPath()),
+                  onPressed: () => _openConversations(context),
                   density: PrismControlDensity.compact,
                 )
               : null,
@@ -709,6 +719,14 @@ class _ConversationsSection extends ConsumerWidget {
 
   String _conversationsPath() =>
       branch.memberConversationsPath(memberId, groupId: groupId);
+
+  void _openConversations(BuildContext context) {
+    showAdaptiveDetailSurface<void>(
+      context: context,
+      builder: (_) => MemberConversationsScreen(memberId: memberId),
+      route: (context) => context.go(_conversationsPath()),
+    );
+  }
 }
 
 class _ConversationTile extends ConsumerWidget {
@@ -737,6 +755,7 @@ class _ConversationTile extends ConsumerWidget {
             .where(
               (m) =>
                   m.id != memberId &&
+                  m.id != unknownSentinelMemberId &&
                   isImplicitParticipantOf(conversation, m.id),
             )
             .toList();
