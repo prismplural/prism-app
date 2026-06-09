@@ -4,14 +4,17 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/member_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -152,34 +155,62 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     _syncDirtyState();
   }
 
+  void _updateMentionMembers(
+    TextEditingController controller,
+    Map<String, Member> memberMap,
+  ) {
+    if (controller is! ChatMarkdownEditingController &&
+        controller is! MarkdownEditingController) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_textController, controller)) return;
+      if (controller is ChatMarkdownEditingController) {
+        controller.updateMentionMembers(memberMap);
+      } else if (controller is MarkdownEditingController) {
+        controller.updateMentionMembers(memberMap);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final controller = _textController;
+    final mentionCandidates =
+        ref.watch(userVisibleMemberListProvider).value ?? const <Member>[];
+    final mentionMemberMap = {
+      for (final member in mentionCandidates) member.id: member,
+    };
     if (controller is ChatMarkdownEditingController) {
       controller.updateTheme(context);
     } else if (controller is MarkdownEditingController) {
       controller.updateTheme(context);
     }
+    _updateMentionMembers(controller, mentionMemberMap);
 
     // NOTE: CustomFieldType.choice is handled entirely by the renderer registry
     // (buildChoiceEditor in choice_field_widgets.dart). FieldInputWidget is
     // only reached for the 4 legacy types; dispatch in custom_fields_editor.dart
     // routes choice through the registry before it can reach this switch.
     return switch (widget.field.fieldType) {
-      CustomFieldType.text => _buildTextInput(context),
-      CustomFieldType.longText => _buildLongTextInput(context),
+      CustomFieldType.text => _buildTextInput(context, mentionCandidates),
+      CustomFieldType.longText => _buildLongTextInput(
+        context,
+        mentionCandidates,
+      ),
       CustomFieldType.color => _buildColorInput(context),
       CustomFieldType.date => _buildDateInput(context),
       CustomFieldType.choice => const SizedBox.shrink(),
     };
   }
 
-  Widget _buildTextInput(BuildContext context) {
+  Widget _buildTextInput(BuildContext context, List<Member> mentionCandidates) {
     final l10n = context.l10n;
-    return PrismTextField(
+    return MemberMentionTextField(
       focusNode: _focusNode,
       controller: _textController,
+      mentionCandidates: mentionCandidates,
       labelText: widget.field.name,
       hintText: l10n.memberCustomFieldEnterHint(
         widget.field.name.toLowerCase(),
@@ -187,7 +218,10 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     );
   }
 
-  Widget _buildLongTextInput(BuildContext context) {
+  Widget _buildLongTextInput(
+    BuildContext context,
+    List<Member> mentionCandidates,
+  ) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     return Column(
@@ -212,9 +246,10 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
           ],
         ),
         const SizedBox(height: 4),
-        PrismTextField(
+        MemberMentionTextField(
           focusNode: _focusNode,
           controller: _textController,
+          mentionCandidates: mentionCandidates,
           hintText: l10n.memberCustomFieldEnterHint(
             widget.field.name.toLowerCase(),
           ),

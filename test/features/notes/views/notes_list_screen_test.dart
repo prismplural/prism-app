@@ -223,6 +223,24 @@ void main() {
       expect(chip.variant, PrismChipVariant.inline);
     });
 
+    testWidgets('note card previews resolve member mention tokens', (
+      tester,
+    ) async {
+      const aliceId = '11111111-2222-3333-4444-555555555555';
+      final alice = sampleMember.copyWith(id: aliceId, name: 'Alice');
+      final note = sampleNote.copyWith(
+        title: '',
+        body: 'Talked to @[$aliceId]\nsecond line with @[$aliceId]',
+      );
+
+      await tester.pumpWidget(buildSubject(notes: [note], members: [alice]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Talked to @Alice'), findsOneWidget);
+      expect(find.textContaining('@[$aliceId]'), findsNothing);
+      expect(find.textContaining('@Alice'), findsWidgets);
+    });
+
     testWidgets('add action button is present in top bar', (tester) async {
       await tester.pumpWidget(buildSubject(notes: []));
       await tester.pumpAndSettle();

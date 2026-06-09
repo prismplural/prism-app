@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -110,6 +111,7 @@ class _NoteDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final memberNameMap = ref.watch(memberNameMapProvider);
     final dateFormat = DateFormat.yMMMd(context.dateLocale);
 
     return PrismPageScaffold(
@@ -159,7 +161,10 @@ class _NoteDetailBody extends ConsumerWidget {
                 final displayTitle = redactSpoilers(
                   note.title.isNotEmpty
                       ? note.title
-                      : stripImageMarkdown(note.body.split('\n').first.trim()),
+                      : stripPreviewMarkdown(
+                          note.body.split('\n').first.trim(),
+                          memberNameMap: memberNameMap,
+                        ),
                 );
                 final isFallbackTitle = note.title.isEmpty;
                 return Text(

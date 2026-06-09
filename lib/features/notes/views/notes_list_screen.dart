@@ -552,6 +552,7 @@ class _NoteCard extends ConsumerWidget {
     // Locale-aware date format — must be a local variable, not static.
     final dateFormat = DateFormat.yMMMd(context.dateLocale);
     final dateLabel = dateFormat.format(note.date);
+    final memberNameMap = ref.watch(memberNameMapProvider);
 
     // Look up the member if this note is associated with one
     final memberAsync = note.memberId != null
@@ -569,7 +570,10 @@ class _NoteCard extends ConsumerWidget {
     final displayTitle = redactSpoilers(
       note.title.isNotEmpty
           ? note.title
-          : stripImageMarkdown(note.body.split('\n').first.trim()),
+          : stripPreviewMarkdown(
+              note.body.split('\n').first.trim(),
+              memberNameMap: memberNameMap,
+            ),
     );
     final isFallbackTitle = note.title.isEmpty;
     final titleLabel = displayTitle.isNotEmpty
@@ -635,6 +639,7 @@ class _NoteCard extends ConsumerWidget {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                         iconColor: theme.colorScheme.onSurfaceVariant,
+                        memberNameMap: memberNameMap,
                       ),
                     ),
                     maxLines: 2,

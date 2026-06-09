@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/markdown/subtext_syntax.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -20,6 +22,8 @@ class MarkdownText extends StatelessWidget {
     this.selectable = false,
     this.imageBuilder,
     this.imgElementBuilder,
+    this.memberMap,
+    this.onTapMember,
     this.tableBorderless = false,
     this.tableBorderColor,
   });
@@ -43,6 +47,12 @@ class MarkdownText extends StatelessWidget {
   /// [imageBuilder] and receives the raw `src` attribute (including any
   /// `#WxH` sizing fragment, which the default image path strips).
   final MarkdownElementBuilder? imgElementBuilder;
+
+  /// Members used to resolve durable `@[uuid]` tokens.
+  final Map<String, Member>? memberMap;
+
+  /// Called when a resolved member mention is tapped.
+  final ValueChanged<String>? onTapMember;
 
   /// Render tables with no borders and a neutral (non-bold) header row. Used
   /// for `:::plain` layout tables (image-beside-text) so they read clean.
@@ -90,9 +100,18 @@ class MarkdownText extends StatelessWidget {
             const SubtextBlockSyntax(),
             ...md.ExtensionSet.gitHubFlavored.blockSyntaxes,
           ],
-          [SpoilerSyntax(), ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes],
+          [
+            MemberMentionSyntax(),
+            SpoilerSyntax(),
+            ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+          ],
         ),
         builders: {
+          memberMentionTag: MemberMentionBuilder(
+            memberMap: memberMap,
+            theme: theme,
+            onTapMember: onTapMember,
+          ),
           'subtext': SubtextBuilder(
             baseStyle: bodyStyle,
             mutedColor: theme.colorScheme.onSurfaceVariant,

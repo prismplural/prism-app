@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/text_presentation.dart';
 
@@ -10,8 +12,10 @@ class MarkdownEditingController extends TextEditingController {
 
   Color _onSurface = AppColors.warmBlack;
   Color _markerColor = Colors.grey;
+  Color _mentionFallbackColor = AppColors.prismPurple;
   TextStyle _baseStyle = const TextStyle();
   bool _themeReady = false;
+  Map<String, Member> _mentionMembers = const {};
 
   // Cache: parsed spans are expensive to build on every keystroke.
   // Invalidated when text changes or when updateTheme() is called.
@@ -24,10 +28,19 @@ class MarkdownEditingController extends TextEditingController {
     final colorScheme = Theme.of(context).colorScheme;
     _onSurface = colorScheme.onSurface;
     _markerColor = colorScheme.onSurfaceVariant.withAlpha(102);
+    _mentionFallbackColor = colorScheme.primary;
     _baseStyle = TextStyle(color: _onSurface);
     _themeReady = true;
     _cachedText = null;
     _cachedChildren = null;
+  }
+
+  void updateMentionMembers(Map<String, Member> members) {
+    if (_sameMentionMembers(_mentionMembers, members)) return;
+    _mentionMembers = Map<String, Member>.unmodifiable(members);
+    _cachedText = null;
+    _cachedChildren = null;
+    notifyListeners();
   }
 
   @override
@@ -115,6 +128,57 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   void _parseInlineMarkdown(
+    String line,
+    TextStyle baseStyle,
+    List<TextSpan> spans,
+  ) {
+    final mentions = memberMentionRegex.allMatches(line).toList();
+    if (mentions.isNotEmpty) {
+      var cursor = 0;
+      for (final mention in mentions) {
+        if (mention.start > cursor) {
+          _parseInlineMarkdownWithoutMentions(
+            line.substring(cursor, mention.start),
+            baseStyle,
+            spans,
+          );
+        }
+        final memberId = memberMentionIdFromMatch(mention)!;
+        final member = _mentionMembers[memberId];
+        final mentionColor =
+            member != null &&
+                member.customColorEnabled &&
+                member.customColorHex != null
+            ? AppColors.fromHex(member.customColorHex!)
+            : _mentionFallbackColor;
+        final display = '@${member?.name ?? 'Unknown'}';
+        spans.add(
+          TextSpan(
+            text: display,
+            style: baseStyle.copyWith(
+              color: mentionColor,
+              fontWeight: FontWeight.w600,
+              backgroundColor: mentionColor.withValues(alpha: 0.16),
+            ),
+            semanticsLabel: display,
+          ),
+        );
+        cursor = mention.end;
+      }
+      if (cursor < line.length) {
+        _parseInlineMarkdownWithoutMentions(
+          line.substring(cursor),
+          baseStyle,
+          spans,
+        );
+      }
+      return;
+    }
+
+    _parseInlineMarkdownWithoutMentions(line, baseStyle, spans);
+  }
+
+  void _parseInlineMarkdownWithoutMentions(
     String line,
     TextStyle baseStyle,
     List<TextSpan> spans,
@@ -231,6 +295,22 @@ class MarkdownEditingController extends TextEditingController {
       if (matched[i]) return true;
     }
     return false;
+  }
+
+  bool _sameMentionMembers(Map<String, Member> a, Map<String, Member> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      final other = b[entry.key];
+      final member = entry.value;
+      if (other == null ||
+          other.name != member.name ||
+          other.customColorEnabled != member.customColorEnabled ||
+          other.customColorHex != member.customColorHex) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 

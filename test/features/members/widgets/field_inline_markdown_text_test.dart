@@ -1,20 +1,28 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 
 void main() {
   const urlLauncherChannel = MethodChannel('plugins.flutter.io/url_launcher');
+  const aliceId = '11111111-2222-3333-4444-555555555555';
+  final alice = Member(id: aliceId, name: 'Alice', createdAt: DateTime(2026));
 
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(urlLauncherChannel, null);
   });
 
-  Widget host(String data) => MaterialApp(
-    home: Scaffold(body: FieldInlineMarkdownText(data)),
+  Widget host(String data, {List<Member> members = const []}) => ProviderScope(
+    overrides: [
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
+    ],
+    child: MaterialApp(home: Scaffold(body: FieldInlineMarkdownText(data))),
   );
 
   List<double> spoilerOpacities(WidgetTester tester) => tester
@@ -109,48 +117,53 @@ void main() {
     expect(launchedUrls, contains('https://my.carrd.co'));
   });
 
-  testWidgets('unsafe javascript: link renders label as plain text, no launch', (
-    tester,
-  ) async {
-    final launchedUrls = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(urlLauncherChannel, (call) async {
-          if (call.method == 'launch') {
-            final args = call.arguments as Map<Object?, Object?>;
-            launchedUrls.add(args['url']! as String);
-            return true;
+  testWidgets(
+    'unsafe javascript: link renders label as plain text, no launch',
+    (tester) async {
+      final launchedUrls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(urlLauncherChannel, (call) async {
+            if (call.method == 'launch') {
+              final args = call.arguments as Map<Object?, Object?>;
+              launchedUrls.add(args['url']! as String);
+              return true;
+            }
+            return false;
+          });
+
+      await tester.pumpWidget(host('[x](javascript:alert(1))'));
+      // Label renders as plain text.
+      final allText = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+          .join();
+      expect(allText, contains('x'));
+
+      // No link styling (no TapGestureRecognizer on a span with text 'x').
+      final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+      var foundLinkSpan = false;
+      for (final rt in richTexts) {
+        rt.text.visitChildren((span) {
+          if (span is TextSpan &&
+              (span.text?.contains('x') ?? false) &&
+              span.recognizer is TapGestureRecognizer) {
+            foundLinkSpan = true;
           }
-          return false;
+          return true;
         });
+      }
+      expect(
+        foundLinkSpan,
+        isFalse,
+        reason: 'unsafe link must not have a tap recognizer',
+      );
 
-    await tester.pumpWidget(host('[x](javascript:alert(1))'));
-    // Label renders as plain text.
-    final allText = tester
-        .widgetList<Text>(find.byType(Text))
-        .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
-        .join();
-    expect(allText, contains('x'));
-
-    // No link styling (no TapGestureRecognizer on a span with text 'x').
-    final richTexts = tester.widgetList<RichText>(find.byType(RichText));
-    var foundLinkSpan = false;
-    for (final rt in richTexts) {
-      rt.text.visitChildren((span) {
-        if (span is TextSpan &&
-            (span.text?.contains('x') ?? false) &&
-            span.recognizer is TapGestureRecognizer) {
-          foundLinkSpan = true;
-        }
-        return true;
-      });
-    }
-    expect(foundLinkSpan, isFalse, reason: 'unsafe link must not have a tap recognizer');
-
-    // Tapping does not call launchUrl.
-    await tester.tap(find.byType(RichText));
-    await tester.pumpAndSettle();
-    expect(launchedUrls, isEmpty);
-  });
+      // Tapping does not call launchUrl.
+      await tester.tap(find.byType(RichText));
+      await tester.pumpAndSettle();
+      expect(launchedUrls, isEmpty);
+    },
+  );
 
   testWidgets('surrounding text is preserved around a link', (tester) async {
     await tester.pumpWidget(host('see [here](https://x.com) ok'));
@@ -163,25 +176,30 @@ void main() {
     expect(allText, contains('ok'));
   });
 
-  testWidgets('spoiler wins over link: ||[hi](https://x.com)|| is a spoiler pill', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host('||[hi](https://x.com)||'));
-    // Exactly one spoiler pill.
-    expect(find.byType(SpoilerPill), findsOneWidget);
-    // No TapGestureRecognizer link spans created.
-    final richTexts = tester.widgetList<RichText>(find.byType(RichText));
-    var foundLinkSpan = false;
-    for (final rt in richTexts) {
-      rt.text.visitChildren((span) {
-        if (span is TextSpan && span.recognizer is TapGestureRecognizer) {
-          foundLinkSpan = true;
-        }
-        return true;
-      });
-    }
-    expect(foundLinkSpan, isFalse, reason: 'link inside spoiler must not create a tap recognizer');
-  });
+  testWidgets(
+    'spoiler wins over link: ||[hi](https://x.com)|| is a spoiler pill',
+    (tester) async {
+      await tester.pumpWidget(host('||[hi](https://x.com)||'));
+      // Exactly one spoiler pill.
+      expect(find.byType(SpoilerPill), findsOneWidget);
+      // No TapGestureRecognizer link spans created.
+      final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+      var foundLinkSpan = false;
+      for (final rt in richTexts) {
+        rt.text.visitChildren((span) {
+          if (span is TextSpan && span.recognizer is TapGestureRecognizer) {
+            foundLinkSpan = true;
+          }
+          return true;
+        });
+      }
+      expect(
+        foundLinkSpan,
+        isFalse,
+        reason: 'link inside spoiler must not create a tap recognizer',
+      );
+    },
+  );
 
   testWidgets('mixed: link and bold both render', (tester) async {
     await tester.pumpWidget(host('[a](https://x.com) and **b**'));
@@ -206,6 +224,76 @@ void main() {
     }
     expect(foundLinkSpan, isTrue, reason: 'link span with recognizer expected');
     expect(foundBoldSpan, isTrue, reason: 'bold span expected');
+  });
+
+  testWidgets('member mention renders display name without raw token', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host('talked to @[$aliceId]', members: [alice]));
+    await tester.pumpAndSettle();
+
+    final allText = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+        .join();
+    expect(allText, contains('@Alice'));
+    expect(allText, isNot(contains('@[$aliceId]')));
+  });
+
+  testWidgets('member mention wins over link parsing', (tester) async {
+    await tester.pumpWidget(
+      host('[@[$aliceId]](https://x.com)', members: [alice]),
+    );
+    await tester.pumpAndSettle();
+
+    final allText = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+        .join();
+    expect(allText, contains('@Alice'));
+    expect(allText, contains('](https://x.com)'));
+
+    var foundMentionSpan = false;
+    final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+    for (final rt in richTexts) {
+      rt.text.visitChildren((span) {
+        if (span is TextSpan) {
+          if ((span.text ?? '').contains('@Alice')) {
+            foundMentionSpan = true;
+          }
+        }
+        return true;
+      });
+    }
+    expect(foundMentionSpan, isTrue, reason: 'mention span expected');
+  });
+
+  testWidgets('inline code beats member mention parsing', (tester) async {
+    await tester.pumpWidget(host('`@[$aliceId]`', members: [alice]));
+    await tester.pumpAndSettle();
+
+    final allText = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
+        .join();
+    expect(allText, contains('@[$aliceId]'));
+    expect(allText, isNot(contains('@Alice')));
+
+    var foundTap = false;
+    final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+    for (final rt in richTexts) {
+      rt.text.visitChildren((span) {
+        if (span is TextSpan && span.recognizer is TapGestureRecognizer) {
+          foundTap = true;
+        }
+        return true;
+      });
+    }
+    expect(
+      foundTap,
+      isFalse,
+      reason: 'mention inside backtick code must not become tappable',
+    );
   });
 
   testWidgets('disposal: rebuilding with new link does not throw', (
@@ -251,7 +339,8 @@ void main() {
       expect(
         foundTap,
         isFalse,
-        reason: 'link inside backtick code span must not create a tap recognizer',
+        reason:
+            'link inside backtick code span must not create a tap recognizer',
       );
     },
   );

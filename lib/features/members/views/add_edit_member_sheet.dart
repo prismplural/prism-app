@@ -62,6 +62,7 @@ import 'package:prism_plurality/features/members/widgets/remote_markdown_image_i
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/member_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 import 'package:uuid/uuid.dart';
@@ -2102,7 +2103,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                           ImagePasteRegion(
                             onPasteImage: _handleBioPasteImage,
                             builder: (context, contextMenuBuilder) =>
-                                PrismTextField(
+                                MemberMentionTextField(
                                   controller: _bioController,
                                   focusNode: _bioFocusNode,
                                   hintText: l10n.memberBioHint,
@@ -2285,7 +2286,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                           ImagePasteRegion(
                             onPasteImage: _handleCustomFieldLongTextPasteImage,
                             builder: (context, contextMenuBuilder) =>
-                                PrismTextField(
+                                MemberMentionTextField(
                                   controller: controller,
                                   focusNode: focusNode,
                                   hintText: hint,

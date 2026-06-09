@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/avatar_image_picker.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/member_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -68,6 +69,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   late final TextEditingController _nameController;
   late final MarkdownEditingController _descriptionController;
   late final TextEditingController _colorHexController;
+  late final FocusNode _descriptionFocusNode;
 
   String? _emoji;
   String? _parentGroupId;
@@ -108,6 +110,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _colorHexController = TextEditingController(
       text: _normalizeColorHexForField(g?.colorHex),
     );
+    _descriptionFocusNode = FocusNode();
     _emoji = g?.emoji;
     _parentGroupId = g?.parentGroupId ?? widget.initialParentGroupId;
     _avatarImageData = g?.avatarImageData;
@@ -138,6 +141,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _nameController.dispose();
     _descriptionController.dispose();
     _colorHexController.dispose();
+    _descriptionFocusNode.dispose();
     super.dispose();
   }
 
@@ -525,8 +529,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        PrismTextField(
+                        MemberMentionTextField(
                           controller: _descriptionController,
+                          focusNode: _descriptionFocusNode,
                           hintText: l10n.memberGroupDescriptionHint,
                           maxLines: 6,
                           minLines: 3,

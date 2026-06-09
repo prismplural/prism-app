@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
+import 'package:prism_plurality/shared/widgets/member_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -251,7 +252,7 @@ class _FullScreenMarkdownEditorSheetState
                               ImagePasteRegion(
                                 onPasteImage: _handlePasteImage,
                                 builder: (context, contextMenuBuilder) =>
-                                    PrismTextField(
+                                    MemberMentionTextField(
                                       controller: _controller,
                                       focusNode: _focusNode,
                                       hintText: widget.hintText,
@@ -261,7 +262,8 @@ class _FullScreenMarkdownEditorSheetState
                                       hintStyle: theme.textTheme.bodyLarge
                                           ?.copyWith(
                                             color: theme
-                                                .colorScheme.onSurfaceVariant
+                                                .colorScheme
+                                                .onSurfaceVariant
                                                 .withValues(alpha: 0.4),
                                           ),
                                       minLines: 12,

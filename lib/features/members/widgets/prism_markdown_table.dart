@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/services/markdown_table_parser.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 
@@ -18,6 +19,8 @@ class PrismMarkdownTable extends StatelessWidget {
     required this.table,
     this.imgElementBuilder,
     this.baseStyle,
+    this.memberMap,
+    this.onTapMember,
     this.borderless = false,
     this.borderColor,
   });
@@ -30,6 +33,12 @@ class PrismMarkdownTable extends StatelessWidget {
   /// Base text style for cell body text.
   final TextStyle? baseStyle;
 
+  /// Members used to resolve durable `@[uuid]` tokens in table cells.
+  final Map<String, Member>? memberMap;
+
+  /// Called when a resolved member mention is tapped in a table cell.
+  final ValueChanged<String>? onTapMember;
+
   /// No borders + neutral header (matches `:::plain`).
   final bool borderless;
 
@@ -41,8 +50,10 @@ class PrismMarkdownTable extends StatelessWidget {
     final rows = table.rows;
     if (rows.isEmpty) return const SizedBox.shrink();
 
-    final colCount =
-        rows.fold<int>(0, (max, r) => r.length > max ? r.length : max);
+    final colCount = rows.fold<int>(
+      0,
+      (max, r) => r.length > max ? r.length : max,
+    );
     if (colCount == 0) return const SizedBox.shrink();
 
     final widths = _columnWidths(rows, colCount);
@@ -133,6 +144,8 @@ class PrismMarkdownTable extends StatelessWidget {
       data: cell,
       imgElementBuilder: imgElementBuilder,
       baseStyle: style,
+      memberMap: memberMap,
+      onTapMember: onTapMember,
     );
 
     return TableCell(

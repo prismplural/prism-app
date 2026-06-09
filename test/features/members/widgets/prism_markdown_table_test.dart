@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 
-Future<Table> _pumpTable(WidgetTester tester, String data) async {
+Future<Table> _pumpTable(
+  WidgetTester tester,
+  String data, {
+  List<Member> members = const [],
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         imageLibraryProvider.overrideWith(
           (ref) => Stream<List<MediaAttachment>>.value(const []),
         ),
+        activeMemberListProvider.overrideWithValue(AsyncValue.data(members)),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -21,7 +28,7 @@ Future<Table> _pumpTable(WidgetTester tester, String data) async {
       ),
     ),
   );
-  await tester.pump();
+  await tester.pumpAndSettle();
   return tester.widget<Table>(find.byType(Table));
 }
 
@@ -94,6 +101,29 @@ void main() {
       expect(find.byType(SpoilerPill), findsOneWidget);
       final pill = tester.widget<SpoilerPill>(find.byType(SpoilerPill));
       expect(pill.text, 'internal draft');
+    });
+
+    testWidgets('member mentions inside table cells resolve to display names', (
+      tester,
+    ) async {
+      const aliceId = '11111111-2222-3333-4444-555555555555';
+      final alice = Member(
+        id: aliceId,
+        name: 'Alice',
+        createdAt: DateTime(2026),
+      );
+
+      final table = await _pumpTable(
+        tester,
+        '| Owner | Notes |\n'
+        '| --- | --- |\n'
+        '| @[$aliceId] | paired with @[$aliceId] |',
+        members: [alice],
+      );
+
+      expect(table.children, hasLength(2));
+      expect(find.textContaining('@Alice'), findsWidgets);
+      expect(find.textContaining('@[$aliceId]'), findsNothing);
     });
   });
 }

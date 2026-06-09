@@ -1,5 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/safe_link.dart';
@@ -18,7 +26,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 ///
 /// Stateful so it can own the [SpoilerRevealController] for its spoilers and
 /// reset reveal state when [data] changes.
-class FieldInlineMarkdownText extends StatefulWidget {
+class FieldInlineMarkdownText extends ConsumerStatefulWidget {
   const FieldInlineMarkdownText(
     this.data, {
     super.key,
@@ -31,11 +39,12 @@ class FieldInlineMarkdownText extends StatefulWidget {
   final TextAlign textAlign;
 
   @override
-  State<FieldInlineMarkdownText> createState() =>
+  ConsumerState<FieldInlineMarkdownText> createState() =>
       _FieldInlineMarkdownTextState();
 }
 
-class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
+class _FieldInlineMarkdownTextState
+    extends ConsumerState<FieldInlineMarkdownText> {
   static final _spoiler = RegExp(r'\|\|(.+?)\|\|');
   // Simple `[label](url)` pattern. The URL group stops at the first ')' due
   // to `[^)]+`, so a URL that itself contains ')' (e.g. some Wikipedia links
@@ -88,6 +97,12 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
       data,
     );
     final codeColor = theme.colorScheme.surfaceContainerHighest;
+    final mentionMembers = containsMemberMention(data)
+        ? ref.watch(activeMemberListProvider).value ?? const <Member>[]
+        : const <Member>[];
+    final mentionMemberMap = {
+      for (final member in mentionMembers) member.id: member,
+    };
 
     final segments = <_InlineMarkdownSegment>[];
     final matched = List.filled(data.length, false);
@@ -151,8 +166,34 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
       }
     }
 
-    // Pass order (highest precedence first): spoiler → code → link → bold →
-    // italic. Code runs before link so that a backtick-quoted string like
+    void addMentionMatches() {
+      for (final match in memberMentionRegex.allMatches(data)) {
+        if (_overlaps(matched, match.start, match.end)) continue;
+        for (var i = match.start; i < match.end; i++) {
+          matched[i] = true;
+        }
+        final memberId = memberMentionIdFromMatch(match)!;
+        final member = mentionMemberMap[memberId];
+        final mentionColor = memberMentionColor(member, theme);
+        segments.add(
+          _InlineMarkdownSegment(
+            start: match.start,
+            end: match.end,
+            content: '@${memberMentionDisplayName(memberId, mentionMemberMap)}',
+            style: baseStyle.copyWith(
+              color: mentionColor,
+              fontWeight: FontWeight.w600,
+            ),
+            memberId: member == null ? null : memberId,
+          ),
+        );
+      }
+    }
+
+    // Pass order (highest precedence first): spoiler → code → mentions → link
+    // → bold → italic. Mentions run before links so `@[uuid]` never becomes
+    // link text.
+    // Code runs before link so that a backtick-quoted string like
     // `[x](https://example.com)` renders as monospace literal code rather than
     // a tappable link (matches CommonMark: code spans outrank link syntax).
     addMatches(_spoiler, (base) => base, isSpoiler: true);
@@ -161,6 +202,7 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
       (base) =>
           base.copyWith(fontFamily: 'monospace', backgroundColor: codeColor),
     );
+    addMentionMatches();
     addLinkMatches();
     addMatches(_boldStar, (base) => base.copyWith(fontWeight: FontWeight.bold));
     addMatches(
@@ -215,6 +257,20 @@ class _FieldInlineMarkdownTextState extends State<FieldInlineMarkdownText> {
             semanticsLabel: segment.content,
           ),
         );
+      } else if (segment.memberId != null) {
+        final memberId = segment.memberId!;
+        final r = TapGestureRecognizer()
+          ..onTap = () =>
+              unawaited(context.push(AppRoutePaths.member(memberId)));
+        _linkRecognizers.add(r);
+        spans.add(
+          TextSpan(
+            text: segment.content,
+            style: segment.style,
+            recognizer: r,
+            semanticsLabel: segment.content,
+          ),
+        );
       } else {
         spans.add(TextSpan(text: segment.content, style: segment.style));
       }
@@ -250,6 +306,7 @@ class _InlineMarkdownSegment {
     required this.style,
     this.isSpoiler = false,
     this.url,
+    this.memberId,
   });
 
   final int start;
@@ -258,6 +315,7 @@ class _InlineMarkdownSegment {
   final TextStyle style;
   final bool isSpoiler;
   final String? url;
+  final String? memberId;
 }
 
 /// Renders a long text value with a line/character preview and a "View more"

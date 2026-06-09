@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 
 void main() {
@@ -217,6 +218,40 @@ void main() {
         expect((children[2] as TextSpan).style!.fontWeight, FontWeight.bold);
         expect((children[3] as TextSpan).text, '**');
         expect((children[4] as TextSpan).text, ' world');
+      });
+    });
+
+    group('member mentions', () {
+      testWidgets('renders durable mention tokens as member display names', (
+        tester,
+      ) async {
+        const memberId = '11111111-2222-3333-4444-555555555555';
+        final member = Member(
+          id: memberId,
+          name: 'Alice',
+          createdAt: DateTime(2026),
+          customColorEnabled: true,
+          customColorHex: '#12AB34',
+        );
+        final controller = MarkdownEditingController(
+          text: 'hi @[$memberId] **ok**',
+        )..updateMentionMembers({member.id: member});
+
+        final children = await getSpanChildren(tester, controller);
+
+        expect(children, isNotNull);
+        expect(children!.map((span) => (span as TextSpan).text).toList(), [
+          'hi ',
+          '@Alice',
+          ' ',
+          '**',
+          'ok',
+          '**',
+        ]);
+        final mentionSpan = children[1] as TextSpan;
+        expect(mentionSpan.style!.fontWeight, FontWeight.w600);
+        expect(mentionSpan.style!.color, const Color(0xFF12AB34));
+        expect(mentionSpan.style!.backgroundColor, isNotNull);
       });
     });
 

@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 final _imageMarkdown = RegExp(r'!\[([^\]]*)\]\(([^)]+)\)');
@@ -18,6 +19,15 @@ String stripImageMarkdown(String input) {
     final alt = (m.group(1) ?? '').trim();
     return alt.isNotEmpty ? alt : '[image]';
   });
+}
+
+String stripPreviewMarkdown(
+  String input, {
+  Map<String, String> memberNameMap = const {},
+}) {
+  return stripImageMarkdown(
+    replaceMemberMentionsWithNames(input, memberNameMap),
+  );
 }
 
 /// Build inline spans for a rich-text preview, replacing each markdown image
@@ -41,7 +51,9 @@ List<InlineSpan> imagePreviewSpans(
   String input, {
   required TextStyle? style,
   required Color iconColor,
+  Map<String, String> memberNameMap = const {},
 }) {
+  input = replaceMemberMentionsWithNames(input, memberNameMap);
   if (!input.contains('![')) {
     return [TextSpan(text: input, style: style)];
   }
@@ -56,13 +68,15 @@ List<InlineSpan> imagePreviewSpans(
 
   for (final m in _imageMarkdown.allMatches(input)) {
     addText(input.substring(last, m.start));
-    spans.add(WidgetSpan(
-      alignment: PlaceholderAlignment.middle,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 1),
-        child: Icon(AppIcons.imageOutlined, size: iconSize, color: iconColor),
+    spans.add(
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1),
+          child: Icon(AppIcons.imageOutlined, size: iconSize, color: iconColor),
+        ),
       ),
-    ));
+    );
     final alt = (m.group(1) ?? '').trim();
     if (alt.isNotEmpty) addText(' $alt');
     last = m.end;

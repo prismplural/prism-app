@@ -1,14 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_layout.dart';
 import 'package:prism_plurality/features/members/services/bio_markdown_segments.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/services/markdown_table_parser.dart';
 import 'package:prism_plurality/features/members/widgets/bio_image_element_builder.dart';
 import 'package:prism_plurality/features/members/widgets/prism_markdown_table.dart';
+import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 
 /// A [MarkdownText] variant that resolves image references to decrypted
@@ -60,9 +67,15 @@ class PrismMarkdownText extends ConsumerWidget {
     return data.contains('![') || data.contains('prism-media://');
   }
 
+  bool get _shouldResolveMemberMentions {
+    if (!enabled) return false;
+    return containsMemberMention(data);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shouldResolveImageReferences = _shouldResolveImageReferences;
+    final shouldResolveMemberMentions = _shouldResolveMemberMentions;
 
     // Shared image library (all images with non-empty tags).
     final library = shouldResolveImageReferences
@@ -94,6 +107,15 @@ class PrismMarkdownText extends ConsumerWidget {
         ? ref.watch(imageLibraryVersionProvider)
         : 0;
     final stagedCount = processor?.staged.length ?? 0;
+    final mentionMembers = shouldResolveMemberMentions
+        ? ref.watch(activeMemberListProvider).value ?? const <Member>[]
+        : const <Member>[];
+    final mentionMemberMap = {
+      for (final member in mentionMembers) member.id: member,
+    };
+    void openMentionedMember(String memberId) {
+      unawaited(context.push(AppRoutePaths.member(memberId)));
+    }
 
     // Measure the available width so percent (`#50%`) image sizing has a real
     // basis: inline images render as WidgetSpan children (unbounded width), so
@@ -152,6 +174,8 @@ class PrismMarkdownText extends ConsumerWidget {
               table: block.table!,
               imgElementBuilder: imgBuilder,
               baseStyle: baseStyle,
+              memberMap: mentionMemberMap,
+              onTapMember: openMentionedMember,
               borderless: seg.borderless,
               borderColor: seg.borderColor,
             );
@@ -167,6 +191,8 @@ class PrismMarkdownText extends ConsumerWidget {
             baseStyle: baseStyle,
             selectable: selectable,
             imgElementBuilder: imgBuilder,
+            memberMap: mentionMemberMap,
+            onTapMember: openMentionedMember,
             tableBorderless: seg.borderless,
             tableBorderColor: seg.borderColor,
           );
@@ -181,6 +207,8 @@ class PrismMarkdownText extends ConsumerWidget {
             enabled: false,
             baseStyle: baseStyle,
             selectable: selectable,
+            memberMap: mentionMemberMap,
+            onTapMember: openMentionedMember,
           );
         }
 

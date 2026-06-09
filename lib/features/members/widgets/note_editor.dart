@@ -26,6 +26,7 @@ import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_mention_text_field.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -457,7 +458,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
       const SizedBox(height: 8),
       ImagePasteRegion(
         onPasteImage: _handlePasteImage,
-        builder: (context, contextMenuBuilder) => PrismTextField(
+        builder: (context, contextMenuBuilder) => MemberMentionTextField(
           controller: _bodyController,
           focusNode: _bodyFocusNode,
           hintText: l10n.memberNoteBodyHint,
