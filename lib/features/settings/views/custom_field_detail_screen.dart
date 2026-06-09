@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -43,6 +45,7 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 class CustomFieldDetailScreen extends ConsumerWidget {
   const CustomFieldDetailScreen({super.key, required this.fieldId});
@@ -568,6 +571,11 @@ class _FilledInSection extends ConsumerWidget {
             if (value.value.trim().isNotEmpty &&
                 value.memberId != unknownSentinelMemberId)
               value.memberId,
+          if (field.fieldTypeId == 'member')
+            for (final value in values)
+              if (value.value.trim().isNotEmpty &&
+                  value.memberId != unknownSentinelMemberId)
+                ..._parseMemberReferenceIds(field, value.value),
         };
         final membersAsync = ref.watch(
           membersByIdsListProvider(memberIdsKey(memberIds)),
@@ -676,7 +684,11 @@ class _FilledInContent extends ConsumerWidget {
                   ),
                   child: PrismSectionCard(
                     padding: EdgeInsets.zero,
-                    child: _FilledValueRow(field: field, entry: entries[index]),
+                    child: _FilledValueRow(
+                      field: field,
+                      entry: entries[index],
+                      membersById: membersById,
+                    ),
                   ),
                 );
               }, childCount: entries.length),
@@ -745,10 +757,15 @@ class _FilledValueEntry {
 }
 
 class _FilledValueRow extends StatelessWidget {
-  const _FilledValueRow({required this.field, required this.entry});
+  const _FilledValueRow({
+    required this.field,
+    required this.entry,
+    required this.membersById,
+  });
 
   final CustomField field;
   final _FilledValueEntry entry;
+  final Map<String, Member> membersById;
 
   @override
   Widget build(BuildContext context) {
@@ -758,6 +775,8 @@ class _FilledValueRow extends StatelessWidget {
       context,
       field,
       entry.value.value,
+      ownerMember: member,
+      membersById: membersById,
     );
 
     return Semantics(
@@ -778,7 +797,12 @@ class _FilledValueRow extends StatelessWidget {
           size: 36,
         ),
         title: Text(memberName),
-        subtitle: _ValuePreview(field: field, value: entry.value),
+        subtitle: _ValuePreview(
+          field: field,
+          value: entry.value,
+          ownerMember: member,
+          membersById: membersById,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
     );
@@ -793,13 +817,20 @@ class _FilledValueRow extends StatelessWidget {
 }
 
 class _ValuePreview extends StatelessWidget {
-  const _ValuePreview({required this.field, required this.value});
+  const _ValuePreview({
+    required this.field,
+    required this.value,
+    required this.ownerMember,
+    required this.membersById,
+  });
 
   static const _previewCharacterLimit = 220;
   static const _previewLineLimit = 4;
 
   final CustomField field;
   final CustomFieldValue value;
+  final Member ownerMember;
+  final Map<String, Member> membersById;
 
   @override
   Widget build(BuildContext context) {
@@ -812,11 +843,25 @@ class _ValuePreview extends StatelessWidget {
     if (field.fieldTypeId == 'scale') {
       return buildScaleMini(context, field, value);
     }
+    if (field.fieldTypeId == 'member') {
+      return _MemberValuePreview(
+        field: field,
+        rawValue: rawValue,
+        ownerMember: ownerMember,
+        membersById: membersById,
+      );
+    }
     if (field.fieldType == CustomFieldType.color) {
       return _ColorValue(value: rawValue);
     }
 
-    final formattedValue = _formatValueForField(context, field, rawValue);
+    final formattedValue = _formatValueForField(
+      context,
+      field,
+      rawValue,
+      ownerMember: ownerMember,
+      membersById: membersById,
+    );
     final preview = _buildPreview(formattedValue);
     final isTruncated = preview != formattedValue.trimRight();
     return Text(
@@ -846,6 +891,88 @@ class _ValuePreview extends StatelessWidget {
     }
 
     return preview.trimRight();
+  }
+}
+
+class _MemberValuePreview extends StatelessWidget {
+  const _MemberValuePreview({
+    required this.field,
+    required this.rawValue,
+    required this.ownerMember,
+    required this.membersById,
+  });
+
+  final CustomField field;
+  final String rawValue;
+  final Member ownerMember;
+  final Map<String, Member> membersById;
+
+  @override
+  Widget build(BuildContext context) {
+    final refs = _memberReferenceSummaries(
+      context,
+      field,
+      rawValue,
+      ownerMember: ownerMember,
+      membersById: membersById,
+    );
+    if (refs.isEmpty) {
+      refs.add(
+        _MemberReferenceSummary(
+          id: null,
+          label: _unavailableMemberLabel(context),
+          member: null,
+          isSelf: false,
+          isUnavailable: true,
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [for (final ref in refs) _MemberReferenceChip(summary: ref)],
+    );
+  }
+}
+
+class _MemberReferenceChip extends StatelessWidget {
+  const _MemberReferenceChip({required this.summary});
+
+  final _MemberReferenceSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final member = summary.member;
+    if (member != null && !summary.isSelf) {
+      return MemberChip(
+        member: member,
+        style: MemberChipStyle.inline,
+        avatarSize: 18,
+        labelMaxLines: 1,
+      );
+    }
+
+    return PrismChip(
+      label: summary.label,
+      selected: !summary.isUnavailable,
+      onTap: null,
+      avatar: member != null
+          ? MemberAvatar(
+              memberId: member.id,
+              memberName: member.name,
+              emoji: member.emoji,
+              avatarImageData: member.avatarImageData,
+              customColorEnabled: member.customColorEnabled,
+              customColorHex: member.customColorHex,
+              size: 18,
+              deferAvatarLookup: true,
+            )
+          : Icon(AppIcons.personOffOutlined, size: 18),
+      variant: summary.isUnavailable
+          ? PrismChipVariant.filled
+          : PrismChipVariant.inline,
+    );
   }
 }
 
@@ -898,15 +1025,152 @@ class _ColorValue extends StatelessWidget {
 String _formatValueForField(
   BuildContext context,
   CustomField field,
-  String raw,
-) {
+  String raw, {
+  Member? ownerMember,
+  Map<String, Member> membersById = const <String, Member>{},
+}) {
+  if (field.fieldTypeId == 'member') {
+    return _formatMemberValue(
+      context,
+      field,
+      raw,
+      ownerMember: ownerMember,
+      membersById: membersById,
+    );
+  }
   return switch (field.fieldType) {
     CustomFieldType.date => _formatDateValue(context, raw, field.datePrecision),
-    // Fix 1: resolve choice JSON into human-readable labels instead of leaking raw JSON.
     CustomFieldType.choice => _formatChoiceValue(context, field, raw),
     CustomFieldType.text ||
     CustomFieldType.longText ||
     CustomFieldType.color => raw,
+  };
+}
+
+String _formatMemberValue(
+  BuildContext context,
+  CustomField field,
+  String raw, {
+  Member? ownerMember,
+  Map<String, Member> membersById = const <String, Member>{},
+}) {
+  final refs = _memberReferenceSummaries(
+    context,
+    field,
+    raw,
+    ownerMember: ownerMember,
+    membersById: membersById,
+  );
+  if (refs.isEmpty) return _unavailableMemberLabel(context);
+  return refs.map((ref) => ref.label).join(', ');
+}
+
+class _MemberReferenceSummary {
+  const _MemberReferenceSummary({
+    required this.id,
+    required this.label,
+    required this.member,
+    required this.isSelf,
+    required this.isUnavailable,
+  });
+
+  final String? id;
+  final String label;
+  final Member? member;
+  final bool isSelf;
+  final bool isUnavailable;
+}
+
+List<_MemberReferenceSummary> _memberReferenceSummaries(
+  BuildContext context,
+  CustomField field,
+  String raw, {
+  Member? ownerMember,
+  Map<String, Member> membersById = const <String, Member>{},
+}) {
+  final ids = _parseMemberReferenceIds(field, raw);
+  return [
+    for (final id in ids)
+      if (ownerMember != null && id == ownerMember.id)
+        _MemberReferenceSummary(
+          id: id,
+          label: context.l10n.customFieldMemberSelfReferenceWithName(
+            _FilledValueRow._memberDisplayName(ownerMember),
+          ),
+          member: ownerMember,
+          isSelf: true,
+          isUnavailable: false,
+        )
+      else if (membersById[id] case final member?)
+        _MemberReferenceSummary(
+          id: id,
+          label: _FilledValueRow._memberDisplayName(member),
+          member: member,
+          isSelf: false,
+          isUnavailable: false,
+        )
+      else
+        _MemberReferenceSummary(
+          id: id,
+          label: _unavailableMemberLabel(context),
+          member: null,
+          isSelf: false,
+          isUnavailable: true,
+        ),
+  ];
+}
+
+String _unavailableMemberLabel(BuildContext context) {
+  return context.l10n.customFieldMemberUnavailable;
+}
+
+Set<String> _parseMemberReferenceIds(CustomField field, String raw) {
+  if (field.fieldTypeId != 'member') return const <String>{};
+  final parsed = customFieldTypeRegistry.lookupById('member')?.valueParser(raw);
+  if (parsed is MemberFieldValue) {
+    final parsedIds = _stableNonEmptyIds(parsed.memberIds);
+    if (parsedIds.isNotEmpty) return parsedIds;
+  }
+
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return const <String>{};
+
+  try {
+    final decoded = jsonDecode(trimmed);
+    final ids = _extractMemberReferenceIds(decoded);
+    if (ids.isNotEmpty) return ids;
+  } catch (_) {
+    // Older or malformed peers should not leak raw JSON into settings.
+  }
+
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    return const <String>{};
+  }
+  return _stableNonEmptyIds([trimmed]);
+}
+
+Set<String> _extractMemberReferenceIds(Object? decoded) {
+  if (decoded is String) return _stableNonEmptyIds([decoded]);
+  if (decoded is List) {
+    return _stableNonEmptyIds(decoded.whereType<String>());
+  }
+  if (decoded is Map) {
+    return _stableNonEmptyIds([
+      if (decoded['memberId'] case final String id) id,
+      if (decoded['id'] case final String id) id,
+      if (decoded['memberIds'] case final List ids) ...ids.whereType<String>(),
+      if (decoded['members'] case final List ids) ...ids.whereType<String>(),
+      if (decoded['selectedMemberIds'] case final List ids)
+        ...ids.whereType<String>(),
+    ]);
+  }
+  return const <String>{};
+}
+
+Set<String> _stableNonEmptyIds(Iterable<String> ids) {
+  return {
+    for (final id in ids)
+      if (id.trim().isNotEmpty) id.trim(),
   };
 }
 

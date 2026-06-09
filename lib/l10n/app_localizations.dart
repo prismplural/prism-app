@@ -18244,6 +18244,54 @@ abstract class AppLocalizations {
   /// **'Slider'**
   String get customFieldTypeSlider;
 
+  /// Label for the Member custom field type in the type picker
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get customFieldTypeMember;
+
+  /// Semantics label for a selected member custom field chip
+  ///
+  /// In en, this message translates to:
+  /// **'{fieldName}, {memberName}, selected member'**
+  String customFieldMemberSelectedSemantic(String fieldName, String memberName);
+
+  /// Tooltip and semantics label for removing a selected member custom field chip
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {memberName}'**
+  String customFieldMemberRemoveMember(String memberName);
+
+  /// Placeholder label for a member custom field that references its owner
+  ///
+  /// In en, this message translates to:
+  /// **'Self reference'**
+  String get customFieldMemberSelfReference;
+
+  /// Placeholder label for a member custom field reference that cannot be resolved
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable member'**
+  String get customFieldMemberUnavailable;
+
+  /// Semantics label for a member custom field placeholder chip
+  ///
+  /// In en, this message translates to:
+  /// **'{fieldName}, {label}'**
+  String customFieldMemberChipSemantic(String fieldName, String label);
+
+  /// Tooltip and semantics label for removing a member custom field placeholder chip
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {label}'**
+  String customFieldMemberRemoveSelection(String label);
+
+  /// Summary label for a member custom field value that references the owner member
+  ///
+  /// In en, this message translates to:
+  /// **'Self ({memberName})'**
+  String customFieldMemberSelfReferenceWithName(String memberName);
+
   /// Section heading for the slider mode chooser (labeled vs numeric)
   ///
   /// In en, this message translates to:

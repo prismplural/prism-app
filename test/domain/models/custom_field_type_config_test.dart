@@ -7,9 +7,9 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 void main() {
   group('CustomFieldTypeConfig serialization', () {
     test('ChoiceConfig round-trips', () {
-      final c = ChoiceConfig(
+      const c = ChoiceConfig(
         options: [
-          const ChoiceOption(
+          ChoiceOption(
             id: 'opt-1',
             label: 'A',
             colorHex: '#ff0000',
@@ -70,6 +70,13 @@ void main() {
       expect(back, c);
     });
 
+    test('MemberConfig round-trips', () {
+      const c = MemberConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json);
+      expect(back, c);
+    });
+
     test('unknown top-level keys survive round-trip into extra', () {
       final json = {
         'runtimeType': 'choice',
@@ -124,11 +131,17 @@ void main() {
       };
       final config = CustomFieldTypeConfigCodec.fromJson(json) as ScaleConfig;
       expect(config.extra['allowHalfSteps'], true);
-      expect(config.extra['displayMode'], {'style': 'compact', 'showNumbers': false});
+      expect(config.extra['displayMode'], {
+        'style': 'compact',
+        'showNumbers': false,
+      });
 
       final reemitted = CustomFieldTypeConfigCodec.toJson(config);
       expect(reemitted['allowHalfSteps'], true);
-      expect(reemitted['displayMode'], {'style': 'compact', 'showNumbers': false});
+      expect(reemitted['displayMode'], {
+        'style': 'compact',
+        'showNumbers': false,
+      });
     });
 
     test('unknown keys for SliderConfig survive round-trip', () {
@@ -149,6 +162,19 @@ void main() {
       final reemitted = CustomFieldTypeConfigCodec.toJson(config);
       expect(reemitted['hapticFeedback'], 'medium');
       expect(reemitted['trackWidth'], 4.5);
+    });
+
+    test('unknown keys for MemberConfig survive round-trip', () {
+      final json = {
+        'runtimeType': 'member',
+        'hideTitleOnProfile': false,
+        'selectionMode': 'multiple',
+      };
+      final config = CustomFieldTypeConfigCodec.fromJson(json) as MemberConfig;
+      expect(config.extra['selectionMode'], 'multiple');
+
+      final reemitted = CustomFieldTypeConfigCodec.toJson(config);
+      expect(reemitted['selectionMode'], 'multiple');
     });
 
     test('multiple round-trips preserve unknown keys byte-identically', () {
@@ -183,34 +209,28 @@ void main() {
         'allowsOther': false,
       };
       final config = CustomFieldTypeConfigCodec.fromJson(json) as ChoiceConfig;
-      expect(config.extra, isEmpty, reason: 'Known keys must not appear in extra');
+      expect(
+        config.extra,
+        isEmpty,
+        reason: 'Known keys must not appear in extra',
+      );
     });
 
     test('runtimeType key is never placed in extra', () {
-      final json = {
-        'runtimeType': 'group',
-        'icon': null,
-      };
+      final json = {'runtimeType': 'group', 'icon': null};
       final config = CustomFieldTypeConfigCodec.fromJson(json) as GroupConfig;
       expect(config.extra.containsKey('runtimeType'), isFalse);
     });
 
     test('codec re-encoding is order-independent: two inputs differing only in '
         'extras-key order produce byte-identical output', () {
-      // The MED bug: a v29 peer may write `type_config_json` with extras keys
-      // ordered before base keys (or in any other order). A v28 device that
-      // reads the row and re-emits must produce the SAME bytes regardless of
-      // input ordering — otherwise an unrelated `updateField` diff sees the
-      // re-encoded blob as "changed" and emits a phantom type_config_json op.
-      //
-      // Parse from JSON STRINGS (not dart literals) so we control on-the-wire
-      // key order. Two inputs, same logical content, different key order →
-      // re-emission must converge to the same string.
-      // Two extras chosen so the order matters: zeta vs alpha.
-      const extrasFirst = '{"zeta":"z","alpha":"a","runtimeType":"slider",'
+      // Parse JSON strings so the test controls on-the-wire key order.
+      const extrasFirst =
+          '{"zeta":"z","alpha":"a","runtimeType":"slider",'
           '"mode":"labeled","leftLabel":"A","rightLabel":"B",'
           '"snapToPositions":true,"showTicks":false}';
-      const extrasLast = '{"runtimeType":"slider","mode":"labeled",'
+      const extrasLast =
+          '{"runtimeType":"slider","mode":"labeled",'
           '"leftLabel":"A","rightLabel":"B","snapToPositions":true,'
           '"showTicks":false,"alpha":"a","zeta":"z"}';
 
@@ -232,7 +252,8 @@ void main() {
       expect(
         outA,
         outB,
-        reason: 'Re-encoding must be order-independent so any v29-peer write '
+        reason:
+            'Re-encoding must be order-independent so any v29-peer write '
             'round-trips byte-identically — no phantom sync emits',
       );
 
@@ -249,11 +270,13 @@ void main() {
 
     test('codec re-encoding is order-independent for ChoiceConfig with extras '
         'in both top-level and nested ChoiceOption', () {
-      const a = '{"zeta_top":1,"runtimeType":"choice",'
+      const a =
+          '{"zeta_top":1,"runtimeType":"choice",'
           '"options":[{"zeta_opt":"z","id":"1","label":"foo","alpha_opt":"a"}],'
           '"alpha_top":2,'
           '"allowsMultiple":false,"allowsOther":false}';
-      const b = '{"runtimeType":"choice","alpha_top":2,'
+      const b =
+          '{"runtimeType":"choice","alpha_top":2,'
           '"options":[{"alpha_opt":"a","id":"1","label":"foo","zeta_opt":"z"}],'
           '"allowsMultiple":false,"allowsOther":false,"zeta_top":1}';
 
@@ -274,7 +297,8 @@ void main() {
       expect(
         outA,
         outB,
-        reason: 'Order-independent for both top-level extras and nested '
+        reason:
+            'Order-independent for both top-level extras and nested '
             'ChoiceOption extras',
       );
     });
@@ -285,12 +309,7 @@ void main() {
       final json = {
         'runtimeType': 'choice',
         'options': <dynamic>[
-          {
-            'id': '1',
-            'label': 'foo',
-            'iconKey': 'bar',
-            'futureField': 42,
-          },
+          {'id': '1', 'label': 'foo', 'iconKey': 'bar', 'futureField': 42},
         ],
         'allowsMultiple': false,
         'allowsOther': false,
@@ -318,10 +337,10 @@ void main() {
     });
 
     test('ChoiceConfig with multiple ChoiceOptions round-trips', () {
-      final c = ChoiceConfig(
+      const c = ChoiceConfig(
         options: [
-          const ChoiceOption(id: 'a', label: 'Alpha', sortOrder: 0),
-          const ChoiceOption(
+          ChoiceOption(id: 'a', label: 'Alpha', sortOrder: 0),
+          ChoiceOption(
             id: 'b',
             label: 'Beta',
             colorHex: '#00ff00',
@@ -343,16 +362,35 @@ void main() {
     // gradientColorsHex tests (new multi-color gradient support)
     // -------------------------------------------------------------------------
 
-    test('SliderConfig with gradientColorsHex round-trips (5 colors) and extra is empty', () {
-      const c = SliderConfig(
-        mode: SliderMode.labeled,
-        gradientColorsHex: ['#112233', '#445566', '#778899', '#aabbcc', '#ddeeff'],
-      );
-      final json = CustomFieldTypeConfigCodec.toJson(c);
-      final back = CustomFieldTypeConfigCodec.fromJson(json) as SliderConfig;
-      expect(back.gradientColorsHex, ['#112233', '#445566', '#778899', '#aabbcc', '#ddeeff']);
-      expect(back.extra, isEmpty, reason: 'gradientColorsHex must be a known key — not land in extra');
-    });
+    test(
+      'SliderConfig with gradientColorsHex round-trips (5 colors) and extra is empty',
+      () {
+        const c = SliderConfig(
+          mode: SliderMode.labeled,
+          gradientColorsHex: [
+            '#112233',
+            '#445566',
+            '#778899',
+            '#aabbcc',
+            '#ddeeff',
+          ],
+        );
+        final json = CustomFieldTypeConfigCodec.toJson(c);
+        final back = CustomFieldTypeConfigCodec.fromJson(json) as SliderConfig;
+        expect(back.gradientColorsHex, [
+          '#112233',
+          '#445566',
+          '#778899',
+          '#aabbcc',
+          '#ddeeff',
+        ]);
+        expect(
+          back.extra,
+          isEmpty,
+          reason: 'gradientColorsHex must be a known key — not land in extra',
+        );
+      },
+    );
 
     test('SliderConfig old data (no gradientColorsHex) decodes with null', () {
       final json = {
@@ -367,30 +405,41 @@ void main() {
       // Re-encoding: nullable list fields are emitted as null (same as stepLabels
       // on ScaleConfig). The key is present but null — it must NOT land in extra.
       final reemitted = CustomFieldTypeConfigCodec.toJson(config);
-      expect(reemitted['gradientColorsHex'], isNull,
-          reason: 'null gradientColorsHex should be emitted as null, not as extra');
-      expect(config.extra, isEmpty,
-          reason: 'gradientColorsHex must be recognized as a known key even when absent from input');
+      expect(
+        reemitted['gradientColorsHex'],
+        isNull,
+        reason:
+            'null gradientColorsHex should be emitted as null, not as extra',
+      );
+      expect(
+        config.extra,
+        isEmpty,
+        reason:
+            'gradientColorsHex must be recognized as a known key even when absent from input',
+      );
     });
 
-    test('SliderConfig with gradientColorsHex: decode→encode→decode is a fixed point', () {
-      final original = {
-        'runtimeType': 'slider',
-        'mode': 'labeled',
-        'gradientColorsHex': ['#112233', '#445566', '#778899'],
-        'leftLabel': 'Start',
-        'rightLabel': 'End',
-        'snapToPositions': false,
-        'showTicks': false,
-      };
-      final pass1 = CustomFieldTypeConfigCodec.toJson(
-        CustomFieldTypeConfigCodec.fromJson(original),
-      );
-      final pass2 = CustomFieldTypeConfigCodec.toJson(
-        CustomFieldTypeConfigCodec.fromJson(pass1),
-      );
-      expect(pass2, pass1, reason: 'Re-encoding must be a fixed point');
-    });
+    test(
+      'SliderConfig with gradientColorsHex: decode→encode→decode is a fixed point',
+      () {
+        final original = {
+          'runtimeType': 'slider',
+          'mode': 'labeled',
+          'gradientColorsHex': ['#112233', '#445566', '#778899'],
+          'leftLabel': 'Start',
+          'rightLabel': 'End',
+          'snapToPositions': false,
+          'showTicks': false,
+        };
+        final pass1 = CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(original),
+        );
+        final pass2 = CustomFieldTypeConfigCodec.toJson(
+          CustomFieldTypeConfigCodec.fromJson(pass1),
+        );
+        expect(pass2, pass1, reason: 'Re-encoding must be a fixed point');
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -462,9 +511,9 @@ void main() {
     });
 
     test('ChoiceConfig round-trips with hideTitleOnProfile: true', () {
-      final c = ChoiceConfig(
+      const c = ChoiceConfig(
         hideTitleOnProfile: true,
-        options: [const ChoiceOption(id: 'o1', label: 'Opt', sortOrder: 0)],
+        options: [ChoiceOption(id: 'o1', label: 'Opt', sortOrder: 0)],
       );
       final json = CustomFieldTypeConfigCodec.toJson(c);
       final back = CustomFieldTypeConfigCodec.fromJson(json) as ChoiceConfig;
@@ -490,6 +539,14 @@ void main() {
       expect(back, c);
       expect(back.hideTitleOnProfile, isTrue);
     });
+
+    test('MemberConfig round-trips with hideTitleOnProfile: true', () {
+      const c = MemberConfig(hideTitleOnProfile: true);
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as MemberConfig;
+      expect(back, c);
+      expect(back.hideTitleOnProfile, isTrue);
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -502,16 +559,15 @@ void main() {
 
     test('GroupConfig with hideTitleOnProfile: true returns true', () {
       expect(
-        effectiveHideTitleOnProfile(const GroupConfig(hideTitleOnProfile: true)),
+        effectiveHideTitleOnProfile(
+          const GroupConfig(hideTitleOnProfile: true),
+        ),
         isTrue,
       );
     });
 
     test('GroupConfig with hideTitleOnProfile: false returns false', () {
-      expect(
-        effectiveHideTitleOnProfile(const GroupConfig()),
-        isFalse,
-      );
+      expect(effectiveHideTitleOnProfile(const GroupConfig()), isFalse);
     });
 
     test('TextConfig with hideTitleOnProfile: true returns true', () {
@@ -523,7 +579,9 @@ void main() {
 
     test('ColorConfig with hideTitleOnProfile: true returns true', () {
       expect(
-        effectiveHideTitleOnProfile(const ColorConfig(hideTitleOnProfile: true)),
+        effectiveHideTitleOnProfile(
+          const ColorConfig(hideTitleOnProfile: true),
+        ),
         isTrue,
       );
     });
@@ -545,10 +603,7 @@ void main() {
     });
 
     test('ChoiceConfig with hideTitleOnProfile: false returns false', () {
-      expect(
-        effectiveHideTitleOnProfile(ChoiceConfig()),
-        isFalse,
-      );
+      expect(effectiveHideTitleOnProfile(const ChoiceConfig()), isFalse);
     });
 
     test('ScaleConfig with hideTitleOnProfile: false returns false', () {
@@ -558,7 +613,19 @@ void main() {
     test('SliderConfig with hideTitleOnProfile: true returns true', () {
       expect(
         effectiveHideTitleOnProfile(
-          const SliderConfig(mode: SliderMode.labeled, hideTitleOnProfile: true),
+          const SliderConfig(
+            mode: SliderMode.labeled,
+            hideTitleOnProfile: true,
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('MemberConfig with hideTitleOnProfile: true returns true', () {
+      expect(
+        effectiveHideTitleOnProfile(
+          const MemberConfig(hideTitleOnProfile: true),
         ),
         isTrue,
       );
@@ -577,16 +644,14 @@ void main() {
       Map<String, dynamic> fields,
     ) => {'runtimeType': runtimeType, ...fields};
 
-    void assertNoExtraLeakage(
-      String label,
-      Map<String, dynamic> json,
-    ) {
+    void assertNoExtraLeakage(String label, Map<String, dynamic> json) {
       final config = CustomFieldTypeConfigCodec.fromJson(json);
       final extra = switch (config) {
         final ChoiceConfig c => c.extra,
         final GroupConfig c => c.extra,
         final ScaleConfig c => c.extra,
         final SliderConfig c => c.extra,
+        final MemberConfig c => c.extra,
         final TextConfig c => c.extra,
         final ColorConfig c => c.extra,
         final DateConfig c => c.extra,
@@ -601,7 +666,12 @@ void main() {
 
     // ChoiceConfig known keys
     test('ChoiceConfig — each known key individually stays out of extra', () {
-      for (final key in ['options', 'allowsMultiple', 'allowsOther', 'hideTitleOnProfile']) {
+      for (final key in [
+        'options',
+        'allowsMultiple',
+        'allowsOther',
+        'hideTitleOnProfile',
+      ]) {
         final json = makeJson('choice', {
           'options': <dynamic>[],
           'allowsMultiple': false,
@@ -617,7 +687,10 @@ void main() {
     // GroupConfig known keys
     test('GroupConfig — each known key individually stays out of extra', () {
       for (final key in ['icon', 'hideTitleOnProfile']) {
-        final json = makeJson('group', {'icon': null, 'hideTitleOnProfile': false});
+        final json = makeJson('group', {
+          'icon': null,
+          'hideTitleOnProfile': false,
+        });
         json[key] = json[key];
         assertNoExtraLeakage('GroupConfig/$key', json);
       }
@@ -684,6 +757,15 @@ void main() {
         });
         json[key] = json[key];
         assertNoExtraLeakage('SliderConfig/$key', json);
+      }
+    });
+
+    // MemberConfig known keys
+    test('MemberConfig — each known key individually stays out of extra', () {
+      for (final key in ['hideTitleOnProfile']) {
+        final json = makeJson('member', {'hideTitleOnProfile': false});
+        json[key] = json[key];
+        assertNoExtraLeakage('MemberConfig/$key', json);
       }
     });
 

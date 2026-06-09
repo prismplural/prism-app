@@ -120,6 +120,9 @@ class _FakeCustomFieldsRepository implements repo_iface.CustomFieldsRepository {
 
   @override
   Future<void> deleteValuesForMember(String memberId) async {}
+
+  @override
+  Future<T> commitValueBatch<T>(Future<T> Function() writes) => writes();
 }
 
 // ---------------------------------------------------------------------------

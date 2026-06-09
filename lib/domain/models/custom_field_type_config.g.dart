@@ -117,6 +117,17 @@ const _$SliderModeEnumMap = {
   SliderMode.numeric: 'numeric',
 };
 
+MemberConfig _$MemberConfigFromJson(Map<String, dynamic> json) => MemberConfig(
+  hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
+  $type: json['runtimeType'] as String?,
+);
+
+Map<String, dynamic> _$MemberConfigToJson(MemberConfig instance) =>
+    <String, dynamic>{
+      'hideTitleOnProfile': instance.hideTitleOnProfile,
+      'runtimeType': instance.$type,
+    };
+
 TextConfig _$TextConfigFromJson(Map<String, dynamic> json) => TextConfig(
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,

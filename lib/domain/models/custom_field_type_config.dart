@@ -91,6 +91,13 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     Map<String, dynamic> extra,
   }) = SliderConfig;
 
+  const factory CustomFieldTypeConfig.member({
+    @Default(false) bool hideTitleOnProfile,
+    @Default(<String, dynamic>{})
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    Map<String, dynamic> extra,
+  }) = MemberConfig;
+
   /// Minimal variant for text fields. Previously typeConfigJson was always NULL;
   /// now written when hideTitleOnProfile is set (or to preserve forward-compat extras).
   const factory CustomFieldTypeConfig.text({
@@ -168,6 +175,7 @@ class CustomFieldTypeConfigCodec {
       final GroupConfig c => c.copyWith(extra: extra),
       final ScaleConfig c => c.copyWith(extra: extra),
       final SliderConfig c => c.copyWith(extra: extra),
+      final MemberConfig c => c.copyWith(extra: extra),
       final TextConfig c => c.copyWith(extra: extra),
       final ColorConfig c => c.copyWith(extra: extra),
       final DateConfig c => c.copyWith(extra: extra),
@@ -197,6 +205,7 @@ class CustomFieldTypeConfigCodec {
       final GroupConfig c => c.extra,
       final ScaleConfig c => c.extra,
       final SliderConfig c => c.extra,
+      final MemberConfig c => c.extra,
       final TextConfig c => c.extra,
       final ColorConfig c => c.extra,
       final DateConfig c => c.extra,
@@ -227,6 +236,7 @@ class CustomFieldTypeConfigCodec {
       GroupConfig _ => config.toJson(),
       ScaleConfig _ => config.toJson(),
       SliderConfig _ => config.toJson(),
+      MemberConfig _ => config.toJson(),
       TextConfig _ => config.toJson(),
       ColorConfig _ => config.toJson(),
       DateConfig _ => config.toJson(),
@@ -277,6 +287,7 @@ class CustomFieldTypeConfigCodec {
         'showTicks',
         'hideTitleOnProfile',
       },
+      MemberConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
       TextConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
       ColorConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
       DateConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
@@ -294,6 +305,7 @@ bool effectiveHideTitleOnProfile(CustomFieldTypeConfig? config) =>
       final GroupConfig c => c.hideTitleOnProfile,
       final ScaleConfig c => c.hideTitleOnProfile,
       final SliderConfig c => c.hideTitleOnProfile,
+      final MemberConfig c => c.hideTitleOnProfile,
       final TextConfig c => c.hideTitleOnProfile,
       final ColorConfig c => c.hideTitleOnProfile,
       final DateConfig c => c.hideTitleOnProfile,

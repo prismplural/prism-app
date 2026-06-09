@@ -12269,6 +12269,49 @@
 
   "customFieldTypeSlider": "Slider",
   "@customFieldTypeSlider": { "description": "Label for the Slider custom field type in the type picker" },
+  "customFieldTypeMember": "Member",
+  "@customFieldTypeMember": { "description": "Label for the Member custom field type in the type picker" },
+  "customFieldMemberSelectedSemantic": "{fieldName}, {memberName}, selected member",
+  "@customFieldMemberSelectedSemantic": {
+    "description": "Semantics label for a selected member custom field chip",
+    "placeholders": {
+      "fieldName": { "type": "String" },
+      "memberName": { "type": "String" }
+    }
+  },
+  "customFieldMemberRemoveMember": "Remove {memberName}",
+  "@customFieldMemberRemoveMember": {
+    "description": "Tooltip and semantics label for removing a selected member custom field chip",
+    "placeholders": {
+      "memberName": { "type": "String" }
+    }
+  },
+  "customFieldMemberSelfReference": "Self reference",
+  "@customFieldMemberSelfReference": { "description": "Placeholder label for a member custom field that references its owner" },
+  "customFieldMemberUnavailable": "Unavailable member",
+  "@customFieldMemberUnavailable": { "description": "Placeholder label for a member custom field reference that cannot be resolved" },
+  "customFieldMemberChipSemantic": "{fieldName}, {label}",
+  "@customFieldMemberChipSemantic": {
+    "description": "Semantics label for a member custom field placeholder chip",
+    "placeholders": {
+      "fieldName": { "type": "String" },
+      "label": { "type": "String" }
+    }
+  },
+  "customFieldMemberRemoveSelection": "Remove {label}",
+  "@customFieldMemberRemoveSelection": {
+    "description": "Tooltip and semantics label for removing a member custom field placeholder chip",
+    "placeholders": {
+      "label": { "type": "String" }
+    }
+  },
+  "customFieldMemberSelfReferenceWithName": "Self ({memberName})",
+  "@customFieldMemberSelfReferenceWithName": {
+    "description": "Summary label for a member custom field value that references the owner member",
+    "placeholders": {
+      "memberName": { "type": "String" }
+    }
+  },
   "customFieldSliderModeHeading": "Slider type",
   "@customFieldSliderModeHeading": { "description": "Section heading for the slider mode chooser (labeled vs numeric)" },
   "customFieldSliderModeLabeled": "Mood / Intensity",

@@ -65,8 +65,9 @@ class CustomFieldsDisplay extends ConsumerWidget {
     //
     // Children of groups are intentionally excluded here — they render inside
     // their parent's _GroupDisplayWidget instead.
-    final topLevelFields =
-        fields.where((f) => f.parentFieldId == null).toList();
+    final topLevelFields = fields
+        .where((f) => f.parentFieldId == null)
+        .toList();
 
     final items = <_TopLevelItem>[];
     for (final field in topLevelFields) {
@@ -164,7 +165,6 @@ class CustomFieldsDisplay extends ConsumerWidget {
     flushCompactRun();
     return widgets;
   }
-
 
   /// Format the raw stored value into a human-readable string for display.
   ///
@@ -302,6 +302,7 @@ class _FieldValueRow extends StatelessWidget {
             fit: FlexFit.tight,
             child: _FieldValueBody(
               entry: entry,
+              compact: true,
               textStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
               textAlign: TextAlign.start,
             ),
@@ -390,11 +391,7 @@ class _FieldValueCard extends StatelessWidget {
 
     final sized = SizedBox(width: double.infinity, child: surface);
     if (hideTitle) {
-      return Semantics(
-        container: true,
-        label: entry.field.name,
-        child: sized,
-      );
+      return Semantics(container: true, label: entry.field.name, child: sized);
     }
     return sized;
   }
@@ -443,11 +440,7 @@ class _FieldValueStacked extends StatelessWidget {
     );
 
     if (hideTitle) {
-      return Semantics(
-        container: true,
-        label: entry.field.name,
-        child: card,
-      );
+      return Semantics(container: true, label: entry.field.name, child: card);
     }
     return card;
   }
@@ -462,11 +455,13 @@ class _FieldValueStacked extends StatelessWidget {
 class _FieldValueBody extends StatelessWidget {
   const _FieldValueBody({
     required this.entry,
+    this.compact = false,
     this.textStyle,
     this.textAlign = TextAlign.start,
   });
 
   final _FieldValueEntry entry;
+  final bool compact;
   final TextStyle? textStyle;
   final TextAlign textAlign;
 
@@ -488,7 +483,9 @@ class _FieldValueBody extends StatelessWidget {
     // their own internal label.
     final child = CustomFieldDisplayScope(
       labelHandled: true,
-      child: renderer.displayBuilder(context, entry.field, entry.value),
+      child: compact
+          ? renderer.compactBuilder(context, entry.field, entry.value)
+          : renderer.displayBuilder(context, entry.field, entry.value),
     );
 
     if (textStyle == null && textAlign == TextAlign.start) return child;

@@ -23,6 +23,10 @@ sealed class TypedFieldValue with _$TypedFieldValue {
   }) = ChoiceFieldValue;
   const factory TypedFieldValue.scale({int? step}) = ScaleFieldValue;
   const factory TypedFieldValue.slider({double? value}) = SliderFieldValue;
+  const factory TypedFieldValue.member({
+    @Default(<String>{}) Set<String> memberIds,
+    @Default(<String, dynamic>{}) Map<String, dynamic> extra,
+  }) = MemberFieldValue;
 
   /// Forward-compat for unknown field types — preserves raw bytes for
   /// sync re-emit without crashing.

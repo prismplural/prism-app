@@ -316,6 +316,71 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets(
+    'member field values render member-aware previews without raw JSON',
+    (tester) async {
+      _useTallViewport(tester);
+      final semantics = tester.ensureSemantics();
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      for (final member in [('m-1', 'Alice'), ('m-2', 'Bea')]) {
+        await database.membersDao.insertMember(
+          db.MembersCompanion.insert(
+            id: member.$1,
+            name: member.$2,
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        );
+      }
+      await database.customFieldsDao.createField(
+        db.CustomFieldsCompanion.insert(
+          id: 'related-member',
+          name: 'Related member',
+          fieldType: 8,
+          createdAt: DateTime(2026, 1, 3),
+          fieldTypeId: const Value('member'),
+          typeConfigJson: const Value('{"runtimeType":"member"}'),
+        ),
+      );
+      await database.customFieldsDao.upsertValue(
+        db.CustomFieldValuesCompanion.insert(
+          id: 'v-1',
+          customFieldId: 'related-member',
+          memberId: 'm-1',
+          value: '{"memberIds":["m-2","m-1","missing-member"]}',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          database,
+          const CustomFieldDetailScreen(fieldId: 'related-member'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Related member'), findsOneWidget);
+      expect(find.text('Bea'), findsOneWidget);
+      expect(find.text('Self (Alice)'), findsOneWidget);
+      expect(find.text('Unavailable member'), findsOneWidget);
+      expect(find.textContaining('memberIds'), findsNothing);
+      expect(find.textContaining('missing-member'), findsNothing);
+      expect(
+        find.bySemanticsLabel(
+          RegExp(
+            r'Related member for Alice: .*Bea.*Self \(Alice\).*Unavailable member',
+          ),
+        ),
+        findsOneWidget,
+      );
+
+      semantics.dispose();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
   testWidgets('suggests long text when multiple short text values are long', (
     tester,
   ) async {

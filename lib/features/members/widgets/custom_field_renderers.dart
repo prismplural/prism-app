@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/members/widgets/choice_field_widgets.da
 import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/field_input_widget.dart';
 import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
+import 'package:prism_plurality/features/members/widgets/member_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/scale_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -31,21 +32,24 @@ class CustomFieldRenderer {
     CustomField field,
     CustomFieldValue? value,
     String memberId,
-  ) editorBuilder;
+  )
+  editorBuilder;
 
   /// Build the per-member display widget (full detail / card view).
   final Widget Function(
     BuildContext context,
     CustomField field,
     CustomFieldValue value,
-  ) displayBuilder;
+  )
+  displayBuilder;
 
   /// Build the compact list-view display widget.
   final Widget Function(
     BuildContext context,
     CustomField field,
     CustomFieldValue value,
-  ) compactBuilder;
+  )
+  compactBuilder;
 }
 
 /// Renderer registry, keyed by [CustomFieldTypeDefinition.id].
@@ -94,6 +98,11 @@ final Map<String, CustomFieldRenderer> customFieldRenderers = {
     displayBuilder: buildSliderDisplay,
     compactBuilder: buildSliderCompact,
   ),
+  'member': const CustomFieldRenderer(
+    editorBuilder: buildMemberEditor,
+    displayBuilder: buildMemberDisplay,
+    compactBuilder: buildMemberCompact,
+  ),
 };
 
 /// Convenience lookup — returns null for unknown / unregistered types.
@@ -110,7 +119,11 @@ Widget buildTextEditor(
   CustomFieldValue? value,
   String memberId,
 ) {
-  return FieldInputWidget(field: field, memberId: memberId, existingValue: value);
+  return FieldInputWidget(
+    field: field,
+    memberId: memberId,
+    existingValue: value,
+  );
 }
 
 Widget buildTextDisplay(
@@ -137,7 +150,11 @@ Widget buildLongTextEditor(
   CustomFieldValue? value,
   String memberId,
 ) {
-  return FieldInputWidget(field: field, memberId: memberId, existingValue: value);
+  return FieldInputWidget(
+    field: field,
+    memberId: memberId,
+    existingValue: value,
+  );
 }
 
 Widget buildLongTextDisplay(
@@ -164,7 +181,11 @@ Widget buildColorEditor(
   CustomFieldValue? value,
   String memberId,
 ) {
-  return FieldInputWidget(field: field, memberId: memberId, existingValue: value);
+  return FieldInputWidget(
+    field: field,
+    memberId: memberId,
+    existingValue: value,
+  );
 }
 
 Widget buildColorDisplay(
@@ -191,7 +212,11 @@ Widget buildDateEditor(
   CustomFieldValue? value,
   String memberId,
 ) {
-  return FieldInputWidget(field: field, memberId: memberId, existingValue: value);
+  return FieldInputWidget(
+    field: field,
+    memberId: memberId,
+    existingValue: value,
+  );
 }
 
 Widget buildDateDisplay(
@@ -199,7 +224,11 @@ Widget buildDateDisplay(
   CustomField field,
   CustomFieldValue value,
 ) {
-  final displayValue = _formatDateValue(context, value.value, field.datePrecision);
+  final displayValue = _formatDateValue(
+    context,
+    value.value,
+    field.datePrecision,
+  );
   return Text(displayValue);
 }
 
@@ -208,7 +237,11 @@ Widget buildDateCompact(
   CustomField field,
   CustomFieldValue value,
 ) {
-  final displayValue = _formatDateValue(context, value.value, field.datePrecision);
+  final displayValue = _formatDateValue(
+    context,
+    value.value,
+    field.datePrecision,
+  );
   return Text(displayValue);
 }
 

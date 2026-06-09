@@ -55,7 +55,7 @@ extension TypedFieldValuePatterns on TypedFieldValue {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( TextFieldValue value)?  text,TResult Function( LongTextFieldValue value)?  longText,TResult Function( ColorFieldValue value)?  color,TResult Function( DateFieldValue value)?  date,TResult Function( ChoiceFieldValue value)?  choice,TResult Function( ScaleFieldValue value)?  scale,TResult Function( SliderFieldValue value)?  slider,TResult Function( UnsupportedFieldValue value)?  unsupported,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( TextFieldValue value)?  text,TResult Function( LongTextFieldValue value)?  longText,TResult Function( ColorFieldValue value)?  color,TResult Function( DateFieldValue value)?  date,TResult Function( ChoiceFieldValue value)?  choice,TResult Function( ScaleFieldValue value)?  scale,TResult Function( SliderFieldValue value)?  slider,TResult Function( MemberFieldValue value)?  member,TResult Function( UnsupportedFieldValue value)?  unsupported,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case TextFieldValue() when text != null:
@@ -65,7 +65,8 @@ return color(_that);case DateFieldValue() when date != null:
 return date(_that);case ChoiceFieldValue() when choice != null:
 return choice(_that);case ScaleFieldValue() when scale != null:
 return scale(_that);case SliderFieldValue() when slider != null:
-return slider(_that);case UnsupportedFieldValue() when unsupported != null:
+return slider(_that);case MemberFieldValue() when member != null:
+return member(_that);case UnsupportedFieldValue() when unsupported != null:
 return unsupported(_that);case _:
   return orElse();
 
@@ -84,7 +85,7 @@ return unsupported(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( TextFieldValue value)  text,required TResult Function( LongTextFieldValue value)  longText,required TResult Function( ColorFieldValue value)  color,required TResult Function( DateFieldValue value)  date,required TResult Function( ChoiceFieldValue value)  choice,required TResult Function( ScaleFieldValue value)  scale,required TResult Function( SliderFieldValue value)  slider,required TResult Function( UnsupportedFieldValue value)  unsupported,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( TextFieldValue value)  text,required TResult Function( LongTextFieldValue value)  longText,required TResult Function( ColorFieldValue value)  color,required TResult Function( DateFieldValue value)  date,required TResult Function( ChoiceFieldValue value)  choice,required TResult Function( ScaleFieldValue value)  scale,required TResult Function( SliderFieldValue value)  slider,required TResult Function( MemberFieldValue value)  member,required TResult Function( UnsupportedFieldValue value)  unsupported,}){
 final _that = this;
 switch (_that) {
 case TextFieldValue():
@@ -94,7 +95,8 @@ return color(_that);case DateFieldValue():
 return date(_that);case ChoiceFieldValue():
 return choice(_that);case ScaleFieldValue():
 return scale(_that);case SliderFieldValue():
-return slider(_that);case UnsupportedFieldValue():
+return slider(_that);case MemberFieldValue():
+return member(_that);case UnsupportedFieldValue():
 return unsupported(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
@@ -109,7 +111,7 @@ return unsupported(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( TextFieldValue value)?  text,TResult? Function( LongTextFieldValue value)?  longText,TResult? Function( ColorFieldValue value)?  color,TResult? Function( DateFieldValue value)?  date,TResult? Function( ChoiceFieldValue value)?  choice,TResult? Function( ScaleFieldValue value)?  scale,TResult? Function( SliderFieldValue value)?  slider,TResult? Function( UnsupportedFieldValue value)?  unsupported,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( TextFieldValue value)?  text,TResult? Function( LongTextFieldValue value)?  longText,TResult? Function( ColorFieldValue value)?  color,TResult? Function( DateFieldValue value)?  date,TResult? Function( ChoiceFieldValue value)?  choice,TResult? Function( ScaleFieldValue value)?  scale,TResult? Function( SliderFieldValue value)?  slider,TResult? Function( MemberFieldValue value)?  member,TResult? Function( UnsupportedFieldValue value)?  unsupported,}){
 final _that = this;
 switch (_that) {
 case TextFieldValue() when text != null:
@@ -119,7 +121,8 @@ return color(_that);case DateFieldValue() when date != null:
 return date(_that);case ChoiceFieldValue() when choice != null:
 return choice(_that);case ScaleFieldValue() when scale != null:
 return scale(_that);case SliderFieldValue() when slider != null:
-return slider(_that);case UnsupportedFieldValue() when unsupported != null:
+return slider(_that);case MemberFieldValue() when member != null:
+return member(_that);case UnsupportedFieldValue() when unsupported != null:
 return unsupported(_that);case _:
   return null;
 
@@ -137,7 +140,7 @@ return unsupported(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String value)?  text,TResult Function( String value)?  longText,TResult Function( String? hex)?  color,TResult Function( DateTime? value)?  date,TResult Function( Set<String> optionIds,  String? other)?  choice,TResult Function( int? step)?  scale,TResult Function( double? value)?  slider,TResult Function( String raw)?  unsupported,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( String value)?  text,TResult Function( String value)?  longText,TResult Function( String? hex)?  color,TResult Function( DateTime? value)?  date,TResult Function( Set<String> optionIds,  String? other)?  choice,TResult Function( int? step)?  scale,TResult Function( double? value)?  slider,TResult Function( Set<String> memberIds,  Map<String, dynamic> extra)?  member,TResult Function( String raw)?  unsupported,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case TextFieldValue() when text != null:
 return text(_that.value);case LongTextFieldValue() when longText != null:
@@ -146,7 +149,8 @@ return color(_that.hex);case DateFieldValue() when date != null:
 return date(_that.value);case ChoiceFieldValue() when choice != null:
 return choice(_that.optionIds,_that.other);case ScaleFieldValue() when scale != null:
 return scale(_that.step);case SliderFieldValue() when slider != null:
-return slider(_that.value);case UnsupportedFieldValue() when unsupported != null:
+return slider(_that.value);case MemberFieldValue() when member != null:
+return member(_that.memberIds,_that.extra);case UnsupportedFieldValue() when unsupported != null:
 return unsupported(_that.raw);case _:
   return orElse();
 
@@ -165,7 +169,7 @@ return unsupported(_that.raw);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String value)  text,required TResult Function( String value)  longText,required TResult Function( String? hex)  color,required TResult Function( DateTime? value)  date,required TResult Function( Set<String> optionIds,  String? other)  choice,required TResult Function( int? step)  scale,required TResult Function( double? value)  slider,required TResult Function( String raw)  unsupported,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( String value)  text,required TResult Function( String value)  longText,required TResult Function( String? hex)  color,required TResult Function( DateTime? value)  date,required TResult Function( Set<String> optionIds,  String? other)  choice,required TResult Function( int? step)  scale,required TResult Function( double? value)  slider,required TResult Function( Set<String> memberIds,  Map<String, dynamic> extra)  member,required TResult Function( String raw)  unsupported,}) {final _that = this;
 switch (_that) {
 case TextFieldValue():
 return text(_that.value);case LongTextFieldValue():
@@ -174,7 +178,8 @@ return color(_that.hex);case DateFieldValue():
 return date(_that.value);case ChoiceFieldValue():
 return choice(_that.optionIds,_that.other);case ScaleFieldValue():
 return scale(_that.step);case SliderFieldValue():
-return slider(_that.value);case UnsupportedFieldValue():
+return slider(_that.value);case MemberFieldValue():
+return member(_that.memberIds,_that.extra);case UnsupportedFieldValue():
 return unsupported(_that.raw);}
 }
 /// A variant of `when` that fallback to returning `null`
@@ -189,7 +194,7 @@ return unsupported(_that.raw);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String value)?  text,TResult? Function( String value)?  longText,TResult? Function( String? hex)?  color,TResult? Function( DateTime? value)?  date,TResult? Function( Set<String> optionIds,  String? other)?  choice,TResult? Function( int? step)?  scale,TResult? Function( double? value)?  slider,TResult? Function( String raw)?  unsupported,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( String value)?  text,TResult? Function( String value)?  longText,TResult? Function( String? hex)?  color,TResult? Function( DateTime? value)?  date,TResult? Function( Set<String> optionIds,  String? other)?  choice,TResult? Function( int? step)?  scale,TResult? Function( double? value)?  slider,TResult? Function( Set<String> memberIds,  Map<String, dynamic> extra)?  member,TResult? Function( String raw)?  unsupported,}) {final _that = this;
 switch (_that) {
 case TextFieldValue() when text != null:
 return text(_that.value);case LongTextFieldValue() when longText != null:
@@ -198,7 +203,8 @@ return color(_that.hex);case DateFieldValue() when date != null:
 return date(_that.value);case ChoiceFieldValue() when choice != null:
 return choice(_that.optionIds,_that.other);case ScaleFieldValue() when scale != null:
 return scale(_that.step);case SliderFieldValue() when slider != null:
-return slider(_that.value);case UnsupportedFieldValue() when unsupported != null:
+return slider(_that.value);case MemberFieldValue() when member != null:
+return member(_that.memberIds,_that.extra);case UnsupportedFieldValue() when unsupported != null:
 return unsupported(_that.raw);case _:
   return null;
 
@@ -671,6 +677,86 @@ class _$SliderFieldValueCopyWithImpl<$Res>
   return _then(SliderFieldValue(
 value: freezed == value ? _self.value : value // ignore: cast_nullable_to_non_nullable
 as double?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+
+
+class MemberFieldValue implements TypedFieldValue {
+  const MemberFieldValue({final  Set<String> memberIds = const <String>{}, final  Map<String, dynamic> extra = const <String, dynamic>{}}): _memberIds = memberIds,_extra = extra;
+
+
+ final  Set<String> _memberIds;
+@JsonKey() Set<String> get memberIds {
+  if (_memberIds is EqualUnmodifiableSetView) return _memberIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableSetView(_memberIds);
+}
+
+ final  Map<String, dynamic> _extra;
+@JsonKey() Map<String, dynamic> get extra {
+  if (_extra is EqualUnmodifiableMapView) return _extra;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_extra);
+}
+
+
+/// Create a copy of TypedFieldValue
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$MemberFieldValueCopyWith<MemberFieldValue> get copyWith => _$MemberFieldValueCopyWithImpl<MemberFieldValue>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemberFieldValue&&const DeepCollectionEquality().equals(other._memberIds, _memberIds)&&const DeepCollectionEquality().equals(other._extra, _extra));
+}
+
+
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_memberIds),const DeepCollectionEquality().hash(_extra));
+
+@override
+String toString() {
+  return 'TypedFieldValue.member(memberIds: $memberIds, extra: $extra)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $MemberFieldValueCopyWith<$Res> implements $TypedFieldValueCopyWith<$Res> {
+  factory $MemberFieldValueCopyWith(MemberFieldValue value, $Res Function(MemberFieldValue) _then) = _$MemberFieldValueCopyWithImpl;
+@useResult
+$Res call({
+ Set<String> memberIds, Map<String, dynamic> extra
+});
+
+
+
+
+}
+/// @nodoc
+class _$MemberFieldValueCopyWithImpl<$Res>
+    implements $MemberFieldValueCopyWith<$Res> {
+  _$MemberFieldValueCopyWithImpl(this._self, this._then);
+
+  final MemberFieldValue _self;
+  final $Res Function(MemberFieldValue) _then;
+
+/// Create a copy of TypedFieldValue
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? memberIds = null,Object? extra = null,}) {
+  return _then(MemberFieldValue(
+memberIds: null == memberIds ? _self._memberIds : memberIds // ignore: cast_nullable_to_non_nullable
+as Set<String>,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>,
   ));
 }
 

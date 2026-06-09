@@ -1,13 +1,5 @@
 // Tests for the shared "Show title on profiles" toggle wired into the
-// create/edit field sheet for every custom field type (BATCH 5).
-//
-// NOTE: Widget tests in this file may be blocked by a pre-existing compilation
-// error in lib/core/sync/prism_sync_providers.dart (ffi.verifyMnemonicPin not
-// found in the prism_sync generated API). This affects ALL widget tests in the
-// project — it is not introduced by this batch. Pure-Dart tests below pass fine.
-//
-// To run only the pure-Dart tests (which pass):
-//   flutter test test/features/settings/widgets/create_edit_field_sheet_title_toggle_test.dart
+// create/edit field sheet for every custom field type.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -267,6 +259,61 @@ void main() {
           isNull,
           reason: 'no stale config should be written on revert',
         );
+      },
+    );
+  });
+
+  group('Create/Edit Field Sheet — Show title toggle: Member type', () {
+    testWidgets(
+      'editing member field preserves extra config when show-title is toggled on',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        final existingField = CustomField(
+          id: 'field-member-1',
+          name: 'Partner',
+          fieldType: CustomFieldType.text,
+          displayOrder: 0,
+          createdAt: DateTime.utc(2026, 1, 1),
+          fieldTypeId: 'member',
+          typeConfig: const MemberConfig(
+            hideTitleOnProfile: true,
+            extra: {'future': true},
+          ),
+        );
+
+        await tester.pumpWidget(
+          _buildSheet(field: existingField, notifier: notifier),
+        );
+        await tester.pumpAndSettle();
+
+        final sw = tester.widget<Switch>(
+          find
+              .descendant(
+                of: find.widgetWithText(
+                  SwitchListTile,
+                  'Show title on profiles',
+                ),
+                matching: find.byType(Switch),
+              )
+              .first,
+        );
+        expect(sw.value, isFalse);
+
+        await tester.tap(
+          find.widgetWithText(SwitchListTile, 'Show title on profiles'),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(AppIcons.check));
+        await tester.pumpAndSettle();
+
+        expect(notifier.lastWrittenConfigFieldId, 'field-member-1');
+        final config = notifier.lastWrittenConfig;
+        expect(config, isA<MemberConfig>());
+        expect(effectiveHideTitleOnProfile(config), isFalse);
+        expect((config! as MemberConfig).extra, {'future': true});
+        expect(notifier.clearTypedConfigCalled, isFalse);
       },
     );
   });

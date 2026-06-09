@@ -619,6 +619,16 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     );
   }
 
+  /// Returns null when at default — see [_buildTextConfig].
+  MemberConfig? _buildMemberConfig() {
+    final existing = widget.field?.typeConfig;
+    final extra = existing is MemberConfig
+        ? existing.extra
+        : const <String, dynamic>{};
+    if (!_hideTitleOnProfile && extra.isEmpty) return null;
+    return MemberConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+  }
+
   // ── Slider numeric validation ───────────────────────────────────────
 
   /// Returns a validation error message when the numeric slider config is
@@ -703,6 +713,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         'color' => _buildColorConfig(),
         'date' => _buildDateConfig(),
         'long_text' => _buildLongTextConfig(),
+        'member' => _buildMemberConfig(),
         _ => null,
       };
 

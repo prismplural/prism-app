@@ -8,11 +8,14 @@ import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 void main() {
   const memberId = 'member-1';
@@ -549,6 +552,186 @@ void main() {
   );
 
   testWidgets(
+    'member field picker stages locally and commit persists selected members',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final field = CustomField(
+        id: 'member-field',
+        name: 'Related Members',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'member',
+        createdAt: DateTime(2026, 1, 1),
+      );
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: [field],
+          values: const [],
+          members: [
+            _member(id: memberId, name: 'Current', displayOrder: 0),
+            _member(id: 'alice', name: 'Alice', displayOrder: 1),
+            _member(
+              id: 'inactive',
+              name: 'Inactive',
+              displayOrder: 2,
+              isActive: false,
+            ),
+            _member(
+              id: 'deleted',
+              name: 'Deleted',
+              displayOrder: 3,
+              isDeleted: true,
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Select Headmates'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Current'), findsNothing);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Inactive'), findsOneWidget);
+      expect(find.text('Deleted'), findsNothing);
+
+      await tester.tap(find.text('Alice'));
+      await tester.tap(find.text('Inactive'));
+      await tester.tap(find.byTooltip('Confirm selected headmates'));
+      await tester.pumpAndSettle();
+
+      expect(repo.upsertedValues, isEmpty);
+      expect(controller.hasPendingChanges, isTrue);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Inactive'), findsOneWidget);
+
+      final failures = await controller.commit();
+      await tester.pump();
+
+      expect(failures, isEmpty);
+      expect(repo.upsertedValues, hasLength(1));
+      expect(repo.upsertedValues.single.customFieldId, 'member-field');
+      expect(
+        repo.upsertedValues.single.value,
+        '{"memberIds":["alice","inactive"]}',
+      );
+      expect(controller.hasPendingChanges, isFalse);
+    },
+  );
+
+  testWidgets('member field clearing an existing value deletes the value row', (
+    tester,
+  ) async {
+    final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
+    final showEditor = ValueNotifier(true);
+    final field = CustomField(
+      id: 'member-field',
+      name: 'Related Members',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    const existing = CustomFieldValue(
+      id: 'existing-value',
+      customFieldId: 'member-field',
+      memberId: memberId,
+      value: '{"memberIds":["alice"]}',
+    );
+
+    await tester.pumpWidget(
+      _subject(
+        repo: repo,
+        controller: controller,
+        showEditor: showEditor,
+        memberId: memberId,
+        fields: [field],
+        values: const [existing],
+        members: [
+          _member(id: memberId, name: 'Current', displayOrder: 0),
+          _member(id: 'alice', name: 'Alice', displayOrder: 1),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove Alice'));
+    await tester.pumpAndSettle();
+
+    expect(repo.deletedValueIds, isEmpty);
+    expect(controller.hasPendingChanges, isTrue);
+
+    final failures = await controller.commit();
+    await tester.pump();
+
+    expect(failures, isEmpty);
+    expect(repo.upsertedValues, isEmpty);
+    expect(repo.deletedValueIds, ['existing-value']);
+    expect(controller.hasPendingChanges, isFalse);
+  });
+
+  testWidgets('member field edits preserve forward-compatible value keys', (
+    tester,
+  ) async {
+    final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
+    final showEditor = ValueNotifier(true);
+    final field = CustomField(
+      id: 'member-field',
+      name: 'Related Members',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    const existing = CustomFieldValue(
+      id: 'existing-value',
+      customFieldId: 'member-field',
+      memberId: memberId,
+      value:
+          '{"memberIds":["alice"],"relationshipMeta":{"kind":"sibling"},"futureFlag":true}',
+    );
+
+    await tester.pumpWidget(
+      _subject(
+        repo: repo,
+        controller: controller,
+        showEditor: showEditor,
+        memberId: memberId,
+        fields: [field],
+        values: const [existing],
+        members: [
+          _member(id: memberId, name: 'Current', displayOrder: 0),
+          _member(id: 'alice', name: 'Alice', displayOrder: 1),
+          _member(id: 'bob', name: 'Bob', displayOrder: 2),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Select Headmates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bob'));
+    await tester.tap(find.byTooltip('Confirm selected headmates'));
+    await tester.pumpAndSettle();
+
+    final failures = await controller.commit();
+    await tester.pump();
+
+    expect(failures, isEmpty);
+    expect(repo.upsertedValues, hasLength(1));
+    expect(
+      repo.upsertedValues.single.value,
+      '{"memberIds":["alice","bob"],"futureFlag":true,"relationshipMeta":{"kind":"sibling"}}',
+    );
+  });
+
+  testWidgets(
     'dirty grouped child state survives after the group scrolls offscreen',
     (tester) async {
       final repo = _FakeCustomFieldsRepository();
@@ -710,6 +893,23 @@ List<CustomField> _textFields({
   );
 }
 
+Member _member({
+  required String id,
+  required String name,
+  int displayOrder = 0,
+  bool isActive = true,
+  bool isDeleted = false,
+}) {
+  return Member(
+    id: id,
+    name: name,
+    displayOrder: displayOrder,
+    isActive: isActive,
+    isDeleted: isDeleted,
+    createdAt: DateTime(2026, 1, 1),
+  );
+}
+
 class _StubEditState implements PendingFieldEditState {
   _StubEditState(this.fieldId);
 
@@ -731,9 +931,15 @@ Widget _subject({
   required List<CustomField> fields,
   required List<CustomFieldValue> values,
   ScrollController? scrollController,
+  List<Member> members = const [],
 }) {
+  final memberRepo = FakeMemberRepository()..seed(members);
   return ProviderScope(
     overrides: [
+      systemSettingsRepositoryProvider.overrideWithValue(
+        FakeSystemSettingsRepository(),
+      ),
+      memberRepositoryProvider.overrideWithValue(memberRepo),
       customFieldsRepositoryProvider.overrideWithValue(repo),
       customFieldsProvider.overrideWithValue(AsyncValue.data(fields)),
       memberCustomFieldValuesProvider(

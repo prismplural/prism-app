@@ -16,6 +16,7 @@ String resolveFieldTypeLabel(AppLocalizations l10n, String labelL10nKey) {
     'customFieldTypeGroup' => l10n.customFieldTypeGroup,
     'customFieldTypeScale' => l10n.customFieldTypeScale,
     'customFieldTypeSlider' => l10n.customFieldTypeSlider,
+    'customFieldTypeMember' => l10n.customFieldTypeMember,
     _ => labelL10nKey,
   };
 }

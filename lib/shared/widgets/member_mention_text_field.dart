@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -523,9 +522,9 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
           child: Container(
             constraints: BoxConstraints(minWidth: minWidth, maxHeight: 240),
             decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.warmBlack.withValues(alpha: 0.88)
-                  : theme.colorScheme.surface.withValues(alpha: 0.96),
+              color: theme.colorScheme.surface.withValues(
+                alpha: isDark ? 0.92 : 0.96,
+              ),
               borderRadius: BorderRadius.circular(
                 PrismShapes.of(context).radius(16),
               ),
@@ -534,7 +533,7 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.warmBlack.withValues(alpha: 0.18),
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.18),
                   blurRadius: 20,
                   offset: const Offset(0, 4),
                 ),

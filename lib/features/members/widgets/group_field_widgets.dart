@@ -298,7 +298,7 @@ class _GroupChildDisplay extends StatelessWidget {
               child: DefaultTextStyle.merge(
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                 textAlign: TextAlign.start,
-                child: entry.renderer.displayBuilder(
+                child: entry.renderer.compactBuilder(
                   context,
                   entry.child,
                   entry.value,

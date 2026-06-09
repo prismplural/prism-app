@@ -11350,6 +11350,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldTypeSlider => 'Slider';
 
   @override
+  String get customFieldTypeMember => 'Member';
+
+  @override
+  String customFieldMemberSelectedSemantic(
+    String fieldName,
+    String memberName,
+  ) {
+    return '$fieldName, $memberName, selected member';
+  }
+
+  @override
+  String customFieldMemberRemoveMember(String memberName) {
+    return 'Remove $memberName';
+  }
+
+  @override
+  String get customFieldMemberSelfReference => 'Self reference';
+
+  @override
+  String get customFieldMemberUnavailable => 'Unavailable member';
+
+  @override
+  String customFieldMemberChipSemantic(String fieldName, String label) {
+    return '$fieldName, $label';
+  }
+
+  @override
+  String customFieldMemberRemoveSelection(String label) {
+    return 'Remove $label';
+  }
+
+  @override
+  String customFieldMemberSelfReferenceWithName(String memberName) {
+    return 'Self ($memberName)';
+  }
+
+  @override
   String get customFieldSliderModeHeading => 'Slider type';
 
   @override

@@ -3,9 +3,11 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
@@ -13,24 +15,31 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
+import '../../../helpers/fake_repositories.dart';
+
 void main() {
   const memberId = 'member-1';
 
   Widget subject({
     required List<CustomField> fields,
     required List<CustomFieldValue> values,
+    List<Member> members = const [],
+    Locale locale = const Locale('en'),
   }) {
+    final memberRepo = FakeMemberRepository()..seed(members);
     return ProviderScope(
       overrides: [
+        memberRepositoryProvider.overrideWithValue(memberRepo),
         customFieldsProvider.overrideWithValue(AsyncValue.data(fields)),
         memberCustomFieldValuesProvider(
           memberId,
         ).overrideWithValue(AsyncValue.data(values)),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: [Locale('en')],
-        home: Scaffold(
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: locale,
+        home: const Scaffold(
           body: SingleChildScrollView(
             child: CustomFieldsDisplay(memberId: memberId),
           ),
@@ -54,6 +63,23 @@ void main() {
     memberId: memberId,
     value: text,
   );
+
+  Member member(
+    String id,
+    String name, {
+    int displayOrder = 0,
+    bool isActive = true,
+    bool isDeleted = false,
+  }) {
+    return Member(
+      id: id,
+      name: name,
+      displayOrder: displayOrder,
+      isActive: isActive,
+      isDeleted: isDeleted,
+      createdAt: DateTime(2026, 1, 1),
+    );
+  }
 
   testWidgets('short text fields render inline markdown', (tester) async {
     await tester.pumpWidget(
@@ -81,6 +107,65 @@ void main() {
 
     expect(find.byType(MarkdownBody), findsOneWidget);
     expect(find.text('Field long'), findsOneWidget);
+  });
+
+  testWidgets(
+    'member field display resolves selected ids as member chips without raw JSON',
+    (tester) async {
+      final memberField = CustomField(
+        id: 'support-team',
+        name: 'Support team',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'member',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      const raw = '{"memberIds":["bob","missing","alice","member-1"]}';
+
+      await tester.pumpWidget(
+        subject(
+          fields: [memberField],
+          values: [value(memberField.id, raw)],
+          members: [
+            member('alice', 'Alice', displayOrder: 2),
+            member('bob', 'Bob', displayOrder: 1),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Bob'), findsOneWidget);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('Self reference'), findsOneWidget);
+      expect(find.text('Unavailable member'), findsOneWidget);
+      expect(find.textContaining('memberIds'), findsNothing);
+    },
+  );
+
+  testWidgets('member field placeholders localize in Spanish', (tester) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Equipo de apoyo',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    const raw = '{"memberIds":["member-1","missing"]}';
+
+    await tester.pumpWidget(
+      subject(
+        fields: [memberField],
+        values: [value(memberField.id, raw)],
+        locale: const Locale('es'),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Referencia propia'), findsOneWidget);
+    expect(find.text('Miembro no disponible'), findsOneWidget);
+    expect(find.text('Self reference'), findsNothing);
+    expect(find.text('Unavailable member'), findsNothing);
   });
 
   testWidgets(
@@ -779,6 +864,44 @@ void main() {
     expect(find.byType(MarkdownBody), findsOneWidget);
   });
 
+  testWidgets(
+    'grouped compact member child resolves names instead of raw JSON',
+    (tester) async {
+      final group = CustomField(
+        id: 'grp-members',
+        name: 'People',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const GroupConfig(),
+      );
+      final memberChild = CustomField(
+        id: 'child-member',
+        name: 'Related',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'member',
+        parentFieldId: 'grp-members',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+      );
+      const raw = '{"memberIds":["alice"]}';
+
+      await tester.pumpWidget(
+        subject(
+          fields: [group, memberChild],
+          values: [value(memberChild.id, raw)],
+          members: [member('alice', 'Alice')],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Related'), findsOneWidget);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.textContaining('memberIds'), findsNothing);
+    },
+  );
+
   testWidgets('an empty group reserves no space between its neighbors', (
     tester,
   ) async {
@@ -831,28 +954,34 @@ void main() {
 
   // ── N-color gradient render seam tests ─────────────────────────────────────
 
-  test('resolveTrackColors: 4-color gradientColorsHex resolves to 4 colors', () {
-    const config = SliderConfig(
-      mode: SliderMode.labeled,
-      gradientColorsHex: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
-    );
-    final colors = resolveTrackColorsForTest(config);
-    expect(colors, isNotNull);
-    expect(colors!.length, 4);
-  });
+  test(
+    'resolveTrackColors: 4-color gradientColorsHex resolves to 4 colors',
+    () {
+      const config = SliderConfig(
+        mode: SliderMode.labeled,
+        gradientColorsHex: ['#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
+      );
+      final colors = resolveTrackColorsForTest(config);
+      expect(colors, isNotNull);
+      expect(colors!.length, 4);
+    },
+  );
 
-  test('resolveTrackColors: empty gradientColorsHex falls through to legacy', () {
-    const config = SliderConfig(
-      mode: SliderMode.labeled,
-      gradientColorsHex: [],
-      leftColorHex: '#FF0000',
-      rightColorHex: '#0000FF',
-    );
-    final colors = resolveTrackColorsForTest(config);
-    // Must fall through to legacy left/right, not produce an empty list.
-    expect(colors, isNotNull);
-    expect(colors!.length, 2);
-  });
+  test(
+    'resolveTrackColors: empty gradientColorsHex falls through to legacy',
+    () {
+      const config = SliderConfig(
+        mode: SliderMode.labeled,
+        gradientColorsHex: [],
+        leftColorHex: '#FF0000',
+        rightColorHex: '#0000FF',
+      );
+      final colors = resolveTrackColorsForTest(config);
+      // Must fall through to legacy left/right, not produce an empty list.
+      expect(colors, isNotNull);
+      expect(colors!.length, 2);
+    },
+  );
 
   test(
     'resolveTrackColors: empty gradientColorsHex with no legacy hex returns null',
@@ -907,7 +1036,7 @@ void main() {
       const y = Color(0xFFFFFF00);
 
       final colorsA = [r, g, b, y];
-      final colorsB = [r, Color(0xFF123456), b, y]; // only interior changed
+      final colorsB = [r, const Color(0xFF123456), b, y];
 
       expect(sameTrackColorsForTest(colorsA, colorsA), isTrue);
       expect(sameTrackColorsForTest(colorsA, colorsB), isFalse);
