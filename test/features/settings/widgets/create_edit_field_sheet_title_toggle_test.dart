@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -75,10 +77,24 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
 
-Widget _buildSheet({CustomField? field, _FakeCustomFieldNotifier? notifier}) {
+Widget _buildSheet({
+  CustomField? field,
+  _FakeCustomFieldNotifier? notifier,
+  ({
+    SystemTerminology term,
+    String? customSingular,
+    String? customPlural,
+    bool useEnglish,
+  })?
+  terminology,
+}) {
   final fakeNotifier = notifier ?? _FakeCustomFieldNotifier();
   return ProviderScope(
-    overrides: [customFieldNotifierProvider.overrideWith(() => fakeNotifier)],
+    overrides: [
+      customFieldNotifierProvider.overrideWith(() => fakeNotifier),
+      if (terminology != null)
+        terminologySettingProvider.overrideWithValue(terminology),
+    ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
@@ -264,6 +280,56 @@ void main() {
   });
 
   group('Create/Edit Field Sheet — Show title toggle: Member type', () {
+    testWidgets('member type chip uses custom terminology', (tester) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _buildSheet(
+          terminology: (
+            term: SystemTerminology.custom,
+            customSingular: 'companion',
+            customPlural: 'companions',
+            useEnglish: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Companion'), findsOneWidget);
+      expect(find.text('Member'), findsNothing);
+    });
+
+    testWidgets('editing member field saves selected layout', (tester) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      final existingField = CustomField(
+        id: 'field-member-layout',
+        name: 'Siblings',
+        fieldType: CustomFieldType.text,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026, 1, 1),
+        fieldTypeId: 'member',
+        typeConfig: const MemberConfig(extra: {'future': true}),
+      );
+
+      await tester.pumpWidget(
+        _buildSheet(field: existingField, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Stacked'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.lastWrittenConfigFieldId, 'field-member-layout');
+      final config = notifier.lastWrittenConfig;
+      expect(config, isA<MemberConfig>());
+      final memberConfig = config! as MemberConfig;
+      expect(memberConfig.displayLayout, DisplayLayout.stacked);
+      expect(memberConfig.extra, {'future': true});
+    });
+
     testWidgets(
       'editing member field preserves extra config when show-title is toggled on',
       (tester) async {

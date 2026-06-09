@@ -315,7 +315,7 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
 
     if (chips.isEmpty) return const SizedBox.shrink();
     return Wrap(
-      spacing: compact ? 4 : 6,
+      spacing: compact ? 10 : 6,
       runSpacing: compact ? 3 : 4,
       children: chips,
     );

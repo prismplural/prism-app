@@ -14,6 +14,7 @@ import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -121,6 +122,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   bool _sliderShowTicks = false;
 
   bool _hideTitleOnProfile = false;
+  DisplayLayout? _memberDisplayLayout;
 
   bool _saving = false;
   late final String _initialName;
@@ -135,7 +137,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           effectiveHideTitleOnProfile(widget.field?.typeConfig) ||
       (_selectedTypeId == 'choice' && _isChoiceDirty) ||
       (_selectedTypeId == 'scale' && _isScaleDirty) ||
-      (_selectedTypeId == 'slider' && _isSliderDirty);
+      (_selectedTypeId == 'slider' && _isSliderDirty) ||
+      (_selectedTypeId == 'member' && _isMemberDirty);
 
   bool get _isScaleDirty {
     final existingConfig = widget.field?.typeConfig;
@@ -190,6 +193,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
             double.tryParse(_sliderStepController.text.trim()) ||
         existingConfig.unit != toNullable(_sliderUnitController.text) ||
         existingConfig.showTicks != _sliderShowTicks;
+  }
+
+  bool get _isMemberDirty {
+    final existingConfig = widget.field?.typeConfig;
+    if (existingConfig is! MemberConfig || _selectedTypeId != 'member') {
+      return _memberDisplayLayout != null;
+    }
+    return existingConfig.displayLayout != _memberDisplayLayout;
   }
 
   bool get _isChoiceDirty {
@@ -258,6 +269,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         if (_scaleShowCustomEmojiInput) {
           _scaleCustomEmojiController.text = config.emoji;
         }
+      }
+      if (f.typeConfig is MemberConfig) {
+        final config = f.typeConfig! as MemberConfig;
+        _memberDisplayLayout = config.displayLayout;
       }
       // Hydrate show-title toggle from existing field.
       _hideTitleOnProfile = effectiveHideTitleOnProfile(f.typeConfig);
@@ -625,8 +640,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final extra = existing is MemberConfig
         ? existing.extra
         : const <String, dynamic>{};
-    if (!_hideTitleOnProfile && extra.isEmpty) return null;
-    return MemberConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+    if (!_hideTitleOnProfile && _memberDisplayLayout == null && extra.isEmpty) {
+      return null;
+    }
+    return MemberConfig(
+      displayLayout: _memberDisplayLayout,
+      hideTitleOnProfile: _hideTitleOnProfile,
+      extra: extra,
+    );
   }
 
   // ── Slider numeric validation ───────────────────────────────────────
@@ -1018,6 +1039,15 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                       ),
                     ],
 
+                    if (_selectedTypeId == 'member') ...[
+                      const SizedBox(height: 24),
+                      _MemberConfigSection(
+                        displayLayout: _memberDisplayLayout,
+                        onDisplayLayoutChanged: (v) =>
+                            setState(() => _memberDisplayLayout = v),
+                      ),
+                    ],
+
                     // Slider config
                     if (_selectedTypeId == 'slider') ...[
                       const SizedBox(height: 24),
@@ -1102,7 +1132,11 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   /// Resolve a registry definition's labelL10nKey into the localized string.
   /// Delegates to the shared resolver so every surface stays in sync.
   String _labelForDef(BuildContext context, CustomFieldTypeDefinition def) =>
-      localizedFieldTypeDefLabel(context.l10n, def);
+      localizedFieldTypeDefLabel(
+        context.l10n,
+        def,
+        memberTypeLabel: watchTerminology(context, ref).singular,
+      );
 }
 
 // ── Choice config section ───────────────────────────────────────────────────
@@ -1485,6 +1519,50 @@ class _ScaleConfigSection extends StatelessWidget {
         // it was descoped from this batch to keep the surface tight. When
         // implemented, add a "Step labels" toggle here that reveals a list of
         // N text inputs, one per step.
+      ],
+    );
+  }
+}
+
+class _MemberConfigSection extends StatelessWidget {
+  const _MemberConfigSection({
+    required this.displayLayout,
+    required this.onDisplayLayoutChanged,
+  });
+
+  final DisplayLayout? displayLayout;
+  final ValueChanged<DisplayLayout?> onDisplayLayoutChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.customFieldMemberLayoutHeading,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        PrismSegmentedControl<DisplayLayout?>(
+          segments: [
+            PrismSegment(value: null, label: l10n.customFieldMemberLayoutAuto),
+            PrismSegment(
+              value: DisplayLayout.compact,
+              label: l10n.customFieldMemberLayoutCompact,
+            ),
+            PrismSegment(
+              value: DisplayLayout.stacked,
+              label: l10n.customFieldMemberLayoutStacked,
+            ),
+          ],
+          selected: displayLayout,
+          onChanged: onDisplayLayoutChanged,
+        ),
       ],
     );
   }

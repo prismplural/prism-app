@@ -118,12 +118,17 @@ const _$SliderModeEnumMap = {
 };
 
 MemberConfig _$MemberConfigFromJson(Map<String, dynamic> json) => MemberConfig(
+  displayLayout: $enumDecodeNullable(
+    _$DisplayLayoutEnumMap,
+    json['displayLayout'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
 
 Map<String, dynamic> _$MemberConfigToJson(MemberConfig instance) =>
     <String, dynamic>{
+      'displayLayout': _$DisplayLayoutEnumMap[instance.displayLayout],
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };

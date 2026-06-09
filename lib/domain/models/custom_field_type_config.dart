@@ -16,13 +16,16 @@ enum SliderMode { labeled, numeric }
 /// [effectiveDisplayLayout]).
 enum DisplayLayout { compact, stacked }
 
-/// Per-field override (only `ScaleConfig` carries one today) wins over the
-/// type-aware default. Sliders always stack; everything else defaults to compact.
+/// Per-field overrides win over the type-aware default. Sliders always stack;
+/// everything else defaults to compact.
 DisplayLayout effectiveDisplayLayout({
   String? fieldTypeId,
   CustomFieldTypeConfig? typeConfig,
 }) {
   if (typeConfig is ScaleConfig && typeConfig.displayLayout != null) {
+    return typeConfig.displayLayout!;
+  }
+  if (typeConfig is MemberConfig && typeConfig.displayLayout != null) {
     return typeConfig.displayLayout!;
   }
   if (fieldTypeId == 'slider') return DisplayLayout.stacked;
@@ -92,6 +95,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
   }) = SliderConfig;
 
   const factory CustomFieldTypeConfig.member({
+    DisplayLayout? displayLayout,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -287,7 +291,11 @@ class CustomFieldTypeConfigCodec {
         'showTicks',
         'hideTitleOnProfile',
       },
-      MemberConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
+      MemberConfig _ => const {
+        'runtimeType',
+        'displayLayout',
+        'hideTitleOnProfile',
+      },
       TextConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
       ColorConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
       DateConfig _ => const {'runtimeType', 'hideTitleOnProfile'},

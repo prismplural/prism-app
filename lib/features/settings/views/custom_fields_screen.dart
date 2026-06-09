@@ -157,7 +157,11 @@ class _FieldsListState extends ConsumerState<_FieldsList> {
 
   String _subtitleForField(BuildContext context, CustomField field) {
     final l10n = context.l10n;
-    final typeLabel = localizedFieldTypeLabel(l10n, field);
+    final typeLabel = localizedFieldTypeLabel(
+      l10n,
+      field,
+      memberTypeLabel: watchTerminology(context, ref).singular,
+    );
     if (field.fieldType == CustomFieldType.date &&
         field.datePrecision != null) {
       return '$typeLabel • ${field.datePrecision!.localizedLabel(l10n)}';

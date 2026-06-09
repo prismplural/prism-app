@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
@@ -166,6 +167,96 @@ void main() {
     expect(find.text('Miembro no disponible'), findsOneWidget);
     expect(find.text('Self reference'), findsNothing);
     expect(find.text('Unavailable member'), findsNothing);
+  });
+
+  testWidgets('stacked member field renders outside compact field group', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const MemberConfig(displayLayout: DisplayLayout.stacked),
+    );
+    final textField = field('nickname', CustomFieldType.text, name: 'Nickname');
+
+    await tester.pumpWidget(
+      subject(
+        fields: [textField, memberField],
+        values: [
+          value(textField.id, 'A'),
+          value(memberField.id, '{"memberIds":["alice"]}'),
+        ],
+        members: [member('alice', 'Alice')],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(PrismSectionCard), findsNWidgets(2));
+    expect(find.text('Support team'), findsOneWidget);
+    expect(find.text('Alice'), findsOneWidget);
+  });
+
+  testWidgets('compact member field renders as an inline field row', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'best-friend',
+      name: 'Best friend',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const MemberConfig(displayLayout: DisplayLayout.compact),
+    );
+    const friendId = '550e8400-e29b-41d4-a716-446655440000';
+
+    await tester.pumpWidget(
+      subject(
+        fields: [memberField],
+        values: [value(memberField.id, '{"memberIds":["$friendId"]}')],
+        members: [member(friendId, 'Melanie')],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final labelCenter = tester.getCenter(find.text('Best friend'));
+    final chipCenter = tester.getCenter(find.text('Melanie'));
+    expect((labelCenter.dy - chipCenter.dy).abs(), lessThan(20));
+    expect(find.textContaining('memberIds'), findsNothing);
+  });
+
+  testWidgets('compact member field leaves space between member chips', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const MemberConfig(displayLayout: DisplayLayout.compact),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [memberField],
+        values: [value(memberField.id, '{"memberIds":["alice","bob"]}')],
+        members: [
+          member('alice', 'Alice', displayOrder: 0),
+          member('bob', 'Bob', displayOrder: 1),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final first = tester.getRect(find.byType(MemberChip).at(0));
+    final second = tester.getRect(find.byType(MemberChip).at(1));
+    expect(second.left - first.right, greaterThanOrEqualTo(10));
   });
 
   testWidgets(

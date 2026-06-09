@@ -71,7 +71,10 @@ void main() {
     });
 
     test('MemberConfig round-trips', () {
-      const c = MemberConfig(hideTitleOnProfile: true);
+      const c = MemberConfig(
+        displayLayout: DisplayLayout.stacked,
+        hideTitleOnProfile: true,
+      );
       final json = CustomFieldTypeConfigCodec.toJson(c);
       final back = CustomFieldTypeConfigCodec.fromJson(json);
       expect(back, c);
@@ -630,6 +633,23 @@ void main() {
         isTrue,
       );
     });
+
+    test('MemberConfig displayLayout overrides the compact default', () {
+      expect(
+        effectiveDisplayLayout(
+          fieldTypeId: 'member',
+          typeConfig: const MemberConfig(),
+        ),
+        DisplayLayout.compact,
+      );
+      expect(
+        effectiveDisplayLayout(
+          fieldTypeId: 'member',
+          typeConfig: const MemberConfig(displayLayout: DisplayLayout.stacked),
+        ),
+        DisplayLayout.stacked,
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -760,10 +780,12 @@ void main() {
       }
     });
 
-    // MemberConfig known keys
     test('MemberConfig — each known key individually stays out of extra', () {
-      for (final key in ['hideTitleOnProfile']) {
-        final json = makeJson('member', {'hideTitleOnProfile': false});
+      for (final key in ['displayLayout', 'hideTitleOnProfile']) {
+        final json = makeJson('member', {
+          'displayLayout': null,
+          'hideTitleOnProfile': false,
+        });
         json[key] = json[key];
         assertNoExtraLeakage('MemberConfig/$key', json);
       }

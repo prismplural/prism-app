@@ -18250,6 +18250,30 @@ abstract class AppLocalizations {
   /// **'Member'**
   String get customFieldTypeMember;
 
+  /// Section heading for the member field layout choice (auto/compact/stacked) in field settings
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get customFieldMemberLayoutHeading;
+
+  /// Layout choice meaning 'use the type-aware default' (currently compact for member fields)
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get customFieldMemberLayoutAuto;
+
+  /// Layout choice: label-left, member chips-right on one row
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get customFieldMemberLayoutCompact;
+
+  /// Layout choice: label above, member chips on their own row below
+  ///
+  /// In en, this message translates to:
+  /// **'Stacked'**
+  String get customFieldMemberLayoutStacked;
+
   /// Semantics label for a selected member custom field chip
   ///
   /// In en, this message translates to:

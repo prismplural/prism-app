@@ -11353,6 +11353,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldTypeMember => 'Member';
 
   @override
+  String get customFieldMemberLayoutHeading => 'Layout';
+
+  @override
+  String get customFieldMemberLayoutAuto => 'Auto';
+
+  @override
+  String get customFieldMemberLayoutCompact => 'Compact';
+
+  @override
+  String get customFieldMemberLayoutStacked => 'Stacked';
+
+  @override
   String customFieldMemberSelectedSemantic(
     String fieldName,
     String memberName,

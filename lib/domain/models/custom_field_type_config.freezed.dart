@@ -226,14 +226,14 @@ return longText(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  List<String>? gradientColorsHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  member,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  text,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  color,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  date,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  longText,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  List<String>? gradientColorsHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,TResult Function( DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  member,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  text,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  color,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  date,TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  longText,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
 return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.hideTitleOnProfile,_that.extra);case GroupConfig() when group != null:
 return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig() when scale != null:
 return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case SliderConfig() when slider != null:
 return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.gradientColorsHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.hideTitleOnProfile,_that.extra);case MemberConfig() when member != null:
-return member(_that.hideTitleOnProfile,_that.extra);case TextConfig() when text != null:
+return member(_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case TextConfig() when text != null:
 return text(_that.hideTitleOnProfile,_that.extra);case ColorConfig() when color != null:
 return color(_that.hideTitleOnProfile,_that.extra);case DateConfig() when date != null:
 return date(_that.hideTitleOnProfile,_that.extra);case LongTextConfig() when longText != null:
@@ -255,14 +255,14 @@ return longText(_that.hideTitleOnProfile,_that.extra);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  choice,required TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  group,required TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  scale,required TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  List<String>? gradientColorsHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  slider,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  member,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  text,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  color,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  date,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  longText,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  choice,required TResult Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  group,required TResult Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  scale,required TResult Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  List<String>? gradientColorsHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  slider,required TResult Function( DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  member,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  text,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  color,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  date,required TResult Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)  longText,}) {final _that = this;
 switch (_that) {
 case ChoiceConfig():
 return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.hideTitleOnProfile,_that.extra);case GroupConfig():
 return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig():
 return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case SliderConfig():
 return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.gradientColorsHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.hideTitleOnProfile,_that.extra);case MemberConfig():
-return member(_that.hideTitleOnProfile,_that.extra);case TextConfig():
+return member(_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case TextConfig():
 return text(_that.hideTitleOnProfile,_that.extra);case ColorConfig():
 return color(_that.hideTitleOnProfile,_that.extra);case DateConfig():
 return date(_that.hideTitleOnProfile,_that.extra);case LongTextConfig():
@@ -280,14 +280,14 @@ return longText(_that.hideTitleOnProfile,_that.extra);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult? Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult? Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult? Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  List<String>? gradientColorsHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  member,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  text,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  color,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  date,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  longText,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function( List<ChoiceOption> options,  bool allowsMultiple,  bool allowsOther,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  choice,TResult? Function( String? icon,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  group,TResult? Function( String emoji,  int steps,  List<String>? stepLabels,  DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  scale,TResult? Function( SliderMode mode,  String? leftLabel,  String? rightLabel,  String? centerLabel,  String? gradientPresetId,  String? leftColorHex,  String? rightColorHex,  String? centerColorHex,  List<String>? gradientColorsHex,  bool snapToPositions,  double? min,  double? max,  double? step,  String? unit,  bool showTicks,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  slider,TResult? Function( DisplayLayout? displayLayout,  bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  member,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  text,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  color,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  date,TResult? Function( bool hideTitleOnProfile, @JsonKey(includeFromJson: false, includeToJson: false)  Map<String, dynamic> extra)?  longText,}) {final _that = this;
 switch (_that) {
 case ChoiceConfig() when choice != null:
 return choice(_that.options,_that.allowsMultiple,_that.allowsOther,_that.hideTitleOnProfile,_that.extra);case GroupConfig() when group != null:
 return group(_that.icon,_that.hideTitleOnProfile,_that.extra);case ScaleConfig() when scale != null:
 return scale(_that.emoji,_that.steps,_that.stepLabels,_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case SliderConfig() when slider != null:
 return slider(_that.mode,_that.leftLabel,_that.rightLabel,_that.centerLabel,_that.gradientPresetId,_that.leftColorHex,_that.rightColorHex,_that.centerColorHex,_that.gradientColorsHex,_that.snapToPositions,_that.min,_that.max,_that.step,_that.unit,_that.showTicks,_that.hideTitleOnProfile,_that.extra);case MemberConfig() when member != null:
-return member(_that.hideTitleOnProfile,_that.extra);case TextConfig() when text != null:
+return member(_that.displayLayout,_that.hideTitleOnProfile,_that.extra);case TextConfig() when text != null:
 return text(_that.hideTitleOnProfile,_that.extra);case ColorConfig() when color != null:
 return color(_that.hideTitleOnProfile,_that.extra);case DateConfig() when date != null:
 return date(_that.hideTitleOnProfile,_that.extra);case LongTextConfig() when longText != null:
@@ -695,9 +695,10 @@ as Map<String, dynamic>,
 @JsonSerializable()
 
 class MemberConfig implements CustomFieldTypeConfig {
-  const MemberConfig({this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'member';
+  const MemberConfig({this.displayLayout, this.hideTitleOnProfile = false, @JsonKey(includeFromJson: false, includeToJson: false) final  Map<String, dynamic> extra = const <String, dynamic>{}, final  String? $type}): _extra = extra,$type = $type ?? 'member';
   factory MemberConfig.fromJson(Map<String, dynamic> json) => _$MemberConfigFromJson(json);
 
+ final  DisplayLayout? displayLayout;
 @override@JsonKey() final  bool hideTitleOnProfile;
  final  Map<String, dynamic> _extra;
 @override@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> get extra {
@@ -724,16 +725,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemberConfig&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is MemberConfig&&(identical(other.displayLayout, displayLayout) || other.displayLayout == displayLayout)&&(identical(other.hideTitleOnProfile, hideTitleOnProfile) || other.hideTitleOnProfile == hideTitleOnProfile)&&const DeepCollectionEquality().equals(other._extra, _extra));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
+int get hashCode => Object.hash(runtimeType,displayLayout,hideTitleOnProfile,const DeepCollectionEquality().hash(_extra));
 
 @override
 String toString() {
-  return 'CustomFieldTypeConfig.member(hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
+  return 'CustomFieldTypeConfig.member(displayLayout: $displayLayout, hideTitleOnProfile: $hideTitleOnProfile, extra: $extra)';
 }
 
 
@@ -744,7 +745,7 @@ abstract mixin class $MemberConfigCopyWith<$Res> implements $CustomFieldTypeConf
   factory $MemberConfigCopyWith(MemberConfig value, $Res Function(MemberConfig) _then) = _$MemberConfigCopyWithImpl;
 @override @useResult
 $Res call({
- bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
+ DisplayLayout? displayLayout, bool hideTitleOnProfile,@JsonKey(includeFromJson: false, includeToJson: false) Map<String, dynamic> extra
 });
 
 
@@ -761,9 +762,10 @@ class _$MemberConfigCopyWithImpl<$Res>
 
 /// Create a copy of CustomFieldTypeConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? hideTitleOnProfile = null,Object? extra = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? displayLayout = freezed,Object? hideTitleOnProfile = null,Object? extra = null,}) {
   return _then(MemberConfig(
-hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
+displayLayout: freezed == displayLayout ? _self.displayLayout : displayLayout // ignore: cast_nullable_to_non_nullable
+as DisplayLayout?,hideTitleOnProfile: null == hideTitleOnProfile ? _self.hideTitleOnProfile : hideTitleOnProfile // ignore: cast_nullable_to_non_nullable
 as bool,extra: null == extra ? _self._extra : extra // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,
   ));

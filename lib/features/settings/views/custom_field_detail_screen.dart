@@ -509,7 +509,11 @@ class _CustomFieldDetailBodyState
   }
 
   String _labelForField(BuildContext context, CustomField field) =>
-      localizedFieldTypeLabel(context.l10n, field);
+      localizedFieldTypeLabel(
+        context.l10n,
+        field,
+        memberTypeLabel: watchTerminology(context, ref).singular,
+      );
 }
 
 class _MetadataRow extends StatelessWidget {
@@ -1287,6 +1291,7 @@ class _GroupContentsSectionState extends ConsumerState<_GroupContentsSection> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final fieldsAsync = ref.watch(customFieldsProvider);
+    final memberTypeLabel = watchTerminology(context, ref).singular;
 
     return fieldsAsync.when(
       loading: () => const PrismLoadingState(),
@@ -1366,6 +1371,7 @@ class _GroupContentsSectionState extends ConsumerState<_GroupContentsSection> {
                       key: ValueKey(children[i].id),
                       child: children[i],
                       index: i,
+                      memberTypeLabel: memberTypeLabel,
                     );
                   },
                 ),
@@ -1388,10 +1394,16 @@ class _GroupContentsSectionState extends ConsumerState<_GroupContentsSection> {
 }
 
 class _GroupChildRow extends StatelessWidget {
-  const _GroupChildRow({super.key, required this.child, required this.index});
+  const _GroupChildRow({
+    super.key,
+    required this.child,
+    required this.index,
+    required this.memberTypeLabel,
+  });
 
   final CustomField child;
   final int index;
+  final String memberTypeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1437,7 +1449,11 @@ class _GroupChildRow extends StatelessWidget {
     CustomFieldTypeDefinition? def,
   ) {
     final l10n = context.l10n;
-    final label = localizedFieldTypeLabel(l10n, field);
+    final label = localizedFieldTypeLabel(
+      l10n,
+      field,
+      memberTypeLabel: memberTypeLabel,
+    );
     if (def != null &&
         field.fieldType == CustomFieldType.date &&
         field.datePrecision != null) {
