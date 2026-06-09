@@ -4,6 +4,8 @@ import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
+enum PrismChipVariant { filled, inline }
+
 /// A fully pill-shaped selectable chip.
 ///
 /// Use [PrismChip] anywhere a [ChoiceChip] or [FilterChip] would appear —
@@ -22,6 +24,7 @@ class PrismChip extends StatelessWidget {
     this.selectedColor,
     this.tintColor,
     this.labelMaxLines = 2,
+    this.variant = PrismChipVariant.filled,
   });
 
   final String label;
@@ -41,6 +44,10 @@ class PrismChip extends StatelessWidget {
   /// Maximum label lines when the chip is rendered with a bounded width.
   final int labelMaxLines;
 
+  /// Visual treatment. [PrismChipVariant.inline] keeps the chip semantics and
+  /// content layout while omitting the pill background and border.
+  final PrismChipVariant variant;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -49,12 +56,16 @@ class PrismChip extends StatelessWidget {
     final tintColors = hasTintedFill
         ? resolveTintedControlColors(theme, accent: accent)
         : null;
+    final inline = variant == PrismChipVariant.inline;
 
-    final bgColor =
-        tintColors?.fill ?? theme.colorScheme.surfaceContainerHighest;
+    final bgColor = inline
+        ? Colors.transparent
+        : tintColors?.fill ?? theme.colorScheme.surfaceContainerHighest;
 
     final Color borderColor;
-    if (tintColor != null) {
+    if (inline) {
+      borderColor = Colors.transparent;
+    } else if (tintColor != null) {
       borderColor = tintColors!.border;
     } else if (selected) {
       borderColor = tintColors!.accent;
@@ -63,7 +74,9 @@ class PrismChip extends StatelessWidget {
     }
 
     final Color labelColor;
-    if (hasTintedFill) {
+    if (inline && tintColors != null) {
+      labelColor = tintColors.foreground;
+    } else if (hasTintedFill) {
       labelColor = tintColors!.foreground;
     } else {
       labelColor = theme.colorScheme.onSurfaceVariant;
@@ -80,7 +93,10 @@ class PrismChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(
             PrismShapes.of(context).radius(PrismTokens.radiusPill),
           ),
-          border: Border.all(color: borderColor, width: selected ? 1.5 : 1.0),
+          border: Border.all(
+            color: borderColor,
+            width: inline ? 0 : (selected ? 1.5 : 1.0),
+          ),
         ),
         child: Material(
           color: Colors.transparent,
@@ -93,7 +109,9 @@ class PrismChip extends StatelessWidget {
               PrismShapes.of(context).radius(PrismTokens.radiusPill),
             ),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(avatar != null ? 8 : 14, 6, 14, 6),
+              padding: inline
+                  ? EdgeInsets.zero
+                  : EdgeInsets.fromLTRB(avatar != null ? 8 : 14, 6, 14, 6),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final labelText = AnimatedDefaultTextStyle(

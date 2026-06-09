@@ -52,8 +52,8 @@ void main() {
         expect(filterNotes(sampleNotes, query: '').length, 4);
       });
 
-      test('returns all notes when filterMemberId is null', () {
-        expect(filterNotes(sampleNotes, filterMemberId: null).length, 4);
+      test('returns all notes when filterMemberIds is empty', () {
+        expect(filterNotes(sampleNotes, filterMemberIds: const {}).length, 4);
       });
     });
 
@@ -102,21 +102,47 @@ void main() {
 
     group('member filter', () {
       test('filters by specific memberId', () {
-        final result = filterNotes(sampleNotes, filterMemberId: 'mem-a');
+        final result = filterNotes(
+          sampleNotes,
+          filterMemberIds: const {'mem-a'},
+        );
         expect(result.length, 2);
         expect(result.map((n) => n.id), containsAll(['1', '4']));
       });
 
       test('filters unassociated notes with filterNoMemberId', () {
-        final result =
-            filterNotes(sampleNotes, filterMemberId: filterNoMemberId);
+        final result = filterNotes(
+          sampleNotes,
+          filterMemberIds: const {filterNoMemberId},
+        );
         expect(result.length, 1);
         expect(result.first.id, '3');
         expect(result.first.memberId, isNull);
       });
 
+      test('filters by multiple member IDs with OR semantics', () {
+        final result = filterNotes(
+          sampleNotes,
+          filterMemberIds: const {'mem-a', 'mem-b'},
+        );
+        expect(result.length, 3);
+        expect(result.map((n) => n.id), containsAll(['1', '2', '4']));
+      });
+
+      test('combines member IDs and unassociated notes', () {
+        final result = filterNotes(
+          sampleNotes,
+          filterMemberIds: const {'mem-b', filterNoMemberId},
+        );
+        expect(result.length, 2);
+        expect(result.map((n) => n.id), containsAll(['2', '3']));
+      });
+
       test('returns empty when memberId has no notes', () {
-        final result = filterNotes(sampleNotes, filterMemberId: 'mem-z');
+        final result = filterNotes(
+          sampleNotes,
+          filterMemberIds: const {'mem-z'},
+        );
         expect(result, isEmpty);
       });
     });
@@ -127,7 +153,7 @@ void main() {
         final result = filterNotes(
           sampleNotes,
           query: 'shopping',
-          filterMemberId: 'mem-a',
+          filterMemberIds: const {'mem-a'},
         );
         expect(result.length, 1);
         expect(result.first.id, '1');
@@ -137,7 +163,7 @@ void main() {
         final result = filterNotes(
           sampleNotes,
           query: 'shopping',
-          filterMemberId: 'mem-b',
+          filterMemberIds: const {'mem-b'},
         );
         expect(result, isEmpty);
       });
@@ -146,7 +172,7 @@ void main() {
         final result = filterNotes(
           sampleNotes,
           query: 'xyzzynotfound',
-          filterMemberId: 'mem-a',
+          filterMemberIds: const {'mem-a'},
         );
         expect(result, isEmpty);
       });
@@ -155,7 +181,7 @@ void main() {
         final result = filterNotes(
           sampleNotes,
           query: 'random',
-          filterMemberId: filterNoMemberId,
+          filterMemberIds: const {filterNoMemberId},
         );
         expect(result.length, 1);
         expect(result.first.id, '3');

@@ -81,4 +81,41 @@ void main() {
       ).foreground,
     );
   });
+
+  testWidgets('inline selected chip uses same tinted label color', (
+    tester,
+  ) async {
+    final theme = ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9070A0)),
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        const PrismChip(
+          label: 'Inline',
+          selected: true,
+          onTap: null,
+          variant: PrismChipVariant.inline,
+        ),
+        theme: theme,
+      ),
+    );
+
+    final labelStyle = find
+        .descendant(
+          of: find.byType(PrismChip),
+          matching: find.byType(AnimatedDefaultTextStyle),
+        )
+        .evaluate()
+        .map((element) => (element.widget as AnimatedDefaultTextStyle).style)
+        .firstWhere((style) => style.fontWeight == FontWeight.w600);
+
+    expect(
+      labelStyle.color,
+      resolveTintedControlColors(
+        theme,
+        accent: theme.colorScheme.primary,
+      ).foreground,
+    );
+  });
 }

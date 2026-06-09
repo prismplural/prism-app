@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -23,7 +24,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -32,7 +33,9 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 enum NotesListBranch { settings, notes }
@@ -62,7 +65,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
   Timer? _debounce;
   String _searchQuery = '';
   bool _isSearchActive = false;
-  String? _filterMemberId;
+  Set<String> _filterMemberIds = const {};
 
   String _notePath(String id) => switch (widget.branch) {
     NotesListBranch.settings => AppRoutePaths.settingsNote(id),
@@ -101,8 +104,13 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     setState(() => _searchQuery = '');
   }
 
-  void _onClearMemberFilter() {
-    setState(() => _filterMemberId = null);
+  void _onClearMemberFilter(String memberId) {
+    setState(() {
+      _filterMemberIds = {
+        for (final id in _filterMemberIds)
+          if (id != memberId) id,
+      };
+    });
   }
 
   void _clearAllFilters() {
@@ -110,21 +118,22 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     _searchController.clear();
     setState(() {
       _searchQuery = '';
-      _filterMemberId = null;
+      _filterMemberIds = const {};
       _isSearchActive = false;
     });
-  }
-
-  String? _effectiveMemberIdForCreate() {
-    if (_filterMemberId == null) return null;
-    if (_filterMemberId == filterNoMemberId) return null;
-    return _filterMemberId;
   }
 
   @override
   Widget build(BuildContext context) {
     final notesAsync = ref.watch(allNotesProvider);
+    final filterMembersAsync = ref.watch(userVisibleMemberListProvider);
+    final filterMembers = filterMembersAsync.value ?? const [];
     final l10n = context.l10n;
+    watchMemberSearchGroupSources(ref);
+    final showFilterBar =
+        _isSearchActive ||
+        _searchQuery.trim().isNotEmpty ||
+        _filterMemberIds.isNotEmpty;
 
     // Honour a one-shot request to open a specific note in the pane (e.g. from
     // the media-usage list), applied after this frame so it can setState
@@ -139,17 +148,23 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
       });
     }
 
-    // Monitor for deleted filter member
-    if (_filterMemberId != null && _filterMemberId != filterNoMemberId) {
-      final memberAsync = ref.watch(activeMemberByIdProvider(_filterMemberId!));
-      if (memberAsync is AsyncData && memberAsync.value == null) {
+    if (filterMembersAsync.hasValue && _filterMemberIds.isNotEmpty) {
+      final visibleMemberIds = filterMembers.map((member) => member.id).toSet();
+      final staleMemberIds = _filterMemberIds
+          .where(
+            (id) => id != filterNoMemberId && !visibleMemberIds.contains(id),
+          )
+          .toList(growable: false);
+      if (staleMemberIds.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _filterMemberId == null) return;
-          PrismToast.show(
-            context,
-            message: l10n.memberNoteFilterMemberDeleted,
-          );
-          _onClearMemberFilter();
+          if (!mounted) return;
+          PrismToast.show(context, message: l10n.memberNoteFilterMemberDeleted);
+          setState(() {
+            _filterMemberIds = {
+              for (final id in _filterMemberIds)
+                if (!staleMemberIds.contains(id)) id,
+            };
+          });
         });
       }
     }
@@ -163,49 +178,37 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
       list: (context, isWide) {
         setListDetailWide(isWide);
         return PrismPageScaffold(
-          topBar: PrismTopBar(
+          topBar: _NotesTopBar(
             title: l10n.memberSectionNotes,
             showBackButton: widget.showBackButton,
-            actions: [
-              PrismTopBarAction(
-                icon: AppIcons.search,
-                tooltip: l10n.memberNoteSearchNotes,
-                onPressed: () => setState(() {
-                  _isSearchActive = !_isSearchActive;
-                  if (!_isSearchActive) {
-                    _searchController.clear();
-                    _searchQuery = '';
-                  }
-                }),
-              ),
-              PrismTopBarAction(
-                icon: AppIcons.filterList,
-                tooltip: l10n.memberNoteFilterByMember,
-                onPressed: () => _openMemberFilter(context),
-              ),
-              PrismTopBarAction(
-                icon: AppIcons.add,
-                tooltip: l10n.memberAddNoteTooltip,
-                onPressed: () => unawaited(_openCreateNote(context)),
-              ),
-            ],
+            searchActive: _isSearchActive || _searchQuery.trim().isNotEmpty,
+            memberFilterActive: _filterMemberIds.isNotEmpty,
+            onToggleSearch: () => setState(() {
+              _isSearchActive = !_isSearchActive;
+              if (!_isSearchActive) {
+                _searchController.clear();
+                _searchQuery = '';
+              }
+            }),
+            onOpenMemberFilter: () => _openMemberFilter(context, filterMembers),
+            onCreateNote: () => unawaited(_openCreateNote(context)),
+            filterBar: showFilterBar ? _buildFilterBar(l10n) : null,
           ),
           bodyPadding: EdgeInsets.zero,
           body: Column(
             children: [
-              if (_isSearchActive || _searchQuery.trim().isNotEmpty || _filterMemberId != null)
-                _buildFilterBar(l10n),
               Expanded(
                 child: notesAsync.when(
                   loading: () => const PrismLoadingState(),
                   error: (_, _) => Center(child: Text(context.l10n.error)),
                   data: (notes) {
-                    final hasActiveFilters = _searchQuery.trim().length >= 2 ||
-                        _filterMemberId != null;
+                    final hasActiveFilters =
+                        _searchQuery.trim().length >= 2 ||
+                        _filterMemberIds.isNotEmpty;
                     final filtered = filterNotes(
                       notes,
                       query: _searchQuery,
-                      filterMemberId: _filterMemberId,
+                      filterMemberIds: _filterMemberIds,
                     );
 
                     if (notes.isEmpty) {
@@ -260,77 +263,66 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     );
   }
 
-  Widget _buildFilterBar(AppLocalizations l10n) {
-    Widget? filterMemberAvatar;
-    String? filterMemberName;
-
-    if (_filterMemberId != null && _filterMemberId != filterNoMemberId) {
-      final memberAsync = ref.watch(activeMemberByIdProvider(_filterMemberId!));
-      final member = memberAsync.value;
-      if (member != null) {
-        filterMemberName = member.name;
-        filterMemberAvatar = MemberAvatar(
-          memberName: member.name,
-          emoji: member.emoji,
-          avatarImageData: member.avatarImageData,
-          customColorEnabled: member.customColorEnabled,
-          customColorHex: member.customColorHex,
-          size: 20,
-        );
-      }
-    } else if (_filterMemberId == filterNoMemberId) {
-      filterMemberName = l10n.memberNoteFilterNoMember;
-    }
+  PreferredSizeWidget _buildFilterBar(AppLocalizations l10n) {
+    final membersById = {
+      for (final member
+          in ref.watch(userVisibleMemberListProvider).value ?? const <Member>[])
+        member.id: member,
+    };
+    final memberFilters = [
+      for (final memberId in _filterMemberIds)
+        if (memberId == filterNoMemberId)
+          NotesMemberFilter(
+            id: memberId,
+            label: l10n.memberNoteFilterNoMember,
+            avatar: Icon(AppIcons.removeCircleOutline, size: 20),
+          )
+        else if (membersById[memberId] case final member?)
+          NotesMemberFilter(id: memberId, label: member.name, member: member),
+    ];
 
     return NotesFilterBar(
+      showSearch: _isSearchActive || _searchQuery.trim().isNotEmpty,
       searchController: _searchController,
       searchQuery: _searchQuery,
       autofocus: _isSearchActive && _searchQuery.isEmpty,
       onSearchChanged: _onSearchChanged,
       onClearSearch: _onClearSearch,
       onClearAllFilters: _clearAllFilters,
-      filterMemberId: _filterMemberId,
-      filterMemberName: filterMemberName,
-      filterMemberAvatar: filterMemberAvatar,
+      memberFilters: memberFilters,
       onClearMemberFilter: _onClearMemberFilter,
     );
   }
 
-  Future<void> _openMemberFilter(BuildContext context) async {
-    final membersAsync = ref.read(activeMemberListProvider);
-    final members = membersAsync.value ?? const [];
+  Future<void> _openMemberFilter(
+    BuildContext context,
+    List<Member> members,
+  ) async {
     final terms = readTerminology(context, ref);
 
     final groups = members.isNotEmpty
         ? readMemberSearchGroups(ref, members)
         : <MemberSearchGroup>[];
 
-    final result = await MemberSearchSheet.showSingle(
+    final result = await MemberSearchSheet.showMulti(
       context,
       members: members,
       termPlural: terms.plural,
       groups: groups,
+      initialSelected: Set<String>.from(_filterMemberIds),
+      allowEmptySelection: true,
       specialRows: [
         MemberSearchSpecialRow(
           rowKey: 'no_member',
           title: context.l10n.memberNoteFilterNoMember,
           leading: Icon(AppIcons.removeCircleOutline),
-          result: const MemberSearchResultCleared(),
+          multiSelectId: filterNoMemberId,
         ),
       ],
     );
 
-    if (!mounted) return;
-
-    switch (result) {
-      case MemberSearchResultSelected(:final memberId):
-        setState(() => _filterMemberId = memberId);
-      case MemberSearchResultCleared():
-        setState(() => _filterMemberId = filterNoMemberId);
-      case MemberSearchResultDismissed():
-      case MemberSearchResultUnknown():
-        break;
-    }
+    if (!mounted || result == null) return;
+    setState(() => _filterMemberIds = Set<String>.from(result));
   }
 
   /// Wide-layout note detail/editor pane.
@@ -340,7 +332,6 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
       return NoteEditor(
         key: ValueKey('note-editor-${editorPane.revision}'),
         note: editorPane.note,
-        memberId: editorPane.memberId,
         controller: _noteEditorController,
         onSaved: _finishInlineEditor,
         onCancel: _closeInlineEditor,
@@ -376,17 +367,13 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
   }
 
   Future<void> _openCreateNote(BuildContext context) async {
-    final effectiveMemberId = _effectiveMemberIdForCreate();
     if (isDetailPaneVisible) {
       final canCloseEditor = await _confirmCloseInlineEditorIfNeeded();
       if (!canCloseEditor || !mounted) return;
 
       setState(() {
         selectedDetailId = null;
-        _editorPane = _NoteEditorPane.create(
-          revision: ++_editorRevision,
-          memberId: effectiveMemberId,
-        );
+        _editorPane = _NoteEditorPane.create(revision: ++_editorRevision);
       });
       return;
     }
@@ -394,10 +381,8 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     unawaited(
       PrismSheet.showFullScreen(
         context: context,
-        builder: (context, scrollController) => NoteSheet(
-          memberId: effectiveMemberId,
-          scrollController: scrollController,
-        ),
+        builder: (context, scrollController) =>
+            NoteSheet(scrollController: scrollController),
       ),
     );
   }
@@ -457,18 +442,96 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
   }
 }
 
-class _NoteEditorPane {
-  const _NoteEditorPane._({required this.revision, this.note, this.memberId});
+class _NotesTopBar extends StatelessWidget implements PreferredSizeWidget {
+  const _NotesTopBar({
+    required this.title,
+    required this.showBackButton,
+    required this.searchActive,
+    required this.memberFilterActive,
+    required this.onToggleSearch,
+    required this.onOpenMemberFilter,
+    required this.onCreateNote,
+    this.filterBar,
+  });
 
-  factory _NoteEditorPane.create({required int revision, String? memberId}) =>
-      _NoteEditorPane._(revision: revision, memberId: memberId);
+  final String title;
+  final bool showBackButton;
+  final bool searchActive;
+  final bool memberFilterActive;
+  final VoidCallback onToggleSearch;
+  final VoidCallback onOpenMemberFilter;
+  final VoidCallback onCreateNote;
+  final PreferredSizeWidget? filterBar;
+
+  @override
+  Size get preferredSize => Size.fromHeight(
+    PrismTokens.topBarHeight + (filterBar?.preferredSize.height ?? 0),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final activeTint = Theme.of(context).colorScheme.primary;
+    final inModalSideSheet = ModalSideSheetMarker.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PrismTopBar(
+          title: title,
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showBackButton) ...[
+                PrismTopBarAction(
+                  icon: inModalSideSheet ? AppIcons.close : AppIcons.arrowBack,
+                  tooltip: inModalSideSheet ? l10n.close : l10n.back,
+                  onPressed: () => closeDetailSurface(context),
+                ),
+                const SizedBox(width: 8),
+              ],
+              PrismTopBarAction(
+                icon: AppIcons.filterList,
+                tooltip: l10n.memberNoteFilterByMember,
+                tint: memberFilterActive ? activeTint : null,
+                accentIcon: memberFilterActive,
+                onPressed: onOpenMemberFilter,
+              ),
+              const SizedBox(width: 8),
+              PrismTopBarAction(
+                icon: AppIcons.search,
+                tooltip: l10n.memberNoteSearchNotes,
+                tint: searchActive ? activeTint : null,
+                accentIcon: searchActive,
+                onPressed: onToggleSearch,
+              ),
+            ],
+          ),
+          actions: [
+            PrismTopBarAction(
+              icon: AppIcons.add,
+              tooltip: l10n.memberAddNoteTooltip,
+              onPressed: onCreateNote,
+            ),
+          ],
+        ),
+        ?filterBar,
+      ],
+    );
+  }
+}
+
+class _NoteEditorPane {
+  const _NoteEditorPane._({required this.revision, this.note});
+
+  factory _NoteEditorPane.create({required int revision}) =>
+      _NoteEditorPane._(revision: revision);
 
   factory _NoteEditorPane.edit({required Note note, required int revision}) =>
       _NoteEditorPane._(revision: revision, note: note);
 
   final int revision;
   final Note? note;
-  final String? memberId;
 }
 
 class _NoteCard extends ConsumerWidget {
@@ -522,12 +585,14 @@ class _NoteCard extends ConsumerWidget {
       accentColor: selected ? theme.colorScheme.primary : null,
       transitionDuration: Duration.zero,
       onTap: onTap,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (colorBar != null) ...[
-              ClipRRect(
+      child: Stack(
+        children: [
+          if (colorBar != null)
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(
                   PrismShapes.of(context).radius(2),
                 ),
@@ -536,73 +601,75 @@ class _NoteCard extends ConsumerWidget {
                   child: const SizedBox(width: 4),
                 ),
               ),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titleLabel,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: isFallbackTitle
-                          ? FontWeight.normal
-                          : FontWeight.w600,
-                      fontStyle: isFallbackTitle
-                          ? FontStyle.italic
-                          : FontStyle.normal,
+            ),
+          Padding(
+            padding: EdgeInsets.only(
+              left: colorBar != null ? 16 : 0,
+              top: 2,
+              bottom: 2,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  titleLabel,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontSize: 14,
+                    fontWeight: isFallbackTitle
+                        ? FontWeight.normal
+                        : FontWeight.w600,
+                    fontStyle: isFallbackTitle
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (note.body.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text.rich(
+                    TextSpan(
+                      children: imagePreviewSpans(
+                        redactSpoilers(note.body),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        iconColor: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (note.body.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text.rich(
-                      TextSpan(
-                        children: imagePreviewSpans(
-                          redactSpoilers(note.body),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          iconColor: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                  ] else ...[
-                    const SizedBox(height: 8),
-                  ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          dateLabel,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                      if (member != null) ...[
-                        const SizedBox(width: 12),
-                        MemberAvatar(
-                          avatarImageData: member.avatarImageData,
-                          memberName: member.name,
-                          emoji: member.emoji,
-                          customColorEnabled: member.customColorEnabled,
-                          customColorHex: member.customColorHex,
-                          size: 28,
-                        ),
-                      ],
-                    ],
-                  ),
+                  const SizedBox(height: 12),
+                ] else ...[
+                  const SizedBox(height: 10),
                 ],
-              ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        dateLabel,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (member != null) ...[
+                      const SizedBox(width: 12),
+                      MemberChip(
+                        member: member,
+                        style: MemberChipStyle.inline,
+                        avatarSize: 20,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

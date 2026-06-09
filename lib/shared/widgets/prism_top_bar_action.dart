@@ -11,6 +11,7 @@ class PrismTopBarAction extends StatelessWidget {
     this.onLongPress,
     this.tooltip,
     this.tint,
+    this.accentIcon = false,
     this.size = PrismTokens.topBarActionSize,
     this.iconSize = 20,
   }) : assert(tooltip != null, 'PrismTopBarAction requires a tooltip.');
@@ -20,6 +21,7 @@ class PrismTopBarAction extends StatelessWidget {
   final VoidCallback? onLongPress;
   final String? tooltip;
   final Color? tint;
+  final bool accentIcon;
   final double size;
   final double iconSize;
 
@@ -35,6 +37,7 @@ class PrismTopBarAction extends StatelessWidget {
         size: size,
         iconSize: iconSize,
         tint: tint,
+        accentIcon: accentIcon,
       ),
     );
   }

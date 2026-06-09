@@ -78,6 +78,7 @@ class MemberSearchSpecialRow {
     this.leading,
     this.result,
     this.onTap,
+    this.multiSelectId,
   });
 
   /// Stable key for the underlying list item.
@@ -90,6 +91,9 @@ class MemberSearchSpecialRow {
 
   /// Custom tap override — takes precedence over [result].
   final VoidCallback? onTap;
+
+  /// Optional selected-set ID used when the row appears in multi-select mode.
+  final String? multiSelectId;
 }
 
 const double _kRowExtent = 64.0;
@@ -565,13 +569,23 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   }
 
   Widget _buildSpecialRow(MemberSearchSpecialRow row) {
+    final multiSelectId = row.multiSelectId;
+    final isSelected =
+        widget.multiSelect &&
+        multiSelectId != null &&
+        _selectedIds.contains(multiSelectId);
+
     return PrismListRow(
       key: ValueKey(row.rowKey),
+      selected: isSelected,
       title: Text(row.title),
       leading: row.leading,
+      trailing: isSelected ? Icon(AppIcons.check) : null,
       onTap: () {
         if (row.onTap != null) {
           row.onTap!();
+        } else if (widget.multiSelect && multiSelectId != null) {
+          _toggleMember(multiSelectId);
         } else if (row.result != null) {
           _popSingle(row.result!);
         }
@@ -608,12 +622,14 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
       key: ValueKey(member.id),
       selected: isSelected,
       leading: MemberAvatar(
+        memberId: member.id,
         memberName: member.name,
         emoji: member.emoji,
         avatarImageData: member.avatarImageData,
         customColorEnabled: member.customColorEnabled,
         customColorHex: member.customColorHex,
         size: 36,
+        deferAvatarLookup: true,
       ),
       title: Text(member.name),
       subtitle: _buildMemberSubtitle(member),

@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -119,6 +120,56 @@ void main() {
     expect(find.text('Add member'), findsNothing);
 
     await tester.enterText(find.byType(EditableText).first, 'Front notes');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Save note'));
+    await tester.pumpAndSettle();
+
+    expect(notes.created.single.memberId, 'member-1');
+  });
+
+  testWidgets('author picker opens universal member search sheet', (
+    tester,
+  ) async {
+    final alex = member();
+    final members = FakeMemberRepository()..seed([alex]);
+    final notes = _FakeNotesRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          memberRepositoryProvider.overrideWithValue(members),
+          notesRepositoryProvider.overrideWithValue(notes),
+          currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
+          systemSettingsProvider.overrideWithValue(
+            const AsyncValue.data(
+              SystemSettings(terminology: SystemTerminology.members),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(body: NoteSheet()),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Add member'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsOneWidget);
+    expect(find.text('Alex'), findsOneWidget);
+    expect(find.text('None'), findsOneWidget);
+
+    await tester.tap(find.text('Alex'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberSearchSheet), findsNothing);
+    expect(find.text('Alex'), findsOneWidget);
+
+    await tester.enterText(find.byType(EditableText).first, 'Author note');
     await tester.pump();
     await tester.tap(find.byTooltip('Save note'));
     await tester.pumpAndSettle();

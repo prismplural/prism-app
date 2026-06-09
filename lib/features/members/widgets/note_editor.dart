@@ -14,9 +14,9 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
-import 'package:prism_plurality/features/members/widgets/member_select_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -26,6 +26,7 @@ import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -216,15 +217,37 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
     }
   }
 
-  Future<void> _pickMember() async {
-    final result = await MemberSelectSheet.show(
+  Future<void> _pickMember(List<Member> members) async {
+    final terminology = readTerminology(context, ref);
+    final result = await MemberSearchSheet.showSingle(
       context,
-      currentMemberId: _selectedMemberId,
+      members: members,
+      termPlural: terminology.plural,
+      title: context.l10n.memberNoteChooseHeadmate(terminology.singular),
+      groups: readMemberSearchGroups(ref, members),
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: 'none',
+          title: context.l10n.memberSelectNone,
+          leading: Icon(AppIcons.removeCircleOutline),
+          result: const MemberSearchResultCleared(),
+        ),
+      ],
     );
-    if (result == null) return;
+    if (!mounted) return;
+
     setState(() {
-      _memberWasEdited = true;
-      _selectedMemberId = result.isEmpty ? null : result;
+      switch (result) {
+        case MemberSearchResultSelected(:final memberId):
+          _memberWasEdited = true;
+          _selectedMemberId = memberId;
+        case MemberSearchResultCleared():
+          _memberWasEdited = true;
+          _selectedMemberId = null;
+        case MemberSearchResultDismissed():
+        case MemberSearchResultUnknown():
+          break;
+      }
     });
   }
 
@@ -255,7 +278,10 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final memberCandidates =
+        ref.watch(userVisibleMemberListProvider).value ?? const <Member>[];
     _bodyController.updateTheme(context);
+    watchMemberSearchGroupSources(ref);
 
     // Keep this editor's processor session alive for the editor's whole
     // lifetime so a staged image survives until _save() commits it — even
@@ -372,7 +398,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
                   date: _date,
                   memberId: _selectedMemberId,
                   onPickDate: _pickDate,
-                  onPickMember: _pickMember,
+                  onPickMember: () => unawaited(_pickMember(memberCandidates)),
                 ),
               ],
             ),

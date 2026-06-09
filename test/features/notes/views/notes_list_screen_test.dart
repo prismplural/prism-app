@@ -13,8 +13,13 @@ import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/note.dart';
@@ -22,6 +27,8 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/notes/views/notes_list_screen.dart';
 import 'package:prism_plurality/features/notes/widgets/notes_filter_bar.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 void main() {
   final sampleNote = Note(
@@ -50,14 +57,23 @@ void main() {
     createdAt: DateTime(2024),
   );
 
+  final secondMember = Member(
+    id: 'mem-b',
+    name: 'Bob',
+    emoji: '',
+    createdAt: DateTime(2024),
+  );
+
   Widget buildSubject({
     List<Note> notes = const [],
     List<Member> members = const [],
     _FakeNotesRepository? notesRepository,
   }) {
     final repository = notesRepository ?? _FakeNotesRepository(notes);
+    final memberRepository = FakeMemberRepository()..seed(members);
     return ProviderScope(
       overrides: [
+        memberRepositoryProvider.overrideWithValue(memberRepository),
         notesRepositoryProvider.overrideWithValue(repository),
         allNotesProvider.overrideWith((ref) => Stream.value(notes)),
         activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
@@ -182,6 +198,29 @@ void main() {
       // Should render without crashing; the note title is still visible.
       expect(find.text('Bad Color Note'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('note card renders member as accented Prism chip', (
+      tester,
+    ) async {
+      final member = sampleMember.copyWith(
+        customColorEnabled: true,
+        customColorHex: '#12AB34',
+      );
+      final note = sampleNote.copyWith(memberId: member.id);
+
+      await tester.pumpWidget(buildSubject(notes: [note], members: [member]));
+      await tester.pumpAndSettle();
+
+      final memberChip = tester.widget<MemberChip>(find.byType(MemberChip));
+      expect(memberChip.style, MemberChipStyle.inline);
+
+      final chip = tester
+          .widgetList<PrismChip>(find.byType(PrismChip))
+          .singleWhere((chip) => chip.label == 'Alice');
+      expect(chip.selected, isTrue);
+      expect(chip.selectedColor, const Color(0xFF12AB34));
+      expect(chip.variant, PrismChipVariant.inline);
     });
 
     testWidgets('add action button is present in top bar', (tester) async {
@@ -339,11 +378,10 @@ void main() {
       expect(find.byTooltip('Filter by member'), findsOneWidget);
     });
 
-    testWidgets('filter icon is enabled even when no members exist',
-        (tester) async {
-      await tester.pumpWidget(
-        buildSubject(notes: [sampleNote], members: []),
-      );
+    testWidgets('filter icon is enabled even when no members exist', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildSubject(notes: [sampleNote], members: []));
       await tester.pumpAndSettle();
 
       // The filter button should still be enabled so users can access
@@ -358,7 +396,123 @@ void main() {
       expect(filterButton.onPressed, isNotNull);
     });
 
-    testWidgets('tapping search icon shows filter bar', (tester) async {
+    testWidgets('filter sheet includes active members', (tester) async {
+      await tester.pumpWidget(
+        buildSubject(notes: [sampleNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Filter by member'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(find.text('Alice'), findsOneWidget);
+      expect(find.text('No member'), findsOneWidget);
+    });
+
+    testWidgets('creating while member-filtered does not prefill author', (
+      tester,
+    ) async {
+      final notes = _FakeNotesRepository([sampleNote]);
+
+      await tester.pumpWidget(
+        buildSubject(
+          notes: [sampleNote],
+          members: [sampleMember],
+          notesRepository: notes,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Filter by member'));
+      await tester.pumpAndSettle();
+      await tester.tap(_memberSearchSheetText('Alice'));
+      await tester.pumpAndSettle();
+      await tester.tap(_confirmSelectedMembersButton());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.add));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NoteSheet), findsOneWidget);
+
+      await tester.enterText(find.byType(EditableText).first, 'Filtered note');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Save note'));
+      await tester.pumpAndSettle();
+
+      expect(notes.created.single.title, 'Filtered note');
+      expect(notes.created.single.memberId, isNull);
+    });
+
+    testWidgets('member filter supports selecting multiple members', (
+      tester,
+    ) async {
+      final aliceNote = sampleNote.copyWith(memberId: 'mem-a');
+      final bobNote = noteNoColor.copyWith(memberId: 'mem-b');
+      final noMemberNote = Note(
+        id: 'note-3',
+        title: 'Unassigned Note',
+        body: 'No author here',
+        date: DateTime(2026, 3, 19),
+        createdAt: DateTime(2026, 3, 19),
+        modifiedAt: DateTime(2026, 3, 19),
+      );
+
+      await tester.pumpWidget(
+        buildSubject(
+          notes: [aliceNote, bobNote, noMemberNote],
+          members: [sampleMember, secondMember],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Filter by member'));
+      await tester.pumpAndSettle();
+      await tester.tap(_memberSearchSheetText('Alice'));
+      await tester.pumpAndSettle();
+      await tester.tap(_memberSearchSheetText('Bob'));
+      await tester.pumpAndSettle();
+      await tester.tap(_confirmSelectedMembersButton());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Test Note'), findsOneWidget);
+      expect(find.text('Plain Note'), findsOneWidget);
+      expect(find.text('Unassigned Note'), findsNothing);
+      expect(find.byType(NotesFilterBar), findsOneWidget);
+      expect(find.text('Alice'), findsWidgets);
+      expect(find.text('Bob'), findsWidgets);
+    });
+
+    testWidgets('member filter supports selecting no member', (tester) async {
+      final aliceNote = sampleNote.copyWith(memberId: 'mem-a');
+      final noMemberNote = noteNoColor.copyWith(
+        id: 'note-3',
+        title: 'Unassigned Note',
+        memberId: null,
+      );
+
+      await tester.pumpWidget(
+        buildSubject(notes: [aliceNote, noMemberNote], members: [sampleMember]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Filter by member'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('No member'));
+      await tester.pumpAndSettle();
+      await tester.tap(_confirmSelectedMembersButton());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Test Note'), findsNothing);
+      expect(find.text('Unassigned Note'), findsOneWidget);
+      expect(find.byType(NotesFilterBar), findsOneWidget);
+      expect(find.text('No member'), findsOneWidget);
+    });
+
+    testWidgets('tapping search icon shows filter bar inside pinned top bar', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildSubject(notes: [sampleNote], members: [sampleMember]),
       );
@@ -367,7 +521,19 @@ void main() {
       await tester.tap(find.byTooltip('Search notes'));
       await tester.pumpAndSettle();
 
+      final searchAction = tester
+          .widgetList<PrismTopBarAction>(find.byType(PrismTopBarAction))
+          .singleWhere((action) => action.tooltip == 'Search notes');
+      expect(searchAction.accentIcon, isTrue);
+      expect(searchAction.tint, isNotNull);
       expect(find.byType(NotesFilterBar), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(SliverPinnedTopBar),
+          matching: find.byType(NotesFilterBar),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('tapping search icon again hides filter bar', (tester) async {
@@ -385,8 +551,9 @@ void main() {
       expect(find.byType(NotesFilterBar), findsNothing);
     });
 
-    testWidgets('filtered empty state differs from no-notes empty state',
-        (tester) async {
+    testWidgets('filtered empty state differs from no-notes empty state', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildSubject(notes: [sampleNote], members: [sampleMember]),
       );
@@ -421,6 +588,21 @@ void _setWideWindow(WidgetTester tester) {
   tester.view.physicalSize = const Size(1200, 800);
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Finder _confirmSelectedMembersButton() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Tooltip &&
+        (widget.message?.startsWith('Confirm selected ') ?? false),
+  );
+}
+
+Finder _memberSearchSheetText(String text) {
+  return find.descendant(
+    of: find.byType(MemberSearchSheet),
+    matching: find.text(text),
+  );
 }
 
 class _FakeNotesRepository implements NotesRepository {
