@@ -257,15 +257,6 @@ class DriftFrontingSessionRepository
   }
 
   @override
-  Future<void> restoreSleepSession(String id) async {
-    await _dao.restoreSleepSession(id);
-    // Emit the revival as a best-effort op. prism-sync's terminal-tombstone
-    // gate drops this on any peer that already holds the tombstone, so the
-    // restore is effectively local-only; the local row is restored regardless.
-    await syncRecordUpdate(_table, id, {'is_deleted': false});
-  }
-
-  @override
   Future<void> clearPluralKitLink(String id) async {
     await _dao.clearPluralKitLinkRaw(id);
     await syncRecordUpdate(_table, id, {'pluralkit_uuid': null});

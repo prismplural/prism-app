@@ -532,9 +532,6 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       const [];
 
   @override
-  Future<void> restoreSleepSession(String id) async {}
-
-  @override
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
       List.unmodifiable(deletedLinkedSessions);
   @override

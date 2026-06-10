@@ -95,9 +95,6 @@ class _FakeRepo implements FrontingSessionRepository {
 
   @override
   Future<List<FrontingSession>> getDeletedSleepSessions() async => const [];
-
-  @override
-  Future<void> restoreSleepSession(String id) async {}
   @override
   Future<void> clearPluralKitLink(String id) async {}
   @override

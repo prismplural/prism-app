@@ -1841,7 +1841,8 @@ void main() {
     });
 
     group('restoreDeletedSleepSessions (sleep-data-loss recovery)', () {
-      test('un-tombstones every soft-deleted sleep session', () async {
+      test('re-creates each deleted sleep session under a deterministic '
+          'recovery id, leaving the tombstone in place', () async {
         // Two sleep sessions, both soft-deleted (as the bug would do).
         final sleepA = FrontingSession(
           id: 'sleep-a',
@@ -1849,6 +1850,7 @@ void main() {
           endTime: DateTime(2026, 3, 11, 6),
           sessionType: SessionType.sleep,
           quality: SleepQuality.good,
+          notes: 'restful',
         );
         final sleepB = FrontingSession(
           id: 'sleep-b',
@@ -1870,13 +1872,63 @@ void main() {
         expect(result.isSuccess, isTrue);
         expect(result.dataOrNull, 2);
 
-        // Both reappear with their data intact; no tombstones remain.
+        // Live rows are the FRESH recovery ids, not the originals; content
+        // is preserved. (Recovery re-creates so the row survives the
+        // terminal-tombstone sync gate.)
         final restored = await repository.getRecentSleepSessions(limit: 50);
-        expect(restored.map((s) => s.id), containsAll(['sleep-a', 'sleep-b']));
-        expect(await repository.getDeletedSleepSessions(), isEmpty);
-        final restoredA = restored.firstWhere((s) => s.id == 'sleep-a');
+        final recoveryIdA = deriveSleepRecoverySessionId('sleep-a');
+        final recoveryIdB = deriveSleepRecoverySessionId('sleep-b');
+        expect(
+          restored.map((s) => s.id),
+          containsAll([recoveryIdA, recoveryIdB]),
+        );
+        expect(restored.map((s) => s.id), isNot(contains('sleep-a')));
+        final restoredA = restored.firstWhere((s) => s.id == recoveryIdA);
         expect(restoredA.quality, SleepQuality.good);
+        expect(restoredA.notes, 'restful');
         expect(restoredA.endTime, DateTime(2026, 3, 11, 6));
+        expect(restoredA.isSleep, isTrue);
+
+        // The original tombstones are left untouched (still deleted).
+        expect(await repository.getDeletedSleepSessions(), hasLength(2));
+      });
+
+      test('is idempotent: a second run creates nothing more', () async {
+        final sleep = FrontingSession(
+          id: 'sleep-x',
+          startTime: DateTime(2026, 3, 10, 22),
+          endTime: DateTime(2026, 3, 11, 6),
+          sessionType: SessionType.sleep,
+        );
+        await repository.createSession(sleep);
+        await repository.deleteSession(sleep.id);
+
+        final first = await service.restoreDeletedSleepSessions();
+        expect(first.dataOrNull, 1);
+        final second = await service.restoreDeletedSleepSessions();
+        expect(second.dataOrNull, 0, reason: 'recovery row already exists');
+        // Exactly one live recovery row — no duplicate.
+        expect(await repository.getRecentSleepSessions(limit: 50), hasLength(1));
+      });
+
+      test('respects a re-deleted recovery row (does not re-create it)',
+          () async {
+        final sleep = FrontingSession(
+          id: 'sleep-y',
+          startTime: DateTime(2026, 3, 10, 22),
+          endTime: DateTime(2026, 3, 11, 6),
+          sessionType: SessionType.sleep,
+        );
+        await repository.createSession(sleep);
+        await repository.deleteSession(sleep.id);
+        await service.restoreDeletedSleepSessions();
+
+        // User intentionally deletes the recovered copy.
+        await repository.deleteSession(deriveSleepRecoverySessionId('sleep-y'));
+
+        final again = await service.restoreDeletedSleepSessions();
+        expect(again.dataOrNull, 0, reason: 'recovery row exists as tombstone');
+        expect(await repository.getRecentSleepSessions(limit: 50), isEmpty);
       });
 
       test('does not touch deleted normal fronting sessions', () async {

@@ -128,3 +128,26 @@ String deriveGapFillerSessionId(DateTime start, DateTime end) =>
       gapFillerNamespace,
       '${start.toUtc().toIso8601String()}:${end.toUtc().toIso8601String()}',
     );
+
+/// Namespace for sleep-session recovery rows.
+///
+/// The cross-type-trim data-loss bug soft-deleted sleep sessions. Their
+/// tombstones are TERMINAL in prism-sync (the board-delete-resurrection
+/// gate drops any `is_deleted = false` revival), so an in-place un-delete
+/// can't propagate and a CRDT rebuild would re-delete it. Recovery instead
+/// RE-CREATES each lost session as a brand-new row under a fresh id derived
+/// from the original tombstone id: a `record_create` on a never-before-seen
+/// id survives the gate and syncs to every paired device. Deriving the id
+/// from the tombstone id makes recovery idempotent and convergent — running
+/// it on two devices produces the same new id, so they merge into one row
+/// instead of duplicating.
+///
+/// ⚠️ IMMUTABLE FOREVER. Once shipped, this value MUST NEVER change.
+const String sleepRecoveryNamespace = 'a539d4f4-1277-4c1a-91da-b00c2ab5977d';
+
+/// Canonical derivation for a recovered sleep session's id from the id of
+/// the tombstone it is being restored from. Both the recovery write path and
+/// the "how many are recoverable" count must route through this helper so
+/// they agree byte-for-byte.
+String deriveSleepRecoverySessionId(String tombstoneId) =>
+    const Uuid().v5(sleepRecoveryNamespace, tombstoneId);

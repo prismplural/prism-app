@@ -611,30 +611,69 @@ class FrontingMutationService {
   }
 
   /// Recovery for the sleep-data-loss bug (an open-ended front edit silently
-  /// deleted overlapping sleep rows). Un-tombstones every soft-deleted sleep
-  /// session locally, emitting a sync op per row.
+  /// deleted overlapping sleep rows). For each soft-deleted sleep tombstone,
+  /// RE-CREATES the session as a fresh row under a deterministic recovery id
+  /// ([deriveSleepRecoverySessionId]) carrying the tombstone's start/end/
+  /// quality/notes. Returns the number of rows actually created.
   ///
-  /// NOTE: the revival is effectively LOCAL-ONLY. prism-sync's terminal-
-  /// tombstone merge gate (the board-delete-resurrection fix) drops an
-  /// `is_deleted = false` op on any peer that already holds the tombstone, and
-  /// a future rebuild of this device from the CRDT log would re-delete the
-  /// restored rows. Adequate for the non-syncing users this targets; durable
-  /// cross-device recovery would require re-creating under fresh ids.
+  /// Why re-create instead of un-delete: the tombstone is terminal in
+  /// prism-sync (the board-delete-resurrection gate drops `is_deleted = false`
+  /// revivals), so an in-place un-delete can't reach paired devices and a CRDT
+  /// rebuild would re-delete it. A `record_create` on a never-before-seen id
+  /// survives the gate and syncs to every device — so leo's synced setup
+  /// recovers, not just single-device users. The deterministic id keeps it
+  /// idempotent: re-running, or running on a second device, derives the same
+  /// id and converges rather than duplicating.
   ///
-  /// Bug-deletes and user-initiated sleep deletes share the same tombstone,
-  /// so this also revives sleep sessions the user deleted on purpose — the
-  /// caller is expected to warn about that. Returns the number restored.
+  /// Skips any tombstone whose recovery row already exists in ANY state — an
+  /// alive recovery means it's already restored; a deleted recovery means the
+  /// user intentionally removed the restored copy, which is respected.
+  ///
+  /// Bug-deletes and user-initiated sleep deletes share the same tombstone, so
+  /// this also revives sleep sessions the user deleted on purpose — the caller
+  /// is expected to warn about that. The original tombstones are left in place.
   Future<MutationResult<int>> restoreDeletedSleepSessions() {
     return _mutationRunner.run<int>(
       actionLabel: 'Restore deleted sleep sessions',
       action: () async {
-        final deleted = await _repository.getDeletedSleepSessions();
-        for (final session in deleted) {
-          await _repository.restoreSleepSession(session.id);
+        final recoverable = await recoverableDeletedSleepSessions();
+        for (final tombstone in recoverable) {
+          await _repository.createSession(
+            tombstone.copyWith(
+              id: deriveSleepRecoverySessionId(tombstone.id),
+              isDeleted: false,
+            ),
+          );
         }
-        return deleted.length;
+        return recoverable.length;
       },
     );
+  }
+
+  /// Sleep tombstones eligible for recovery: deleted originals whose recovery
+  /// row doesn't yet exist. Single source of truth for both the recovery
+  /// write path and the "how many can be restored" count, so they can't drift.
+  ///
+  /// Excludes a tombstone when:
+  ///  * its recovery row already exists in ANY state — alive means already
+  ///    restored; deleted means the user removed the restored copy on purpose;
+  ///  * the tombstone is ITSELF a recovery row (its id is the recovery id of
+  ///    another tombstone in the set) — so deleting a recovered session never
+  ///    chain-recovers it under a second-level id.
+  Future<List<FrontingSession>> recoverableDeletedSleepSessions() async {
+    final tombstones = await _repository.getDeletedSleepSessions();
+    final recoveryIds = {
+      for (final t in tombstones) deriveSleepRecoverySessionId(t.id),
+    };
+    final recoverable = <FrontingSession>[];
+    for (final tombstone in tombstones) {
+      if (recoveryIds.contains(tombstone.id)) continue; // is a recovery row
+      final existing = await _repository.getSessionById(
+        deriveSleepRecoverySessionId(tombstone.id),
+      );
+      if (existing == null) recoverable.add(tombstone);
+    }
+    return recoverable;
   }
 
   Future<MutationResult<FrontingSession>> logHistoricalSleep({

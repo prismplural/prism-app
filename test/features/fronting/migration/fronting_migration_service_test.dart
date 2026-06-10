@@ -2988,11 +2988,7 @@ class _SuppressionAssertingFrontingSessionRepository
       _inner.getDeletedLinkedSessions();
   @override
   Future<List<FrontingSession>> getDeletedSleepSessions() =>
-      _inner.getDeletedSleepSessions();
-  @override
-  Future<void> restoreSleepSession(String id) =>
-      _inner.restoreSleepSession(id);
-  @override
+      _inner.getDeletedSleepSessions();  @override
   Future<void> clearPluralKitLink(String id) => _inner.clearPluralKitLink(id);
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>

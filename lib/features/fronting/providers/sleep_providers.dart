@@ -146,16 +146,20 @@ final morningFrontingCountsProvider =
       );
     });
 
-/// Count of soft-deleted sleep tombstones. Gates the in-app recovery action
-/// for the sleep-data-loss bug — the UI only surfaces "restore deleted sleep
-/// sessions" when this is > 0.
+/// Count of RECOVERABLE soft-deleted sleep tombstones — deleted originals not
+/// yet re-created under their deterministic recovery id. Gates the in-app
+/// recovery action for the sleep-data-loss bug: the UI surfaces "restore
+/// deleted sleep sessions" only when this is > 0, and it drops back to 0 once
+/// recovery has re-created every lost row (the tombstones stay, so a raw
+/// tombstone count would never clear). Shares [recoverableDeletedSleepSessions]
+/// with the write path so the tile and the action can't disagree.
 final deletedSleepSessionCountProvider = FutureProvider.autoDispose<int>((
   ref,
 ) async {
   ref.watch(frontingTableTickerProvider);
-  final repo = ref.watch(frontingSessionRepositoryProvider);
-  final deleted = await repo.getDeletedSleepSessions();
-  return deleted.length;
+  final service = ref.watch(frontingMutationServiceProvider);
+  final recoverable = await service.recoverableDeletedSleepSessions();
+  return recoverable.length;
 });
 
 /// Notifier for sleep session actions.
