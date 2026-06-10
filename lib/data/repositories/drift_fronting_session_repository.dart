@@ -258,10 +258,10 @@ class DriftFrontingSessionRepository
 
   @override
   Future<void> restoreSleepSession(String id) async {
-    await _dao.restoreSession(id);
-    // Emit the revival so paired devices converge. The terminal-tombstone
-    // gate in prism-sync may drop this on peers that already hold the
-    // tombstone; the local row is restored regardless.
+    await _dao.restoreSleepSession(id);
+    // Emit the revival as a best-effort op. prism-sync's terminal-tombstone
+    // gate drops this on any peer that already holds the tombstone, so the
+    // restore is effectively local-only; the local row is restored regardless.
     await syncRecordUpdate(_table, id, {'is_deleted': false});
   }
 

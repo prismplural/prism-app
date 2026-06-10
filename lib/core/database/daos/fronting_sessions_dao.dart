@@ -246,14 +246,19 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .get();
 
-  /// Un-tombstones a session (`is_deleted = false`). Bypasses the normal
-  /// `is_deleted = 0` read filter. Repository callers must pair this with a
-  /// `syncRecordUpdate` so peers converge (subject to the terminal-tombstone
-  /// merge gate in prism-sync, which may drop the revival on synced peers).
-  Future<void> restoreSession(String id) =>
-      (update(frontingSessions)..where((s) => s.id.equals(id))).write(
-        const FrontingSessionsCompanion(isDeleted: Value(false)),
-      );
+  /// Un-tombstones a soft-deleted sleep session (`is_deleted = false`).
+  /// Scoped to `session_type = 1` tombstones so a stray id can't revive a
+  /// normal fronting row. Repository callers must pair this with a
+  /// `syncRecordUpdate` (subject to the terminal-tombstone merge gate in
+  /// prism-sync, which may drop the revival on synced peers).
+  Future<void> restoreSleepSession(String id) =>
+      (update(frontingSessions)..where(
+            (s) =>
+                s.id.equals(id) &
+                s.sessionType.equals(_sleepSessionType) &
+                s.isDeleted.equals(true),
+          ))
+          .write(const FrontingSessionsCompanion(isDeleted: Value(false)));
 
   /// Tombstoned sessions that still carry a PK switch UUID and a
   /// delete intent epoch. See `MembersDao.getDeletedLinkedMembers` for the

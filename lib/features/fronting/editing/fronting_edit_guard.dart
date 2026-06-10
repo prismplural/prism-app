@@ -80,8 +80,11 @@ class FrontingEditGuard {
         .toList();
 
     // Overlapping sessions that should surface to the user are ONLY
-    // same-member self-overlaps within the SAME session type. Those collapse
-    // via trim because a member can't have two concurrent rows of one type.
+    // same-member self-overlaps within the SAME session type — i.e. two
+    // normal fronting rows for one member, which collapse via trim because a
+    // member can't front twice concurrently. (Sleep rows carry a null
+    // memberId, so `isSameMember` is never true for them; sleep-vs-sleep
+    // overlaps are not surfaced here — unchanged by this fix.)
     //
     // Cross-TYPE overlaps (sleep vs. normal fronting) are NOT conflicts:
     // sleep is a parallel "no fronter" timeline orthogonal to member

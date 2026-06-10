@@ -80,6 +80,8 @@ String _exportJson({
   List<Map<String, dynamic>> headmates = const [],
   List<Map<String, dynamic>> frontSessions = const [],
   List<Map<String, dynamic>> sleepSessions = const [],
+  List<Map<String, dynamic>> habits = const [],
+  List<Map<String, dynamic>> habitCompletions = const [],
 }) {
   final now = DateTime(2026, 4, 25, 10, 0, 0).toUtc().toIso8601String();
   return jsonEncode({
@@ -97,9 +99,42 @@ String _exportJson({
     'polls': [],
     'pollOptions': [],
     'systemSettings': [],
-    'habits': [],
-    'habitCompletions': [],
+    'habits': habits,
+    'habitCompletions': habitCompletions,
   });
+}
+
+Map<String, dynamic> _habitJson({required String id, String name = 'Habit'}) {
+  final now = DateTime(2026, 4, 25, 9, 0, 0).toUtc().toIso8601String();
+  return {
+    'id': id,
+    'name': name,
+    'isActive': true,
+    'createdAt': now,
+    'modifiedAt': now,
+    'frequency': 'daily',
+    'notificationsEnabled': false,
+    'onlyNotifyWhenFronting': false,
+    'isPrivate': false,
+    'currentStreak': 0,
+    'bestStreak': 0,
+    'totalCompletions': 0,
+  };
+}
+
+Map<String, dynamic> _habitCompletionJson({
+  required String id,
+  required String habitId,
+}) {
+  final now = DateTime(2026, 4, 25, 9, 30, 0).toUtc().toIso8601String();
+  return {
+    'id': id,
+    'habitId': habitId,
+    'completedAt': now,
+    'wasFronting': false,
+    'createdAt': now,
+    'modifiedAt': now,
+  };
 }
 
 Map<String, dynamic> _headmateJson({
@@ -401,6 +436,111 @@ void main() {
       // is_deleted=true. The sleep import did not flip its type.
       expect(allRows.single.sessionType, 0);
       expect(allRows.single.isDeleted, isTrue);
+    });
+
+    test(
+      'habit import skips a row whose id collides with a soft-deleted habit '
+      'tombstone WITHOUT aborting the whole import (PK-collision is code 1555)',
+      () async {
+        // Habits dedup against the tombstone-EXCLUDING getAllHabits(), so a
+        // since-deleted habit id slips past dedup and hits the row primary
+        // key. That raises SQLITE_CONSTRAINT_PRIMARYKEY (1555), NOT 2067, so
+        // a 2067-only guard would rethrow and roll back the ENTIRE import —
+        // the reported "habits error" blocking old-export restores.
+        await db
+            .into(db.habits)
+            .insert(
+              HabitsCompanion.insert(
+                id: 'habit-1',
+                name: 'Old Habit',
+                createdAt: DateTime(2026, 1, 1),
+                modifiedAt: DateTime(2026, 1, 1),
+                isDeleted: const drift.Value(true),
+              ),
+            );
+
+        // A fresh member rides along to prove the transaction COMMITTED
+        // rather than rolled back when the habit collided.
+        final json = _exportJson(
+          headmates: [_headmateJson(id: 'survivor', name: 'Survivor')],
+          habits: [_habitJson(id: 'habit-1', name: 'New Habit')],
+        );
+
+        final result = await importService.importData(json);
+
+        expect(result.habitsCreated, 0);
+        // Transaction committed — the unrelated member landed.
+        expect(result.membersCreated, 1);
+
+        final tombstone = await (db.select(
+          db.habits,
+        )..where((h) => h.id.equals('habit-1'))).getSingle();
+        expect(tombstone.isDeleted, isTrue);
+        expect(
+          tombstone.name,
+          'Old Habit',
+          reason: 'Collision skip must not overwrite the tombstone',
+        );
+        final survivor = await (db.select(
+          db.members,
+        )..where((m) => m.id.equals('survivor'))).getSingle();
+        expect(survivor.isDeleted, isFalse);
+      },
+    );
+
+    test('habit completion import skips a row colliding with a deleted '
+        'completion tombstone without aborting the import', () async {
+      await db
+          .into(db.habits)
+          .insert(
+            HabitsCompanion.insert(
+              id: 'habit-live',
+              name: 'Live Habit',
+              createdAt: DateTime(2026, 1, 1),
+              modifiedAt: DateTime(2026, 1, 1),
+            ),
+          );
+      await db
+          .into(db.habitCompletions)
+          .insert(
+            HabitCompletionsCompanion.insert(
+              id: 'completion-1',
+              habitId: 'habit-live',
+              completedAt: DateTime(2026, 1, 2),
+              createdAt: DateTime(2026, 1, 2),
+              modifiedAt: DateTime(2026, 1, 2),
+              isDeleted: const drift.Value(true),
+            ),
+          );
+
+      final json = _exportJson(
+        headmates: [_headmateJson(id: 'survivor2', name: 'Survivor2')],
+        habitCompletions: [
+          _habitCompletionJson(id: 'completion-1', habitId: 'habit-live'),
+        ],
+      );
+
+      final result = await importService.importData(json);
+
+      expect(result.habitCompletionsCreated, 0);
+      expect(result.membersCreated, 1);
+      final tombstone = await (db.select(
+        db.habitCompletions,
+      )..where((c) => c.id.equals('completion-1'))).getSingle();
+      expect(tombstone.isDeleted, isTrue);
+    });
+
+    test('habit import lands a fresh (non-colliding) habit normally', () async {
+      final json = _exportJson(habits: [_habitJson(id: 'fresh-habit')]);
+
+      final result = await importService.importData(json);
+
+      expect(result.habitsCreated, 1);
+      final live = await (db.select(
+        db.habits,
+      )..where((h) => h.isDeleted.equals(false))).get();
+      expect(live, hasLength(1));
+      expect(live.single.id, 'fresh-habit');
     });
 
     test(

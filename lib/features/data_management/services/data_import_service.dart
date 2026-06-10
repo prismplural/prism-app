@@ -598,7 +598,7 @@ class DataImportService {
             // dedup above missed, swallow the unique-constraint and skip
             // rather than abort the entire import transaction. The dedup
             // is the primary defense; this is the safety net.
-            if (isUniqueConstraintViolation(e)) {
+            if (isUniqueOrPrimaryKeyConstraintViolation(e)) {
               debugPrint(
                 '[Import] Member ${h.id} insert hit a unique-constraint '
                 'collision past dedup; skipping.',
@@ -877,7 +877,7 @@ class DataImportService {
               ),
             );
           } catch (e) {
-            if (isUniqueConstraintViolation(e)) {
+            if (isUniqueOrPrimaryKeyConstraintViolation(e)) {
               debugPrint(
                 '[Import] Fronting session $id insert hit a unique-'
                 'constraint collision past dedup; skipping.',
@@ -1394,7 +1394,7 @@ class DataImportService {
               ),
             );
           } catch (e) {
-            if (isUniqueConstraintViolation(e)) {
+            if (isUniqueOrPrimaryKeyConstraintViolation(e)) {
               debugPrint(
                 '[Import] Sleep session ${s.id} insert hit a unique-'
                 'constraint collision past dedup; skipping.',
@@ -1774,7 +1774,7 @@ class DataImportService {
               ),
             );
           } catch (e) {
-            if (isUniqueConstraintViolation(e)) {
+            if (isUniqueOrPrimaryKeyConstraintViolation(e)) {
               debugPrint(
                 '[Import] Habit ${h.id} insert hit a unique-constraint '
                 'collision past dedup (likely a tombstone); skipping.',
@@ -1815,7 +1815,7 @@ class DataImportService {
             // Same tombstone-collision guard as the habit insert above: a
             // since-deleted completion id slips past the active-only dedup
             // and would otherwise abort the whole import.
-            if (isUniqueConstraintViolation(e)) {
+            if (isUniqueOrPrimaryKeyConstraintViolation(e)) {
               debugPrint(
                 '[Import] Habit completion ${c.id} insert hit a unique-'
                 'constraint collision past dedup; skipping.',

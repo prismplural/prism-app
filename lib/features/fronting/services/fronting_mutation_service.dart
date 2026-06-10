@@ -612,7 +612,14 @@ class FrontingMutationService {
 
   /// Recovery for the sleep-data-loss bug (an open-ended front edit silently
   /// deleted overlapping sleep rows). Un-tombstones every soft-deleted sleep
-  /// session, emitting a sync op per row so paired devices converge.
+  /// session locally, emitting a sync op per row.
+  ///
+  /// NOTE: the revival is effectively LOCAL-ONLY. prism-sync's terminal-
+  /// tombstone merge gate (the board-delete-resurrection fix) drops an
+  /// `is_deleted = false` op on any peer that already holds the tombstone, and
+  /// a future rebuild of this device from the CRDT log would re-delete the
+  /// restored rows. Adequate for the non-syncing users this targets; durable
+  /// cross-device recovery would require re-creating under fresh ids.
   ///
   /// Bug-deletes and user-initiated sleep deletes share the same tombstone,
   /// so this also revives sleep sessions the user deleted on purpose — the

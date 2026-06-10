@@ -205,9 +205,10 @@ class _EditFrontSessionScreenState
 
     final allChanges = <FrontingSessionChange>[];
 
-    // Same-member self-overlaps (and sleep/front cross-type overlaps) must be
-    // trimmed away before the edit lands. Cross-member normal overlaps never
-    // appear here; the guard filters them out as valid co-fronting.
+    // Same-member, same-type self-overlaps must be trimmed away before the
+    // edit lands. Cross-member normal overlaps (valid co-fronting) and
+    // cross-type sleep/front overlaps (parallel timelines) never appear
+    // here — the guard filters both out.
     if (validation.overlappingSessions.isNotEmpty) {
       final proposedSnapshot = FrontingSessionSnapshot(
         id: original.id,
