@@ -4420,6 +4420,28 @@
   "@mediaAddImageTooltip": {
     "description": "Tooltip on the add-image button in the Media screen top bar; opens a menu of image sources"
   },
+  "mediaMoreActionsTooltip": "Más acciones",
+  "@mediaMoreActionsTooltip": {
+    "description": "Tooltip on the overflow (more-actions) menu in the Media screen top bar"
+  },
+  "mediaRequestMissingTitle": "Solicitar medios faltantes",
+  "@mediaRequestMissingTitle": {
+    "description": "Media screen menu action: re-request blobs this device references but is missing from its cache and the relay"
+  },
+  "mediaRequestMissingNone": "No faltan medios — todo está aquí",
+  "@mediaRequestMissingNone": {
+    "description": "Snackbar shown when there is no missing media to request"
+  },
+  "mediaRequestMissingStarted": "Volviendo a solicitar {count} medios faltantes",
+  "@mediaRequestMissingStarted": {
+    "description": "Snackbar after the user taps Request missing media",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "mediaRequestMissingStartedSomeUnavailable": "Volviendo a solicitar {count} medios faltantes; {terminal} pueden necesitar otro dispositivo conectado",
+  "@mediaRequestMissingStartedSomeUnavailable": {
+    "description": "Snackbar after Request missing media when some blobs were already judged unavailable and likely need another device that holds them",
+    "placeholders": { "count": { "type": "int" }, "terminal": { "type": "int" } }
+  },
   "mediaSourceCamera": "Camera",
   "@mediaSourceCamera": {
     "description": "Add-image source menu item: take a photo with the camera"

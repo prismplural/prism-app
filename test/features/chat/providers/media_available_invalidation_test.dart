@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:drift/drift.dart' show Uint8List;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_hydrator.dart';
@@ -36,7 +37,7 @@ class _NullThenBytesDownloadManager extends DownloadManager {
       false;
 
   @override
-  Future<Uint8List?> getMedia({
+  Future<MediaFetchResult> getMedia({
     required String mediaId,
     required Uint8List encryptionKey,
     required String ciphertextHash,
@@ -44,8 +45,10 @@ class _NullThenBytesDownloadManager extends DownloadManager {
     String fileExtension = '',
   }) async {
     calls += 1;
-    if (calls <= missesBefore) return null;
-    return Uint8List.fromList([7, 7, 7]);
+    if (calls <= missesBefore) {
+      return const MediaFetchFailure(ffi.MediaFetchErrorKind.other);
+    }
+    return MediaFetchOk(Uint8List.fromList([7, 7, 7]));
   }
 }
 

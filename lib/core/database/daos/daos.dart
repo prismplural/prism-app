@@ -13,3 +13,4 @@ export 'media_attachments_dao.dart';
 export 'pk_group_sync_aliases_dao.dart';
 export 'pk_group_entry_deferred_sync_ops_dao.dart';
 export 'upload_queue_dao.dart';
+export 'missing_media_dao.dart';

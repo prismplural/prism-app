@@ -11742,6 +11742,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mediaAddImageTooltip => 'Add image';
 
   @override
+  String get mediaMoreActionsTooltip => 'More actions';
+
+  @override
+  String get mediaRequestMissingTitle => 'Request missing media';
+
+  @override
+  String get mediaRequestMissingNone => 'No missing media — everything\'s here';
+
+  @override
+  String mediaRequestMissingStarted(int count) {
+    return 'Re-requesting $count missing media';
+  }
+
+  @override
+  String mediaRequestMissingStartedSomeUnavailable(int count, int terminal) {
+    return 'Re-requesting $count missing media; $terminal may need another device online';
+  }
+
+  @override
   String get mediaSourceCamera => 'Camera';
 
   @override

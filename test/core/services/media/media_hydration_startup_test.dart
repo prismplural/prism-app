@@ -43,7 +43,7 @@ class _FakeDownloadManager extends DownloadManager {
       cached.contains(mediaId);
 
   @override
-  Future<Uint8List?> getMedia({
+  Future<MediaFetchResult> getMedia({
     required String mediaId,
     required Uint8List encryptionKey,
     required String ciphertextHash,
@@ -54,7 +54,7 @@ class _FakeDownloadManager extends DownloadManager {
     await _mediaDir.create(recursive: true);
     await File(p.join(_mediaDir.path, '$mediaId.enc')).writeAsBytes([1]);
     cached.add(mediaId);
-    return Uint8List.fromList([1]);
+    return MediaFetchOk(Uint8List.fromList([1]));
   }
 }
 

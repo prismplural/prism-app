@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_hydrator.dart';
@@ -30,8 +31,14 @@ class _FakeDownloadManager extends DownloadManager {
   /// Per-id: leading calls that return null (transient miss) before success.
   final Map<String, int> failFirst = {};
 
-  /// Ids that always return null (e.g. never uploaded → relay 404).
+  /// Ids that always return a transient/unavailable miss.
   final Set<String> neverAvailable = {};
+
+  /// Ids the relay reports missing (`notFound`) — heal trigger, no retry.
+  final Set<String> notFoundIds = {};
+
+  /// Ids that fail to decrypt (local integrity error) — dropped, no heal.
+  final Set<String> decryptIds = {};
 
   @override
   Future<bool> isCached(String mediaId, {String fileExtension = ''}) async {
@@ -39,7 +46,7 @@ class _FakeDownloadManager extends DownloadManager {
   }
 
   @override
-  Future<Uint8List?> getMedia({
+  Future<MediaFetchResult> getMedia({
     required String mediaId,
     required Uint8List encryptionKey,
     required String ciphertextHash,
@@ -49,14 +56,21 @@ class _FakeDownloadManager extends DownloadManager {
     final n = (calls[mediaId] ?? 0) + 1;
     calls[mediaId] = n;
 
-    if (neverAvailable.contains(mediaId)) return null;
-    if (n <= (failFirst[mediaId] ?? 0)) return null;
+    const miss = MediaFetchFailure(ffi.MediaFetchErrorKind.other);
+    if (notFoundIds.contains(mediaId)) {
+      return const MediaFetchFailure(ffi.MediaFetchErrorKind.notFound);
+    }
+    if (decryptIds.contains(mediaId)) {
+      return const MediaFetchFailure(ffi.MediaFetchErrorKind.decrypt);
+    }
+    if (neverAvailable.contains(mediaId)) return miss;
+    if (n <= (failFirst[mediaId] ?? 0)) return miss;
 
     await _mediaDir.create(recursive: true);
     await File(p.join(_mediaDir.path, '$mediaId.enc'))
         .writeAsBytes(Uint8List.fromList([n]));
     cached.add(mediaId);
-    return Uint8List.fromList([n]);
+    return MediaFetchOk(Uint8List.fromList([n]));
   }
 }
 
@@ -65,12 +79,14 @@ void main() {
   late Directory mediaDir;
   late AppDatabase db;
   late _FakeDownloadManager downloads;
+  late List<String> absentSignals;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('media-hydrator-');
     mediaDir = Directory(p.join(tempDir.path, 'prism_media'));
     db = AppDatabase(NativeDatabase.memory());
     downloads = _FakeDownloadManager(mediaDir);
+    absentSignals = [];
   });
 
   tearDown(() async {
@@ -112,6 +128,7 @@ void main() {
       // instant and deterministic, and dispose has no timers to cancel.
       scheduleRetry: (_, run) => Future<void>.microtask(run),
       log: log ?? (_) {},
+      onReferencedAbsent: absentSignals.add,
     );
   }
 
@@ -266,6 +283,81 @@ void main() {
       expect(downloads.calls['media-missing'], 3,
           reason: 'given-up ids are skipped until the next launch');
 
+      hydrator.dispose();
+    });
+  });
+
+  group('heal hook (onReferencedAbsent)', () {
+    test('a relay-confirmed-missing blob signals the heal immediately', () async {
+      await seedRow('gone');
+      downloads.notFoundIds.add('gone');
+      final hydrator = makeHydrator(maxAttempts: 5);
+
+      await hydrator.enqueuePending();
+      await pumpEventQueue();
+
+      expect(downloads.calls['gone'], 1, reason: 'no retries on a 404');
+      expect(absentSignals, ['gone']);
+      hydrator.dispose();
+    });
+
+    test('a persistently-unavailable blob signals the heal after give-up', () async {
+      await seedRow('missing');
+      downloads.neverAvailable.add('missing');
+      final hydrator = makeHydrator(maxAttempts: 3);
+
+      await hydrator.enqueuePending();
+      await pumpEventQueue();
+
+      expect(downloads.calls['missing'], 3);
+      expect(absentSignals, ['missing'], reason: 'give-up triggers a heal request');
+      hydrator.dispose();
+    });
+
+    test('a decrypt/integrity failure is dropped, NOT signalled to the heal', () async {
+      await seedRow('corrupt');
+      downloads.decryptIds.add('corrupt');
+      final hydrator = makeHydrator(maxAttempts: 3);
+
+      await hydrator.enqueuePending();
+      await pumpEventQueue();
+
+      expect(downloads.calls['corrupt'], 1, reason: 'decrypt failures do not retry');
+      expect(absentSignals, isEmpty, reason: 're-supply cannot fix a local fault');
+      hydrator.dispose();
+    });
+
+    test('a successful download does not signal the heal', () async {
+      await seedRow('ok');
+      final hydrator = makeHydrator();
+      final got = landed(hydrator, 1);
+
+      await hydrator.enqueuePending();
+      await got;
+      await pumpEventQueue();
+
+      expect(absentSignals, isEmpty);
+      hydrator.dispose();
+    });
+
+    test('retry re-downloads a given-up blob once it is back on the relay', () async {
+      await seedRow('healed');
+      downloads.notFoundIds.add('healed'); // first pass: 404 → give up + signal
+      final hydrator = makeHydrator();
+
+      await hydrator.enqueuePending();
+      await pumpEventQueue();
+      expect(absentSignals, ['healed'], reason: 'gave up + signalled the heal');
+      expect(cacheFileExists('healed'), isFalse);
+
+      // A peer re-supplies it; heal-completion calls retry → re-download.
+      downloads.notFoundIds.remove('healed');
+      final got = landed(hydrator, 1);
+      await hydrator.retry('healed');
+      final ids = await got;
+
+      expect(ids, ['healed']);
+      expect(cacheFileExists('healed'), isTrue);
       hydrator.dispose();
     });
   });

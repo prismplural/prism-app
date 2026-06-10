@@ -11,6 +11,7 @@ import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/services/media/bio_media_reconciler.dart';
+import 'core/services/media/media_heal_providers.dart';
 import 'core/services/media/media_providers.dart';
 import 'core/services/media/orphan_media_reconciler.dart';
 import 'core/services/notification_providers.dart';
@@ -259,6 +260,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
     // Keep the FFI event stream alive for the lifetime of the app.
     ref.listen(syncEventStreamProvider, (_, _) {});
+    // Drive the media heal heal loop (media heal): respond to peers' media_request,
+    // re-download re-supplied blobs, and run the missing-media cadence each pull.
+    ref.listen(mediaHealReactorProvider, (_, _) {});
     // Keep the diagnostic event buffer alive for the lifetime of the app.
     ref.listen(syncEventLogProvider, (previous, next) {});
     // Keep the PluralKit sync log notifier subscribed so events emitted

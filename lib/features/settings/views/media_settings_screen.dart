@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_heal_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -232,6 +233,9 @@ final tagUsageProvider = FutureProvider.autoDispose
 
 enum _AddSource { camera, photoLibrary, file, url }
 
+/// Overflow ("more actions") menu items on the Media screen top bar.
+enum _MediaOverflowAction { requestMissingMedia }
+
 bool _isDesktopPlatform(TargetPlatform platform) {
   return switch (platform) {
     TargetPlatform.linux ||
@@ -296,6 +300,19 @@ class MediaSettingsScreen extends ConsumerWidget {
               ),
             ],
             onSelected: (source) => _handleAddImage(context, ref, source),
+          ),
+          PrismPopupMenu<_MediaOverflowAction>(
+            icon: AppIcons.moreVert,
+            tooltip: l10n.mediaMoreActionsTooltip,
+            width: 260,
+            items: [
+              PrismMenuItem(
+                value: _MediaOverflowAction.requestMissingMedia,
+                label: l10n.mediaRequestMissingTitle,
+                icon: AppIcons.cloudDownload,
+              ),
+            ],
+            onSelected: (_) => _handleRequestMissingMedia(context, ref),
           ),
         ],
       ),
@@ -548,6 +565,44 @@ class MediaSettingsScreen extends ConsumerWidget {
   }
 
   /// Scan all members' bios for tag references, returning tag → [member names].
+  /// User-initiated "Request missing media" (media heal): re-arm every
+  /// entry in the missing-media set (pending AND terminal) and run the heal
+  /// cadence now, so any holder that's online re-supplies the blobs. Surfaces
+  /// the count via a toast; the heal then completes in the background (re-
+  /// downloads land via the normal cache → MediaAvailable path).
+  Future<void> _handleRequestMissingMedia(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final dao = ref.read(databaseProvider).missingMediaDao;
+    // Snapshot the pending-vs-terminal split BEFORE re-arming, so the toast can
+    // tell the user whether some blobs were already judged unavailable (likely
+    // needing another device online) rather than just awaiting a holder.
+    final pending = await dao.pendingCount();
+    final terminal = await dao.terminalCount();
+    final total = pending + terminal;
+    if (!context.mounted) return;
+    if (total == 0) {
+      PrismToast.show(context, message: context.l10n.mediaRequestMissingNone);
+      return;
+    }
+    await requestAllMissingMedia(
+      dao: dao,
+      requester: ref.read(mediaHealRequesterProvider),
+      hydrator: ref.read(mediaHydratorProvider),
+      nowMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    if (context.mounted) {
+      final l10n = context.l10n;
+      PrismToast.success(
+        context,
+        message: terminal == 0
+            ? l10n.mediaRequestMissingStarted(total)
+            : l10n.mediaRequestMissingStartedSomeUnavailable(total, terminal),
+      );
+    }
+  }
+
   Future<void> _handleAddImage(
     BuildContext context,
     WidgetRef ref,

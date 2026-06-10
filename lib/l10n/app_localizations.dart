@@ -18890,6 +18890,36 @@ abstract class AppLocalizations {
   /// **'Add image'**
   String get mediaAddImageTooltip;
 
+  /// Tooltip on the overflow (more-actions) menu in the Media screen top bar
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get mediaMoreActionsTooltip;
+
+  /// Media screen menu action: re-request blobs this device references but is missing from its cache and the relay
+  ///
+  /// In en, this message translates to:
+  /// **'Request missing media'**
+  String get mediaRequestMissingTitle;
+
+  /// Snackbar shown when there is no missing media to request
+  ///
+  /// In en, this message translates to:
+  /// **'No missing media — everything\'s here'**
+  String get mediaRequestMissingNone;
+
+  /// Snackbar after the user taps Request missing media
+  ///
+  /// In en, this message translates to:
+  /// **'Re-requesting {count} missing media'**
+  String mediaRequestMissingStarted(int count);
+
+  /// Snackbar after Request missing media when some blobs were already judged unavailable and likely need another device that holds them
+  ///
+  /// In en, this message translates to:
+  /// **'Re-requesting {count} missing media; {terminal} may need another device online'**
+  String mediaRequestMissingStartedSomeUnavailable(int count, int terminal);
+
   /// Add-image source menu item: take a photo with the camera
   ///
   /// In en, this message translates to:

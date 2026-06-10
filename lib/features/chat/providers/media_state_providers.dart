@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/database/daos/missing_media_dao.dart';
 import 'package:prism_plurality/core/services/media/upload_queue.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
+import 'package:prism_plurality/core/services/media/media_heal_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_available_provider.dart';
 
@@ -74,23 +77,48 @@ final mediaFileProvider = FutureProvider.autoDispose
       final encryptionKey = Uint8List.fromList(
         base64Decode(params.encryptionKeyB64),
       );
-      final bytes = await manager.getMedia(
+      final result = await manager.getMedia(
         mediaId: params.mediaId,
         encryptionKey: encryptionKey,
         ciphertextHash: params.ciphertextHash,
         plaintextHash: params.plaintextHash,
       );
 
-      // A null result means the blob is unavailable — either the relay no
-      // longer holds it (90-day TTL expiry) or the download failed. Surface it
-      // as `null` (an "unavailable/expired" state callers render gracefully)
-      // rather than throwing: the `error` state is reserved for decrypt /
-      // integrity failures, which `getMedia` raises as exceptions. (Previously
-      // this threw, which made BioImageWidget's "Image expired" placeholder
-      // unreachable — expired media always hit the generic error path.)
-      if (bytes == null) {
+      // A local decrypt / integrity failure surfaces as the provider's error
+      // state (callers render a generic error) — re-fetching can't fix a local
+      // key/integrity fault. Everything else — the relay no longer holds it
+      // (TTL expiry), a transient transport failure, a missing blob — is
+      // "unavailable": return `null` so callers render the graceful expired/
+      // placeholder state (e.g. BioImageWidget's "Image expired"). The media heal
+      // request for a missing blob is wired in a follow-up.
+      if (result is! MediaFetchOk) {
+        if (result.isDecryptFailure) {
+          throw StateError('media integrity failure: ${params.mediaId}');
+        }
+        // On-view miss for a referenced blob: nudge the media heal (it confirms via
+        // batch-exists + requests a re-supply, gated by cooldown). When a peer
+        // re-supplies it, the mediaAvailable listener above re-resolves this
+        // provider. Best-effort — never let the heal break the placeholder
+        // render (e.g. if the requester's deps aren't available).
+        try {
+          unawaited(
+            ref
+                .read(mediaHealRequesterProvider)
+                .onReferencedAbsent(
+                  params.mediaId,
+                  // TODO(media-heal follow-up): heal member/profile images at
+                  // priorityProfile. The priority mechanism (cooldown ordering)
+                  // is built + tested, but threading the role through
+                  // MediaFileParams is deferred; all on-view heals currently use
+                  // chat priority. The heal still works for profile images.
+                  priority: MissingMediaDao.priorityChat,
+                )
+                .catchError((_) {}),
+          );
+        } catch (_) {}
         return null;
       }
+      final bytes = result.bytes;
 
       // Evict oldest entry when at capacity (FIFO).
       if (_imageMemoryCache.length >= _maxImageCacheEntries) {

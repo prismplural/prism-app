@@ -276,7 +276,7 @@ class MediaService {
     await completer.future;
   }
 
-  Future<Uint8List?> getMedia({
+  Future<MediaFetchResult> getMedia({
     required String mediaId,
     required Uint8List encryptionKey,
     required String ciphertextHash,

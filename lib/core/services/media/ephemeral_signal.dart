@@ -6,6 +6,12 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 
+/// Ephemeral signal-lane message kinds (ephemeral media signaling). The requester
+/// broadcasts [mediaRequestKind] for a missing blob; a holder responds with
+/// [mediaUploadedKind] once it has re-supplied it.
+const String mediaRequestKind = 'media_request';
+const String mediaUploadedKind = 'media_uploaded';
+
 /// A decoded ephemeral signal-lane message (ephemeral media signaling) drained from
 /// the relay's device-message mailbox during a sync cycle.
 ///

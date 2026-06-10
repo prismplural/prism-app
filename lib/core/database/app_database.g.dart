@@ -26351,6 +26351,505 @@ class UploadQueueEntriesCompanion extends UpdateCompanion<UploadQueueEntry> {
   }
 }
 
+class $MissingMediaEntriesTable extends MissingMediaEntries
+    with TableInfo<$MissingMediaEntriesTable, MissingMediaEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MissingMediaEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _mediaIdMeta = const VerificationMeta(
+    'mediaId',
+  );
+  @override
+  late final GeneratedColumn<String> mediaId = GeneratedColumn<String>(
+    'media_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _firstMissingAtMeta = const VerificationMeta(
+    'firstMissingAt',
+  );
+  @override
+  late final GeneratedColumn<int> firstMissingAt = GeneratedColumn<int>(
+    'first_missing_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastRequestedAtMeta = const VerificationMeta(
+    'lastRequestedAt',
+  );
+  @override
+  late final GeneratedColumn<int> lastRequestedAt = GeneratedColumn<int>(
+    'last_requested_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _nextEligibleAtMeta = const VerificationMeta(
+    'nextEligibleAt',
+  );
+  @override
+  late final GeneratedColumn<int> nextEligibleAt = GeneratedColumn<int>(
+    'next_eligible_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    mediaId,
+    priority,
+    firstMissingAt,
+    lastRequestedAt,
+    attempts,
+    nextEligibleAt,
+    state,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'missing_media';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MissingMediaEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('media_id')) {
+      context.handle(
+        _mediaIdMeta,
+        mediaId.isAcceptableOrUnknown(data['media_id']!, _mediaIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mediaIdMeta);
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('first_missing_at')) {
+      context.handle(
+        _firstMissingAtMeta,
+        firstMissingAt.isAcceptableOrUnknown(
+          data['first_missing_at']!,
+          _firstMissingAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_firstMissingAtMeta);
+    }
+    if (data.containsKey('last_requested_at')) {
+      context.handle(
+        _lastRequestedAtMeta,
+        lastRequestedAt.isAcceptableOrUnknown(
+          data['last_requested_at']!,
+          _lastRequestedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('next_eligible_at')) {
+      context.handle(
+        _nextEligibleAtMeta,
+        nextEligibleAt.isAcceptableOrUnknown(
+          data['next_eligible_at']!,
+          _nextEligibleAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {mediaId};
+  @override
+  MissingMediaEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MissingMediaEntry(
+      mediaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}media_id'],
+      )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      firstMissingAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}first_missing_at'],
+      )!,
+      lastRequestedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_requested_at'],
+      ),
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      nextEligibleAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}next_eligible_at'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+    );
+  }
+
+  @override
+  $MissingMediaEntriesTable createAlias(String alias) {
+    return $MissingMediaEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class MissingMediaEntry extends DataClass
+    implements Insertable<MissingMediaEntry> {
+  /// The referenced+absent blob's media id. One entry per blob.
+  final String mediaId;
+
+  /// Heal priority: `0` = profile / member images (heal first, tighter
+  /// cooldown), `1` = chat-history images. So an avatar isn't a blurhash for
+  /// days behind a 2019 photo.
+  final int priority;
+
+  /// Unix epoch ms this blob was first confirmed absent (added to the set).
+  /// Basis for the terminal-unavailable cutoff. Preserved across re-confirmation
+  /// so the terminal clock isn't reset by every cadence tick.
+  final int firstMissingAt;
+
+  /// Unix epoch ms of the last `media_request` broadcast for this blob, or null
+  /// if never requested yet. Diagnostics / cooldown reference.
+  final int? lastRequestedAt;
+
+  /// Re-request attempts so far. Drives the backoff schedule.
+  final int attempts;
+
+  /// Unix epoch ms the entry is next eligible to be re-requested (`0` = now).
+  /// The cooldown + backoff gate.
+  final int nextEligibleAt;
+
+  /// `pending` (awaiting a holder to come online) or `terminal` (unavailable
+  /// after the long window — retained, never silently dropped, and revivable
+  /// when a holder returns or the user taps "Request Missing Media").
+  final String state;
+  const MissingMediaEntry({
+    required this.mediaId,
+    required this.priority,
+    required this.firstMissingAt,
+    this.lastRequestedAt,
+    required this.attempts,
+    required this.nextEligibleAt,
+    required this.state,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['media_id'] = Variable<String>(mediaId);
+    map['priority'] = Variable<int>(priority);
+    map['first_missing_at'] = Variable<int>(firstMissingAt);
+    if (!nullToAbsent || lastRequestedAt != null) {
+      map['last_requested_at'] = Variable<int>(lastRequestedAt);
+    }
+    map['attempts'] = Variable<int>(attempts);
+    map['next_eligible_at'] = Variable<int>(nextEligibleAt);
+    map['state'] = Variable<String>(state);
+    return map;
+  }
+
+  MissingMediaEntriesCompanion toCompanion(bool nullToAbsent) {
+    return MissingMediaEntriesCompanion(
+      mediaId: Value(mediaId),
+      priority: Value(priority),
+      firstMissingAt: Value(firstMissingAt),
+      lastRequestedAt: lastRequestedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRequestedAt),
+      attempts: Value(attempts),
+      nextEligibleAt: Value(nextEligibleAt),
+      state: Value(state),
+    );
+  }
+
+  factory MissingMediaEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MissingMediaEntry(
+      mediaId: serializer.fromJson<String>(json['mediaId']),
+      priority: serializer.fromJson<int>(json['priority']),
+      firstMissingAt: serializer.fromJson<int>(json['firstMissingAt']),
+      lastRequestedAt: serializer.fromJson<int?>(json['lastRequestedAt']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      nextEligibleAt: serializer.fromJson<int>(json['nextEligibleAt']),
+      state: serializer.fromJson<String>(json['state']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'mediaId': serializer.toJson<String>(mediaId),
+      'priority': serializer.toJson<int>(priority),
+      'firstMissingAt': serializer.toJson<int>(firstMissingAt),
+      'lastRequestedAt': serializer.toJson<int?>(lastRequestedAt),
+      'attempts': serializer.toJson<int>(attempts),
+      'nextEligibleAt': serializer.toJson<int>(nextEligibleAt),
+      'state': serializer.toJson<String>(state),
+    };
+  }
+
+  MissingMediaEntry copyWith({
+    String? mediaId,
+    int? priority,
+    int? firstMissingAt,
+    Value<int?> lastRequestedAt = const Value.absent(),
+    int? attempts,
+    int? nextEligibleAt,
+    String? state,
+  }) => MissingMediaEntry(
+    mediaId: mediaId ?? this.mediaId,
+    priority: priority ?? this.priority,
+    firstMissingAt: firstMissingAt ?? this.firstMissingAt,
+    lastRequestedAt: lastRequestedAt.present
+        ? lastRequestedAt.value
+        : this.lastRequestedAt,
+    attempts: attempts ?? this.attempts,
+    nextEligibleAt: nextEligibleAt ?? this.nextEligibleAt,
+    state: state ?? this.state,
+  );
+  MissingMediaEntry copyWithCompanion(MissingMediaEntriesCompanion data) {
+    return MissingMediaEntry(
+      mediaId: data.mediaId.present ? data.mediaId.value : this.mediaId,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      firstMissingAt: data.firstMissingAt.present
+          ? data.firstMissingAt.value
+          : this.firstMissingAt,
+      lastRequestedAt: data.lastRequestedAt.present
+          ? data.lastRequestedAt.value
+          : this.lastRequestedAt,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      nextEligibleAt: data.nextEligibleAt.present
+          ? data.nextEligibleAt.value
+          : this.nextEligibleAt,
+      state: data.state.present ? data.state.value : this.state,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MissingMediaEntry(')
+          ..write('mediaId: $mediaId, ')
+          ..write('priority: $priority, ')
+          ..write('firstMissingAt: $firstMissingAt, ')
+          ..write('lastRequestedAt: $lastRequestedAt, ')
+          ..write('attempts: $attempts, ')
+          ..write('nextEligibleAt: $nextEligibleAt, ')
+          ..write('state: $state')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    mediaId,
+    priority,
+    firstMissingAt,
+    lastRequestedAt,
+    attempts,
+    nextEligibleAt,
+    state,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MissingMediaEntry &&
+          other.mediaId == this.mediaId &&
+          other.priority == this.priority &&
+          other.firstMissingAt == this.firstMissingAt &&
+          other.lastRequestedAt == this.lastRequestedAt &&
+          other.attempts == this.attempts &&
+          other.nextEligibleAt == this.nextEligibleAt &&
+          other.state == this.state);
+}
+
+class MissingMediaEntriesCompanion extends UpdateCompanion<MissingMediaEntry> {
+  final Value<String> mediaId;
+  final Value<int> priority;
+  final Value<int> firstMissingAt;
+  final Value<int?> lastRequestedAt;
+  final Value<int> attempts;
+  final Value<int> nextEligibleAt;
+  final Value<String> state;
+  final Value<int> rowid;
+  const MissingMediaEntriesCompanion({
+    this.mediaId = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.firstMissingAt = const Value.absent(),
+    this.lastRequestedAt = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.nextEligibleAt = const Value.absent(),
+    this.state = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MissingMediaEntriesCompanion.insert({
+    required String mediaId,
+    this.priority = const Value.absent(),
+    required int firstMissingAt,
+    this.lastRequestedAt = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.nextEligibleAt = const Value.absent(),
+    this.state = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : mediaId = Value(mediaId),
+       firstMissingAt = Value(firstMissingAt);
+  static Insertable<MissingMediaEntry> custom({
+    Expression<String>? mediaId,
+    Expression<int>? priority,
+    Expression<int>? firstMissingAt,
+    Expression<int>? lastRequestedAt,
+    Expression<int>? attempts,
+    Expression<int>? nextEligibleAt,
+    Expression<String>? state,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (mediaId != null) 'media_id': mediaId,
+      if (priority != null) 'priority': priority,
+      if (firstMissingAt != null) 'first_missing_at': firstMissingAt,
+      if (lastRequestedAt != null) 'last_requested_at': lastRequestedAt,
+      if (attempts != null) 'attempts': attempts,
+      if (nextEligibleAt != null) 'next_eligible_at': nextEligibleAt,
+      if (state != null) 'state': state,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MissingMediaEntriesCompanion copyWith({
+    Value<String>? mediaId,
+    Value<int>? priority,
+    Value<int>? firstMissingAt,
+    Value<int?>? lastRequestedAt,
+    Value<int>? attempts,
+    Value<int>? nextEligibleAt,
+    Value<String>? state,
+    Value<int>? rowid,
+  }) {
+    return MissingMediaEntriesCompanion(
+      mediaId: mediaId ?? this.mediaId,
+      priority: priority ?? this.priority,
+      firstMissingAt: firstMissingAt ?? this.firstMissingAt,
+      lastRequestedAt: lastRequestedAt ?? this.lastRequestedAt,
+      attempts: attempts ?? this.attempts,
+      nextEligibleAt: nextEligibleAt ?? this.nextEligibleAt,
+      state: state ?? this.state,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (mediaId.present) {
+      map['media_id'] = Variable<String>(mediaId.value);
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (firstMissingAt.present) {
+      map['first_missing_at'] = Variable<int>(firstMissingAt.value);
+    }
+    if (lastRequestedAt.present) {
+      map['last_requested_at'] = Variable<int>(lastRequestedAt.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (nextEligibleAt.present) {
+      map['next_eligible_at'] = Variable<int>(nextEligibleAt.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MissingMediaEntriesCompanion(')
+          ..write('mediaId: $mediaId, ')
+          ..write('priority: $priority, ')
+          ..write('firstMissingAt: $firstMissingAt, ')
+          ..write('lastRequestedAt: $lastRequestedAt, ')
+          ..write('attempts: $attempts, ')
+          ..write('nextEligibleAt: $nextEligibleAt, ')
+          ..write('state: $state, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -26411,6 +26910,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $MemberProfilePreferenceValuesTable(this);
   late final $UploadQueueEntriesTable uploadQueueEntries =
       $UploadQueueEntriesTable(this);
+  late final $MissingMediaEntriesTable missingMediaEntries =
+      $MissingMediaEntriesTable(this);
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
     this as AppDatabase,
@@ -26472,6 +26973,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final UploadQueueDao uploadQueueDao = UploadQueueDao(
     this as AppDatabase,
   );
+  late final MissingMediaDao missingMediaDao = MissingMediaDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -26510,6 +27014,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     appPreferenceValues,
     memberProfilePreferenceValues,
     uploadQueueEntries,
+    missingMediaEntries,
   ];
 }
 
@@ -38730,6 +39235,266 @@ typedef $$UploadQueueEntriesTableProcessedTableManager =
       UploadQueueEntry,
       PrefetchHooks Function()
     >;
+typedef $$MissingMediaEntriesTableCreateCompanionBuilder =
+    MissingMediaEntriesCompanion Function({
+      required String mediaId,
+      Value<int> priority,
+      required int firstMissingAt,
+      Value<int?> lastRequestedAt,
+      Value<int> attempts,
+      Value<int> nextEligibleAt,
+      Value<String> state,
+      Value<int> rowid,
+    });
+typedef $$MissingMediaEntriesTableUpdateCompanionBuilder =
+    MissingMediaEntriesCompanion Function({
+      Value<String> mediaId,
+      Value<int> priority,
+      Value<int> firstMissingAt,
+      Value<int?> lastRequestedAt,
+      Value<int> attempts,
+      Value<int> nextEligibleAt,
+      Value<String> state,
+      Value<int> rowid,
+    });
+
+class $$MissingMediaEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $MissingMediaEntriesTable> {
+  $$MissingMediaEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get firstMissingAt => $composableBuilder(
+    column: $table.firstMissingAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastRequestedAt => $composableBuilder(
+    column: $table.lastRequestedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nextEligibleAt => $composableBuilder(
+    column: $table.nextEligibleAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MissingMediaEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MissingMediaEntriesTable> {
+  $$MissingMediaEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get firstMissingAt => $composableBuilder(
+    column: $table.firstMissingAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastRequestedAt => $composableBuilder(
+    column: $table.lastRequestedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nextEligibleAt => $composableBuilder(
+    column: $table.nextEligibleAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MissingMediaEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MissingMediaEntriesTable> {
+  $$MissingMediaEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get mediaId =>
+      $composableBuilder(column: $table.mediaId, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get firstMissingAt => $composableBuilder(
+    column: $table.firstMissingAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastRequestedAt => $composableBuilder(
+    column: $table.lastRequestedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<int> get nextEligibleAt => $composableBuilder(
+    column: $table.nextEligibleAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+}
+
+class $$MissingMediaEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MissingMediaEntriesTable,
+          MissingMediaEntry,
+          $$MissingMediaEntriesTableFilterComposer,
+          $$MissingMediaEntriesTableOrderingComposer,
+          $$MissingMediaEntriesTableAnnotationComposer,
+          $$MissingMediaEntriesTableCreateCompanionBuilder,
+          $$MissingMediaEntriesTableUpdateCompanionBuilder,
+          (
+            MissingMediaEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $MissingMediaEntriesTable,
+              MissingMediaEntry
+            >,
+          ),
+          MissingMediaEntry,
+          PrefetchHooks Function()
+        > {
+  $$MissingMediaEntriesTableTableManager(
+    _$AppDatabase db,
+    $MissingMediaEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MissingMediaEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MissingMediaEntriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$MissingMediaEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> mediaId = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> firstMissingAt = const Value.absent(),
+                Value<int?> lastRequestedAt = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<int> nextEligibleAt = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MissingMediaEntriesCompanion(
+                mediaId: mediaId,
+                priority: priority,
+                firstMissingAt: firstMissingAt,
+                lastRequestedAt: lastRequestedAt,
+                attempts: attempts,
+                nextEligibleAt: nextEligibleAt,
+                state: state,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String mediaId,
+                Value<int> priority = const Value.absent(),
+                required int firstMissingAt,
+                Value<int?> lastRequestedAt = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<int> nextEligibleAt = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MissingMediaEntriesCompanion.insert(
+                mediaId: mediaId,
+                priority: priority,
+                firstMissingAt: firstMissingAt,
+                lastRequestedAt: lastRequestedAt,
+                attempts: attempts,
+                nextEligibleAt: nextEligibleAt,
+                state: state,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MissingMediaEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MissingMediaEntriesTable,
+      MissingMediaEntry,
+      $$MissingMediaEntriesTableFilterComposer,
+      $$MissingMediaEntriesTableOrderingComposer,
+      $$MissingMediaEntriesTableAnnotationComposer,
+      $$MissingMediaEntriesTableCreateCompanionBuilder,
+      $$MissingMediaEntriesTableUpdateCompanionBuilder,
+      (
+        MissingMediaEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $MissingMediaEntriesTable,
+          MissingMediaEntry
+        >,
+      ),
+      MissingMediaEntry,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -38811,4 +39576,6 @@ class $AppDatabaseManager {
       );
   $$UploadQueueEntriesTableTableManager get uploadQueueEntries =>
       $$UploadQueueEntriesTableTableManager(_db, _db.uploadQueueEntries);
+  $$MissingMediaEntriesTableTableManager get missingMediaEntries =>
+      $$MissingMediaEntriesTableTableManager(_db, _db.missingMediaEntries);
 }

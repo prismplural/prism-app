@@ -30,6 +30,7 @@ import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/core/database/daos/upload_queue_dao.dart';
+import 'package:prism_plurality/core/database/daos/missing_media_dao.dart';
 import 'package:prism_plurality/core/services/fronting_migration_breadcrumb_log.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
@@ -70,6 +71,7 @@ part 'app_database.g.dart';
     AppPreferenceValues,
     MemberProfilePreferenceValues,
     UploadQueueEntries,
+    MissingMediaEntries,
   ],
   daos: [
     MembersDao,
@@ -99,12 +101,13 @@ part 'app_database.g.dart';
     PkMappingStateDao,
     PreferenceValuesDao,
     UploadQueueDao,
+    MissingMediaDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 33;
+  static const currentSchemaVersion = 34;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -874,6 +877,18 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(uploadQueueEntries);
         }
         current = 33;
+      }
+      if (current == 33 && to >= 34) {
+        // media heal: the demand-driven heal's missing-media set.
+        // Idempotent — dev/test DBs created at the current schema may already
+        // have it.
+        final tables = (await customSelect(
+          "SELECT name FROM sqlite_master WHERE type = 'table'",
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!tables.contains('missing_media')) {
+          await migrator.createTable(missingMediaEntries);
+        }
+        current = 34;
       }
       if (current != to) {
         throw UnsupportedError(

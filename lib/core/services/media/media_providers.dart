@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+import 'package:prism_plurality/core/database/daos/missing_media_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
+import 'package:prism_plurality/core/services/media/media_heal_providers.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_hydrator.dart';
@@ -90,6 +93,21 @@ final mediaHydratorProvider = Provider<MediaHydrator>((ref) {
   final hydrator = MediaHydrator(
     attachmentsDao: db.mediaAttachmentsDao,
     downloadManager: downloadManager,
+    // On give-up (the relay confirms a referenced blob missing, or retries
+    // exhaust), hand off to the media heal: confirm via batch-exists and request a
+    // re-supply. Fire-and-forget; the requester gates + coalesces. The hydrator
+    // walks attachments uniformly, so it heals at chat priority — profile-
+    // priority heals come from the on-view UI path.
+    onReferencedAbsent: (mediaId) {
+      unawaited(
+        ref
+            .read(mediaHealRequesterProvider)
+            .onReferencedAbsent(mediaId, priority: MissingMediaDao.priorityChat)
+            // Never let a transient heal failure surface as an unhandled async
+            // error (the send/batch-exists paths already no-op internally).
+            .catchError((_) {}),
+      );
+    },
   );
   ref.onDispose(hydrator.dispose);
   return hydrator;

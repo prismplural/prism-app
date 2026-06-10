@@ -46,6 +46,7 @@ class MediaHydrator {
     Duration maxBackoff = const Duration(minutes: 5),
     void Function(Duration delay, void Function() run)? scheduleRetry,
     void Function(String message)? log,
+    void Function(String mediaId)? onReferencedAbsent,
     Random? random,
   })  : _attachmentsDao = attachmentsDao,
         _downloadManager = downloadManager,
@@ -55,6 +56,7 @@ class MediaHydrator {
         _maxBackoff = maxBackoff,
         _scheduleRetryOverride = scheduleRetry,
         _log = log ?? _defaultLog,
+        _onReferencedAbsent = onReferencedAbsent,
         _random = random ?? Random();
 
   final MediaAttachmentsDao _attachmentsDao;
@@ -69,6 +71,13 @@ class MediaHydrator {
   final void Function(Duration delay, void Function() run)?
       _scheduleRetryOverride;
   final void Function(String message) _log;
+
+  /// Fired (fire-and-forget) when the hydrator gives up on a referenced blob —
+  /// the media heal's request trigger. The handler confirms absence (batch-exists)
+  /// and broadcasts a re-supply request. `null` when the heal isn't wired (the
+  /// hydrator stays download-only). See [MediaHealRequester.onReferencedAbsent].
+  final void Function(String mediaId)? _onReferencedAbsent;
+
   final Random _random;
 
   /// Pending retry timers, so [dispose] can cancel them instead of leaving
@@ -162,6 +171,33 @@ class MediaHydrator {
     );
   }
 
+  /// Re-attempt a previously given-up blob — the media heal **heal-completion** path.
+  /// When a peer re-supplies a blob (`media_uploaded`) or the cadence finds it
+  /// back on the relay, this clears the session give-up/cached marks and
+  /// re-enqueues a download so the blob lands in cache and emits a
+  /// [MediaAvailableEvent] (which the UI listens for to refresh its
+  /// placeholder). No-op if the row is gone or lacks the fields to download.
+  Future<void> retry(String mediaId) async {
+    if (_disposed || mediaId.isEmpty) return;
+    // Clear the session marks so enqueueIfMissing will re-attempt it.
+    _givenUp.remove(mediaId);
+    _cached.remove(mediaId);
+    final MediaAttachment? row;
+    try {
+      row = await _attachmentsDao.getByMediaId(mediaId);
+    } catch (e) {
+      _log('MediaHydrator.retry: failed to load $mediaId (non-fatal): $e');
+      return;
+    }
+    if (row == null) return;
+    enqueueIfMissing(
+      mediaId: row.mediaId,
+      encryptionKeyB64: row.encryptionKeyB64,
+      contentHash: row.contentHash,
+      plaintextHash: row.plaintextHash,
+    );
+  }
+
   Future<void> _scheduleIfReallyMissing(_HydrationTask task) async {
     bool cached;
     try {
@@ -207,24 +243,24 @@ class MediaHydrator {
       return;
     }
 
-    Uint8List? bytes;
+    MediaFetchResult result;
     try {
-      bytes = await _downloadManager.getMedia(
+      result = await _downloadManager.getMedia(
         mediaId: task.mediaId,
         encryptionKey: key,
         ciphertextHash: task.contentHash,
         plaintextHash: task.plaintextHash,
       );
     } catch (e) {
-      // Decrypt / integrity failure — getMedia only throws for these, and they
-      // will not resolve on retry. Drop it.
-      _log('MediaHydrator: ${task.mediaId} failed integrity check; dropping: $e');
+      // getMedia is total, but stay defensive — an unexpected throw won't
+      // resolve on retry. Drop it.
+      _log('MediaHydrator: ${task.mediaId} failed unexpectedly; dropping: $e');
       _finishGivenUp(task.mediaId);
       return;
     }
     if (_disposed) return;
 
-    if (bytes != null) {
+    if (result is MediaFetchOk) {
       _inProgress.remove(task.mediaId);
       _cached.add(task.mediaId);
       if (!_events.isClosed) {
@@ -233,7 +269,25 @@ class MediaHydrator {
       return;
     }
 
-    // null == transient miss. Retry with backoff, or give up after the cap.
+    if (result.isDecryptFailure) {
+      // Local decrypt / integrity failure — won't resolve on retry. Drop.
+      _log('MediaHydrator: ${task.mediaId} failed integrity check; dropping');
+      _finishGivenUp(task.mediaId);
+      return;
+    }
+
+    if (result.isNotFound) {
+      // The relay confirms it's missing — a retry won't conjure it. Give up now
+      // and signal the heal so it can request a re-supply from a peer.
+      _log('MediaHydrator: ${task.mediaId} not on relay; requesting re-supply');
+      _finishGivenUp(task.mediaId);
+      _onReferencedAbsent?.call(task.mediaId);
+      return;
+    }
+
+    // Any other failure == transient/unavailable miss. Retry with backoff, or
+    // give up after the cap — and on give-up, signal the heal (its batch-exists
+    // gate decides whether to actually request).
     final nextAttempt = task.attempt + 1;
     if (nextAttempt >= _maxAttempts) {
       _log(
@@ -241,6 +295,7 @@ class MediaHydrator {
         'attempts; will retry on next launch',
       );
       _finishGivenUp(task.mediaId);
+      _onReferencedAbsent?.call(task.mediaId);
       return;
     }
 

@@ -23,12 +23,48 @@ class DownloadProgress {
 }
 
 /// Typedef for the FFI download function. Allows injection in tests without
-/// hitting the real flutter_rust_bridge native layer.
+/// hitting the real flutter_rust_bridge native layer. Returns the FFI's typed
+/// [ffi.MediaDownloadOutcome] (`bytes` xor `error`).
 typedef DownloadMediaFn =
-    Future<Uint8List> Function({
+    Future<ffi.MediaDownloadOutcome> Function({
       required ffi.PrismSyncHandle handle,
       required String mediaId,
     });
+
+/// The typed outcome of [DownloadManager.getMedia] (media heal). The
+/// heal acts on the failure [MediaFetchFailure.kind]: `notFound` (or a
+/// persistent transport failure) ⇒ request a re-supply; `decrypt` ⇒ a local
+/// integrity error that won't self-heal ⇒ drop, never request.
+sealed class MediaFetchResult {
+  const MediaFetchResult();
+}
+
+class MediaFetchOk extends MediaFetchResult {
+  const MediaFetchOk(this.bytes);
+  final Uint8List bytes;
+}
+
+class MediaFetchFailure extends MediaFetchResult {
+  const MediaFetchFailure(this.kind);
+  final ffi.MediaFetchErrorKind kind;
+}
+
+extension MediaFetchResultX on MediaFetchResult {
+  /// The decoded bytes, or `null` for any failure.
+  Uint8List? get bytesOrNull =>
+      this is MediaFetchOk ? (this as MediaFetchOk).bytes : null;
+
+  /// A local decrypt / integrity failure — won't self-heal on retry, so callers
+  /// drop the blob rather than re-requesting it.
+  bool get isDecryptFailure =>
+      this is MediaFetchFailure &&
+      (this as MediaFetchFailure).kind == ffi.MediaFetchErrorKind.decrypt;
+
+  /// The relay reported the blob missing — the heal's request trigger.
+  bool get isNotFound =>
+      this is MediaFetchFailure &&
+      (this as MediaFetchFailure).kind == ffi.MediaFetchErrorKind.notFound;
+}
 
 class DownloadManager {
   DownloadManager({
@@ -50,7 +86,7 @@ class DownloadManager {
   /// Swap out in tests to avoid hitting the real FFI layer.
   final DownloadMediaFn _downloadMediaFn;
 
-  static Future<Uint8List> _defaultDownloadMediaFn({
+  static Future<ffi.MediaDownloadOutcome> _defaultDownloadMediaFn({
     required ffi.PrismSyncHandle handle,
     required String mediaId,
   }) {
@@ -71,74 +107,114 @@ class DownloadManager {
     return _progressControllers[mediaId]!.stream;
   }
 
-  Future<Uint8List?> getMedia({
+  /// Fetch + decrypt the blob for [mediaId], returning a typed
+  /// [MediaFetchResult]. Total — it never throws; every failure path returns a
+  /// [MediaFetchFailure] with the relevant kind so the media heal can act on it
+  /// (a `decrypt`/integrity failure is local and won't self-heal; a `notFound`
+  /// or persistent transport failure is a re-supply trigger).
+  Future<MediaFetchResult> getMedia({
     required String mediaId,
     required Uint8List encryptionKey,
     required String ciphertextHash,
     required String plaintextHash,
     String fileExtension = '',
   }) async {
-    // 1. Check encrypted cache (.enc file). If it exists, decrypt and return.
-    final encFile = await _cacheFileFor(
-      mediaId,
-      fileExtension: fileExtension,
-      encrypted: true,
-    );
-    if (encFile.existsSync()) {
-      _emitProgress(mediaId, DownloadState.decrypting);
-      final ciphertext = encFile.readAsBytesSync();
-      return _decryptMedia(
-        ciphertext: ciphertext,
-        key: encryptionKey,
-        ciphertextHash: ciphertextHash,
-        plaintextHash: plaintextHash,
-      );
-    }
-
-    // 2. Delete old plaintext cache if present. Security invariant: we never
-    //    serve plaintext from disk — always re-download as ciphertext instead.
-    final plainFile = await _cacheFileFor(
-      mediaId,
-      fileExtension: fileExtension,
-      encrypted: false,
-    );
-    if (plainFile.existsSync()) {
-      await plainFile.delete();
-    }
-
-    await _acquireSlot();
     try {
-      _emitProgress(mediaId, DownloadState.downloading);
-
-      if (handle == null) {
-        throw StateError('Sync handle not available');
+      // 1. Encrypted cache (.enc) hit: decrypt and return.
+      final encFile = await _cacheFileFor(
+        mediaId,
+        fileExtension: fileExtension,
+        encrypted: true,
+      );
+      if (encFile.existsSync()) {
+        _emitProgress(mediaId, DownloadState.decrypting);
+        final ciphertext = encFile.readAsBytesSync();
+        try {
+          final plaintext = await _decryptMedia(
+            ciphertext: ciphertext,
+            key: encryptionKey,
+            ciphertextHash: ciphertextHash,
+            plaintextHash: plaintextHash,
+          );
+          return MediaFetchOk(plaintext);
+        } catch (e) {
+          _emitProgress(mediaId, DownloadState.failed, error: e.toString());
+          return const MediaFetchFailure(ffi.MediaFetchErrorKind.decrypt);
+        }
       }
 
-      final ciphertext = await _downloadMediaFn(
-        handle: handle!,
-        mediaId: mediaId,
-      ).timeout(const Duration(seconds: 30));
-
-      _emitProgress(mediaId, DownloadState.decrypting);
-
-      final plaintext = await _decryptMedia(
-        ciphertext: ciphertext,
-        key: encryptionKey,
-        ciphertextHash: ciphertextHash,
-        plaintextHash: plaintextHash,
+      // 2. Delete old plaintext cache if present. Security invariant: we never
+      //    serve plaintext from disk — always re-download as ciphertext.
+      final plainFile = await _cacheFileFor(
+        mediaId,
+        fileExtension: fileExtension,
+        encrypted: false,
       );
+      if (plainFile.existsSync()) {
+        await plainFile.delete();
+      }
 
-      // Cache ciphertext, NOT plaintext. Plaintext lives only in memory.
-      await encFile.parent.create(recursive: true);
-      await encFile.writeAsBytes(ciphertext);
+      await _acquireSlot();
+      try {
+        _emitProgress(mediaId, DownloadState.downloading);
 
-      _emitProgress(mediaId, DownloadState.completed);
-      return plaintext;
+        if (handle == null) {
+          _emitProgress(mediaId, DownloadState.failed, error: 'no sync handle');
+          return const MediaFetchFailure(ffi.MediaFetchErrorKind.other);
+        }
+
+        final ffi.MediaDownloadOutcome outcome;
+        try {
+          outcome = await _downloadMediaFn(
+            handle: handle!,
+            mediaId: mediaId,
+          ).timeout(const Duration(seconds: 30));
+        } on TimeoutException {
+          _emitProgress(mediaId, DownloadState.failed, error: 'timeout');
+          return const MediaFetchFailure(ffi.MediaFetchErrorKind.timeout);
+        }
+
+        final ciphertext = outcome.bytes;
+        if (ciphertext == null) {
+          final kind = outcome.error ?? ffi.MediaFetchErrorKind.other;
+          _emitProgress(mediaId, DownloadState.failed, error: '$kind');
+          return MediaFetchFailure(kind);
+        }
+
+        _emitProgress(mediaId, DownloadState.decrypting);
+        final Uint8List plaintext;
+        try {
+          plaintext = await _decryptMedia(
+            ciphertext: ciphertext,
+            key: encryptionKey,
+            ciphertextHash: ciphertextHash,
+            plaintextHash: plaintextHash,
+          );
+        } catch (e) {
+          // A freshly-downloaded blob that fails to decrypt is most likely
+          // corrupt/truncated bytes from the relay (transient) — treat it as
+          // RETRYABLE (`server`), not a terminal `decrypt`. A genuine local
+          // key/integrity fault re-surfaces on the cache-hit path (which IS
+          // terminal). This restores the pre-media heal retry behaviour for a bad
+          // download while keeping a cached-but-corrupt blob terminal.
+          _emitProgress(mediaId, DownloadState.failed, error: e.toString());
+          return const MediaFetchFailure(ffi.MediaFetchErrorKind.server);
+        }
+
+        // Cache ciphertext, NOT plaintext. Plaintext lives only in memory.
+        await encFile.parent.create(recursive: true);
+        await encFile.writeAsBytes(ciphertext);
+
+        _emitProgress(mediaId, DownloadState.completed);
+        return MediaFetchOk(plaintext);
+      } finally {
+        _releaseSlot();
+      }
     } catch (e) {
+      // Defensive: an unexpected error (e.g. cache I/O) is a generic failure,
+      // never a crash out of this total method.
       _emitProgress(mediaId, DownloadState.failed, error: e.toString());
-      return null;
-    } finally {
-      _releaseSlot();
+      return const MediaFetchFailure(ffi.MediaFetchErrorKind.other);
     }
   }
 
@@ -153,6 +229,23 @@ class DownloadManager {
       encrypted: true,
     );
     return encFile.existsSync();
+  }
+
+  /// The locally-cached **encrypted** bytes for [mediaId] (the `<mediaId>.enc`
+  /// file), or `null` if it isn't cached. The media heal responder uses this to
+  /// re-supply a blob it holds — re-uploading the exact cached ciphertext
+  /// (idempotent on the relay) without decrypting/re-encrypting.
+  Future<Uint8List?> readCachedCiphertext(
+    String mediaId, {
+    String fileExtension = '',
+  }) async {
+    final encFile = await _cacheFileFor(
+      mediaId,
+      fileExtension: fileExtension,
+      encrypted: true,
+    );
+    if (!encFile.existsSync()) return null;
+    return encFile.readAsBytes();
   }
 
   /// Pre-caches [ciphertext] locally so that a subsequent [getMedia] call

@@ -291,8 +291,8 @@ void main() {
         plaintextHash: media.plaintextHash,
       );
 
-      expect(result, isNotNull);
-      expect(result, equals(media.plaintext));
+      expect(result.bytesOrNull, isNotNull);
+      expect(result.bytesOrNull, equals(media.plaintext));
       // Plaintext file must NOT exist on disk — only the .enc file should.
       expect(File('${cacheDir.path}/img-1').existsSync(), isFalse);
     });
@@ -309,7 +309,7 @@ void main() {
               required String mediaId,
             }) async {
               downloadCount++;
-              return media.ciphertext;
+              return ffi.MediaDownloadOutcome(bytes: media.ciphertext);
             },
       );
       addTearDown(manager.dispose);
@@ -326,7 +326,7 @@ void main() {
         plaintextHash: media.plaintextHash,
       );
       expect(downloadCount, 0, reason: 'should read from .enc cache');
-      expect(result1, equals(media.plaintext));
+      expect(result1.bytesOrNull, equals(media.plaintext));
 
       // Second call — same result, still no download.
       final result2 = await manager.getMedia(
@@ -336,7 +336,7 @@ void main() {
         plaintextHash: media.plaintextHash,
       );
       expect(downloadCount, 0, reason: 'still should not re-download');
-      expect(result2, equals(media.plaintext));
+      expect(result2.bytesOrNull, equals(media.plaintext));
     });
 
     test('old plaintext file is deleted and not served', () async {
@@ -361,7 +361,7 @@ void main() {
       );
 
       // Result is null because handle == null causes a StateError.
-      expect(result, isNull);
+      expect(result.bytesOrNull, isNull);
 
       // The old plaintext file MUST have been deleted before the download
       // attempt — security invariant.
@@ -388,7 +388,7 @@ void main() {
         plaintextHash: media.plaintextHash,
       );
 
-      expect(result, equals(media.plaintext));
+      expect(result.bytesOrNull, equals(media.plaintext));
     });
 
     test(
@@ -410,8 +410,34 @@ void main() {
           fileExtension: '.ogg',
         );
 
-        expect(result, equals(media.plaintext));
+        expect(result.bytesOrNull, equals(media.plaintext));
       },
     );
+  });
+
+  group('readCachedCiphertext', () {
+    late Directory cacheDir;
+    setUp(() async {
+      cacheDir = await Directory.systemTemp.createTemp('dm_rcc_');
+    });
+    tearDown(() async {
+      if (cacheDir.existsSync()) await cacheDir.delete(recursive: true);
+    });
+
+    test('returns the cached .enc bytes, or null when not cached', () async {
+      final manager = _makeTestManager(cacheDir);
+      addTearDown(manager.dispose);
+
+      expect(await manager.readCachedCiphertext('absent'), isNull);
+
+      await manager.cacheEncrypted(
+        mediaId: 'held',
+        ciphertext: Uint8List.fromList([9, 8, 7]),
+      );
+      expect(
+        await manager.readCachedCiphertext('held'),
+        equals(Uint8List.fromList([9, 8, 7])),
+      );
+    });
   });
 }
