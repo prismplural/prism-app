@@ -137,31 +137,61 @@ class GifServiceConfig {
     );
   }
 
-  /// Domains explicitly trusted to serve the GIF proxy API. When the
-  /// relay-supplied base URL points at one of these (or back at the relay's own
-  /// host), it is accepted; any other public host is allowed only after passing
-  /// the SSRF host checks below.
+  /// Hosts explicitly trusted to serve the GIF proxy API.
+  ///
+  /// Suffix entries (leading `.`) match the registrable domain and any
+  /// subdomain (e.g. `.klipy.com` matches `klipy.com` and `api.klipy.com`);
+  /// non-suffix entries match the exact host only. Plus the relay's own host
+  /// (resolved at call time) for the self-hosted GIF-proxy mode, where the relay
+  /// legitimately proxies GIF requests through itself — see
+  /// [sanitizeGifApiBaseUrl].
+  ///
+  /// Provenance (prism-sync `routes/gifs.rs` `gif_capabilities`):
+  ///   * `*.klipy.com`   — the upstream Klipy provider (built-in default).
+  ///   * `*.tenor.com`   — alternate provider (also accepted by [isValidGifUrl]).
+  ///   * `gif.prism.app` — the Prism-hosted GIF service (PrismHosted mode).
+  ///   * `*.prismsync.com` — Prism-operated relay/service domain.
   static const _trustedGifApiHostSuffixes = <String>[
     '.klipy.com',
     '.tenor.com',
     '.prismsync.com',
   ];
 
+  /// Exact GIF-provider hosts that are trusted but are not under one of the
+  /// trusted suffixes above.
+  static const _trustedGifApiHostsExact = <String>[
+    'gif.prism.app',
+  ];
+
   /// Validate a relay-supplied GIF `api_base_url` before it is ever used as a
-  /// request base. Returns the sanitized URL string, or `null` to reject it.
+  /// request base. Returns the sanitized URL string, or `null` to reject it
+  /// (callers fall back to the safe disabled/default behaviour).
   ///
   /// The base URL is served by the relay (untrusted under Prism's threat model)
   /// and was previously used verbatim — an SSRF / search-term-exfiltration
   /// vector. We require:
   ///   * a parseable absolute URL with an `https` scheme;
   ///   * a non-empty host that is NOT a private/loopback/link-local/CGNAT/
-  ///     metadata literal (see [isPrivateHostLiteral]).
+  ///     metadata literal (see [isPrivateHostLiteral]) — cheap first-line
+  ///     defense against the obvious SSRF targets;
+  ///   * a host that is on the GIF-provider allowlist
+  ///     ([_trustedGifApiHostSuffixes] / [_trustedGifApiHostsExact]) **or** the
+  ///     relay's own host.
   ///
-  /// As defense-in-depth we *prefer* an allowlist: a known GIF-proxy domain or
-  /// the relay's own host is accepted directly. Other public https hosts still
-  /// pass (the GIF feature is opt-in and disabled by default) but only after the
-  /// SSRF literal check, so the relay cannot redirect GIF traffic at an internal
-  /// service.
+  /// The allowlist is **enforcing**: any other host — including an off-allowlist
+  /// public https host such as `evil.example.com` — is rejected. This closes
+  /// both vectors the security review flagged: a malicious relay cannot point
+  /// the GIF client at an internal service (SSRF), and it cannot redirect GIF
+  /// search terms to an attacker-controlled server (exfiltration), because the
+  /// only reachable hosts are trusted public GIF providers or the relay itself.
+  ///
+  /// The relay's own host is intentionally accepted: in the self-hosted GIF
+  /// provider mode the relay advertises a *relative* `api_base_url` (e.g.
+  /// `/v1/gifs`) that resolves to the relay, which proxies GIF requests upstream
+  /// with its own API key. That is the documented design, and the relay is
+  /// already where all sync traffic flows, so it is not an SSRF escalation —
+  /// but note an arbitrary third-party host is never accepted just because the
+  /// relay supplied it.
   @visibleForTesting
   static String? sanitizeGifApiBaseUrl(String url, {required String relayUrl}) {
     final uri = Uri.tryParse(url.trim());
@@ -176,19 +206,21 @@ class GifServiceConfig {
     final relayHost = Uri.tryParse(relayUrl)?.host.toLowerCase();
     final isTrusted =
         (relayHost != null && relayHost.isNotEmpty && lcHost == relayHost) ||
+        _trustedGifApiHostsExact.contains(lcHost) ||
         _trustedGifApiHostSuffixes.any(
           (suffix) => lcHost == suffix.substring(1) || lcHost.endsWith(suffix),
         );
 
     if (!isTrusted) {
-      // Not on the allowlist: still permit a public https host (GIF is an
-      // opt-in, off-by-default feature), but log so the relay-supplied host is
-      // visible in diagnostics. The SSRF literal check above already rejected
-      // the dangerous targets.
+      // Enforcing allowlist: reject any host that is not a trusted GIF provider
+      // or the relay's own host. Falling back to null makes the caller use the
+      // safe disabled/default behaviour rather than talking to an
+      // attacker-chosen server.
       debugPrint(
-        '[GifServiceConfig] api_base_url host "$host" is not on the GIF '
-        'allowlist; accepting as a public https host after SSRF checks.',
+        '[GifServiceConfig] rejecting api_base_url host "$host": not a trusted '
+        'GIF provider or the relay host.',
       );
+      return null;
     }
 
     return uri.toString();

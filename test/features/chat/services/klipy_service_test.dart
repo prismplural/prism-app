@@ -488,15 +488,58 @@ void main() {
       );
     });
 
-    test('accepts the relay own host', () {
+    test('accepts the apex klipy.com host', () {
+      expect(sanitize('https://klipy.com/v1'), 'https://klipy.com/v1');
+    });
+
+    test('accepts a tenor provider host', () {
+      expect(
+        sanitize('https://api.tenor.com/v2'),
+        'https://api.tenor.com/v2',
+      );
+    });
+
+    test('accepts the Prism-hosted gif.prism.app service', () {
+      expect(
+        sanitize('https://gif.prism.app/v1/gifs'),
+        'https://gif.prism.app/v1/gifs',
+      );
+    });
+
+    test('accepts a prismsync.com subdomain', () {
+      expect(
+        sanitize('https://gifs.prismsync.com/v1'),
+        'https://gifs.prismsync.com/v1',
+      );
+    });
+
+    test('accepts the relay own host (self-hosted GIF proxy mode)', () {
       expect(
         sanitize('https://relay.prismsync.com/gif'),
         'https://relay.prismsync.com/gif',
       );
     });
 
-    test('accepts a public https host (off-allowlist) after SSRF checks', () {
-      expect(sanitize('https://gif.example.com/v1'), isNotNull);
+    // Core new assertion: the allowlist is ENFORCING. A perfectly valid public
+    // https host that is NOT a trusted GIF provider (and not the relay) must be
+    // rejected so a malicious relay cannot exfiltrate GIF search terms to it.
+    test('rejects an off-allowlist public https host (exfiltration vector)',
+        () {
+      expect(sanitize('https://evil.example.com/v1'), isNull);
+    });
+
+    test('rejects an off-allowlist host that merely contains a provider name',
+        () {
+      // Substring / lookalike must not match the suffix allowlist.
+      expect(sanitize('https://api.klipy.com.evil.example/v1'), isNull);
+      expect(sanitize('https://gif.prism.app.evil.example/v1'), isNull);
+      expect(sanitize('https://notklipy.com/v1'), isNull);
+    });
+
+    test('rejects an arbitrary relay-supplied third-party host', () {
+      // Even though the relay served it, an arbitrary host that is neither a
+      // trusted provider nor the relay's own host is rejected.
+      expect(sanitize('https://attacker.controlled.example/v1'), isNull);
     });
 
     test('rejects non-https scheme', () {
@@ -550,6 +593,25 @@ void main() {
       );
       expect(config.enabled, isTrue);
       expect(config.apiBaseUrl, isNull);
+    });
+
+    test('GifServiceConfig.fromJson nulls out an off-allowlist api_base_url',
+        () {
+      final config = GifServiceConfig.fromJson(
+        {'enabled': true, 'api_base_url': 'https://evil.example.com/v1'},
+        relayUrl: relayUrl,
+      );
+      expect(config.enabled, isTrue);
+      expect(config.apiBaseUrl, isNull);
+    });
+
+    test('GifServiceConfig.fromJson keeps the Prism-hosted gif.prism.app URL',
+        () {
+      final config = GifServiceConfig.fromJson(
+        {'enabled': true, 'api_base_url': 'https://gif.prism.app/v1/gifs'},
+        relayUrl: relayUrl,
+      );
+      expect(config.apiBaseUrl, 'https://gif.prism.app/v1/gifs');
     });
 
     test('GifServiceConfig.fromJson keeps a valid absolute api_base_url', () {

@@ -86,7 +86,93 @@ bool isPrivateHostLiteral(String host) {
   final parsed = InternetAddress.tryParse(stripped);
   if (parsed != null) return _isPrivateAddress(parsed);
 
+  // `InternetAddress.tryParse` only accepts canonical dotted-quad / IPv6 forms.
+  // Alternate IPv4 encodings (decimal `2130706433`, hex `0x7f000001`,
+  // abbreviated `127.1` / `10.1`) parse as NULL above but are still routable to
+  // the same private addresses by the OS resolver — a classic SSRF bypass.
+  // Normalize them to octets and reject the private/loopback/metadata ranges.
+  final octets = _decodeAlternateIpv4(stripped);
+  if (octets != null) return _isPrivateV4(octets[0], octets[1]);
+
   return false;
+}
+
+/// Decodes the non-canonical IPv4 literal encodings that
+/// [InternetAddress.tryParse] rejects, returning the four octets
+/// (most-significant first) or `null` if [host] is not one of these forms.
+///
+/// Covers:
+///   * 32-bit decimal      — `2130706433`            → 127.0.0.1
+///   * 32-bit hex          — `0x7f000001`            → 127.0.0.1
+///   * abbreviated / mixed — `127.1`, `10.1`, `0xA.1`, `127.0.1`
+///     (each part may itself be decimal or `0x`-hex; the final part fills the
+///     remaining low-order octets, per inet_aton semantics).
+///
+/// Octal (`0`-prefixed) parts are intentionally *not* interpreted as octal:
+/// we parse a leading-zero decimal part as plain decimal, which is the
+/// conservative choice (it can only make an address look *more* like a public
+/// one, and the canonical-literal path above already covers the real octal
+/// resolution risk via the OS). Returns `null` for anything ambiguous so the
+/// caller treats it as a (resolvable) DNS name and the async/pinned path
+/// re-validates the resolved address.
+List<int>? _decodeAlternateIpv4(String host) {
+  if (host.isEmpty) return null;
+
+  final parts = host.split('.');
+  if (parts.isEmpty || parts.length > 4) return null;
+
+  // Parse each part as a decimal or `0x`-hex unsigned integer.
+  final values = <int>[];
+  for (final part in parts) {
+    final value = _parseIpPart(part);
+    if (value == null) return null;
+    values.add(value);
+  }
+
+  // inet_aton allows the final part to span the remaining octets. With N parts,
+  // parts[0..N-2] are single octets (0..255) and the last part fills the
+  // remaining (4 - (N-1)) octets.
+  final leadCount = values.length - 1;
+  for (var i = 0; i < leadCount; i++) {
+    if (values[i] > 0xFF) return null;
+  }
+
+  final remainingOctets = 4 - leadCount;
+  final tail = values.last;
+  final maxTail = remainingOctets == 4
+      ? 0xFFFFFFFF
+      : (1 << (8 * remainingOctets)) - 1;
+  if (tail > maxTail) return null;
+
+  final octets = <int>[];
+  for (var i = 0; i < leadCount; i++) {
+    octets.add(values[i]);
+  }
+  for (var shift = remainingOctets - 1; shift >= 0; shift--) {
+    octets.add((tail >> (8 * shift)) & 0xFF);
+  }
+
+  // A single canonical dotted-quad would already have been caught by
+  // InternetAddress.tryParse; reaching here with 4 plain-decimal parts means
+  // one was out of range — not a valid address, treat as not-an-IP.
+  if (octets.length != 4) return null;
+  return octets;
+}
+
+/// Parses one part of an IPv4 literal as a non-negative decimal or `0x`-hex
+/// integer. Returns `null` for empty, signed, or non-numeric parts.
+int? _parseIpPart(String part) {
+  if (part.isEmpty) return null;
+  if (part.startsWith('0x') || part.startsWith('0X')) {
+    final hex = part.substring(2);
+    if (hex.isEmpty) return null;
+    return int.tryParse(hex, radix: 16);
+  }
+  // Plain decimal. Reject anything with non-digit characters.
+  for (final code in part.codeUnits) {
+    if (code < 0x30 || code > 0x39) return null;
+  }
+  return int.tryParse(part);
 }
 
 /// IPv4 ranges that must never be fetched from (by leading octets).

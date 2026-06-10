@@ -278,6 +278,77 @@ void main() {
       expect(bytes[1], 0x03, reason: 'TLS major version');
     });
   });
+
+  group('isPrivateHostLiteral', () {
+    test('rejects canonical private/loopback literals', () {
+      expect(isPrivateHostLiteral('127.0.0.1'), isTrue);
+      expect(isPrivateHostLiteral('10.0.0.5'), isTrue);
+      expect(isPrivateHostLiteral('192.168.1.1'), isTrue);
+      expect(isPrivateHostLiteral('172.16.0.1'), isTrue);
+      expect(isPrivateHostLiteral('169.254.169.254'), isTrue);
+      expect(isPrivateHostLiteral('100.64.0.1'), isTrue); // CGNAT
+    });
+
+    test('rejects well-known private hostnames', () {
+      expect(isPrivateHostLiteral('localhost'), isTrue);
+      expect(isPrivateHostLiteral('foo.local'), isTrue);
+      expect(isPrivateHostLiteral('metadata.google.internal'), isTrue);
+      expect(isPrivateHostLiteral('svc.cluster.internal'), isTrue);
+    });
+
+    test('rejects IPv6 loopback / ULA / link-local literals', () {
+      expect(isPrivateHostLiteral('::1'), isTrue);
+      expect(isPrivateHostLiteral('[::1]'), isTrue);
+      expect(isPrivateHostLiteral('fc00::1'), isTrue);
+      expect(isPrivateHostLiteral('fe80::1'), isTrue);
+    });
+
+    test('rejects IPv4-mapped IPv6 private addresses', () {
+      expect(isPrivateHostLiteral('::ffff:10.0.0.1'), isTrue);
+      expect(isPrivateHostLiteral('::ffff:127.0.0.1'), isTrue);
+      expect(isPrivateHostLiteral('::ffff:169.254.169.254'), isTrue);
+      // Hex form of the embedded IPv4 (10.0.0.1) must also be caught.
+      expect(isPrivateHostLiteral('::ffff:0a00:0001'), isTrue);
+    });
+
+    // The alternate IPv4 encodings the security review flagged: these all parse
+    // as NULL via InternetAddress.tryParse and previously slipped past the
+    // literal check entirely.
+    test('rejects decimal-encoded private IPv4 literals', () {
+      expect(isPrivateHostLiteral('2130706433'), isTrue); // 127.0.0.1
+      expect(isPrivateHostLiteral('167772161'), isTrue); // 10.0.0.1
+      expect(isPrivateHostLiteral('2852039166'), isTrue); // 169.254.169.254
+    });
+
+    test('rejects hex-encoded private IPv4 literals', () {
+      expect(isPrivateHostLiteral('0x7f000001'), isTrue); // 127.0.0.1
+      expect(isPrivateHostLiteral('0x0a000005'), isTrue); // 10.0.0.5
+      expect(isPrivateHostLiteral('0xA.0.0.1'), isTrue); // 10.0.0.1 (mixed)
+    });
+
+    test('rejects abbreviated private IPv4 literals', () {
+      expect(isPrivateHostLiteral('127.1'), isTrue); // 127.0.0.1
+      expect(isPrivateHostLiteral('10.1'), isTrue); // 10.0.0.1
+      expect(isPrivateHostLiteral('192.168.1'), isTrue); // 192.168.0.1
+      expect(isPrivateHostLiteral('100.64.1'), isTrue); // 100.64.0.1 CGNAT
+    });
+
+    test('does NOT flag public hosts or public alternate-encoded IPv4', () {
+      expect(isPrivateHostLiteral('api.klipy.com'), isFalse);
+      expect(isPrivateHostLiteral('evil.example.com'), isFalse);
+      expect(isPrivateHostLiteral('8.8.8.8'), isFalse);
+      expect(isPrivateHostLiteral('134744072'), isFalse); // 8.8.8.8 decimal
+      expect(isPrivateHostLiteral('0x08080808'), isFalse); // 8.8.8.8 hex
+    });
+
+    test('treats malformed alternate encodings as non-literal (DNS name)', () {
+      // Out-of-range / junk parts are not valid IP literals; the async path
+      // (DNS resolution + pinned re-validation) is responsible for these.
+      expect(isPrivateHostLiteral('127.0.0.256.1'), isFalse);
+      expect(isPrivateHostLiteral('0xZZ'), isFalse);
+      expect(isPrivateHostLiteral('12.34.56.78.90'), isFalse);
+    });
+  });
 }
 
 class _StreamingClient extends http.BaseClient {
