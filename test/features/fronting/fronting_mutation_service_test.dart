@@ -1908,28 +1908,46 @@ void main() {
         final second = await service.restoreDeletedSleepSessions();
         expect(second.dataOrNull, 0, reason: 'recovery row already exists');
         // Exactly one live recovery row — no duplicate.
-        expect(await repository.getRecentSleepSessions(limit: 50), hasLength(1));
-      });
-
-      test('respects a re-deleted recovery row (does not re-create it)',
-          () async {
-        final sleep = FrontingSession(
-          id: 'sleep-y',
-          startTime: DateTime(2026, 3, 10, 22),
-          endTime: DateTime(2026, 3, 11, 6),
-          sessionType: SessionType.sleep,
+        expect(
+          await repository.getRecentSleepSessions(limit: 50),
+          hasLength(1),
         );
-        await repository.createSession(sleep);
-        await repository.deleteSession(sleep.id);
-        await service.restoreDeletedSleepSessions();
-
-        // User intentionally deletes the recovered copy.
-        await repository.deleteSession(deriveSleepRecoverySessionId('sleep-y'));
-
-        final again = await service.restoreDeletedSleepSessions();
-        expect(again.dataOrNull, 0, reason: 'recovery row exists as tombstone');
-        expect(await repository.getRecentSleepSessions(limit: 50), isEmpty);
       });
+
+      test(
+        'respects a re-deleted recovery row and never chain-recovers it',
+        () async {
+          final sleep = FrontingSession(
+            id: 'sleep-y',
+            startTime: DateTime(2026, 3, 10, 22),
+            endTime: DateTime(2026, 3, 11, 6),
+            sessionType: SessionType.sleep,
+          );
+          await repository.createSession(sleep);
+          await repository.deleteSession(sleep.id);
+          await service.restoreDeletedSleepSessions();
+
+          // User intentionally deletes the recovered copy. Now BOTH the origin
+          // tombstone (sleep-y) and its recovery-row tombstone (R1) are present.
+          final recoveryId = deriveSleepRecoverySessionId('sleep-y');
+          await repository.deleteSession(recoveryId);
+
+          final again = await service.restoreDeletedSleepSessions();
+          expect(again.dataOrNull, 0);
+          expect(await repository.getRecentSleepSessions(limit: 50), isEmpty);
+
+          // sleep-y is skipped via the "recovery row already exists" branch (R1
+          // is a tombstone). R1 itself is skipped via the "is a recovery row"
+          // branch — so it must NOT be re-created under a second-level id
+          // v5(ns, R1). Verifying that exclusion directly.
+          final secondLevelId = deriveSleepRecoverySessionId(recoveryId);
+          expect(
+            await repository.getSessionById(secondLevelId),
+            isNull,
+            reason: 'deleted recovery row must not chain-recover',
+          );
+        },
+      );
 
       test('does not touch deleted normal fronting sessions', () async {
         final front = FrontingSession(

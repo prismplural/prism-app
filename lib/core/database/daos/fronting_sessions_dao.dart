@@ -225,8 +225,9 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateSessionById(
     String id,
     FrontingSessionsCompanion companion,
-  ) =>
-      (update(frontingSessions)..where((s) => s.id.equals(id))).write(companion);
+  ) => (update(
+    frontingSessions,
+  )..where((s) => s.id.equals(id))).write(companion);
 
   Future<void> softDeleteSession(String id) =>
       (update(frontingSessions)..where((s) => s.id.equals(id))).write(
@@ -245,7 +246,6 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             )
             ..orderBy([(s) => OrderingTerm.desc(s.startTime)]))
           .get();
-
 
   /// Tombstoned sessions that still carry a PK switch UUID and a
   /// delete intent epoch. See `MembersDao.getDeletedLinkedMembers` for the

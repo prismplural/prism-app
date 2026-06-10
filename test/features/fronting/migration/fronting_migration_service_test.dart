@@ -2838,7 +2838,8 @@ class _ThrowingMemberRepository implements MemberRepository {
       _inner.recordPluralKitIdentity(id, patch);
 
   @override
-  Future<int> excludePluralKitSync(String id) => _inner.excludePluralKitSync(id);
+  Future<int> excludePluralKitSync(String id) =>
+      _inner.excludePluralKitSync(id);
 
   @override
   Future<int> resumePluralKitSync(String id) => _inner.resumePluralKitSync(id);
@@ -2988,7 +2989,8 @@ class _SuppressionAssertingFrontingSessionRepository
       _inner.getDeletedLinkedSessions();
   @override
   Future<List<FrontingSession>> getDeletedSleepSessions() =>
-      _inner.getDeletedSleepSessions();  @override
+      _inner.getDeletedSleepSessions();
+  @override
   Future<void> clearPluralKitLink(String id) => _inner.clearPluralKitLink(id);
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
