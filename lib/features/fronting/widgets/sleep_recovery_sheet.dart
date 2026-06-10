@@ -13,13 +13,23 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 /// Recovery sheet for the sleep-data-loss bug. Explains what happened in plain
 /// language, shows how many sessions can be brought back, and restores them on
 /// confirmation. Opened from the sleep-view banner and the Sleep settings tile.
+///
+/// [recoverableCount] is a snapshot taken at open time (both callers already
+/// hold it). The sheet does not watch the count provider — a confirm surface
+/// should show a stable number, and watching would flash "0" as the count
+/// clears during the exit animation.
 class SleepRecoverySheet extends ConsumerStatefulWidget {
-  const SleepRecoverySheet({super.key});
+  const SleepRecoverySheet({super.key, required this.recoverableCount});
 
-  static Future<void> show(BuildContext context) {
+  final int recoverableCount;
+
+  static Future<void> show(
+    BuildContext context, {
+    required int recoverableCount,
+  }) {
     return PrismSheet.show(
       context: context,
-      builder: (_) => const SleepRecoverySheet(),
+      builder: (_) => SleepRecoverySheet(recoverableCount: recoverableCount),
     );
   }
 
@@ -32,29 +42,42 @@ class _SleepRecoverySheetState extends ConsumerState<SleepRecoverySheet> {
 
   Future<void> _restore() async {
     setState(() => _restoring = true);
+
+    final int restored;
     try {
-      final restored = await ref
+      restored = await ref
           .read(sleepNotifierProvider.notifier)
           .restoreDeletedSleepSessions();
-      ref.invalidate(deletedSleepSessionCountProvider);
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      if (restored > 0) {
-        Haptics.success();
-        PrismToast.success(
-          context,
-          message: context.l10n.featureSleepRestoreSuccess(restored),
-        );
-      } else {
-        PrismToast.show(context, message: context.l10n.featureSleepRestoreNone);
-      }
     } catch (_) {
       if (!mounted) return;
+      // Stay open and let the user retry — popping would strand them.
       setState(() => _restoring = false);
       PrismToast.error(
         context,
         message: context.l10n.featureSleepRestoreFailed,
       );
+      return;
+    }
+
+    if (!mounted) return;
+    ref.invalidate(deletedSleepSessionCountProvider);
+
+    // Only pop if this sheet is still the topmost route. If the user dismissed
+    // it mid-restore (barrier tap / back), the State stays mounted through the
+    // exit animation, so an unconditional pop would punch through to a parent
+    // route. (Same over-pop class as the archive-spam fix.)
+    if (ModalRoute.of(context)?.isCurrent ?? false) {
+      Navigator.of(context).pop();
+    }
+
+    if (restored > 0) {
+      Haptics.success();
+      PrismToast.success(
+        context,
+        message: context.l10n.featureSleepRestoreSuccess(restored),
+      );
+    } else {
+      PrismToast.show(context, message: context.l10n.featureSleepRestoreNone);
     }
   }
 
@@ -63,11 +86,6 @@ class _SleepRecoverySheetState extends ConsumerState<SleepRecoverySheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final sleepColor = AppColors.sleep(theme.brightness);
-    // The banner only opens this sheet when count > 0; fall back to 0 while the
-    // async count reloads so the copy never shows a stale number.
-    final count = ref
-        .watch(deletedSleepSessionCountProvider)
-        .maybeWhen(data: (c) => c, orElse: () => 0);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -92,7 +110,7 @@ class _SleepRecoverySheetState extends ConsumerState<SleepRecoverySheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            l10n.featureSleepRestoreDeletedSubtitle(count),
+            l10n.featureSleepRestoreDeletedSubtitle(widget.recoverableCount),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
