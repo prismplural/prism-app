@@ -18,6 +18,7 @@ class MediaAttachmentData {
   final String contentHash;
   final String plaintextHash;
   final String thumbnailContentHash;
+  final String thumbnailPlaintextHash;
   final int width;
   final int height;
   final int sizeBytes;
@@ -33,6 +34,7 @@ class MediaAttachmentData {
     required this.contentHash,
     required this.plaintextHash,
     required this.thumbnailContentHash,
+    required this.thumbnailPlaintextHash,
     required this.width,
     required this.height,
     required this.sizeBytes,
@@ -114,6 +116,7 @@ class MediaService {
       contentHash: encryptedImage.ciphertextHash,
       plaintextHash: encryptedImage.plaintextHash,
       thumbnailContentHash: encryptedThumbnail.ciphertextHash,
+      thumbnailPlaintextHash: encryptedThumbnail.plaintextHash,
       width: compressed.width,
       height: compressed.height,
       sizeBytes: compressed.bytes.length,
@@ -233,6 +236,7 @@ class MediaService {
       contentHash: encryptedImage.ciphertextHash,
       plaintextHash: encryptedImage.plaintextHash,
       thumbnailContentHash: '',
+      thumbnailPlaintextHash: '',
       width: compressed.width,
       height: compressed.height,
       sizeBytes: compressed.bytes.length,

@@ -163,6 +163,57 @@ void main() {
       hydrator.dispose();
     });
 
+    test('also hydrates the thumbnail blob when present (thumbnail)', () async {
+      await db.into(db.mediaAttachments).insert(
+            MediaAttachmentsCompanion(
+              id: const Value('att-thumb'),
+              mediaId: const Value('full-x'),
+              mediaType: const Value('image'),
+              encryptionKeyB64: const Value('a2V5'),
+              contentHash: const Value('ch-full-x'),
+              plaintextHash: const Value('ph-full-x'),
+              thumbnailMediaId: const Value('thumb-x'),
+              thumbnailContentHash: const Value('tc-thumb-x'),
+              thumbnailPlaintextHash: const Value('tp-thumb-x'),
+            ),
+          );
+
+      final hydrator = makeHydrator();
+      final got = landed(hydrator, 2);
+      await hydrator.enqueuePending();
+
+      expect((await got).toSet(), {'full-x', 'thumb-x'});
+      expect(cacheFileExists('full-x'), isTrue);
+      expect(cacheFileExists('thumb-x'), isTrue);
+      hydrator.dispose();
+    });
+
+    test('does not try to download a thumbnail lacking synced hashes', () async {
+      await db.into(db.mediaAttachments).insert(
+            MediaAttachmentsCompanion(
+              id: const Value('att-nothumb'),
+              mediaId: const Value('full-y'),
+              mediaType: const Value('image'),
+              encryptionKeyB64: const Value('a2V5'),
+              contentHash: const Value('ch-full-y'),
+              plaintextHash: const Value('ph-full-y'),
+              thumbnailMediaId: const Value('thumb-y'), // id only, no hashes
+            ),
+          );
+
+      final hydrator = makeHydrator();
+      final got = landed(hydrator, 1);
+      await hydrator.enqueuePending();
+
+      expect(await got, ['full-y']);
+      expect(
+        downloads.calls.containsKey('thumb-y'),
+        isFalse,
+        reason: 'a thumbnail without synced hashes is not downloadable',
+      );
+      hydrator.dispose();
+    });
+
     test('skips blobs already present in the local cache', () async {
       await seedRow('media-cached');
       downloads.cached.add('media-cached');

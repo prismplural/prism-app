@@ -23005,6 +23005,30 @@ class $MediaAttachmentsTable extends MediaAttachments
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _thumbnailContentHashMeta =
+      const VerificationMeta('thumbnailContentHash');
+  @override
+  late final GeneratedColumn<String> thumbnailContentHash =
+      GeneratedColumn<String>(
+        'thumbnail_content_hash',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
+  static const VerificationMeta _thumbnailPlaintextHashMeta =
+      const VerificationMeta('thumbnailPlaintextHash');
+  @override
+  late final GeneratedColumn<String> thumbnailPlaintextHash =
+      GeneratedColumn<String>(
+        'thumbnail_plaintext_hash',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
   static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
     'sourceUrl',
   );
@@ -23063,6 +23087,8 @@ class $MediaAttachmentsTable extends MediaAttachments
     blurhash,
     waveformB64,
     thumbnailMediaId,
+    thumbnailContentHash,
+    thumbnailPlaintextHash,
     sourceUrl,
     previewUrl,
     isDeleted,
@@ -23195,6 +23221,24 @@ class $MediaAttachmentsTable extends MediaAttachments
         ),
       );
     }
+    if (data.containsKey('thumbnail_content_hash')) {
+      context.handle(
+        _thumbnailContentHashMeta,
+        thumbnailContentHash.isAcceptableOrUnknown(
+          data['thumbnail_content_hash']!,
+          _thumbnailContentHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('thumbnail_plaintext_hash')) {
+      context.handle(
+        _thumbnailPlaintextHashMeta,
+        thumbnailPlaintextHash.isAcceptableOrUnknown(
+          data['thumbnail_plaintext_hash']!,
+          _thumbnailPlaintextHashMeta,
+        ),
+      );
+    }
     if (data.containsKey('source_url')) {
       context.handle(
         _sourceUrlMeta,
@@ -23290,6 +23334,14 @@ class $MediaAttachmentsTable extends MediaAttachments
         DriftSqlType.string,
         data['${effectivePrefix}thumbnail_media_id'],
       )!,
+      thumbnailContentHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumbnail_content_hash'],
+      )!,
+      thumbnailPlaintextHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumbnail_plaintext_hash'],
+      )!,
       sourceUrl: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_url'],
@@ -23329,6 +23381,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   final String blurhash;
   final String waveformB64;
   final String thumbnailMediaId;
+  final String thumbnailContentHash;
+  final String thumbnailPlaintextHash;
   final String sourceUrl;
   final String previewUrl;
   final bool isDeleted;
@@ -23350,6 +23404,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     required this.blurhash,
     required this.waveformB64,
     required this.thumbnailMediaId,
+    required this.thumbnailContentHash,
+    required this.thumbnailPlaintextHash,
     required this.sourceUrl,
     required this.previewUrl,
     required this.isDeleted,
@@ -23374,6 +23430,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     map['blurhash'] = Variable<String>(blurhash);
     map['waveform_b64'] = Variable<String>(waveformB64);
     map['thumbnail_media_id'] = Variable<String>(thumbnailMediaId);
+    map['thumbnail_content_hash'] = Variable<String>(thumbnailContentHash);
+    map['thumbnail_plaintext_hash'] = Variable<String>(thumbnailPlaintextHash);
     map['source_url'] = Variable<String>(sourceUrl);
     map['preview_url'] = Variable<String>(previewUrl);
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -23399,6 +23457,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
       blurhash: Value(blurhash),
       waveformB64: Value(waveformB64),
       thumbnailMediaId: Value(thumbnailMediaId),
+      thumbnailContentHash: Value(thumbnailContentHash),
+      thumbnailPlaintextHash: Value(thumbnailPlaintextHash),
       sourceUrl: Value(sourceUrl),
       previewUrl: Value(previewUrl),
       isDeleted: Value(isDeleted),
@@ -23428,6 +23488,12 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
       blurhash: serializer.fromJson<String>(json['blurhash']),
       waveformB64: serializer.fromJson<String>(json['waveformB64']),
       thumbnailMediaId: serializer.fromJson<String>(json['thumbnailMediaId']),
+      thumbnailContentHash: serializer.fromJson<String>(
+        json['thumbnailContentHash'],
+      ),
+      thumbnailPlaintextHash: serializer.fromJson<String>(
+        json['thumbnailPlaintextHash'],
+      ),
       sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
       previewUrl: serializer.fromJson<String>(json['previewUrl']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
@@ -23454,6 +23520,10 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
       'blurhash': serializer.toJson<String>(blurhash),
       'waveformB64': serializer.toJson<String>(waveformB64),
       'thumbnailMediaId': serializer.toJson<String>(thumbnailMediaId),
+      'thumbnailContentHash': serializer.toJson<String>(thumbnailContentHash),
+      'thumbnailPlaintextHash': serializer.toJson<String>(
+        thumbnailPlaintextHash,
+      ),
       'sourceUrl': serializer.toJson<String>(sourceUrl),
       'previewUrl': serializer.toJson<String>(previewUrl),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -23478,6 +23548,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     String? blurhash,
     String? waveformB64,
     String? thumbnailMediaId,
+    String? thumbnailContentHash,
+    String? thumbnailPlaintextHash,
     String? sourceUrl,
     String? previewUrl,
     bool? isDeleted,
@@ -23499,6 +23571,9 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     blurhash: blurhash ?? this.blurhash,
     waveformB64: waveformB64 ?? this.waveformB64,
     thumbnailMediaId: thumbnailMediaId ?? this.thumbnailMediaId,
+    thumbnailContentHash: thumbnailContentHash ?? this.thumbnailContentHash,
+    thumbnailPlaintextHash:
+        thumbnailPlaintextHash ?? this.thumbnailPlaintextHash,
     sourceUrl: sourceUrl ?? this.sourceUrl,
     previewUrl: previewUrl ?? this.previewUrl,
     isDeleted: isDeleted ?? this.isDeleted,
@@ -23534,6 +23609,12 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
       thumbnailMediaId: data.thumbnailMediaId.present
           ? data.thumbnailMediaId.value
           : this.thumbnailMediaId,
+      thumbnailContentHash: data.thumbnailContentHash.present
+          ? data.thumbnailContentHash.value
+          : this.thumbnailContentHash,
+      thumbnailPlaintextHash: data.thumbnailPlaintextHash.present
+          ? data.thumbnailPlaintextHash.value
+          : this.thumbnailPlaintextHash,
       sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
       previewUrl: data.previewUrl.present
           ? data.previewUrl.value
@@ -23562,6 +23643,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
           ..write('blurhash: $blurhash, ')
           ..write('waveformB64: $waveformB64, ')
           ..write('thumbnailMediaId: $thumbnailMediaId, ')
+          ..write('thumbnailContentHash: $thumbnailContentHash, ')
+          ..write('thumbnailPlaintextHash: $thumbnailPlaintextHash, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('previewUrl: $previewUrl, ')
           ..write('isDeleted: $isDeleted')
@@ -23570,7 +23653,7 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     messageId,
     memberId,
@@ -23588,10 +23671,12 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
     blurhash,
     waveformB64,
     thumbnailMediaId,
+    thumbnailContentHash,
+    thumbnailPlaintextHash,
     sourceUrl,
     previewUrl,
     isDeleted,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -23613,6 +23698,8 @@ class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
           other.blurhash == this.blurhash &&
           other.waveformB64 == this.waveformB64 &&
           other.thumbnailMediaId == this.thumbnailMediaId &&
+          other.thumbnailContentHash == this.thumbnailContentHash &&
+          other.thumbnailPlaintextHash == this.thumbnailPlaintextHash &&
           other.sourceUrl == this.sourceUrl &&
           other.previewUrl == this.previewUrl &&
           other.isDeleted == this.isDeleted);
@@ -23636,6 +23723,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   final Value<String> blurhash;
   final Value<String> waveformB64;
   final Value<String> thumbnailMediaId;
+  final Value<String> thumbnailContentHash;
+  final Value<String> thumbnailPlaintextHash;
   final Value<String> sourceUrl;
   final Value<String> previewUrl;
   final Value<bool> isDeleted;
@@ -23658,6 +23747,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     this.blurhash = const Value.absent(),
     this.waveformB64 = const Value.absent(),
     this.thumbnailMediaId = const Value.absent(),
+    this.thumbnailContentHash = const Value.absent(),
+    this.thumbnailPlaintextHash = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.previewUrl = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -23681,6 +23772,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     this.blurhash = const Value.absent(),
     this.waveformB64 = const Value.absent(),
     this.thumbnailMediaId = const Value.absent(),
+    this.thumbnailContentHash = const Value.absent(),
+    this.thumbnailPlaintextHash = const Value.absent(),
     this.sourceUrl = const Value.absent(),
     this.previewUrl = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -23704,6 +23797,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     Expression<String>? blurhash,
     Expression<String>? waveformB64,
     Expression<String>? thumbnailMediaId,
+    Expression<String>? thumbnailContentHash,
+    Expression<String>? thumbnailPlaintextHash,
     Expression<String>? sourceUrl,
     Expression<String>? previewUrl,
     Expression<bool>? isDeleted,
@@ -23727,6 +23822,10 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
       if (blurhash != null) 'blurhash': blurhash,
       if (waveformB64 != null) 'waveform_b64': waveformB64,
       if (thumbnailMediaId != null) 'thumbnail_media_id': thumbnailMediaId,
+      if (thumbnailContentHash != null)
+        'thumbnail_content_hash': thumbnailContentHash,
+      if (thumbnailPlaintextHash != null)
+        'thumbnail_plaintext_hash': thumbnailPlaintextHash,
       if (sourceUrl != null) 'source_url': sourceUrl,
       if (previewUrl != null) 'preview_url': previewUrl,
       if (isDeleted != null) 'is_deleted': isDeleted,
@@ -23752,6 +23851,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     Value<String>? blurhash,
     Value<String>? waveformB64,
     Value<String>? thumbnailMediaId,
+    Value<String>? thumbnailContentHash,
+    Value<String>? thumbnailPlaintextHash,
     Value<String>? sourceUrl,
     Value<String>? previewUrl,
     Value<bool>? isDeleted,
@@ -23775,6 +23876,9 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
       blurhash: blurhash ?? this.blurhash,
       waveformB64: waveformB64 ?? this.waveformB64,
       thumbnailMediaId: thumbnailMediaId ?? this.thumbnailMediaId,
+      thumbnailContentHash: thumbnailContentHash ?? this.thumbnailContentHash,
+      thumbnailPlaintextHash:
+          thumbnailPlaintextHash ?? this.thumbnailPlaintextHash,
       sourceUrl: sourceUrl ?? this.sourceUrl,
       previewUrl: previewUrl ?? this.previewUrl,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -23836,6 +23940,16 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
     if (thumbnailMediaId.present) {
       map['thumbnail_media_id'] = Variable<String>(thumbnailMediaId.value);
     }
+    if (thumbnailContentHash.present) {
+      map['thumbnail_content_hash'] = Variable<String>(
+        thumbnailContentHash.value,
+      );
+    }
+    if (thumbnailPlaintextHash.present) {
+      map['thumbnail_plaintext_hash'] = Variable<String>(
+        thumbnailPlaintextHash.value,
+      );
+    }
     if (sourceUrl.present) {
       map['source_url'] = Variable<String>(sourceUrl.value);
     }
@@ -23871,6 +23985,8 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
           ..write('blurhash: $blurhash, ')
           ..write('waveformB64: $waveformB64, ')
           ..write('thumbnailMediaId: $thumbnailMediaId, ')
+          ..write('thumbnailContentHash: $thumbnailContentHash, ')
+          ..write('thumbnailPlaintextHash: $thumbnailPlaintextHash, ')
           ..write('sourceUrl: $sourceUrl, ')
           ..write('previewUrl: $previewUrl, ')
           ..write('isDeleted: $isDeleted, ')
@@ -37391,6 +37507,8 @@ typedef $$MediaAttachmentsTableCreateCompanionBuilder =
       Value<String> blurhash,
       Value<String> waveformB64,
       Value<String> thumbnailMediaId,
+      Value<String> thumbnailContentHash,
+      Value<String> thumbnailPlaintextHash,
       Value<String> sourceUrl,
       Value<String> previewUrl,
       Value<bool> isDeleted,
@@ -37415,6 +37533,8 @@ typedef $$MediaAttachmentsTableUpdateCompanionBuilder =
       Value<String> blurhash,
       Value<String> waveformB64,
       Value<String> thumbnailMediaId,
+      Value<String> thumbnailContentHash,
+      Value<String> thumbnailPlaintextHash,
       Value<String> sourceUrl,
       Value<String> previewUrl,
       Value<bool> isDeleted,
@@ -37512,6 +37632,16 @@ class $$MediaAttachmentsTableFilterComposer
 
   ColumnFilters<String> get thumbnailMediaId => $composableBuilder(
     column: $table.thumbnailMediaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbnailContentHash => $composableBuilder(
+    column: $table.thumbnailContentHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbnailPlaintextHash => $composableBuilder(
+    column: $table.thumbnailPlaintextHash,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -37625,6 +37755,16 @@ class $$MediaAttachmentsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get thumbnailContentHash => $composableBuilder(
+    column: $table.thumbnailContentHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thumbnailPlaintextHash => $composableBuilder(
+    column: $table.thumbnailPlaintextHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sourceUrl => $composableBuilder(
     column: $table.sourceUrl,
     builder: (column) => ColumnOrderings(column),
@@ -37713,6 +37853,16 @@ class $$MediaAttachmentsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get thumbnailContentHash => $composableBuilder(
+    column: $table.thumbnailContentHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get thumbnailPlaintextHash => $composableBuilder(
+    column: $table.thumbnailPlaintextHash,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get sourceUrl =>
       $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
 
@@ -37779,6 +37929,8 @@ class $$MediaAttachmentsTableTableManager
                 Value<String> blurhash = const Value.absent(),
                 Value<String> waveformB64 = const Value.absent(),
                 Value<String> thumbnailMediaId = const Value.absent(),
+                Value<String> thumbnailContentHash = const Value.absent(),
+                Value<String> thumbnailPlaintextHash = const Value.absent(),
                 Value<String> sourceUrl = const Value.absent(),
                 Value<String> previewUrl = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -37801,6 +37953,8 @@ class $$MediaAttachmentsTableTableManager
                 blurhash: blurhash,
                 waveformB64: waveformB64,
                 thumbnailMediaId: thumbnailMediaId,
+                thumbnailContentHash: thumbnailContentHash,
+                thumbnailPlaintextHash: thumbnailPlaintextHash,
                 sourceUrl: sourceUrl,
                 previewUrl: previewUrl,
                 isDeleted: isDeleted,
@@ -37825,6 +37979,8 @@ class $$MediaAttachmentsTableTableManager
                 Value<String> blurhash = const Value.absent(),
                 Value<String> waveformB64 = const Value.absent(),
                 Value<String> thumbnailMediaId = const Value.absent(),
+                Value<String> thumbnailContentHash = const Value.absent(),
+                Value<String> thumbnailPlaintextHash = const Value.absent(),
                 Value<String> sourceUrl = const Value.absent(),
                 Value<String> previewUrl = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
@@ -37847,6 +38003,8 @@ class $$MediaAttachmentsTableTableManager
                 blurhash: blurhash,
                 waveformB64: waveformB64,
                 thumbnailMediaId: thumbnailMediaId,
+                thumbnailContentHash: thumbnailContentHash,
+                thumbnailPlaintextHash: thumbnailPlaintextHash,
                 sourceUrl: sourceUrl,
                 previewUrl: previewUrl,
                 isDeleted: isDeleted,

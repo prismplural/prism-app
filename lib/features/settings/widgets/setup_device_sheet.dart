@@ -11,6 +11,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/services/media/pairing_media_push_providers.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/security/pin_lockout_state.dart';
 import 'package:prism_plurality/core/security/secret_bytes.dart';
@@ -485,6 +486,13 @@ class SetupDeviceSheetContentState
         } catch (e) {
           debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
         }
+
+        // optimistic pairing push: the joiner is now authorized, so
+        // proactively re-supply the referenced blobs we hold (short-TTL, on the
+        // pairing-push lane) — it can fetch them straight away instead of
+        // healing each on demand. Fire-and-forget; the push runs off the
+        // provider's own (app-scoped) ref, so it outlives this sheet.
+        unawaited(runPairingMediaPush(ref));
 
         if (!mounted) return;
         // Brief confirmation so the user sees the upload actually finished

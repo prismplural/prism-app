@@ -23,6 +23,8 @@ abstract class MediaAttachment with _$MediaAttachment {
     required String blurhash,
     required String waveformB64,
     required String thumbnailMediaId,
+    @Default('') String thumbnailContentHash,
+    @Default('') String thumbnailPlaintextHash,
     required String sourceUrl,
     required String previewUrl,
     @Default(false) bool isDeleted,

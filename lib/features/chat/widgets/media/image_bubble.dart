@@ -27,10 +27,16 @@ class ImageBubble extends StatelessWidget {
     this.height,
     this.caption,
     this.blurhash,
+    this.thumbnailBytes,
   });
 
   /// Decrypted image bytes, null while loading.
   final Uint8List? imageBytes;
+
+  /// Decrypted low-res thumbnail bytes (media thumbnails), if available. Shown
+  /// while the full [imageBytes] is still downloading — a crisp preview that
+  /// beats the blurhash, then sharpens to the full image when it arrives.
+  final Uint8List? thumbnailBytes;
 
   /// Whether the image is currently being downloaded/decrypted.
   final bool isLoading;
@@ -127,7 +133,50 @@ class ImageBubble extends StatelessWidget {
       return _ErrorPlaceholder(width: w, height: h, onRetry: onRetry);
     }
 
-    // Loading state — show BlurHash placeholder if available, else spinner
+    // Loading state — prefer a real thumbnail (thumbnail), then BlurHash, then spinner.
+    if (thumbnailBytes != null) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
+      return Image.memory(
+        thumbnailBytes!,
+        fit: BoxFit.cover,
+        width: w,
+        height: h,
+        cacheWidth: (w * dpr).ceil(),
+        cacheHeight: (h * dpr).ceil(),
+        semanticLabel: context.l10n.chatImageLoading,
+        // A corrupt/garbage thumbnail must not break the bubble — fall through
+        // to the blurhash/spinner placeholder below by rendering it.
+        errorBuilder: (_, _, _) => _LoadingPlaceholder(
+          theme: theme,
+          width: w,
+          height: h,
+          blurhash: blurhash,
+        ),
+      );
+    }
+    return _LoadingPlaceholder(theme: theme, width: w, height: h, blurhash: blurhash);
+  }
+}
+
+/// The blurhash-or-spinner placeholder shown while an image is downloading and
+/// no thumbnail is available yet.
+class _LoadingPlaceholder extends StatelessWidget {
+  const _LoadingPlaceholder({
+    required this.theme,
+    required this.width,
+    required this.height,
+    this.blurhash,
+  });
+
+  final ThemeData theme;
+  final double width;
+  final double height;
+  final String? blurhash;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = width;
+    final h = height;
     if (blurhash != null && blurhash!.isNotEmpty) {
       return Semantics(
         label: context.l10n.chatImageLoading,

@@ -384,6 +384,8 @@ const String prismSyncSchema = '''
         "blurhash": "String",
         "waveform_b64": "String",
         "thumbnail_media_id": "String",
+        "thumbnail_content_hash": "String",
+        "thumbnail_plaintext_hash": "String",
         "source_url": "String",
         "preview_url": "String",
         "is_deleted": "Bool"

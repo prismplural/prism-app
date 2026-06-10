@@ -18,6 +18,14 @@ class MediaAttachments extends Table {
   TextColumn get blurhash => text().withDefault(const Constant(''))();
   TextColumn get waveformB64 => text().withDefault(const Constant(''))();
   TextColumn get thumbnailMediaId => text().withDefault(const Constant(''))();
+  // Thumbnail crypto material (media thumbnails). The thumbnail reuses the
+  // main blob's `encryptionKeyB64` (encrypted with a fresh nonce), so it only
+  // needs its own ciphertext + plaintext hashes for the integrity-verified
+  // download path. Empty when there is no thumbnail (bio/voice/library media).
+  TextColumn get thumbnailContentHash =>
+      text().withDefault(const Constant(''))();
+  TextColumn get thumbnailPlaintextHash =>
+      text().withDefault(const Constant(''))();
   TextColumn get sourceUrl => text().withDefault(const Constant(''))();
   TextColumn get previewUrl => text().withDefault(const Constant(''))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();

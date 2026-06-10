@@ -107,7 +107,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 34;
+  static const currentSchemaVersion = 35;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -890,6 +890,29 @@ class AppDatabase extends _$AppDatabase {
         }
         current = 34;
       }
+      if (current == 34 && to >= 35) {
+        // media thumbnails: thumbnail crypto material so a peer can fetch +
+        // integrity-verify the (already-uploaded) thumbnail blob. Reuses the
+        // main blob's encryption key, so only the two hashes are new.
+        // Idempotent — a dev/test DB materialised at the current schema may
+        // already carry the columns.
+        final cols = (await customSelect(
+          'PRAGMA table_info(media_attachments)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!cols.contains('thumbnail_content_hash')) {
+          await migrator.addColumn(
+            mediaAttachments,
+            mediaAttachments.thumbnailContentHash,
+          );
+        }
+        if (!cols.contains('thumbnail_plaintext_hash')) {
+          await migrator.addColumn(
+            mediaAttachments,
+            mediaAttachments.thumbnailPlaintextHash,
+          );
+        }
+        current = 35;
+      }
       if (current != to) {
         throw UnsupportedError(
           'Schema baseline was reset to v1 for the private beta. '
@@ -953,6 +976,16 @@ class AppDatabase extends _$AppDatabase {
 
     await ensure('media_attachments', 'member_id', "TEXT NOT NULL DEFAULT ''");
     await ensure('media_attachments', 'tag', "TEXT NOT NULL DEFAULT ''");
+    await ensure(
+      'media_attachments',
+      'thumbnail_content_hash',
+      "TEXT NOT NULL DEFAULT ''",
+    );
+    await ensure(
+      'media_attachments',
+      'thumbnail_plaintext_hash',
+      "TEXT NOT NULL DEFAULT ''",
+    );
     await ensure(
       'system_settings',
       'members_show_groups',

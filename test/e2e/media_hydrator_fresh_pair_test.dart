@@ -77,6 +77,7 @@ void main() {
           mediaId: mediaId,
           contentHash: media.ciphertextHash,
           data: media.ciphertext,
+          pairingPush: false,
         );
 
         // B is a BRAND-NEW device: real pairing ceremony + snapshot bootstrap,
@@ -201,6 +202,7 @@ void main() {
           mediaId: mediaId,
           contentHash: media.ciphertextHash,
           data: media.ciphertext,
+          pairingPush: false,
         );
 
         b = await pairNewDevice(relay, a);

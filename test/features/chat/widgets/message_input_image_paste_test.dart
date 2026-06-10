@@ -529,6 +529,7 @@ class _BlockingUploadMediaService extends MediaService {
       contentHash: 'content-hash',
       plaintextHash: 'plaintext-hash',
       thumbnailContentHash: 'thumbnail-content-hash',
+      thumbnailPlaintextHash: 'thumbnail-plaintext-hash',
       width: 1,
       height: 1,
       sizeBytes: imageBytes.length,

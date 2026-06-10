@@ -378,6 +378,8 @@
       "blurhash": "blur",
       "waveform_b64": "",
       "thumbnail_media_id": "",
+      "thumbnail_content_hash": "",
+      "thumbnail_plaintext_hash": "",
       "source_url": "",
       "preview_url": "",
       "is_deleted": false

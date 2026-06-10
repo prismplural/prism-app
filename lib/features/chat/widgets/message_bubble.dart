@@ -803,8 +803,28 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     );
     final mediaAsync = ref.watch(mediaFileProvider(params));
 
+    // Thumbnail tier (media thumbnails): while the full blob is still
+    // downloading, show the small thumbnail for a crisp preview. Resolved only
+    // while the full image is absent — once it lands we drop the thumbnail watch
+    // (the autoDispose provider tears down), so a cached full never fetches a
+    // thumbnail. Shares the main blob's key; its own hashes are synced.
+    Uint8List? thumbnailBytes;
+    if (mediaAsync.value == null &&
+        attachment.thumbnailMediaId.isNotEmpty &&
+        attachment.thumbnailContentHash.isNotEmpty &&
+        attachment.thumbnailPlaintextHash.isNotEmpty) {
+      final thumbParams = (
+        mediaId: attachment.thumbnailMediaId,
+        encryptionKeyB64: attachment.encryptionKeyB64,
+        ciphertextHash: attachment.thumbnailContentHash,
+        plaintextHash: attachment.thumbnailPlaintextHash,
+      );
+      thumbnailBytes = ref.watch(mediaFileProvider(thumbParams)).value;
+    }
+
     return ImageBubble(
       imageBytes: mediaAsync.value,
+      thumbnailBytes: thumbnailBytes,
       isLoading: mediaAsync.isLoading,
       hasError: mediaAsync.hasError,
       onRetry: mediaAsync.hasError

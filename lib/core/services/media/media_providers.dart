@@ -57,6 +57,7 @@ final uploadQueueProvider = Provider<UploadQueue>((ref) {
         contentHash: contentHash,
         data: data,
         ttlSecs: ttlSecs,
+        pairingPush: false,
       );
       return UploadAttemptResult.ok;
     },

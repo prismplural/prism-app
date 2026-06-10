@@ -70,6 +70,7 @@ final mediaHealResponderProvider = Provider<MediaHealResponder>((ref) {
         contentHash: contentHash,
         data: ciphertext,
         ttlSecs: BigInt.from(kResupplyTtlSecs),
+        pairingPush: false,
       );
       if (outcome.committed) return ReUploadResult.committed;
       if (outcome.inProgress) return ReUploadResult.inProgress;

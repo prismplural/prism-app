@@ -121,6 +121,16 @@ class MediaHydrator {
       return;
     }
     for (final row in rows) {
+      // Thumbnail first (media thumbnails): it's small, so it lands quickly
+      // and gives the UI a crisp preview while the full blob is still in flight.
+      // It shares the primary blob's key; its own hashes are now synced. A row
+      // with no thumbnail (empty fields) is skipped inside enqueueIfMissing.
+      enqueueIfMissing(
+        mediaId: row.thumbnailMediaId,
+        encryptionKeyB64: row.encryptionKeyB64,
+        contentHash: row.thumbnailContentHash,
+        plaintextHash: row.thumbnailPlaintextHash,
+      );
       enqueueIfMissing(
         mediaId: row.mediaId,
         encryptionKeyB64: row.encryptionKeyB64,
@@ -130,13 +140,11 @@ class MediaHydrator {
     }
   }
 
-  /// Schedule a background download for a single primary blob, unless it is
-  /// already cached, already being worked on, or already given up on this
-  /// session. Rows lacking the fields needed to download (e.g. a "sending"
-  /// placeholder with an empty media id, or a thumbnail-only reference) are
-  /// silently skipped — thumbnails carry no synced content/plaintext hash, so
-  /// they remain blurhash placeholders until the full image is opened, same
-  /// as before.
+  /// Schedule a background download for a single blob (primary OR thumbnail),
+  /// unless it is already cached, already being worked on, or already given up
+  /// on this session. Rows lacking the fields needed to download (e.g. a
+  /// "sending" placeholder with an empty media id, or an attachment with no
+  /// thumbnail) are silently skipped — every field must be present.
   void enqueueIfMissing({
     required String mediaId,
     required String encryptionKeyB64,

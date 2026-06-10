@@ -154,6 +154,8 @@ class DriftMediaAttachmentRepository
       'blurhash': a.blurhash,
       'waveform_b64': a.waveformB64,
       'thumbnail_media_id': a.thumbnailMediaId,
+      'thumbnail_content_hash': a.thumbnailContentHash,
+      'thumbnail_plaintext_hash': a.thumbnailPlaintextHash,
       'source_url': a.sourceUrl,
       'preview_url': a.previewUrl,
       'is_deleted': false,

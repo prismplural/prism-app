@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -61,6 +62,8 @@ const _allUserDataTables = [
   'friends',
   'sharing_requests',
   'media_attachments',
+  'missing_media',
+  'upload_queue_entries',
   'member_board_posts',
   'member_profile_preference_values',
   'sp_sync_state',
@@ -3263,6 +3266,25 @@ class _ResetHarness {
             key: Value('theme.accent'),
             valueType: Value('string'),
             valueJson: Value('"violet"'),
+          ),
+        );
+
+    // ── Media heal ───────────────────────────────────────
+    // The demand-driven heal's missing-media set and the durable upload queue
+    // are derived/ephemeral state, cleared by the full DB-file wipe.
+    await db.missingMediaDao.markMissing(
+      mediaId: 'media-1',
+      priority: 1,
+      nowMs: 1000,
+    );
+    await db
+        .into(db.uploadQueueEntries)
+        .insert(
+          UploadQueueEntriesCompanion.insert(
+            mediaId: 'media-1',
+            contentHash: 'hash',
+            ciphertext: Uint8List.fromList(const [1, 2, 3]),
+            createdAt: 0,
           ),
         );
 

@@ -627,6 +627,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             blurhash: preparedImage.blurhash,
             waveformB64: '',
             thumbnailMediaId: preparedImage.thumbnailMediaId,
+            thumbnailContentHash: preparedImage.thumbnailContentHash,
+            thumbnailPlaintextHash: preparedImage.thumbnailPlaintextHash,
             sourceUrl: '',
             previewUrl: '',
           ),
