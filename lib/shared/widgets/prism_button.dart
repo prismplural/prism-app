@@ -337,6 +337,7 @@ class PrismIconButton extends StatefulWidget {
     required this.icon,
     required this.onPressed,
     this.onLongPress,
+    this.onSecondaryTap,
     this.size = 40,
     this.iconSize,
     this.color,
@@ -348,6 +349,7 @@ class PrismIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final double size;
   final double? iconSize;
   final Color? color;
@@ -408,6 +410,7 @@ class _PrismIconButtonState extends State<PrismIconButton> {
           child: InkResponse(
             onTap: canPress ? widget.onPressed : null,
             onLongPress: canPress ? widget.onLongPress : null,
+            onSecondaryTap: canPress ? widget.onSecondaryTap : null,
             onHighlightChanged: (value) {
               if (_pressed != value) {
                 setState(() => _pressed = value);

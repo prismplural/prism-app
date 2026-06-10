@@ -104,6 +104,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   OverlayEntry? _overlayEntry;
   LocalHistoryEntry? _historyEntry;
   bool _removingHistoryEntry = false;
+  bool _positionedAtCursor = false;
   GoRouter? _routeDismissRouter;
   Uri? _routeUriWhenShown;
   late final AnimationController _animController;
@@ -130,28 +131,39 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     _showPopup();
   }
 
-  bool _showPopup() {
+  bool _showPopup({Offset? atPosition}) {
     if (_overlayEntry != null) return false; // already showing
     widget.onBeforeShow?.call();
-
-    final renderBox =
-        _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return false;
 
     final overlay = Overlay.of(context);
     final overlayRenderBox = overlay.context.findRenderObject() as RenderBox?;
 
-    final anchorSize = renderBox.size;
-
-    // Transform anchor position into overlay-relative coordinates.
+    final Size anchorSize;
     final Offset anchorOffset;
-    if (overlayRenderBox != null) {
-      anchorOffset = renderBox.localToGlobal(
-        Offset.zero,
-        ancestor: overlayRenderBox,
-      );
+
+    if (atPosition != null) {
+      // Cursor-positioned: use cursor point as anchor.
+      _positionedAtCursor = true;
+      anchorSize = Size.zero;
+      if (overlayRenderBox != null) {
+        anchorOffset = overlayRenderBox.globalToLocal(atPosition);
+      } else {
+        anchorOffset = atPosition;
+      }
     } else {
-      anchorOffset = renderBox.localToGlobal(Offset.zero);
+      _positionedAtCursor = false;
+      final renderBox =
+          _anchorKey.currentContext?.findRenderObject() as RenderBox?;
+      if (renderBox == null) return false;
+      anchorSize = renderBox.size;
+      if (overlayRenderBox != null) {
+        anchorOffset = renderBox.localToGlobal(
+          Offset.zero,
+          ancestor: overlayRenderBox,
+        );
+      } else {
+        anchorOffset = renderBox.localToGlobal(Offset.zero);
+      }
     }
 
     final overlaySize = overlayRenderBox?.size ?? MediaQuery.of(context).size;
@@ -191,6 +203,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
           fallbackAnchorOffset: anchorOffset,
           fallbackAnchorSize: anchorSize,
           fallbackScreenSize: overlaySize,
+          positionedAtCursor: _positionedAtCursor,
           direction: direction,
           itemCount: widget.itemCount,
           itemBuilder: widget.itemBuilder,
@@ -254,6 +267,11 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     _showPopup();
   }
 
+  void _handleSecondaryTapDown(TapDownDetails details) {
+    final didOpen = _showPopup(atPosition: details.globalPosition);
+    if (didOpen) Haptics.selection();
+  }
+
   Future<void> _removeOverlay({
     required bool animate,
     bool removeHistoryEntry = true,
@@ -286,6 +304,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
       _overlayEntry = null;
       overlayEntry.remove();
     }
+    _positionedAtCursor = false;
   }
 
   @override
@@ -296,16 +315,25 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
       button: widget.trigger != BlurPopupTrigger.manual,
       label: widget.semanticLabel,
       child: TextFieldTapRegion(
-        child: GestureDetector(
-          key: _anchorKey,
-          onTap: widget.trigger == BlurPopupTrigger.tap ? _handleTap : null,
-          onLongPress: widget.trigger == BlurPopupTrigger.longPress
-              ? _handleLongPress
-              : null,
-          behavior: widget.trigger == BlurPopupTrigger.manual
-              ? null
-              : HitTestBehavior.opaque,
-          child: widget.child,
+        child: MouseRegion(
+          cursor: widget.trigger != BlurPopupTrigger.manual
+              ? SystemMouseCursors.contextMenu
+              : SystemMouseCursors.basic,
+          child: GestureDetector(
+            key: _anchorKey,
+            onTap: widget.trigger == BlurPopupTrigger.tap ? _handleTap : null,
+            onLongPress: widget.trigger == BlurPopupTrigger.longPress
+                ? _handleLongPress
+                : null,
+            onSecondaryTapDown:
+                widget.trigger != BlurPopupTrigger.manual
+                    ? _handleSecondaryTapDown
+                    : null,
+            behavior: widget.trigger == BlurPopupTrigger.manual
+                ? null
+                : HitTestBehavior.opaque,
+            child: widget.child,
+          ),
         ),
       ),
     );
@@ -323,6 +351,7 @@ class _BlurPopupOverlay extends StatelessWidget {
     required this.fallbackAnchorOffset,
     required this.fallbackAnchorSize,
     required this.fallbackScreenSize,
+    required this.positionedAtCursor,
     required this.direction,
     required this.itemCount,
     required this.itemBuilder,
@@ -338,6 +367,7 @@ class _BlurPopupOverlay extends StatelessWidget {
   final Offset fallbackAnchorOffset;
   final Size fallbackAnchorSize;
   final Size fallbackScreenSize;
+  final bool positionedAtCursor;
   final BlurPopupDirection direction;
   final int itemCount;
   final Widget Function(BuildContext, int, VoidCallback) itemBuilder;
@@ -361,7 +391,8 @@ class _BlurPopupOverlay extends StatelessWidget {
     final Size screenSize;
     final Offset anchorOffset;
     final Size anchorSize;
-    if (anchorRenderBox != null &&
+    if (!positionedAtCursor &&
+        anchorRenderBox != null &&
         anchorRenderBox.attached &&
         anchorRenderBox.hasSize) {
       anchorSize = anchorRenderBox.size;

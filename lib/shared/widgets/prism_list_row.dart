@@ -15,6 +15,7 @@ class PrismListRow extends StatefulWidget {
     this.trailing,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     this.enabled = true,
     this.destructive = false,
@@ -29,6 +30,7 @@ class PrismListRow extends StatefulWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final EdgeInsets padding;
   final bool enabled;
   final bool destructive;
@@ -118,7 +120,7 @@ class _PrismListRowState extends State<PrismListRow> {
       ),
     );
 
-    if (!canPress && widget.onLongPress == null) {
+    if (!canPress && widget.onLongPress == null && widget.onSecondaryTap == null) {
       return child;
     }
 
@@ -130,6 +132,7 @@ class _PrismListRowState extends State<PrismListRow> {
       child: InkWell(
         onTap: canPress ? widget.onTap : null,
         onLongPress: widget.onLongPress,
+        onSecondaryTap: widget.onSecondaryTap,
         onHighlightChanged: useOpacity
             ? (value) {
                 if (_pressed != value) {

@@ -692,6 +692,7 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
       },
       child: GestureDetector(
         onLongPress: _onLongPress,
+        onSecondaryTap: _onLongPress,
         behavior: HitTestBehavior.translucent,
         child: rowContent,
       ),

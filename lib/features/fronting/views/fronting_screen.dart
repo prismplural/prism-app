@@ -640,6 +640,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         tooltip: context.l10n.frontingAddEntry,
         onPressed: () => _openAddSessionSheet(context),
         onLongPress: () => _popupKey.currentState?.show(),
+        onSecondaryTap: () => _popupKey.currentState?.show(),
       ),
     );
   }

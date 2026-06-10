@@ -12,6 +12,7 @@ class PrismSurface extends StatefulWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.padding = const EdgeInsets.all(16),
     this.margin = EdgeInsets.zero,
     this.borderRadius = PrismTokens.radiusMedium,
@@ -26,6 +27,7 @@ class PrismSurface extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final EdgeInsets padding;
   final EdgeInsets margin;
   final double borderRadius;
@@ -158,6 +160,7 @@ class _PrismSurfaceState extends State<PrismSurface> {
                     child: InkWell(
                       onTap: widget.onTap,
                       onLongPress: widget.onLongPress,
+                      onSecondaryTap: widget.onSecondaryTap,
                       onHighlightChanged: (value) {
                         if (_pressed != value) {
                           setState(() => _pressed = value);

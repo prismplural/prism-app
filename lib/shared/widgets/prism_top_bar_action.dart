@@ -9,6 +9,7 @@ class PrismTopBarAction extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.onLongPress,
+    this.onSecondaryTap,
     this.tooltip,
     this.tint,
     this.accentIcon = false,
@@ -19,6 +20,7 @@ class PrismTopBarAction extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPressed;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final String? tooltip;
   final Color? tint;
   final bool accentIcon;
@@ -33,6 +35,7 @@ class PrismTopBarAction extends StatelessWidget {
         icon: icon,
         onPressed: onPressed,
         onLongPress: onLongPress,
+        onSecondaryTap: onSecondaryTap,
         tooltip: tooltip,
         size: size,
         iconSize: iconSize,

@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -29,6 +31,32 @@ void main() {
 
     expect(tapped, isTrue);
     expect(find.text('Row subtitle'), findsOneWidget);
+  });
+
+  testWidgets('PrismListRow fires onSecondaryTap callback', (tester) async {
+    var secondaryTapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Material(
+          child: PrismListRow(
+            title: const Text('Row title'),
+            onTap: () {},
+            onSecondaryTap: () => secondaryTapped = true,
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.createGesture(
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await gesture.down(tester.getCenter(find.text('Row title')));
+    await tester.pump();
+    await gesture.up();
+
+    expect(secondaryTapped, isTrue);
   });
 
   testWidgets('PrismSettingsRow renders icon and chevron', (tester) async {

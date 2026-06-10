@@ -13,6 +13,7 @@ class PrismSectionCard extends StatelessWidget {
     this.accentColor,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.semanticLabel,
     this.transitionDuration = Anim.sm,
   });
@@ -24,6 +25,7 @@ class PrismSectionCard extends StatelessWidget {
   final Color? accentColor;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final String? semanticLabel;
   final Duration transitionDuration;
 
@@ -36,6 +38,7 @@ class PrismSectionCard extends StatelessWidget {
       accentColor: accentColor,
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onSecondaryTap,
       semanticLabel: semanticLabel,
       transitionDuration: transitionDuration,
       child: child,

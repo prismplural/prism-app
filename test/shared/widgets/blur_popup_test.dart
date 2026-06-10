@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -332,4 +334,201 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  group('secondary tap', () {
+    testWidgets('opens popup on longPress-trigger anchor', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: Scaffold(
+            body: Center(
+              child: BlurPopupAnchor(
+                trigger: BlurPopupTrigger.longPress,
+                itemCount: 1,
+                itemBuilder: (context, index, close) =>
+                    const Text('Popup item'),
+                child: const Text('Long-press anchor'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.down(tester.getCenter(find.text('Long-press anchor')));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popup item'), findsOneWidget);
+    });
+
+    testWidgets('opens popup on tap-trigger anchor', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: Scaffold(
+            body: Center(
+              child: BlurPopupAnchor(
+                trigger: BlurPopupTrigger.tap,
+                itemCount: 1,
+                itemBuilder: (context, index, close) =>
+                    const Text('Popup item'),
+                child: const Text('Tap anchor'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.down(tester.getCenter(find.text('Tap anchor')));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popup item'), findsOneWidget);
+    });
+
+    testWidgets('does NOT open popup on manual-trigger anchor', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: Scaffold(
+            body: Center(
+              child: BlurPopupAnchor(
+                trigger: BlurPopupTrigger.manual,
+                itemCount: 1,
+                itemBuilder: (context, index, close) =>
+                    const Text('Popup item'),
+                child: const Text('Manual anchor'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.down(tester.getCenter(find.text('Manual anchor')));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popup item'), findsNothing);
+    });
+
+    testWidgets('popup appears at cursor position', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: Scaffold(
+            body: Center(
+              child: BlurPopupAnchor(
+                trigger: BlurPopupTrigger.longPress,
+                width: 200,
+                maxHeight: 200,
+                itemCount: 1,
+                itemBuilder: (context, index, close) => const SizedBox(
+                  height: 44,
+                  child: Center(child: Text('Popup item')),
+                ),
+                // Wide anchor so cursor position (click point) differs from
+                // anchor center — verifies cursor-based positioning.
+                child: const SizedBox(
+                  width: 350,
+                  height: 40,
+                  child: Center(child: Text('Wide anchor')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Right-click near the RIGHT edge of the anchor so the cursor x differs
+      // noticeably from the anchor center x.
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      final anchorRight = tester.getTopRight(find.text('Wide anchor'));
+      // Click 10px inside the right edge (cursor is far from center)
+      await gesture.down(Offset(anchorRight.dx - 10, anchorRight.dy + 20));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popup item'), findsOneWidget);
+
+      // Popup left edge should be near the cursor x (right side of screen),
+      // not near the anchor center x (~100). Clamping may pull it left
+      // slightly, but the cursor-positioned popup will still be far right
+      // of where anchor-center positioning would place it.
+      final popupLeft = tester.getTopLeft(find.text('Popup item')).dx;
+      expect(popupLeft, greaterThan(150));
+    });
+
+    testWidgets('rapid secondary taps do not open duplicate overlays', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en'), Locale('es')],
+          home: Scaffold(
+            body: Center(
+              child: BlurPopupAnchor(
+                trigger: BlurPopupTrigger.longPress,
+                itemCount: 1,
+                itemBuilder: (context, index, close) =>
+                    const Text('Popup item'),
+                child: const Text('Long-press anchor'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // First right-click opens popup
+      var gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.down(tester.getCenter(find.text('Long-press anchor')));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(find.text('Popup item'), findsOneWidget);
+
+      // Second right-click on barrier area should not duplicate
+      gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.down(const Offset(200, 300));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Popup item'), findsOneWidget);
+    });
+  });
 }

@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
@@ -44,6 +46,30 @@ void main() {
 
       await tester.longPress(find.text('Hold me'));
       expect(longPressed, isTrue);
+    });
+
+    testWidgets('fires onSecondaryTap callback', (tester) async {
+      var secondaryTapped = false;
+      await tester.pumpWidget(
+        testApp(
+          center: false,
+          PrismSurface(
+            onTap: () {},
+            onSecondaryTap: () => secondaryTapped = true,
+            child: const Text('Right-click me'),
+          ),
+        ),
+      );
+
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await gesture.down(tester.getCenter(find.text('Right-click me')));
+      await tester.pump();
+      await gesture.up();
+
+      expect(secondaryTapped, isTrue);
     });
 
     testWidgets('wraps content in ClipRRect for child clipping', (

@@ -11,6 +11,7 @@ class PrismGlassIconButton extends StatefulWidget {
     required this.icon,
     required this.onPressed,
     this.onLongPress,
+    this.onSecondaryTap,
     this.tooltip,
     this.semanticLabel,
     this.size = 40,
@@ -27,6 +28,7 @@ class PrismGlassIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onPressed;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final String? tooltip;
   final String? semanticLabel;
   final double size;
@@ -74,6 +76,7 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
             child: InkResponse(
               onTap: canPress ? widget.onPressed : null,
               onLongPress: canPress ? widget.onLongPress : null,
+              onSecondaryTap: canPress ? widget.onSecondaryTap : null,
               onHighlightChanged: (value) {
                 if (_pressed != value) {
                   setState(() => _pressed = value);

@@ -283,6 +283,7 @@ class _ImageViewerState extends ConsumerState<ImageViewer> {
       child: PrismGlassIconButton(
         icon: AppIcons.moreVert,
         onPressed: () => _menuKey.currentState?.show(),
+        onSecondaryTap: () => _menuKey.currentState?.show(),
         semanticLabel: context.l10n.moreOptions,
         size: PrismTokens.topBarActionSize,
       ),

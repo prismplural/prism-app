@@ -15,6 +15,7 @@ class PrismGroupedSectionCard extends StatelessWidget {
     this.accentColor,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.semanticLabel,
   });
 
@@ -25,6 +26,7 @@ class PrismGroupedSectionCard extends StatelessWidget {
   final Color? accentColor;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final String? semanticLabel;
 
   @override
@@ -36,6 +38,7 @@ class PrismGroupedSectionCard extends StatelessWidget {
       accentColor: accentColor,
       onTap: onTap,
       onLongPress: onLongPress,
+      onSecondaryTap: onSecondaryTap,
       semanticLabel: semanticLabel,
       child: child,
     );

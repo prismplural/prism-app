@@ -1251,6 +1251,7 @@ class _LibraryImageCardState extends ConsumerState<_LibraryImageCard> {
                           icon: AppIcons.moreVert,
                           size: 28,
                           onPressed: () => _menuKey.currentState?.show(),
+                          onSecondaryTap: () => _menuKey.currentState?.show(),
                         ),
                       );
                     },
