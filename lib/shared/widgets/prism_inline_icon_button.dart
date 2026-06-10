@@ -14,6 +14,7 @@ class PrismInlineIconButton extends StatefulWidget {
     super.key,
     required this.icon,
     required this.onPressed,
+    this.onSecondaryTap,
     this.tooltip,
     this.semanticLabel,
     this.color,
@@ -24,6 +25,7 @@ class PrismInlineIconButton extends StatefulWidget {
 
   final IconData icon;
   final VoidCallback? onPressed;
+  final VoidCallback? onSecondaryTap;
   final String? tooltip;
   final String? semanticLabel;
   final Color? color;
@@ -65,6 +67,7 @@ class _PrismInlineIconButtonState extends State<PrismInlineIconButton> {
           borderRadius: borderRadius,
           child: InkWell(
             onTap: canPress ? widget.onPressed : null,
+            onSecondaryTap: canPress ? widget.onSecondaryTap : null,
             onHighlightChanged: (value) {
               if (_pressed != value) {
                 setState(() => _pressed = value);

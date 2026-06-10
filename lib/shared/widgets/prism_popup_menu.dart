@@ -73,6 +73,7 @@ class _PrismPopupMenuState<T> extends State<PrismPopupMenu<T>> {
         icon: widget.icon ?? AppIcons.moreVert,
         tooltip: tooltip,
         onPressed: () => _popupKey.currentState?.show(),
+        onSecondaryTap: () => _popupKey.currentState?.show(),
       ),
     );
   }

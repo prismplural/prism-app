@@ -516,6 +516,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
         excludeSemantics: true,
         child: GestureDetector(
           onLongPress: () => _handleLongPress(context, config, option),
+          onSecondaryTap: () => _handleLongPress(context, config, option),
           child: PrismChip(
             label: option.label,
             selected: isSelected,

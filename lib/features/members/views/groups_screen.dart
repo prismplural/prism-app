@@ -517,6 +517,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         icon: AppIcons.moreVert,
         tooltip: l10n.moreOptions,
         onPressed: () => _optionsPopupKey.currentState?.show(),
+        onSecondaryTap: () => _optionsPopupKey.currentState?.show(),
       ),
     );
   }

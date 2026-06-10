@@ -664,6 +664,7 @@ class _CompletionActionsPopupButtonState
         size: 40,
         iconSize: 18,
         onPressed: () => _popupKey.currentState?.show(),
+        onSecondaryTap: () => _popupKey.currentState?.show(),
       ),
     );
   }
