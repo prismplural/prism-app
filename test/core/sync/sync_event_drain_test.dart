@@ -136,7 +136,7 @@ void main() {
     // unconfirmed/false-alarm path is covered by its own test below, which
     // overrides this.
     debugRevokeConfirmationOverride = () async =>
-        RevokeConfirmation.confirmedRevoked;
+        const RevokeConfirmationResult(RevokeConfirmation.confirmedRevoked);
   });
 
   tearDown(() {
@@ -536,7 +536,7 @@ void main() {
       // Registry says THIS device is still active → the ambiguous revoke is a
       // false alarm; the destructive `_credentialsRevoked` gate is NOT set.
       debugRevokeConfirmationOverride = () async =>
-          RevokeConfirmation.stillActive;
+          RevokeConfirmationResult.stillActive;
 
       ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
       await Future<void>.delayed(settleAfterDebounce);

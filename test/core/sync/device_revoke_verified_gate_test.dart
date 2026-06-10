@@ -280,7 +280,7 @@ void main() {
       // The verified Rust check (simulated) says we are STILL ACTIVE even
       // though the relay echoed our device_id with remote_wipe:true.
       debugRevokeConfirmationOverride = () async =>
-          RevokeConfirmation.stillActive;
+          RevokeConfirmationResult.stillActive;
 
       expect(w.secure.hasAllCreds(), isTrue);
       expect(await sentinelCount(w.db), 1);
@@ -320,7 +320,7 @@ void main() {
       // Relay echoes our device_id with remote_wipe, but the verified Rust
       // check (simulated) says we are STILL ACTIVE.
       debugRevokeConfirmationOverride = () async =>
-          RevokeConfirmation.stillActive;
+          RevokeConfirmationResult.stillActive;
 
       expect(w.secure.hasAllCreds(), isTrue);
       expect(await sentinelCount(w.db), 1);
@@ -346,18 +346,23 @@ void main() {
   );
 
   test(
-    'verified REVOKED with remote_wipe DOES wipe and DOES clear credentials',
+    'H3 Layer B: verified REVOKED with VERIFIED wipe=TRUE DOES wipe and clears '
+    'credentials',
     () async {
       final w = await wire();
       addTearDown(w.teardown);
 
-      // The verified Rust check confirms we are genuinely revoked.
-      debugRevokeConfirmationOverride = () async =>
-          RevokeConfirmation.confirmedRevoked;
+      // The verified Rust check confirms we are genuinely revoked AND the
+      // admin-SIGNED wipe intent is true.
+      debugRevokeConfirmationOverride = () async => const RevokeConfirmationResult(
+            RevokeConfirmation.confirmedRevoked,
+            remoteWipe: true,
+          );
 
       expect(w.secure.hasAllCreds(), isTrue);
       expect(await sentinelCount(w.db), 1);
 
+      // Relay frame agrees here, but the decision is driven by the verified bit.
       w.events.add(_confirmedSelfRevokeEvent(remoteWipe: true));
       await awaitDelivered(w.delivered, 1);
 
@@ -376,7 +381,56 @@ void main() {
       expect(
         await sentinelCount(w.db),
         0,
-        reason: 'a VERIFIED revoke with remote_wipe must wipe local data',
+        reason: 'a VERIFIED revoke with VERIFIED wipe=true must wipe local data',
+      );
+    },
+  );
+
+  test(
+    'H3 Layer B: verified REVOKED with VERIFIED wipe=FALSE but relay frame '
+    'wipe=TRUE does NOT wipe local data (only clears credentials)',
+    () async {
+      // The load-bearing Layer B guarantee: a relay flipping the WS-frame
+      // `remote_wipe` to true on a verifiably-revoked device whose SIGNED
+      // registry says wipe=false must NOT trigger a local-data wipe. The device
+      // still disconnects + clears credentials (it IS revoked), but the
+      // orphaned local data survives because no admin signature covers wipe=true.
+      final w = await wire();
+      addTearDown(w.teardown);
+
+      debugRevokeConfirmationOverride = () async => const RevokeConfirmationResult(
+            RevokeConfirmation.confirmedRevoked,
+            // VERIFIED wipe intent is FALSE.
+            remoteWipe: false,
+          );
+
+      expect(w.secure.hasAllCreds(), isTrue);
+      expect(await sentinelCount(w.db), 1);
+
+      // Relay frame LIES: wipe=true. It is now only an ignored hint.
+      w.events.add(_confirmedSelfRevokeEvent(remoteWipe: true));
+      await awaitDelivered(w.delivered, 1);
+
+      // Wait for the credential clear (the non-wipe destructive effect) to land.
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      while (w.secure.hasAllCreds()) {
+        if (DateTime.now().isAfter(deadline)) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      // Give any (incorrect) wipe a chance to fire so the assertion is real.
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      expect(
+        w.secure.hasAllCreds(),
+        isFalse,
+        reason: 'a VERIFIED revoke still clears credentials',
+      );
+      expect(
+        await sentinelCount(w.db),
+        1,
+        reason:
+            'a relay-frame remote_wipe=true must NOT wipe local data when the '
+            'VERIFIED signed wipe intent is false (H3 Layer B invariant)',
       );
     },
   );
@@ -390,7 +444,8 @@ void main() {
 
       // A spoofed error body cannot be verified — the Rust check returns
       // unknown. Nothing destructive may happen.
-      debugRevokeConfirmationOverride = () async => RevokeConfirmation.unknown;
+      debugRevokeConfirmationOverride = () async =>
+          RevokeConfirmationResult.unknown;
 
       expect(w.secure.hasAllCreds(), isTrue);
       expect(await sentinelCount(w.db), 1);

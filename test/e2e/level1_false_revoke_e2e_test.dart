@@ -343,7 +343,7 @@ void main() {
       // Force the ambiguous → registry confirmation to confirmedRevoked,
       // bypassing the real `ffi.listDevices`. Everything else is the SAME path.
       debugRevokeConfirmationOverride = () async =>
-          RevokeConfirmation.confirmedRevoked;
+          const RevokeConfirmationResult(RevokeConfirmation.confirmedRevoked);
       // Drains run on a 2s post-revoke timer + 500ms debounce by default; shrink
       // so the test settles fast and the re-clean timer is observable.
       debugDrainDebounceOverride = const Duration(milliseconds: 5);
