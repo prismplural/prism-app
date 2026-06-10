@@ -610,6 +610,26 @@ class FrontingMutationService {
     );
   }
 
+  /// Recovery for the sleep-data-loss bug (an open-ended front edit silently
+  /// deleted overlapping sleep rows). Un-tombstones every soft-deleted sleep
+  /// session, emitting a sync op per row so paired devices converge.
+  ///
+  /// Bug-deletes and user-initiated sleep deletes share the same tombstone,
+  /// so this also revives sleep sessions the user deleted on purpose — the
+  /// caller is expected to warn about that. Returns the number restored.
+  Future<MutationResult<int>> restoreDeletedSleepSessions() {
+    return _mutationRunner.run<int>(
+      actionLabel: 'Restore deleted sleep sessions',
+      action: () async {
+        final deleted = await _repository.getDeletedSleepSessions();
+        for (final session in deleted) {
+          await _repository.restoreSleepSession(session.id);
+        }
+        return deleted.length;
+      },
+    );
+  }
+
   Future<MutationResult<FrontingSession>> logHistoricalSleep({
     required DateTime startTime,
     required DateTime endTime,

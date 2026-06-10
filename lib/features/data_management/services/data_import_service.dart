@@ -1736,36 +1736,54 @@ class DataImportService {
         final existingHabitIds = existingHabits.map((h) => h.id).toSet();
 
         for (final h in export.habits) {
+          // `getAllHabits()` excludes tombstones, so a since-deleted habit's
+          // id is absent from existingHabitIds and slips past dedup. Its row
+          // still exists as a tombstone, so the insert hits a primary-key
+          // collision — and without this guard that aborts the ENTIRE import
+          // transaction (the reported "habits error" blocking old-export
+          // restores). Mirror the sleep/session sections: skip on collision.
           if (existingHabitIds.contains(h.id)) continue;
-          await habitRepository.createHabit(
-            Habit(
-              id: h.id,
-              name: h.name,
-              description: h.description,
-              icon: h.icon,
-              colorHex: h.colorHex,
-              isActive: h.isActive,
-              createdAt: DateTime.parse(h.createdAt),
-              modifiedAt: DateTime.parse(h.modifiedAt),
-              frequency: HabitFrequency.values.firstWhere(
-                (f) => f.name == h.frequency,
-                orElse: () => HabitFrequency.daily,
+          try {
+            await habitRepository.createHabit(
+              Habit(
+                id: h.id,
+                name: h.name,
+                description: h.description,
+                icon: h.icon,
+                colorHex: h.colorHex,
+                isActive: h.isActive,
+                createdAt: DateTime.parse(h.createdAt),
+                modifiedAt: DateTime.parse(h.modifiedAt),
+                frequency: HabitFrequency.values.firstWhere(
+                  (f) => f.name == h.frequency,
+                  orElse: () => HabitFrequency.daily,
+                ),
+                weeklyDays: h.weeklyDays != null
+                    ? (jsonDecode(h.weeklyDays!) as List).cast<int>()
+                    : null,
+                intervalDays: h.intervalDays,
+                reminderTime: h.reminderTime,
+                notificationsEnabled: h.notificationsEnabled,
+                notificationMessage: h.notificationMessage,
+                assignedMemberId: h.assignedMemberId,
+                onlyNotifyWhenFronting: h.onlyNotifyWhenFronting,
+                isPrivate: h.isPrivate,
+                currentStreak: h.currentStreak,
+                bestStreak: h.bestStreak,
+                totalCompletions: h.totalCompletions,
               ),
-              weeklyDays: h.weeklyDays != null
-                  ? (jsonDecode(h.weeklyDays!) as List).cast<int>()
-                  : null,
-              intervalDays: h.intervalDays,
-              reminderTime: h.reminderTime,
-              notificationsEnabled: h.notificationsEnabled,
-              notificationMessage: h.notificationMessage,
-              assignedMemberId: h.assignedMemberId,
-              onlyNotifyWhenFronting: h.onlyNotifyWhenFronting,
-              isPrivate: h.isPrivate,
-              currentStreak: h.currentStreak,
-              bestStreak: h.bestStreak,
-              totalCompletions: h.totalCompletions,
-            ),
-          );
+            );
+          } catch (e) {
+            if (isUniqueConstraintViolation(e)) {
+              debugPrint(
+                '[Import] Habit ${h.id} insert hit a unique-constraint '
+                'collision past dedup (likely a tombstone); skipping.',
+              );
+              continue;
+            }
+            rethrow;
+          }
+          existingHabitIds.add(h.id);
           habitsCreated++;
         }
 
@@ -1779,19 +1797,34 @@ class DataImportService {
         for (final c in export.habitCompletions) {
           if (existingCompletionIds.contains(c.id)) continue;
 
-          await habitRepository.createCompletion(
-            HabitCompletion(
-              id: c.id,
-              habitId: c.habitId,
-              completedAt: DateTime.parse(c.completedAt),
-              completedByMemberId: c.completedByMemberId,
-              notes: c.notes,
-              wasFronting: c.wasFronting,
-              rating: c.rating,
-              createdAt: DateTime.parse(c.createdAt),
-              modifiedAt: DateTime.parse(c.modifiedAt),
-            ),
-          );
+          try {
+            await habitRepository.createCompletion(
+              HabitCompletion(
+                id: c.id,
+                habitId: c.habitId,
+                completedAt: DateTime.parse(c.completedAt),
+                completedByMemberId: c.completedByMemberId,
+                notes: c.notes,
+                wasFronting: c.wasFronting,
+                rating: c.rating,
+                createdAt: DateTime.parse(c.createdAt),
+                modifiedAt: DateTime.parse(c.modifiedAt),
+              ),
+            );
+          } catch (e) {
+            // Same tombstone-collision guard as the habit insert above: a
+            // since-deleted completion id slips past the active-only dedup
+            // and would otherwise abort the whole import.
+            if (isUniqueConstraintViolation(e)) {
+              debugPrint(
+                '[Import] Habit completion ${c.id} insert hit a unique-'
+                'constraint collision past dedup; skipping.',
+              );
+              continue;
+            }
+            rethrow;
+          }
+          existingCompletionIds.add(c.id);
           habitCompletionsCreated++;
         }
 

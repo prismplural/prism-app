@@ -286,6 +286,12 @@ class _FlakyDeleteRepo implements FrontingSessionRepository {
   Future<List<domain_fs.FrontingSession>> getDeletedLinkedSessions() =>
       delegate.getDeletedLinkedSessions();
   @override
+  Future<List<domain_fs.FrontingSession>> getDeletedSleepSessions() =>
+      delegate.getDeletedSleepSessions();
+  @override
+  Future<void> restoreSleepSession(String id) =>
+      delegate.restoreSleepSession(id);
+  @override
   Future<void> clearPluralKitLink(String id) => delegate.clearPluralKitLink(id);
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>

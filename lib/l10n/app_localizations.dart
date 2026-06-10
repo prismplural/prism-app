@@ -3776,6 +3776,60 @@ abstract class AppLocalizations {
   /// **'Choose the default quality rating for new sleep sessions.'**
   String get featureSleepDefaultQualityMessage;
 
+  /// Section title: sleep data recovery
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery'**
+  String get featureSleepRecovery;
+
+  /// Row title: restore soft-deleted sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Restore deleted sleep sessions'**
+  String get featureSleepRestoreDeleted;
+
+  /// Row subtitle: number of restorable deleted sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 deleted sleep session can be restored} other{{count} deleted sleep sessions can be restored}}'**
+  String featureSleepRestoreDeletedSubtitle(int count);
+
+  /// Confirm dialog title for restoring deleted sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Restore deleted sleep sessions?'**
+  String get featureSleepRestoreConfirmTitle;
+
+  /// Confirm dialog message for restoring deleted sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'This brings back sleep sessions that were removed — including any you deleted on purpose. You can delete those again afterward.'**
+  String get featureSleepRestoreConfirmMessage;
+
+  /// Confirm dialog action label for restoring deleted sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get featureSleepRestoreConfirmAction;
+
+  /// Toast after restoring deleted sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Restored 1 sleep session.} other{Restored {count} sleep sessions.}}'**
+  String featureSleepRestoreSuccess(int count);
+
+  /// Toast when there were no deleted sleep sessions to restore
+  ///
+  /// In en, this message translates to:
+  /// **'No deleted sleep sessions to restore.'**
+  String get featureSleepRestoreNone;
+
+  /// Error toast when restoring deleted sleep sessions failed
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t restore sleep sessions.'**
+  String get featureSleepRestoreFailed;
+
   /// Description text on polls feature settings screen
   ///
   /// In en, this message translates to:

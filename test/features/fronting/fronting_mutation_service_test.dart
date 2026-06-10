@@ -1839,6 +1839,69 @@ void main() {
         },
       );
     });
+
+    group('restoreDeletedSleepSessions (sleep-data-loss recovery)', () {
+      test('un-tombstones every soft-deleted sleep session', () async {
+        // Two sleep sessions, both soft-deleted (as the bug would do).
+        final sleepA = FrontingSession(
+          id: 'sleep-a',
+          startTime: DateTime(2026, 3, 10, 22),
+          endTime: DateTime(2026, 3, 11, 6),
+          sessionType: SessionType.sleep,
+          quality: SleepQuality.good,
+        );
+        final sleepB = FrontingSession(
+          id: 'sleep-b',
+          startTime: DateTime(2026, 3, 11, 22),
+          endTime: DateTime(2026, 3, 12, 6),
+          sessionType: SessionType.sleep,
+          quality: SleepQuality.unknown,
+        );
+        await repository.createSession(sleepA);
+        await repository.createSession(sleepB);
+        await repository.deleteSession(sleepA.id);
+        await repository.deleteSession(sleepB.id);
+
+        // Both are gone from the live view, present as tombstones.
+        expect(await repository.getRecentSleepSessions(limit: 50), isEmpty);
+        expect(await repository.getDeletedSleepSessions(), hasLength(2));
+
+        final result = await service.restoreDeletedSleepSessions();
+        expect(result.isSuccess, isTrue);
+        expect(result.dataOrNull, 2);
+
+        // Both reappear with their data intact; no tombstones remain.
+        final restored = await repository.getRecentSleepSessions(limit: 50);
+        expect(restored.map((s) => s.id), containsAll(['sleep-a', 'sleep-b']));
+        expect(await repository.getDeletedSleepSessions(), isEmpty);
+        final restoredA = restored.firstWhere((s) => s.id == 'sleep-a');
+        expect(restoredA.quality, SleepQuality.good);
+        expect(restoredA.endTime, DateTime(2026, 3, 11, 6));
+      });
+
+      test('does not touch deleted normal fronting sessions', () async {
+        final front = FrontingSession(
+          id: 'front-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          endTime: DateTime(2026, 3, 11, 10),
+          memberId: 'alice',
+        );
+        await repository.createSession(front);
+        await repository.deleteSession(front.id);
+
+        final result = await service.restoreDeletedSleepSessions();
+        expect(result.isSuccess, isTrue);
+        expect(result.dataOrNull, 0);
+        // The deleted front stays deleted — recovery is sleep-only.
+        expect(await repository.getFrontingSessions(), isEmpty);
+      });
+
+      test('no deleted sleep sessions → restores zero', () async {
+        final result = await service.restoreDeletedSleepSessions();
+        expect(result.isSuccess, isTrue);
+        expect(result.dataOrNull, 0);
+      });
+    });
   });
 }
 

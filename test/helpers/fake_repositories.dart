@@ -752,6 +752,10 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   final List<FrontingSession> sessions = [];
   final List<String> deletedIds = [];
 
+  /// Sleep tombstones available to the recovery flow. Seed in tests that
+  /// exercise [restoreSleepSession] / [getDeletedSleepSessions].
+  final List<FrontingSession> tombstonedSleepSessions = [];
+
   @override
   Future<void> createSession(FrontingSession session) async {
     sessions.add(session);
@@ -920,6 +924,18 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
 
   @override
   Future<List<FrontingSession>> getDeletedLinkedSessions() async => const [];
+
+  @override
+  Future<List<FrontingSession>> getDeletedSleepSessions() async =>
+      tombstonedSleepSessions.toList();
+
+  @override
+  Future<void> restoreSleepSession(String id) async {
+    final index = tombstonedSleepSessions.indexWhere((s) => s.id == id);
+    if (index >= 0) {
+      sessions.add(tombstonedSleepSessions.removeAt(index));
+    }
+  }
 
   @override
   Future<void> clearPluralKitLink(String id) async {}

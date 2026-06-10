@@ -251,6 +251,21 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Future<List<domain.FrontingSession>> getDeletedSleepSessions() async {
+    final rows = await _dao.getDeletedSleepSessions();
+    return rows.map(FrontingSessionMapper.toDomain).toList();
+  }
+
+  @override
+  Future<void> restoreSleepSession(String id) async {
+    await _dao.restoreSession(id);
+    // Emit the revival so paired devices converge. The terminal-tombstone
+    // gate in prism-sync may drop this on peers that already hold the
+    // tombstone; the local row is restored regardless.
+    await syncRecordUpdate(_table, id, {'is_deleted': false});
+  }
+
+  @override
   Future<void> clearPluralKitLink(String id) async {
     await _dao.clearPluralKitLinkRaw(id);
     await syncRecordUpdate(_table, id, {'pluralkit_uuid': null});

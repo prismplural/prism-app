@@ -322,10 +322,11 @@ void main() {
       },
     );
 
-    test('fronting edit detects overlap with adjacent sleep session', () {
-      // Reproduces the reported bug: sleep 10pm-8am, front 8am-10am.
-      // Editing front to 6am-10am should surface the sleep overlap so the
-      // user is offered a trim, not silently save.
+    test('fronting edit does NOT surface overlap with sleep (data-loss guard)', () {
+      // Sleep and normal fronting are parallel timelines. Editing a front so it
+      // overlaps a sleep session must NOT surface that sleep as an overlap —
+      // doing so routed it into a silent trim/delete. Sleep 10pm-8am, front
+      // 8am-10am, front moved back to 6am so it covers part of sleep.
       final sleep = makeSession(
         id: 'sleep',
         start: base, // 10pm
@@ -350,15 +351,13 @@ void main() {
         timingMode: FrontingTimingMode.flexible,
       );
 
-      expect(result.overlappingSessions, hasLength(1));
-      expect(result.overlappingSessions.first.id, 'sleep');
-      expect(result.canSaveDirectly, isFalse);
-      // Cross-type overlap → trim only, no co-fronting concept.
+      expect(result.overlappingSessions, isEmpty);
+      expect(result.canSaveDirectly, isTrue);
     });
 
-    test('sleep edit detects overlap with adjacent fronting session', () {
-      // Editing a sleep session so it overruns an adjacent fronting session
-      // should surface the overlap too — mirror of the above.
+    test('sleep edit does NOT surface overlap with fronting (mirror)', () {
+      // Mirror of the above: editing a sleep session so it overruns an adjacent
+      // front must not surface the front as an overlap either.
       final sleep = makeSession(
         id: 'sleep',
         start: base,
@@ -382,10 +381,50 @@ void main() {
         timingMode: FrontingTimingMode.flexible,
       );
 
-      expect(result.overlappingSessions, hasLength(1));
-      expect(result.overlappingSessions.first.id, 'front');
-      // Cross-type overlap → trim only, no co-fronting concept.
+      expect(result.overlappingSessions, isEmpty);
+      expect(result.canSaveDirectly, isTrue);
     });
+
+    test(
+      'editing an open-ended front does NOT surface later sleep sessions '
+      '(mass-delete regression)',
+      () {
+        // The data-loss bug: an active (open-ended) front has a far-future
+        // effective end, so it "contained" EVERY sleep session that started
+        // after it — surfacing them all for trim, which deleted the user's
+        // entire sleep history on save. None must be surfaced now.
+        final front = makeSession(
+          id: 'front',
+          start: base,
+          end: null, // active / open-ended
+        );
+        final sleeps = [
+          for (var i = 1; i <= 30; i++)
+            makeSession(
+              id: 'sleep$i',
+              start: base.add(Duration(hours: i * 8)),
+              end: base.add(Duration(hours: i * 8 + 6)),
+              memberId: null,
+              sessionType: SessionType.sleep,
+            ),
+        ];
+
+        // Edit the front's start earlier — the kind of edit Simon performed.
+        final patch = FrontingSessionPatch(
+          start: base.subtract(const Duration(hours: 1)),
+        );
+
+        final result = guard.validateEdit(
+          original: front,
+          patch: patch,
+          nearbySessions: [front, ...sleeps],
+          timingMode: FrontingTimingMode.flexible,
+        );
+
+        expect(result.overlappingSessions, isEmpty);
+        expect(result.canSaveDirectly, isTrue);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------

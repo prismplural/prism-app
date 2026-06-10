@@ -2143,6 +2143,54 @@ class AppLocalizationsEs extends AppLocalizations {
       'Elige la calificación de calidad predeterminada para las nuevas sesiones de sueño.';
 
   @override
+  String get featureSleepRecovery => 'Recuperación';
+
+  @override
+  String get featureSleepRestoreDeleted =>
+      'Restaurar sesiones de sueño eliminadas';
+
+  @override
+  String featureSleepRestoreDeletedSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sesiones de sueño eliminadas se pueden restaurar',
+      one: '1 sesión de sueño eliminada se puede restaurar',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get featureSleepRestoreConfirmTitle =>
+      '¿Restaurar sesiones de sueño eliminadas?';
+
+  @override
+  String get featureSleepRestoreConfirmMessage =>
+      'Esto recupera las sesiones de sueño que se eliminaron, incluidas las que borraste a propósito. Puedes volver a eliminarlas después.';
+
+  @override
+  String get featureSleepRestoreConfirmAction => 'Restaurar';
+
+  @override
+  String featureSleepRestoreSuccess(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se restauraron $count sesiones de sueño.',
+      one: 'Se restauró 1 sesión de sueño.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get featureSleepRestoreNone =>
+      'No hay sesiones de sueño eliminadas para restaurar.';
+
+  @override
+  String get featureSleepRestoreFailed =>
+      'No se pudieron restaurar las sesiones de sueño.';
+
+  @override
   String get featurePollsDescription =>
       'Permite que tu sistema vote en decisiones juntos. Desactivar oculta las encuestas de la navegación pero conserva los datos existentes.';
 

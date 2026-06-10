@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SessionType;
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_service.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -16,6 +18,7 @@ FrontingSessionSnapshot _snap({
   DateTime? end,
   String? notes,
   int? confidenceIndex,
+  SessionType sessionType = SessionType.normal,
 }) {
   return FrontingSessionSnapshot(
     id: id,
@@ -24,6 +27,7 @@ FrontingSessionSnapshot _snap({
     end: end,
     notes: notes,
     confidenceIndex: confidenceIndex,
+    sessionType: sessionType,
   );
 }
 
@@ -154,6 +158,36 @@ void main() {
         edited: edited,
         overlaps: [overlap],
         resolution: OverlapResolution.cancel,
+      );
+
+      expect(changes, isEmpty);
+    });
+
+    test('cross-type overlaps are skipped — never trimmed (data-loss guard)', () {
+      // An open-ended normal front whose effective end is far-future would
+      // "contain" every later sleep session. resolveAllOverlaps must drop
+      // cross-type overlaps so none are deleted, even if a caller passes them.
+      final edited = _snap(
+        id: 'front',
+        start: DateTime(2025, 1, 1, 10, 0),
+        end: null, // active / open-ended
+        sessionType: SessionType.normal,
+      );
+      final sleeps = [
+        for (var i = 1; i <= 5; i++)
+          _snap(
+            id: 'sleep$i',
+            memberId: null,
+            start: DateTime(2025, 1, 1 + i, 22, 0),
+            end: DateTime(2025, 1, 2 + i, 6, 0),
+            sessionType: SessionType.sleep,
+          ),
+      ];
+
+      final changes = service.resolveAllOverlaps(
+        edited: edited,
+        overlaps: sleeps,
+        resolution: OverlapResolution.trim,
       );
 
       expect(changes, isEmpty);

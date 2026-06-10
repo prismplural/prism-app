@@ -2093,6 +2093,51 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose the default quality rating for new sleep sessions.';
 
   @override
+  String get featureSleepRecovery => 'Recovery';
+
+  @override
+  String get featureSleepRestoreDeleted => 'Restore deleted sleep sessions';
+
+  @override
+  String featureSleepRestoreDeletedSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count deleted sleep sessions can be restored',
+      one: '1 deleted sleep session can be restored',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get featureSleepRestoreConfirmTitle =>
+      'Restore deleted sleep sessions?';
+
+  @override
+  String get featureSleepRestoreConfirmMessage =>
+      'This brings back sleep sessions that were removed — including any you deleted on purpose. You can delete those again afterward.';
+
+  @override
+  String get featureSleepRestoreConfirmAction => 'Restore';
+
+  @override
+  String featureSleepRestoreSuccess(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Restored $count sleep sessions.',
+      one: 'Restored 1 sleep session.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get featureSleepRestoreNone => 'No deleted sleep sessions to restore.';
+
+  @override
+  String get featureSleepRestoreFailed => 'Couldn\'t restore sleep sessions.';
+
+  @override
   String get featurePollsDescription =>
       'Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.';
 

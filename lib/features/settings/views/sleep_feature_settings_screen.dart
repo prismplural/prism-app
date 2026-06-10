@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
@@ -159,6 +161,9 @@ class _SleepFeatureSettingsScreenState
     final sleepEnabled = ref.watch(sleepTrackingEnabledProvider);
     final defaultQuality =
         ref.watch(defaultSleepQualityProvider) ?? SleepQuality.unknown;
+    final deletedSleepCount = ref
+        .watch(deletedSleepSessionCountProvider)
+        .maybeWhen(data: (count) => count, orElse: () => 0);
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
@@ -282,8 +287,61 @@ class _SleepFeatureSettingsScreenState
                 ),
               ),
             ),
+          // Recovery surface for the sleep-data-loss bug. Shown independent of
+          // the feature toggle and only when soft-deleted sleep tombstones
+          // exist, so it never clutters the screen for unaffected users.
+          if (deletedSleepCount > 0)
+            PrismSection(
+              title: context.l10n.featureSleepRecovery,
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: PrismSettingsRow(
+                  icon: AppIcons.history,
+                  iconColor: AppColors.sleep(theme.brightness),
+                  title: context.l10n.featureSleepRestoreDeleted,
+                  subtitle: context.l10n
+                      .featureSleepRestoreDeletedSubtitle(deletedSleepCount),
+                  onTap: () => _restoreDeletedSleep(context),
+                ),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _restoreDeletedSleep(BuildContext context) async {
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: context.l10n.featureSleepRestoreConfirmTitle,
+      message: context.l10n.featureSleepRestoreConfirmMessage,
+      confirmLabel: context.l10n.featureSleepRestoreConfirmAction,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      final restored = await ref
+          .read(sleepNotifierProvider.notifier)
+          .restoreDeletedSleepSessions();
+      ref.invalidate(deletedSleepSessionCountProvider);
+      if (!context.mounted) return;
+      if (restored > 0) {
+        PrismToast.success(
+          context,
+          message: context.l10n.featureSleepRestoreSuccess(restored),
+        );
+      } else {
+        PrismToast.show(
+          context,
+          message: context.l10n.featureSleepRestoreNone,
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      PrismToast.error(
+        context,
+        message: context.l10n.featureSleepRestoreFailed,
+      );
+    }
   }
 }

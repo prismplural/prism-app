@@ -146,6 +146,18 @@ final morningFrontingCountsProvider =
       );
     });
 
+/// Count of soft-deleted sleep tombstones. Gates the in-app recovery action
+/// for the sleep-data-loss bug — the UI only surfaces "restore deleted sleep
+/// sessions" when this is > 0.
+final deletedSleepSessionCountProvider = FutureProvider.autoDispose<int>((
+  ref,
+) async {
+  ref.watch(frontingTableTickerProvider);
+  final repo = ref.watch(frontingSessionRepositoryProvider);
+  final deleted = await repo.getDeletedSleepSessions();
+  return deleted.length;
+});
+
 /// Notifier for sleep session actions.
 class SleepNotifier extends Notifier<void> {
   @override
@@ -175,6 +187,14 @@ class SleepNotifier extends Notifier<void> {
 
   Future<void> deleteSleep(String id) async {
     await _unwrap(ref.read(frontingMutationServiceProvider).deleteSleep(id));
+  }
+
+  /// Recovery for the sleep-data-loss bug: revives every soft-deleted sleep
+  /// session. Returns the number restored.
+  Future<int> restoreDeletedSleepSessions() async {
+    return _unwrap(
+      ref.read(frontingMutationServiceProvider).restoreDeletedSleepSessions(),
+    );
   }
 
   Future<FrontingSession> logHistoricalSleep({

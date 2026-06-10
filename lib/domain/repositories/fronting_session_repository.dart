@@ -46,6 +46,13 @@ abstract class FrontingSessionRepository {
   /// Soft-deleted sessions with a stamped PK switch UUID and intent epoch.
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions();
 
+  /// Soft-deleted sleep tombstones (recovery for the sleep-data-loss bug).
+  Future<List<domain.FrontingSession>> getDeletedSleepSessions();
+
+  /// Un-tombstones a sleep session and emits a CRDT op. Used by the
+  /// "restore deleted sleep sessions" recovery flow.
+  Future<void> restoreSleepSession(String id);
+
   /// Clear `pluralkitUuid` on a tombstone row and emit a CRDT op. R3.
   Future<void> clearPluralKitLink(String id);
 

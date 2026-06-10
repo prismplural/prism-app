@@ -36,9 +36,11 @@ class FrontingEditResolutionService {
   /// Compute changes to trim [conflicting] around [edited].
   /// The edited session takes priority.
   ///
-  /// Used for same-member self-overlap resolution and sleep↔front cross-type
-  /// overlaps. Cross-member overlaps between different normal fronting sessions
-  /// are valid by design and should not be passed to this method.
+  /// Used for same-member, same-type self-overlap resolution. Cross-member
+  /// overlaps between different normal fronting sessions, and cross-TYPE
+  /// overlaps (sleep vs. normal fronting), are valid by design and must not be
+  /// passed to this method — see [resolveAllOverlaps], which drops cross-type
+  /// overlaps defensively.
   TrimResult computeTrimChanges(
     FrontingSessionSnapshot edited,
     FrontingSessionSnapshot conflicting,
@@ -106,7 +108,7 @@ class FrontingEditResolutionService {
   ///
   /// In the per-member model only [OverlapResolution.trim] and
   /// [OverlapResolution.cancel] are valid. Overlaps passed here should be
-  /// same-member self-overlaps or sleep↔front cross-type overlaps only.
+  /// same-member, same-type self-overlaps only.
   List<FrontingSessionChange> resolveAllOverlaps({
     required FrontingSessionSnapshot edited,
     required List<FrontingSessionSnapshot> overlaps,
@@ -121,6 +123,12 @@ class FrontingEditResolutionService {
     var currentEdited = edited;
 
     for (final overlap in sorted) {
+      // Defense in depth: never trim across session types. Sleep and normal
+      // fronting are parallel timelines, so trimming one against the other is
+      // exactly the sleep-data-loss bug — an open-ended front would delete the
+      // entire sleep history. The edit guard already filters these out; this
+      // guarantees no caller can route a cross-type overlap into a delete.
+      if (overlap.sessionType != edited.sessionType) continue;
       final result = computeTrimChanges(currentEdited, overlap);
       allChanges.addAll(result.changes);
       // If the edited session itself was updated as a side effect, track it.

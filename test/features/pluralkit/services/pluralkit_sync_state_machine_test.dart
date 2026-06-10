@@ -454,6 +454,13 @@ class _FakeSessionRepo implements FrontingSessionRepository {
     required int limit,
   }) => Stream.value(const []);
   @override
+  Future<List<domain.FrontingSession>> getDeletedSleepSessions() async =>
+      const [];
+
+  @override
+  Future<void> restoreSleepSession(String id) async {}
+
+  @override
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
       const [];
   @override

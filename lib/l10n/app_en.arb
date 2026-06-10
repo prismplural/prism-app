@@ -2789,6 +2789,48 @@
   "@featureSleepDefaultQualityMessage": {
     "description": "Dialog message for default quality picker"
   },
+  "featureSleepRecovery": "Recovery",
+  "@featureSleepRecovery": {
+    "description": "Section title: sleep data recovery"
+  },
+  "featureSleepRestoreDeleted": "Restore deleted sleep sessions",
+  "@featureSleepRestoreDeleted": {
+    "description": "Row title: restore soft-deleted sleep sessions"
+  },
+  "featureSleepRestoreDeletedSubtitle": "{count, plural, =1{1 deleted sleep session can be restored} other{{count} deleted sleep sessions can be restored}}",
+  "@featureSleepRestoreDeletedSubtitle": {
+    "description": "Row subtitle: number of restorable deleted sleep sessions",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "featureSleepRestoreConfirmTitle": "Restore deleted sleep sessions?",
+  "@featureSleepRestoreConfirmTitle": {
+    "description": "Confirm dialog title for restoring deleted sleep sessions"
+  },
+  "featureSleepRestoreConfirmMessage": "This brings back sleep sessions that were removed — including any you deleted on purpose. You can delete those again afterward.",
+  "@featureSleepRestoreConfirmMessage": {
+    "description": "Confirm dialog message for restoring deleted sleep sessions"
+  },
+  "featureSleepRestoreConfirmAction": "Restore",
+  "@featureSleepRestoreConfirmAction": {
+    "description": "Confirm dialog action label for restoring deleted sleep sessions"
+  },
+  "featureSleepRestoreSuccess": "{count, plural, =1{Restored 1 sleep session.} other{Restored {count} sleep sessions.}}",
+  "@featureSleepRestoreSuccess": {
+    "description": "Toast after restoring deleted sleep sessions",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "featureSleepRestoreNone": "No deleted sleep sessions to restore.",
+  "@featureSleepRestoreNone": {
+    "description": "Toast when there were no deleted sleep sessions to restore"
+  },
+  "featureSleepRestoreFailed": "Couldn't restore sleep sessions.",
+  "@featureSleepRestoreFailed": {
+    "description": "Error toast when restoring deleted sleep sessions failed"
+  },
   "featurePollsDescription": "Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.",
   "@featurePollsDescription": {
     "description": "Description text on polls feature settings screen"

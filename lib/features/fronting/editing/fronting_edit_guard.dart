@@ -63,9 +63,8 @@ class FrontingEditGuard {
   /// Validate a session edit before saving.
   ///
   /// In the per-member model, cross-member overlaps are valid by design.
-  /// Only same-member self-overlaps (detected via [detectSelfOverlap]) and
-  /// sleep-session overlaps (which are handled by trimming, not co-fronting)
-  /// surface as issues that block or warn.
+  /// Only same-member, same-type self-overlaps surface as issues that block
+  /// or warn — a member can't front (or sleep) twice concurrently.
   FrontingEditValidationResult validateEdit({
     required FrontingSessionSnapshot original,
     required FrontingSessionPatch patch,
@@ -75,20 +74,29 @@ class FrontingEditGuard {
     // Apply patch to get proposed state
     final proposed = _applyPatch(original, patch);
 
-    // Find sessions for the same member (self-overlap candidates) and
-    // sleep sessions (cross-type overlap — still blocked via trim).
+    // Find sessions for the same member (self-overlap candidates).
     final others = nearbySessions
         .where((s) => s.id != original.id && !s.isDeleted)
         .toList();
 
-    // Overlapping sessions that should surface to the user:
-    // 1. Same-member self-overlaps (always flag).
-    // 2. Sleep sessions overlapping with a normal fronting session (flag for
-    //    trim — cross-type overlap has no co-fronting semantic).
-    // Cross-member overlaps between different normal fronting sessions are
-    // VALID in the per-member model and are NOT surfaced here.
+    // Overlapping sessions that should surface to the user are ONLY
+    // same-member self-overlaps within the SAME session type. Those collapse
+    // via trim because a member can't have two concurrent rows of one type.
+    //
+    // Cross-TYPE overlaps (sleep vs. normal fronting) are NOT conflicts:
+    // sleep is a parallel "no fronter" timeline orthogonal to member
+    // fronting. This mirrors SessionLifecycleService.trimOverlap (early-returns
+    // on cross-type) and getDeletePeriodContext (skips sleep). Surfacing them
+    // here previously caused an edited open-ended front — whose effective end
+    // is far-future — to "fully contain" every later sleep row and silently
+    // DELETE the user's entire sleep history on save (the sleep data-loss bug).
+    //
+    // Cross-MEMBER overlaps between different normal fronting sessions are
+    // valid co-fronting in the per-member model and are likewise not flagged.
     final overlapping = <FrontingSessionSnapshot>[];
     for (final other in others) {
+      // Never surface cross-type overlaps. This is the data-loss guard.
+      if (other.sessionType != proposed.sessionType) continue;
       final otherEnd = other.end;
       final proposedEnd = proposed.end;
       // Active sessions use far-future for effective end
@@ -99,11 +107,9 @@ class FrontingEditGuard {
           other.start.isBefore(aEnd) &&
           proposed.start != bEnd &&
           other.start != aEnd) {
-        // Only flag same-member self-overlaps or sleep↔front overlaps.
         final isSameMember = proposed.memberId != null &&
             proposed.memberId == other.memberId;
-        final isCrossType = proposed.sessionType != other.sessionType;
-        if (isSameMember || isCrossType) {
+        if (isSameMember) {
           overlapping.add(other);
         }
       }

@@ -447,6 +447,13 @@ class _FakeSessionRepo implements FrontingSessionRepository {
   }) async => {};
 
   @override
+  Future<List<domain.FrontingSession>> getDeletedSleepSessions() async =>
+      const [];
+
+  @override
+  Future<void> restoreSleepSession(String id) async {}
+
+  @override
   Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
       sessions
           .where(
