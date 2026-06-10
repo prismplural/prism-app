@@ -2804,10 +2804,6 @@
       "count": { "type": "int" }
     }
   },
-  "featureSleepRestoreConfirmTitle": "Restore deleted sleep sessions?",
-  "@featureSleepRestoreConfirmTitle": {
-    "description": "Confirm dialog title for restoring deleted sleep sessions"
-  },
   "featureSleepRestoreConfirmMessage": "This brings back sleep sessions that were removed — including any you deleted on purpose. You can delete those again afterward.",
   "@featureSleepRestoreConfirmMessage": {
     "description": "Confirm dialog message for restoring deleted sleep sessions"
@@ -2830,6 +2826,25 @@
   "featureSleepRestoreFailed": "Couldn't restore sleep sessions.",
   "@featureSleepRestoreFailed": {
     "description": "Error toast when restoring deleted sleep sessions failed"
+  },
+  "featureSleepRecoveryBannerTitle": "Missing sleep sessions?",
+  "@featureSleepRecoveryBannerTitle": {
+    "description": "Title of the sleep-recovery banner in the sleep view"
+  },
+  "featureSleepRecoveryBannerBody": "{count, plural, =1{A past bug removed 1 of your sleep sessions. It's still saved and can be brought back.} other{A past bug removed {count} of your sleep sessions. They're still saved and can be brought back.}}",
+  "@featureSleepRecoveryBannerBody": {
+    "description": "Body of the sleep-recovery banner; count is the number recoverable",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "featureSleepRecoveryBannerAction": "Review",
+  "@featureSleepRecoveryBannerAction": {
+    "description": "Button on the sleep-recovery banner that opens the recovery sheet"
+  },
+  "featureSleepRecoverySheetRestoring": "Restoring…",
+  "@featureSleepRecoverySheetRestoring": {
+    "description": "Button label while a sleep recovery is in progress"
   },
   "featurePollsDescription": "Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.",
   "@featurePollsDescription": {

@@ -3794,12 +3794,6 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 deleted sleep session can be restored} other{{count} deleted sleep sessions can be restored}}'**
   String featureSleepRestoreDeletedSubtitle(int count);
 
-  /// Confirm dialog title for restoring deleted sleep sessions
-  ///
-  /// In en, this message translates to:
-  /// **'Restore deleted sleep sessions?'**
-  String get featureSleepRestoreConfirmTitle;
-
   /// Confirm dialog message for restoring deleted sleep sessions
   ///
   /// In en, this message translates to:
@@ -3829,6 +3823,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t restore sleep sessions.'**
   String get featureSleepRestoreFailed;
+
+  /// Title of the sleep-recovery banner in the sleep view
+  ///
+  /// In en, this message translates to:
+  /// **'Missing sleep sessions?'**
+  String get featureSleepRecoveryBannerTitle;
+
+  /// Body of the sleep-recovery banner; count is the number recoverable
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{A past bug removed 1 of your sleep sessions. It\'s still saved and can be brought back.} other{A past bug removed {count} of your sleep sessions. They\'re still saved and can be brought back.}}'**
+  String featureSleepRecoveryBannerBody(int count);
+
+  /// Button on the sleep-recovery banner that opens the recovery sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get featureSleepRecoveryBannerAction;
+
+  /// Button label while a sleep recovery is in progress
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring…'**
+  String get featureSleepRecoverySheetRestoring;
 
   /// Description text on polls feature settings screen
   ///

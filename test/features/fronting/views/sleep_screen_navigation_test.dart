@@ -9,9 +9,11 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/sleep_screen.dart';
+import 'package:prism_plurality/features/fronting/widgets/sleep_recovery_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_session_row.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 FrontingSession _sleepSession() => FrontingSession(
@@ -33,6 +35,7 @@ Widget _buildSubject({
   Stream<List<FrontingSession>>? history,
   Stream<FrontingSession?>? activeSleep,
   Future<SleepStatsView>? stats,
+  int recoverableSleepCount = 0,
 }) {
   final router = GoRouter(
     initialLocation: AppRoutePaths.sleep,
@@ -61,6 +64,9 @@ Widget _buildSubject({
       ),
       sleepStatsProvider.overrideWith(
         (ref) => stats ?? Future.value(_sleepStats()),
+      ),
+      deletedSleepSessionCountProvider.overrideWith(
+        (ref) => Future.value(recoverableSleepCount),
       ),
     ],
     child: MaterialApp.router(
@@ -158,5 +164,59 @@ void main() {
 
     expect(find.text('Exception: sleep history failed'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('recovery banner appears when sleep sessions are recoverable', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildSubject(
+        history: Stream.value([_sleepSession()]),
+        stats: Future.value(_sleepStats(session: _sleepSession())),
+        recoverableSleepCount: 3,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InfoBanner), findsOneWidget);
+    expect(find.text('Missing sleep sessions?'), findsOneWidget);
+
+    // Tapping the action opens the recovery sheet.
+    await tester.tap(find.text('Review'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SleepRecoverySheet), findsOneWidget);
+  });
+
+  testWidgets('recovery banner is absent when nothing is recoverable', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildSubject(
+        history: Stream.value([_sleepSession()]),
+        stats: Future.value(_sleepStats(session: _sleepSession())),
+        recoverableSleepCount: 0,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InfoBanner), findsNothing);
+  });
+
+  testWidgets('dismissing the recovery banner hides it for the visit', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildSubject(
+        history: Stream.value([_sleepSession()]),
+        stats: Future.value(_sleepStats(session: _sleepSession())),
+        recoverableSleepCount: 2,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(InfoBanner), findsOneWidget);
+
+    await tester.tap(find.text('Dismiss'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InfoBanner), findsNothing);
   });
 }

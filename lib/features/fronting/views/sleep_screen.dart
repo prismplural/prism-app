@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
+import 'package:prism_plurality/features/fronting/widgets/sleep_recovery_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_session_row.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_stat_cards.dart';
 import 'package:prism_plurality/features/settings/views/sleep_feature_settings_screen.dart';
@@ -23,9 +24,11 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class SleepScreen extends ConsumerStatefulWidget {
   const SleepScreen({super.key, this.showBackButton = true});
@@ -38,6 +41,11 @@ class SleepScreen extends ConsumerStatefulWidget {
 
 class _SleepScreenState extends ConsumerState<SleepScreen> {
   final _scrollController = ScrollController();
+
+  /// Session-local hide for the recovery banner. Recovering clears the
+  /// underlying count (so the banner self-dismisses); this lets a user who
+  /// doesn't want to recover tuck it away for the current visit.
+  bool _recoveryBannerDismissed = false;
 
   @override
   void initState() {
@@ -80,6 +88,10 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     );
   }
 
+  Future<void> _openRecoverySheet() async {
+    await SleepRecoverySheet.show(context);
+  }
+
   void _openSessionDetail(FrontingSession session) {
     showAdaptiveDetailSurface<void>(
       context: context,
@@ -94,6 +106,11 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     final activeSleep = ref.watch(activeSleepSessionProvider).value;
     final sessionsAsync = ref.watch(sleepHistoryProvider);
     final statsAsync = ref.watch(sleepStatsProvider);
+    final recoverableCount = ref
+        .watch(deletedSleepSessionCountProvider)
+        .maybeWhen(data: (c) => c, orElse: () => 0);
+    final showRecoveryBanner =
+        recoverableCount > 0 && !_recoveryBannerDismissed;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -119,6 +136,27 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                 ],
               ),
             ),
+
+            if (showRecoveryBanner)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: InfoBanner(
+                    icon: AppIcons.history,
+                    iconColor: AppColors.sleep(Theme.of(context).brightness),
+                    title: l10n.featureSleepRecoveryBannerTitle,
+                    message: l10n.featureSleepRecoveryBannerBody(
+                      recoverableCount,
+                    ),
+                    buttonText: l10n.featureSleepRecoveryBannerAction,
+                    onButtonPressed: _openRecoverySheet,
+                    onDismiss: () =>
+                        setState(() => _recoveryBannerDismissed = true),
+                    dismissTooltip: l10n.dismiss,
+                    actionsBelow: true,
+                  ),
+                ),
+              ),
 
             if (activeSleep != null)
               const SliverToBoxAdapter(

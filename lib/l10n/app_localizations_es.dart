@@ -2161,10 +2161,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get featureSleepRestoreConfirmTitle =>
-      '¿Restaurar sesiones de sueño eliminadas?';
-
-  @override
   String get featureSleepRestoreConfirmMessage =>
       'Esto recupera las sesiones de sueño que se eliminaron, incluidas las que borraste a propósito. Puedes volver a eliminarlas después.';
 
@@ -2189,6 +2185,28 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get featureSleepRestoreFailed =>
       'No se pudieron restaurar las sesiones de sueño.';
+
+  @override
+  String get featureSleepRecoveryBannerTitle => '¿Faltan sesiones de sueño?';
+
+  @override
+  String featureSleepRecoveryBannerBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Un error anterior eliminó $count de tus sesiones de sueño. Siguen guardadas y se pueden recuperar.',
+      one:
+          'Un error anterior eliminó 1 de tus sesiones de sueño. Sigue guardada y se puede recuperar.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get featureSleepRecoveryBannerAction => 'Revisar';
+
+  @override
+  String get featureSleepRecoverySheetRestoring => 'Restaurando…';
 
   @override
   String get featurePollsDescription =>

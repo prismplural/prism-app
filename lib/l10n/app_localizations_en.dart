@@ -2110,10 +2110,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get featureSleepRestoreConfirmTitle =>
-      'Restore deleted sleep sessions?';
-
-  @override
   String get featureSleepRestoreConfirmMessage =>
       'This brings back sleep sessions that were removed — including any you deleted on purpose. You can delete those again afterward.';
 
@@ -2136,6 +2132,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get featureSleepRestoreFailed => 'Couldn\'t restore sleep sessions.';
+
+  @override
+  String get featureSleepRecoveryBannerTitle => 'Missing sleep sessions?';
+
+  @override
+  String featureSleepRecoveryBannerBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'A past bug removed $count of your sleep sessions. They\'re still saved and can be brought back.',
+      one:
+          'A past bug removed 1 of your sleep sessions. It\'s still saved and can be brought back.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get featureSleepRecoveryBannerAction => 'Review';
+
+  @override
+  String get featureSleepRecoverySheetRestoring => 'Restoring…';
 
   @override
   String get featurePollsDescription =>

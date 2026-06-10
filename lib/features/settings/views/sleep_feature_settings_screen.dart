@@ -7,8 +7,8 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
+import 'package:prism_plurality/features/fronting/widgets/sleep_recovery_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
@@ -47,7 +47,9 @@ class SleepFeatureSettingsScreen extends ConsumerStatefulWidget {
 class _SleepFeatureSettingsScreenState
     extends ConsumerState<SleepFeatureSettingsScreen> {
   void _showDefaultQualityPicker(
-      BuildContext context, SleepQuality currentQuality) {
+    BuildContext context,
+    SleepQuality currentQuality,
+  ) {
     PrismDialog.show<void>(
       context: context,
       title: context.l10n.featureSleepDefaultQualityTitle,
@@ -80,10 +82,15 @@ class _SleepFeatureSettingsScreenState
   }
 
   Widget _buildBedtimeTimePicker(
-      BuildContext context, WidgetRef ref, ThemeData theme) {
+    BuildContext context,
+    WidgetRef ref,
+    ThemeData theme,
+  ) {
     final time = ref.watch(sleepSuggestionTimeProvider);
-    final formatted =
-        TimeOfDay(hour: time.hour, minute: time.minute).format(context);
+    final formatted = TimeOfDay(
+      hour: time.hour,
+      minute: time.minute,
+    ).format(context);
 
     return Builder(
       builder: (anchorContext) => PrismSettingsRow(
@@ -108,21 +115,28 @@ class _SleepFeatureSettingsScreenState
   }
 
   Widget _buildWakeDurationPicker(
-      BuildContext context, WidgetRef ref, ThemeData theme) {
+    BuildContext context,
+    WidgetRef ref,
+    ThemeData theme,
+  ) {
     final hours = ref.watch(wakeSuggestionAfterHoursProvider);
 
     return PrismSettingsRow(
       icon: AppIcons.alarm,
       iconColor: AppColors.sleep(theme.brightness),
       title: context.l10n.featureSleepWakeAfter,
-      subtitle:
-          context.l10n.featureSleepWakeAfterHours(hours.toStringAsFixed(0)),
+      subtitle: context.l10n.featureSleepWakeAfterHours(
+        hours.toStringAsFixed(0),
+      ),
       onTap: () => _showWakeDurationPicker(context, ref, hours),
     );
   }
 
   void _showWakeDurationPicker(
-      BuildContext context, WidgetRef ref, double currentHours) {
+    BuildContext context,
+    WidgetRef ref,
+    double currentHours,
+  ) {
     const options = [6.0, 7.0, 8.0, 9.0, 10.0];
 
     PrismDialog.show<void>(
@@ -145,8 +159,9 @@ class _SleepFeatureSettingsScreenState
                   contentPadding: EdgeInsets.zero,
                   value: h,
                   title: Text(
-                    context.l10n
-                        .featureSleepWakeAfterHours(h.toStringAsFixed(0)),
+                    context.l10n.featureSleepWakeAfterHours(
+                      h.toStringAsFixed(0),
+                    ),
                   ),
                 ),
               )
@@ -167,7 +182,10 @@ class _SleepFeatureSettingsScreenState
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.featureSleepTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.featureSleepTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -267,15 +285,15 @@ class _SleepFeatureSettingsScreenState
                       height: 1,
                       indent: 56,
                       endIndent: 12,
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.08),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.08,
+                      ),
                     ),
                     PrismSwitchRow(
                       icon: AppIcons.wbSunnyRounded,
                       iconColor: AppColors.sleep(theme.brightness),
                       title: context.l10n.featureSleepWakeReminder,
-                      subtitle:
-                          context.l10n.featureSleepWakeReminderSubtitle,
+                      subtitle: context.l10n.featureSleepWakeReminderSubtitle,
                       value: ref.watch(wakeSuggestionEnabledProvider),
                       onChanged: (v) => ref
                           .read(settingsNotifierProvider.notifier)
@@ -299,49 +317,15 @@ class _SleepFeatureSettingsScreenState
                   icon: AppIcons.history,
                   iconColor: AppColors.sleep(theme.brightness),
                   title: context.l10n.featureSleepRestoreDeleted,
-                  subtitle: context.l10n
-                      .featureSleepRestoreDeletedSubtitle(deletedSleepCount),
-                  onTap: () => _restoreDeletedSleep(context),
+                  subtitle: context.l10n.featureSleepRestoreDeletedSubtitle(
+                    deletedSleepCount,
+                  ),
+                  onTap: () => SleepRecoverySheet.show(context),
                 ),
               ),
             ),
         ],
       ),
     );
-  }
-
-  Future<void> _restoreDeletedSleep(BuildContext context) async {
-    final confirmed = await PrismDialog.confirm(
-      context: context,
-      title: context.l10n.featureSleepRestoreConfirmTitle,
-      message: context.l10n.featureSleepRestoreConfirmMessage,
-      confirmLabel: context.l10n.featureSleepRestoreConfirmAction,
-    );
-    if (!confirmed || !context.mounted) return;
-
-    try {
-      final restored = await ref
-          .read(sleepNotifierProvider.notifier)
-          .restoreDeletedSleepSessions();
-      ref.invalidate(deletedSleepSessionCountProvider);
-      if (!context.mounted) return;
-      if (restored > 0) {
-        PrismToast.success(
-          context,
-          message: context.l10n.featureSleepRestoreSuccess(restored),
-        );
-      } else {
-        PrismToast.show(
-          context,
-          message: context.l10n.featureSleepRestoreNone,
-        );
-      }
-    } catch (_) {
-      if (!context.mounted) return;
-      PrismToast.error(
-        context,
-        message: context.l10n.featureSleepRestoreFailed,
-      );
-    }
   }
 }
