@@ -67,6 +67,11 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   bool _isEditing = false;
   final _titleController = TextEditingController();
   bool _saving = false;
+  // Re-entry guard for the archive/unarchive actions. Without it a spam-tap
+  // queues one pop() per tap; completions landing during the first pop's exit
+  // animation (State still mounted) pop the routes beneath the sheet, punching
+  // past the app root into a black, unresponsive screen.
+  bool _actionInFlight = false;
 
   bool _hasUnsavedTitle(Conversation conversation) =>
       _isEditing && _titleController.text != (conversation.title ?? '');
@@ -175,20 +180,33 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     }
   }
 
+  /// Dismiss this sheet after an action that should close it. Gated on
+  /// [Navigator.canPop] so a stray call can never pop the routes underneath.
+  void _dismissSheet() {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+  }
+
   Future<void> _archive(
     String conversationId,
     String? speakingAsMemberId,
   ) async {
-    if (speakingAsMemberId == null) return;
-    await ref
-        .read(chatNotifierProvider.notifier)
-        .archiveConversation(conversationId, speakingAsMemberId);
-    if (mounted) {
-      PrismToast.success(
-        context,
-        message: context.l10n.chatInfoConversationArchived,
-      );
-      Navigator.of(context).pop();
+    if (speakingAsMemberId == null || _actionInFlight) return;
+    _actionInFlight = true;
+    try {
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .archiveConversation(conversationId, speakingAsMemberId);
+      if (mounted) {
+        PrismToast.success(
+          context,
+          message: context.l10n.chatInfoConversationArchived,
+        );
+        _dismissSheet();
+      }
+    } finally {
+      if (mounted) _actionInFlight = false;
     }
   }
 
@@ -196,42 +214,59 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     String conversationId,
     String? speakingAsMemberId,
   ) async {
-    if (speakingAsMemberId == null) return;
-    await ref
-        .read(chatNotifierProvider.notifier)
-        .unarchiveConversation(conversationId, speakingAsMemberId);
-    if (mounted) {
-      PrismToast.success(
-        context,
-        message: context.l10n.chatInfoConversationUnarchived,
-      );
-      Navigator.of(context).pop();
+    if (speakingAsMemberId == null || _actionInFlight) return;
+    _actionInFlight = true;
+    try {
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .unarchiveConversation(conversationId, speakingAsMemberId);
+      if (mounted) {
+        PrismToast.success(
+          context,
+          message: context.l10n.chatInfoConversationUnarchived,
+        );
+        _dismissSheet();
+      }
+    } finally {
+      if (mounted) _actionInFlight = false;
     }
   }
 
   Future<void> _archiveForEveryone(String conversationId) async {
-    await ref
-        .read(chatNotifierProvider.notifier)
-        .archiveForEveryone(conversationId);
-    if (mounted) {
-      PrismToast.success(
-        context,
-        message: context.l10n.chatInfoConversationArchivedForEveryone,
-      );
-      Navigator.of(context).pop();
+    if (_actionInFlight) return;
+    _actionInFlight = true;
+    try {
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .archiveForEveryone(conversationId);
+      if (mounted) {
+        PrismToast.success(
+          context,
+          message: context.l10n.chatInfoConversationArchivedForEveryone,
+        );
+        _dismissSheet();
+      }
+    } finally {
+      if (mounted) _actionInFlight = false;
     }
   }
 
   Future<void> _unarchiveForEveryone(String conversationId) async {
-    await ref
-        .read(chatNotifierProvider.notifier)
-        .unarchiveForEveryone(conversationId);
-    if (mounted) {
-      PrismToast.success(
-        context,
-        message: context.l10n.chatInfoConversationUnarchivedForEveryone,
-      );
-      Navigator.of(context).pop();
+    if (_actionInFlight) return;
+    _actionInFlight = true;
+    try {
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .unarchiveForEveryone(conversationId);
+      if (mounted) {
+        PrismToast.success(
+          context,
+          message: context.l10n.chatInfoConversationUnarchivedForEveryone,
+        );
+        _dismissSheet();
+      }
+    } finally {
+      if (mounted) _actionInFlight = false;
     }
   }
 

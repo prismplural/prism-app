@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +31,55 @@ import '../../../helpers/fake_repositories.dart';
 class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
   @override
   String? build() => 'alice';
+}
+
+/// Counts route pops. The black-screen bug was one Navigator.pop() *per* tap of
+/// the archive action: a spam-tap fired several pops in a row, punching past the
+/// sheet into the app root → black, frozen screen. The per-member archive write
+/// is idempotent, so pops — not writes — are the faithful signal.
+class _PopCountingObserver extends NavigatorObserver {
+  int popCount = 0;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    popCount += 1;
+    super.didPop(route, previousRoute);
+  }
+}
+
+/// Holds the first archive mutation open on [gate] so the test can land a burst
+/// of taps on the still-present row *before* anything pops — the on-device
+/// timing (slow mutation, impatient user) the deterministic fake otherwise hides.
+class _GatedArchiveRepository extends FakeConversationRepository {
+  final Completer<void> gate = Completer<void>();
+  bool _gated = false;
+
+  @override
+  Future<Conversation?> getConversationById(String id) async {
+    if (!_gated) {
+      _gated = true;
+      await gate.future;
+    }
+    return super.getConversationById(id);
+  }
+}
+
+/// A throwaway route to sit *underneath* the info sheet so the test can confirm
+/// the sheet was actually presented as a modal route (and dismissed once).
+class _ChatPageStub extends StatelessWidget {
+  const _ChatPageStub();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ElevatedButton(
+          onPressed: () => ConversationInfoSheet.show(context, 'conv-1'),
+          child: const Text('open info'),
+        ),
+      ),
+    );
+  }
 }
 
 void main() {
@@ -111,6 +162,129 @@ void main() {
     expect(find.byType(PrismDialog), findsNothing);
     expect(conversationRepo.conversations.single.categoryId, 'fandoms');
   });
+
+  testWidgets(
+    'spam-tapping archive dismisses only the sheet, never the route beneath',
+    (tester) async {
+      // Reproduce the phone layout (narrow → modal bottom sheet path) where the
+      // black-screen-on-spam-archive report came from.
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final now = DateTime(2026, 6, 9);
+      final popObserver = _PopCountingObserver();
+      final conversationRepo = _GatedArchiveRepository()
+        ..conversations.add(
+          Conversation(
+            id: 'conv-1',
+            createdAt: now,
+            lastActivityAt: now,
+            title: 'General',
+            creatorId: 'alice',
+            participantIds: const ['alice', 'bob'],
+          ),
+        );
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          Member(id: 'alice', name: 'Alice', createdAt: now),
+          Member(id: 'bob', name: 'Bob', createdAt: now),
+        ]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            conversationRepositoryProvider.overrideWithValue(conversationRepo),
+            chatMessageRepositoryProvider.overrideWithValue(
+              _FakeChatMessageRepository(),
+            ),
+            memberRepositoryProvider.overrideWithValue(memberRepo),
+            speakingAsProvider.overrideWith(_FixedSpeakingAsNotifier.new),
+            activeMembersProvider.overrideWithValue(
+              AsyncValue.data(await memberRepo.getAllMembers()),
+            ),
+            activeSessionsProvider.overrideWithValue(
+              const AsyncValue.data(<FrontingSession>[]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            conversationCategoriesProvider.overrideWith(
+              (ref) => Stream.value(const <ConversationCategory>[]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            navigatorObservers: [popObserver],
+            home: const _ChatPageStub(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('open info'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ConversationInfoSheet), findsOneWidget);
+      popObserver.popCount = 0; // ignore the pop from any prior settle
+
+      final archiveRow = find.text('Archive conversation');
+      await tester.ensureVisible(archiveRow);
+      await tester.pumpAndSettle();
+      expect(archiveRow, findsOneWidget);
+
+      // The first mutation is held open on the gate, so nothing pops during the
+      // burst and every tap lands on the still-present row.
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(archiveRow, warnIfMissed: false);
+      }
+      await tester.pump(); // let all six handlers enter and park
+
+      // Release the mutation and drain the serialized pool with zero-duration
+      // pumps, so every queued handler reaches its pop() while the dismiss
+      // animation is frozen at t=0 (sheet still mounted) — the window where the
+      // extra pops punch through the routes beneath.
+      conversationRepo.gate.complete();
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(Duration.zero);
+      }
+
+      expect(
+        popObserver.popCount,
+        1,
+        reason: 'the re-entry guard must collapse a spam-tap to a single pop; '
+            'extra pops punch past the sheet into the app root → black screen',
+      );
+
+      // Let everything settle and drain PrismToast's auto-dismiss timer so it
+      // doesn't trip the pending-timer invariant at teardown.
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+
+      expect(
+        conversationRepo.conversations.single.archivedByMemberIds,
+        ['alice'],
+        reason: 'the conversation is archived for the speaking-as member',
+      );
+      expect(
+        find.byType(ConversationInfoSheet),
+        findsNothing,
+        reason: 'the sheet should dismiss',
+      );
+      expect(
+        find.text('open info'),
+        findsOneWidget,
+        reason: 'the route beneath the sheet must survive',
+      );
+    },
+  );
 
   testWidgets(
     'co-fronting admin can transfer group ownership from conversation info',
