@@ -14,7 +14,8 @@ import 'remote_image_fetcher.dart';
 ///   5xx), with capped exponential backoff.
 /// * 5 MiB payload cap (configurable via [maxBytes]) — avatars are small;
 ///   larger responses almost always indicate a misconfigured URL.
-/// * Requires a `content-type: image/*` response header.
+/// * Requires the response to be a supported image — by `content-type:
+///   image/*`, or by a magic-byte sniff when the header is wrong/absent.
 /// * Silently returns `null` on any failure (non-2xx, timeout, wrong MIME,
 ///   oversize, I/O error). Callers record a warning if they want one.
 ///

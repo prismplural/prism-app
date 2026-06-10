@@ -211,13 +211,16 @@ void main() {
         );
       });
 
-      final bytes = await fetchRemoteImageBytes(
+      // followLinkPreview:false isolates the retry semantic — otherwise a
+      // notAnImage verdict legitimately triggers one extra GET for og:image.
+      final result = await fetchRemoteImageResult(
         'https://example.com/page.html',
         client: client,
         initialRetryDelay: Duration.zero,
+        followLinkPreview: false,
       );
 
-      expect(bytes, isNull);
+      expect(result.bytes, isNull);
       expect(calls, 1);
     });
 
@@ -232,6 +235,371 @@ void main() {
         ),
         isNull,
       );
+    });
+
+    // ── Scheme normalization (mobile users paste bare hosts) ────────────────
+    test('normalizeImageUrl prepends https to a scheme-less host', () {
+      expect(
+        normalizeImageUrl('i.postimg.cc/x/y.png'),
+        'https://i.postimg.cc/x/y.png',
+      );
+      expect(
+        normalizeImageUrl('  files.catbox.moe/abc.png  '),
+        'https://files.catbox.moe/abc.png',
+      );
+      expect(normalizeImageUrl('//cdn.example.com/a.png'),
+          'https://cdn.example.com/a.png');
+      // Already-schemed URLs are left untouched (so http:// can be rejected).
+      expect(normalizeImageUrl('https://example.com/a.png'), 'https://example.com/a.png');
+      expect(normalizeImageUrl('http://example.com/a.png'), 'http://example.com/a.png');
+      expect(normalizeImageUrl(''), '');
+    });
+
+    test('fetches a scheme-less URL by normalizing to https', () async {
+      final body = _png([1, 2, 3]);
+      Uri? seen;
+      final client = MockClient((request) async {
+        seen = request.url;
+        return http.Response.bytes(body, 200,
+            headers: {'content-type': 'image/png'});
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'example.com/avatar.png',
+        client: client,
+      );
+
+      expect(bytes, body);
+      expect(seen?.scheme, 'https');
+      expect(seen?.host, 'example.com');
+    });
+
+    // ── Magic-byte fallback for mislabeled content-types ────────────────────
+    test('accepts a real image served as application/octet-stream', () async {
+      final body = _png([9, 9, 9, 9]);
+      final client = MockClient((request) async {
+        return http.Response.bytes(body, 200,
+            headers: {'content-type': 'application/octet-stream'});
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/abc.png',
+        client: client,
+      );
+
+      expect(bytes, body);
+    });
+
+    test('accepts a JPEG served as the non-standard image/jpg', () async {
+      final body = _jpeg([4, 5, 6]);
+      final client = MockClient((request) async {
+        return http.Response.bytes(body, 200,
+            headers: {'content-type': 'image/jpg'});
+      });
+
+      expect(
+        await fetchRemoteImageBytes('https://example.com/p.jpg', client: client),
+        body,
+      );
+    });
+
+    test('accepts a real image even when labeled text/html', () async {
+      final body = _png([1]);
+      final client = MockClient((request) async {
+        return http.Response.bytes(body, 200,
+            headers: {'content-type': 'text/html'});
+      });
+
+      expect(
+        await fetchRemoteImageBytes('https://example.com/weird', client: client),
+        body,
+      );
+    });
+
+    test('rejects non-image bytes under octet-stream as notAnImage', () async {
+      final client = MockClient((request) async {
+        return http.Response.bytes(
+          Uint8List.fromList([0x3c, 0x68, 0x74, 0x6d, 0x6c]), // "<html"
+          200,
+          headers: {'content-type': 'application/octet-stream'},
+        );
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/page',
+        client: client,
+        initialRetryDelay: Duration.zero,
+      );
+
+      expect(result.bytes, isNull);
+      expect(result.error, RemoteImageFetchError.notAnImage);
+    });
+
+    // ── Distinct failure reasons drive the UI message ───────────────────────
+    test('reports notAnImage for a web page (text/html)', () async {
+      final client = MockClient((request) async {
+        return http.Response('<!doctype html><html></html>', 200,
+            headers: {'content-type': 'text/html'});
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/pin/123/',
+        client: client,
+      );
+
+      expect(result.error, RemoteImageFetchError.notAnImage);
+    });
+
+    test('reports unreachable for a 404', () async {
+      final client = MockClient((request) async => http.Response('nope', 404));
+      final result = await fetchRemoteImageResult(
+        'https://example.com/missing.png',
+        client: client,
+      );
+      expect(result.error, RemoteImageFetchError.unreachable);
+    });
+
+    test('reports tooLarge when the image exceeds the cap', () async {
+      final client = _StreamingClient(
+        statusCode: 200,
+        headers: {'content-type': 'image/jpeg', 'content-length': '2048'},
+        chunks: [Uint8List.fromList([1])],
+      );
+      final result = await fetchRemoteImageResult(
+        'https://example.com/big.jpg',
+        client: client,
+        maxBytes: 1024,
+      );
+      expect(result.error, RemoteImageFetchError.tooLarge);
+    });
+
+    test('reports invalidUrl for an explicit non-https scheme', () async {
+      final client = MockClient((request) async => http.Response('', 200));
+      final result = await fetchRemoteImageResult(
+        'http://example.com/a.png',
+        client: client,
+      );
+      expect(result.error, RemoteImageFetchError.invalidUrl);
+    });
+
+    test('reports blockedHost for a private/loopback target', () async {
+      final client = MockClient((request) async => http.Response('', 200));
+      final result = await fetchRemoteImageResult(
+        'https://localhost/a.png',
+        client: client,
+      );
+      expect(result.error, RemoteImageFetchError.blockedHost);
+    });
+
+    // ── og:image link-preview fallback (pasted page, not raw image) ─────────
+    test('falls back to og:image when the URL is a web page', () async {
+      final image = _png([5, 5, 5]);
+      var imageHits = 0;
+      final client = MockClient((request) async {
+        switch (request.url.path) {
+          case '/pin':
+            return http.Response(
+              '<html><head>'
+              '<meta property="og:image" '
+              'content="https://example.com/real.png">'
+              '</head><body>page</body></html>',
+              200,
+              headers: {'content-type': 'text/html'},
+            );
+          case '/real.png':
+            imageHits++;
+            return http.Response.bytes(image, 200,
+                headers: {'content-type': 'image/png'});
+        }
+        return http.Response('nope', 404);
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/pin',
+        client: client,
+        followLinkPreview: true,
+      );
+
+      expect(result.bytes, image);
+      expect(imageHits, 1);
+    });
+
+    test('uses twitter:image when there is no og:image', () async {
+      final image = _jpeg([1, 2]);
+      final client = MockClient((request) async {
+        if (request.url.path == '/post') {
+          return http.Response(
+            '<head><meta name="twitter:image" '
+            'content="https://example.com/tw.jpg"></head>',
+            200,
+            headers: {'content-type': 'text/html'},
+          );
+        }
+        return http.Response.bytes(image, 200,
+            headers: {'content-type': 'image/jpeg'});
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/post',
+        client: client,
+        followLinkPreview: true,
+      );
+      expect(result.bytes, image);
+    });
+
+    test('resolves a relative og:image against the page URL', () async {
+      final image = _png([7]);
+      Uri? imageReq;
+      final client = MockClient((request) async {
+        if (request.url.path == '/a/pin') {
+          return http.Response(
+            '<head><meta property="og:image" content="/cdn/x.png"></head>',
+            200,
+            headers: {'content-type': 'text/html'},
+          );
+        }
+        imageReq = request.url;
+        return http.Response.bytes(image, 200,
+            headers: {'content-type': 'image/png'});
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/a/pin',
+        client: client,
+        followLinkPreview: true,
+      );
+
+      expect(result.bytes, image);
+      expect(imageReq?.toString(), 'https://example.com/cdn/x.png');
+    });
+
+    test('does not follow an og:image that points at a private host', () async {
+      final client = MockClient((request) async {
+        // Page advertises a loopback preview image — an SSRF attempt.
+        return http.Response(
+          '<head><meta property="og:image" '
+          'content="https://localhost/secret.png"></head>',
+          200,
+          headers: {'content-type': 'text/html'},
+        );
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/evil',
+        client: client,
+      );
+
+      expect(result.bytes, isNull);
+      expect(result.error, RemoteImageFetchError.notAnImage);
+    });
+
+    test('followLinkPreview: false skips the og:image fallback', () async {
+      var imageHits = 0;
+      final client = MockClient((request) async {
+        if (request.url.path == '/pin') {
+          return http.Response(
+            '<head><meta property="og:image" '
+            'content="https://example.com/real.png"></head>',
+            200,
+            headers: {'content-type': 'text/html'},
+          );
+        }
+        imageHits++;
+        return http.Response.bytes(_png([1]), 200,
+            headers: {'content-type': 'image/png'});
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/pin',
+        client: client,
+        followLinkPreview: false,
+      );
+
+      expect(result.error, RemoteImageFetchError.notAnImage);
+      expect(imageHits, 0);
+    });
+
+    // ── Preview-metadata extraction ─────────────────────────────────────────
+    test('extractPreviewImageUrl prefers og:image and decodes entities', () {
+      const html = '<html><head>'
+          '<meta name="twitter:image" content="https://e.com/tw.png">'
+          '<meta content="https://e.com/og.png?a=1&amp;b=2" property="og:image">'
+          '</head><body><img src="https://e.com/body.png"></body></html>';
+      expect(
+        extractPreviewImageUrlForTesting(html),
+        'https://e.com/og.png?a=1&b=2',
+      );
+    });
+
+    test('extractPreviewImageUrl falls back to twitter:image then image_src',
+        () {
+      expect(
+        extractPreviewImageUrlForTesting(
+          '<head><meta name="twitter:image" content="https://e.com/t.png"></head>',
+        ),
+        'https://e.com/t.png',
+      );
+      expect(
+        extractPreviewImageUrlForTesting(
+          '<head><link rel="image_src" href="https://e.com/l.png"></head>',
+        ),
+        'https://e.com/l.png',
+      );
+      expect(
+        extractPreviewImageUrlForTesting('<head><title>x</title></head>'),
+        isNull,
+      );
+    });
+
+    test('extractPreviewImageUrl ignores og:image structured sub-properties',
+        () {
+      // og:image:width appears BEFORE og:image; a substring match would return
+      // "640". Exact-property matching must return the real image URL.
+      const html = '<head>'
+          '<meta property="og:image:width" content="640">'
+          '<meta property="og:image:height" content="480">'
+          '<meta property="og:image" content="https://e.com/real.png">'
+          '</head>';
+      expect(
+        extractPreviewImageUrlForTesting(html),
+        'https://e.com/real.png',
+      );
+    });
+
+    test('extractPreviewImageUrl is bounded against adversarial HTML', () {
+      // ~150KB of unterminated <meta with no '>' must not drive quadratic
+      // backtracking on the UI isolate (the old unbounded regex took ~7s).
+      // Bounded quantifiers + the scan cap keep this well under budget; no tag
+      // ever closes, so the result is null — the point is that it's FAST.
+      final junk = '<meta property="og:image" ' * 6000; // ~150KB, no '>'
+      final html = '<head>$junk</head>';
+      final sw = Stopwatch()..start();
+      final result = extractPreviewImageUrlForTesting(html);
+      sw.stop();
+      expect(sw.elapsedMilliseconds, lessThan(3000),
+          reason: 'extraction must stay bounded on adversarial input');
+      expect(result, isNull);
+    });
+
+    test('rejects BOM-prefixed SVG even under a trusted image/* type', () async {
+      // EF BB BF (UTF-8 BOM) + "<svg" — a naive trimLeft() would miss the BOM
+      // and accept it. The markup sniff fires regardless of content-type.
+      final body = Uint8List.fromList([
+        0xEF, 0xBB, 0xBF, //
+        ...'<svg xmlns="http://www.w3.org/2000/svg"></svg>'.codeUnits,
+      ]);
+      final client = MockClient((request) async {
+        return http.Response.bytes(body, 200,
+            headers: {'content-type': 'image/png'}); // trusted, but lying
+      });
+
+      final result = await fetchRemoteImageResult(
+        'https://example.com/sneaky.png',
+        client: client,
+      );
+
+      expect(result.bytes, isNull);
+      expect(result.error, RemoteImageFetchError.notAnImage);
     });
 
     test('pinned HTTPS connections are upgraded to TLS', () async {
@@ -350,6 +718,15 @@ void main() {
     });
   });
 }
+
+/// A minimal PNG payload: the 8-byte signature followed by [trailer].
+Uint8List _png(List<int> trailer) => Uint8List.fromList(
+      [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ...trailer],
+    );
+
+/// A minimal JPEG payload: SOI + APP0 marker bytes followed by [trailer].
+Uint8List _jpeg(List<int> trailer) =>
+    Uint8List.fromList([0xFF, 0xD8, 0xFF, 0xE0, ...trailer]);
 
 class _StreamingClient extends http.BaseClient {
   _StreamingClient({

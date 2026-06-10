@@ -19046,6 +19046,24 @@ abstract class AppLocalizations {
   /// **'Could not fetch image'**
   String get mediaFetchImageFailed;
 
+  /// Error toast when a fetched URL returns a web page or other non-image content instead of a direct image
+  ///
+  /// In en, this message translates to:
+  /// **'That link is a web page, not an image. Open the image itself and copy its direct link (it should end in .jpg, .png, .gif, etc.).'**
+  String get mediaFetchNotAnImage;
+
+  /// Error toast when an image URL can't be reached (DNS/connection/timeout/HTTP error)
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach that image. Check the link and your connection, then try again.'**
+  String get mediaFetchUnreachable;
+
+  /// Error toast when a fetched image exceeds the size cap
+  ///
+  /// In en, this message translates to:
+  /// **'That image is too large to add.'**
+  String get mediaFetchTooLarge;
+
   /// Error toast when a typed image tag normalizes to an empty string (all characters were stripped as invalid)
   ///
   /// In en, this message translates to:

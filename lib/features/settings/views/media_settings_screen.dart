@@ -34,6 +34,7 @@ import 'package:prism_plurality/features/settings/utils/tag_usage_scan.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/remote_image_fetch_message.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
@@ -585,18 +586,30 @@ class MediaSettingsScreen extends ConsumerWidget {
       case _AddSource.url:
         final urlResult = await _showUrlDialog(context);
         if (urlResult == null || !context.mounted) return;
-        bytes = await fetchRemoteImageBytes(urlResult);
-        if (bytes == null && context.mounted) {
-          PrismToast.error(
-            context,
-            message: context.l10n.mediaFetchFromUrlFailed,
-          );
+        final fetched = await fetchRemoteImageResult(
+          urlResult,
+          followLinkPreview: true,
+        );
+        bytes = fetched.bytes;
+        if (bytes == null) {
+          if (context.mounted) {
+            PrismToast.error(
+              context,
+              message: remoteImageFetchMessage(
+                context.l10n,
+                fetched.error,
+                fallback: context.l10n.mediaFetchFromUrlFailed,
+              ),
+            );
+          }
           return;
         }
-        sourceUrl = urlResult;
+        // Persist the normalized URL so a scheme-less entry round-trips as a
+        // real https link in backups/exports.
+        sourceUrl = normalizeImageUrl(urlResult);
     }
 
-    if (bytes == null || !context.mounted) return;
+    if (!context.mounted) return;
     final imageBytes = bytes;
 
     // Tag dialog with thumbnail preview. The dialog body owns its controllers

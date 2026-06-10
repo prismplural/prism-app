@@ -12025,6 +12025,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get mediaFetchImageFailed => 'Could not fetch image';
 
   @override
+  String get mediaFetchNotAnImage =>
+      'That link is a web page, not an image. Open the image itself and copy its direct link (it should end in .jpg, .png, .gif, etc.).';
+
+  @override
+  String get mediaFetchUnreachable =>
+      'Couldn\'t reach that image. Check the link and your connection, then try again.';
+
+  @override
+  String get mediaFetchTooLarge => 'That image is too large to add.';
+
+  @override
   String get mediaTagNoUsableCharacters => 'Tag has no usable characters';
 
   @override

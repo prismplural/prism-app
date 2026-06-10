@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/members/widgets/image_size_field.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/markdown_cursor_insert.dart';
+import 'package:prism_plurality/shared/utils/remote_image_fetch_message.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -177,10 +178,18 @@ class MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
     );
 
     if (url == null || url.isEmpty || !mounted) return;
-    final bytes = await fetchRemoteImageBytes(url);
+    final fetched = await fetchRemoteImageResult(url, followLinkPreview: true);
+    final bytes = fetched.bytes;
     if (bytes == null) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.mediaFetchImageFailed);
+        PrismToast.error(
+          context,
+          message: remoteImageFetchMessage(
+            context.l10n,
+            fetched.error,
+            fallback: context.l10n.mediaFetchImageFailed,
+          ),
+        );
       }
       return;
     }
