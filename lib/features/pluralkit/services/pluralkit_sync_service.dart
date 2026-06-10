@@ -677,7 +677,7 @@ class PluralKitSyncService {
   /// The full switch is returned (not just the ID) so the caller can advance
   /// the import cursor using PK's stored timestamp rather than the local
   /// clock — clock skew or PK truncation could otherwise leapfrog real PK
-  /// switches. See bug C4.
+  /// switches. See bug media heal.
   ///
   /// IMPORTANT: the 1ms [linkedAt] nudge in [setToken] means switches written
   /// at `startTime = now` have `startTime > linkedAt`, so the regular push

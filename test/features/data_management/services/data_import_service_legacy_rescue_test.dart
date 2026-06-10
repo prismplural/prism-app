@@ -1805,7 +1805,7 @@ void main() {
     });
   });
 
-  // -- PR G additions (review findings #9, #10, #41, #42, #44) -----------
+  // -- PR G SP rescue coverage -----------
 
   group('rescue importer sync semantics + structured dedup (PR G)', () {
     late AppDatabase db;

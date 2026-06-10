@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -416,93 +417,102 @@ class _EnterPhraseStepState extends State<_EnterPhraseStep> {
     final theme = Theme.of(context);
     final pin = widget.pin;
 
+    // Mnemonic ENTRY surface: the 12-word master secret is typed in plaintext
+    // here, so keep Android FLAG_SECURE ON (default SecureScope config) to block
+    // screen capture for the whole step — both the PIN sub-step and the phrase
+    // field. (This routed full-screen entry path was missing FLAG_SECURE.)
     if (pin == null) {
-      return SafeArea(
-        top: false,
-        child: PinInputScreen(
-          key: const ValueKey('sync-setup-pin'),
-          mode: PinInputMode.unlock,
-          embedded: true,
-          allowBiometric: false,
-          onPinEntered: widget.onPinEntered,
-          onSuccess: () {},
+      return SecureScope(
+        child: SafeArea(
+          top: false,
+          child: PinInputScreen(
+            key: const ValueKey('sync-setup-pin'),
+            mode: PinInputMode.unlock,
+            embedded: true,
+            allowBiometric: false,
+            onPinEntered: widget.onPinEntered,
+            onSuccess: () {},
+          ),
         ),
       );
     }
 
-    return SafeArea(
-      top: false,
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+    return SecureScope(
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Enter your recovery phrase',
+                      style: theme.textTheme.headlineSmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Enter the 12 words you wrote down when you first set up Prism.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    PrismMnemonicField(
+                      controller: widget.mnemonicController,
+                      errorText: widget.error,
+                      enabled: !widget.isProcessing,
+                      autofocus: true,
+                      onSubmitted: _canSubmit && !widget.isProcessing
+                          ? (_) => widget.onSubmit()
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Lost your recovery phrase? Export your data from Settings, then reset the app to start over.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Enter your recovery phrase',
-                    style: theme.textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
+                  PrismButton(
+                    label: context.l10n.syncSetupCompleteButton,
+                    icon: AppIcons.check,
+                    tone: PrismButtonTone.filled,
+                    enabled: _canSubmit,
+                    isLoading: widget.isProcessing,
+                    onPressed: widget.onSubmit,
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Enter the 12 words you wrote down when you first set up Prism.',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  if (widget.isProcessing &&
+                      _progressLabel(context) != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _progressLabel(context)!,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  PrismMnemonicField(
-                    controller: widget.mnemonicController,
-                    errorText: widget.error,
-                    enabled: !widget.isProcessing,
-                    autofocus: true,
-                    onSubmitted: _canSubmit && !widget.isProcessing
-                        ? (_) => widget.onSubmit()
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Lost your recovery phrase? Export your data from Settings, then reset the app to start over.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  ],
                   const SizedBox(height: 16),
                 ],
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PrismButton(
-                  label: context.l10n.syncSetupCompleteButton,
-                  icon: AppIcons.check,
-                  tone: PrismButtonTone.filled,
-                  enabled: _canSubmit,
-                  isLoading: widget.isProcessing,
-                  onPressed: widget.onSubmit,
-                ),
-                if (widget.isProcessing && _progressLabel(context) != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _progressLabel(context)!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

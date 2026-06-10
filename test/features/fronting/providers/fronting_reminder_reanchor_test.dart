@@ -105,7 +105,7 @@ Future<void> _settleReanchor() async {
 
 void main() {
   group('FrontingNotifier.startFronting — reminder re-anchor', () {
-    // Regression for Codex P1 #2: the helper used to read
+    // Regression: the helper used to read
     // `ref.read(frontingReminderSuppressMinutesProvider).value`, which
     // is null until the AsyncNotifier's first build() resolves. A user
     // who logs a front immediately after app start would silently skip

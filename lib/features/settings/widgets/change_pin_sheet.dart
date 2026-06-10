@@ -507,8 +507,10 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       listenable: _mnemonicController,
       builder: (context, _) => UnsavedChangesGuard<void>(
         hasUnsavedChanges: _hasUnsavedProgress,
+        // Keep Android FLAG_SECURE ON for the mnemonic ENTRY step: the 12-word
+        // master secret is typed/visible in plaintext here, so screen capture
+        // must stay blocked (entry is not the deliberate reveal/QR tradeoff).
         child: SecureScope(
-          allowAndroidScreenCapture: _step == _Step.enterMnemonic,
           child: SafeArea(
             child: Column(
               children: [

@@ -483,7 +483,12 @@ Future<SecureWriteResult> safeSecureWrite(
     if (commitFailure != null) return commitFailure;
     return const SecureWriteResult();
   } on PlatformException catch (e) {
-    if (_shouldTryMacLegacyKeychain(e, storage)) {
+    if (_shouldTryMacLegacyKeychainForWrite(e, storage)) {
+      debugPrint(
+        '[SECURE_STORAGE] macOS data-protection keychain write failed '
+        '(code=${e.code}); routing key "$key" into the LEGACY login keychain '
+        '(weaker isolation, Time-Machine-backed). Debug/dev builds only.',
+      );
       return safeSecureWrite(key, value, storage: _macLegacySecureStorage);
     }
     return SecureWriteResult(
@@ -510,6 +515,11 @@ Future<SecureWriteResult> safeSecureWriteVerified(
   final verify = await safeSecureRead(key, storage: storage);
   if (!verify.ok) {
     if (_shouldRetryVerifiedWriteFailureInMacLegacyKeychain(storage, verify)) {
+      debugPrint(
+        '[SECURE_STORAGE] verified write read-back failed in the '
+        'data-protection keychain; routing key "$key" into the LEGACY login '
+        'keychain (weaker, Time-Machine-backed). Debug/dev builds only.',
+      );
       return safeSecureWriteVerified(
         key,
         value,
@@ -525,6 +535,11 @@ Future<SecureWriteResult> safeSecureWriteVerified(
   if (verify.value != value) {
     if (verify.value == null &&
         _shouldRetryVerifiedWriteInMacLegacyKeychain(storage)) {
+      debugPrint(
+        '[SECURE_STORAGE] verified write read back null in the '
+        'data-protection keychain; routing key "$key" into the LEGACY login '
+        'keychain (weaker, Time-Machine-backed). Debug/dev builds only.',
+      );
       return safeSecureWriteVerified(
         key,
         value,
@@ -658,9 +673,34 @@ bool _shouldProbeMacLegacyKeychain(FlutterSecureStorage storage) {
   return Platform.isMacOS || debugForceMacSecureStorageEntitlementFallback;
 }
 
+/// Whether a WRITE that hit a macOS entitlement/param error may be rerouted
+/// into the weaker legacy login keychain.
+///
+/// Reads and deletes from the legacy keychain are always permitted (existing
+/// secrets may live there and must remain accessible / removable). But routing
+/// a NEW secret into `usesDataProtectionKeychain: false` storage is a security
+/// downgrade (weaker isolation, Time-Machine-backed) and is a known dev-signing
+/// artifact (the "Prism Dev" build drops keychain-access-groups). We therefore
+/// gate the legacy-WRITE fallback to debug/dev builds only; release builds fail
+/// closed and surface the classified error instead of silently degrading.
+bool _shouldTryMacLegacyKeychainForWrite(
+  PlatformException e,
+  FlutterSecureStorage storage,
+) {
+  if (!kDebugMode && !debugForceMacSecureStorageEntitlementFallback) {
+    return false;
+  }
+  return _shouldTryMacLegacyKeychain(e, storage);
+}
+
 bool _shouldRetryVerifiedWriteInMacLegacyKeychain(
   FlutterSecureStorage storage,
-) => _shouldProbeMacLegacyKeychain(storage);
+) {
+  if (!kDebugMode && !debugForceMacSecureStorageEntitlementFallback) {
+    return false;
+  }
+  return _shouldProbeMacLegacyKeychain(storage);
+}
 
 bool _shouldRetryVerifiedWriteFailureInMacLegacyKeychain(
   FlutterSecureStorage storage,

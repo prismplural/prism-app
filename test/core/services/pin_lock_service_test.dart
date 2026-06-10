@@ -1,8 +1,60 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/pin_lock_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Minimal method-channel fake for flutter_secure_storage so we can drive the
+/// real [PinLockService.enforceLegacyPinMigrationPolicy] against an in-memory
+/// keychain.
+class _FakeKeychain {
+  final Map<String, String> store = <String, String>{};
+
+  void install() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall call) async {
+            switch (call.method) {
+              case 'write':
+                final key = call.arguments['key'] as String;
+                final value = call.arguments['value'] as String?;
+                if (value == null) {
+                  store.remove(key);
+                } else {
+                  store[key] = value;
+                }
+                return null;
+              case 'read':
+                return store[call.arguments['key'] as String];
+              case 'readAll':
+                return Map<String, String>.from(store);
+              case 'delete':
+                store.remove(call.arguments['key'] as String);
+                return null;
+              case 'deleteAll':
+                store.clear();
+                return null;
+              case 'containsKey':
+                return store.containsKey(call.arguments['key'] as String);
+              default:
+                return null;
+            }
+          },
+        );
+  }
+
+  void uninstall() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
+    store.clear();
+  }
+}
 
 /// Simulates the verifyStoredPin logic using an in-memory storage map.
 ///
@@ -344,6 +396,99 @@ void main() {
 
       final storedHash = storage['prism.pin_hash'];
       expect(storedHash == null || storedHash.isEmpty, isTrue);
+    });
+  });
+
+  // ── enforceLegacyPinMigrationPolicy (real secure storage via channel) ──────
+  group('enforceLegacyPinMigrationPolicy', () {
+    late _FakeKeychain keychain;
+    late PinLockService realService;
+
+    setUp(() {
+      keychain = _FakeKeychain()..install();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      realService = PinLockService();
+    });
+
+    tearDown(() => keychain.uninstall());
+
+    void seedLegacyPin() {
+      // Legacy v1 slot: SHA-256 hash + salt, NO version key (== version 1).
+      final hash = realService.hashPin('1234', 'salt0123456789ab');
+      keychain.store['prism.pin_hash'] = base64Encode(
+        Uint8List.fromList(hash),
+      );
+      keychain.store['prism.pin_salt'] = 'salt0123456789ab';
+    }
+
+    test('no-op when no PIN is set', () async {
+      final invalidated = await realService.enforceLegacyPinMigrationPolicy();
+      expect(invalidated, isFalse);
+      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+    });
+
+    test('no-op for an Argon2id (version 2) slot', () async {
+      final hash = PinLockService.hashPinArgon2id('1234', 'salt0123456789ab');
+      keychain.store['prism.pin_hash'] = base64Encode(
+        Uint8List.fromList(hash),
+      );
+      keychain.store['prism.pin_salt'] = 'salt0123456789ab';
+      keychain.store['prism.pin_hash_version'] = '2';
+
+      final invalidated = await realService.enforceLegacyPinMigrationPolicy();
+      expect(invalidated, isFalse);
+      // The Argon2id slot is untouched.
+      expect(keychain.store.containsKey('prism.pin_hash'), isTrue);
+      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+    });
+
+    test('increments the boot counter while a legacy slot lingers', () async {
+      seedLegacyPin();
+
+      final invalidated = await realService.enforceLegacyPinMigrationPolicy();
+      expect(invalidated, isFalse);
+      expect(keychain.store['prism.pin_legacy_boot_count'], '1');
+      // Legacy slot still present (not yet over the threshold).
+      expect(keychain.store.containsKey('prism.pin_hash'), isTrue);
+    });
+
+    test('force-invalidates the legacy slot after the boot threshold',
+        () async {
+      seedLegacyPin();
+
+      var invalidated = false;
+      // The guard fires on the boot where the counter reaches the threshold.
+      for (var i = 0; i < 10; i++) {
+        invalidated = await realService.enforceLegacyPinMigrationPolicy();
+      }
+
+      expect(invalidated, isTrue);
+      // Legacy hash/salt/version cleared → user re-enrolls a fresh Argon2id PIN.
+      expect(keychain.store.containsKey('prism.pin_hash'), isFalse);
+      expect(keychain.store.containsKey('prism.pin_salt'), isFalse);
+      expect(keychain.store.containsKey('prism.pin_hash_version'), isFalse);
+      // Counter is cleared after invalidation.
+      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+      // And there is no PIN set anymore.
+      expect(await realService.isPinSet(), isFalse);
+    });
+
+    test('a successful unlock-migration short-circuits the policy', () async {
+      seedLegacyPin();
+
+      // One boot — counter goes to 1.
+      await realService.enforceLegacyPinMigrationPolicy();
+      expect(keychain.store['prism.pin_legacy_boot_count'], '1');
+
+      // User unlocks: legacy verify migrates to Argon2id and clears the counter.
+      expect(await realService.verifyStoredPin('1234'), isTrue);
+      expect(keychain.store['prism.pin_hash_version'], '2');
+      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+
+      // Subsequent policy runs are no-ops (now version 2).
+      final invalidated = await realService.enforceLegacyPinMigrationPolicy();
+      expect(invalidated, isFalse);
+      expect(keychain.store.containsKey('prism.pin_hash'), isTrue);
     });
   });
 }

@@ -628,7 +628,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       // NOT called here. Calling it before the disagreement check would flip
       // `canAutoSync` true while the "Who's fronting?" sheet is being shown,
       // allowing the auto-poll provider to fire a sync the user hadn't yet
-      // decided on. See bug C5.
+      // decided on. See bug pairing push.
       //
       // It is instead called from:
       //   - The Applied outcome path below (sets match, no resolution needed).
@@ -687,7 +687,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         // PKSwitch.members contains 5-char PK short IDs. Without (2)+(3) PK
         // could have an active mapped fronter that's invisible to the
         // disagreement check, causing the "Who's fronting?" sheet to be
-        // skipped or shown with the wrong options. See bug C3.
+        // skipped or shown with the wrong options. See bug ephemeral lane.
         final pkShortIdToLocalId = <String, String>{};
         for (final d in current.decisionsByPkUuid.values) {
           if (d is PkLinkDecision) {
@@ -752,7 +752,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       // Sets match (or check was skipped) — acknowledge mapping then run the
       // bootstrap inline. acknowledgeMapping() is called here (not before the
       // disagreement check) so `canAutoSync` only flips true when no
-      // resolution sheet is needed. See bug C5.
+      // resolution sheet is needed. See bug pairing push.
       await syncService.acknowledgeMapping();
       if (!ref.mounted) return null;
 
@@ -1077,7 +1077,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
   ///
   /// `acknowledgeMapping()` runs here (not in [apply]) because we must not
   /// flip `canAutoSync` true until the user has made an explicit choice on
-  /// the "Who's fronting?" sheet (defer counts). See bug C5.
+  /// the "Who's fronting?" sheet (defer counts). See bug pairing push.
   Future<void> deferBootstrap() async {
     final syncService = ref.read(pluralKitSyncServiceProvider);
     await syncService.acknowledgeMapping();

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:prism_plurality/core/services/build_info.dart';
+import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart'
+    show isPrivateHostLiteral;
 
 // ---------------------------------------------------------------------------
 // Model
@@ -124,12 +126,72 @@ class GifServiceConfig {
     final rawBaseUrl = json['api_base_url'] as String?;
     final resolvedBaseUrl = (rawBaseUrl == null || rawBaseUrl.isEmpty)
         ? null
-        : Uri.parse(relayUrl).resolve(rawBaseUrl).toString();
+        : sanitizeGifApiBaseUrl(
+            Uri.parse(relayUrl).resolve(rawBaseUrl).toString(),
+            relayUrl: relayUrl,
+          );
     return GifServiceConfig(
       enabled: json['enabled'] as bool? ?? false,
       apiBaseUrl: resolvedBaseUrl,
       mediaProxyEnabled: json['media_proxy_enabled'] as bool? ?? false,
     );
+  }
+
+  /// Domains explicitly trusted to serve the GIF proxy API. When the
+  /// relay-supplied base URL points at one of these (or back at the relay's own
+  /// host), it is accepted; any other public host is allowed only after passing
+  /// the SSRF host checks below.
+  static const _trustedGifApiHostSuffixes = <String>[
+    '.klipy.com',
+    '.tenor.com',
+    '.prismsync.com',
+  ];
+
+  /// Validate a relay-supplied GIF `api_base_url` before it is ever used as a
+  /// request base. Returns the sanitized URL string, or `null` to reject it.
+  ///
+  /// The base URL is served by the relay (untrusted under Prism's threat model)
+  /// and was previously used verbatim — an SSRF / search-term-exfiltration
+  /// vector. We require:
+  ///   * a parseable absolute URL with an `https` scheme;
+  ///   * a non-empty host that is NOT a private/loopback/link-local/CGNAT/
+  ///     metadata literal (see [isPrivateHostLiteral]).
+  ///
+  /// As defense-in-depth we *prefer* an allowlist: a known GIF-proxy domain or
+  /// the relay's own host is accepted directly. Other public https hosts still
+  /// pass (the GIF feature is opt-in and disabled by default) but only after the
+  /// SSRF literal check, so the relay cannot redirect GIF traffic at an internal
+  /// service.
+  @visibleForTesting
+  static String? sanitizeGifApiBaseUrl(String url, {required String relayUrl}) {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) return null;
+    if (uri.scheme != 'https') return null;
+
+    final host = uri.host;
+    if (host.isEmpty) return null;
+    if (isPrivateHostLiteral(host)) return null;
+
+    final lcHost = host.toLowerCase();
+    final relayHost = Uri.tryParse(relayUrl)?.host.toLowerCase();
+    final isTrusted =
+        (relayHost != null && relayHost.isNotEmpty && lcHost == relayHost) ||
+        _trustedGifApiHostSuffixes.any(
+          (suffix) => lcHost == suffix.substring(1) || lcHost.endsWith(suffix),
+        );
+
+    if (!isTrusted) {
+      // Not on the allowlist: still permit a public https host (GIF is an
+      // opt-in, off-by-default feature), but log so the relay-supplied host is
+      // visible in diagnostics. The SSRF literal check above already rejected
+      // the dangerous targets.
+      debugPrint(
+        '[GifServiceConfig] api_base_url host "$host" is not on the GIF '
+        'allowlist; accepting as a public https host after SSRF checks.',
+      );
+    }
+
+    return uri.toString();
   }
 
   const GifServiceConfig.disabled()

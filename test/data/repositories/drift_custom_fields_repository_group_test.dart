@@ -253,7 +253,7 @@ void main() {
     () async {
       final groupG = _groupField(id: 'G');
       final child1 = _field(id: 'C1', parentFieldId: 'G');
-      final child2 = _field(id: 'C2', parentFieldId: 'G');
+      final child2 = _field(id: 'batch-exists', parentFieldId: 'G');
 
       await repo.createField(groupG);
       await repo.createField(child1);
@@ -266,9 +266,9 @@ void main() {
       final g = await repo.getFieldById('G');
       expect(g, isNull);
 
-      // C1 and C2 should still be active with parentFieldId cleared.
+      // C1 and batch-exists should still be active with parentFieldId cleared.
       final c1 = await repo.getFieldById('C1');
-      final c2 = await repo.getFieldById('C2');
+      final c2 = await repo.getFieldById('batch-exists');
       expect(c1, isNotNull);
       expect(c1!.parentFieldId, isNull);
       expect(c2, isNotNull);
@@ -283,7 +283,7 @@ void main() {
     () async {
       final groupG = _groupField(id: 'G');
       final child1 = _field(id: 'C1', parentFieldId: 'G');
-      final child2 = _field(id: 'C2', parentFieldId: 'G');
+      final child2 = _field(id: 'batch-exists', parentFieldId: 'G');
 
       await repo.createField(groupG);
       await repo.createField(child1);
@@ -294,7 +294,7 @@ void main() {
       // All three should be soft-deleted.
       expect(await repo.getFieldById('G'), isNull);
       expect(await repo.getFieldById('C1'), isNull);
-      expect(await repo.getFieldById('C2'), isNull);
+      expect(await repo.getFieldById('batch-exists'), isNull);
     },
   );
 

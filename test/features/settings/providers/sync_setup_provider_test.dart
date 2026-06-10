@@ -279,7 +279,7 @@ void main() {
     test(
       'protected DB keys survive rollback for every entry in kProtectedFromReset',
       () async {
-        // Convention-based per the plan (Opus §1.3): loop over the
+        // Convention-based per the plan (review §1.3): loop over the
         // exported set rather than hardcoding the four key names so that
         // adding/removing a slot in prism_sync_providers.dart
         // automatically updates this assertion.

@@ -503,7 +503,7 @@ class SpImporter {
         // 1. Import members — one batch insert + one captured tuple per new row.
         //    Pre-resolve existing-member/tombstone detection with a single
         //    getAllMembersIncludingDeleted pass instead of N getMemberById()
-        //    round-trips (codex v1 review).
+        //    round-trips (review).
         final existingMembers = await memberRepo
             .getAllMembersIncludingDeleted();
         final existingMemberIds = {for (final m in existingMembers) m.id};
@@ -1127,7 +1127,7 @@ class SpImporter {
     // through `memberRepo` because every DriftXxxRepository shares the
     // same app-singleton `syncHandle`; any repo with the mixin works.
     //
-    // Codex cross-phase review (Option A — defense-in-depth visibility):
+    // Defense-in-depth visibility:
     // `syncRecord*` swallows FFI failures internally via `_runWithConfiguredRetry`
     // + the outer try/catch in `sync_record_mixin.dart`. That means a normal
     // FFI dispatch failure won't propagate here. BUT a handful of edge cases

@@ -223,7 +223,7 @@ void main() {
         // The `debugSettingsFields` alias must produce the byte-equal map —
         // Phase 5 capture-replay relies on the alias being just another name
         // for the same builder. Drift between them would re-introduce the
-        // op-type/field-shape drift codex v1 flagged.
+        // op-type/field-shape drift.
         expect(repo.debugSettingsFields(settings), fields);
       },
     );

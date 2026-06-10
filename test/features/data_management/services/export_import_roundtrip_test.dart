@@ -1205,7 +1205,7 @@ void main() {
     });
   });
 
-  // -- PR G additions (review findings #9, #43): SP rescue tier round-trips
+  // -- PR G SP rescue tier round-trips
   group('PR G — SP rescue tier round-trips', () {
     late AppDatabase targetDb;
     late DataImportService importService;

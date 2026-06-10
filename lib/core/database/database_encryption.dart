@@ -793,6 +793,85 @@ void Function(raw.Database) makeCipherSetup(String hexKey) {
   };
 }
 
+/// Thrown when a database connection that is supposed to be encrypted is opened
+/// against a SQLite library that does NOT have the SQLite3MultipleCiphers codec
+/// compiled in.
+///
+/// This is a fatal misconfiguration: `PRAGMA key` is **silently ignored** by a
+/// stock `sqlite3` build, so the database would be written and read in
+/// PLAINTEXT while every other probe (open/select/rekey) still passes. We must
+/// fail loudly at first open rather than persist user data unencrypted.
+class MissingSqliteCipherCodecError extends StateError {
+  MissingSqliteCipherCodecError(super.message);
+}
+
+/// True once we have confirmed (this process) that the loaded SQLite library
+/// carries the cipher codec. Cached so the verification query only runs on the
+/// first keyed connection per boot — every subsequent open is a no-op.
+bool _cipherCodecVerified = false;
+
+@visibleForTesting
+void resetCipherCodecVerificationForTest() {
+  _cipherCodecVerified = false;
+}
+
+/// The probe result captured from the most recent verification, exposed for
+/// tests/diagnostics ("SQLite3 Multiple Ciphers 2.3.0" on a healthy build).
+@visibleForTesting
+String? lastVerifiedCipherCodecVersion;
+
+/// Verify that the SQLite library backing [db] actually has the
+/// SQLite3MultipleCiphers codec compiled in.
+///
+/// Probe: `SELECT sqlite3mc_version();`. On the bundled sqlite3mc build this
+/// returns a non-empty version string (verified empirically against the real
+/// bundled `libsqlite3mc` — "SQLite3 Multiple Ciphers 2.3.0", which is also the
+/// library the `flutter test` host loads). On a stock `sqlite3` build the
+/// function does not exist, so `select` throws — which we treat the same as an
+/// empty result: the codec is absent, encryption is NOT in effect, and we throw
+/// [MissingSqliteCipherCodecError] so startup fails fast instead of silently
+/// running the DB in plaintext.
+///
+/// NOTE: do NOT use `PRAGMA cipher_version;` here — empirically it returns an
+/// EMPTY result set on the live bundled sqlite3mc 2.3.0 (before key, after
+/// `PRAGMA key`, and after reopen+rekey), even though the codec is fully live
+/// (wrong-key opens are rejected). Probing with `cipher_version` would brick
+/// every real build at first keyed open. `sqlite3mc_version()` is the function
+/// that reliably distinguishes the codec.
+void _assertSqliteCipherCodecPresent(raw.Database db) {
+  if (_cipherCodecVerified) return;
+
+  String? version;
+  Object? probeError;
+  try {
+    final result = db.select('SELECT sqlite3mc_version();');
+    if (result.isNotEmpty) {
+      final value = result.first.values.first;
+      if (value != null) {
+        final text = value.toString().trim();
+        if (text.isNotEmpty) version = text;
+      }
+    }
+  } catch (e) {
+    // Stock sqlite3 has no sqlite3mc_version() function → "no such function"
+    // error. Treated as "codec absent" below.
+    probeError = e;
+  }
+
+  if (version == null) {
+    throw MissingSqliteCipherCodecError(
+      'SQLite cipher codec (SQLite3MultipleCiphers) is NOT present: '
+      "`SELECT sqlite3mc_version()` returned ${probeError != null ? 'an error ($probeError)' : 'an empty result'}. "
+      'PRAGMA key would be silently ignored and the database would run in '
+      'PLAINTEXT. Refusing to open. Verify the sqlite3mc native build is '
+      'bundled for this platform.',
+    );
+  }
+
+  lastVerifiedCipherCodecVersion = version;
+  _cipherCodecVerified = true;
+}
+
 void configurePrismSqliteConnection(raw.Database db, {String? hexKey}) {
   if (hexKey != null) {
     assert(
@@ -801,6 +880,9 @@ void configurePrismSqliteConnection(raw.Database db, {String? hexKey}) {
     );
     // x'...' hex syntax passes raw key bytes (avoids SQL string escaping issues).
     db.execute("PRAGMA key = \"x'$hexKey'\";");
+    // A keyed connection MUST be backed by the cipher codec. On a stock sqlite3
+    // build the PRAGMA key above is a no-op and the DB is plaintext — fail loud.
+    _assertSqliteCipherCodecPresent(db);
   }
   db.execute('PRAGMA busy_timeout = $prismSqliteBusyTimeoutMs;');
 }

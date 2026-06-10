@@ -85,7 +85,7 @@ bool _hasPrefix(Uint8List bytes, String prefix) {
   return true;
 }
 
-/// Detects whether a CAF file contains Opus audio by checking the
+/// Detects whether a CAF file contains review audio by checking the
 /// `mFormatID` field in the Audio Description (`desc`) chunk.
 ///
 /// CAF layout: 8-byte file header, then chunks (12-byte chunk header each).

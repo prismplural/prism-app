@@ -730,7 +730,7 @@ void main() {
         isFalse,
         reason: 'Bootstrap must not run when returning NeedsFronterResolution',
       );
-      // C5: mapping is NOT yet acknowledged on the NeedsFronterResolution
+      // pairing push: mapping is NOT yet acknowledged on the NeedsFronterResolution
       // path. Acknowledgement is deferred until applyFronterResolution() or
       // deferBootstrap() completes — otherwise canAutoSync would flip true
       // while the "Who's fronting?" sheet is being shown and auto-poll could
@@ -1688,14 +1688,14 @@ void main() {
         reason: 'deferBootstrap must not trigger any bootstrap methods',
       );
 
-      // Assert: mapping was acknowledged by deferBootstrap() (C5 — the
+      // Assert: mapping was acknowledged by deferBootstrap() (pairing push — the
       // acknowledgement is deferred until either applyFronterResolution() or
       // deferBootstrap() completes, since apply() only acknowledges on the
       // Applied outcome path when no resolution is needed).
       expect(
         svc.state.mappingAcknowledged,
         isTrue,
-        reason: 'deferBootstrap must call acknowledgeMapping (C5)',
+        reason: 'deferBootstrap must call acknowledgeMapping (pairing push)',
       );
     },
   );

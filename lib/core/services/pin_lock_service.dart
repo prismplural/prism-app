@@ -13,6 +13,20 @@ const _pinHashKey = 'prism.pin_hash';
 const _pinSaltKey = 'prism.pin_salt';
 const _pinHashVersionKey = 'prism.pin_hash_version';
 
+/// Counts boots observed while a legacy (SHA-256, version 1) PIN slot is still
+/// present and un-migrated. Used by [enforceLegacyPinMigrationPolicy] to
+/// force-invalidate the weak slot after [_legacyPinForceMigrateBoots] boots
+/// without a successful unlock (which would otherwise migrate it inline).
+const _legacyPinBootCounterKey = 'prism.pin_legacy_boot_count';
+
+/// Number of boots a legacy SHA-256 PIN slot is tolerated before it is
+/// force-invalidated. A user who actually unlocks during this window migrates
+/// to Argon2id inline (in [verifyStoredPin]) and never trips this path; this
+/// only catches slots that linger because the user never unlocks (biometric
+/// only / background sync). Chosen high enough to never lock out a legit user
+/// mid-use, low enough to bound the weak-hash exposure window.
+const _legacyPinForceMigrateBoots = 10;
+
 /// Service for PIN lock and biometric authentication.
 class PinLockService {
   PinLockService({
@@ -197,7 +211,15 @@ class PinLockService {
       }
     }
 
-    // Legacy SHA-256 verification
+    // Legacy SHA-256 verification.
+    //
+    // DEPRECATION PLAN: this branch (and [verifyPin]/[hashPin]) exists solely to
+    // migrate pre-Argon2id installs. [enforceLegacyPinMigrationPolicy] now
+    // force-invalidates any legacy slot that lingers past
+    // [_legacyPinForceMigrateBoots] boots, so the population of version-1 slots
+    // is self-draining. Once telemetry confirms no version-1 slots remain in the
+    // field, delete this branch + [verifyPin]/[hashPin] and treat a non-'2'
+    // version as "no PIN set" (force re-enrollment).
     if (!verifyPin(pin, storedHash, salt)) return false;
 
     // Migration: re-hash with Argon2id on successful legacy verification.
@@ -207,11 +229,70 @@ class PinLockService {
       final newHashBase64 = base64Encode(Uint8List.fromList(newHash));
       await safeSecureWrite(_pinHashKey, newHashBase64);
       await safeSecureWrite(_pinHashVersionKey, '2');
+      // Migrated inline — clear the force-migrate boot counter.
+      await safeSecureDelete(_legacyPinBootCounterKey);
     } catch (_) {
       // Migration failed — will retry on next unlock. SHA-256 still works.
     }
 
     return true;
+  }
+
+  /// Force-migration guard for legacy (SHA-256, version-1) PIN slots.
+  ///
+  /// Call once per boot (before the lock screen is shown). A legacy slot is
+  /// normally upgraded to Argon2id inline by [verifyStoredPin] on the next
+  /// successful unlock — but a user who never unlocks (biometric-only, or
+  /// background-sync-only) keeps a salted SHA-256 of a 4–6 digit PIN
+  /// (~microseconds to brute-force offline) in the keychain indefinitely.
+  ///
+  /// This method bounds that exposure: each boot a legacy slot is still present,
+  /// a counter is incremented; after [_legacyPinForceMigrateBoots] boots the
+  /// legacy slot is **invalidated** (hash + salt + version cleared) so the next
+  /// PIN the user sets is stored as Argon2id.
+  ///
+  /// This does NOT lock a legit user out of their data: the PIN lock is a
+  /// presentation-layer deterrent (at-rest keys do not depend on it), so
+  /// clearing the slot simply re-prompts for a fresh PIN at the lock screen
+  /// rather than destroying anything. Returns `true` iff a legacy slot was
+  /// force-invalidated on this call.
+  Future<bool> enforceLegacyPinMigrationPolicy() async {
+    final versionRead = await safeSecureRead(_pinHashVersionKey);
+    await _markPinUnreadableIfCipher(
+      versionRead.failure,
+      'enforceLegacyPinMigrationPolicy:version',
+    );
+
+    final hashRead = await safeSecureRead(_pinHashKey);
+    final hasPin = hashRead.ok && (hashRead.value?.isNotEmpty ?? false);
+
+    // No PIN, or already Argon2id → nothing to migrate. Reset the counter so a
+    // future legacy slot starts its window fresh.
+    if (!hasPin || versionRead.value == '2') {
+      await safeSecureDelete(_legacyPinBootCounterKey);
+      return false;
+    }
+
+    // Legacy slot present. Bump the boot counter.
+    final counterRead = await safeSecureRead(_legacyPinBootCounterKey);
+    final current = int.tryParse(counterRead.value ?? '0') ?? 0;
+    final next = current + 1;
+
+    if (next >= _legacyPinForceMigrateBoots) {
+      debugPrint(
+        '[PIN_LOCK] Legacy SHA-256 PIN slot survived $next boots without an '
+        'unlock-migration — force-invalidating it; user will re-enroll an '
+        'Argon2id PIN at the lock screen.',
+      );
+      await clearPin();
+      await safeSecureDelete(_legacyPinBootCounterKey);
+      // Surface the slot as needing re-entry via the degraded-state banner.
+      await _degradedState.updateSlot('pin', SlotState.unreadable);
+      return true;
+    }
+
+    await safeSecureWrite(_legacyPinBootCounterKey, next.toString());
+    return false;
   }
 
   // ---------------------------------------------------------------------------

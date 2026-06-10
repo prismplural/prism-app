@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -21,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
@@ -191,10 +191,14 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         );
     }
 
+    // Keep Android FLAG_SECURE ON for the whole joiner pairing flow. Unlike the
+    // deliberate recovery-phrase reveal/QR display screens (where the user is
+    // expected to screenshot their OWN master secret for backup), nothing here
+    // is a backup the user needs to capture: the rendezvous-token QR
+    // (showingRequest) is transient pairing material and the SAS words
+    // (showingSas) are out-of-band verification values. Blocking capture costs
+    // no UX and removes a screen-capture exposure of pairing secrets.
     return SecureScope(
-      allowAndroidScreenCapture:
-          pairingState.step == PairingStep.showingRequest ||
-          pairingState.step == PairingStep.showingSas,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: child,
@@ -479,7 +483,10 @@ class _ShowingRequestView extends StatelessWidget {
             icon: AppIcons.copyOutlined,
             tone: PrismButtonTone.subtle,
             onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: qrData));
+              // Route through the clearing helper so the pairing payload is
+              // auto-wiped from the clipboard after the timeout instead of
+              // lingering indefinitely (raw Clipboard.setData never cleared it).
+              await SensitiveClipboard.copy(qrData);
               if (!context.mounted) return;
               PrismToast.show(
                 context,

@@ -407,6 +407,119 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
+  // Cipher-codec presence assertion (configurePrismSqliteConnection)
+  //
+  // On a stock sqlite3 build, `PRAGMA key` is silently ignored and the DB runs
+  // in plaintext while every other probe still passes. configurePrismSqliteConnection
+  // must verify the SQLite3MultipleCiphers codec is present at first keyed open
+  // and fail loudly otherwise.
+  //
+  // The probe is `SELECT sqlite3mc_version();` — verified empirically against
+  // the REAL bundled libsqlite3mc 2.3.0 to return a non-empty version string.
+  // IMPORTANT: the `flutter test` host loads that SAME bundled sqlite3mc native
+  // asset (NOT a stock sqlite3), so these tests exercise the assertion against
+  // the real codec — i.e. the actual production happy path is covered here.
+  //
+  // NOTE: `PRAGMA cipher_version;` returns EMPTY on the live bundled codec (the
+  // original merge-blocker), so it must NOT be used as the probe — it would
+  // throw on every real build. The fail-closed NEGATIVE case (a genuinely
+  // codec-less stock sqlite3 ⇒ assertion throws) cannot be reproduced in
+  // `flutter test` because the host always has the codec; it is verified
+  // out-of-band by tool/sqlite3mc_probe_smoke.dart against /usr/lib/libsqlite3.
+  // ---------------------------------------------------------------------------
+
+  group('cipher codec presence', () {
+    late Directory tempDir;
+
+    setUp(() {
+      tempDir = Directory.systemTemp.createTempSync('prism_codec_test_');
+      resetCipherCodecVerificationForTest();
+      lastVerifiedCipherCodecVersion = null;
+    });
+
+    tearDown(() {
+      resetCipherCodecVerificationForTest();
+      lastVerifiedCipherCodecVersion = null;
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    });
+
+    String generateHexKey() {
+      final rng = Random.secure();
+      final bytes = Uint8List(32);
+      for (var i = 0; i < 32; i++) {
+        bytes[i] = rng.nextInt(256);
+      }
+      return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    }
+
+    test('the test host loads the real sqlite3mc codec (sqlite3mc_version is '
+        'non-empty) — this is the discriminator the assertion keys on', () {
+      final db = raw.sqlite3.openInMemory();
+      try {
+        final result = db.select('SELECT sqlite3mc_version();');
+        expect(result, isNotEmpty);
+        expect(result.first.values.first.toString().trim(), isNotEmpty);
+      } finally {
+        db.close();
+      }
+    });
+
+    test('a keyed open does NOT throw against the real bundled codec '
+        '(the happy path that the broken cipher_version probe regressed)', () {
+      final dbPath = '${tempDir.path}/keyed.db';
+      final hexKey = generateHexKey();
+      final db = raw.sqlite3.open(dbPath);
+      try {
+        expect(
+          () => configurePrismSqliteConnection(db, hexKey: hexKey),
+          returnsNormally,
+        );
+        // A real DB can be created/read through the keyed connection.
+        db.execute('CREATE TABLE t(id INTEGER PRIMARY KEY);');
+        db.execute('INSERT INTO t(id) VALUES (1);');
+        expect(db.select('SELECT count(*) FROM t;').first.values.first, 1);
+        // The verified version was captured.
+        expect(lastVerifiedCipherCodecVersion, isNotNull);
+        expect(lastVerifiedCipherCodecVersion, isNotEmpty);
+      } finally {
+        db.close();
+      }
+    });
+
+    test('a keyless open never runs the codec assertion (nothing to protect)', () {
+      final dbPath = '${tempDir.path}/keyless.db';
+      final db = raw.sqlite3.open(dbPath);
+      try {
+        expect(() => configurePrismSqliteConnection(db), returnsNormally);
+        // Assertion did not run (no key) → no captured version.
+        expect(lastVerifiedCipherCodecVersion, isNull);
+      } finally {
+        db.close();
+      }
+    });
+
+    test('the assertion runs only once per process (cached after first '
+        'successful verification)', () {
+      final dbPath = '${tempDir.path}/keyed_cache.db';
+      final hexKey = generateHexKey();
+      final db = raw.sqlite3.open(dbPath);
+      try {
+        configurePrismSqliteConnection(db, hexKey: hexKey);
+        final firstVersion = lastVerifiedCipherCodecVersion;
+        expect(firstVersion, isNotNull);
+
+        // Clear the captured marker but NOT the verified cache; a second keyed
+        // open should short-circuit and not re-capture.
+        lastVerifiedCipherCodecVersion = null;
+        configurePrismSqliteConnection(db, hexKey: hexKey);
+        expect(lastVerifiedCipherCodecVersion, isNull); // cache short-circuited
+      } finally {
+        db.close();
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Staging key helper functions (with mock SecureStorage)
   // ---------------------------------------------------------------------------
 

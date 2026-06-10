@@ -466,4 +466,107 @@ void main() {
       expect(gif.height, 0);
     });
   });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // GIF api_base_url SSRF validation (GifServiceConfig.sanitizeGifApiBaseUrl)
+  //
+  // The base URL is served by the (untrusted) relay. It must be validated
+  // before use: https only, no private/loopback/link-local/CGNAT/metadata
+  // hosts. Trusted GIF-proxy domains and the relay's own host are preferred.
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('GifServiceConfig api_base_url SSRF validation', () {
+    const relayUrl = 'https://relay.prismsync.com';
+
+    String? sanitize(String url) =>
+        GifServiceConfig.sanitizeGifApiBaseUrl(url, relayUrl: relayUrl);
+
+    test('accepts a trusted klipy proxy host over https', () {
+      expect(
+        sanitize('https://api.klipy.com/v1'),
+        'https://api.klipy.com/v1',
+      );
+    });
+
+    test('accepts the relay own host', () {
+      expect(
+        sanitize('https://relay.prismsync.com/gif'),
+        'https://relay.prismsync.com/gif',
+      );
+    });
+
+    test('accepts a public https host (off-allowlist) after SSRF checks', () {
+      expect(sanitize('https://gif.example.com/v1'), isNotNull);
+    });
+
+    test('rejects non-https scheme', () {
+      expect(sanitize('http://api.klipy.com/v1'), isNull);
+    });
+
+    test('rejects loopback literal', () {
+      expect(sanitize('https://127.0.0.1/v1'), isNull);
+    });
+
+    test('rejects localhost', () {
+      expect(sanitize('https://localhost/v1'), isNull);
+    });
+
+    test('rejects private 10.x literal', () {
+      expect(sanitize('https://10.0.0.5/v1'), isNull);
+    });
+
+    test('rejects private 192.168.x literal', () {
+      expect(sanitize('https://192.168.1.1/v1'), isNull);
+    });
+
+    test('rejects 172.16/12 literal', () {
+      expect(sanitize('https://172.16.0.1/v1'), isNull);
+    });
+
+    test('rejects link-local 169.254 literal', () {
+      expect(sanitize('https://169.254.169.254/latest/meta-data'), isNull);
+    });
+
+    test('rejects CGNAT 100.64/10 literal', () {
+      expect(sanitize('https://100.64.0.1/v1'), isNull);
+    });
+
+    test('rejects IPv6 loopback literal', () {
+      expect(sanitize('https://[::1]/v1'), isNull);
+    });
+
+    test('rejects cloud metadata hostname', () {
+      expect(sanitize('https://metadata.google.internal/v1'), isNull);
+    });
+
+    test('rejects .internal hostname', () {
+      expect(sanitize('https://gif.svc.cluster.internal/v1'), isNull);
+    });
+
+    test('GifServiceConfig.fromJson nulls out a private api_base_url', () {
+      final config = GifServiceConfig.fromJson(
+        {'enabled': true, 'api_base_url': 'https://127.0.0.1/v1'},
+        relayUrl: relayUrl,
+      );
+      expect(config.enabled, isTrue);
+      expect(config.apiBaseUrl, isNull);
+    });
+
+    test('GifServiceConfig.fromJson keeps a valid absolute api_base_url', () {
+      final config = GifServiceConfig.fromJson(
+        {'enabled': true, 'api_base_url': 'https://api.klipy.com/v1'},
+        relayUrl: relayUrl,
+      );
+      expect(config.apiBaseUrl, 'https://api.klipy.com/v1');
+    });
+
+    test('GifServiceConfig.fromJson resolves a relative path against the '
+        'relay and keeps it (same-host)', () {
+      final config = GifServiceConfig.fromJson(
+        {'enabled': true, 'api_base_url': '/gif/v1'},
+        relayUrl: relayUrl,
+      );
+      expect(config.apiBaseUrl, 'https://relay.prismsync.com/gif/v1');
+    });
+  });
 }

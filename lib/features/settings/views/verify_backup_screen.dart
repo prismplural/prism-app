@@ -444,8 +444,9 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
       return _buildScanView(context);
     }
 
+    // Mnemonic ENTRY surface: the user types the 12-word master secret here in
+    // plaintext, so keep Android FLAG_SECURE ON (default) and block capture.
     return SecureScope(
-      allowAndroidScreenCapture: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -502,8 +503,9 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
     final l10n = context.l10n;
     final theme = Theme.of(context);
 
+    // QR-scan path for mnemonic entry: the live camera frame can carry the
+    // master-secret QR, so keep FLAG_SECURE ON (default) and block capture.
     return SecureScope(
-      allowAndroidScreenCapture: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

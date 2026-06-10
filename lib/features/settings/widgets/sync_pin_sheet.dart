@@ -245,8 +245,11 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     final theme = Theme.of(context);
     final bottomInset = modalBottomInsetOf(context);
 
+    // Keep Android FLAG_SECURE ON for the mnemonic ENTRY step: the 12-word
+    // master secret is typed/visible in plaintext here, so screen capture must
+    // stay blocked (the deliberate "let users screenshot their own phrase"
+    // tradeoff applies only to reveal/QR display surfaces, not entry).
     return SecureScope(
-      allowAndroidScreenCapture: _step == _SyncPinStep.enterMnemonic,
       child: SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 20,

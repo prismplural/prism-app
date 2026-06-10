@@ -111,7 +111,7 @@ void main() {
       },
     );
 
-    // Phase 6 fix-up (codex review of 22354929):
+    // Phase 6 fix-up (review review of 22354929):
     //
     // The `failing_tx` test above injects its failure at
     // `memberRepo.getAllMembers()` — BEFORE any batch insert runs. That
@@ -220,7 +220,7 @@ Future<void> _runParity({
   // queued batch insert before any DAO write commits. Phase 6 collapsed
   // most per-row repo calls into direct DAO batches, but the importer
   // still calls `memberRepo.getAllMembers()` once at the top of the
-  // members loop (pre-resolve existence detection — codex v1 feedback).
+  // members loop (pre-resolve existence detection — review v1 feedback).
   // That single call is the harness's *early-failure* injection point —
   // a complementary *mid-batch* failure path lives in
   // `_runMidBatchFailureParity` below, which injects a throw in
@@ -534,7 +534,7 @@ Map<RecordedEmission, int> _multiset(Iterable<RecordedEmission> items) {
 ///      replayed — even though `captured.addAll(...)` ran for the
 ///      successful earlier batches inside the transaction.
 ///
-/// This is the missing coverage codex flagged in their review of 22354929:
+/// This is the missing coverage review flagged in their review of 22354929:
 /// the original `failing_tx` test throws BEFORE any insert, so it can't
 /// distinguish "transaction never started writing" from "transaction wrote
 /// + rolled back". This test forces the second case.

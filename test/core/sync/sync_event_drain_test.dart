@@ -758,7 +758,7 @@ void main() {
   });
 
   test(
-    'Test C2: post-revoke re-cleanup skips if a fresh handle appeared first',
+    'Test batch-exists: post-revoke re-cleanup skips if a fresh handle appeared first',
     () async {
       // If a new handle is created between the abort and the delayed
       // timer firing, the notifier resets `_credentialsRevoked = false`

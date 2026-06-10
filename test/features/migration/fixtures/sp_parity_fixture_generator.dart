@@ -481,7 +481,7 @@ Map<String, dynamic> _makeLarge() {
     },
   );
 
-  // Codex cross-phase review fix: exercise Phase 6 batch paths for notes,
+  // exercise Phase 6 batch paths for notes,
   // comments, conversation (channel) categories, and reminders. The small and
   // medium fixtures stay deliberately minimal so the large fixture carries the
   // breadth here.

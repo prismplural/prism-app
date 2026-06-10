@@ -398,7 +398,7 @@ class _BootstrapCountingSyncService extends PluralKitSyncService {
 
   List<String>? lastPushOverrideMemberIds;
   // Default return: a switch whose timestamp is deliberately different from
-  // the caller-supplied `now` so the C4 cursor-advance test can assert PK's
+  // the caller-supplied `now` so the media heal cursor-advance test can assert PK's
   // stored timestamp is used (not the local clock).
   PKSwitch? pushOverrideSwitchReturn = PKSwitch(
     id: 'override-switch-id',
@@ -742,7 +742,7 @@ void main() {
         equals('override-switch-id'),
         reason: 'Cursor must be advanced to the new switch ID',
       );
-      // C4: cursor timestamp must be PK's stored timestamp, NOT the local
+      // media heal: cursor timestamp must be PK's stored timestamp, NOT the local
       // `DateTime.now()` the caller passed into createSwitch. The fake
       // returns a switch whose timestamp is deliberately fixed at
       // 2026-01-01T12:00:00Z so we can assert that exact value flows
@@ -751,7 +751,7 @@ void main() {
         svc.lastAdvanceCursorArgs?.timestamp,
         equals(DateTime.utc(2026, 1, 1, 12)),
         reason: "Cursor timestamp must be PK's stored timestamp, not local "
-            'DateTime.now(). See bug C4.',
+            'DateTime.now(). See bug media heal.',
       );
 
       // Assert: bootstrap ran after resolution.
@@ -949,11 +949,11 @@ void main() {
   );
 
   // =========================================================================
-  // Scenario (e): C3 regression — already-mapped member included in projection
+  // Scenario (e): ephemeral lane regression — already-mapped member included in projection
   // =========================================================================
 
   test(
-    '(e) C3: already-mapped local member (pluralkitId set, no Link decision) '
+    '(e) ephemeral lane: already-mapped local member (pluralkitId set, no Link decision) '
     'is correctly projected into pkFronterMemberIds — no false disagreement',
     () async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -989,7 +989,7 @@ void main() {
         members: const ['bbbbb'],
       );
 
-      // Local: Bob is also fronting → sets must compare EQUAL after the C3
+      // Local: Bob is also fronting → sets must compare EQUAL after the ephemeral lane
       // fix. Before the fix, the projection couldn't resolve bbbbb → l2
       // (no Link decision exists for already-mapped Bob), so the bug
       // produced a false disagreement.
@@ -1035,14 +1035,14 @@ void main() {
 
       final outcome = await ctrl.apply();
 
-      // After the C3 fix the projection picks up Bob via the DB-side
+      // After the ephemeral lane fix the projection picks up Bob via the DB-side
       // `pluralkitId` lookup, sets compare equal, and apply() proceeds
       // straight into the bootstrap without returning a resolution.
       expect(
         outcome,
         isNot(isA<PkMappingApplyOutcomeNeedsFronterResolution>()),
         reason:
-            'C3: already-mapped local fronter must be projected into PK set; '
+            'ephemeral lane: already-mapped local fronter must be projected into PK set; '
             'sets must compare equal → no false disagreement.',
       );
       expect(

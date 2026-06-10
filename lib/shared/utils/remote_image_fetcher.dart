@@ -35,18 +35,11 @@ const _allowedMimeTypes = {
 ///   - IPv6 loopback, link-local, ULA, and IPv4-mapped private addresses
 ///   - DNS names that resolve exclusively to private addresses
 Future<bool> _isPrivateHost(String host) async {
-  final lc = host.toLowerCase();
+  // Cheap, DNS-free checks first (well-known names + IP literals).
+  if (isPrivateHostLiteral(host)) return true;
 
-  // Reject well-known private hostnames immediately.
-  if (lc == 'localhost' || lc == 'metadata.internal' || lc.endsWith('.local')) {
-    return true;
-  }
-
-  // Try parsing as an IP literal first (no DNS needed).
-  final parsed = InternetAddress.tryParse(host);
-  if (parsed != null) {
-    return _isPrivateAddress(parsed);
-  }
+  // If it parsed as an IP literal, isPrivateHostLiteral already decided.
+  if (InternetAddress.tryParse(host) != null) return false;
 
   // Hostname: resolve and reject if any resolved address is private.
   try {
@@ -59,6 +52,41 @@ Future<bool> _isPrivateHost(String host) async {
   } catch (_) {
     return true; // resolution failure → block to be safe
   }
+}
+
+/// Synchronous, DNS-free SSRF host check for the **shape** of a host string.
+///
+/// Returns `true` when [host] is a well-known private hostname or an IP literal
+/// in a private/loopback/link-local/CGNAT/metadata range. Unlike
+/// [_isPrivateHost] this does **not** resolve DNS names — a public-looking DNS
+/// name returns `false` here (callers that need full protection must pin the
+/// connection / re-validate the resolved address, e.g. [_buildPinnedClient]).
+///
+/// Use this to validate relay-supplied URLs (e.g. the GIF `api_base_url`) at
+/// config time, where async DNS resolution is undesirable and the goal is to
+/// reject the obvious SSRF targets before the URL is ever used.
+bool isPrivateHostLiteral(String host) {
+  final lc = host.toLowerCase();
+  if (lc.isEmpty) return true;
+
+  // Reject well-known private / metadata hostnames immediately.
+  if (lc == 'localhost' ||
+      lc == 'metadata.internal' ||
+      lc == 'metadata.google.internal' ||
+      lc.endsWith('.local') ||
+      lc.endsWith('.localhost') ||
+      lc.endsWith('.internal')) {
+    return true;
+  }
+
+  // IP literal? Classify it. (Strip IPv6 brackets if present.)
+  final stripped = host.startsWith('[') && host.endsWith(']')
+      ? host.substring(1, host.length - 1)
+      : host;
+  final parsed = InternetAddress.tryParse(stripped);
+  if (parsed != null) return _isPrivateAddress(parsed);
+
+  return false;
 }
 
 /// IPv4 ranges that must never be fetched from (by leading octets).

@@ -425,7 +425,7 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
         outputFileExtension: 'caf',
         sourceContainerLabel: 'CAF Opus',
         normalizedContainerLabel: 'Ogg Opus',
-        summary: 'Records Opus in CAF and remuxes to Ogg before upload.',
+        summary: 'Records review in CAF and remuxes to Ogg before upload.',
       );
     }
     if (_platform.isAndroid) {

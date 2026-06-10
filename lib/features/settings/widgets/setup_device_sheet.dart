@@ -536,8 +536,10 @@ class SetupDeviceSheetContentState
 
   @override
   Widget build(BuildContext context) {
+    // Keep Android FLAG_SECURE ON for the mnemonic ENTRY step: the 12-word
+    // master secret is typed/visible in plaintext here, so screen capture must
+    // stay blocked (entry surfaces are not the deliberate reveal/QR tradeoff).
     return SecureScope(
-      allowAndroidScreenCapture: _step == _InitiatorStep.enterMnemonic,
       child: Column(
         children: [
           PrismSheetTopBar(title: context.l10n.syncSetUpAnotherDevice),
