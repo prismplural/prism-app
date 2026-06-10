@@ -3,14 +3,13 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
+import 'package:prism_plurality/features/fronting/utils/session_time_bounds.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
-
-/// Sentinel DateTime used for active sessions in overlap calculations.
-final _activeSentinel = DateTime(9999);
 
 /// Returns the effective end of a snapshot for comparison purposes.
 /// Active sessions (null end) are treated as far-future.
-DateTime _effectiveEnd(FrontingSessionSnapshot s) => s.end ?? _activeSentinel;
+DateTime _effectiveEnd(FrontingSessionSnapshot s) =>
+    s.end ?? farFutureSessionEnd;
 
 // ── TrimResult ─────────────────────────────────────────────────────────────
 
@@ -49,7 +48,8 @@ class FrontingEditResolutionService {
     final conflictingEnd = _effectiveEnd(conflicting);
 
     // Full containment: edited fully contains conflicting
-    if (!edited.start.isAfter(conflicting.start) && !editedEnd.isBefore(conflictingEnd)) {
+    if (!edited.start.isAfter(conflicting.start) &&
+        !editedEnd.isBefore(conflictingEnd)) {
       return TrimResult(
         changes: [DeleteSessionChange(conflicting.id)],
         wouldDeleteConflicting: true,
@@ -177,12 +177,15 @@ class FrontingEditResolutionService {
         final previous = context.previous!;
         final next = context.next!;
         // session.end must be non-null (checked in availableStrategies)
-        final midpointMs = session.start.millisecondsSinceEpoch +
+        final midpointMs =
+            session.start.millisecondsSinceEpoch +
             (session.end!.millisecondsSinceEpoch -
                     session.start.millisecondsSinceEpoch) ~/
                 2;
-        final midpoint =
-            DateTime.fromMillisecondsSinceEpoch(midpointMs, isUtc: session.start.isUtc);
+        final midpoint = DateTime.fromMillisecondsSinceEpoch(
+          midpointMs,
+          isUtc: session.start.isUtc,
+        );
         return [
           UpdateSessionChange(
             sessionId: previous.id,
@@ -208,9 +211,7 @@ class FrontingEditResolutionService {
         return [
           UpdateSessionChange(
             sessionId: session.id,
-            patch: FrontingSessionPatch(
-              memberId: unknownSentinelMemberId,
-            ),
+            patch: FrontingSessionPatch(memberId: unknownSentinelMemberId),
           ),
         ];
 
@@ -256,11 +257,12 @@ class FrontingEditResolutionService {
     // survivor/target. Without this, per-field LWW after sync would
     // resolve {Update memberId, Delete other} pairs into both rows
     // deleted — the Unknown the user asked for would disappear.
-    final orderedInPeriod = [...context.sessionsInPeriod]..sort((a, b) {
-      final c = a.start.compareTo(b.start);
-      if (c != 0) return c;
-      return a.id.compareTo(b.id);
-    });
+    final orderedInPeriod = [...context.sessionsInPeriod]
+      ..sort((a, b) {
+        final c = a.start.compareTo(b.start);
+        if (c != 0) return c;
+        return a.id.compareTo(b.id);
+      });
 
     String? unknownSurvivorId;
     String? unknownPresetId;
@@ -268,7 +270,7 @@ class FrontingEditResolutionService {
     if (strategy == FrontingDeleteStrategy.convertToUnknown) {
       for (final s in orderedInPeriod) {
         final isOpen = s.end == null;
-        final effectiveEnd = s.end ?? _activeSentinel;
+        final effectiveEnd = s.end ?? farFutureSessionEnd;
         final startsBefore = s.start.isBefore(pStart);
         final endsAfter = effectiveEnd.isAfter(pEnd);
         final fullyContained = !startsBefore && !endsAfter;
@@ -306,7 +308,7 @@ class FrontingEditResolutionService {
       for (final s in orderedInPeriod) {
         final isOpen = s.end == null;
         if (context.isOngoing && isOpen) continue;
-        final effectiveEnd = s.end ?? _activeSentinel;
+        final effectiveEnd = s.end ?? farFutureSessionEnd;
         final startsBefore = s.start.isBefore(pStart);
         final endsAfter = effectiveEnd.isAfter(pEnd);
         if (startsBefore && !endsAfter) {
@@ -318,13 +320,13 @@ class FrontingEditResolutionService {
           break;
         }
       }
-      if (sliceCommentTargetId == null &&
-          context.previousSessions.isNotEmpty) {
-        final orderedPrevious = [...context.previousSessions]..sort((a, b) {
-          final c = a.start.compareTo(b.start);
-          if (c != 0) return c;
-          return a.id.compareTo(b.id);
-        });
+      if (sliceCommentTargetId == null && context.previousSessions.isNotEmpty) {
+        final orderedPrevious = [...context.previousSessions]
+          ..sort((a, b) {
+            final c = a.start.compareTo(b.start);
+            if (c != 0) return c;
+            return a.id.compareTo(b.id);
+          });
         sliceCommentTargetId = orderedPrevious.first.id;
       }
     }
@@ -346,7 +348,7 @@ class FrontingEditResolutionService {
       }
 
       final isOpen = s.end == null;
-      final effectiveEnd = s.end ?? _activeSentinel;
+      final effectiveEnd = s.end ?? farFutureSessionEnd;
       final startsBefore = s.start.isBefore(pStart);
       final endsAfter = effectiveEnd.isAfter(pEnd);
       final fullyContained = !startsBefore && !endsAfter;
@@ -506,5 +508,4 @@ class FrontingEditResolutionService {
         )
         .toList();
   }
-
 }

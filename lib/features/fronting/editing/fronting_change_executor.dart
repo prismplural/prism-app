@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/repositories/front_session_comments_repos
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
+import 'package:prism_plurality/features/fronting/utils/session_time_bounds.dart';
 
 /// Bridges typed [FrontingSessionChange] descriptors to the repository and
 /// [MutationRunner]. All changes in a batch are wrapped in a single
@@ -221,7 +222,8 @@ class FrontingChangeExecutor {
             for (final c in allComments) {
               if (c.sessionId != sessionId) continue;
               final beforeRange = c.timestamp.isBefore(newStart);
-              final afterRange = newEndExclusive != null &&
+              final afterRange =
+                  newEndExclusive != null &&
                   !c.timestamp.isBefore(newEndExclusive);
               if (beforeRange || afterRange) {
                 if (reparentTo != null) {
@@ -285,8 +287,8 @@ class FrontingChangeExecutor {
   }
 
   bool _rangesOverlap(FrontingSession a, FrontingSession b) {
-    final aEnd = a.endTime ?? DateTime(9999);
-    final bEnd = b.endTime ?? DateTime(9999);
+    final aEnd = a.endTime ?? farFutureSessionEnd;
+    final bEnd = b.endTime ?? farFutureSessionEnd;
     return a.startTime.isBefore(bEnd) && b.startTime.isBefore(aEnd);
   }
 

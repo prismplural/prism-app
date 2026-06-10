@@ -1,5 +1,6 @@
 import 'package:prism_plurality/domain/models/fronting_session.dart'
     show SessionType;
+import 'package:prism_plurality/features/fronting/utils/session_time_bounds.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 
 /// How to resolve an overlap during editing.
@@ -125,7 +126,7 @@ class FrontingDeletePeriodContext {
   bool get hasStraddleStartOnly {
     for (final s in sessionsInPeriod) {
       if (!s.start.isBefore(periodStart)) continue;
-      final eff = s.end ?? DateTime(9999);
+      final eff = s.end ?? farFutureSessionEnd;
       if (!eff.isAfter(periodEnd)) return true;
     }
     return false;

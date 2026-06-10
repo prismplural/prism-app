@@ -1,4 +1,5 @@
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/features/fronting/utils/session_time_bounds.dart';
 import 'package:prism_plurality/core/mutations/app_failure.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
@@ -982,8 +983,8 @@ class FrontingMutationService {
     DateTime? end,
   ) {
     if (existing.isSleep) return false;
-    final mergedEnd = end ?? DateTime.utc(9999);
-    final existingEnd = existing.endTime ?? DateTime.utc(9999);
+    final mergedEnd = end ?? farFutureSessionEnd;
+    final existingEnd = existing.endTime ?? farFutureSessionEnd;
     return !existing.startTime.isAfter(mergedEnd) &&
         !start.isAfter(existingEnd);
   }
@@ -1261,10 +1262,8 @@ class FrontingMutationService {
     DateTime bStart,
     DateTime? bEnd,
   ) {
-    final aE = aEnd ?? _farFuture;
-    final bE = bEnd ?? _farFuture;
+    final aE = aEnd ?? farFutureSessionEnd;
+    final bE = bEnd ?? farFutureSessionEnd;
     return aStart.isBefore(bE) && bStart.isBefore(aE);
   }
-
-  static final DateTime _farFuture = DateTime.utc(9999);
 }

@@ -1,9 +1,11 @@
-import 'package:prism_plurality/domain/models/fronting_session.dart' show SessionType;
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SessionType;
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_rules.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
+import 'package:prism_plurality/features/fronting/utils/session_time_bounds.dart';
 
 class FrontingEditGuard {
   const FrontingEditGuard();
@@ -103,15 +105,15 @@ class FrontingEditGuard {
       final otherEnd = other.end;
       final proposedEnd = proposed.end;
       // Active sessions use far-future for effective end
-      final aEnd = proposedEnd ?? DateTime(9999);
-      final bEnd = otherEnd ?? DateTime(9999);
+      final aEnd = proposedEnd ?? farFutureSessionEnd;
+      final bEnd = otherEnd ?? farFutureSessionEnd;
       // Touching boundaries are NOT overlaps
       if (proposed.start.isBefore(bEnd) &&
           other.start.isBefore(aEnd) &&
           proposed.start != bEnd &&
           other.start != aEnd) {
-        final isSameMember = proposed.memberId != null &&
-            proposed.memberId == other.memberId;
+        final isSameMember =
+            proposed.memberId != null && proposed.memberId == other.memberId;
         if (isSameMember) {
           overlapping.add(other);
         }
@@ -221,7 +223,7 @@ class FrontingEditGuard {
       }
     }
     for (final s in active) {
-      if (!s.start.isBefore(session.end ?? DateTime(9999))) {
+      if (!s.start.isBefore(session.end ?? farFutureSessionEnd)) {
         next = s;
         break; // first one is closest
       }
