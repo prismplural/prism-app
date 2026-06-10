@@ -4227,6 +4227,11 @@ enum RevokeConfirmation {
 /// Pure interpretation of a relay `list_devices` result for THIS device. Note
 /// the non-obvious case: a successful listing that simply omits this device is
 /// treated as confirmed-revoked.
+///
+/// SECURITY (H3): no longer used to drive a destructive revoke decision. The
+/// relay's `list_devices` response is UNSIGNED, so `_confirmRevokeViaRegistry`
+/// now relies on the signature-verified `ffi.confirmSelfRevocation` instead.
+/// Retained for any non-destructive UI inspection (and its regression tests).
 @visibleForTesting
 RevokeConfirmation interpretDeviceRegistryForSelf({
   required List<Map<String, dynamic>> devices,
@@ -4827,9 +4832,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     final revokedDeviceId = event.data['device_id'] as String?;
     final wipe = event.remoteWipe;
 
-    // Step 2 — determine whether this event targets us. We NEVER assume an
-    // ambiguous revoke is self-targeted; an unreadable own id or a missing
-    // target id is confirmed against the relay registry first.
+    // Step 2 — does this target us? The WS frame is an untrusted hint: the
+    // relay knows our device_id, so `confirmedSelf` is forgeable. Both
+    // confirmedSelf and ambiguous go through verified confirmation below; only
+    // a `sibling` id short-circuits non-destructively.
     final currentDeviceId = await _readDecodedCredential('device_id');
     switch (classifyRevokeSelfCheck(
       revokedDeviceId: revokedDeviceId,
@@ -4841,17 +4847,17 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         // `_credentialsRevoked` is NOT set and no re-cleanup was scheduled,
         // so THIS device's keychain stays intact.
         return;
+      case RevokeSelfCheck.confirmedSelf:
       case RevokeSelfCheck.ambiguous:
+        // Require a signature-verified confirmation before anything destructive.
         final confirmation = await _confirmRevokeViaRegistry();
         if (confirmation != RevokeConfirmation.confirmedRevoked) {
           debugPrint(
-            '[SYNC] Ambiguous device_revoked notification not confirmed by '
+            '[SYNC] device_revoked notification not confirmed by verified '
             'registry ($confirmation) — preserving credentials',
           );
           return;
         }
-      case RevokeSelfCheck.confirmedSelf:
-        break;
     }
 
     // Step 3 — confirmed self-revoke. Escalate from safe-abort to the full
@@ -4875,7 +4881,14 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       debugPrint('[SYNC] Failed to disable auto-sync after revocation: $e');
     }
 
-    // If remote wipe was requested, delete the sync database.
+    // If remote wipe was requested, delete the sync database. We only reach
+    // here AFTER a signature-verified `confirmedRevoked`, so `wipe` is now
+    // applied only to a genuinely-revoked device's orphaned local data.
+    // TODO(security): bind remote_wipe intent into the signed revocation
+    // artifact (Layer B). `wipe` still originates from the relay-controlled
+    // WS frame; binding it into the verified revocation would authenticate the
+    // wipe intent itself, closing the residual where a relay flips remote_wipe
+    // on an already-revoked device.
     if (wipe) {
       await _wipeLocalData();
     }
@@ -4897,12 +4910,11 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // a sibling device.
     _abortPendingDrainSafe();
 
-    // Step 2 — self-check. Only a POSITIVE self-match acts outright; an
-    // ambiguous signal (the HTTP-401 `device_revoked` response carries no
-    // device_id, or our own id is unreadable) is confirmed against the relay
-    // device registry before anything destructive. We NEVER assume self on an
-    // unknown id — that turned transient auth blips into permanent
-    // disconnects while the device was still active server-side.
+    // Step 2 — does this target us? Same verified gate as `_handleDeviceRevoked`,
+    // but the hint here is a relay error/result body (a forged
+    // `PRISM_SYNC_ERROR_JSON:{…device_revoked…}` substring or an echoed
+    // device_id). confirmedSelf and ambiguous both require verified
+    // confirmation; `unknown`/`active` preserve credentials (the false-revoke fix).
     final currentDeviceId = await _readDecodedCredential('device_id');
     switch (classifyRevokeSelfCheck(
       revokedDeviceId: revokedDeviceId,
@@ -4914,26 +4926,31 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           '($revokedDeviceId != $currentDeviceId) — keeping credentials',
         );
         return;
+      case RevokeSelfCheck.confirmedSelf:
       case RevokeSelfCheck.ambiguous:
         final confirmation = await _confirmRevokeViaRegistry();
         if (confirmation != RevokeConfirmation.confirmedRevoked) {
-          // Not a confirmed revoke (registry still lists us, or the check was
+          // Not a verified revoke (registry still lists us, or the check was
           // inconclusive). Keep credentials + relay config so the engine stays
-          // usable and can self-heal — this is the core false-revoke fix.
+          // usable and can self-heal — this is the core false-revoke fix and
+          // the H3 spoof guard: a relay-injected error string cannot wipe.
           debugPrint(
-            '[SYNC] Ambiguous device_revoked not confirmed by registry '
+            '[SYNC] device_revoked not confirmed by verified registry '
             '($confirmation) — preserving credentials',
           );
           return;
         }
-      case RevokeSelfCheck.confirmedSelf:
-        break;
     }
 
     // Step 3 — confirmed self-revoke. Escalate from safe-abort to the full
     // revoke path.
     _abortPendingDrainForRevoke();
     try {
+      // TODO(security): bind remote_wipe intent into the signed revocation
+      // artifact (Layer B). We only reach here after a signature-verified
+      // `confirmedRevoked`, but `remoteWipe` itself still comes from the
+      // relay-controlled error/WS hint; authenticating the wipe bit needs it
+      // bound into the verified revocation.
       if (remoteWipe) {
         debugPrint('[SYNC] Device flagged for remote wipe — wiping sync data');
         await _wipeLocalData();
@@ -4971,15 +4988,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     }
   }
 
-  /// Confirm whether THIS device is genuinely revoked by consulting the relay
-  /// device registry. Used to resolve an *ambiguous* `device_revoked` signal
-  /// (no target id, or unreadable own id) BEFORE any destructive wipe.
+  /// Confirm whether THIS device is genuinely revoked by consulting a
+  /// **signature-verified** signed registry over FFI. The single authenticated
+  /// gate for every destructive `device_revoked` path (H3).
   ///
-  /// Returns [RevokeConfirmation.confirmedRevoked] only on positive evidence:
-  /// either `list_devices` itself rejects this device as revoked, or the
-  /// listing omits/marks-revoked this device. Anything inconclusive (missing
-  /// credentials, network/transient error, unparseable response) returns a
-  /// non-confirming result so credentials are preserved.
+  /// Previously this trusted the relay's UNSIGNED `list_devices` response (and
+  /// had a spoofable branch that treated a `device_revoked` error on the call
+  /// as positive confirmation). Both are gone: confirmation now comes solely
+  /// from `ffi.confirmSelfRevocation`, which fetches the signed registry,
+  /// verifies its hybrid signature against the device's pinned/SAS-anchored
+  /// registry, and reads this device's verified entry.
+  ///
+  /// Returns [RevokeConfirmation.confirmedRevoked] ONLY when the verified
+  /// registry marks this device `revoked`. A relay error, a missing/unverifiable
+  /// registry, or this device still listed active all map to a non-confirming
+  /// result so credentials are preserved (fail-safe — this also preserves the
+  /// existing false-revoke protection for transient auth blips).
   Future<RevokeConfirmation> _confirmRevokeViaRegistry() async {
     final override = debugRevokeConfirmationOverride;
     if (override != null) return override();
@@ -4987,47 +5011,27 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return RevokeConfirmation.unknown;
 
-    final syncId = await _readDecodedCredential('sync_id');
-    final deviceId = await _readDecodedCredential('device_id');
-    final sessionToken = await _readDecodedCredential('session_token');
-    if (syncId == null || deviceId == null || sessionToken == null) {
-      return RevokeConfirmation.unknown;
-    }
-
-    final String jsonStr;
+    // `confirmSelfRevocation` never throws on relay/verification failure — it
+    // returns "unknown". We still wrap defensively: any unexpected throw is
+    // inconclusive, NEVER positive confirmation. A relay erroring the verified
+    // call can no longer be weaponized into a wipe.
+    final String result;
     try {
-      jsonStr = await ffi.listDevices(
-        handle: handle,
-        syncId: syncId,
-        deviceId: deviceId,
-        sessionToken: sessionToken,
-      );
+      result = await ffi.confirmSelfRevocation(handle: handle);
     } catch (e) {
-      // If the registry check ITSELF is rejected as device_revoked, that's an
-      // independent positive confirmation. Anything else (network/timeout/
-      // transient auth) is inconclusive — do NOT wipe.
-      final structured = PrismSyncStructuredError.tryParse(e);
-      if (structured?.isDeviceRevoked ?? false) {
+      debugPrint('[SYNC] Verified revoke check failed (inconclusive): $e');
+      return RevokeConfirmation.unknown;
+    }
+
+    switch (result) {
+      case 'revoked':
         return RevokeConfirmation.confirmedRevoked;
-      }
-      debugPrint('[SYNC] Revoke registry check failed (inconclusive): $e');
-      return RevokeConfirmation.unknown;
+      case 'active':
+        return RevokeConfirmation.stillActive;
+      case 'unknown':
+      default:
+        return RevokeConfirmation.unknown;
     }
-
-    final List<Map<String, dynamic>> devices;
-    try {
-      final decoded = jsonDecode(jsonStr);
-      devices = (decoded as List<dynamic>)
-          .whereType<Map<String, dynamic>>()
-          .toList();
-    } catch (_) {
-      return RevokeConfirmation.unknown;
-    }
-
-    return interpretDeviceRegistryForSelf(
-      devices: devices,
-      currentDeviceId: deviceId,
-    );
   }
 
   /// Delete the sync database file and its WAL/SHM companions, clear all
