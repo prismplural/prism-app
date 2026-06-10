@@ -81,26 +81,14 @@ class FrontingEditGuard {
         .where((s) => s.id != original.id && !s.isDeleted)
         .toList();
 
-    // Overlapping sessions that should surface to the user are ONLY
-    // same-member self-overlaps within the SAME session type — i.e. two
-    // normal fronting rows for one member, which collapse via trim because a
-    // member can't front twice concurrently. (Sleep rows carry a null
-    // memberId, so `isSameMember` is never true for them; sleep-vs-sleep
-    // overlaps are not surfaced here — unchanged by this fix.)
-    //
-    // Cross-TYPE overlaps (sleep vs. normal fronting) are NOT conflicts:
-    // sleep is a parallel "no fronter" timeline orthogonal to member
-    // fronting. This mirrors SessionLifecycleService.trimOverlap (early-returns
-    // on cross-type) and getDeletePeriodContext (skips sleep). Surfacing them
-    // here previously caused an edited open-ended front — whose effective end
-    // is far-future — to "fully contain" every later sleep row and silently
-    // DELETE the user's entire sleep history on save (the sleep data-loss bug).
-    //
-    // Cross-MEMBER overlaps between different normal fronting sessions are
-    // valid co-fronting in the per-member model and are likewise not flagged.
+    // Only same-member, same-type self-overlaps are conflicts (a member can't
+    // front twice at once). Cross-member overlaps are valid co-fronting, and
+    // cross-type overlaps are NOT conflicts — sleep is a parallel timeline.
+    // Surfacing cross-type here is what let an edited open-ended front, whose
+    // effective end is far-future, contain and silently delete every later
+    // sleep row. Mirrors trimOverlap / getDeletePeriodContext, which skip it.
     final overlapping = <FrontingSessionSnapshot>[];
     for (final other in others) {
-      // Never surface cross-type overlaps. This is the data-loss guard.
       if (other.sessionType != proposed.sessionType) continue;
       final otherEnd = other.end;
       final proposedEnd = proposed.end;
