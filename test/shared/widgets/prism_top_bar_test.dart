@@ -99,6 +99,7 @@ void main() {
           supportedLocales: const [Locale('en')],
           home: ListDetailPaneControls(
             clearSelection: () => clearCount++,
+            selectDetail: (_) {},
             child: const EmbeddedPaneMarker(
               child: Scaffold(appBar: PrismTopBar(title: 'Detail')),
             ),
