@@ -11,8 +11,12 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 /// PK actually allows 10/s GETs and 3/s writes; we use a single 3/s bucket
 /// (333ms interval) — the worst-case write cap covers everything without
 /// complicating callers. Enqueue async operations and they will be executed
-/// sequentially. Handles 429 responses with exponential backoff, honoring
-/// any `Retry-After` / `X-RateLimit-Reset` delay the server provides.
+/// sequentially. Handles 429 responses with backoff, honoring any
+/// server-provided delay (body `retry_after`, falling back to headers).
+/// Pacing is enforced after every completed attempt — success or error — so a
+/// run of failures can't burst past the rate budget. Idempotent requests
+/// (passed via `enqueue(..., idempotent: true)`) additionally retry transient
+/// transport / 5xx errors a couple of times.
 class PkRequestQueue {
   static const defaultMinInterval = Duration(milliseconds: 333);
   static const defaultMaxRetries = 3;
@@ -35,9 +39,24 @@ class PkRequestQueue {
 
   /// Enqueue a request. Returns a Future that completes with the result
   /// once the request has been executed (respecting rate limits).
-  Future<T> enqueue<T>(Future<T> Function() request) {
+  ///
+  /// [idempotent] requests (GETs / downloads — no side effects) additionally
+  /// retry transport failures and 5xx responses up to 2 extra attempts so a
+  /// single Fly/Caddy blip doesn't abort a multi-hundred-request import.
+  /// Non-idempotent requests (POST/PATCH/DELETE) never retry on those errors —
+  /// only 429 retry applies, the same for both. Defaults to false.
+  Future<T> enqueue<T>(
+    Future<T> Function() request, {
+    bool idempotent = false,
+  }) {
     final completer = Completer<T>();
-    _queue.add(_QueueEntry<T>(request: request, completer: completer));
+    _queue.add(
+      _QueueEntry<T>(
+        request: request,
+        completer: completer,
+        idempotent: idempotent,
+      ),
+    );
     _processQueue();
     return completer.future;
   }
@@ -55,6 +74,11 @@ class PkRequestQueue {
   }
 
   Future<void> _executeEntry<T>(_QueueEntry<T> entry) async {
+    // Extra attempts beyond the 429 budget, granted only to idempotent
+    // requests, to ride out a transient 5xx / transport blip.
+    var errorRetriesLeft = entry.idempotent ? 2 : 0;
+    var errorRetryNumber = 0;
+
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
       // Always enforce the minimum inter-request interval — including
       // between retries — so a server-delayed retry followed by a short
@@ -66,14 +90,21 @@ class PkRequestQueue {
 
       try {
         final result = await entry.request();
-        // Update only on success. Failed attempts don't count toward the
-        // rate budget — the server told us it didn't process them.
+        // Update after the attempt settles so pacing is enforced between
+        // *every* completed HTTP exchange — see the catch block.
         _lastRequestTime = DateTime.now();
         entry.completer.complete(result);
         return;
       } catch (e) {
+        // Update after every attempt that completed an HTTP exchange (success
+        // OR error). A run of non-429 HTTP errors used to bypass pacing
+        // entirely and burst at full speed; pacing now applies regardless of
+        // outcome. Transport failures (no exchange) are also counted — pacing
+        // them is harmless and keeps the rule simple.
+        _lastRequestTime = DateTime.now();
+
         if (e is PluralKitRateLimitError && attempt < _maxRetries) {
-          // Prefer server-provided delay (Retry-After / X-RateLimit-Reset).
+          // Prefer server-provided delay (body retry_after / headers).
           // Fall back to exponential backoff if the server didn't tell us.
           final serverDelay = e.retryAfter;
           final backoff =
@@ -93,16 +124,45 @@ class PkRequestQueue {
           _lastRequestTime = DateTime.now();
           continue;
         }
+
+        // Idempotent-only retry on transient transport / 5xx errors. Bounded
+        // and outside the 429 attempt counter: 1s then 2s (still gated by
+        // _minInterval). Never applied to non-idempotent requests.
+        if (errorRetriesLeft > 0 && _isRetriableError(e)) {
+          errorRetriesLeft--;
+          errorRetryNumber++;
+          await Future<void>.delayed(Duration(seconds: errorRetryNumber));
+          _lastRequestTime = DateTime.now();
+          // Don't consume a 429 attempt slot for an error retry.
+          attempt--;
+          continue;
+        }
+
         entry.completer.completeError(e);
         return;
       }
     }
+  }
+
+  /// Whether [e] is a transient error worth retrying for idempotent requests:
+  /// a transport failure, or a 5xx API error (Fly/Caddy blip). 4xx errors are
+  /// the caller's fault and never retried here; 429 has its own path.
+  static bool _isRetriableError(Object e) {
+    if (isPluralKitNetworkException(e)) return true;
+    if (e is PluralKitRateLimitError) return false;
+    if (e is PluralKitApiError) return e.statusCode >= 500;
+    return false;
   }
 }
 
 class _QueueEntry<T> {
   final Future<T> Function() request;
   final Completer<T> completer;
+  final bool idempotent;
 
-  _QueueEntry({required this.request, required this.completer});
+  _QueueEntry({
+    required this.request,
+    required this.completer,
+    this.idempotent = false,
+  });
 }

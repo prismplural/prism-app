@@ -341,6 +341,49 @@ void main() {
       );
 
       test(
+        'PATCH /switches/{id}/members replaces fronters; identical PATCH 400s 40004',
+        () async {
+          // Regression for audit finding C2: the members PATCH body must be a
+          // bare JSON array, and a re-PATCH of the identical list returns 400
+          // with code 40004 (matched against PluralKitApiError.message).
+          final m1 = await client.createMember({'name': '${_kPrefix}repatch-1'});
+          _created.memberIds.add(m1.id);
+          final m2 = await client.createMember({'name': '${_kPrefix}repatch-2'});
+          _created.memberIds.add(m2.id);
+
+          // Switch with member 1, explicitly in the past so it doesn't disturb
+          // the account's current front more than necessary.
+          final t0 = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+          final sw = await client.createSwitch([m1.id], timestamp: t0);
+          _created.switchIds.add(sw.id);
+
+          // PATCH the member list to [m1, m2] — must round-trip both.
+          final patched =
+              await client.updateSwitchMembers(sw.id, [m1.id, m2.id]);
+          expect(patched.members.toSet(), containsAll([m1.id, m2.id]),
+              reason: 'PATCH members must replace the fronter list with both');
+
+          // PATCH again with the identical list → 400 40004.
+          try {
+            await client.updateSwitchMembers(sw.id, [m1.id, m2.id]);
+            fail('expected a 400 40004 on an identical-list re-PATCH');
+          } on PluralKitApiError catch (e) {
+            expect(e.statusCode, 400);
+            expect(e.message, contains('40004'),
+                reason: 'identical-front PATCH must embed code 40004');
+            expect(e.code, 40004,
+                reason: 'parsed error code must surface the JSON body code');
+          }
+
+          // Clean up the switch (members cleaned by teardown).
+          await client.deleteSwitch(sw.id);
+          _created.switchIds.remove(sw.id);
+        },
+        timeout: const Timeout(Duration(minutes: 2)),
+        skip: _skipAll ? _skipReason : false,
+      );
+
+      test(
         'matcher suggests exact name matches on a real PK read-back',
         () async {
           // Seed two PK members with distinct names. The local side runs in

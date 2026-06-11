@@ -14,10 +14,17 @@ import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.da
 // ---------------------------------------------------------------------------
 
 /// Base error for PluralKit API failures.
+///
+/// [message] is always the raw response body — callers (e.g. the sync
+/// service) match substrings like `40004` against it, so it must never be
+/// reshaped. [code] is the parsed PK error code from the body's `code` field
+/// (e.g. 40004 identical-front, 40005 duplicate-timestamp), or null when the
+/// body wasn't JSON or carried no code.
 class PluralKitApiError implements Exception {
   final int statusCode;
   final String message;
-  const PluralKitApiError(this.statusCode, this.message);
+  final int? code;
+  const PluralKitApiError(this.statusCode, this.message, {this.code});
 
   @override
   String toString() => 'PluralKitApiError($statusCode): $message';
@@ -32,8 +39,10 @@ class PluralKitAuthError extends PluralKitApiError {
 /// 429 Too Many Requests — rate-limited.
 ///
 /// [retryAfter], when non-null, is the duration the server asked us to wait
-/// before retrying. Parsed from (in priority order) `Retry-After` (seconds)
-/// or `X-RateLimit-Reset` (unix epoch seconds) response headers.
+/// before retrying. Parsed in priority order from: the JSON body's
+/// `retry_after` (milliseconds — the only signal the deployed PK actually
+/// sends), then the `Retry-After` (seconds) and `X-RateLimit-Reset` (epoch
+/// seconds, or ms when the value is > 10^12) response headers as fallbacks.
 class PluralKitRateLimitError extends PluralKitApiError {
   final Duration? retryAfter;
 
@@ -115,12 +124,33 @@ class PluralKitClient {
     'User-Agent': BuildInfo.userAgent,
   };
 
-  /// Extract a retry delay from 429 response headers, if any. Prefers
-  /// the HTTP standard `Retry-After` header (seconds) and falls back to
-  /// `X-RateLimit-Reset` (unix epoch seconds). Returns null if neither
-  /// is present or parseable.
-  static Duration? _parseRetryAfter(Map<String, String> headers) {
+  /// Extract a retry delay for a 429, if any. Prefers the JSON body's
+  /// `retry_after` (milliseconds — the only signal the deployed PK actually
+  /// sends), then falls back to the `Retry-After` (seconds) and
+  /// `X-RateLimit-Reset` headers. Returns null if none is present/parseable.
+  static Duration? _parseRetryAfter(http.Response response) {
+    // Primary: JSON body `retry_after` (milliseconds). Body may be non-JSON
+    // (Fly/Caddy HTML) — guard the decode.
+    final body = response.body;
+    if (body.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(body);
+        if (decoded is Map) {
+          final ms = decoded['retry_after'];
+          final msInt = ms is int
+              ? ms
+              : (ms is num ? ms.toInt() : int.tryParse('$ms'));
+          if (msInt != null && msInt >= 0) {
+            return Duration(milliseconds: msInt);
+          }
+        }
+      } catch (_) {
+        // Non-JSON body — fall through to header fallbacks.
+      }
+    }
+
     // http package lowercases header names.
+    final headers = response.headers;
     final retryAfter = headers['retry-after'];
     if (retryAfter != null) {
       final seconds = int.tryParse(retryAfter.trim());
@@ -130,15 +160,37 @@ class PluralKitClient {
     }
     final reset = headers['x-ratelimit-reset'];
     if (reset != null) {
-      final epochSeconds = int.tryParse(reset.trim());
-      if (epochSeconds != null) {
-        final resetAt = DateTime.fromMillisecondsSinceEpoch(
-          epochSeconds * 1000,
-          isUtc: true,
-        );
+      final resetValue = int.tryParse(reset.trim());
+      if (resetValue != null) {
+        // Implementation sends epoch seconds; docs claim ms. Disambiguate by
+        // magnitude: a value > 10^12 can only be milliseconds (epoch seconds
+        // won't reach 10^12 until the year 33658).
+        final resetAt = resetValue > 1000000000000
+            ? DateTime.fromMillisecondsSinceEpoch(resetValue, isUtc: true)
+            : DateTime.fromMillisecondsSinceEpoch(
+                resetValue * 1000,
+                isUtc: true,
+              );
         final delta = resetAt.difference(DateTime.now().toUtc());
         if (delta > Duration.zero) return delta;
       }
+    }
+    return null;
+  }
+
+  /// Try to extract the PK error `code` from a response body. Returns null
+  /// when the body isn't JSON or carries no integer `code`.
+  static int? _parseErrorCode(String body) {
+    if (body.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final code = decoded['code'];
+        if (code is int) return code;
+        if (code is num) return code.toInt();
+      }
+    } catch (_) {
+      // Non-JSON body (e.g. Fly/Caddy HTML on 5xx).
     }
     return null;
   }
@@ -155,10 +207,14 @@ class PluralKitClient {
       case 429:
         throw PluralKitRateLimitError(
           'Rate limited — please wait and try again',
-          _parseRetryAfter(response.headers),
+          _parseRetryAfter(response),
         );
       default:
-        throw PluralKitApiError(response.statusCode, response.body);
+        throw PluralKitApiError(
+          response.statusCode,
+          response.body,
+          code: _parseErrorCode(response.body),
+        );
     }
   }
 
@@ -167,7 +223,7 @@ class PluralKitClient {
         .get(Uri.parse(url), headers: _headers)
         .timeout(_httpTimeout);
     return _handleResponse(response);
-  });
+  }, idempotent: true);
 
   Future<dynamic> _post(String url, Map<String, dynamic> body) =>
       _postRaw(url, body);
@@ -185,6 +241,13 @@ class PluralKitClient {
   });
 
   Future<dynamic> _patch(String url, Map<String, dynamic> body) =>
+      _patchRaw(url, body);
+
+  /// Internal: PATCH with any JSON-encodable body. Mirrors [_postRaw] — most
+  /// PATCH endpoints take an object, but `PATCH /switches/{id}/members`
+  /// requires a bare JSON array of member references. Centralizes
+  /// header/queue/timeout/error handling for both shapes.
+  Future<dynamic> _patchRaw(String url, Object body) =>
       _queue.enqueue(() async {
         final response = await _http
             .patch(Uri.parse(url), headers: _headers, body: jsonEncode(body))
@@ -247,6 +310,27 @@ class PluralKitClient {
     return json
         .map((e) => PKSwitch.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// GET /systems/@me/switches/{switchRef} — fetch one switch by UUID.
+  ///
+  /// Returns the switch with its FULL fronting-member snapshot (PK inlines
+  /// member objects on this endpoint; [PKSwitch.fromJson] normalizes them to
+  /// short ids either way). Used by the deletion pusher (2026-06 PK audit H2)
+  /// to obtain the PK-authoritative co-fronter list before removing a single
+  /// member from a shared switch — local rows only carry ENTRANT switch
+  /// uuids, so they cannot reconstruct members who entered earlier and were
+  /// still fronting. A deleted switch returns 404 with code `20007`.
+  Future<PKSwitch> getSwitch(String switchRef) async {
+    final ref = switchRef.trim();
+    if (ref.isEmpty) {
+      throw ArgumentError.value(switchRef, 'switchRef', 'Must not be blank');
+    }
+    final encoded = Uri.encodeComponent(ref);
+    final json =
+        await _get('$_baseUrl/systems/@me/switches/$encoded')
+            as Map<String, dynamic>;
+    return PKSwitch.fromJson(json);
   }
 
   /// GET /systems/@me/fronters — fetch the current front.
@@ -369,14 +453,19 @@ class PluralKitClient {
   }
 
   /// PATCH /systems/@me/switches/{switchId}/members — replace the fronter list
-  /// on an existing switch. Member IDs are PK 5-char short IDs.
+  /// on an existing switch. Member IDs are PK short IDs (or UUIDs).
+  ///
+  /// The body is a **bare JSON array** of member references (`["id1","id2"]`),
+  /// not an object — sending `{"members":[...]}` returns 400. PATCHing the
+  /// list that already matches the switch's current members returns 400 with
+  /// code `40004` (identical-front), surfaced as a [PluralKitApiError].
   Future<PKSwitch> updateSwitchMembers(
     String switchId,
     List<String> memberIds,
   ) async {
-    final json = await _patch(
+    final json = await _patchRaw(
       '$_baseUrl/systems/@me/switches/$switchId/members',
-      <String, dynamic>{'members': memberIds},
+      memberIds,
     );
     return PKSwitch.fromJson(json as Map<String, dynamic>);
   }
@@ -404,7 +493,7 @@ class PluralKitClient {
       throw PluralKitApiError(response.statusCode, 'Failed to download $url');
     }
     return response.bodyBytes;
-  });
+  }, idempotent: true);
 
   /// Dispose the underlying HTTP client.
   void dispose() => _http.close();

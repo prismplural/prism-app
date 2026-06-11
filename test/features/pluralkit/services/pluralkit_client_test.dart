@@ -122,6 +122,72 @@ void main() {
       expect(switches, isEmpty);
     });
 
+    test(
+      'getSwitch GETs /switches/{ref} and normalizes member objects to '
+      'short ids',
+      () async {
+        // PK inlines full member objects on this endpoint; PKSwitch.fromJson
+        // must normalize to short ids. Used by the deletion pusher (2026-06
+        // PK audit H2) for the PK-authoritative co-fronter snapshot.
+        const switchUuid = 'e6f1b9c2-0000-4000-8000-000000000001';
+        final h = buildClient((req, _) async {
+          expect(req.method, 'GET');
+          expect(req.url.path, '/v2/systems/@me/switches/$switchUuid');
+          expect(req.headers['Authorization'], 'test-token');
+          return jsonResponse({
+            'id': switchUuid,
+            'timestamp': '2026-04-01T12:00:00.000Z',
+            'members': [
+              {'id': 'aaaaa', 'uuid': 'u1', 'name': 'Alice'},
+              {'id': 'bbbbb', 'uuid': 'u2', 'name': 'Bob'},
+            ],
+          });
+        });
+
+        final sw = await h.client.getSwitch(' $switchUuid ');
+        expect(sw.id, switchUuid);
+        expect(sw.members, ['aaaaa', 'bbbbb']);
+        expect(h.requests, hasLength(1));
+      },
+    );
+
+    test('getSwitch is idempotent — retries a transient 5xx', () async {
+      // getSwitch routes through _get, inheriting `idempotent: true` on the
+      // request queue: a single Fly/Caddy blip must not abort a deletion
+      // push pass.
+      final h = buildClient((req, call) async {
+        if (call == 0) return http.Response('blip', 502);
+        return jsonResponse({
+          'id': 'sw-1',
+          'timestamp': '2026-04-01T12:00:00.000Z',
+          'members': <String>[],
+        });
+      });
+
+      final sw = await h.client.getSwitch('sw-1');
+      expect(sw.id, 'sw-1');
+      expect(h.requests, hasLength(2), reason: 'one retry after the 502');
+    });
+
+    test('getSwitch maps a deleted switch to 404 with code 20007', () async {
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '{"message":"Switch not found.","code":20007}',
+          404,
+          headers: {'content-type': 'application/json'},
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.getSwitch('sw-gone');
+        fail('expected PluralKitApiError');
+      } on PluralKitApiError catch (e) {
+        expect(e.statusCode, 404);
+        expect(e.code, 20007);
+      }
+    });
+
     test('createMember POSTs JSON body with Content-Type', () async {
       final h = buildClient((req, _) async {
         expect(req.method, 'POST');
@@ -221,20 +287,54 @@ void main() {
       expect(sw.id, 'sw-1');
     });
 
-    test('updateSwitchMembers PATCHes to /switches/{id}/members', () async {
-      final h = buildClient((req, _) async {
-        expect(req.method, 'PATCH');
-        expect(req.url.path, '/v2/systems/@me/switches/sw-1/members');
-        final body = jsonDecode(req.body) as Map<String, dynamic>;
-        expect(body['members'], ['aaaaa']);
-        return jsonResponse({
-          'id': 'sw-1',
-          'timestamp': DateTime.now().toUtc().toIso8601String(),
-          'members': ['aaaaa'],
+    test(
+      'updateSwitchMembers PATCHes a bare JSON array to /switches/{id}/members',
+      () async {
+        // PK requires a bare array body (["id1","id2"]) — NOT {"members":[...]}.
+        // The object shape 400s on the live API. This test pins the array
+        // contract (regression guard for audit finding C2).
+        final h = buildClient((req, _) async {
+          expect(req.method, 'PATCH');
+          expect(req.url.path, '/v2/systems/@me/switches/sw-1/members');
+          final body = jsonDecode(req.body);
+          expect(body, isA<List<dynamic>>());
+          expect(body, ['aaaaa', 'bbbbb']);
+          return jsonResponse({
+            'id': 'sw-1',
+            'timestamp': DateTime.now().toUtc().toIso8601String(),
+            'members': ['aaaaa', 'bbbbb'],
+          });
         });
-      });
 
-      await h.client.updateSwitchMembers('sw-1', ['aaaaa']);
+        final sw = await h.client.updateSwitchMembers('sw-1', [
+          'aaaaa',
+          'bbbbb',
+        ]);
+        expect(sw.id, 'sw-1');
+      },
+    );
+
+    test('updateSwitchMembers surfaces a 400 40004 as PluralKitApiError', () async {
+      // Re-PATCHing the identical member list returns 400 with a JSON body
+      // embedding code 40004. The sync service matches `40004` against
+      // PluralKitApiError.message, so message must remain the raw body.
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '{"message":"400: Bad Request","code":40004}',
+          400,
+          headers: {'content-type': 'application/json'},
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.updateSwitchMembers('sw-1', ['aaaaa']);
+        fail('expected PluralKitApiError');
+      } on PluralKitApiError catch (e) {
+        expect(e.statusCode, 400);
+        expect(e.message, contains('40004'));
+        expect(e.code, 40004);
+      }
     });
 
     test('deleteSwitch sends DELETE to /switches/{id}', () async {
@@ -284,6 +384,50 @@ void main() {
         expect(e.message, contains('kaboom'));
         expect(e, isNot(isA<PluralKitRateLimitError>()));
         expect(e, isNot(isA<PluralKitAuthError>()));
+      }
+    });
+
+    test('400 with JSON body populates PluralKitApiError.code', () async {
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '{"message":"400: Bad Request","code":40005}',
+          400,
+          headers: {'content-type': 'application/json'},
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.createSwitch(['aaaaa']);
+        fail('expected PluralKitApiError');
+      } on PluralKitApiError catch (e) {
+        expect(e.statusCode, 400);
+        expect(e.code, 40005);
+        expect(e.message, contains('40005'),
+            reason: 'message stays the raw body');
+      }
+    });
+
+    test('non-JSON 5xx body does not crash parsing; code is null', () async {
+      // Fly/Caddy serves HTML on 5xx — _parseErrorCode must not throw.
+      // Use a non-idempotent endpoint (createSwitch) so the 5xx isn't retried
+      // (idempotent retry is covered by the queue tests).
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '<html><body>502 Bad Gateway</body></html>',
+          502,
+          headers: {'content-type': 'text/html'},
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.createSwitch(['aaaaa']);
+        fail('expected PluralKitApiError');
+      } on PluralKitApiError catch (e) {
+        expect(e.statusCode, 502);
+        expect(e.code, isNull);
+        expect(e.message, contains('Bad Gateway'));
       }
     });
 
@@ -410,6 +554,96 @@ void main() {
         fail('expected PluralKitRateLimitError');
       } on PluralKitRateLimitError catch (e) {
         expect(e.retryAfter, const Duration(seconds: 7));
+      }
+    });
+
+    test(
+      '429 JSON body retry_after (ms) is the primary source for retryAfter',
+      () async {
+        // Deployed PK sends no Retry-After header — the only signal is the
+        // body's retry_after, in MILLISECONDS.
+        final h = buildClient(
+          (_, _) async => http.Response(
+            '{"message":"429: too many requests","retry_after":250,"code":0}',
+            429,
+            headers: {'content-type': 'application/json'},
+          ),
+          maxRetries: 0,
+        );
+
+        try {
+          await h.client.getSystem();
+          fail('expected PluralKitRateLimitError');
+        } on PluralKitRateLimitError catch (e) {
+          expect(e.retryAfter, const Duration(milliseconds: 250));
+        }
+      },
+    );
+
+    test('429 body retry_after wins over a Retry-After header', () async {
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '{"message":"429","retry_after":500}',
+          429,
+          // Header says 7s; body says 500ms — body must win.
+          headers: {
+            'content-type': 'application/json',
+            'retry-after': '7',
+          },
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.getSystem();
+        fail('expected PluralKitRateLimitError');
+      } on PluralKitRateLimitError catch (e) {
+        expect(e.retryAfter, const Duration(milliseconds: 500));
+      }
+    });
+
+    test('non-JSON 429 body falls back to headers without crashing', () async {
+      // Fly/Caddy HTML on 429 — parsing must not throw; header fallback used.
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '<html>too many requests</html>',
+          429,
+          headers: {
+            'content-type': 'text/html',
+            'retry-after': '3',
+          },
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.getSystem();
+        fail('expected PluralKitRateLimitError');
+      } on PluralKitRateLimitError catch (e) {
+        expect(e.retryAfter, const Duration(seconds: 3));
+      }
+    });
+
+    test('X-RateLimit-Reset > 10^12 is treated as epoch milliseconds', () async {
+      // Heuristic: a reset value too large to be epoch-seconds is ms.
+      final futureMs =
+          DateTime.now().toUtc().millisecondsSinceEpoch + 4000;
+      final h = buildClient(
+        (_, _) async => http.Response(
+          '',
+          429,
+          headers: {'x-ratelimit-reset': futureMs.toString()},
+        ),
+        maxRetries: 0,
+      );
+
+      try {
+        await h.client.getSystem();
+        fail('expected PluralKitRateLimitError');
+      } on PluralKitRateLimitError catch (e) {
+        expect(e.retryAfter, isNotNull);
+        expect(e.retryAfter!.inSeconds, inInclusiveRange(1, 6),
+            reason: 'ms epoch must yield the ~4s delta, not a huge duration');
       }
     });
 

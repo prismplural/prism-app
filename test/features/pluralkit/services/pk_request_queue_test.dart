@@ -1,3 +1,5 @@
+import 'dart:io' show SocketException;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
@@ -111,6 +113,159 @@ void main() {
     expect(attempts, 2);
     // Should have waited roughly the server-provided 400ms before retry.
     expect(stopwatch.elapsedMilliseconds, greaterThanOrEqualTo(350));
+  });
+
+  // ── Pacing on failure (M19) ───────────────────────────────────────────────
+
+  test('failed (non-429) attempts are still paced', () async {
+    // A run of non-429 errors must NOT bypass _minInterval — previously
+    // _lastRequestTime was updated only on success, so failures bursted at
+    // full speed. Here every call throws a plain error; the queue must still
+    // space them by ~minInterval.
+    final paced = PkRequestQueue(
+      minInterval: const Duration(milliseconds: 100),
+    );
+
+    final stopwatch = Stopwatch()..start();
+    for (var i = 0; i < 3; i++) {
+      await expectLater(
+        paced.enqueue(() async => throw const PluralKitApiError(500, 'boom')),
+        throwsA(isA<PluralKitApiError>()),
+      );
+    }
+    stopwatch.stop();
+
+    // 3 calls => 2 inter-request gaps of ~100ms each.
+    expect(stopwatch.elapsedMilliseconds, greaterThanOrEqualTo(180));
+  });
+
+  // ── Idempotent retry on transient errors (M19) ────────────────────────────
+
+  test('idempotent request retries a 5xx and succeeds on attempt 2', () async {
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+
+    final result = await queue0.enqueue<String>(
+      () async {
+        attempts++;
+        if (attempts == 1) {
+          throw const PluralKitApiError(503, 'service unavailable');
+        }
+        return 'ok';
+      },
+      idempotent: true,
+    );
+
+    expect(result, 'ok');
+    expect(attempts, 2, reason: '5xx retried once for an idempotent request');
+  });
+
+  test('idempotent request retries a transport failure then succeeds',
+      () async {
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+
+    final result = await queue0.enqueue<String>(
+      () async {
+        attempts++;
+        if (attempts == 1) {
+          throw const SocketException('Connection refused');
+        }
+        return 'ok';
+      },
+      idempotent: true,
+    );
+
+    expect(result, 'ok');
+    expect(attempts, 2);
+  });
+
+  test('idempotent retry is bounded to 2 extra attempts on persistent 5xx',
+      () async {
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+
+    final future = queue0.enqueue<String>(
+      () async {
+        attempts++;
+        throw const PluralKitApiError(500, 'boom');
+      },
+      idempotent: true,
+    );
+
+    await expectLater(future, throwsA(isA<PluralKitApiError>()));
+    // 1 initial + 2 bounded error-retries = 3 total.
+    expect(attempts, 3);
+  });
+
+  test('non-idempotent request does NOT retry a 5xx', () async {
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+
+    final future = queue0.enqueue<String>(() async {
+      attempts++;
+      throw const PluralKitApiError(500, 'boom');
+    });
+
+    await expectLater(future, throwsA(isA<PluralKitApiError>()));
+    expect(attempts, 1, reason: 'writes must never auto-retry on 5xx');
+  });
+
+  test('non-idempotent request does NOT retry a transport failure', () async {
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+
+    final future = queue0.enqueue<String>(() async {
+      attempts++;
+      throw const SocketException('Connection refused');
+    });
+
+    await expectLater(future, throwsA(isA<SocketException>()));
+    expect(attempts, 1);
+  });
+
+  test('idempotent retry does not fire on a 4xx', () async {
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+
+    final future = queue0.enqueue<String>(
+      () async {
+        attempts++;
+        throw const PluralKitApiError(404, 'not found');
+      },
+      idempotent: true,
+    );
+
+    await expectLater(future, throwsA(isA<PluralKitApiError>()));
+    expect(attempts, 1, reason: '4xx is the caller\'s fault — never retried');
+  });
+
+  test('429 server retryAfter is preferred over exponential backoff', () async {
+    // The queue must honor the parsed server delay (ms, from the body) rather
+    // than its own 2^attempt backoff. We assert wall time matches the short
+    // server delay, not the 1s+ exponential floor.
+    final queue0 = PkRequestQueue(minInterval: Duration.zero);
+    var attempts = 0;
+    final stopwatch = Stopwatch()..start();
+
+    final result = await queue0.enqueue<String>(() async {
+      attempts++;
+      if (attempts < 2) {
+        throw const PluralKitRateLimitError(
+          'slow down',
+          Duration(milliseconds: 150),
+        );
+      }
+      return 'ok';
+    });
+
+    stopwatch.stop();
+    expect(result, 'ok');
+    expect(attempts, 2);
+    // ~150ms server delay, well under the 1000ms exponential floor.
+    expect(stopwatch.elapsedMilliseconds, greaterThanOrEqualTo(120));
+    expect(stopwatch.elapsedMilliseconds, lessThan(800),
+        reason: 'must use the 150ms server delay, not 1s exponential backoff');
   });
 
   // ── Multiple queued requests ──────────────────────────────────────────────
