@@ -185,6 +185,8 @@
       "habits_badge_enabled": true,
       "nav_bar_items": "[\"fronting\"]",
       "nav_bar_overflow_items": "[]",
+      "nav_bar_label_display_mode": 0,
+      "nav_bar_reveal_labels_when_expanded": true,
       "chat_badge_preferences": "{}",
       "fronting_list_view_mode": 0,
       "add_front_default_behavior": 0,
