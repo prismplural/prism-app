@@ -66,15 +66,29 @@ class MediaHealRequester {
   /// broadcasts a request immediately. A repeat call while the entry is still in
   /// cooldown does NOT re-request (the cadence handles that), so repeated views
   /// of a missing image can't storm the lane.
-  Future<void> onReferencedAbsent(String mediaId, {required int priority}) async {
+  Future<void> onReferencedAbsent(
+    String mediaId, {
+    required int priority,
+    bool fromNotFound = false,
+  }) async {
     final now = _clockMs();
-    final List<String> present;
-    try {
-      present = await batchExists([mediaId]);
-    } catch (_) {
-      return; // feature absent / transient → no-op, never a storm
+    if (!fromNotFound) {
+      // Transient give-up: gate on batch-exists — if the relay still holds it
+      // (or we can't confirm), a download retry should succeed, so don't
+      // request.
+      final List<String> present;
+      try {
+        present = await batchExists([mediaId]);
+      } catch (_) {
+        return; // feature absent / transient → no-op, never a storm
+      }
+      if (present.contains(mediaId)) return; // relay holds it; not really missing
     }
-    if (present.contains(mediaId)) return; // relay holds it; not really missing
+    // Else: a relay-confirmed 404. Even a "servable" batch-exists row whose
+    // file is missing — the committed-but-fileless repair case — can't be fixed
+    // by a download retry, so request a re-supply anyway: a holder re-uploads
+    // and the relay's repair path restores the file. Cooldown-gated below, so
+    // this still can't storm the lane.
 
     await dao.markMissing(mediaId: mediaId, priority: priority, nowMs: now);
     final entry = await dao.getById(mediaId);

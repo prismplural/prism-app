@@ -80,6 +80,7 @@ void main() {
   late AppDatabase db;
   late _FakeDownloadManager downloads;
   late List<String> absentSignals;
+  late List<bool> absentFromNotFound;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('media-hydrator-');
@@ -87,6 +88,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     downloads = _FakeDownloadManager(mediaDir);
     absentSignals = [];
+    absentFromNotFound = [];
   });
 
   tearDown(() async {
@@ -128,7 +130,10 @@ void main() {
       // instant and deterministic, and dispose has no timers to cancel.
       scheduleRetry: (_, run) => Future<void>.microtask(run),
       log: log ?? (_) {},
-      onReferencedAbsent: absentSignals.add,
+      onReferencedAbsent: (id, {bool fromNotFound = false}) {
+        absentSignals.add(id);
+        absentFromNotFound.add(fromNotFound);
+      },
     );
   }
 
@@ -165,16 +170,16 @@ void main() {
 
     test('also hydrates the thumbnail blob when present (thumbnail)', () async {
       await db.into(db.mediaAttachments).insert(
-            MediaAttachmentsCompanion(
-              id: const Value('att-thumb'),
-              mediaId: const Value('full-x'),
-              mediaType: const Value('image'),
-              encryptionKeyB64: const Value('a2V5'),
-              contentHash: const Value('ch-full-x'),
-              plaintextHash: const Value('ph-full-x'),
-              thumbnailMediaId: const Value('thumb-x'),
-              thumbnailContentHash: const Value('tc-thumb-x'),
-              thumbnailPlaintextHash: const Value('tp-thumb-x'),
+            const MediaAttachmentsCompanion(
+              id: Value('att-thumb'),
+              mediaId: Value('full-x'),
+              mediaType: Value('image'),
+              encryptionKeyB64: Value('a2V5'),
+              contentHash: Value('ch-full-x'),
+              plaintextHash: Value('ph-full-x'),
+              thumbnailMediaId: Value('thumb-x'),
+              thumbnailContentHash: Value('tc-thumb-x'),
+              thumbnailPlaintextHash: Value('tp-thumb-x'),
             ),
           );
 
@@ -190,14 +195,14 @@ void main() {
 
     test('does not try to download a thumbnail lacking synced hashes', () async {
       await db.into(db.mediaAttachments).insert(
-            MediaAttachmentsCompanion(
-              id: const Value('att-nothumb'),
-              mediaId: const Value('full-y'),
-              mediaType: const Value('image'),
-              encryptionKeyB64: const Value('a2V5'),
-              contentHash: const Value('ch-full-y'),
-              plaintextHash: const Value('ph-full-y'),
-              thumbnailMediaId: const Value('thumb-y'), // id only, no hashes
+            const MediaAttachmentsCompanion(
+              id: Value('att-nothumb'),
+              mediaId: Value('full-y'),
+              mediaType: Value('image'),
+              encryptionKeyB64: Value('a2V5'),
+              contentHash: Value('ch-full-y'),
+              plaintextHash: Value('ph-full-y'),
+              thumbnailMediaId: Value('thumb-y'), // id only, no hashes
             ),
           );
 
@@ -349,6 +354,8 @@ void main() {
 
       expect(downloads.calls['gone'], 1, reason: 'no retries on a 404');
       expect(absentSignals, ['gone']);
+      expect(absentFromNotFound, [true],
+          reason: 'a confirmed 404 forces the heal past the batch-exists gate');
       hydrator.dispose();
     });
 
@@ -362,6 +369,8 @@ void main() {
 
       expect(downloads.calls['missing'], 3);
       expect(absentSignals, ['missing'], reason: 'give-up triggers a heal request');
+      expect(absentFromNotFound, [false],
+          reason: 'transient exhaustion keeps the batch-exists gate');
       hydrator.dispose();
     });
 
@@ -415,16 +424,16 @@ void main() {
     test('retry resolves a THUMBNAIL id and heals the thumbnail blob (B1)',
         () async {
       await db.into(db.mediaAttachments).insert(
-            MediaAttachmentsCompanion(
-              id: const Value('att-th'),
-              mediaId: const Value('full-z'),
-              mediaType: const Value('image'),
-              encryptionKeyB64: const Value('a2V5'),
-              contentHash: const Value('ch-full-z'),
-              plaintextHash: const Value('ph-full-z'),
-              thumbnailMediaId: const Value('thumb-z'),
-              thumbnailContentHash: const Value('tc-thumb-z'),
-              thumbnailPlaintextHash: const Value('tp-thumb-z'),
+            const MediaAttachmentsCompanion(
+              id: Value('att-th'),
+              mediaId: Value('full-z'),
+              mediaType: Value('image'),
+              encryptionKeyB64: Value('a2V5'),
+              contentHash: Value('ch-full-z'),
+              plaintextHash: Value('ph-full-z'),
+              thumbnailMediaId: Value('thumb-z'),
+              thumbnailContentHash: Value('tc-thumb-z'),
+              thumbnailPlaintextHash: Value('tp-thumb-z'),
             ),
           );
       final hydrator = makeHydrator();

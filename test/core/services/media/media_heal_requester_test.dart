@@ -57,6 +57,20 @@ void main() {
       expect(requested, isEmpty);
     });
 
+    test('confirmed 404 requests even when batch-exists says present (M1a)',
+        () async {
+      // The committed-but-fileless repair case: metadata says servable, but the
+      // relay's download 404'd. A retry can't conjure the file, so request.
+      present = {'x'};
+      await build().onReferencedAbsent(
+        'x',
+        priority: MissingMediaDao.priorityChat,
+        fromNotFound: true,
+      );
+      expect(await dao.getById('x'), isNotNull, reason: 'recorded missing');
+      expect(requested, ['x'], reason: 'requested despite "present" metadata');
+    });
+
     test('confirmed absent → records missing + requests once', () async {
       await build().onReferencedAbsent('x', priority: MissingMediaDao.priorityChat);
       final row = await dao.getById('x');

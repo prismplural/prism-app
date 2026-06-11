@@ -112,6 +112,9 @@ final mediaFileProvider = FutureProvider.autoDispose
                   // MediaFileParams is deferred; all on-view heals currently use
                   // chat priority. The heal still works for profile images.
                   priority: MissingMediaDao.priorityChat,
+                  // A relay-confirmed 404 forces the heal past the batch-exists
+                  // gate (the committed-but-fileless repair case).
+                  fromNotFound: result.isNotFound,
                 )
                 .catchError((_) {}),
           );

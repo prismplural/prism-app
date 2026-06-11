@@ -46,7 +46,7 @@ class MediaHydrator {
     Duration maxBackoff = const Duration(minutes: 5),
     void Function(Duration delay, void Function() run)? scheduleRetry,
     void Function(String message)? log,
-    void Function(String mediaId)? onReferencedAbsent,
+    void Function(String mediaId, {bool fromNotFound})? onReferencedAbsent,
     Random? random,
   })  : _attachmentsDao = attachmentsDao,
         _downloadManager = downloadManager,
@@ -76,7 +76,7 @@ class MediaHydrator {
   /// the media heal's request trigger. The handler confirms absence (batch-exists)
   /// and broadcasts a re-supply request. `null` when the heal isn't wired (the
   /// hydrator stays download-only). See [MediaHealRequester.onReferencedAbsent].
-  final void Function(String mediaId)? _onReferencedAbsent;
+  final void Function(String mediaId, {bool fromNotFound})? _onReferencedAbsent;
 
   final Random _random;
 
@@ -308,7 +308,9 @@ class MediaHydrator {
       // and signal the heal so it can request a re-supply from a peer.
       _log('MediaHydrator: ${task.mediaId} not on relay; requesting re-supply');
       _finishGivenUp(task.mediaId);
-      _onReferencedAbsent?.call(task.mediaId);
+      // A relay-confirmed 404: force the heal even if batch-exists' metadata
+      // says "servable" (the committed-but-fileless repair case).
+      _onReferencedAbsent?.call(task.mediaId, fromNotFound: true);
       return;
     }
 
@@ -322,7 +324,9 @@ class MediaHydrator {
         'attempts; will retry on next launch',
       );
       _finishGivenUp(task.mediaId);
-      _onReferencedAbsent?.call(task.mediaId);
+      // Transient exhaustion (not a confirmed 404): let the requester's
+      // batch-exists gate decide whether to actually request.
+      _onReferencedAbsent?.call(task.mediaId, fromNotFound: false);
       return;
     }
 

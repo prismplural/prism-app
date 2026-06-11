@@ -99,11 +99,15 @@ final mediaHydratorProvider = Provider<MediaHydrator>((ref) {
     // re-supply. Fire-and-forget; the requester gates + coalesces. The hydrator
     // walks attachments uniformly, so it heals at chat priority — profile-
     // priority heals come from the on-view UI path.
-    onReferencedAbsent: (mediaId) {
+    onReferencedAbsent: (mediaId, {bool fromNotFound = false}) {
       unawaited(
         ref
             .read(mediaHealRequesterProvider)
-            .onReferencedAbsent(mediaId, priority: MissingMediaDao.priorityChat)
+            .onReferencedAbsent(
+              mediaId,
+              priority: MissingMediaDao.priorityChat,
+              fromNotFound: fromNotFound,
+            )
             // Never let a transient heal failure surface as an unhandled async
             // error (the send/batch-exists paths already no-op internally).
             .catchError((_) {}),
