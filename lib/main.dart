@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'
     show FontLoader, SystemNavigator, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:prism_sync/generated/frb_generated.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -393,15 +392,7 @@ Future<void> _maybeSeedDebugStressFixture(String? verifiedStartupKey) async {
 }
 
 Future<void> _initRustLib() async {
-  // On iOS/macOS, the Rust library is statically linked via -force_load in the
-  // podspec. Use ExternalLibrary.process() to find symbols in the current process.
-  if (Platform.isIOS || Platform.isMacOS) {
-    await RustLib.init(
-      externalLibrary: ExternalLibrary.process(iKnowHowToUseIt: true),
-    );
-  } else {
-    await RustLib.init();
-  }
+  await RustLib.init();
 }
 
 /// Wraps [probeAppDatabaseStartup] so any unexpected throw becomes a

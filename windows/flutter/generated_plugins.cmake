@@ -20,7 +20,6 @@ list(APPEND FLUTTER_FFI_PLUGIN_LIST
   flutter_local_notifications_windows
   flutter_soloud
   jni
-  prism_sync
 )
 
 set(PLUGIN_BUNDLED_LIBRARIES)
