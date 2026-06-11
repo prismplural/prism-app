@@ -42,20 +42,60 @@ class PkSyncMigrationGatedException implements Exception {
 // Sync service provider (singleton)
 // ---------------------------------------------------------------------------
 
+/// Build a [PkGroupsImporter] bound to the CURRENT sync handle.
+///
+/// 2026-06 PK audit H10 — resolved via `ref.read` (never `ref.watch`) so it
+/// can be called both at first build and from the `ref.listen` refresh below
+/// without making the surrounding provider reactive to the handle.
+PkGroupsImporter _buildPkGroupsImporter(Ref ref) => PkGroupsImporter(
+  db: ref.read(databaseProvider),
+  memberRepository: ref.read(memberRepositoryProvider),
+  syncHandle: ref.read(prismSyncHandleProvider).value,
+);
+
+/// Singleton PluralKit sync service.
+///
+/// 2026-06 PK audit H10 — the service instance must be STABLE across
+/// `prismSyncHandleProvider` transitions. Every transition (null→data on boot,
+/// data→data on each sync reconfigure) rebuilds `memberRepositoryProvider`,
+/// `frontingSessionRepositoryProvider`, `systemSettingsRepositoryProvider`
+/// (all of which `ref.watch` the handle), so the OLD code's `ref.watch` of
+/// those providers rebuilt the entire service mid-flight: `_state` reset
+/// (isConnected=false until loadState), `_pushInFlight`/`isSyncing` wiped,
+/// while the old instance's still-live `onStateChanged` closure kept emitting
+/// (double delivery), and a second import could start concurrently with the
+/// first.
+///
+/// Fix: build ONCE with `ref.read` (no `ref.watch` of any handle-bearing
+/// provider → no rebuild on transition), then `ref.listen` the handle and push
+/// handle-fresh dependencies into the SAME instance via
+/// [PluralKitSyncService.updateVolatileDependencies]. The concurrency gates on
+/// the instance (`_pushInFlight`, `isSyncing`, `_state`) therefore survive
+/// every transition, while group import and member/fronting writes still pick
+/// up the new handle.
 final pluralKitSyncServiceProvider = Provider<PluralKitSyncService>((ref) {
-  final db = ref.watch(databaseProvider);
-  return PluralKitSyncService(
-    memberRepository: ref.watch(memberRepositoryProvider),
-    frontingSessionRepository: ref.watch(frontingSessionRepositoryProvider),
-    syncDao: ref.watch(pluralKitSyncDaoProvider),
-    bus: ref.watch(pkSyncEventBusProvider),
-    settingsRepository: ref.watch(systemSettingsRepositoryProvider),
-    groupsImporter: PkGroupsImporter(
-      db: db,
-      memberRepository: ref.watch(memberRepositoryProvider),
-      syncHandle: ref.watch(prismSyncHandleProvider).value,
-    ),
+  final service = PluralKitSyncService(
+    memberRepository: ref.read(memberRepositoryProvider),
+    frontingSessionRepository: ref.read(frontingSessionRepositoryProvider),
+    syncDao: ref.read(pluralKitSyncDaoProvider),
+    bus: ref.read(pkSyncEventBusProvider),
+    settingsRepository: ref.read(systemSettingsRepositoryProvider),
+    groupsImporter: _buildPkGroupsImporter(ref),
   );
+
+  // Refresh the handle-bearing dependencies on every handle transition without
+  // rebuilding the service. Reading the providers inside the listener returns
+  // their freshly-rebuilt (handle-current) instances.
+  ref.listen(prismSyncHandleProvider, (previous, next) {
+    service.updateVolatileDependencies(
+      memberRepository: ref.read(memberRepositoryProvider),
+      frontingSessionRepository: ref.read(frontingSessionRepositoryProvider),
+      settingsRepository: ref.read(systemSettingsRepositoryProvider),
+      groupsImporter: _buildPkGroupsImporter(ref),
+    );
+  });
+
+  return service;
 });
 
 final pkGroupResetServiceProvider = Provider<PkGroupResetService>((ref) {

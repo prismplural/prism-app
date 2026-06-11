@@ -702,8 +702,19 @@ void main() {
       expect(await service.buildClientIfConnected(), isNotNull);
     });
 
+    // 2026-06 PK audit H9: these two tests previously asserted that a FAILED
+    // setToken deleted the token slot ("token deleted from storage") — which
+    // pinned the bug. The old flow wrote the new token BEFORE validating and
+    // deleted the slot on any failure, so a failed rotation (even a transient
+    // network blip) destroyed the working token while the DB stayed
+    // `isConnected=true`. The new contract: validation happens against an
+    // ephemeral client FIRST, so a failure never touches storage at all. On a
+    // fresh (never-connected) device the observable end state is similar
+    // (no token, not connected) — but nothing was ever WRITTEN, which the
+    // writeCount assertions pin. The rotation case is covered separately in
+    // pluralkit_sync_service_set_token_test.dart.
     test(
-      '401 from getSystem: isConnected = false, token deleted from storage',
+      '401 from getSystem: isConnected = false, storage never written (H9)',
       () async {
         final db = _makeDb();
         addTearDown(db.close);
@@ -715,12 +726,29 @@ void main() {
 
         expect(service.state.isConnected, isFalse);
         expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+        expect(
+          storageStub.writeCount,
+          0,
+          reason:
+              'H9: validation must happen BEFORE any storage write — a bad '
+              'token must never be persisted (and must never overwrite a '
+              'working one)',
+        );
+        expect(
+          storageStub.deleteCount,
+          0,
+          reason:
+              'H9: a failed setToken must not delete the token slot — the '
+              'old delete-on-failure behavior is what destroyed working '
+              'tokens on transient failures',
+        );
         expect(service.state.syncError, isNotNull);
       },
     );
 
     test(
-      'network error from getSystem: isConnected = false, token deleted',
+      'network error from getSystem: isConnected = false, storage untouched '
+      '(H9)',
       () async {
         final db = _makeDb();
         addTearDown(db.close);
@@ -732,6 +760,16 @@ void main() {
 
         expect(service.state.isConnected, isFalse);
         expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
+        expect(
+          storageStub.writeCount,
+          0,
+          reason: 'H9: no storage write before validation succeeds',
+        );
+        expect(
+          storageStub.deleteCount,
+          0,
+          reason: 'H9: transient failures must never delete the token slot',
+        );
         expect(service.state.syncError, isNotNull);
       },
     );
@@ -2987,9 +3025,16 @@ void _registerWs3PrDTests() {
         // incremental sweep (single cursor write at end-of-batch). The
         // performFullImport path resets the cursor up-front, which would
         // double the count for reasons unrelated to step 7.
+        //
+        // `systemId` must match the fake client's system ('sys-1') so the
+        // setToken below is a SAME-system rotation: 2026-06 PK audit M4
+        // made a different-system setToken null the cursor + lastSyncDate,
+        // and a cursor never legitimately exists without a systemId
+        // (setToken writes the systemId before any sweep can advance one).
         await countingDao.upsertSyncState(
           PluralKitSyncStateCompanion(
             id: const Value('pk_config'),
+            systemId: const Value('sys-1'),
             switchCursorTimestamp: Value(DateTime.utc(2025, 1, 1)),
             switchCursorId: const Value('ancient'),
             lastSyncDate: Value(DateTime.utc(2026, 1, 1)),
@@ -3071,9 +3116,14 @@ void _registerWs3PrDTests() {
 
         // Seed the cursor + lastSyncDate so syncRecentData enters the
         // incremental path (which is where the no-progress guard lives).
+        // `systemId` must match the fake's system ('sys-1'): 2026-06 PK
+        // audit M4 made a different-system setToken null the cursor +
+        // lastSyncDate, which would divert this test into the full-import
+        // path (and the wrong guard).
         await db.pluralKitSyncDao.upsertSyncState(
           PluralKitSyncStateCompanion(
             id: const Value('pk_config'),
+            systemId: const Value('sys-1'),
             switchCursorTimestamp: Value(DateTime.utc(2025, 1, 1)),
             switchCursorId: const Value('cursor-id'),
             lastSyncDate: Value(DateTime.utc(2026, 1, 1, 9)),
@@ -3144,9 +3194,14 @@ void _registerWs3PrDTests() {
           }),
         );
 
+        // `systemId` matches the fake's system ('sys-1') so the setToken
+        // below preserves the seeded cursor + lastSyncDate (2026-06 PK
+        // audit M4 nulls them on a system swap) and the test stays on the
+        // incremental page-cap path.
         await db.pluralKitSyncDao.upsertSyncState(
           PluralKitSyncStateCompanion(
             id: const Value('pk_config'),
+            systemId: const Value('sys-1'),
             switchCursorTimestamp: Value(DateTime.utc(2020, 1, 1)),
             switchCursorId: const Value('ancient'),
             lastSyncDate: Value(DateTime.utc(2026, 1, 1)),

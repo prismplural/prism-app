@@ -176,19 +176,36 @@ class DriftFrontingSessionRepository
   Future<void> updateSession(domain.FrontingSession session) async {
     final existingRow = await _dao.getSessionById(session.id);
     if (existingRow == null) return;
-    final canRevivePkRescueTombstone =
+    // 2026-06 PK audit H5 discriminator: a tombstone is revivable here only
+    // when this write is restoring a PK identity onto importer/migration
+    // CLEANUP — the existing row is link-cleared (the wave-1
+    // clear-link-before-delete idiom) with no local delete intent, AND the
+    // incoming session carries a PK link (the corrective sweep's rebuild).
+    // Everything else stays a strict no-op:
+    // - a tombstone with the PK link still INTACT is user intent — either a
+    //   local delete awaiting its PK push, or a peer device's delete that
+    //   arrived via CRDT merge (is_deleted syncs; delete_intent_epoch is
+    //   deliberately device-local). Reviving those undoes the user's delete
+    //   everywhere and aborts the originating device's pending PK deletion.
+    //   (The previous gate required the link to be INTACT to revive —
+    //   written when migration tombstones kept their links; that was
+    //   exactly the peer-synced-delete shape, the H5 hole.)
+    // - an ordinary edit on a user-deleted, never-linked session carries no
+    //   incoming PK link and must not resurrect the row.
+    final canReviveImporterCleanupTombstone =
         existingRow.isDeleted &&
         !session.isDeleted &&
-        existingRow.pluralkitUuid != null &&
-        existingRow.pluralkitUuid!.isNotEmpty &&
-        existingRow.deleteIntentEpoch == null;
-    if (existingRow.isDeleted && !canRevivePkRescueTombstone) return;
+        (existingRow.pluralkitUuid == null ||
+            existingRow.pluralkitUuid!.isEmpty) &&
+        existingRow.deleteIntentEpoch == null &&
+        (session.pluralkitUuid?.isNotEmpty ?? false);
+    if (existingRow.isDeleted && !canReviveImporterCleanupTombstone) return;
 
     final changedFields = diffSyncFields(
       _sessionFieldsFromRow(existingRow),
       _sessionFields(session),
     );
-    if (canRevivePkRescueTombstone) {
+    if (canReviveImporterCleanupTombstone) {
       changedFields['is_deleted'] = false;
       if (existingRow.deletePushStartedAt != null) {
         changedFields['delete_push_started_at'] = null;

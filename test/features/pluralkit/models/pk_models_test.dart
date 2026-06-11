@@ -142,4 +142,42 @@ void main() {
       expect(m.birthday, '0004-03-21');
     });
   });
+
+  group('PKSystem.fromJson', () {
+    // 2026-06 PK audit H8: the system uuid is the stable identity key for the
+    // file-import system check (short ids become user-changeable with PK
+    // Premium). Both the API response and the pk;export root carry it.
+    test('parses uuid alongside the short id', () {
+      final json = <String, dynamic>{
+        'id': 'abcde',
+        'uuid': '11111111-2222-3333-4444-555555555555',
+        'name': 'My System',
+        'tag': '| sys',
+        'avatar_url': 'https://example.test/sys.png',
+      };
+
+      final s = PKSystem.fromJson(json);
+
+      expect(s.id, 'abcde');
+      expect(s.uuid, '11111111-2222-3333-4444-555555555555');
+      expect(s.name, 'My System');
+      expect(s.tag, '| sys');
+      expect(s.avatarUrl, 'https://example.test/sys.png');
+    });
+
+    test('tolerates a missing uuid (legacy/partial payloads)', () {
+      final json = <String, dynamic>{'id': 'abcde', 'name': 'My System'};
+
+      final s = PKSystem.fromJson(json);
+
+      expect(s.id, 'abcde');
+      expect(
+        s.uuid,
+        isNull,
+        reason:
+            'uuid is optional — identity checks fall back to the short id '
+            'when either side lacks one',
+      );
+    });
+  });
 }

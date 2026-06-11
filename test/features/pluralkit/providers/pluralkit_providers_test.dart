@@ -7,9 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_sync/generated/api.dart' as ffi;
+
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
@@ -608,6 +612,174 @@ void main() {
       expect(ctx.service.pushPendingCalls, 1);
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 2026-06 PK audit H10: `pluralKitSyncServiceProvider` must yield a STABLE
+  // service instance across `prismSyncHandleProvider` transitions (null→data
+  // on boot, data→data on every sync reconfigure). The old wiring `ref.watch`ed
+  // handle-bearing providers, so each transition rebuilt the whole service:
+  // `_state` reset (isConnected=false until loadState), `isSyncing` /
+  // `_pushInFlight` wiped mid-import, and the orphaned instance's still-live
+  // `onStateChanged` closure double-delivered into the notifier. The new
+  // wiring builds once with `ref.read` and rebinds the volatile dependencies
+  // in place via `updateVolatileDependencies` from a `ref.listen`.
+  // ──────────────────────────────────────────────────────────────────────────
+  group('H10: pluralKitSyncServiceProvider — handle-transition stability', () {
+    Future<void> settle() async {
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    ({ProviderContainer container, AppDatabase db}) makeContainer({
+      ffi.PrismSyncHandle? initialHandle,
+    }) {
+      _installSecureStorageStub();
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          prismSyncHandleProvider.overrideWith(
+            () => _StubSyncHandleNotifier(initialHandle),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return (container: container, db: db);
+    }
+
+    _StubSyncHandleNotifier stubOf(ProviderContainer container) =>
+        container.read(prismSyncHandleProvider.notifier)
+            as _StubSyncHandleNotifier;
+
+    test(
+        'service identity and an in-flight isSyncing claim survive a '
+        'data→data handle transition (reqs a + b)', () async {
+      final handleA = _FakeRustHandle();
+      final h = makeContainer(initialHandle: handleA);
+      await h.container.read(prismSyncHandleProvider.future);
+
+      final service1 = h.container.read(pluralKitSyncServiceProvider);
+
+      // Start a real file import. Its synchronous prefix claims isSyncing
+      // BEFORE the first await suspends it (at the H8 linked-system DAO
+      // read), so the claim is observable without any timing games.
+      const export = PkFileExport(
+        system: PKSystem(id: 'sysaa', name: 'Import System'),
+        members: [
+          PKMember(
+            id: 'memaa',
+            uuid: 'cccccccc-0000-0000-0000-000000000001',
+            name: 'File Member',
+          ),
+        ],
+        groups: [],
+        switches: [],
+      );
+      final importFuture = service1.importFromFile(export);
+      expect(service1.state.isSyncing, isTrue);
+
+      // data→data transition mid-flight (handleA → null handle). The import
+      // resumes AFTER the listener has rebound the repositories, so the
+      // member writes go through the null-handle repos (no FFI in tests).
+      // With the old ref.watch wiring this transition rebuilt the service
+      // and wiped the claim while the old instance kept running.
+      stubOf(h.container).emitHandle(null);
+
+      final service2 = h.container.read(pluralKitSyncServiceProvider);
+      expect(
+        identical(service1, service2),
+        isTrue,
+        reason: 'H10 (a): the service instance must survive the transition',
+      );
+      expect(
+        service2.state.isSyncing,
+        isTrue,
+        reason:
+            'H10 (b): the in-flight isSyncing claim must not be wiped — the '
+            'old rebuild let a second import start concurrently',
+      );
+
+      final result = await importFuture;
+      expect(result.membersImported, 1);
+      expect(service2.state.isSyncing, isFalse,
+          reason: 'the import completed on the same instance');
+    });
+
+    test(
+        'groups importer rebinds to the NEW handle without a service rebuild '
+        '(req c)', () async {
+      final handleA = _FakeRustHandle();
+      final handleB = _FakeRustHandle();
+      final h = makeContainer(initialHandle: handleA);
+      await h.container.read(prismSyncHandleProvider.future);
+
+      final service = h.container.read(pluralKitSyncServiceProvider);
+      final importer1 = service.groupsImporterForTesting;
+      expect(importer1, isNotNull);
+      expect(importer1!.syncHandle, same(handleA),
+          reason: 'initial importer bound to the boot handle');
+
+      stubOf(h.container).emitHandle(handleB);
+
+      expect(
+        identical(h.container.read(pluralKitSyncServiceProvider), service),
+        isTrue,
+      );
+      final importer2 = service.groupsImporterForTesting;
+      expect(importer2, isNotNull);
+      expect(
+        identical(importer1, importer2),
+        isFalse,
+        reason: 'H10 (c): the importer must be rebuilt on transition',
+      );
+      expect(
+        importer2!.syncHandle,
+        same(handleB),
+        reason:
+            'H10 (c): group import after a reconfigure must use the NEW '
+            'handle — a stale importer would emit ops into a dead session',
+      );
+    });
+
+    test(
+        'exactly one notifier delivery per service emit after a transition '
+        '(req d)', () async {
+      final h = makeContainer(initialHandle: null);
+      await h.container.read(prismSyncHandleProvider.future);
+
+      final deliveries = <PluralKitSyncState>[];
+      h.container.listen(
+        pluralKitSyncProvider,
+        (prev, next) => deliveries.add(next),
+      );
+      // Build the notifier and let loadState's async emit settle.
+      h.container.read(pluralKitSyncProvider);
+      await settle();
+
+      // A handle transition. Old code: this rebuilt the service while the
+      // orphaned instance's onStateChanged closure stayed live — both
+      // instances then emitted into the same notifier.
+      stubOf(h.container).emitHandle(_FakeRustHandle());
+      await settle();
+
+      deliveries.clear();
+      // One service emit: the empty-token path is a single synchronous
+      // _emit with no I/O.
+      await h.container.read(pluralKitSyncProvider.notifier).setToken('');
+      await settle();
+
+      expect(
+        deliveries,
+        hasLength(1),
+        reason:
+            'H10 (d): one emit must produce exactly one delivery — no '
+            'double emission from an orphaned service instance',
+      );
+      expect(deliveries.single.syncError, contains('Token cannot be empty'));
+    });
+  });
 }
 
 class _StaticPkSyncModeNotifier extends PkSyncModeNotifier {
@@ -720,4 +892,39 @@ class _ThrowingPkSyncService implements PluralKitSyncService {
   @override
   dynamic noSuchMethod(Invocation invocation) =>
       throw UnimplementedError('unexpected call to ${invocation.memberName}');
+}
+
+/// Distinguishable stand-in for the Rust FFI sync handle (H10 tests).
+///
+/// `ffi.PrismSyncHandle` is an empty opaque interface (`implements
+/// RustOpaqueInterface`), so a fake only needs the dispose surface. No FFI
+/// method ever runs against it in these tests: the repositories/importer
+/// merely STORE the handle, and the one test that performs DB writes
+/// transitions to a null handle before the writes resume.
+class _FakeRustHandle implements ffi.PrismSyncHandle {
+  bool _disposed = false;
+
+  @override
+  void dispose() => _disposed = true;
+
+  @override
+  bool get isDisposed => _disposed;
+}
+
+/// Drives `prismSyncHandleProvider` state transitions from tests without the
+/// real notifier's secure-storage reads / handle construction.
+class _StubSyncHandleNotifier extends PrismSyncHandleNotifier {
+  _StubSyncHandleNotifier(this._initial);
+
+  final ffi.PrismSyncHandle? _initial;
+
+  @override
+  Future<ffi.PrismSyncHandle?> build() async => _initial;
+
+  /// Emit a new handle value — an AsyncData→AsyncData transition once the
+  /// initial build has settled, exactly like a sync reconfigure in
+  /// production.
+  void emitHandle(ffi.PrismSyncHandle? handle) {
+    state = AsyncData(handle);
+  }
 }

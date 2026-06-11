@@ -8,6 +8,14 @@ import 'dart:convert';
 
 class PKSystem {
   final String id;
+
+  /// Full UUID — the only stable cross-time identity key. Short ids become
+  /// user-changeable with PK Premium (~Feb 2026), so the UUID is what the
+  /// file-import system-identity check (2026-06 PK audit H8) prefers.
+  ///
+  /// Nullable because some legacy/partial payloads (and older `pk;export`
+  /// roots) may omit it; callers must fall back to [id] when it is absent.
+  final String? uuid;
   final String? name;
   final String? description;
   final String? tag;
@@ -15,6 +23,7 @@ class PKSystem {
 
   const PKSystem({
     required this.id,
+    this.uuid,
     this.name,
     this.description,
     this.tag,
@@ -24,6 +33,10 @@ class PKSystem {
   factory PKSystem.fromJson(Map<String, dynamic> json) {
     return PKSystem(
       id: json['id'] as String,
+      // Both the API (`GET /systems/@me`) and the `pk;export` root carry
+      // `uuid`; parse it so the file-import identity check has a stable key
+      // (2026-06 PK audit H8).
+      uuid: json['uuid'] as String?,
       name: json['name'] as String?,
       description: json['description'] as String?,
       tag: json['tag'] as String?,

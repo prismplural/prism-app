@@ -33,6 +33,14 @@ import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.da
 class _SecureStorageStub {
   final _store = <String, String?>{};
 
+  /// When true, the 'write' handler throws BEFORE mutating the store —
+  /// simulating a classified secure-storage write failure for the H9
+  /// "couldn't save the token" path. The store stays untouched, mirroring
+  /// the real plugin contract (a failed write never half-writes).
+  bool throwOnWrite = false;
+  int writeCount = 0;
+  int deleteCount = 0;
+
   void setup() {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -41,6 +49,13 @@ class _SecureStorageStub {
           (MethodCall call) async {
             switch (call.method) {
               case 'write':
+                writeCount++;
+                if (throwOnWrite) {
+                  throw PlatformException(
+                    code: 'PrismTestWriteFailure',
+                    message: 'injected secure-storage write failure',
+                  );
+                }
                 final key = call.arguments['key'] as String;
                 final value = call.arguments['value'] as String?;
                 _store[key] = value;
@@ -49,6 +64,7 @@ class _SecureStorageStub {
                 final key = call.arguments['key'] as String;
                 return _store[key];
               case 'delete':
+                deleteCount++;
                 final key = call.arguments['key'] as String;
                 _store.remove(key);
                 return null;
@@ -69,6 +85,9 @@ class _SecureStorageStub {
           null,
         );
     _store.clear();
+    throwOnWrite = false;
+    writeCount = 0;
+    deleteCount = 0;
   }
 }
 
@@ -90,12 +109,20 @@ class _FakeClient implements PluralKitClient {
   PKMember Function(Map<String, dynamic> data)? onCreate;
   int createCallCount = 0;
 
+  /// Failure knobs for the H9 token-rotation tests: simulate a 401 or a
+  /// transport failure from `getSystem` (the setToken validation call).
+  bool throwAuthError = false;
+  bool throwNetworkError = false;
+
   @override
   String get currentToken => 'fake-token';
 
   @override
-  Future<PKSystem> getSystem() async =>
-      PKSystem(id: _systemId, name: 'Test System');
+  Future<PKSystem> getSystem() async {
+    if (throwAuthError) throw const PluralKitAuthError();
+    if (throwNetworkError) throw Exception('Network unreachable');
+    return PKSystem(id: _systemId, name: 'Test System');
+  }
 
   @override
   Future<List<PKMember>> getMembers() async => const [];
@@ -659,6 +686,255 @@ void main() {
         expect(updated.pluralkitUuid, 'new-uuid');
       },
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // 2026-06 PK audit H9: failed token rotation must not destroy the working
+  // token, and the DB/storage must never diverge.
+  //
+  // The old setToken wrote the new token to secure storage BEFORE validation
+  // (overwriting the working one) and deleted the slot on ANY failure — even a
+  // transient network blip — while never persisting isConnected=false. New
+  // contract: validate first (ephemeral client), persist only on success with
+  // a CHECKED safeSecureWrite, and leave the prior token + connection state
+  // completely untouched on any failure.
+  // ---------------------------------------------------------------------------
+
+  group('H9: setToken failure leaves the working token intact', () {
+    const pkTokenKey = 'prism_pluralkit_token';
+    final t0 = DateTime(2024, 1, 1, 12).toUtc();
+
+    PluralKitSyncService makeServiceWithClient(
+      AppDatabase db,
+      _FakeClient client,
+    ) {
+      return PluralKitSyncService(
+        memberRepository: _FakeMemberRepository(),
+        frontingSessionRepository: _FakeFrontingSessionRepository(),
+        syncDao: db.pluralKitSyncDao,
+        bus: PkSyncEventBus(),
+        secureStorage: const FlutterSecureStorage(),
+        clientFactory: (_) => client,
+      );
+    }
+
+    test('401 during rotation: old token + connection state untouched',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      await _seedRow(
+        db,
+        systemId: 'sys-X',
+        mappingAcknowledged: true,
+        directionConfirmed: true,
+        linkedAt: t0,
+      );
+      // A working token from the prior successful connect.
+      storageStub._store[pkTokenKey] = 'old-working-token';
+
+      final client = _FakeClient('sys-X')..throwAuthError = true;
+      final service = makeServiceWithClient(db, client);
+      await service.loadState();
+      expect(service.state.isConnected, isTrue);
+
+      await service.setToken('bad-new-token');
+
+      // Storage: the working token survives; nothing was written or deleted.
+      expect(
+        storageStub._store[pkTokenKey],
+        'old-working-token',
+        reason: 'H9: a failed rotation must not overwrite the working token',
+      );
+      expect(storageStub.writeCount, 0,
+          reason: 'H9: validation must precede any storage write');
+      expect(storageStub.deleteCount, 0,
+          reason: 'H9: failure paths must never delete the token slot');
+
+      // DB + in-memory state: still connected on the old token.
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.isConnected, isTrue,
+          reason: 'H9: DB connection state untouched on validation failure');
+      expect(row.systemId, 'sys-X');
+      expect(service.state.isConnected, isTrue);
+      expect(service.state.syncError, contains('Invalid token'));
+    });
+
+    test(
+        'transient network error during rotation: old token + connection '
+        'state untouched', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      await _seedRow(
+        db,
+        systemId: 'sys-X',
+        mappingAcknowledged: true,
+        directionConfirmed: true,
+        linkedAt: t0,
+      );
+      storageStub._store[pkTokenKey] = 'old-working-token';
+
+      final client = _FakeClient('sys-X')..throwNetworkError = true;
+      final service = makeServiceWithClient(db, client);
+      await service.loadState();
+
+      await service.setToken('new-token-from-pk');
+
+      expect(
+        storageStub._store[pkTokenKey],
+        'old-working-token',
+        reason:
+            'H9: the audit case — a transient failure during rotation '
+            'previously DELETED the working token',
+      );
+      expect(storageStub.writeCount, 0);
+      expect(storageStub.deleteCount, 0);
+
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.isConnected, isTrue);
+      expect(service.state.isConnected, isTrue);
+      expect(service.state.syncError, contains('Connection failed'));
+    });
+
+    test(
+        'secure-storage write failure after successful validation: error '
+        'surfaced, prior token intact, DB not flipped', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      await _seedRow(
+        db,
+        systemId: 'sys-X',
+        mappingAcknowledged: true,
+        directionConfirmed: true,
+        linkedAt: t0,
+      );
+      storageStub._store[pkTokenKey] = 'old-working-token';
+      storageStub.throwOnWrite = true;
+
+      // Validation SUCCEEDS (client healthy); only the persist step fails.
+      final client = _FakeClient('sys-X');
+      final service = makeServiceWithClient(db, client);
+      await service.loadState();
+
+      await service.setToken('new-token');
+
+      // safeSecureWrite failure semantics: the write threw before storing,
+      // so the previously stored token was not overwritten.
+      expect(storageStub.writeCount, greaterThan(0),
+          reason: 'the write was attempted (validation passed)');
+      expect(storageStub._store[pkTokenKey], 'old-working-token');
+
+      // The DB row keeps its prior shape — setToken returned before the
+      // upsert. In particular linkedAt was not re-stamped.
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.isConnected, isTrue);
+      expect(
+        row.linkedAt?.millisecondsSinceEpoch,
+        t0.millisecondsSinceEpoch,
+      );
+      expect(service.state.syncError, contains('save the token'));
+    });
+
+    test(
+        'secure-storage write failure on a FRESH device: DB must not claim '
+        'connected while storage is empty', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      storageStub.throwOnWrite = true;
+      final client = _FakeClient('sys-Z');
+      final service = makeServiceWithClient(db, client);
+
+      await service.setToken('first-token');
+
+      // The H9 divergence: DB says connected + storage empty = auto-poll
+      // skips forever while the UI shows connected. Both must stay "not
+      // connected" here.
+      expect(storageStub._store.containsKey(pkTokenKey), isFalse);
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.isConnected, isFalse);
+      expect(service.state.isConnected, isFalse);
+      expect(service.state.syncError, contains('save the token'));
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 2026-06 PK audit M4: a different-system swap must null the switch cursor
+  // and lastSyncDate (parity with clearToken). Otherwise the OLD system's
+  // cursor `covers()` the NEW system's history: if the user dismisses the
+  // mapping flow (the audit's "escape hatch"), the new system's switches are
+  // silently never imported.
+  // ---------------------------------------------------------------------------
+
+  group('M4: setToken system swap resets the switch cursor', () {
+    final t0 = DateTime(2024, 1, 1, 12).toUtc();
+    final cursorTs = DateTime(2024, 6, 1, 9).toUtc();
+    final lastSync = DateTime(2024, 6, 2, 10).toUtc();
+
+    Future<void> seedConnectedWithCursor(AppDatabase db) async {
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          systemId: const Value('sys-X'),
+          isConnected: const Value(true),
+          mappingAcknowledged: const Value(true),
+          directionConfirmed: const Value(true),
+          linkedAt: Value(t0),
+          switchCursorTimestamp: Value(cursorTs),
+          switchCursorId: const Value('sw-cursor-old'),
+          lastSyncDate: Value(lastSync),
+        ),
+      );
+    }
+
+    test('different-system swap nulls cursor + lastSyncDate', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      await seedConnectedWithCursor(db);
+
+      final service = _makeService(db, 'sys-Y');
+      await service.setToken('new-token');
+
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.systemId, 'sys-Y');
+      expect(
+        row.switchCursorTimestamp,
+        isNull,
+        reason:
+            'M4: the old system\'s cursor would cover() the new system\'s '
+            'history and silently skip its import',
+      );
+      expect(row.switchCursorId, isNull);
+      expect(row.lastSyncDate, isNull,
+          reason:
+              'M4: a retained lastSyncDate sends the next sync down the '
+              'incremental branch instead of the first-sync full import');
+    });
+
+    test('same-system token rotation preserves cursor + lastSyncDate',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      await seedConnectedWithCursor(db);
+
+      final service = _makeService(db, 'sys-X');
+      await service.setToken('rotated-token');
+
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.systemId, 'sys-X');
+      expect(
+        row.switchCursorTimestamp?.millisecondsSinceEpoch,
+        cursorTs.millisecondsSinceEpoch,
+        reason: 'rotation is not a remap — the incremental sweep must resume',
+      );
+      expect(row.switchCursorId, 'sw-cursor-old');
+      expect(
+        row.lastSyncDate?.millisecondsSinceEpoch,
+        lastSync.millisecondsSinceEpoch,
+      );
+    });
   });
 }
 

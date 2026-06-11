@@ -1119,17 +1119,27 @@ void main() {
       expect(newRow.id, _expectedRowId('sw-fresh', 'uuid-a'));
     });
 
-    test('performFullImport resurrects a soft-deleted rescue row '
-        '(upgradeAndKeep migration → API re-import)', () async {
-      // Final P1 regression guard. The upgradeAndKeep migration soft-
-      // deletes every PK-imported rescue row, expecting a later
-      // corrective API re-import to resurrect them with API-truth
-      // boundaries via field-LWW. Before the fix, the corrective
-      // collision branch did `existing.copyWith(startTime: ..., ...)`
-      // which preserved `isDeleted: true` from the soft-deleted row.
-      // Updates wrote new fields but never cleared the tombstone, so
-      // the user saw an empty PK timeline post-migration with no
-      // recovery path short of manually re-importing the rescue file.
+    test('performFullImport preserves a soft-deleted rescue row '
+        '(2026-06 PK audit H5: still-linked tombstones are never '
+        'resurrected)', () async {
+      // HISTORY: this was the P1 "upgradeAndKeep → resurrect" regression
+      // guard, asserting that a corrective re-import undeleted the
+      // migration's soft-deleted rescue rows. That assertion only ever
+      // held in THIS harness: the repositories here are built without
+      // `pkSyncDao`, so `deleteSession` never stamps `deleteIntentEpoch`
+      // (the audit's documented test blind spot #2). In PRODUCTION the
+      // DAO is wired (database_providers.dart), the migration's deletes
+      // on linked rows ARE intent-stamped, and the WS3 step-4 preserve
+      // branch already refused to resurrect them — the "resurrect"
+      // contract this test pinned has not matched production since WS3.
+      //
+      // 2026-06 PK audit H5 then widened the preserve branch to ANY
+      // still-linked tombstone (intent-less ones are how a PEER's delete
+      // arrives, since `is_deleted` syncs but `delete_intent_epoch` is
+      // device-local; resurrecting them undoes the user's delete
+      // everywhere and aborts the originating device's PK deletion).
+      // The harness now agrees with production: preserved, surfaced via
+      // `tombstonePreservedCount`.
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -1169,8 +1179,8 @@ void main() {
         reason: 'precondition: row is soft-deleted before re-import',
       );
 
-      // API says A is fronting from sw-1 → corrective re-import should
-      // resurrect the row with the API-truth start time and member.
+      // API says A is fronting from sw-1 → the still-linked tombstone at
+      // the canonical id collides with the entrant, and H5 preserves it.
       final sw = PKSwitch(
         id: switchId,
         timestamp: apiStart,
@@ -1191,31 +1201,41 @@ void main() {
       await service.acknowledgeMapping();
       await service.performFullImport();
 
-      // Row is back in the active set with API-truth fields.
+      // H5: the tombstone is preserved — no live row reappears.
       final all = await sessionRepo.getAllSessions();
       expect(
         all,
-        hasLength(1),
-        reason: 'corrective re-import must undelete the rescue row',
+        isEmpty,
+        reason:
+            'H5: a still-linked tombstone must not be resurrected by the '
+            'corrective import — an identical-looking row is how a peer '
+            'device\'s synced delete arrives',
       );
-      final row = all.single;
-      expect(row.id, rescueId);
+      final tombstone = await sessionRepo.getSessionById(rescueId);
+      expect(tombstone, isNotNull);
       expect(
-        row.isDeleted,
-        isFalse,
-        reason: 'corrective collision branch must clear is_deleted',
+        tombstone!.isDeleted,
+        isTrue,
+        reason: 'tombstone intact (preserved, not rewritten)',
       );
       expect(
-        row.startTime,
-        _sameInstant(apiStart),
-        reason: 'API start overwrote rescue lossy start',
+        tombstone.startTime,
+        _sameInstant(lossyStart),
+        reason: 'preserved rows are not rewritten with API fields',
       );
-      expect(row.memberId, 'local-a');
-      expect(row.pluralkitUuid, switchId);
+      expect(tombstone.pluralkitUuid, switchId, reason: 'link left intact');
     });
 
-    test('performFullImport resurrects soft-deleted PK row when legacy id '
-        'differs from deterministic id', () async {
+    test('performFullImport preserves a soft-deleted PK tombstone found via '
+        'the (uuid, member) fallback when its legacy id differs from the '
+        'deterministic id (2026-06 PK audit H5)', () async {
+      // HISTORY: previously asserted resurrection through the
+      // `_findSessionByPkSwitchAndMember` fallback. Same H5 inversion as
+      // the test above — a still-linked intent-less tombstone is exactly
+      // what a peer's synced delete looks like, regardless of which
+      // lookup found it. Crucially the preserve must also NOT create a
+      // parallel row at the deterministic id (the fallback found the
+      // tombstone, so the entrant is accounted for).
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -1264,21 +1284,25 @@ void main() {
 
       await service.performFullImport();
 
-      final active = await sessionRepo.getAllSessions();
-      expect(active, hasLength(1));
-      final row = active.single;
-      expect(row.id, 'legacy-pk-row');
-      expect(row.id, isNot(deterministicId));
-      expect(row.isDeleted, isFalse);
-      expect(row.startTime, _sameInstant(apiStart));
-      expect(row.endTime, isNull);
-      expect(row.memberId, 'local-a');
-      expect(row.pluralkitUuid, switchId);
+      // H5: no live row — the legacy tombstone was preserved, untouched.
+      expect(await sessionRepo.getAllSessions(), isEmpty);
+      final tombstone = await sessionRepo.getSessionById('legacy-pk-row');
+      expect(tombstone, isNotNull);
+      expect(tombstone!.isDeleted, isTrue);
+      expect(tombstone.startTime, _sameInstant(lossyStart));
+      expect(tombstone.pluralkitUuid, switchId);
 
+      // And no parallel row materialized at the deterministic id.
       final deterministicRow = await sessionRepo.getSessionById(
         deterministicId,
       );
-      expect(deterministicRow, isNull);
+      expect(
+        deterministicRow,
+        isNull,
+        reason:
+            'the (uuid, member) fallback accounted for the entrant; '
+            'creating a fresh deterministic-id row would duplicate it',
+      );
     });
   });
 
@@ -1857,11 +1881,17 @@ void main() {
         // id, and was *missed* (it appeared after sw-1 in the page on the
         // first sweep but before the cursor break). Also seed
         // `lastSyncDate` so syncRecentData enters the incremental path
-        // rather than diverting to performFullImport.
+        // rather than diverting to performFullImport, and `systemId`
+        // matching the fake client ('sys') so the setToken below is a
+        // SAME-system rotation — 2026-06 PK audit M4 made a
+        // different-system setToken null the cursor + lastSyncDate, and a
+        // cursor never legitimately exists without a systemId (setToken
+        // writes the systemId before any sweep can advance a cursor).
         final cursorTs = DateTime.utc(2026, 1, 1, 12);
         await db.pluralKitSyncDao.upsertSyncState(
           PluralKitSyncStateCompanion(
             id: const Value('pk_config'),
+            systemId: const Value('sys'),
             switchCursorTimestamp: Value(cursorTs),
             switchCursorId: const Value('sw-1'),
             lastSyncDate: Value(DateTime.utc(2026, 1, 1, 13)),

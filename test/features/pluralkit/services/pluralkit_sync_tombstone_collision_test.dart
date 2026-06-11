@@ -1,17 +1,27 @@
 /// Integration test: PluralKit corrective re-import tombstone semantics.
 ///
-/// PR E2 (WS3 step 4 / review #3) changes how the corrective re-import
-/// path treats a tombstoned row whose deterministic id collides with an
-/// API entrant. The old behavior unconditionally resurrected the row and
-/// cleared `isDeleted`, `deleteIntentEpoch`, and `deletePushStartedAt` —
-/// which silently undid any user-initiated delete that hadn't yet pushed
-/// to PluralKit. The new behavior:
-/// - If `deleteIntentEpoch != null` (user explicitly deleted, push queued):
-///   leave the tombstone intact, increment `tombstonePreservedCount`, and
-///   surface in the import-result UI.
-/// - If `deleteIntentEpoch == null` (rescue/migration tombstone): keep the
-///   resurrection behavior — that path explicitly relies on corrective
-///   re-import to undelete with API truth.
+/// PR E2 (WS3 step 4 / review #3) originally preserved only tombstones whose
+/// `deleteIntentEpoch` was non-null (user explicitly deleted on THIS device,
+/// push queued) and kept the resurrection behavior for intent-less ones.
+///
+/// 2026-06 PK audit H5 widened the preserve branch to ANY still-linked
+/// tombstone: `delete_intent_epoch` is deliberately device-local while
+/// `is_deleted` SYNCS, so a deletion made on device A arrives on device B as
+/// an INTENT-LESS tombstone (link intact, `deleteIntentEpoch == null`). Under
+/// the old rule, B's corrective import resurrected it, the resurrection
+/// synced back to A, and A's deletion pusher aborted the genuine pending PK
+/// deletion ("resurrected by CRDT merge") — the user's delete was undone
+/// everywhere and never reached PluralKit. Corrective mode now preserves on
+/// `existing.isDeleted` alone, and both cases count into
+/// `tombstonePreservedCount` for the import-result UI.
+///
+/// The rescue/migration tombstones that genuinely RELY on corrective
+/// resurrection are unaffected because wave 1's canonicalization (and the
+/// zero-length-close path) clear the PK link BEFORE tombstoning: a
+/// link-cleared tombstone (`pluralkit_uuid == null`) is invisible to both
+/// entrant lookups (`getSessionById(canonical id)` and
+/// `_findSessionByPkSwitchAndMember`), so the sweep creates a fresh row
+/// instead of colliding — covered by the third test below.
 ///
 /// The composite partial unique index on `(pluralkit_uuid, member_id)`
 /// from schema v7 still protects against duplicate live rows when member
@@ -32,6 +42,7 @@ import 'package:prism_plurality/data/repositories/drift_fronting_session_reposit
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 
@@ -329,13 +340,20 @@ void main() {
     expect(result.zeroLengthCloseSkipped, 0);
   });
 
-  test('corrective re-import without explicit delete intent still '
-      'resurrects (rescue/migration tombstone path)', () async {
-    // Companion to the test above. A tombstone with `deleteIntentEpoch ==
-    // null` is *not* a user-initiated delete — it's a soft-delete left
-    // behind by the rescue/migration path that explicitly relies on
-    // corrective re-import to undelete with API truth. PR E2 must keep
-    // that path working.
+  test('corrective re-import preserves an INTENT-LESS tombstone with the '
+      'link intact (peer-synced delete, 2026-06 PK audit H5)', () async {
+    // Companion to the test above — and the H5 regression guard. This test
+    // PREVIOUSLY asserted the resurrection behavior for intent-less
+    // tombstones, which codified the cross-device hole: `is_deleted` syncs
+    // but `delete_intent_epoch` is device-local, so a deletion made on
+    // device A arrives HERE (device B) exactly like this row — isDeleted
+    // true, deleteIntentEpoch null, PK link intact. Resurrecting it synced
+    // the revival back to A, whose deletion pusher then aborted the real PK
+    // DELETE ("resurrected by CRDT merge"). Corrective mode must now
+    // preserve ANY still-linked tombstone. The rescue/migration tombstones
+    // that used to rely on this resurrection are link-CLEARED before
+    // tombstoning since wave 1 (see the next test), so they never reach the
+    // collision branch at all.
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -356,8 +374,9 @@ void main() {
         memberId: const Value('local-member-id'),
         pluralkitUuid: const Value('X'),
         isDeleted: const Value(true),
-        // No deleteIntentEpoch / deletePushStartedAt: this is a
-        // migration-style tombstone, not a user delete.
+        // No deleteIntentEpoch / deletePushStartedAt: this is what a
+        // PEER-synced delete looks like locally — the intent stamp never
+        // leaves the device that initiated the delete.
       ),
     );
 
@@ -387,18 +406,209 @@ void main() {
 
     final result = await service.performOneTimeFullImport(token: 'test-token');
 
-    // No user intent → corrective path resurrects (existing behavior).
+    // H5: the peer-synced tombstone survives the corrective import.
     final row = await db.frontingSessionsDao.getSessionById('tombstone-id');
     expect(row, isNotNull);
-    expect(row!.isDeleted, isFalse);
+    expect(
+      row!.isDeleted,
+      isTrue,
+      reason:
+          'H5: an intent-less tombstone with the PK link intact is a '
+          'peer-synced delete — resurrecting it here would propagate back '
+          'and abort the originating device\'s pending PK deletion',
+    );
+    expect(row.deleteIntentEpoch, isNull,
+        reason: 'no intent stamp is added — intent stays device-local');
+    expect(row.pluralkitUuid, 'X', reason: 'link left intact');
+    expect(
+      row.startTime.millisecondsSinceEpoch,
+      DateTime(2026, 4, 1, 12).millisecondsSinceEpoch,
+      reason: 'tombstone untouched — no API-truth rewrite on a preserved row',
+    );
+
+    // No parallel live row was inserted for the same switch entrant.
+    final liveRowsWithSamePkUuid =
+        await (db.select(db.frontingSessions)..where(
+              (s) => s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
+            ))
+            .get();
+    expect(liveRowsWithSamePkUuid, isEmpty);
+
+    expect(
+      result.tombstonePreservedCount,
+      1,
+      reason:
+          'H5: peer-synced tombstone preservation is surfaced in the '
+          'import-result UI alongside intent-stamped ones',
+    );
+  });
+
+  test('corrective re-import REBUILDS a link-cleared, intent-less tombstone '
+      'at the deterministic id (importer/migration cleanup — 2026-06 PK '
+      'audit H5 discriminator)', () async {
+    // The fronting migration's step-6 deletions (and any other importer
+    // cleanup using the wave-1 clear-link-before-delete idiom) leave a
+    // tombstone with pluralkit_uuid == null AND deleteIntentEpoch == null —
+    // but AT the deterministic det(switch, member) row id, so the corrective
+    // sweep still finds it via getSessionById. Post-migration "re-import
+    // from PluralKit" is a documented recovery flow: this shape must
+    // rebuild, not preserve. (User intent always keeps the link or the
+    // intent stamp — see the two preserve tests above.)
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.membersDao.upsertMember(
+      MembersCompanion.insert(
+        id: 'local-member-id',
+        name: 'Test Member',
+        createdAt: DateTime(2026, 1, 1),
+        pluralkitId: const Value('pk-short-id'),
+        pluralkitUuid: const Value('pk-member-uuid'),
+      ),
+    );
+
+    const switchId = 'X';
+    final deterministicId = derivePkSessionId(switchId, 'pk-member-uuid');
+    await db.frontingSessionsDao.insertSession(
+      FrontingSessionsCompanion.insert(
+        id: deterministicId,
+        startTime: DateTime(2026, 4, 1, 12),
+        memberId: const Value('local-member-id'),
+        // Link cleared before deletion (importer cleanup idiom); no intent.
+        isDeleted: const Value(true),
+      ),
+    );
+
+    final memberRepo = DriftMemberRepository(db.membersDao, null);
+    final sessionRepo = DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    );
+    final fakeClient = _FakePluralKitClient(
+      switchesToReturn: [
+        PKSwitch(
+          id: switchId,
+          timestamp: DateTime.utc(2026, 4, 2, 9),
+          members: const ['pk-short-id'],
+        ),
+      ],
+    );
+    final service = PluralKitSyncService(
+      memberRepository: memberRepo,
+      frontingSessionRepository: sessionRepo,
+      syncDao: db.pluralKitSyncDao,
+      bus: PkSyncEventBus(),
+      secureStorage: const FlutterSecureStorage(),
+      tokenOverride: 'test-token',
+      clientFactory: (_) => fakeClient,
+    );
+
+    final result = await service.performOneTimeFullImport(token: 'test-token');
+
+    final row = await db.frontingSessionsDao.getSessionById(deterministicId);
+    expect(row, isNotNull);
+    expect(row!.isDeleted, isFalse,
+        reason: 'importer-cleanup tombstones rebuild from the API');
+    expect(row.pluralkitUuid, switchId, reason: 'link restored to the switch');
     expect(
       row.startTime.millisecondsSinceEpoch,
       DateTime.utc(2026, 4, 2, 9).millisecondsSinceEpoch,
+      reason: 'API truth rewrites the rebuilt row',
     );
+    expect(result.tombstonePreservedCount, 0,
+        reason: 'a rebuild is not a preservation');
+  });
+
+  test('link-cleared tombstone (wave-1 canonicalization / zero-length-close '
+      'style) does not block a fresh canonical row', () async {
+    // Interaction guard for H5: the rescue/migration tombstones that the old
+    // resurrection branch served are created with `clearPluralKitLink` FIRST
+    // (canonicalization survivor branch + zero-length-close path), so their
+    // `pluralkit_uuid` is null. They must be invisible to the entrant
+    // lookups: `getSessionById` misses (random row id, not the canonical
+    // derived id) and `_findSessionByPkSwitchAndMember` misses (null uuid
+    // can't match). The sweep then creates a FRESH live row for the API
+    // switch instead of either resurrecting or being blocked by the
+    // tombstone.
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.membersDao.upsertMember(
+      MembersCompanion.insert(
+        id: 'local-member-id',
+        name: 'Test Member',
+        createdAt: DateTime(2026, 1, 1),
+        pluralkitId: const Value('pk-short-id'),
+        pluralkitUuid: const Value('pk-member-uuid'),
+      ),
+    );
+
+    // A canonicalization-style tombstone: random row id, link CLEARED.
+    await db.frontingSessionsDao.insertSession(
+      FrontingSessionsCompanion.insert(
+        id: 'legacy-rescue-tombstone',
+        startTime: DateTime(2026, 4, 1, 12),
+        memberId: const Value('local-member-id'),
+        // pluralkitUuid deliberately absent (null) — cleared before
+        // tombstoning per the wave-1 C1 idiom.
+        isDeleted: const Value(true),
+      ),
+    );
+
+    final memberRepo = DriftMemberRepository(db.membersDao, null);
+    final sessionRepo = DriftFrontingSessionRepository(
+      db.frontingSessionsDao,
+      null,
+    );
+    final fakeClient = _FakePluralKitClient(
+      switchesToReturn: [
+        PKSwitch(
+          id: 'X',
+          timestamp: DateTime.utc(2026, 4, 2, 9),
+          members: const ['pk-short-id'],
+        ),
+      ],
+    );
+    final service = PluralKitSyncService(
+      memberRepository: memberRepo,
+      frontingSessionRepository: sessionRepo,
+      syncDao: db.pluralKitSyncDao,
+      bus: PkSyncEventBus(),
+      secureStorage: const FlutterSecureStorage(),
+      tokenOverride: 'test-token',
+      clientFactory: (_) => fakeClient,
+    );
+
+    final result = await service.performOneTimeFullImport(token: 'test-token');
+
+    // The link-cleared tombstone is untouched...
+    final tombstone = await db.frontingSessionsDao.getSessionById(
+      'legacy-rescue-tombstone',
+    );
+    expect(tombstone, isNotNull);
+    expect(tombstone!.isDeleted, isTrue);
+    expect(tombstone.pluralkitUuid, isNull);
+
+    // ...and a FRESH live row was created for the API switch — the
+    // tombstone neither blocked the import nor got resurrected.
+    final liveRows =
+        await (db.select(db.frontingSessions)..where(
+              (s) => s.pluralkitUuid.equals('X') & s.isDeleted.equals(false),
+            ))
+            .get();
+    expect(liveRows, hasLength(1));
+    expect(liveRows.single.memberId, 'local-member-id');
+    expect(
+      liveRows.single.startTime.millisecondsSinceEpoch,
+      DateTime.utc(2026, 4, 2, 9).millisecondsSinceEpoch,
+    );
+
     expect(
       result.tombstonePreservedCount,
       0,
-      reason: 'no preserved tombstone — this row had no user-delete intent',
+      reason:
+          'a link-cleared tombstone never reaches the collision branch — '
+          'nothing was "preserved", a new row was simply created',
     );
   });
 }

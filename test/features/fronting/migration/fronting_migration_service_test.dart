@@ -128,6 +128,7 @@ FrontingMigrationService _makeService(
   DataExportService exportService, {
   List<ffi.PrismSyncHandle>? resetCalls,
   Directory? backupDirectory,
+  FrontingSessionRepository? frontingSessionRepository,
 }) {
   // Avoid the platform-channel hop into getApplicationDocumentsDirectory
   // in unit tests by defaulting the backup dir to a temp dir.
@@ -137,10 +138,9 @@ FrontingMigrationService _makeService(
   return FrontingMigrationService(
     db: db,
     memberRepository: DriftMemberRepository(db.membersDao, null),
-    frontingSessionRepository: DriftFrontingSessionRepository(
-      db.frontingSessionsDao,
-      null,
-    ),
+    frontingSessionRepository:
+        frontingSessionRepository ??
+        DriftFrontingSessionRepository(db.frontingSessionsDao, null),
     frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
       db.frontSessionCommentsDao,
       null,
@@ -610,6 +610,67 @@ void main() {
         expect(resetCalls, isEmpty);
         // Quarantine cleared.
         expect(await db.syncQuarantineDao.count(), 0);
+      },
+    );
+
+    // -------------------------------------------------------------------
+    // Step 6 must not queue PK-side switch deletions (2026-06 PK audit,
+    // C1 idiom)
+    // -------------------------------------------------------------------
+    //
+    // In production the session repository is wired with pkSyncDao, so
+    // `deleteSession` stamps `deleteIntentEpoch` on any PK-linked row —
+    // the marker that queues a real `DELETE /switches/{uuid}` against
+    // PluralKit. Step 6's deletions are migration fan-out replacements,
+    // not user deletions, so the link must be cleared first. The other
+    // tests in this file omit pkSyncDao and therefore cannot see this.
+    test(
+      'solo upgradeAndKeep: step-6 PK row deletions stamp no delete '
+      'intent and queue no PK switch deletions (production pkSyncDao wiring)',
+      () async {
+        const pkMemberId = 'pk-m';
+        await _seedMember(db, pkMemberId, name: pkMemberId);
+        await _seedSession(
+          db,
+          id: 'pk-1',
+          startTime: DateTime(2026, 4, 1, 9).toUtc(),
+          endTime: DateTime(2026, 4, 1, 10).toUtc(),
+          memberId: pkMemberId,
+          pluralkitUuid: '11111111-1111-4111-8111-111111111111',
+        );
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+          pkSyncDao: db.pluralKitSyncDao,
+        );
+        final svc = _makeService(
+          db,
+          exportService,
+          frontingSessionRepository: sessionRepo,
+        );
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
+
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.pkRowsDeleted, 1);
+
+        // The row is tombstoned, but as importer cleanup: link cleared
+        // first, so no delete intent was stamped and the deletion pusher
+        // has nothing to send to PluralKit.
+        final raw = await (db.select(
+          db.frontingSessions,
+        )..where((s) => s.id.equals('pk-1'))).getSingle();
+        expect(raw.isDeleted, isTrue);
+        expect(raw.pluralkitUuid, isNull,
+            reason: 'link must be cleared before the tombstone');
+        expect(raw.deleteIntentEpoch, isNull,
+            reason: 'migration cleanup must never read as user intent');
+        expect(await sessionRepo.getDeletedLinkedSessions(), isEmpty,
+            reason: 'nothing may be queued for PK-side deletion');
       },
     );
 

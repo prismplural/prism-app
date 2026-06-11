@@ -418,6 +418,47 @@ class _PkDiffSweepResult {
   final int zeroLengthCloseSkipped;
 }
 
+/// Thrown by the file-import paths when the `pk;export` file's system identity
+/// does not match the system the import is being applied against (2026-06 PK
+/// audit H8). Carries both sides' names/ids so the UI can render a readable
+/// message; `pk_file_import_provider.dart`'s generic `'Import failed: $e'`
+/// catch renders this [toString] verbatim, which is intentionally
+/// human-readable. Without this gate, a wrong-file-plus-valid-token import
+/// merges a foreign roster irreversibly and later becomes push-eligible.
+class PkFileSystemMismatchError implements Exception {
+  PkFileSystemMismatchError({
+    required this.fileSystemName,
+    required this.fileSystemId,
+    required this.targetSystemName,
+    required this.targetSystemId,
+  });
+
+  /// Display name of the system in the export file (may be null).
+  final String? fileSystemName;
+
+  /// Stable identifier of the export file's system — UUID when both sides
+  /// carry it, otherwise the short id.
+  final String? fileSystemId;
+
+  /// Display name of the currently linked / token system (may be null).
+  final String? targetSystemName;
+
+  /// Stable identifier of the target system (UUID or short id).
+  final String? targetSystemId;
+
+  String _label(String? name, String? id) {
+    if (name != null && name.isNotEmpty) return '$name ($id)';
+    return id ?? 'unknown system';
+  }
+
+  @override
+  String toString() =>
+      'This export is from a different PluralKit system. The file is '
+      "${_label(fileSystemName, fileSystemId)}, but you're linked to "
+      '${_label(targetSystemName, targetSystemId)}. Importing it would merge '
+      "a different system's data into yours, so it was blocked.";
+}
+
 const _pluralKitSyncFailedPrefix = 'PluralKit sync failed: ';
 
 /// Return a user-facing PluralKit sync error with subsystem clarity.
@@ -452,15 +493,27 @@ class PluralKitSyncService {
   @visibleForTesting
   static int get maxIncrementalPagesForTesting => _maxIncrementalPages;
 
-  final MemberRepository _memberRepository;
-  final FrontingSessionRepository _frontingSessionRepository;
+  // 2026-06 PK audit H10 — these four dependencies are bound to the live
+  // `prismSyncHandleProvider`: the repositories capture the handle at
+  // construction, and the groups importer is built from it. They are
+  // deliberately MUTABLE (not `final`) so the provider can keep a SINGLE
+  // service instance alive across handle transitions (data→data on every sync
+  // reconfigure, null→data on boot) and merely swap in handle-fresh
+  // dependencies via [updateVolatileDependencies]. Previously the provider
+  // `ref.watch`ed the handle, so every transition rebuilt the whole service —
+  // resetting `_state`, `_pushInFlight`, and `isSyncing` mid-import while the
+  // old instance's `onStateChanged` closure stayed live (double emission). All
+  // 60-odd read sites keep the same field names, so only the binding changes.
+  MemberRepository _memberRepository;
+  FrontingSessionRepository _frontingSessionRepository;
+  SystemSettingsRepository? _settingsRepository;
+  PkGroupsImporter? _groupsImporter;
+
   final PluralKitSyncDao _syncDao;
-  final SystemSettingsRepository? _settingsRepository;
   final FlutterSecureStorage _secureStorage;
   final Uuid _uuid;
   final PluralKitClient Function(String token)? _clientFactory;
   final String? _tokenOverride;
-  final PkGroupsImporter? _groupsImporter;
   final PkAvatarCacheService _avatarCacheService;
   final PkBannerCacheService _bannerCacheService;
   final PkSyncEventBus _bus;
@@ -500,6 +553,52 @@ class PluralKitSyncService {
     _state = newState;
     onStateChanged?.call(newState);
   }
+
+  /// Rebind the handle-dependent dependencies in place (2026-06 PK audit H10).
+  ///
+  /// Called by `pluralKitSyncServiceProvider` from a `ref.listen` on
+  /// `prismSyncHandleProvider` whenever the handle transitions. This keeps the
+  /// service IDENTITY stable — `_state`, `_pushInFlight`, `isSyncing`, and the
+  /// `onStateChanged` wiring all survive — while ensuring that the next write
+  /// or group import uses repositories/importer bound to the CURRENT handle
+  /// (so newly-synced ops reach the new relay session, not a stale one).
+  ///
+  /// Only non-null arguments are applied, so a caller can refresh a subset.
+  /// In-flight work that already captured a reference to the old importer
+  /// (e.g. a running `importGroups`) is not interrupted; the swap only affects
+  /// dependencies resolved AFTER it returns.
+  ///
+  /// This is PRODUCTION API (called from `pluralKitSyncServiceProvider`'s
+  /// handle listener), not a test seam — do not mark it `@visibleForTesting`.
+  ///
+  /// Observability seam: [groupsImporterForTesting] lets the H10 provider
+  /// tests assert the importer was rebound to the new handle.
+  void updateVolatileDependencies({
+    MemberRepository? memberRepository,
+    FrontingSessionRepository? frontingSessionRepository,
+    SystemSettingsRepository? settingsRepository,
+    PkGroupsImporter? groupsImporter,
+    bool clearGroupsImporter = false,
+  }) {
+    if (memberRepository != null) _memberRepository = memberRepository;
+    if (frontingSessionRepository != null) {
+      _frontingSessionRepository = frontingSessionRepository;
+    }
+    if (settingsRepository != null) _settingsRepository = settingsRepository;
+    if (clearGroupsImporter) {
+      _groupsImporter = null;
+    } else if (groupsImporter != null) {
+      _groupsImporter = groupsImporter;
+    }
+  }
+
+  /// Current groups-importer binding. Test-only observability for the H10
+  /// provider tests: lets them assert that a handle transition rebinds the
+  /// importer (fresh instance, new `syncHandle`) WITHOUT rebuilding the
+  /// service. Never use this from production code — resolve `_groupsImporter`
+  /// directly inside the service instead.
+  @visibleForTesting
+  PkGroupsImporter? get groupsImporterForTesting => _groupsImporter;
 
   // -- helpers --------------------------------------------------------------
 
@@ -549,6 +648,25 @@ class PluralKitSyncService {
 
   Future<PluralKitClient?> _buildRepairClient({String? token}) async =>
       _buildClientFromToken(await _getRepairToken(token: token));
+
+  /// Whether two PluralKit systems are the same identity (2026-06 PK audit
+  /// H8). Prefers UUID comparison when BOTH sides carry one — UUIDs are the
+  /// only stable key, and PK Premium (~Feb 2026) makes short ids
+  /// user-changeable. Falls back to short id when a uuid is missing on either
+  /// side (e.g. an older export root, or a linked-system row that only stored
+  /// the short id). Returns false only on a genuine mismatch; a missing id on
+  /// both sides (shouldn't happen — `id` is required) compares equal.
+  static bool _systemIdentitiesMatch(PKSystem a, PKSystem b) {
+    final aUuid = a.uuid?.trim();
+    final bUuid = b.uuid?.trim();
+    if (aUuid != null &&
+        aUuid.isNotEmpty &&
+        bUuid != null &&
+        bUuid.isNotEmpty) {
+      return aUuid == bUuid;
+    }
+    return a.id.trim() == b.id.trim();
+  }
 
   Future<PkRepairReferenceData> _fetchReferenceData(
     PluralKitClient client, {
@@ -754,6 +872,25 @@ class PluralKitSyncService {
   }
 
   /// Store the token, test the connection, and persist connected state.
+  ///
+  /// 2026-06 PK audit H9 — failed token rotation must NOT destroy a working
+  /// token. The previous implementation wrote the new token to secure storage
+  /// *before* validating it (overwriting the prior working token), then on
+  /// ANY failure — 401 OR a transient network blip — deleted the slot and
+  /// never persisted `isConnected=false`. After a restart the DB said
+  /// connected while storage was empty: auto-poll skipped forever
+  /// (`token_missing`), manual sync threw, and the UI showed connected.
+  ///
+  /// New ordering:
+  ///   1. Validate FIRST against an ephemeral client (no storage write).
+  ///   2. On success, `safeSecureWrite` and CHECK the result; a classified
+  ///      write failure surfaces an error and leaves the DB un-connected.
+  ///      `safeSecureWrite` failures are non-destructive: the write threw, so
+  ///      any previously stored token is untouched (see secure_storage.dart —
+  ///      the wrapper classifies the PlatformException, it never half-writes).
+  ///   3. On validation failure (401 OR transport/5xx), leave BOTH the stored
+  ///      token and the DB connection state completely untouched — a connected
+  ///      device stays connected on its old token; only `syncError` is set.
   Future<void> setToken(String token) async {
     final trimmed = token.trim();
     debugPrint('[PK_SVC] setToken: trimmed length=${trimmed.length}');
@@ -766,114 +903,37 @@ class PluralKitSyncService {
       return;
     }
 
-    await storage_config.safeSecureWrite(
-      _pkTokenKey,
-      trimmed,
-      storage: _secureStorage,
-    );
-    debugPrint('[PK_SVC] setToken: wrote to secureStorage');
-
+    // -- Step 1: validate against an EPHEMERAL client. No storage write yet,
+    // so a 401 / network failure here cannot overwrite or delete the working
+    // token (2026-06 PK audit H9 (c)).
+    final PKSystem system;
+    final validationClient = _makeClient(trimmed);
     try {
-      final client = _makeClient(trimmed);
       debugPrint('[PK_SVC] setToken: calling client.getSystem()...');
-      final system = await client.getSystem();
+      system = await validationClient.getSystem();
       debugPrint(
         '[PK_SVC] setToken: getSystem ok — id=${system.id} name=${system.name}',
       );
-      client.dispose();
-
-      // Preserve existing linkedAt on re-connect with the same system (user
-      // rotated their token without re-linking). For a truly fresh link we
-      // stamp `now` so the scoped switch push has a stable cutoff.
-      final existing = await _syncDao.getSyncState();
-      final DateTime linkedAt;
-      if (existing.systemId == system.id && existing.linkedAt != null) {
-        linkedAt = existing.linkedAt!;
-      } else {
-        // Subtract 1ms so that a fronting session created in the same tick as
-        // linking (startTime == now) still clears the `isAfter(linkedAt)`
-        // boundary in [pushPendingSwitches]. Without this nudge, any switch
-        // whose startTime equals linkedAt would be dropped forever.
-        linkedAt = DateTime.now().subtract(const Duration(milliseconds: 1));
-      }
-
-      // Plan 02 R1: bump the local link epoch whenever the connected system
-      // changes identity. Tombstones stamped under the prior epoch will be
-      // skipped at push time on this device.
-      final isSameSystem = existing.systemId == system.id;
-      final bumpEpoch = !isSameSystem;
-
-      // On a different-system swap, clear pk_mapping_state. Stale Skip/Push
-      // decisions keyed by the previous session's PK identifiers would
-      // otherwise return PkApplyOutcome.alreadyApplied on re-attempt and the
-      // user's new mapping would silently no-op. `clearToken` already does
-      // this; bring `setToken`'s system-swap path to parity.
-      if (!isSameSystem) {
-        await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
-      }
-
-      // Preserve setup state (directionConfirmed + mappingAcknowledged) when
-      // the user is rotating their token against the same PK system. A
-      // different system (or no prior row) resets both flags so the wizard
-      // runs from the direction step.
-      await _syncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          systemId: Value(system.id),
-          isConnected: const Value(true),
-          mappingAcknowledged: isSameSystem
-              ? Value(existing.mappingAcknowledged)
-              : const Value(false),
-          directionConfirmed: isSameSystem
-              ? Value(existing.directionConfirmed)
-              : const Value(false),
-          linkedAt: Value(linkedAt),
-        ),
-      );
-      if (bumpEpoch) {
-        await _syncDao.bumpLinkEpoch();
-      }
-
-      _emit(
-        _state.copyWith(
-          isConnected: true,
-          mappingAcknowledged: isSameSystem
-              ? existing.mappingAcknowledged
-              : false,
-          directionConfirmed: isSameSystem
-              ? existing.directionConfirmed
-              : false,
-          linkedAt: linkedAt,
-          clearError: true,
-        ),
-      );
-      _bus.emit(
-        PkTokenSet(systemName: system.name ?? system.id, systemId: system.id),
-      );
     } on PluralKitAuthError catch (e) {
-      debugPrint('[PK_SVC] setToken: PluralKitAuthError: $e');
-      await storage_config.safeSecureDelete(
-        _pkTokenKey,
-        storage: _secureStorage,
-      );
+      // 401: the supplied token is invalid. Leave the previously stored token
+      // and the DB connection state untouched — only surface the error. A
+      // device that was already connected on a good token stays connected.
+      debugPrint('[PK_SVC] setToken: PluralKitAuthError (token unchanged): $e');
       _emit(
         _state.copyWith(
-          isConnected: false,
           syncError: formatPluralKitSyncError(
             'Invalid token — please check and try again.',
           ),
         ),
       );
       _bus.emit(const PkTokenAuthFailed());
+      return;
     } catch (e, st) {
-      debugPrint('[PK_SVC] setToken: caught $e\n$st');
-      await storage_config.safeSecureDelete(
-        _pkTokenKey,
-        storage: _secureStorage,
-      );
+      // Transport / 5xx / anything else: a transient failure must NOT touch
+      // the stored token or the connection state (2026-06 PK audit H9 (c)).
+      debugPrint('[PK_SVC] setToken: validation failed (token unchanged): $e\n$st');
       _emit(
         _state.copyWith(
-          isConnected: false,
           syncError: formatPluralKitSyncError('Connection failed: $e'),
         ),
       );
@@ -884,7 +944,127 @@ class PluralKitSyncService {
           message: PkSyncEvent.redact(e.toString(), trimmed),
         ),
       );
+      return;
+    } finally {
+      validationClient.dispose();
     }
+
+    // -- Step 2: validation succeeded. Persist the token and CHECK the write
+    // result (2026-06 PK audit H9 (b)). A classified write failure leaves the
+    // prior token alone (the write threw, nothing was overwritten) and must
+    // NOT mark the DB connected.
+    final writeResult = await storage_config.safeSecureWrite(
+      _pkTokenKey,
+      trimmed,
+      storage: _secureStorage,
+    );
+    if (!writeResult.ok) {
+      debugPrint(
+        '[PK_SVC] setToken: secure write FAILED '
+        '(failure=${writeResult.failure?.name}, code=${writeResult.code}) — '
+        'not marking connected; prior token left intact.',
+      );
+      _emit(
+        _state.copyWith(
+          syncError: formatPluralKitSyncError(
+            "Couldn't save the token to secure storage — please try again.",
+          ),
+        ),
+      );
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'setToken',
+          errorKind: 'storage',
+          message: 'secure write failed (${writeResult.failure?.name})',
+        ),
+      );
+      return;
+    }
+    debugPrint('[PK_SVC] setToken: wrote to secureStorage');
+
+    // -- Step 3: token persisted. Wire up connection + setup state. (Success
+    // path semantics unchanged from before H9: same-system flag preservation,
+    // epoch bump on system change, mapping-state clear, linkedAt logic.)
+    // Preserve existing linkedAt on re-connect with the same system (user
+    // rotated their token without re-linking). For a truly fresh link we
+    // stamp `now` so the scoped switch push has a stable cutoff.
+    final existing = await _syncDao.getSyncState();
+    final DateTime linkedAt;
+    if (existing.systemId == system.id && existing.linkedAt != null) {
+      linkedAt = existing.linkedAt!;
+    } else {
+      // Subtract 1ms so that a fronting session created in the same tick as
+      // linking (startTime == now) still clears the `isAfter(linkedAt)`
+      // boundary in [pushPendingSwitches]. Without this nudge, any switch
+      // whose startTime equals linkedAt would be dropped forever.
+      linkedAt = DateTime.now().subtract(const Duration(milliseconds: 1));
+    }
+
+    // Plan 02 R1: bump the local link epoch whenever the connected system
+    // changes identity. Tombstones stamped under the prior epoch will be
+    // skipped at push time on this device.
+    final isSameSystem = existing.systemId == system.id;
+    final bumpEpoch = !isSameSystem;
+
+    // On a different-system swap, clear pk_mapping_state. Stale Skip/Push
+    // decisions keyed by the previous session's PK identifiers would
+    // otherwise return PkApplyOutcome.alreadyApplied on re-attempt and the
+    // user's new mapping would silently no-op. `clearToken` already does
+    // this; bring `setToken`'s system-swap path to parity.
+    if (!isSameSystem) {
+      await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
+    }
+
+    // Preserve setup state (directionConfirmed + mappingAcknowledged) when
+    // the user is rotating their token against the same PK system. A
+    // different system (or no prior row) resets both flags so the wizard
+    // runs from the direction step.
+    //
+    // 2026-06 PK audit M4 — on a different-system swap, also null the switch
+    // cursor and lastSyncDate (parity with clearToken). Without this, the old
+    // system's cursor `covers()` the new system's switch history, so a user
+    // who dismisses the mapping flow never imports it (the audit's "escape
+    // hatch"). The same-system rotation path leaves the cursor alone so an
+    // in-progress incremental sweep resumes where it left off.
+    await _syncDao.upsertSyncState(
+      PluralKitSyncStateCompanion(
+        id: const Value('pk_config'),
+        systemId: Value(system.id),
+        isConnected: const Value(true),
+        mappingAcknowledged: isSameSystem
+            ? Value(existing.mappingAcknowledged)
+            : const Value(false),
+        directionConfirmed: isSameSystem
+            ? Value(existing.directionConfirmed)
+            : const Value(false),
+        linkedAt: Value(linkedAt),
+        switchCursorTimestamp: isSameSystem
+            ? const Value.absent()
+            : const Value(null),
+        switchCursorId: isSameSystem ? const Value.absent() : const Value(null),
+        lastSyncDate: isSameSystem ? const Value.absent() : const Value(null),
+      ),
+    );
+    if (bumpEpoch) {
+      await _syncDao.bumpLinkEpoch();
+    }
+
+    _emit(
+      _state.copyWith(
+        isConnected: true,
+        mappingAcknowledged: isSameSystem
+            ? existing.mappingAcknowledged
+            : false,
+        directionConfirmed: isSameSystem
+            ? existing.directionConfirmed
+            : false,
+        linkedAt: linkedAt,
+        clearError: true,
+      ),
+    );
+    _bus.emit(
+      PkTokenSet(systemName: system.name ?? system.id, systemId: system.id),
+    );
   }
 
   /// Remove the token and reset connected state.
@@ -1184,6 +1364,27 @@ class PluralKitSyncService {
       ),
     );
 
+    // 2026-06 PK audit H8: if the app is currently LINKED to a PK system,
+    // reject a foreign export before any write. The no-token path has no live
+    // API system to compare against, so we compare the export's identity
+    // against the linked system row. The sync DAO only persists the short id
+    // (set by `setToken`), so this is a short-id comparison even though the
+    // export also carries a uuid. If the app is NOT linked (`systemId` null),
+    // we allow any file — a fresh import has nothing to clobber.
+    final linkedSystemId = (await _syncDao.getSyncState()).systemId?.trim();
+    if (linkedSystemId != null && linkedSystemId.isNotEmpty) {
+      final fileId = export.system.id.trim();
+      if (fileId != linkedSystemId) {
+        _emit(_state.copyWith(isSyncing: false));
+        throw PkFileSystemMismatchError(
+          fileSystemName: export.system.name,
+          fileSystemId: export.system.uuid ?? export.system.id,
+          targetSystemName: null,
+          targetSystemId: linkedSystemId,
+        );
+      }
+    }
+
     try {
       progress(0.05, 'Importing ${export.members.length} members…');
       await _importMembers(
@@ -1203,10 +1404,13 @@ class PluralKitSyncService {
         },
       );
 
-      if (export.groups.isNotEmpty && _groupsImporter != null) {
+      // Local capture: `_groupsImporter` is mutable (H10 rebinding) so the
+      // null check no longer type-promotes the field itself.
+      final fileGroupsImporter = _groupsImporter;
+      if (export.groups.isNotEmpty && fileGroupsImporter != null) {
         progress(0.40, 'Importing ${export.groups.length} groups…');
         try {
-          await _groupsImporter.importGroups(
+          await fileGroupsImporter.importGroups(
             export.groups,
             overwriteMetadata: true,
             // File import is structurally pull-only (importing FROM a file
@@ -1310,15 +1514,32 @@ class PluralKitSyncService {
 
     try {
       progress(0.03, 'Checking PluralKit token...');
-      await client.getSystem();
+      // 2026-06 PK audit H8: compare the export's system identity against the
+      // TOKEN's system BEFORE any member/group write. The previous code called
+      // `getSystem()` here and discarded the result, so a wrong file + valid
+      // token merged a foreign roster irreversibly (and the rows later became
+      // push-eligible). On mismatch we throw before `_importMembers`, so the
+      // members table is never touched.
+      final tokenSystem = await client.getSystem();
+      if (!_systemIdentitiesMatch(export.system, tokenSystem)) {
+        throw PkFileSystemMismatchError(
+          fileSystemName: export.system.name,
+          fileSystemId: export.system.uuid ?? export.system.id,
+          targetSystemName: tokenSystem.name,
+          targetSystemId: tokenSystem.uuid ?? tokenSystem.id,
+        );
+      }
 
       progress(0.05, 'Importing ${export.members.length} members...');
       await _importMembers(null, export.members);
 
-      if (export.groups.isNotEmpty && _groupsImporter != null) {
+      // Local capture: `_groupsImporter` is mutable (H10 rebinding) so the
+      // null check no longer type-promotes the field itself.
+      final tokenGroupsImporter = _groupsImporter;
+      if (export.groups.isNotEmpty && tokenGroupsImporter != null) {
         progress(0.25, 'Importing ${export.groups.length} groups...');
         try {
-          await _groupsImporter.importGroups(
+          await tokenGroupsImporter.importGroups(
             export.groups,
             overwriteMetadata: true,
             direction: PkSyncDirection.pullOnly,
@@ -2245,7 +2466,10 @@ class PluralKitSyncService {
   /// Track 04 (disclosure toggle) is the expected caller; it gates the call
   /// behind a user-facing checkbox.
   Future<bool> importSystemAvatar() async {
-    if (_settingsRepository == null) return false;
+    // Local capture: `_settingsRepository` is mutable (H10 rebinding) so the
+    // null check no longer type-promotes the field itself.
+    final settingsRepository = _settingsRepository;
+    if (settingsRepository == null) return false;
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
     try {
@@ -2254,7 +2478,7 @@ class PluralKitSyncService {
       if (url == null || url.isEmpty) return false;
       final bytes = await fetchAvatarBytes(url);
       if (bytes == null) return false;
-      await _settingsRepository.updateSystemAvatarData(bytes);
+      await settingsRepository.updateSystemAvatarData(bytes);
       return true;
     } finally {
       client.dispose();
@@ -2318,14 +2542,17 @@ class PluralKitSyncService {
     required PKSystem pk,
     required Set<PkProfileField> accepted,
   }) async {
-    if (_settingsRepository == null) return;
+    // Local capture: `_settingsRepository` is mutable (H10 rebinding) so the
+    // null check no longer type-promotes the field itself.
+    final settingsRepository = _settingsRepository;
+    if (settingsRepository == null) return;
     final failures = <String>[];
 
     if (accepted.contains(PkProfileField.name) &&
         pk.name != null &&
         pk.name!.isNotEmpty) {
       try {
-        await _settingsRepository.updateSystemName(pk.name);
+        await settingsRepository.updateSystemName(pk.name);
       } catch (e) {
         failures.add('name ($e)');
       }
@@ -2334,7 +2561,7 @@ class PluralKitSyncService {
         pk.description != null &&
         pk.description!.isNotEmpty) {
       try {
-        await _settingsRepository.updateSystemDescription(pk.description);
+        await settingsRepository.updateSystemDescription(pk.description);
       } catch (e) {
         failures.add('description ($e)');
       }
@@ -2343,7 +2570,7 @@ class PluralKitSyncService {
         pk.tag != null &&
         pk.tag!.isNotEmpty) {
       try {
-        await _settingsRepository.updateSystemTag(pk.tag);
+        await settingsRepository.updateSystemTag(pk.tag);
       } catch (e) {
         failures.add('tag ($e)');
       }
@@ -3255,15 +3482,16 @@ class PluralKitSyncService {
                 isTombstonedCollision: true,
               );
             case _PkUpsertOutcomeKind.tombstonePreserved:
-              // WS3 step 4 / review #3: corrective re-import did NOT
-              // resurrect a row whose deleteIntentEpoch was non-null
-              // (user explicitly deleted it; the delete is queued to push
-              // to PluralKit). Track the count for the import-result UI
-              // and DO NOT add the member to `active` — we want the next
-              // leaver to be a no-op (the row is gone from the user's
-              // perspective). The cost: the diff sweep won't auto-close
-              // anything, but corrective imports always start by re-deriving
-              // boundaries from API truth so this is fine.
+              // WS3 step 4 / review #3 + 2026-06 PK audit H5: corrective
+              // re-import did NOT resurrect a still-linked tombstone — whether
+              // the delete originated on THIS device (non-null
+              // deleteIntentEpoch, queued to push to PluralKit) or arrived
+              // from a PEER as an intent-less synced tombstone. Track the
+              // count for the import-result UI and DO NOT add the member to
+              // `active` — we want the next leaver to be a no-op (the row is
+              // gone from the user's perspective). The cost: the diff sweep
+              // won't auto-close anything, but corrective imports always start
+              // by re-deriving boundaries from API truth so this is fine.
               tombstonePreservedCount++;
           }
         }
@@ -3431,26 +3659,64 @@ class PluralKitSyncService {
       return const _PkUpsertOutcome.tombstoneCollision();
     }
 
-    // WS3 step 4 / review #3: preserve user tombstones on the corrective
-    // path. A non-null `deleteIntentEpoch` means the user explicitly deleted
-    // this PK row locally and the deletion is queued to push to PluralKit.
-    // The previous implementation unconditionally cleared `isDeleted`,
-    // `deleteIntentEpoch`, and `deletePushStartedAt` in corrective mode,
-    // silently undoing the user's intent and re-creating the row on every
-    // device. We now leave the tombstone alone and report the count up to
-    // the import-result UI so the user can see why a row they expected to
-    // be deleted is still gone (rather than wondering whether the import
-    // resurrected it). No "explicit revive" affordance is added in this
-    // pass — that's tracked separately if needed.
-    if (corrective &&
-        existing.isDeleted &&
-        existing.deleteIntentEpoch != null) {
+    // WS3 step 4 / review #3 + 2026-06 PK audit H5: preserve any
+    // USER-INTENT tombstone on the corrective path — not just one stamped
+    // with a local `deleteIntentEpoch`.
+    //
+    // The original WS3 rule only preserved a tombstone whose
+    // `deleteIntentEpoch` was non-null (the device that *initiated* the
+    // delete). But `delete_intent_epoch` is deliberately device-local while
+    // `is_deleted` SYNCS: a deletion made on device A arrives on device B as
+    // an INTENT-LESS tombstone (link intact, `deleteIntentEpoch == null`).
+    // Under the old rule B's corrective import took the resurrect branch below
+    // (the `corrective` copyWith with `isDeleted: false`), and that
+    // resurrection synced back to A — whose deletion pusher then aborted the
+    // genuine pending PK deletion as "resurrected by CRDT merge". The user's
+    // delete was undone everywhere and never reached PluralKit.
+    //
+    // Treating `existing.isDeleted` alone as the preserve trigger closes that
+    // cross-device hole: a tombstone that survived to this device — by intent
+    // OR by merge — stays a tombstone, and the count is surfaced via
+    // `tombstonePreservedCount` so the import-result UI explains why the row
+    // is still gone.
+    //
+    // The discriminator between "user intent" and "importer cleanup" is the
+    // clear-link-before-delete idiom (wave 1 C1): every importer/migration
+    // cleanup path — canonicalization survivors, zero-length closes, and the
+    // fronting migration's step-6 PK-row deletions — calls
+    // `clearPluralKitLink` BEFORE `deleteSession`, leaving a tombstone with
+    // `pluralkit_uuid == null` AND `deleteIntentEpoch == null`. User
+    // deletions keep the link (and, on the deleting device, the intent
+    // stamp); peer-synced deletions arrive with the link fields intact
+    // through the CRDT merge.
+    //
+    // NB a link-cleared tombstone CAN still reach this branch: rows created
+    // by a prior PK import live at the deterministic `det(switch, member)`
+    // row id, so the `getSessionById(rowId)` lookup above finds them by ID
+    // even with the link nulled (the fronting migration's step-6 tombstones
+    // are exactly this shape). Those must REBUILD — post-migration
+    // "re-import from PluralKit" is a documented recovery flow — so the
+    // preserve trigger is `isDeleted && (intent stamped || link intact)`,
+    // not `isDeleted` alone.
+    final isUserIntentTombstone =
+        existing.deleteIntentEpoch != null ||
+        _hasText(existing.pluralkitUuid);
+    if (corrective && existing.isDeleted && isUserIntentTombstone) {
       debugPrint(
         '[PK_SWEEP] corrective entrant on tombstoned row ${existing.id} '
-        'with deleteIntentEpoch=${existing.deleteIntentEpoch}: preserving '
-        'user tombstone (review #3).',
+        '(deleteIntentEpoch=${existing.deleteIntentEpoch}, '
+        'linkIntact=${_hasText(existing.pluralkitUuid)}): preserving '
+        'tombstone — a deletion that reached this device by intent or by '
+        'CRDT merge must not be resurrected (2026-06 PK audit H5).',
       );
       return const _PkUpsertOutcome.tombstonePreserved();
+    }
+    if (corrective && existing.isDeleted) {
+      debugPrint(
+        '[PK_SWEEP] corrective entrant on link-cleared, intent-less '
+        'tombstone ${existing.id}: importer/migration cleanup — rebuilding '
+        'from the API (2026-06 PK audit H5 discriminator).',
+      );
     }
 
     if (!corrective && existing.endTime != null) {
@@ -3490,9 +3756,9 @@ class PluralKitSyncService {
   /// locally-pushed front whose row id is non-canonical but whose
   /// (pluralkit_uuid, member_id) the API still agrees with — those rows are
   /// adopted in place by the sweep, never tombstoned. Switch uuids and local
-  /// member ids never contain ' ', so it is a collision-free separator.
+  /// member ids never contain U+0000, so it is a collision-free separator.
   static String _canonicalPairKey(String switchUuid, String localMemberId) =>
-      '$switchUuid $localMemberId';
+      '$switchUuid\u0000$localMemberId';
 
   Future<domain.FrontingSession?> _findSessionByPkSwitchAndMember({
     required String switchId,
