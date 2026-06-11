@@ -29,10 +29,12 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 Widget _buildSheet({
   required CustomField field,
   required _FakeCustomFieldNotifier notifier,
+  ThemeData? theme,
 }) {
   return ProviderScope(
     overrides: [customFieldNotifierProvider.overrideWith(() => notifier)],
     child: MaterialApp(
+      theme: theme,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -82,6 +84,37 @@ CustomField _sliderField({
 
 void main() {
   group('Create/Edit Field Sheet - Slider config', () {
+    testWidgets('selected locked slider type uses selected foreground colors', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final colorScheme =
+          ColorScheme.fromSeed(
+            seedColor: const Color(0xFF9070A0),
+            brightness: Brightness.dark,
+          ).copyWith(
+            primaryContainer: const Color(0xFFE2E2E2),
+            onPrimaryContainer: const Color(0xFF202020),
+            onSurfaceVariant: const Color(0xFFE0E0E0),
+          );
+      final theme = ThemeData(colorScheme: colorScheme);
+      final notifier = _FakeCustomFieldNotifier();
+      final field = _sliderField();
+
+      await tester.pumpWidget(
+        _buildSheet(field: field, notifier: notifier, theme: theme),
+      );
+      await tester.pumpAndSettle();
+
+      final title = tester.widget<Text>(find.text('Mood / Intensity').first);
+      final description = tester.widget<Text>(
+        find.text('A spectrum with named endpoints.'),
+      );
+
+      expect(title.style?.color, colorScheme.onPrimaryContainer);
+      expect(description.style?.color, colorScheme.onPrimaryContainer);
+    });
+
     testWidgets('shows label inputs as left, center, right', (tester) async {
       _useTallViewport(tester);
       final notifier = _FakeCustomFieldNotifier();

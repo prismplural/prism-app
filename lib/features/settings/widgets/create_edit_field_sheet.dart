@@ -2010,6 +2010,16 @@ class _SliderModeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final selectedContentColor = theme.colorScheme.onPrimaryContainer;
+    final titleColor = isSelected
+        ? selectedContentColor
+        : isDisabled
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.colorScheme.onSurface;
+    final supportingColor = isSelected
+        ? selectedContentColor
+        : theme.colorScheme.onSurfaceVariant;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -2033,42 +2043,26 @@ class _SliderModeCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: isDisabled
-                      ? theme.colorScheme.onSurfaceVariant
-                      : isSelected
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
+                Icon(icon, size: 18, color: supportingColor),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     title,
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: isDisabled
-                          ? theme.colorScheme.onSurfaceVariant
-                          : isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface,
+                      color: titleColor,
                       fontWeight: isSelected ? FontWeight.w600 : null,
                     ),
                   ),
                 ),
                 if (isDisabled)
-                  Icon(
-                    AppIcons.lock,
-                    size: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  Icon(AppIcons.lock, size: 14, color: supportingColor),
               ],
             ),
             const SizedBox(height: 4),
             Text(
               description,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+                color: supportingColor,
               ),
             ),
           ],
