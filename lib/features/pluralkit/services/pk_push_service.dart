@@ -71,9 +71,14 @@ class PkPushService {
   /// If the member has a [pluralkitId], performs a PATCH (update).
   /// Otherwise performs a POST (create) and returns the new PK member ID.
   ///
-  /// When [pkMember] is supplied (PATCH path), fields that are null locally
-  /// but non-null on PK are sent as explicit `null` in the PATCH body so PK
-  /// clears them. This matters because PK treats omitted keys as "preserve."
+  /// On the PATCH path, callers that hold the PK member and per-field
+  /// direction config (the bidirectional service) MUST pass [allowedFields]
+  /// to gate the payload: only listed keys are serialized. Keys absent from
+  /// the set are omitted entirely so PK preserves its value. This prevents
+  /// H1 — a single triggering edit null-clearing unrelated PK-only fields.
+  /// When [allowedFields] is null (legacy PATCH callers with no PK snapshot),
+  /// the payload falls back to "every local non-null field," which never
+  /// emits explicit nulls because there is no remote to clear against.
   ///
   /// Returns the PK 5-character member ID (existing or newly created).
   Future<String> pushMember(
@@ -81,11 +86,13 @@ class PkPushService {
     PluralKitClient client, {
     PKMember? pkMember,
     bool includeProxyTags = true,
+    Set<String>? allowedFields,
   }) async => (await pushMemberFull(
     member,
     client,
     pkMember: pkMember,
     includeProxyTags: includeProxyTags,
+    allowedFields: allowedFields,
   )).id;
 
   /// Same as [pushMember], but returns PluralKit's full member payload so
@@ -95,16 +102,24 @@ class PkPushService {
     PluralKitClient client, {
     PKMember? pkMember,
     bool includeProxyTags = true,
+    Set<String>? allowedFields,
   }) async {
     final pkId = member.pluralkitId?.trim();
     if (pkId != null && pkId.isNotEmpty) {
-      // PATCH — include explicit nulls to clear fields on PK.
+      // PATCH — only the gated fields are serialized (see [allowedFields]).
       final data = _memberToPayload(
         member,
         pkMember: pkMember,
         isPatch: true,
         includeProxyTags: includeProxyTags,
+        allowedFields: allowedFields,
       );
+      // PK rejects an empty PATCH body with 400. With a PK snapshot in hand
+      // an empty payload is a no-op by definition — skip the call instead of
+      // surfacing a spurious error mid-sync.
+      if (data.isEmpty && pkMember != null) {
+        return pkMember;
+      }
       try {
         final updated = await client.updateMember(pkId, data);
         return updated;
@@ -168,17 +183,34 @@ class PkPushService {
   ///
   /// Skips avatar (blob-to-URL conversion not supported by PK API).
   ///
-  /// For PATCH ([isPatch] = true), fields that are null locally but non-null
-  /// on [pkMember] are serialized as explicit `null` so PK clears them.
-  /// Fields that are null on both sides are omitted. For POST, nulls are
-  /// always omitted (PK treats omit = clear on POST).
+  /// Field gating (PATCH only):
+  /// - When [allowedFields] is supplied, a field appears in the payload ONLY
+  ///   when its PK key is in the set. The caller (bidirectional service) has
+  ///   already decided per-field that the value differs, push is allowed by
+  ///   direction config, and it is not a would-clear; so each allowed field
+  ///   is written from its local value and explicit nulls are NEVER emitted.
+  ///   Field clears do not propagate from this path — see plan 08.
+  /// - When [allowedFields] is null (legacy PATCH callers with no PK
+  ///   snapshot), every local non-null field is included via [_setOrClear].
+  ///   Explicit nulls only ever appear when a [pkMember] remote value is
+  ///   present, which legacy callers don't pass, so this stays non-destructive.
+  ///
+  /// For POST ([isPatch] = false), nulls are always omitted (PK treats
+  /// omit = clear on POST) and [allowedFields] is ignored — creates always
+  /// send the member's full local non-null shape.
   Map<String, dynamic> _memberToPayload(
     domain.Member member, {
     PKMember? pkMember,
     required bool isPatch,
     required bool includeProxyTags,
+    Set<String>? allowedFields,
   }) {
     final data = <String, dynamic>{};
+
+    // [allowedFields] gating only applies to PATCH. POST always sends the
+    // full local non-null shape (gating is a no-op there).
+    final gated = isPatch && allowedFields != null;
+    bool include(String key) => !gated || allowedFields.contains(key);
 
     // Prism Name and Full Name are local-only after the PK display-name split.
     // PluralKit still requires an internal `name` for creates, so seed it
@@ -187,36 +219,48 @@ class PkPushService {
       data['name'] = member.name;
     }
 
-    _setOrClear(
-      data,
-      'display_name',
-      local: member.pluralkitDisplayName,
-      remote: pkMember?.displayName,
-      isPatch: isPatch,
-    );
-    _setOrClear(
-      data,
-      'pronouns',
-      local: member.pronouns,
-      remote: pkMember?.pronouns,
-      isPatch: isPatch,
-    );
-    _setOrClear(
-      data,
-      'description',
-      local: member.bio,
-      remote: pkMember?.description,
-      isPatch: isPatch,
-    );
-    _setOrClear(
-      data,
-      'birthday',
-      local: member.birthday,
-      remote: pkMember?.birthday,
-      isPatch: isPatch,
-    );
+    if (include('display_name')) {
+      _setOrClear(
+        data,
+        'display_name',
+        local: member.pluralkitDisplayName,
+        remote: pkMember?.displayName,
+        isPatch: isPatch,
+        gated: gated,
+      );
+    }
+    if (include('pronouns')) {
+      _setOrClear(
+        data,
+        'pronouns',
+        local: member.pronouns,
+        remote: pkMember?.pronouns,
+        isPatch: isPatch,
+        gated: gated,
+      );
+    }
+    if (include('description')) {
+      _setOrClear(
+        data,
+        'description',
+        local: member.bio,
+        remote: pkMember?.description,
+        isPatch: isPatch,
+        gated: gated,
+      );
+    }
+    if (include('birthday')) {
+      _setOrClear(
+        data,
+        'birthday',
+        local: member.birthday,
+        remote: pkMember?.birthday,
+        isPatch: isPatch,
+        gated: gated,
+      );
+    }
 
-    if (includeProxyTags) {
+    if (includeProxyTags && include('proxy_tags')) {
       final proxyTags = _decodeProxyTags(member.proxyTagsJson);
       if (proxyTags != null) {
         data['proxy_tags'] = proxyTags;
@@ -227,7 +271,9 @@ class PkPushService {
     // disabled, skip color entirely. Toggling local color off must not
     // silently clear PK's color as a side effect; an explicit "clear PK
     // color" path would need dedicated UI.
-    if (member.customColorEnabled && member.customColorHex != null) {
+    if (include('color') &&
+        member.customColorEnabled &&
+        member.customColorHex != null) {
       data['color'] = _stripHash(member.customColorHex!);
     }
 
@@ -237,20 +283,27 @@ class PkPushService {
   /// Helper: write [key] to [data] using null-clearing semantics.
   ///
   /// - Local non-null: always set.
-  /// - Local null, remote non-null, PATCH: set to explicit `null` to clear PK.
+  /// - Local null, remote non-null, PATCH, NOT gated: set to explicit `null`
+  ///   to clear PK.
   /// - Otherwise: omit.
+  ///
+  /// When [gated] is true the caller (bidirectional service via
+  /// [allowedFields]) has pre-decided this field is includable and not a
+  /// would-clear, so we never emit an explicit `null`: a null local here just
+  /// omits the key rather than destroying the PK value (H1 guard).
   void _setOrClear(
     Map<String, dynamic> data,
     String key, {
     required String? local,
     required String? remote,
     required bool isPatch,
+    bool gated = false,
   }) {
     if (local != null) {
       data[key] = local;
       return;
     }
-    if (isPatch && remote != null) {
+    if (isPatch && !gated && remote != null) {
       data[key] = null;
     }
   }

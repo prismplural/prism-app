@@ -101,20 +101,19 @@ class PkBidirectionalService {
       final config = fieldConfigs[local.id] ?? const PkFieldSyncConfig();
 
       if (direction.pushEnabled) {
-        // Check if local data is newer and should be pushed
-        final hasLocalChanges = _hasLocalChanges(local, pk, config, direction);
-        if (hasLocalChanges) {
+        // Compute, once, the exact set of PK payload keys this push may carry.
+        // A field is includable only when push is allowed by direction config,
+        // it differs from PK, and it is not a would-clear (local empty + PK
+        // populated). The push fires only when at least one field qualifies.
+        final allowedFields = _pushableFields(local, pk, config, direction);
+        if (allowedFields.isNotEmpty) {
           try {
             await _pushService.pushMember(
               local,
               client,
               pkMember: pk,
-              includeProxyTags: _hasProxyTagPushChange(
-                local,
-                pk,
-                config,
-                direction,
-              ),
+              includeProxyTags: allowedFields.contains('proxy_tags'),
+              allowedFields: allowedFields,
             );
             if (needsIdentityRepair) {
               await memberRepository.applyPluralKitLink(local.id, {
@@ -188,44 +187,58 @@ class PkBidirectionalService {
     );
   }
 
-  /// Check if the local member has changes that should be pushed to PK.
+  /// Compute the exact set of PK payload keys that may be pushed for [local].
+  ///
+  /// A field is included only when ALL of:
+  ///   (a) its per-field direction config (or overall direction) allows push;
+  ///   (b) it actually differs from the PK value; and
+  ///   (c) it is not a would-clear (local null/empty + PK populated).
+  ///
+  /// This both decides whether to trigger a push (non-empty set) AND gates the
+  /// payload builder so a single triggering edit can't null-clear unrelated
+  /// PK-only fields (audit H1). Per-field direction now gates the payload, not
+  /// just the trigger: a pull-only field never appears in a push body even
+  /// when it differs.
   ///
   /// Plan 08 "Conflict semantics on link": we never push an empty local value
   /// over a populated PK value — that would be a "null-clear on link" for any
-  /// field the user hadn't set locally. Linking is supposed to be safe by
-  /// default; the mapping applier pulls PK's values into default-local fields
-  /// at link time (see `_applyLink`), so by the time this runs for a freshly
-  /// linked member the local side already reflects PK. The null-guard here is
-  /// belt-and-suspenders in case a link arrives via another path.
-  bool _hasLocalChanges(
+  /// field the user hadn't set locally. Field CLEARS therefore do not
+  /// propagate from this auto-push path; an explicit "clear PK field X" needs a
+  /// dedicated path. The keys here MUST match the PK payload keys used by
+  /// `PkPushService._memberToPayload`.
+  Set<String> _pushableFields(
     domain.Member local,
     PKMember pk,
     PkFieldSyncConfig config,
     PkSyncDirection direction,
   ) {
+    final fields = <String>{};
     if (_pushField(config.displayName, direction)) {
-      if (local.pluralkitDisplayName != pk.displayName &&
-          !_wouldClear(local.pluralkitDisplayName, pk.displayName)) {
-        return true;
+      final localDn = _normalizeText(local.pluralkitDisplayName);
+      final pkDn = _normalizeText(pk.displayName);
+      if (localDn != pkDn && !_wouldClear(localDn, pkDn)) {
+        fields.add('display_name');
       }
     }
     if (_pushField(config.pronouns, direction)) {
-      if (local.pronouns != pk.pronouns &&
-          !_wouldClear(local.pronouns, pk.pronouns)) {
-        return true;
+      final localPn = _normalizeText(local.pronouns);
+      final pkPn = _normalizeText(pk.pronouns);
+      if (localPn != pkPn && !_wouldClear(localPn, pkPn)) {
+        fields.add('pronouns');
       }
     }
     if (_pushField(config.description, direction)) {
-      if (local.bio != pk.description &&
-          !_wouldClear(local.bio, pk.description)) {
-        return true;
+      final localBio = _normalizeText(local.bio);
+      final pkBio = _normalizeText(pk.description);
+      if (localBio != pkBio && !_wouldClear(localBio, pkBio)) {
+        fields.add('description');
       }
     }
     if (_pushField(config.birthday, direction)) {
       final localBd = _normalizeBirthday(local.birthday);
       final pkBd = _normalizeBirthday(pk.birthday);
       if (localBd != pkBd && !_wouldClear(localBd, pkBd)) {
-        return true;
+        fields.add('birthday');
       }
     }
     if (_pushField(config.color, direction)) {
@@ -235,14 +248,14 @@ class PkBidirectionalService {
         final localColor = _normalizeColor(local.customColorHex);
         final pkColor = _normalizeColor(pk.color);
         if (localColor != pkColor && !_wouldClear(localColor, pkColor)) {
-          return true;
+          fields.add('color');
         }
       }
     }
-    if (_pushField(config.proxyTags, direction)) {
-      if (_hasProxyTagPushChange(local, pk, config, direction)) return true;
+    if (_hasProxyTagPushChange(local, pk, config, direction)) {
+      fields.add('proxy_tags');
     }
-    return false;
+    return fields;
   }
 
   bool _hasProxyTagPushChange(
@@ -259,11 +272,23 @@ class PkBidirectionalService {
     return localTags != null && localTags != pkTags;
   }
 
+  /// Normalize a string field for comparison: null, empty, and
+  /// whitespace-only all mean "unset." PK treats both explicit `null` and
+  /// `""` as a field CLEAR on PATCH, so the `''`-vs-null distinction must
+  /// never count as a difference — otherwise local `''` vs PK `null` pushes
+  /// a destructive clear on every sync cycle, and local `null` vs PK `''`
+  /// enters the pushable set only for the payload builder to omit it
+  /// (risking an empty `{}` PATCH, which PK rejects with 400).
+  String? _normalizeText(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return value;
+  }
+
   /// True when pushing would amount to null-clearing PK: local is null/empty
   /// and PK has a real value. The caller treats this as "no local changes."
   bool _wouldClear(String? local, String? pk) {
-    final localEmpty = local == null || local.isEmpty;
-    final pkEmpty = pk == null || pk.isEmpty;
+    final localEmpty = local == null || local.trim().isEmpty;
+    final pkEmpty = pk == null || pk.trim().isEmpty;
     return localEmpty && !pkEmpty;
   }
 

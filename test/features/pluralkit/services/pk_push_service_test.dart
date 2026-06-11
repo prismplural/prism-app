@@ -15,6 +15,9 @@ class Call {
 }
 
 class FakePluralKitClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   final List<Call> calls = [];
 
   String nextMemberId = 'abcde';
@@ -242,6 +245,29 @@ void main() {
       expect(data['name'], 'Ada');
     });
 
+    test('create POST includes name + non-null fields, omits nulls', () async {
+      // CREATE path must be unchanged by H1 gating: it ignores allowedFields,
+      // requires `name`, includes local non-null fields, and omits nulls.
+      final member = _member(
+        name: 'Ada',
+        pronouns: 'she/her',
+        bio: null, // omitted
+        // no pluralkitId → POST
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        allowedFields: {'description'}, // must be ignored on POST
+      );
+
+      expect(fakeClient.calls.first.method, 'createMember');
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['name'], 'Ada');
+      expect(data['pronouns'], 'she/her');
+      expect(data.containsKey('description'), isFalse);
+    });
+
     test(
       'patch omits PK internal name and sends PluralKit Display Name',
       () async {
@@ -276,6 +302,158 @@ void main() {
 
       final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
       expect(data.containsKey('proxy_tags'), isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // H1: per-field-gated PATCH payload (allowedFields)
+  //
+  // On the PATCH path the bidirectional service passes `allowedFields` — the
+  // exact set of PK keys that may be written. Keys outside the set are omitted
+  // (PK preserves), and gated fields never emit explicit `null`, so a single
+  // triggering edit can never null-clear an unrelated PK-only field.
+  // -------------------------------------------------------------------------
+
+  group('_memberToPayload PATCH gating (H1)', () {
+    PKMember pk({
+      String? pronouns,
+      String? description,
+      String? color,
+    }) => PKMember(
+      id: 'pk123',
+      uuid: 'uuid-pk123',
+      name: 'Alice',
+      pronouns: pronouns,
+      description: description,
+      color: color,
+    );
+
+    test('includes only the allowed field, omits all others', () async {
+      final member = _member(
+        pluralkitId: 'pk123',
+        bio: 'new bio',
+        pronouns: 'she/her',
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pk(pronouns: 'they/them', description: 'old bio'),
+        allowedFields: {'description'},
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['description'], 'new bio');
+      expect(data.containsKey('pronouns'), isFalse);
+      expect(data.containsKey('name'), isFalse);
+    });
+
+    test(
+      'local pronouns null + PK pronouns set: no pronouns key (H1 regression)',
+      () async {
+        final member = _member(
+          pluralkitId: 'pk123',
+          bio: 'new bio',
+          pronouns: null,
+        );
+
+        await pushService.pushMember(
+          member,
+          fakeClient,
+          pkMember: pk(pronouns: 'he/him', description: 'old bio'),
+          allowedFields: {'description'},
+        );
+
+        final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+        expect(data['description'], 'new bio');
+        expect(
+          data.containsKey('pronouns'),
+          isFalse,
+          reason: 'a bio edit must not null-clear PK-only pronouns',
+        );
+      },
+    );
+
+    test(
+      'gated allowed field that is null locally is omitted, never null',
+      () async {
+        // Defensive: even if 'pronouns' were (incorrectly) in the allowed set
+        // while local is null, the gated path must omit rather than send null.
+        final member = _member(
+          pluralkitId: 'pk123',
+          bio: 'new bio',
+          pronouns: null,
+        );
+
+        await pushService.pushMember(
+          member,
+          fakeClient,
+          pkMember: pk(pronouns: 'he/him', description: 'old bio'),
+          allowedFields: {'description', 'pronouns'},
+        );
+
+        final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+        expect(data['description'], 'new bio');
+        expect(data.containsKey('pronouns'), isFalse);
+      },
+    );
+
+    test('pull-only field excluded from set never appears in payload', () async {
+      // color differs but is not in allowedFields (pull-only at the call site).
+      final member = _member(
+        pluralkitId: 'pk123',
+        bio: 'new bio',
+        customColorHex: '#abcdef',
+        customColorEnabled: true,
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pk(description: 'old bio', color: '123456'),
+        allowedFields: {'description'},
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['description'], 'new bio');
+      expect(data.containsKey('color'), isFalse);
+    });
+
+    test('proxy_tags gated by allowedFields membership', () async {
+      final member = _member(
+        pluralkitId: 'pk123',
+        bio: 'new bio',
+        proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+      );
+
+      // proxy_tags NOT in the allowed set → omitted even though present.
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pk(description: 'old bio'),
+        allowedFields: {'description'},
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('proxy_tags'), isFalse);
+    });
+
+    test('legacy PATCH (no allowedFields) still sends local non-null fields', ()
+        async {
+      // No allowedFields and no pkMember: the sync-service auto-push shape.
+      final member = _member(
+        pluralkitId: 'pk123',
+        bio: 'hi',
+        pronouns: 'she/her',
+      );
+
+      await pushService.pushMember(member, fakeClient);
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['description'], 'hi');
+      expect(data['pronouns'], 'she/her');
+      // No remote snapshot → no explicit nulls to clear absent fields.
+      expect(data.containsKey('birthday'), isFalse);
     });
   });
 
@@ -357,6 +535,9 @@ class _Throw500OnCreateSwitchClient extends FakePluralKitClient {
 /// [PluralKitApiError] with that status. Lets us exercise the 429-retry
 /// path deterministically.
 class _ScriptedDeletionClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   final List<int?> memberScript;
   final List<int?> switchScript;
   int memberCalls = 0;

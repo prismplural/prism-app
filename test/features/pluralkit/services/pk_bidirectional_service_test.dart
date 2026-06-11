@@ -21,6 +21,9 @@ class Call {
 }
 
 class FakePluralKitClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   final List<Call> calls = [];
   int _idCounter = 0;
 
@@ -1044,6 +1047,353 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // H1: PATCH payload is per-field gated.
+  //
+  // Once any field triggers a push the payload must carry ONLY the fields that
+  // (a) differ, (b) are push-allowed by direction config, and (c) are not a
+  // would-clear. A bio edit must never null-clear PK-only pronouns; a pull-only
+  // field must never appear in a push body even when it differs.
+  // -------------------------------------------------------------------------
+
+  group('H1: per-field-gated PATCH payload', () {
+    test('bio-only trigger sends description and nothing else', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        bio: 'new bio',
+        pronouns: 'she/her',
+        birthday: '2020-01-15',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        name: 'Alice',
+        description: 'old bio',
+        pronouns: 'she/her',
+        birthday: '2020-01-15',
+      );
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 1);
+      final payload =
+          fakeClient.calls.firstWhere((c) => c.method == 'updateMember').args[1]
+              as Map<String, dynamic>;
+      expect(payload['description'], 'new bio');
+      expect(payload.keys, ['description']);
+    });
+
+    test(
+      'local pronouns null + PK pronouns set + bio differs: no pronouns key',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice',
+          pluralkitId: 'pk001',
+          bio: 'new bio',
+          pronouns: null,
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          name: 'Alice',
+          description: 'old bio',
+          pronouns: 'he/him',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final payload =
+            fakeClient.calls
+                    .firstWhere((c) => c.method == 'updateMember')
+                    .args[1]
+                as Map<String, dynamic>;
+        expect(payload['description'], 'new bio');
+        expect(
+          payload.containsKey('pronouns'),
+          isFalse,
+          reason: 'a bio edit must not null-clear PK-only pronouns (H1)',
+        );
+      },
+    );
+
+    test('local pronouns null vs PK pronouns empty string: nothing to push', () async {
+      // PK treats '' and null both as "cleared" — the asymmetry must not
+      // count as a difference, or the field enters the pushable set only for
+      // the payload builder to omit it (risking an empty `{}` PATCH → 400).
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pronouns: null,
+      );
+      final pk = _pkMember(id: 'pk001', name: 'Alice', pronouns: '');
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 0);
+      expect(
+        fakeClient.calls.where((c) => c.method == 'updateMember'),
+        isEmpty,
+        reason: "''-vs-null is not a pushable difference",
+      );
+    });
+
+    test('local pronouns empty string vs PK null: no perpetual clear-push', () async {
+      // The mirror case: PK stores null, so pushing '' (a PK clear) would
+      // "differ" again on every later sync — a destructive write loop.
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pronouns: '',
+      );
+      final pk = _pkMember(id: 'pk001', name: 'Alice', pronouns: null);
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 0);
+      expect(
+        fakeClient.calls.where((c) => c.method == 'updateMember'),
+        isEmpty,
+      );
+    });
+
+    test('whitespace-only local pronouns vs populated PK: would-clear, not pushed', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pronouns: '  ',
+      );
+      final pk = _pkMember(id: 'pk001', name: 'Alice', pronouns: 'he/him');
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 0);
+      expect(
+        fakeClient.calls.where((c) => c.method == 'updateMember'),
+        isEmpty,
+        reason: 'whitespace-only local must not overwrite populated PK',
+      );
+    });
+
+    test(
+      'local pronouns empty string + PK set + bio differs: no pronouns key',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice',
+          pluralkitId: 'pk001',
+          bio: 'new bio',
+          pronouns: '',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          name: 'Alice',
+          description: 'old bio',
+          pronouns: 'he/him',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final payload =
+            fakeClient.calls
+                    .firstWhere((c) => c.method == 'updateMember')
+                    .args[1]
+                as Map<String, dynamic>;
+        expect(payload['description'], 'new bio');
+        expect(
+          payload.containsKey('pronouns'),
+          isFalse,
+          reason: 'empty-string local is a clear; "" must not be pushed (H1)',
+        );
+      },
+    );
+
+    test(
+      'color configured pull-only + color differs + bio differs: no color key',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice',
+          pluralkitId: 'pk001',
+          bio: 'new bio',
+          customColorHex: '#abcdef',
+          customColorEnabled: true,
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          name: 'Alice',
+          description: 'old bio',
+          color: '123456',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {
+            'local-1': const PkFieldSyncConfig(
+              color: PkSyncDirection.pullOnly,
+            ),
+          },
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final payload =
+            fakeClient.calls
+                    .firstWhere((c) => c.method == 'updateMember')
+                    .args[1]
+                as Map<String, dynamic>;
+        expect(payload['description'], 'new bio');
+        expect(
+          payload.containsKey('color'),
+          isFalse,
+          reason: 'a pull-only field must never appear in a push body (H1)',
+        );
+      },
+    );
+
+    test('all fields differ in pushOnly: payload includes all of them', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pluralkitDisplayName: 'NewDisplay',
+        pronouns: 'they/them',
+        bio: 'new bio',
+        birthday: '2021-02-02',
+        customColorHex: '#abcdef',
+        customColorEnabled: true,
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        name: 'Alice',
+        displayName: 'OldDisplay',
+        pronouns: 'he/him',
+        description: 'old bio',
+        birthday: '2020-01-15',
+        color: '123456',
+      );
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final payload =
+          fakeClient.calls.firstWhere((c) => c.method == 'updateMember').args[1]
+              as Map<String, dynamic>;
+      expect(payload['display_name'], 'NewDisplay');
+      expect(payload['pronouns'], 'they/them');
+      expect(payload['description'], 'new bio');
+      expect(payload['birthday'], '2021-02-02');
+      expect(payload['color'], 'abcdef');
+    });
+
+    test(
+      'no PATCH when the only differing fields are all excluded',
+      () async {
+        // pronouns differ but are would-clear (local empty); color differs but
+        // is pull-only. Nothing includable → service must skip the PATCH (PK
+        // 400s on an empty PATCH body).
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Alice',
+          pluralkitId: 'pk001',
+          bio: 'same',
+          pronouns: '',
+          customColorHex: '#abcdef',
+          customColorEnabled: true,
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          name: 'Alice',
+          description: 'same',
+          pronouns: 'he/him',
+          color: '123456',
+        );
+
+        final summary = await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {
+            'local-1': const PkFieldSyncConfig(
+              color: PkSyncDirection.pullOnly,
+            ),
+          },
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        expect(summary.membersPushed, 0);
+        expect(
+          fakeClient.calls.any((c) => c.method == 'updateMember'),
+          isFalse,
+          reason: 'no includable fields → no PATCH (empty body would 400)',
+        );
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
   // config.pullEnabled / direction gating
   // -------------------------------------------------------------------------
 
@@ -1687,6 +2037,7 @@ class _StaleLinkOnPushService extends PkPushService {
     PluralKitClient client, {
     PKMember? pkMember,
     bool includeProxyTags = true,
+    Set<String>? allowedFields,
   }) async {
     throw PkStaleLinkException(
       localId: member.id,
