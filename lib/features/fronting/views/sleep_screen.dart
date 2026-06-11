@@ -88,8 +88,8 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
     );
   }
 
-  Future<void> _openRecoverySheet(int recoverableCount) async {
-    await SleepRecoverySheet.show(context, recoverableCount: recoverableCount);
+  Future<void> _openRecoverySheet() async {
+    await SleepRecoverySheet.show(context);
   }
 
   void _openSessionDetail(FrontingSession session) {
@@ -149,7 +149,7 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
                       recoverableCount,
                     ),
                     buttonText: l10n.featureSleepRecoveryBannerAction,
-                    onButtonPressed: () => _openRecoverySheet(recoverableCount),
+                    onButtonPressed: _openRecoverySheet,
                     onDismiss: () =>
                         setState(() => _recoveryBannerDismissed = true),
                     dismissLabel: l10n.dismiss,

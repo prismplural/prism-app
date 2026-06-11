@@ -16,8 +16,8 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
-FrontingSession _sleepSession() => FrontingSession(
-  id: 'sleep-1',
+FrontingSession _sleepSession({String id = 'sleep-1'}) => FrontingSession(
+  id: id,
   startTime: DateTime(2026, 4, 30, 22),
   endTime: DateTime(2026, 5, 1, 6),
   sessionType: SessionType.sleep,
@@ -65,8 +65,13 @@ Widget _buildSubject({
       sleepStatsProvider.overrideWith(
         (ref) => stats ?? Future.value(_sleepStats()),
       ),
-      deletedSleepSessionCountProvider.overrideWith(
-        (ref) => Future.value(recoverableSleepCount),
+      // Drive the banner (and the recovery sheet it opens) off a fixed
+      // recoverable list; the count provider derives from this.
+      recoverableDeletedSleepSessionsProvider.overrideWith(
+        (ref) => Future.value([
+          for (var i = 0; i < recoverableSleepCount; i++)
+            _sleepSession(id: 'recoverable-$i'),
+        ]),
       ),
     ],
     child: MaterialApp.router(

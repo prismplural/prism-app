@@ -1840,7 +1840,7 @@ void main() {
       );
     });
 
-    group('restoreDeletedSleepSessions (sleep-data-loss recovery)', () {
+    group('restoreSleepSessions (sleep-data-loss recovery)', () {
       test('re-creates each deleted sleep session under a deterministic '
           'recovery id, leaving the tombstone in place', () async {
         // Two sleep sessions, both soft-deleted (as the bug would do).
@@ -1868,7 +1868,9 @@ void main() {
         expect(await repository.getRecentSleepSessions(limit: 50), isEmpty);
         expect(await repository.getDeletedSleepSessions(), hasLength(2));
 
-        final result = await service.restoreDeletedSleepSessions();
+        final result = await service.restoreSleepSessions(
+          await service.recoverableDeletedSleepSessions(),
+        );
         expect(result.isSuccess, isTrue);
         expect(result.dataOrNull, 2);
 
@@ -1903,9 +1905,13 @@ void main() {
         await repository.createSession(sleep);
         await repository.deleteSession(sleep.id);
 
-        final first = await service.restoreDeletedSleepSessions();
+        final first = await service.restoreSleepSessions(
+          await service.recoverableDeletedSleepSessions(),
+        );
         expect(first.dataOrNull, 1);
-        final second = await service.restoreDeletedSleepSessions();
+        final second = await service.restoreSleepSessions(
+          await service.recoverableDeletedSleepSessions(),
+        );
         expect(second.dataOrNull, 0, reason: 'recovery row already exists');
         // Exactly one live recovery row — no duplicate.
         expect(
@@ -1925,14 +1931,18 @@ void main() {
           );
           await repository.createSession(sleep);
           await repository.deleteSession(sleep.id);
-          await service.restoreDeletedSleepSessions();
+          await service.restoreSleepSessions(
+            await service.recoverableDeletedSleepSessions(),
+          );
 
           // User intentionally deletes the recovered copy. Now BOTH the origin
           // tombstone (sleep-y) and its recovery-row tombstone (R1) are present.
           final recoveryId = deriveSleepRecoverySessionId('sleep-y');
           await repository.deleteSession(recoveryId);
 
-          final again = await service.restoreDeletedSleepSessions();
+          final again = await service.restoreSleepSessions(
+            await service.recoverableDeletedSleepSessions(),
+          );
           expect(again.dataOrNull, 0);
           expect(await repository.getRecentSleepSessions(limit: 50), isEmpty);
 
@@ -1959,7 +1969,9 @@ void main() {
         await repository.createSession(front);
         await repository.deleteSession(front.id);
 
-        final result = await service.restoreDeletedSleepSessions();
+        final result = await service.restoreSleepSessions(
+          await service.recoverableDeletedSleepSessions(),
+        );
         expect(result.isSuccess, isTrue);
         expect(result.dataOrNull, 0);
         // The deleted front stays deleted — recovery is sleep-only.
@@ -1967,7 +1979,9 @@ void main() {
       });
 
       test('no deleted sleep sessions → restores zero', () async {
-        final result = await service.restoreDeletedSleepSessions();
+        final result = await service.restoreSleepSessions(
+          await service.recoverableDeletedSleepSessions(),
+        );
         expect(result.isSuccess, isTrue);
         expect(result.dataOrNull, 0);
       });

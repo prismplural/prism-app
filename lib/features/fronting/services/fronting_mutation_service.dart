@@ -630,23 +630,28 @@ class FrontingMutationService {
   /// alive recovery means it's already restored; a deleted recovery means the
   /// user intentionally removed the restored copy, which is respected.
   ///
-  /// Bug-deletes and user-initiated sleep deletes share the same tombstone, so
-  /// this also revives sleep sessions the user deleted on purpose — the caller
-  /// is expected to warn about that. The original tombstones are left in place.
-  Future<MutationResult<int>> restoreDeletedSleepSessions() {
+  /// Re-creates each given sleep [tombstones] entry as a fresh row under its
+  /// deterministic recovery id, carrying the original start/end/quality/notes.
+  /// Returns the number of rows actually created. The caller passes the set in
+  /// scope (e.g. [recoverableDeletedSleepSessions] minus intentional deletes).
+  Future<MutationResult<int>> restoreSleepSessions(
+    List<FrontingSession> tombstones,
+  ) {
     return _mutationRunner.run<int>(
       actionLabel: 'Restore deleted sleep sessions',
       action: () async {
-        final recoverable = await recoverableDeletedSleepSessions();
-        for (final tombstone in recoverable) {
+        var restored = 0;
+        for (final tombstone in tombstones) {
+          final recoveryId = deriveSleepRecoverySessionId(tombstone.id);
+          // Skip if the recovery row already exists in any state — alive means
+          // already restored, deleted means the user removed the copy.
+          if (await _repository.getSessionById(recoveryId) != null) continue;
           await _repository.createSession(
-            tombstone.copyWith(
-              id: deriveSleepRecoverySessionId(tombstone.id),
-              isDeleted: false,
-            ),
+            tombstone.copyWith(id: recoveryId, isDeleted: false),
           );
+          restored++;
         }
-        return recoverable.length;
+        return restored;
       },
     );
   }

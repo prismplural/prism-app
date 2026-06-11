@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
+import 'package:prism_plurality/features/fronting/services/sleep_recovery_exclusions.dart';
 
 /// Aggregate sleep statistics for display in the sleep history view.
 @immutable
@@ -146,19 +147,30 @@ final morningFrontingCountsProvider =
       );
     });
 
-/// Count of RECOVERABLE soft-deleted sleep tombstones — deleted originals not
-/// yet re-created under their deterministic recovery id. Gates the in-app
-/// recovery action for the sleep-data-loss bug: the UI surfaces "restore
-/// deleted sleep sessions" only when this is > 0, and it drops back to 0 once
-/// recovery has re-created every lost row (the tombstones stay, so a raw
-/// tombstone count would never clear). Shares [recoverableDeletedSleepSessions]
-/// with the write path so the tile and the action can't disagree.
+/// Sleep sessions the user can recover from the sleep-data-loss bug: the
+/// service's recovery candidates, minus any the user deleted on purpose after
+/// the fix (recorded in [SleepRecoveryExclusions] at delete time). Bug-era
+/// deletions predate the fix and were never recorded, so they stay offered.
+final recoverableDeletedSleepSessionsProvider =
+    FutureProvider.autoDispose<List<FrontingSession>>((ref) async {
+      ref.watch(frontingTableTickerProvider);
+      final service = ref.watch(frontingMutationServiceProvider);
+      final candidates = await service.recoverableDeletedSleepSessions();
+
+      final excluded = (await SleepRecoveryExclusions.load()).ids;
+      return candidates.where((s) => !excluded.contains(s.id)).toList();
+    });
+
+/// Count of recoverable sleep sessions. Gates the in-app recovery action: the
+/// banner/tile surface only when this is > 0, and it clears once every lost row
+/// has been re-created. Derived from [recoverableDeletedSleepSessionsProvider]
+/// so the count, the list, and the restore can't disagree.
 final deletedSleepSessionCountProvider = FutureProvider.autoDispose<int>((
   ref,
 ) async {
-  ref.watch(frontingTableTickerProvider);
-  final service = ref.watch(frontingMutationServiceProvider);
-  final recoverable = await service.recoverableDeletedSleepSessions();
+  final recoverable = await ref.watch(
+    recoverableDeletedSleepSessionsProvider.future,
+  );
   return recoverable.length;
 });
 
@@ -191,13 +203,15 @@ class SleepNotifier extends Notifier<void> {
 
   Future<void> deleteSleep(String id) async {
     await _unwrap(ref.read(frontingMutationServiceProvider).deleteSleep(id));
+    // Record the intentional deletion so recovery never re-offers it.
+    await (await SleepRecoveryExclusions.load()).add(id);
   }
 
-  /// Recovery for the sleep-data-loss bug: revives every soft-deleted sleep
-  /// session. Returns the number restored.
-  Future<int> restoreDeletedSleepSessions() async {
+  /// Re-creates [sessions] (the recoverable set the user confirmed). Returns
+  /// the number restored.
+  Future<int> restoreSleepSessions(List<FrontingSession> sessions) async {
     return _unwrap(
-      ref.read(frontingMutationServiceProvider).restoreDeletedSleepSessions(),
+      ref.read(frontingMutationServiceProvider).restoreSleepSessions(sessions),
     );
   }
 

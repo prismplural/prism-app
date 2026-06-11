@@ -320,10 +320,7 @@ class _SleepFeatureSettingsScreenState
                   subtitle: context.l10n.featureSleepRestoreDeletedSubtitle(
                     deletedSleepCount,
                   ),
-                  onTap: () => SleepRecoverySheet.show(
-                    context,
-                    recoverableCount: deletedSleepCount,
-                  ),
+                  onTap: () => SleepRecoverySheet.show(context),
                 ),
               ),
             ),
