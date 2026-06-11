@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/data/mappers/system_settings_mapper.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 
 void main() {
   // ════════════════════════════════════════════════════════════════════════════
@@ -10,7 +11,11 @@ void main() {
   // ════════════════════════════════════════════════════════════════════════════
 
   group('SystemSettingsMapper navBarItems', () {
-    SystemSettingsData makeDbRow({String navBarItems = ''}) {
+    SystemSettingsData makeDbRow({
+      String navBarItems = '',
+      int navBarLabelDisplayMode = 0,
+      bool navBarRevealLabelsWhenExpanded = true,
+    }) {
       return SystemSettingsData(
         id: 'singleton',
         systemName: null,
@@ -62,6 +67,8 @@ void main() {
         navBarItems: navBarItems,
         navBarOverflowItems: '',
         syncNavigationEnabled: true,
+        navBarLabelDisplayMode: navBarLabelDisplayMode,
+        navBarRevealLabelsWhenExpanded: navBarRevealLabelsWhenExpanded,
         chatBadgePreferences: '{}',
         sleepSuggestionEnabled: false,
         sleepSuggestionHour: 22,
@@ -151,6 +158,25 @@ void main() {
       final domain = SystemSettingsMapper.toDomain(row);
       final companion = SystemSettingsMapper.toCompanion(domain);
       expect(companion.navBarItems.value, '');
+    });
+
+    test('maps nav label display preferences', () {
+      final row = makeDbRow(
+        navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly.index,
+        navBarRevealLabelsWhenExpanded: false,
+      );
+
+      final domain = SystemSettingsMapper.toDomain(row);
+
+      expect(domain.navBarLabelDisplayMode, NavBarLabelDisplayMode.iconsOnly);
+      expect(domain.navBarRevealLabelsWhenExpanded, isFalse);
+
+      final companion = SystemSettingsMapper.toCompanion(domain);
+      expect(
+        companion.navBarLabelDisplayMode.value,
+        NavBarLabelDisplayMode.iconsOnly.index,
+      );
+      expect(companion.navBarRevealLabelsWhenExpanded.value, isFalse);
     });
   });
 }

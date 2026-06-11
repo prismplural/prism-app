@@ -62,6 +62,8 @@ void main() {
       navBarItems: '',
       navBarOverflowItems: '',
       syncNavigationEnabled: true,
+      navBarLabelDisplayMode: 0,
+      navBarRevealLabelsWhenExpanded: true,
       chatBadgePreferences: '{}',
       sleepSuggestionEnabled: false,
       sleepSuggestionHour: 22,

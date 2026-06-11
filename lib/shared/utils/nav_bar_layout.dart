@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 
 /// Hard ceiling for persisted primary tabs. Rendering may choose a smaller
 /// visible count on constrained devices.
@@ -84,6 +85,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
+  NavBarLabelDisplayMode labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
 }) {
   final clampedPrimaryCount = math.min(
     primaryLabels.length,
@@ -109,6 +111,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
     textDirection: textDirection,
     reserveMoreTrigger: false,
     maxCount: currentPrimaryLabels.length,
+    labelDisplayMode: labelDisplayMode,
   );
 
   final needsOverflowMenu =
@@ -137,6 +140,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
     textDirection: textDirection,
     reserveMoreTrigger: true,
     maxCount: preferredPrimaryCount,
+    labelDisplayMode: labelDisplayMode,
   );
 
   final visualOverflowLabels = [
@@ -152,6 +156,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
           labelStyle: labelStyle,
           textScaler: textScaler,
           textDirection: textDirection,
+          labelDisplayMode: labelDisplayMode,
         );
 
   final overflowRows = overflowColumns == 0
@@ -217,6 +222,7 @@ int _maxFittingTabs({
   required TextDirection textDirection,
   required bool reserveMoreTrigger,
   required int maxCount,
+  required NavBarLabelDisplayMode labelDisplayMode,
 }) {
   final upperBound = math.min(labels.length, maxCount);
   if (upperBound <= 0) return 0;
@@ -229,6 +235,7 @@ int _maxFittingTabs({
       textScaler: textScaler,
       textDirection: textDirection,
       reserveMoreTrigger: reserveMoreTrigger,
+      labelDisplayMode: labelDisplayMode,
     )) {
       return count;
     }
@@ -243,6 +250,7 @@ int _maxFittingOverflowColumns({
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
+  required NavBarLabelDisplayMode labelDisplayMode,
 }) {
   final upperBound = math.min(labels.length, kMaxAdaptiveOverflowColumns);
 
@@ -255,6 +263,7 @@ int _maxFittingOverflowColumns({
       textDirection: textDirection,
       reserveMoreTrigger: false,
       explicitCount: count,
+      labelDisplayMode: labelDisplayMode,
     )) {
       return count;
     }
@@ -270,6 +279,7 @@ bool _tabsFit({
   required TextScaler textScaler,
   required TextDirection textDirection,
   required bool reserveMoreTrigger,
+  required NavBarLabelDisplayMode labelDisplayMode,
   int? explicitCount,
 }) {
   if (labels.isEmpty) return true;
@@ -282,6 +292,10 @@ bool _tabsFit({
           : _kSimpleBarHorizontalPadding) -
       (reserveMoreTrigger ? _kMoreTriggerWidth : 0);
   final slotWidth = availableWidth / slotCount;
+
+  if (labelDisplayMode != NavBarLabelDisplayMode.fullLabels) {
+    return slotWidth >= _kMinimumCollapsedItemWidth;
+  }
 
   for (final label in labels) {
     final requiredWidth = math.max(

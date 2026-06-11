@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
@@ -304,6 +305,7 @@ class _NavLayoutSignature {
     required this.textDirection,
     required this.fontSize,
     required this.fontWeight,
+    required this.labelDisplayMode,
   });
 
   final double barWidth;
@@ -313,6 +315,7 @@ class _NavLayoutSignature {
   final TextDirection textDirection;
   final double fontSize;
   final FontWeight fontWeight;
+  final NavBarLabelDisplayMode labelDisplayMode;
 
   @override
   bool operator ==(Object other) {
@@ -323,6 +326,7 @@ class _NavLayoutSignature {
         other.textDirection == textDirection &&
         other.fontSize == fontSize &&
         other.fontWeight == fontWeight &&
+        other.labelDisplayMode == labelDisplayMode &&
         _listEquals(other.primaryLabels, primaryLabels) &&
         _listEquals(other.overflowLabels, overflowLabels);
   }
@@ -334,6 +338,7 @@ class _NavLayoutSignature {
     textDirection,
     fontSize,
     fontWeight,
+    labelDisplayMode,
     Object.hashAll(primaryLabels),
     Object.hashAll(overflowLabels),
   );
@@ -362,6 +367,7 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
+  NavBarLabelDisplayMode labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
 }) {
   assert(primaryTabs.length == primaryLabels.length);
   assert(overflowTabs.length == overflowLabels.length);
@@ -375,19 +381,21 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
     labelStyle: labelStyle,
     textScaler: textScaler,
     textDirection: textDirection,
+    labelDisplayMode: labelDisplayMode,
   );
   final split = splitNavBarTabsForLayout(
     primary: primaryTabs,
     overflow: overflowTabs,
     spec: spec,
   );
-  final visualPrimaryLabels = primaryLabels
-      .take(spec.collapsedPrimaryCount)
-      .toList();
-  final visualOverflowLabels = [
-    ...primaryLabels.skip(spec.collapsedPrimaryCount),
-    ...overflowLabels,
-  ];
+  final visualPrimaryLabels =
+      labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
+      ? const <String>[]
+      : primaryLabels.take(spec.collapsedPrimaryCount).toList();
+  final visualOverflowLabels =
+      labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
+      ? const <String>[]
+      : [...primaryLabels.skip(spec.collapsedPrimaryCount), ...overflowLabels];
   final rowHeight = _measurePrimaryNavBarRowHeight(
     primaryLabels: visualPrimaryLabels,
     barWidth: barWidth,
@@ -581,6 +589,7 @@ class _AppShellState extends ConsumerState<AppShell>
     required TextStyle labelStyle,
     required TextScaler textScaler,
     required TextDirection textDirection,
+    required NavBarLabelDisplayMode labelDisplayMode,
   }) {
     final signature = _NavLayoutSignature(
       barWidth: barWidth,
@@ -590,6 +599,7 @@ class _AppShellState extends ConsumerState<AppShell>
       textDirection: textDirection,
       fontSize: labelStyle.fontSize ?? 12.0,
       fontWeight: labelStyle.fontWeight ?? FontWeight.w500,
+      labelDisplayMode: labelDisplayMode,
     );
     final cached = _cachedNavLayout;
     if (cached != null && _cachedNavLayoutSignature == signature) {
@@ -604,6 +614,7 @@ class _AppShellState extends ConsumerState<AppShell>
       labelStyle: labelStyle,
       textScaler: textScaler,
       textDirection: textDirection,
+      labelDisplayMode: labelDisplayMode,
     );
     _cachedNavLayoutSignature = signature;
     _cachedNavLayout = layout;
@@ -953,6 +964,10 @@ class _AppShellState extends ConsumerState<AppShell>
       );
     } else {
       final terms = watchTerminology(context, ref);
+      final labelDisplayMode = ref.watch(navBarLabelDisplayModeProvider);
+      final revealLabelsWhenExpanded = ref.watch(
+        navBarRevealLabelsWhenExpandedProvider,
+      );
       final primaryLabels = configuredPrimaryTabs
           .map(
             (tab) =>
@@ -978,6 +993,7 @@ class _AppShellState extends ConsumerState<AppShell>
         labelStyle: navBarLabelTextStyle(context, isSelected: true),
         textScaler: MediaQuery.textScalerOf(context),
         textDirection: Directionality.of(context),
+        labelDisplayMode: labelDisplayMode,
       );
       final currentVisibleIndex = mobileLayout.allTabs.indexWhere(
         (t) => t.branchIndex == widget.navigationShell.currentIndex,
@@ -1070,6 +1086,8 @@ class _AppShellState extends ConsumerState<AppShell>
                         overflowRows: mobileLayout.spec.overflowRows,
                         rowHeight: mobileLayout.rowHeight,
                         overflowRowHeight: mobileLayout.overflowRowHeight,
+                        labelDisplayMode: labelDisplayMode,
+                        revealLabelsWhenExpanded: revealLabelsWhenExpanded,
                         currentIndex: safeCurrentIndex,
                         accentColor: accentColor,
                         onTap: (index) => onTabSelected(
@@ -1178,6 +1196,8 @@ class _FloatingNavBar extends StatefulWidget {
     required this.overflowRows,
     required this.rowHeight,
     required this.overflowRowHeight,
+    required this.labelDisplayMode,
+    required this.revealLabelsWhenExpanded,
     required this.currentIndex,
     required this.onTap,
     required this.accentColor,
@@ -1197,6 +1217,8 @@ class _FloatingNavBar extends StatefulWidget {
   final int overflowRows;
   final double rowHeight;
   final double overflowRowHeight;
+  final NavBarLabelDisplayMode labelDisplayMode;
+  final bool revealLabelsWhenExpanded;
   final int currentIndex;
 
   /// Called with the index into [primaryTabs] ++ [overflowTabs].
@@ -1358,6 +1380,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final showLabels =
+        widget.labelDisplayMode != NavBarLabelDisplayMode.iconsOnly;
 
     if (!_needsOverflow) {
       return _buildSimpleBar(
@@ -1367,6 +1391,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         boardsBadge: boardsBadge,
         isDark: isDark,
         terminologyPlural: terms.plural,
+        showLabels: showLabels,
       );
     }
 
@@ -1379,6 +1404,13 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         final t = _expandAnimation.value;
         final currentHeight =
             widget.rowHeight + (_expandedHeight - widget.rowHeight) * t;
+        final showExpandedLabels =
+            widget.labelDisplayMode != NavBarLabelDisplayMode.iconsOnly ||
+            widget.revealLabelsWhenExpanded;
+        final labelVisibility =
+            widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
+            ? t
+            : 1.0;
         final radius =
             _collapsedRadius + (_expandedRadius - _collapsedRadius) * t;
 
@@ -1429,6 +1461,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                       dueCount: dueCount,
                                       chatUnreadCount: chatUnreadCount,
                                       boardsBadge: boardsBadge,
+                                      showLabels: showExpandedLabels,
+                                      labelVisibility: labelVisibility,
                                     ),
                                   ),
                                 ],
@@ -1525,6 +1559,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                             chatUnreadCount: chatUnreadCount,
                                             boardsBadge: boardsBadge,
                                             rowHeight: widget.rowHeight,
+                                            showLabel: showExpandedLabels,
+                                            labelVisibility: labelVisibility,
                                             onTap: () => _handleTap(i),
                                           ),
                                         );
@@ -1568,6 +1604,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required int dueCount,
     required int chatUnreadCount,
     required int boardsBadge,
+    required bool showLabels,
+    required double labelVisibility,
   }) {
     if (slot == null) return const SizedBox.shrink();
     // Stagger on the original tab index so icons animate in reading order
@@ -1596,6 +1634,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
           chatUnreadCount: chatUnreadCount,
           boardsBadge: boardsBadge,
           rowHeight: widget.rowHeight,
+          showLabel: showLabels,
+          labelVisibility: labelVisibility,
           showItemPill: true,
           onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
         ),
@@ -1612,6 +1652,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required int dueCount,
     required int chatUnreadCount,
     required int boardsBadge,
+    required bool showLabels,
+    required double labelVisibility,
   }) {
     final populatedSlots = slots
         .whereType<({int index, AppShellTab tab})>()
@@ -1642,6 +1684,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                   dueCount: dueCount,
                   chatUnreadCount: chatUnreadCount,
                   boardsBadge: boardsBadge,
+                  showLabels: showLabels,
+                  labelVisibility: labelVisibility,
                 ),
               ),
           ],
@@ -1701,6 +1745,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required int boardsBadge,
     required bool isDark,
     required String terminologyPlural,
+    required bool showLabels,
   }) {
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final tabCount = widget.primaryTabs.length;
@@ -1786,6 +1831,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 chatUnreadCount: chatUnreadCount,
                                 boardsBadge: boardsBadge,
                                 rowHeight: widget.rowHeight,
+                                showLabel: showLabels,
+                                labelVisibility: showLabels ? 1.0 : 0.0,
                                 onTap: () => widget.onTap(index),
                               ),
                             );
@@ -1869,6 +1916,8 @@ class _NavBarItem extends StatelessWidget {
     required this.chatUnreadCount,
     required this.boardsBadge,
     required this.rowHeight,
+    required this.showLabel,
+    required this.labelVisibility,
     required this.onTap,
     this.showItemPill = false,
   });
@@ -1883,6 +1932,8 @@ class _NavBarItem extends StatelessWidget {
   final int chatUnreadCount;
   final int boardsBadge;
   final double rowHeight;
+  final bool showLabel;
+  final double labelVisibility;
   final VoidCallback onTap;
 
   /// When true, render a per-item pill behind the icon (for overflow row).
@@ -1896,6 +1947,9 @@ class _NavBarItem extends StatelessWidget {
       context,
       terminologyPlural: terminologyPlural,
     );
+    final visibleLabelFactor = showLabel
+        ? labelVisibility.clamp(0.0, 1.0).toDouble()
+        : 0.0;
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -1949,18 +2003,26 @@ class _NavBarItem extends StatelessWidget {
                 child: iconWidget,
               ),
             ),
-            Text(
-              itemLabel,
-              style: navBarLabelTextStyle(
-                context,
-                isSelected: isSelected,
-                color: isSelected
-                    ? theme.colorScheme.onSurface
-                    : _navInactiveLabelColor(theme),
+            ClipRect(
+              child: Align(
+                heightFactor: visibleLabelFactor,
+                child: Opacity(
+                  opacity: visibleLabelFactor,
+                  child: Text(
+                    itemLabel,
+                    style: navBarLabelTextStyle(
+                      context,
+                      isSelected: isSelected,
+                      color: isSelected
+                          ? theme.colorScheme.onSurface
+                          : _navInactiveLabelColor(theme),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                  ),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
             ),
           ],
         ),

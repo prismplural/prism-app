@@ -577,6 +577,20 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateNavBarLabelDisplayMode(
+    domain.NavBarLabelDisplayMode value,
+  ) async {
+    await _dao.updateNavBarLabelDisplayMode(value.index);
+    await _syncFieldIfNavEnabled('nav_bar_label_display_mode', value.index);
+  }
+
+  @override
+  Future<void> updateNavBarRevealLabelsWhenExpanded(bool value) async {
+    await _dao.updateNavBarRevealLabelsWhenExpanded(value);
+    await _syncFieldIfNavEnabled('nav_bar_reveal_labels_when_expanded', value);
+  }
+
+  @override
   Future<void> updateChatBadgePreferences(Map<String, String> prefs) async {
     final encoded = SystemSettingsMapper.encodeBadgePrefs(prefs);
     await _dao.updateChatBadgePreferences(encoded);
@@ -726,6 +740,8 @@ class DriftSystemSettingsRepository
       'sync_navigation_enabled': row.syncNavigationEnabled,
       'nav_bar_items': row.navBarItems,
       'nav_bar_overflow_items': row.navBarOverflowItems,
+      'nav_bar_label_display_mode': row.navBarLabelDisplayMode,
+      'nav_bar_reveal_labels_when_expanded': row.navBarRevealLabelsWhenExpanded,
       'chat_badge_preferences': row.chatBadgePreferences,
       'fronting_list_view_mode': row.frontingListViewMode,
       'add_front_default_behavior': row.addFrontDefaultBehavior,
@@ -925,6 +941,13 @@ class DriftSystemSettingsRepository
       navBarOverflowItems: fields.containsKey('nav_bar_overflow_items')
           ? Value(fields['nav_bar_overflow_items'] as String)
           : const Value.absent(),
+      navBarLabelDisplayMode: fields.containsKey('nav_bar_label_display_mode')
+          ? Value(fields['nav_bar_label_display_mode'] as int)
+          : const Value.absent(),
+      navBarRevealLabelsWhenExpanded:
+          fields.containsKey('nav_bar_reveal_labels_when_expanded')
+          ? Value(fields['nav_bar_reveal_labels_when_expanded'] as bool)
+          : const Value.absent(),
       chatBadgePreferences: fields.containsKey('chat_badge_preferences')
           ? Value(fields['chat_badge_preferences'] as String)
           : const Value.absent(),
@@ -1034,6 +1057,8 @@ class DriftSystemSettingsRepository
       'nav_bar_overflow_items': SystemSettingsMapper.encodeNavBarItems(
         s.navBarOverflowItems,
       ),
+      'nav_bar_label_display_mode': s.navBarLabelDisplayMode.index,
+      'nav_bar_reveal_labels_when_expanded': s.navBarRevealLabelsWhenExpanded,
       'chat_badge_preferences': SystemSettingsMapper.encodeBadgePrefs(
         s.chatBadgePreferences,
       ),

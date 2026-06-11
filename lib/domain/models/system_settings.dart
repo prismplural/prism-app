@@ -168,6 +168,8 @@ enum FontFamily {
   double get maximumScale => 1.5;
 }
 
+enum NavBarLabelDisplayMode { fullLabels, truncatedLabels, iconsOnly }
+
 enum GifConsentState { unknown, enabled, declined }
 
 enum SystemTerminology { members, headmates, alters, parts, facets, custom }
@@ -263,6 +265,9 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(<String>[]) List<String> navBarItems,
     @Default(<String>[]) List<String> navBarOverflowItems,
     @Default(true) bool syncNavigationEnabled,
+    @Default(NavBarLabelDisplayMode.fullLabels)
+    NavBarLabelDisplayMode navBarLabelDisplayMode,
+    @Default(true) bool navBarRevealLabelsWhenExpanded,
     // Chat badge preferences — memberId → 'all' | 'mentions_only'
     @Default(<String, String>{}) Map<String, String> chatBadgePreferences,
     // Default sleep quality for new sleep sessions (device-local).

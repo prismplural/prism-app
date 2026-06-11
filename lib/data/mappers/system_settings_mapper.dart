@@ -114,6 +114,12 @@ class SystemSettingsMapper {
       navBarItems: _decodeNavBarItems(row.navBarItems),
       navBarOverflowItems: _decodeNavBarItems(row.navBarOverflowItems),
       syncNavigationEnabled: row.syncNavigationEnabled,
+      navBarLabelDisplayMode: enumByIndex(
+        row.navBarLabelDisplayMode,
+        domain.NavBarLabelDisplayMode.values,
+        domain.NavBarLabelDisplayMode.fullLabels,
+      ),
+      navBarRevealLabelsWhenExpanded: row.navBarRevealLabelsWhenExpanded,
       chatBadgePreferences: decodeBadgePrefs(row.chatBadgePreferences),
       defaultSleepQuality: _sleepQualityByName(row.defaultSleepQuality),
       frontingListViewMode: enumByIndex(
@@ -222,6 +228,10 @@ class SystemSettingsMapper {
       navBarItems: Value(encodeNavBarItems(model.navBarItems)),
       navBarOverflowItems: Value(encodeNavBarItems(model.navBarOverflowItems)),
       syncNavigationEnabled: Value(model.syncNavigationEnabled),
+      navBarLabelDisplayMode: Value(model.navBarLabelDisplayMode.index),
+      navBarRevealLabelsWhenExpanded: Value(
+        model.navBarRevealLabelsWhenExpanded,
+      ),
       chatBadgePreferences: Value(encodeBadgePrefs(model.chatBadgePreferences)),
       defaultSleepQuality: Value(model.defaultSleepQuality?.name),
       frontingListViewMode: Value(model.frontingListViewMode.index),

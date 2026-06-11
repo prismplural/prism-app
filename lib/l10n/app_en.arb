@@ -1426,6 +1426,34 @@
   "@navigationPreferences": {
     "description": "Navigation settings: section title above the sync / view-toggle switches"
   },
+  "navigationLabelDisplayTitle": "Labels",
+  "@navigationLabelDisplayTitle": {
+    "description": "Navigation settings: label display mode setting title"
+  },
+  "navigationLabelDisplaySubtitle": "Choose how much text appears in the mobile nav bar.",
+  "@navigationLabelDisplaySubtitle": {
+    "description": "Navigation settings: label display mode setting subtitle"
+  },
+  "navigationLabelModeFull": "Full",
+  "@navigationLabelModeFull": {
+    "description": "Navigation settings: full labels segment"
+  },
+  "navigationLabelModeTruncate": "Truncate",
+  "@navigationLabelModeTruncate": {
+    "description": "Navigation settings: truncated labels segment"
+  },
+  "navigationLabelModeIcons": "Icons",
+  "@navigationLabelModeIcons": {
+    "description": "Navigation settings: icons only segment"
+  },
+  "navigationRevealLabelsWhenExpandedTitle": "Show labels when expanded",
+  "@navigationRevealLabelsWhenExpandedTitle": {
+    "description": "Navigation settings: reveal labels when More is expanded toggle title"
+  },
+  "navigationRevealLabelsWhenExpandedSubtitle": "Keep the bar minimal until you open More, then show text for every option.",
+  "@navigationRevealLabelsWhenExpandedSubtitle": {
+    "description": "Navigation settings: reveal labels when More is expanded toggle subtitle"
+  },
   "navigationLayoutSection": "Layout",
   "@navigationLayoutSection": {
     "description": "Navigation settings: section title above the preview and reorderable items list"

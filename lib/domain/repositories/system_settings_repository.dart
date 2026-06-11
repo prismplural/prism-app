@@ -119,6 +119,10 @@ abstract class SystemSettingsRepository {
   Future<void> updateNavBarItems(List<String> items);
   Future<void> updateNavBarOverflowItems(List<String> items);
   Future<void> updateSyncNavigationEnabled(bool value);
+  Future<void> updateNavBarLabelDisplayMode(
+    domain.NavBarLabelDisplayMode value,
+  );
+  Future<void> updateNavBarRevealLabelsWhenExpanded(bool value);
   Future<void> updateChatBadgePreferences(Map<String, String> prefs);
 
   // Device-local sleep quality default

@@ -408,6 +408,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.text('Reminders'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
       await tester.tap(findRowSemantics('Reminders', 'Move to nav bar'));
       await tester.pumpAndSettle();
 
@@ -416,6 +423,71 @@ void main() {
       expect(repo.duplicateLayoutEmissions, isEmpty);
       expect(repo.settings.navBarItems, contains('reminders'));
       expect(repo.settings.navBarOverflowItems, isNot(contains('reminders')));
+    });
+
+    testWidgets(
+      'updates navigation label display mode from segmented control',
+      (tester) async {
+        final repo = _ReactiveSystemSettingsRepository(const SystemSettings());
+        addTearDown(repo.dispose);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              systemSettingsRepositoryProvider.overrideWithValue(repo),
+            ],
+            child: const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: [Locale('en')],
+              home: MediaQuery(
+                data: MediaQueryData(size: Size(700, 900)),
+                child: NavigationSettingsScreen(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Icons'));
+        await tester.pumpAndSettle();
+
+        expect(
+          repo.settings.navBarLabelDisplayMode,
+          NavBarLabelDisplayMode.iconsOnly,
+        );
+        expect(find.text('Show labels when expanded'), findsOneWidget);
+      },
+    );
+
+    testWidgets('updates icon-only expanded label reveal toggle', (
+      tester,
+    ) async {
+      final repo = _ReactiveSystemSettingsRepository(
+        const SystemSettings(
+          navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        ),
+      );
+      addTearDown(repo.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [systemSettingsRepositoryProvider.overrideWithValue(repo)],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(700, 900)),
+              child: NavigationSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Show labels when expanded'));
+      await tester.pumpAndSettle();
+
+      expect(repo.settings.navBarRevealLabelsWhenExpanded, isFalse);
     });
 
     testWidgets('moving Home to More persists without duplicates', (

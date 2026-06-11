@@ -5789,6 +5789,32 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
         defaultValue: const Constant(true),
       );
+  static const VerificationMeta _navBarLabelDisplayModeMeta =
+      const VerificationMeta('navBarLabelDisplayMode');
+  @override
+  late final GeneratedColumn<int> navBarLabelDisplayMode = GeneratedColumn<int>(
+    'nav_bar_label_display_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _navBarRevealLabelsWhenExpandedMeta =
+      const VerificationMeta('navBarRevealLabelsWhenExpanded');
+  @override
+  late final GeneratedColumn<bool> navBarRevealLabelsWhenExpanded =
+      GeneratedColumn<bool>(
+        'nav_bar_reveal_labels_when_expanded',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("nav_bar_reveal_labels_when_expanded" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   static const VerificationMeta _chatBadgePreferencesMeta =
       const VerificationMeta('chatBadgePreferences');
   @override
@@ -6077,6 +6103,8 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     navBarItems,
     navBarOverflowItems,
     syncNavigationEnabled,
+    navBarLabelDisplayMode,
+    navBarRevealLabelsWhenExpanded,
     chatBadgePreferences,
     defaultSleepQuality,
     pendingFrontingMigrationMode,
@@ -6597,6 +6625,24 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('nav_bar_label_display_mode')) {
+      context.handle(
+        _navBarLabelDisplayModeMeta,
+        navBarLabelDisplayMode.isAcceptableOrUnknown(
+          data['nav_bar_label_display_mode']!,
+          _navBarLabelDisplayModeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nav_bar_reveal_labels_when_expanded')) {
+      context.handle(
+        _navBarRevealLabelsWhenExpandedMeta,
+        navBarRevealLabelsWhenExpanded.isAcceptableOrUnknown(
+          data['nav_bar_reveal_labels_when_expanded']!,
+          _navBarRevealLabelsWhenExpandedMeta,
+        ),
+      );
+    }
     if (data.containsKey('chat_badge_preferences')) {
       context.handle(
         _chatBadgePreferencesMeta,
@@ -7000,6 +7046,14 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}sync_navigation_enabled'],
       )!,
+      navBarLabelDisplayMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}nav_bar_label_display_mode'],
+      )!,
+      navBarRevealLabelsWhenExpanded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}nav_bar_reveal_labels_when_expanded'],
+      )!,
       chatBadgePreferences: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}chat_badge_preferences'],
@@ -7141,6 +7195,8 @@ class SystemSettingsData extends DataClass
   final String navBarItems;
   final String navBarOverflowItems;
   final bool syncNavigationEnabled;
+  final int navBarLabelDisplayMode;
+  final bool navBarRevealLabelsWhenExpanded;
   final String chatBadgePreferences;
   final String? defaultSleepQuality;
   final String pendingFrontingMigrationMode;
@@ -7248,6 +7304,8 @@ class SystemSettingsData extends DataClass
     required this.navBarItems,
     required this.navBarOverflowItems,
     required this.syncNavigationEnabled,
+    required this.navBarLabelDisplayMode,
+    required this.navBarRevealLabelsWhenExpanded,
     required this.chatBadgePreferences,
     this.defaultSleepQuality,
     required this.pendingFrontingMigrationMode,
@@ -7356,6 +7414,10 @@ class SystemSettingsData extends DataClass
     map['nav_bar_items'] = Variable<String>(navBarItems);
     map['nav_bar_overflow_items'] = Variable<String>(navBarOverflowItems);
     map['sync_navigation_enabled'] = Variable<bool>(syncNavigationEnabled);
+    map['nav_bar_label_display_mode'] = Variable<int>(navBarLabelDisplayMode);
+    map['nav_bar_reveal_labels_when_expanded'] = Variable<bool>(
+      navBarRevealLabelsWhenExpanded,
+    );
     map['chat_badge_preferences'] = Variable<String>(chatBadgePreferences);
     if (!nullToAbsent || defaultSleepQuality != null) {
       map['default_sleep_quality'] = Variable<String>(defaultSleepQuality);
@@ -7473,6 +7535,8 @@ class SystemSettingsData extends DataClass
       navBarItems: Value(navBarItems),
       navBarOverflowItems: Value(navBarOverflowItems),
       syncNavigationEnabled: Value(syncNavigationEnabled),
+      navBarLabelDisplayMode: Value(navBarLabelDisplayMode),
+      navBarRevealLabelsWhenExpanded: Value(navBarRevealLabelsWhenExpanded),
       chatBadgePreferences: Value(chatBadgePreferences),
       defaultSleepQuality: defaultSleepQuality == null && nullToAbsent
           ? const Value.absent()
@@ -7612,6 +7676,12 @@ class SystemSettingsData extends DataClass
       syncNavigationEnabled: serializer.fromJson<bool>(
         json['syncNavigationEnabled'],
       ),
+      navBarLabelDisplayMode: serializer.fromJson<int>(
+        json['navBarLabelDisplayMode'],
+      ),
+      navBarRevealLabelsWhenExpanded: serializer.fromJson<bool>(
+        json['navBarRevealLabelsWhenExpanded'],
+      ),
       chatBadgePreferences: serializer.fromJson<String>(
         json['chatBadgePreferences'],
       ),
@@ -7736,6 +7806,10 @@ class SystemSettingsData extends DataClass
       'navBarItems': serializer.toJson<String>(navBarItems),
       'navBarOverflowItems': serializer.toJson<String>(navBarOverflowItems),
       'syncNavigationEnabled': serializer.toJson<bool>(syncNavigationEnabled),
+      'navBarLabelDisplayMode': serializer.toJson<int>(navBarLabelDisplayMode),
+      'navBarRevealLabelsWhenExpanded': serializer.toJson<bool>(
+        navBarRevealLabelsWhenExpanded,
+      ),
       'chatBadgePreferences': serializer.toJson<String>(chatBadgePreferences),
       'defaultSleepQuality': serializer.toJson<String?>(defaultSleepQuality),
       'pendingFrontingMigrationMode': serializer.toJson<String>(
@@ -7836,6 +7910,8 @@ class SystemSettingsData extends DataClass
     String? navBarItems,
     String? navBarOverflowItems,
     bool? syncNavigationEnabled,
+    int? navBarLabelDisplayMode,
+    bool? navBarRevealLabelsWhenExpanded,
     String? chatBadgePreferences,
     Value<String?> defaultSleepQuality = const Value.absent(),
     String? pendingFrontingMigrationMode,
@@ -7930,6 +8006,10 @@ class SystemSettingsData extends DataClass
     navBarItems: navBarItems ?? this.navBarItems,
     navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
     syncNavigationEnabled: syncNavigationEnabled ?? this.syncNavigationEnabled,
+    navBarLabelDisplayMode:
+        navBarLabelDisplayMode ?? this.navBarLabelDisplayMode,
+    navBarRevealLabelsWhenExpanded:
+        navBarRevealLabelsWhenExpanded ?? this.navBarRevealLabelsWhenExpanded,
     chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
     defaultSleepQuality: defaultSleepQuality.present
         ? defaultSleepQuality.value
@@ -8128,6 +8208,13 @@ class SystemSettingsData extends DataClass
       syncNavigationEnabled: data.syncNavigationEnabled.present
           ? data.syncNavigationEnabled.value
           : this.syncNavigationEnabled,
+      navBarLabelDisplayMode: data.navBarLabelDisplayMode.present
+          ? data.navBarLabelDisplayMode.value
+          : this.navBarLabelDisplayMode,
+      navBarRevealLabelsWhenExpanded:
+          data.navBarRevealLabelsWhenExpanded.present
+          ? data.navBarRevealLabelsWhenExpanded.value
+          : this.navBarRevealLabelsWhenExpanded,
       chatBadgePreferences: data.chatBadgePreferences.present
           ? data.chatBadgePreferences.value
           : this.chatBadgePreferences,
@@ -8250,6 +8337,10 @@ class SystemSettingsData extends DataClass
           ..write('navBarItems: $navBarItems, ')
           ..write('navBarOverflowItems: $navBarOverflowItems, ')
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
+          ..write('navBarLabelDisplayMode: $navBarLabelDisplayMode, ')
+          ..write(
+            'navBarRevealLabelsWhenExpanded: $navBarRevealLabelsWhenExpanded, ',
+          )
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
           ..write('defaultSleepQuality: $defaultSleepQuality, ')
           ..write(
@@ -8340,6 +8431,8 @@ class SystemSettingsData extends DataClass
     navBarItems,
     navBarOverflowItems,
     syncNavigationEnabled,
+    navBarLabelDisplayMode,
+    navBarRevealLabelsWhenExpanded,
     chatBadgePreferences,
     defaultSleepQuality,
     pendingFrontingMigrationMode,
@@ -8426,6 +8519,9 @@ class SystemSettingsData extends DataClass
           other.navBarItems == this.navBarItems &&
           other.navBarOverflowItems == this.navBarOverflowItems &&
           other.syncNavigationEnabled == this.syncNavigationEnabled &&
+          other.navBarLabelDisplayMode == this.navBarLabelDisplayMode &&
+          other.navBarRevealLabelsWhenExpanded ==
+              this.navBarRevealLabelsWhenExpanded &&
           other.chatBadgePreferences == this.chatBadgePreferences &&
           other.defaultSleepQuality == this.defaultSleepQuality &&
           other.pendingFrontingMigrationMode ==
@@ -8509,6 +8605,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String> navBarItems;
   final Value<String> navBarOverflowItems;
   final Value<bool> syncNavigationEnabled;
+  final Value<int> navBarLabelDisplayMode;
+  final Value<bool> navBarRevealLabelsWhenExpanded;
   final Value<String> chatBadgePreferences;
   final Value<String?> defaultSleepQuality;
   final Value<String> pendingFrontingMigrationMode;
@@ -8587,6 +8685,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.navBarItems = const Value.absent(),
     this.navBarOverflowItems = const Value.absent(),
     this.syncNavigationEnabled = const Value.absent(),
+    this.navBarLabelDisplayMode = const Value.absent(),
+    this.navBarRevealLabelsWhenExpanded = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
     this.pendingFrontingMigrationMode = const Value.absent(),
@@ -8666,6 +8766,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.navBarItems = const Value.absent(),
     this.navBarOverflowItems = const Value.absent(),
     this.syncNavigationEnabled = const Value.absent(),
+    this.navBarLabelDisplayMode = const Value.absent(),
+    this.navBarRevealLabelsWhenExpanded = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
     this.defaultSleepQuality = const Value.absent(),
     this.pendingFrontingMigrationMode = const Value.absent(),
@@ -8745,6 +8847,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? navBarItems,
     Expression<String>? navBarOverflowItems,
     Expression<bool>? syncNavigationEnabled,
+    Expression<int>? navBarLabelDisplayMode,
+    Expression<bool>? navBarRevealLabelsWhenExpanded,
     Expression<String>? chatBadgePreferences,
     Expression<String>? defaultSleepQuality,
     Expression<String>? pendingFrontingMigrationMode,
@@ -8846,6 +8950,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'nav_bar_overflow_items': navBarOverflowItems,
       if (syncNavigationEnabled != null)
         'sync_navigation_enabled': syncNavigationEnabled,
+      if (navBarLabelDisplayMode != null)
+        'nav_bar_label_display_mode': navBarLabelDisplayMode,
+      if (navBarRevealLabelsWhenExpanded != null)
+        'nav_bar_reveal_labels_when_expanded': navBarRevealLabelsWhenExpanded,
       if (chatBadgePreferences != null)
         'chat_badge_preferences': chatBadgePreferences,
       if (defaultSleepQuality != null)
@@ -8944,6 +9052,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String>? navBarItems,
     Value<String>? navBarOverflowItems,
     Value<bool>? syncNavigationEnabled,
+    Value<int>? navBarLabelDisplayMode,
+    Value<bool>? navBarRevealLabelsWhenExpanded,
     Value<String>? chatBadgePreferences,
     Value<String?>? defaultSleepQuality,
     Value<String>? pendingFrontingMigrationMode,
@@ -9037,6 +9147,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
       syncNavigationEnabled:
           syncNavigationEnabled ?? this.syncNavigationEnabled,
+      navBarLabelDisplayMode:
+          navBarLabelDisplayMode ?? this.navBarLabelDisplayMode,
+      navBarRevealLabelsWhenExpanded:
+          navBarRevealLabelsWhenExpanded ?? this.navBarRevealLabelsWhenExpanded,
       chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
       defaultSleepQuality: defaultSleepQuality ?? this.defaultSleepQuality,
       pendingFrontingMigrationMode:
@@ -9287,6 +9401,16 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         syncNavigationEnabled.value,
       );
     }
+    if (navBarLabelDisplayMode.present) {
+      map['nav_bar_label_display_mode'] = Variable<int>(
+        navBarLabelDisplayMode.value,
+      );
+    }
+    if (navBarRevealLabelsWhenExpanded.present) {
+      map['nav_bar_reveal_labels_when_expanded'] = Variable<bool>(
+        navBarRevealLabelsWhenExpanded.value,
+      );
+    }
     if (chatBadgePreferences.present) {
       map['chat_badge_preferences'] = Variable<String>(
         chatBadgePreferences.value,
@@ -9436,6 +9560,10 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('navBarItems: $navBarItems, ')
           ..write('navBarOverflowItems: $navBarOverflowItems, ')
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
+          ..write('navBarLabelDisplayMode: $navBarLabelDisplayMode, ')
+          ..write(
+            'navBarRevealLabelsWhenExpanded: $navBarRevealLabelsWhenExpanded, ',
+          )
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
           ..write('defaultSleepQuality: $defaultSleepQuality, ')
           ..write(
@@ -29357,6 +29485,8 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String> navBarItems,
       Value<String> navBarOverflowItems,
       Value<bool> syncNavigationEnabled,
+      Value<int> navBarLabelDisplayMode,
+      Value<bool> navBarRevealLabelsWhenExpanded,
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
       Value<String> pendingFrontingMigrationMode,
@@ -29437,6 +29567,8 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String> navBarItems,
       Value<String> navBarOverflowItems,
       Value<bool> syncNavigationEnabled,
+      Value<int> navBarLabelDisplayMode,
+      Value<bool> navBarRevealLabelsWhenExpanded,
       Value<String> chatBadgePreferences,
       Value<String?> defaultSleepQuality,
       Value<String> pendingFrontingMigrationMode,
@@ -29754,6 +29886,16 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get syncNavigationEnabled => $composableBuilder(
     column: $table.syncNavigationEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get navBarLabelDisplayMode => $composableBuilder(
+    column: $table.navBarLabelDisplayMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get navBarRevealLabelsWhenExpanded => $composableBuilder(
+    column: $table.navBarRevealLabelsWhenExpanded,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -30149,6 +30291,17 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get navBarLabelDisplayMode => $composableBuilder(
+    column: $table.navBarLabelDisplayMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get navBarRevealLabelsWhenExpanded =>
+      $composableBuilder(
+        column: $table.navBarRevealLabelsWhenExpanded,
+        builder: (column) => ColumnOrderings(column),
+      );
+
   ColumnOrderings<String> get chatBadgePreferences => $composableBuilder(
     column: $table.chatBadgePreferences,
     builder: (column) => ColumnOrderings(column),
@@ -30531,6 +30684,17 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get navBarLabelDisplayMode => $composableBuilder(
+    column: $table.navBarLabelDisplayMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get navBarRevealLabelsWhenExpanded =>
+      $composableBuilder(
+        column: $table.navBarRevealLabelsWhenExpanded,
+        builder: (column) => column,
+      );
+
   GeneratedColumn<String> get chatBadgePreferences => $composableBuilder(
     column: $table.chatBadgePreferences,
     builder: (column) => column,
@@ -30727,6 +30891,9 @@ class $$SystemSettingsTableTableTableManager
                 Value<String> navBarItems = const Value.absent(),
                 Value<String> navBarOverflowItems = const Value.absent(),
                 Value<bool> syncNavigationEnabled = const Value.absent(),
+                Value<int> navBarLabelDisplayMode = const Value.absent(),
+                Value<bool> navBarRevealLabelsWhenExpanded =
+                    const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
                 Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<String> pendingFrontingMigrationMode =
@@ -30809,6 +30976,8 @@ class $$SystemSettingsTableTableTableManager
                 navBarItems: navBarItems,
                 navBarOverflowItems: navBarOverflowItems,
                 syncNavigationEnabled: syncNavigationEnabled,
+                navBarLabelDisplayMode: navBarLabelDisplayMode,
+                navBarRevealLabelsWhenExpanded: navBarRevealLabelsWhenExpanded,
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
                 pendingFrontingMigrationMode: pendingFrontingMigrationMode,
@@ -30892,6 +31061,9 @@ class $$SystemSettingsTableTableTableManager
                 Value<String> navBarItems = const Value.absent(),
                 Value<String> navBarOverflowItems = const Value.absent(),
                 Value<bool> syncNavigationEnabled = const Value.absent(),
+                Value<int> navBarLabelDisplayMode = const Value.absent(),
+                Value<bool> navBarRevealLabelsWhenExpanded =
+                    const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
                 Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<String> pendingFrontingMigrationMode =
@@ -30974,6 +31146,8 @@ class $$SystemSettingsTableTableTableManager
                 navBarItems: navBarItems,
                 navBarOverflowItems: navBarOverflowItems,
                 syncNavigationEnabled: syncNavigationEnabled,
+                navBarLabelDisplayMode: navBarLabelDisplayMode,
+                navBarRevealLabelsWhenExpanded: navBarRevealLabelsWhenExpanded,
                 chatBadgePreferences: chatBadgePreferences,
                 defaultSleepQuality: defaultSleepQuality,
                 pendingFrontingMigrationMode: pendingFrontingMigrationMode,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -45,6 +46,7 @@ AppShellMobileNavLayout computeAdaptiveNavLayoutForCurrentDevice(
   required List<AppShellTab> primary,
   required List<AppShellTab> overflow,
   required String terminologyPlural,
+  NavBarLabelDisplayMode labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
 }) {
   return computeAdaptiveMobileNavLayout(
     barWidth:
@@ -64,6 +66,7 @@ AppShellMobileNavLayout computeAdaptiveNavLayoutForCurrentDevice(
     labelStyle: navBarLabelTextStyle(context, isSelected: true),
     textScaler: MediaQuery.textScalerOf(context),
     textDirection: Directionality.of(context),
+    labelDisplayMode: labelDisplayMode,
   );
 }
 
@@ -82,6 +85,8 @@ class NavigationLayoutEditor extends StatelessWidget {
     this.showLayoutTitle = true,
     this.adaptPreviewToDeviceWidth = true,
     this.adaptSavedLayoutToDeviceWidth = true,
+    this.labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
+    this.revealLabelsWhenExpanded = true,
   });
 
   final List<AppShellTab> primaryTabs;
@@ -96,6 +101,8 @@ class NavigationLayoutEditor extends StatelessWidget {
   final bool showLayoutTitle;
   final bool adaptPreviewToDeviceWidth;
   final bool adaptSavedLayoutToDeviceWidth;
+  final NavBarLabelDisplayMode labelDisplayMode;
+  final bool revealLabelsWhenExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +140,8 @@ class NavigationLayoutEditor extends StatelessWidget {
                 overflowTabs: overflowTabs,
                 terminologyPlural: terminologyPlural,
                 adaptToDeviceWidth: adaptPreviewToDeviceWidth,
+                labelDisplayMode: labelDisplayMode,
+                revealLabelsWhenExpanded: revealLabelsWhenExpanded,
               ),
               const SizedBox(height: 12),
               PrismSectionCard(
@@ -368,6 +377,7 @@ class NavigationLayoutEditor extends StatelessWidget {
         primary: normalized.primary,
         overflow: normalized.overflow,
         terminologyPlural: terminologyPlural,
+        labelDisplayMode: labelDisplayMode,
       );
       onLayoutChanged(adaptiveLayout.primaryTabs, adaptiveLayout.overflowTabs);
       return;
@@ -410,6 +420,7 @@ class NavigationLayoutEditor extends StatelessWidget {
       primary: primary,
       overflow: overflow,
       terminologyPlural: terminologyPlural,
+      labelDisplayMode: labelDisplayMode,
     );
     return rendered.primaryTabs.any((tab) => tab.id == candidate.id);
   }
@@ -624,12 +635,16 @@ class _NavigationBarPreview extends StatelessWidget {
     required this.overflowTabs,
     required this.terminologyPlural,
     required this.adaptToDeviceWidth,
+    required this.labelDisplayMode,
+    required this.revealLabelsWhenExpanded,
   });
 
   final List<AppShellTab> primaryTabs;
   final List<AppShellTab> overflowTabs;
   final String terminologyPlural;
   final bool adaptToDeviceWidth;
+  final NavBarLabelDisplayMode labelDisplayMode;
+  final bool revealLabelsWhenExpanded;
 
   Widget _buildOverflowRow(
     BuildContext context, {
@@ -638,6 +653,7 @@ class _NavigationBarPreview extends StatelessWidget {
     required bool hasMultipleRows,
     required Color accentColor,
     required bool isDark,
+    required bool showLabels,
   }) {
     final tabs = row.whereType<AppShellTab>().toList();
     if (tabs.isEmpty) return const SizedBox.shrink();
@@ -665,6 +681,7 @@ class _NavigationBarPreview extends StatelessWidget {
                   isSelected: false,
                   accentColor: accentColor,
                   isDark: isDark,
+                  showLabel: showLabels,
                 ),
               ),
           ],
@@ -704,8 +721,12 @@ class _NavigationBarPreview extends StatelessWidget {
                 labelStyle: navBarLabelTextStyle(context, isSelected: true),
                 textScaler: MediaQuery.textScalerOf(context),
                 textDirection: Directionality.of(context),
+                labelDisplayMode: labelDisplayMode,
               )
             : _fixedPreviewLayout(primaryTabs, overflowTabs);
+        final showLabels =
+            labelDisplayMode != NavBarLabelDisplayMode.iconsOnly ||
+            revealLabelsWhenExpanded;
         final selectedTabId = layout.primaryTabs.isNotEmpty
             ? layout.primaryTabs.first.id
             : null;
@@ -767,6 +788,7 @@ class _NavigationBarPreview extends StatelessWidget {
                               hasMultipleRows: hasMultipleOverflowRows,
                               accentColor: theme.colorScheme.primary,
                               isDark: isDark,
+                              showLabels: showLabels,
                             ),
                           ),
                         ),
@@ -806,6 +828,7 @@ class _NavigationBarPreview extends StatelessWidget {
                                   isSelected: selectedTabId == tab.id,
                                   accentColor: theme.colorScheme.primary,
                                   isDark: isDark,
+                                  showLabel: showLabels,
                                 ),
                               ),
                             if (layout.overflowTabs.isNotEmpty)
@@ -867,6 +890,7 @@ class _PreviewNavBarItem extends StatelessWidget {
     required this.isSelected,
     required this.accentColor,
     required this.isDark,
+    required this.showLabel,
   });
 
   final AppShellTab tab;
@@ -874,6 +898,7 @@ class _PreviewNavBarItem extends StatelessWidget {
   final bool isSelected;
   final Color accentColor;
   final bool isDark;
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -909,20 +934,21 @@ class _PreviewNavBarItem extends StatelessWidget {
             ),
           ),
         ),
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: navBarLabelTextStyle(
-              context,
-              isSelected: isSelected,
-              color: labelColor,
+        if (showLabel)
+          RichText(
+            text: TextSpan(
+              text: label,
+              style: navBarLabelTextStyle(
+                context,
+                isSelected: isSelected,
+                color: labelColor,
+              ),
             ),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
           ),
-          textScaler: MediaQuery.textScalerOf(context),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          softWrap: false,
-        ),
       ],
     );
   }

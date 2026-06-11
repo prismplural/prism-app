@@ -461,6 +461,15 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   @override
   Future<void> updateSyncNavigationEnabled(bool value) async =>
       updateSettings(settings.copyWith(syncNavigationEnabled: value));
+
+  @override
+  Future<void> updateNavBarLabelDisplayMode(
+    NavBarLabelDisplayMode value,
+  ) async => updateSettings(settings.copyWith(navBarLabelDisplayMode: value));
+
+  @override
+  Future<void> updateNavBarRevealLabelsWhenExpanded(bool value) async =>
+      updateSettings(settings.copyWith(navBarRevealLabelsWhenExpanded: value));
   @override
   Future<void> updateChatBadgePreferences(Map<String, String> prefs) async =>
       updateSettings(settings.copyWith(chatBadgePreferences: prefs));

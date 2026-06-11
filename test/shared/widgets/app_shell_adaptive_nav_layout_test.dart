@@ -113,6 +113,73 @@ void main() {
     );
   });
 
+  test(
+    'truncated labels keep configured primary tabs in the collapsed row',
+    () {
+      final primaryTabs = appShellTabs.take(5).toList();
+
+      final layout = computeAdaptiveMobileNavLayout(
+        barWidth: 320,
+        primaryTabs: primaryTabs,
+        overflowTabs: const [],
+        primaryLabels: const [
+          'Dashboard Home',
+          'Conversations',
+          'Daily Habits',
+          'Community Polls',
+          'Application Settings',
+        ],
+        overflowLabels: const [],
+        labelStyle: labelStyle,
+        textScaler: const TextScaler.linear(2),
+        textDirection: TextDirection.ltr,
+        labelDisplayMode: NavBarLabelDisplayMode.truncatedLabels,
+      );
+
+      expect(layout.spec.usesOverflowMenu, isFalse);
+      expect(tabIds(layout.primaryTabs), [
+        AppShellTabId.home,
+        AppShellTabId.chat,
+        AppShellTabId.habits,
+        AppShellTabId.polls,
+        AppShellTabId.settings,
+      ]);
+      expect(layout.overflowTabs, isEmpty);
+    },
+  );
+
+  test('icons only mode ignores label width when fitting primary tabs', () {
+    final primaryTabs = appShellTabs.take(5).toList();
+
+    final layout = computeAdaptiveMobileNavLayout(
+      barWidth: 260,
+      primaryTabs: primaryTabs,
+      overflowTabs: const [],
+      primaryLabels: const [
+        'Dashboard Home',
+        'Conversations',
+        'Daily Habits',
+        'Community Polls',
+        'Application Settings',
+      ],
+      overflowLabels: const [],
+      labelStyle: labelStyle,
+      textScaler: const TextScaler.linear(2),
+      textDirection: TextDirection.ltr,
+      labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+    );
+
+    expect(layout.spec.usesOverflowMenu, isFalse);
+    expect(tabIds(layout.primaryTabs), [
+      AppShellTabId.home,
+      AppShellTabId.chat,
+      AppShellTabId.habits,
+      AppShellTabId.polls,
+      AppShellTabId.settings,
+    ]);
+    expect(layout.rowHeight, kFloatingNavBarHeight);
+  });
+
   test('reports a four-row expanded overflow layout when needed', () {
     final primaryTabs = appShellTabs.take(5).toList();
     final overflowTabs = [

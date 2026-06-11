@@ -252,6 +252,14 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(syncNavigationEnabled: Value(value)),
   );
 
+  Future<void> updateNavBarLabelDisplayMode(int value) => _updateField(
+    SystemSettingsTableCompanion(navBarLabelDisplayMode: Value(value)),
+  );
+
+  Future<void> updateNavBarRevealLabelsWhenExpanded(bool value) => _updateField(
+    SystemSettingsTableCompanion(navBarRevealLabelsWhenExpanded: Value(value)),
+  );
+
   Future<void> updateChatBadgePreferences(String value) => _updateField(
     SystemSettingsTableCompanion(chatBadgePreferences: Value(value)),
   );

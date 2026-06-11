@@ -85,6 +85,8 @@ void main() {
       navBarItems: '',
       navBarOverflowItems: '',
       syncNavigationEnabled: true,
+      navBarLabelDisplayMode: 0,
+      navBarRevealLabelsWhenExpanded: true,
       chatBadgePreferences: '{}',
       defaultSleepQuality: defaultSleepQuality,
       sleepSuggestionEnabled: false,

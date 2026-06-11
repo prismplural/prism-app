@@ -98,6 +98,14 @@ _SystemSettings _$SystemSettingsFromJson(
           .toList() ??
       const <String>[],
   syncNavigationEnabled: json['syncNavigationEnabled'] as bool? ?? true,
+  navBarLabelDisplayMode:
+      $enumDecodeNullable(
+        _$NavBarLabelDisplayModeEnumMap,
+        json['navBarLabelDisplayMode'],
+      ) ??
+      NavBarLabelDisplayMode.fullLabels,
+  navBarRevealLabelsWhenExpanded:
+      json['navBarRevealLabelsWhenExpanded'] as bool? ?? true,
   chatBadgePreferences:
       (json['chatBadgePreferences'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, e as String),
@@ -220,6 +228,9 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'navBarItems': instance.navBarItems,
   'navBarOverflowItems': instance.navBarOverflowItems,
   'syncNavigationEnabled': instance.syncNavigationEnabled,
+  'navBarLabelDisplayMode':
+      _$NavBarLabelDisplayModeEnumMap[instance.navBarLabelDisplayMode]!,
+  'navBarRevealLabelsWhenExpanded': instance.navBarRevealLabelsWhenExpanded,
   'chatBadgePreferences': instance.chatBadgePreferences,
   'defaultSleepQuality': _$SleepQualityEnumMap[instance.defaultSleepQuality],
   'frontingListViewMode':
@@ -315,6 +326,12 @@ const _$FontFamilyEnumMap = {
   FontFamily.openDyslexic: 'openDyslexic',
   FontFamily.atkinsonHyperlegible: 'atkinsonHyperlegible',
   FontFamily.lexend: 'lexend',
+};
+
+const _$NavBarLabelDisplayModeEnumMap = {
+  NavBarLabelDisplayMode.fullLabels: 'fullLabels',
+  NavBarLabelDisplayMode.truncatedLabels: 'truncatedLabels',
+  NavBarLabelDisplayMode.iconsOnly: 'iconsOnly',
 };
 
 const _$SleepQualityEnumMap = {

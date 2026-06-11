@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/features_settings_screen.dart';
@@ -13,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
@@ -28,6 +30,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
     final overflowTabs = ref.watch(navBarOverflowTabsProvider);
     final flags = ref.watch(featureFlagsProvider);
     final syncNavigationEnabled = ref.watch(syncNavigationEnabledProvider);
+    final labelDisplayMode = ref.watch(navBarLabelDisplayModeProvider);
+    final revealLabelsWhenExpanded = ref.watch(
+      navBarRevealLabelsWhenExpandedProvider,
+    );
     final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
@@ -61,6 +67,44 @@ class NavigationSettingsScreen extends ConsumerWidget {
                       context,
                     ).colorScheme.onSurface.withValues(alpha: 0.08),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: _NavLabelDisplayModeControl(
+                      value: labelDisplayMode,
+                      onChanged: (mode) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateNavBarLabelDisplayMode(mode),
+                    ),
+                  ),
+                  if (labelDisplayMode == NavBarLabelDisplayMode.iconsOnly) ...[
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.08),
+                    ),
+                    PrismSwitchRow(
+                      title:
+                          context.l10n.navigationRevealLabelsWhenExpandedTitle,
+                      subtitle: context
+                          .l10n
+                          .navigationRevealLabelsWhenExpandedSubtitle,
+                      value: revealLabelsWhenExpanded,
+                      onChanged: (v) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateNavBarRevealLabelsWhenExpanded(v),
+                    ),
+                  ],
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.08),
+                  ),
                   PrismSwitchRow(
                     title: context.l10n.navigationShowViewToggleTitle,
                     subtitle: context.l10n.navigationShowViewToggleSubtitle,
@@ -82,6 +126,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
             overflowTabs: overflowTabs,
             flags: flags,
             terminologyPlural: terms.plural,
+            labelDisplayMode: labelDisplayMode,
+            revealLabelsWhenExpanded: revealLabelsWhenExpanded,
             onDisabledFeatureTap: () {
               showAdaptiveDetailSurface<void>(
                 context: context,
@@ -103,6 +149,58 @@ class NavigationSettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NavLabelDisplayModeControl extends StatelessWidget {
+  const _NavLabelDisplayModeControl({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final NavBarLabelDisplayMode value;
+  final ValueChanged<NavBarLabelDisplayMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.navigationLabelDisplayTitle,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          context.l10n.navigationLabelDisplaySubtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        PrismSegmentedControl<NavBarLabelDisplayMode>(
+          selected: value,
+          onChanged: onChanged,
+          segments: [
+            PrismSegment(
+              value: NavBarLabelDisplayMode.fullLabels,
+              label: context.l10n.navigationLabelModeFull,
+            ),
+            PrismSegment(
+              value: NavBarLabelDisplayMode.truncatedLabels,
+              label: context.l10n.navigationLabelModeTruncate,
+            ),
+            PrismSegment(
+              value: NavBarLabelDisplayMode.iconsOnly,
+              label: context.l10n.navigationLabelModeIcons,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

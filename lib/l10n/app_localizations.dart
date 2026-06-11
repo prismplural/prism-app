@@ -2000,6 +2000,48 @@ abstract class AppLocalizations {
   /// **'Preferences'**
   String get navigationPreferences;
 
+  /// Navigation settings: label display mode setting title
+  ///
+  /// In en, this message translates to:
+  /// **'Labels'**
+  String get navigationLabelDisplayTitle;
+
+  /// Navigation settings: label display mode setting subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how much text appears in the mobile nav bar.'**
+  String get navigationLabelDisplaySubtitle;
+
+  /// Navigation settings: full labels segment
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get navigationLabelModeFull;
+
+  /// Navigation settings: truncated labels segment
+  ///
+  /// In en, this message translates to:
+  /// **'Truncate'**
+  String get navigationLabelModeTruncate;
+
+  /// Navigation settings: icons only segment
+  ///
+  /// In en, this message translates to:
+  /// **'Icons'**
+  String get navigationLabelModeIcons;
+
+  /// Navigation settings: reveal labels when More is expanded toggle title
+  ///
+  /// In en, this message translates to:
+  /// **'Show labels when expanded'**
+  String get navigationRevealLabelsWhenExpandedTitle;
+
+  /// Navigation settings: reveal labels when More is expanded toggle subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the bar minimal until you open More, then show text for every option.'**
+  String get navigationRevealLabelsWhenExpandedSubtitle;
+
   /// Navigation settings: section title above the preview and reorderable items list
   ///
   /// In en, this message translates to:

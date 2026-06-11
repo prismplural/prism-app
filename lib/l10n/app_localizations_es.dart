@@ -1108,6 +1108,30 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navigationPreferences => 'Preferencias';
 
   @override
+  String get navigationLabelDisplayTitle => 'Etiquetas';
+
+  @override
+  String get navigationLabelDisplaySubtitle =>
+      'Elige cuánto texto aparece en la barra de navegación móvil.';
+
+  @override
+  String get navigationLabelModeFull => 'Completo';
+
+  @override
+  String get navigationLabelModeTruncate => 'Recortar';
+
+  @override
+  String get navigationLabelModeIcons => 'Iconos';
+
+  @override
+  String get navigationRevealLabelsWhenExpandedTitle =>
+      'Mostrar etiquetas al expandir';
+
+  @override
+  String get navigationRevealLabelsWhenExpandedSubtitle =>
+      'Mantén la barra mínima hasta abrir Más; luego muestra texto en todas las opciones.';
+
+  @override
   String get navigationLayoutSection => 'Diseño';
 
   @override

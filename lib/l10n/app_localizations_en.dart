@@ -1077,6 +1077,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navigationPreferences => 'Preferences';
 
   @override
+  String get navigationLabelDisplayTitle => 'Labels';
+
+  @override
+  String get navigationLabelDisplaySubtitle =>
+      'Choose how much text appears in the mobile nav bar.';
+
+  @override
+  String get navigationLabelModeFull => 'Full';
+
+  @override
+  String get navigationLabelModeTruncate => 'Truncate';
+
+  @override
+  String get navigationLabelModeIcons => 'Icons';
+
+  @override
+  String get navigationRevealLabelsWhenExpandedTitle =>
+      'Show labels when expanded';
+
+  @override
+  String get navigationRevealLabelsWhenExpandedSubtitle =>
+      'Keep the bar minimal until you open More, then show text for every option.';
+
+  @override
   String get navigationLayoutSection => 'Layout';
 
   @override

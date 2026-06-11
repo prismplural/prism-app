@@ -130,6 +130,10 @@ class SystemSettingsTable extends Table {
       text().withDefault(const Constant(''))();
   BoolColumn get syncNavigationEnabled =>
       boolean().withDefault(const Constant(true))();
+  IntColumn get navBarLabelDisplayMode =>
+      integer().withDefault(const Constant(0))();
+  BoolColumn get navBarRevealLabelsWhenExpanded =>
+      boolean().withDefault(const Constant(true))();
   // Chat badge preferences — JSON map of memberId → 'all' | 'mentions_only'
   TextColumn get chatBadgePreferences =>
       text().withDefault(const Constant('{}'))();

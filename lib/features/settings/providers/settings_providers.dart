@@ -564,6 +564,22 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateNavBarLabelDisplayMode(
+    NavBarLabelDisplayMode value,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateNavBarLabelDisplayMode(value);
+    });
+  }
+
+  Future<void> updateNavBarRevealLabelsWhenExpanded(bool value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateNavBarRevealLabelsWhenExpanded(value);
+    });
+  }
+
   Future<void> updateChatBadgePreferences(Map<String, String> prefs) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -1189,6 +1205,20 @@ final syncNavigationEnabledProvider = Provider<bool>((ref) {
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.syncNavigationEnabled) ??
+      true;
+});
+
+final navBarLabelDisplayModeProvider = Provider<NavBarLabelDisplayMode>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.navBarLabelDisplayMode) ??
+      NavBarLabelDisplayMode.fullLabels;
+});
+
+final navBarRevealLabelsWhenExpandedProvider = Provider<bool>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.navBarRevealLabelsWhenExpanded) ??
       true;
 });
 

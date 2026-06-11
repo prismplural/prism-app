@@ -157,6 +157,8 @@ const String prismSyncSchema = '''
         "habits_badge_enabled": "Bool",
         "nav_bar_items": "String",
         "nav_bar_overflow_items": "String",
+        "nav_bar_label_display_mode": "Int",
+        "nav_bar_reveal_labels_when_expanded": "Bool",
         "chat_badge_preferences": "String",
         "fronting_list_view_mode": "Int",
         "add_front_default_behavior": "Int",

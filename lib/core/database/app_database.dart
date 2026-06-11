@@ -107,7 +107,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 35;
+  static const currentSchemaVersion = 36;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -912,6 +912,24 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         current = 35;
+      }
+      if (current == 35 && to >= 36) {
+        final cols = (await customSelect(
+          'PRAGMA table_info(system_settings)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!cols.contains('nav_bar_label_display_mode')) {
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.navBarLabelDisplayMode,
+          );
+        }
+        if (!cols.contains('nav_bar_reveal_labels_when_expanded')) {
+          await migrator.addColumn(
+            systemSettingsTable,
+            systemSettingsTable.navBarRevealLabelsWhenExpanded,
+          );
+        }
+        current = 36;
       }
       if (current != to) {
         throw UnsupportedError(
