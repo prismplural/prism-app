@@ -169,7 +169,9 @@ class PkMappingApplier {
     PkResolutionSnapshot? resolution,
   }) async {
     final existing = await _state.getById(decision.id);
-    if (existing != null && existing.status == 'applied') {
+    if (existing != null &&
+        existing.status == 'applied' &&
+        await _appliedEffectStillHolds(decision, resolution: resolution)) {
       return PkApplyResult(
         decision: decision,
         outcome: PkApplyOutcome.alreadyApplied,
@@ -219,6 +221,107 @@ class PkMappingApplier {
     }
   }
 
+  /// True when a decision recorded as `applied` STILL has its effect in
+  /// place, so the `_applyOne` short-circuit is safe.
+  ///
+  /// 2026-06 PK audit H11: decision ids are stable
+  /// (`push:<localId>`, `link:<pkUuid>:<localId>`, `import:<pkUuid>`), so a
+  /// bare `status == 'applied'` short-circuit no-ops FOREVER once the effect
+  /// is undone (member unlinked via stale-link clear, PK-side deletion, or
+  /// manual unlink) — while the screen's `_ResultsSummary` still counts the
+  /// no-op as success. A re-Push/re-Link must therefore re-validate the
+  /// effect and fall through to a FRESH apply when it no longer holds.
+  ///
+  /// The one-shot push path documents the same hazard and keeps its own
+  /// namespace so the two flows don't poison each other
+  /// (`pk_one_shot_push_service.dart` `_pushStateId`). Here both flows write
+  /// `push:<localId>`-style ids into the SAME table, so the applier owns the
+  /// re-validation.
+  ///
+  /// Effect checks by kind:
+  /// - `push` / `link`: the local member must still carry a PK link that
+  ///   resolves in the caller's snapshot. A cleared or stale link → re-apply.
+  /// - `import`: the imported local member must still exist AND be linked to
+  ///   this PK member → otherwise re-import.
+  /// - `skip`: a skip has no remote/local effect that can be invalidated by a
+  ///   later unlink, so keeping the short-circuit is always correct.
+  Future<bool> _appliedEffectStillHolds(
+    PkMappingDecision decision, {
+    PkResolutionSnapshot? resolution,
+  }) async {
+    switch (decision) {
+      case PkSkipDecision():
+        // No invalidatable effect — applied means applied. (Re-excluding a
+        // member the user may have since deliberately re-included would be
+        // the wrong move; the skip decision itself is terminal.)
+        return true;
+      case PkPushNewDecision():
+        final local = await _members.getMemberById(decision.localMemberId);
+        if (local == null) return false; // member gone → not "still applied".
+        return _localLinkStillHolds(local, resolution: resolution);
+      case PkLinkDecision():
+        final local = await _members.getMemberById(decision.localMemberId);
+        if (local == null) return false;
+        // The local must still be linked to THIS PK member specifically — a
+        // link to some other (or stale) PK member is not this decision's
+        // surviving effect.
+        if (!memberMatchesPkMember(local, decision.pkMember)) return false;
+        if (local.pluralkitSyncIgnored) return false;
+        return _localLinkStillHolds(local, resolution: resolution);
+      case PkImportDecision():
+        // The imported local must still exist and still be linked to this PK
+        // member. `_findExistingLinkedMember` matches on uuid/short-id.
+        final existing = await _findExistingLinkedMember(decision.pkMember);
+        if (existing == null) return false;
+        return _localLinkStillHolds(existing, resolution: resolution);
+    }
+  }
+
+  /// True when [local] still carries a PK link. When a [resolution] snapshot
+  /// is supplied we additionally require the link to RESOLVE against it (so a
+  /// PK-side deletion that left stale local fields behind is treated as a
+  /// cleared link). Callers without a snapshot fall back to the structural
+  /// `hasPluralKitLink` check, preserving pre-H11 behavior for ad-hoc/test
+  /// invocations that can't see the connected system's roster.
+  bool _localLinkStillHolds(
+    domain.Member local, {
+    PkResolutionSnapshot? resolution,
+  }) {
+    if (!hasPluralKitLink(local)) return false;
+    if (resolution == null) return true;
+    return resolution.resolvesLocal(local);
+  }
+
+  /// Whether the PK member recorded by a prior push ([priorState]) can be
+  /// re-linked instead of re-POSTed (2026-06 PK audit H11/M7).
+  ///
+  /// For an `applied` prior row we GET the member by its recorded uuid: 200 →
+  /// reuse (true); 404 → the member was deleted on PK, so a re-Push should
+  /// create afresh (false). For a `pending` prior row (the M7 crash window) we
+  /// trust the recorded ids unconditionally — the POST that wrote them just
+  /// happened, so a network probe would only add a transient-failure abort
+  /// risk to a recovery that should always re-link. Any non-404 PK/network
+  /// error from the probe propagates so the apply records `failed` rather than
+  /// silently re-POSTing into a possible duplicate.
+  Future<bool> _priorPkIdentityStillUsable(PkMappingStateData priorState) async {
+    // NB `!= 'applied'` deliberately also trusts `failed` rows: the
+    // M7 failed-link-back lineage (POST succeeded, local writeback threw)
+    // marks the row failed WITH its recorded ids, and the retry must re-link
+    // rather than re-POST. The cost of trusting a failed row whose PK member
+    // has since been deleted is a stale link (caught later by stale-link
+    // detection) — never a duplicate POST.
+    if (priorState.status != 'applied') return true;
+    final uuid = priorState.pkMemberUuid;
+    if (uuid == null || uuid.trim().isEmpty) return false;
+    try {
+      await _client.getMember(uuid);
+      return true;
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode == 404) return false;
+      rethrow;
+    }
+  }
+
   /// Stable kind string used in [PkMappingDecisionApplied] /
   /// [PkMappingDecisionFailed] payloads. The applier owns this rather than
   /// pulling it off `decision.id` (which embeds the kind as a prefix) so the
@@ -262,7 +365,14 @@ class PkMappingApplier {
         pkMemberUuid = decision.pkMemberUuid;
         localId = decision.localMemberId;
     }
-    await _state.upsert(
+    // 2026-06 PK audit M7: route through `recordPending` (NOT `upsert`) so a
+    // re-apply does NOT overwrite PK identifiers a prior crashed run already
+    // persisted post-POST. The `pkMemberId` / `pkMemberUuid` below are only
+    // honoured on a FRESH insert; on conflict they are preserved. For `push`
+    // decisions these are always null here anyway — the ids are written later
+    // by `_applyPushNew` and must survive a crash so the retry re-links rather
+    // than re-POSTing a duplicate PK member.
+    await _state.recordPending(
       PkMappingStateCompanion(
         id: Value(decision.id),
         decisionType: Value(type),
@@ -505,16 +615,54 @@ class PkMappingApplier {
       return;
     }
 
-    // Crash-recovery: prior run POSTed but never wrote the local member.
-    // pk_mapping_state has the PK id/uuid — reuse them instead of re-POSTing.
-    // User-driven push decision: route through applyPluralKitLink so an
-    // excluded local resumes sync as part of the explicit push.
+    // Recovery via the prior run's recorded PK identifiers — reuse them
+    // instead of re-POSTing a duplicate PK member. Two distinct cases reach
+    // here, distinguished by the prior row's status:
+    //
+    //  * `pending` (2026-06 PK audit M7 crash window): the prior run POSTed
+    //    but crashed before the local write-back. The PK member was JUST
+    //    created and certainly exists — re-link straight away, NO network
+    //    probe. Probing here would let a transient GET failure abort a
+    //    recovery that would otherwise succeed, and re-POSTing is exactly the
+    //    duplicate the M7 guard exists to prevent.
+    //
+    //  * `applied` (2026-06 PK audit H11 re-apply after an unlink): the prior
+    //    push fully completed, THEN the user unlinked (stale-link clear,
+    //    PK-side deletion, or manual unlink) and re-ran Push. The recorded
+    //    uuid may now point to a PK member the user deleted. Probe
+    //    `getMember(uuid)` first: on 200 the member still exists → re-link
+    //    (no duplicate POST); on 404 it's gone → fall through to a FRESH
+    //    create. We deliberately spend ONE GET on this rarer path to avoid
+    //    both a duplicate POST (when the member survives) and resurrecting a
+    //    reference to a deleted member (when it doesn't). Foreign-ownership
+    //    validation of the fetched member is H12's scope, not this fix's.
     if (priorState?.pkMemberId != null && priorState?.pkMemberUuid != null) {
-      await _members.applyPluralKitLink(local.id, {
-        'pluralkit_uuid': priorState!.pkMemberUuid,
-        'pluralkit_id': priorState.pkMemberId,
-      });
-      return;
+      final reusable = await _priorPkIdentityStillUsable(priorState!);
+      if (reusable) {
+        // Friendly conflict check: if a DIFFERENT local member now holds the
+        // recorded PK identity (linked after this decision's unlink), surface
+        // the same readable error as the link path instead of letting the
+        // partial unique index throw a raw SqliteException.
+        final holders = await _members.getAllMembers();
+        for (final m in holders) {
+          if (m.id == local.id) continue;
+          if ((m.pluralkitUuid != null &&
+                  m.pluralkitUuid == priorState.pkMemberUuid) ||
+              (m.pluralkitId != null &&
+                  m.pluralkitId == priorState.pkMemberId)) {
+            throw StateError(
+              'PluralKit member is already linked to ${m.name}',
+            );
+          }
+        }
+        await _members.applyPluralKitLink(local.id, {
+          'pluralkit_uuid': priorState.pkMemberUuid,
+          'pluralkit_id': priorState.pkMemberId,
+        });
+        return;
+      }
+      // Recorded member no longer exists on PK → drop the stale ids so the
+      // POST path below doesn't try to PATCH them, and re-create fresh.
     }
 
     // If pluralkitId exists but uuid missing, fetch to complete the pairing —

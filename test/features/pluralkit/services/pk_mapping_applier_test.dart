@@ -198,7 +198,8 @@ class FakeMemberRepo implements MemberRepository {
   ensureUnknownSentinelMember() => throw UnimplementedError();
 }
 
-/// Stubs PluralKitClient; we only need createMember + getMembers + updateMember.
+/// Stubs PluralKitClient; we only need createMember + getMembers +
+/// updateMember + getMember.
 class FakePluralKitClient extends PluralKitClient {
   final List<PKMember> allMembers;
   final List<Map<String, dynamic>> createdPayloads = [];
@@ -208,9 +209,17 @@ class FakePluralKitClient extends PluralKitClient {
   final List<String> downloadedUrls = [];
   Object? downloadError;
 
+  /// Optional override for [getMember]. When null, [getMember] resolves the
+  /// ref against [allMembers] by uuid or short id and throws a PK 404 when
+  /// absent — matching real PK semantics for a deleted member (2026-06 PK
+  /// audit H11 re-link-vs-re-POST probe).
+  PKMember Function(String ref)? onGetMember;
+  final List<String> getMemberRefs = [];
+
   FakePluralKitClient({
     List<PKMember>? members,
     this.onCreate,
+    this.onGetMember,
     Map<String, List<int>>? avatarBytes,
     this.downloadError,
   }) : allMembers = members ?? [],
@@ -219,6 +228,20 @@ class FakePluralKitClient extends PluralKitClient {
 
   @override
   Future<List<PKMember>> getMembers() async => allMembers;
+
+  @override
+  Future<PKMember> getMember(String memberRef) async {
+    getMemberRefs.add(memberRef);
+    if (onGetMember != null) return onGetMember!(memberRef);
+    final match = allMembers.firstWhere(
+      (m) => m.uuid == memberRef || m.id == memberRef,
+      orElse: () => _pkSentinelMember,
+    );
+    if (identical(match, _pkSentinelMember)) {
+      throw const PluralKitApiError(404, 'Member not found', code: 20006);
+    }
+    return match;
+  }
 
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) async {
@@ -251,6 +274,15 @@ class FakePluralKitClient extends PluralKitClient {
     return avatarBytes[url] ?? const [];
   }
 }
+
+/// Sentinel returned by the fake's [FakePluralKitClient.getMember] lookup when
+/// no member matches — distinguishes "absent" (→ 404) from a real member
+/// without nullable casts.
+const PKMember _pkSentinelMember = PKMember(
+  id: '__absent__',
+  uuid: '__absent__',
+  name: '',
+);
 
 class _FixedUuid extends Uuid {
   const _FixedUuid(this.value);
@@ -1395,6 +1427,432 @@ void main() {
       );
     });
   });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // 2026-06 PK audit H11 — the `applied` short-circuit must re-validate the
+  // decision's surviving effect, not no-op forever once it's been undone.
+  //
+  // Decision ids are stable, so after a user unlinks a member (stale-link
+  // clear / PK-side deletion / manual unlink) a re-attempted Push/Link used to
+  // silently no-op while the UI reported success. The short-circuit now only
+  // fires when the effect still holds; otherwise it falls through to a fresh
+  // apply. Skip is terminal and keeps the short-circuit.
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('H11: applied short-circuit re-validates surviving effect', () {
+    test(
+      'applied Push + local link since cleared + PK member still exists → '
+      're-links (no duplicate POST)',
+      () async {
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (data) => PKMember(
+            id: 'newid',
+            uuid: 'new-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        // First push: creates the PK member, links locally, marks applied.
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+        expect(client.createCallCount, 1);
+        expect((await dao.getById('push:l1'))!.status, 'applied');
+
+        // User unlinks the local member (PK member 'new-uuid' still exists).
+        await repo.clearPluralKitLink('l1');
+
+        // Re-Push: must NOT short-circuit, must NOT POST a duplicate, and must
+        // re-link using the recorded ids after verifying the member survives.
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.createCallCount,
+          1,
+          reason: 'PK member still exists → re-link, never a second POST',
+        );
+        expect(
+          client.getMemberRefs,
+          contains('new-uuid'),
+          reason: 'Re-apply probes the recorded uuid before re-linking',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitUuid, 'new-uuid');
+        expect(updated.pluralkitId, 'newid');
+      },
+    );
+
+    test(
+      'applied Push + local link cleared + PK member deleted (404) → '
+      're-POSTs a fresh member',
+      () async {
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        var nextCreate = 0;
+        final client = FakePluralKitClient(
+          // Recorded member is gone on PK: getMember(uuid) → 404.
+          onGetMember: (_) =>
+              throw const PluralKitApiError(404, 'gone', code: 20006),
+          onCreate: (data) {
+            nextCreate++;
+            return PKMember(
+              id: 'newid$nextCreate',
+              uuid: 'new-uuid-$nextCreate',
+              name: data['name'] as String,
+            );
+          },
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+        expect(client.createCallCount, 1);
+
+        // Unlink, then re-Push. The PK member was deleted (why the user
+        // unlinked), so re-linking the stale uuid would resurrect a dead
+        // reference — the applier must create afresh instead.
+        await repo.clearPluralKitLink('l1');
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.createCallCount,
+          2,
+          reason: 'Deleted PK member → re-apply creates a fresh one',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitUuid, 'new-uuid-2');
+        expect(updated.pluralkitId, 'newid2');
+        // State row now carries the FRESH ids.
+        final state = await dao.getById('push:l1');
+        expect(state!.pkMemberUuid, 'new-uuid-2');
+        expect(state.status, 'applied');
+      },
+    );
+
+    test(
+      'applied Push + local link intact → still short-circuits '
+      '(no duplicate POST)',
+      () async {
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (data) => PKMember(
+            id: 'newid',
+            uuid: 'new-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+        expect(client.createCallCount, 1);
+
+        // Link intact — re-apply must short-circuit, not POST or probe.
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.alreadyApplied);
+        expect(client.createCallCount, 1, reason: 'No duplicate POST');
+        expect(
+          client.getMemberRefs,
+          isEmpty,
+          reason: 'Intact link short-circuits before any network probe',
+        );
+      },
+    );
+
+    test(
+      'applied Push + link cleared + probe fails transiently (500) → '
+      'decision FAILS, no duplicate POST',
+      () async {
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        var probeArmed = false;
+        final client = FakePluralKitClient(
+          onGetMember: (_) {
+            if (probeArmed) {
+              throw const PluralKitApiError(500, 'server hiccup');
+            }
+            throw const PluralKitApiError(404, 'gone', code: 20006);
+          },
+          onCreate: (data) => PKMember(
+            id: 'newid',
+            uuid: 'new-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+        expect(client.createCallCount, 1);
+
+        await repo.clearPluralKitLink('l1');
+        probeArmed = true;
+
+        // A transient probe failure must NOT fall through to a fresh POST
+        // (duplicate-creation risk) — the decision fails and is retryable.
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.failed);
+        expect(
+          client.createCallCount,
+          1,
+          reason: 'a 5xx probe must never be treated as "member gone"',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitUuid, isNull,
+            reason: 'no blind re-link on an unverified identity');
+      },
+    );
+
+    test('applied Link + local link since cleared → re-links', () async {
+      final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+      const pk = PKMember(id: 'abcde', uuid: 'u-1', name: 'Alice');
+
+      // First link.
+      await applier.apply([
+        const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+      ]);
+      expect((await repo.getMemberById('l1'))!.pluralkitUuid, 'u-1');
+      expect((await dao.getById('link:u-1:l1'))!.status, 'applied');
+
+      // User unlinks. Re-applying the SAME Link decision must re-write the
+      // link rather than no-op forever.
+      await repo.clearPluralKitLink('l1');
+      expect((await repo.getMemberById('l1'))!.pluralkitUuid, isNull);
+
+      final results = await applier.apply([
+        const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      final updated = await repo.getMemberById('l1');
+      expect(updated!.pluralkitUuid, 'u-1');
+      expect(updated.pluralkitId, 'abcde');
+    });
+
+    test('applied Skip → still short-circuits', () async {
+      final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(repo: repo, client: client);
+
+      await applier.apply([const PkSkipDecision(localMemberId: 'l1')]);
+      expect((await dao.getById('skip:local:l1'))!.status, 'applied');
+
+      // Even after the user re-includes the member, the Skip decision itself
+      // is terminal — re-applying short-circuits (no local effect to redo).
+      await repo.resumePluralKitSync('l1');
+      final results = await applier.apply([
+        const PkSkipDecision(localMemberId: 'l1'),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.alreadyApplied);
+      // The short-circuit must NOT have re-excluded the member.
+      final updated = await repo.getMemberById('l1');
+      expect(updated!.pluralkitSyncIgnored, isFalse);
+    });
+
+    test('applied Import + imported member since deleted → re-imports', () async {
+      final repo = FakeMemberRepo([]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        uuid: const _FixedUuid('imp-local-1'),
+      );
+      const pk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Imported');
+
+      await applier.apply([const PkImportDecision(pkMember: pk)]);
+      expect(await repo.getMemberById('imp-local-1'), isNotNull);
+      expect((await dao.getById('import:u-imp'))!.status, 'applied');
+
+      // The imported local member is deleted. Re-applying the Import must
+      // create it again rather than no-op.
+      await repo.deleteMember('imp-local-1');
+      expect(await repo.getMemberById('imp-local-1'), isNull);
+
+      final results = await applier.apply([
+        const PkImportDecision(pkMember: pk),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.applied);
+      final reimported = await repo.getMemberById('imp-local-1');
+      expect(reimported, isNotNull);
+      expect(reimported!.pluralkitUuid, 'u-imp');
+    });
+
+    test('applied Import + imported member still linked → short-circuits', () async {
+      final repo = FakeMemberRepo([]);
+      final client = FakePluralKitClient();
+      final applier = buildApplier(
+        repo: repo,
+        client: client,
+        uuid: const _FixedUuid('imp-local-1'),
+      );
+      const pk = PKMember(id: 'abcde', uuid: 'u-imp', name: 'Imported');
+
+      await applier.apply([const PkImportDecision(pkMember: pk)]);
+      final countAfterFirst = (await repo.getAllMembers()).length;
+
+      final results = await applier.apply([
+        const PkImportDecision(pkMember: pk),
+      ]);
+
+      expect(results.single.outcome, PkApplyOutcome.alreadyApplied);
+      expect(
+        (await repo.getAllMembers()).length,
+        countAfterFirst,
+        reason: 'Intact import must not create a duplicate local member',
+      );
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // 2026-06 PK audit M7 — `_recordPending` must NOT null out PK identifiers a
+  // prior crashed run already persisted post-POST. The old upsert wrote
+  // explicit `Value(null)` ids at the start of every (re)apply, so a crash
+  // between `_recordPending` and the local link-back left a `pending` row with
+  // NULL ids → next retry re-POSTed → duplicate PK member.
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('M7: _recordPending preserves persisted PK identifiers', () {
+    test(
+      'pending row with recorded ids → re-apply re-links (zero POST) and the '
+      'recovery reuses the recorded uuid',
+      () async {
+        // Simulate the crash window: a prior run POSTed (ids persisted) but
+        // crashed before the local link-back, leaving a PENDING row.
+        await dao.upsert(
+          PkMappingStateCompanion.insert(
+            id: 'push:l1',
+            decisionType: 'push',
+            pkMemberId: const Value('pre-id'),
+            pkMemberUuid: const Value('pre-uuid'),
+            localMemberId: const Value('l1'),
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
+        );
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (_) =>
+              throw StateError('must not POST: recovery should re-link'),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.createCallCount,
+          0,
+          reason:
+              'M7: pending row carrying ids must drive a re-link, never a '
+              'duplicate POST',
+        );
+        // pending status → recovery trusts the ids WITHOUT a getMember probe.
+        expect(
+          client.getMemberRefs,
+          isEmpty,
+          reason: 'pending crash-window recovery does not probe the network',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitUuid, 'pre-uuid');
+        expect(updated.pluralkitId, 'pre-id');
+      },
+    );
+
+    test(
+      '_recordPending does not null the ids mid-flight (row still carries them '
+      'after a failed recovery)',
+      () async {
+        // Pending row with ids, but the recovery link-back fails. After the
+        // failed apply the row must STILL carry the original ids — proving
+        // `_recordPending` did not wipe them at the start of the retry.
+        await dao.upsert(
+          PkMappingStateCompanion.insert(
+            id: 'push:l1',
+            decisionType: 'push',
+            pkMemberId: const Value('pre-id'),
+            pkMemberUuid: const Value('pre-uuid'),
+            localMemberId: const Value('l1'),
+            createdAt: DateTime.utc(2026),
+            updatedAt: DateTime.utc(2026),
+          ),
+        );
+        // Repo whose applyPluralKitLink throws — forces the recovery to fail
+        // AFTER `_recordPending` has run.
+        final repo = _ThrowingLinkRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (_) => throw StateError('must not POST'),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.failed);
+        expect(client.createCallCount, 0);
+        final row = await dao.getById('push:l1');
+        expect(
+          row!.pkMemberUuid,
+          'pre-uuid',
+          reason: 'M7: _recordPending must not null the persisted uuid',
+        );
+        expect(
+          row.pkMemberId,
+          'pre-id',
+          reason: 'M7: _recordPending must not null the persisted short id',
+        );
+      },
+    );
+
+    test(
+      'fresh push (no prior row) still records ids post-POST as before',
+      () async {
+        // Regression guard: the M7 change must not break the normal first
+        // push — the post-POST upsert still lands the freshly-created ids.
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onCreate: (data) => PKMember(
+            id: 'fresh-id',
+            uuid: 'fresh-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(repo: repo, client: client);
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+
+        final row = await dao.getById('push:l1');
+        expect(row!.status, 'applied');
+        expect(row.pkMemberUuid, 'fresh-uuid');
+        expect(row.pkMemberId, 'fresh-id');
+      },
+    );
+  });
+}
+
+/// FakeMemberRepo whose [applyPluralKitLink] always throws — used to force the
+/// M7 recovery link-back to fail AFTER `_recordPending` has run, so the test
+/// can assert the persisted ids survived the (re)apply.
+class _ThrowingLinkRepo extends FakeMemberRepo {
+  _ThrowingLinkRepo(super.seed);
+
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) async {
+    throw StateError('link-back failed (simulated crash window)');
+  }
 }
 
 /// FakeMemberRepo subclass that records calls to PR 2's PK-link methods.
