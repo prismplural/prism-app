@@ -188,10 +188,48 @@ void main() {
       prominentIcons: true,
       labelVisibility: 0,
     );
+    final expandedTop = navBarPrimaryPillTop(
+      rowHeight: kFloatingNavBarHeight,
+      prominentIcons: true,
+      labelVisibility: 1,
+    );
+    final expandedPaintOffset = navBarPrimaryPillPaintOffsetY(
+      rowHeight: kFloatingNavBarHeight,
+      prominentIcons: true,
+      labelVisibility: 1,
+    );
+    final expandedScaleInset =
+        (navBarPrimaryPillLayoutHeight(prominentIcons: true) -
+            navBarPrimaryPillHeight(prominentIcons: true, labelVisibility: 1)) /
+        2;
 
     expect(
       collapsedTop,
       (kFloatingNavBarHeight - kNavBarIconOnlyItemIconHeight) / 2,
+    );
+    expect(
+      navBarLabelRevealLiftY(labelVisibility: 1),
+      (kNavBarLabelFontSize + 4) / 2,
+    );
+    expect(
+      navBarPrimaryPillHeight(prominentIcons: true, labelVisibility: 0),
+      kNavBarIconOnlyItemIconHeight,
+    );
+    expect(
+      navBarPrimaryPillLayoutHeight(prominentIcons: true),
+      kNavBarIconOnlyItemIconHeight,
+    );
+    expect(
+      navBarPrimaryPillHeight(prominentIcons: true, labelVisibility: 1),
+      kNavBarItemIconHeight,
+    );
+    expect(
+      navBarPrimaryPillScaleY(prominentIcons: true, labelVisibility: 0),
+      1,
+    );
+    expect(
+      navBarPrimaryPillScaleY(prominentIcons: true, labelVisibility: 1),
+      kNavBarItemIconHeight / kNavBarIconOnlyItemIconHeight,
     );
     expect(
       navBarPrimaryPillTop(
@@ -205,10 +243,88 @@ void main() {
       navBarPrimaryPillTop(
         rowHeight: kFloatingNavBarHeight,
         prominentIcons: true,
+        labelVisibility: navBarEffectiveLabelVisibility(
+          labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+          revealLabelsWhenExpanded: false,
+          expandProgress: 1,
+        ),
+      ),
+      collapsedTop,
+    );
+    expect(
+      navBarPrimaryPillPaintOffsetY(
+        rowHeight: kFloatingNavBarHeight,
+        prominentIcons: true,
+        labelVisibility: navBarEffectiveLabelVisibility(
+          labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+          revealLabelsWhenExpanded: false,
+          expandProgress: 1,
+        ),
+      ),
+      0,
+    );
+    expect(
+      navBarPrimaryPillTop(
+        rowHeight: kFloatingNavBarHeight,
+        prominentIcons: true,
         labelVisibility: 1,
       ),
-      lessThan(collapsedTop),
+      expandedTop,
     );
+    expect(expandedTop, lessThan(collapsedTop));
+    expect(
+      navBarPrimaryPillLayoutTop(
+            rowHeight: kFloatingNavBarHeight,
+            prominentIcons: true,
+          ) +
+          expandedPaintOffset +
+          expandedScaleInset,
+      closeTo(expandedTop, 0.001),
+      reason: 'The paint transform should target the scaled pill bounds.',
+    );
+
+    expect(
+      navBarPrimaryContentOffsetX(
+        segmentWidth: 64,
+        prominentIcons: true,
+        pillWidth: 56,
+      ),
+      4,
+    );
+    expect(
+      navBarPrimaryContentOffsetX(
+        segmentWidth: 64,
+        prominentIcons: false,
+        pillWidth: 48,
+      ),
+      0,
+    );
+    expect(
+      navBarEffectiveLabelVisibility(
+        labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        revealLabelsWhenExpanded: true,
+        expandProgress: 0.5,
+      ),
+      0.5,
+    );
+    expect(
+      navBarEffectiveLabelVisibility(
+        labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        revealLabelsWhenExpanded: false,
+        expandProgress: 1,
+      ),
+      0,
+    );
+    expect(
+      navBarEffectiveLabelVisibility(
+        labelDisplayMode: NavBarLabelDisplayMode.fullLabels,
+        revealLabelsWhenExpanded: false,
+        expandProgress: 0,
+      ),
+      1,
+    );
+    expect(navBarIconOpticalOffsetY(prominentIcons: true), 1);
+    expect(navBarIconOpticalOffsetY(prominentIcons: false), 0);
   });
 
   test('reports a four-row expanded overflow layout when needed', () {
@@ -522,6 +638,10 @@ void main() {
           tester.getSize(navBarClip).height,
           closeTo(expectedLayout.rowHeight, 0.01),
         );
+        expect(
+          tester.getBottomLeft(navBarClip).dy,
+          closeTo(800 - kFloatingNavBarBottomMargin, 0.01),
+        );
 
         await tester.tap(find.bySemanticsLabel('More tabs'));
         await tester.pumpAndSettle();
@@ -540,6 +660,151 @@ void main() {
       }
     },
   );
+
+  testWidgets('icon-only mode reveals primary and overflow labels when expanded', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final semantics = tester.ensureSemantics();
+    try {
+      const settings = SystemSettings(
+        navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        navBarRevealLabelsWhenExpanded: true,
+      );
+      final configuredPrimaryTabs = appShellTabs.take(5).toList();
+      final configuredOverflowTabs = [
+        appShellTabs[5],
+        appShellTabs[6],
+        appShellTabs[7],
+        appShellTabs[8],
+        appShellTabs[9],
+      ];
+
+      final router = GoRouter(
+        initialLocation: AppRoutePaths.home,
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return AppShell(navigationShell: navigationShell);
+            },
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: AppRoutePaths.home,
+                    builder: (context, state) =>
+                        const Scaffold(body: SizedBox.expand()),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            navBarOverflowTabsProvider.overrideWithValue(
+              configuredOverflowTabs,
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(settings),
+            ),
+            isPinSetProvider.overrideWith((ref) async => false),
+            syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+            pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+            pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+            habitsBadgeEnabledProvider.overrideWith((ref) => false),
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+            unreadConversationCountProvider.overrideWith((ref) => 0),
+            frontingMigrationGateProvider.overrideWith(
+              (ref) => FrontingMigrationGateStatus.complete,
+            ),
+          ],
+          child: MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            theme: ThemeData(fontFamily: 'OpenDyslexic'),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        _navLabelFinder(AppShellTabId.home),
+        findsNothing,
+        reason:
+            'Hidden icon-only labels should not build text during collapsed frames.',
+      );
+      expect(
+        _navIconSlotCenterY(tester, AppShellTabId.home),
+        closeTo(_floatingNavBarCenterY(tester), 0.5),
+        reason: 'Collapsed icon-only items should be centered in the nav bar.',
+      );
+      expect(
+        _navIconSlotCenterX(tester, AppShellTabId.home),
+        closeTo(_selectedPillCenterX(tester), 0.5),
+        reason: 'Selected icon-only items should be centered in the pill.',
+      );
+      expect(
+        _navIconVisualOffsetY(tester, AppShellTabId.home),
+        navBarIconOpticalOffsetY(prominentIcons: true),
+        reason:
+            'Icon-only glyphs should be optically nudged down inside the pill.',
+      );
+
+      final collapsedPillScaleY = _selectedPillScaleY(tester);
+      final collapsedPillCenterY = _selectedPillCenterY(tester);
+
+      await tester.tap(find.bySemanticsLabel('More tabs'));
+      await tester.pumpAndSettle();
+
+      expect(
+        _selectedPillScaleY(tester),
+        lessThan(collapsedPillScaleY),
+        reason:
+            'Icon-only selected pills should shorten when expanded labels appear.',
+      );
+      expect(
+        _selectedPillCenterY(tester),
+        lessThan(collapsedPillCenterY - 4),
+        reason: 'The selected pill should lift as icon-only labels animate in.',
+      );
+      expect(
+        _selectedPillCenterY(tester),
+        closeTo(_navIconSlotCenterY(tester, AppShellTabId.home), 1.1),
+        reason: 'The lifted selected pill should remain centered on the icon.',
+      );
+      expect(
+        _navLabelOpacities(tester, AppShellTabId.home),
+        contains(1),
+        reason:
+            'The expanded icon-only menu should reveal labels in the primary row.',
+      );
+      expect(
+        _navLabelOpacities(tester, AppShellTabId.timeline),
+        contains(1),
+        reason:
+            'The expanded icon-only menu should reveal labels in overflow rows.',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('mobile nav bar base color follows Material You palette', (
     tester,
@@ -934,6 +1199,70 @@ Color _floatingNavBarDecorationColor(WidgetTester tester) {
     }
   }
   throw TestFailure('Could not find floating nav bar decoration color.');
+}
+
+double _floatingNavBarCenterY(WidgetTester tester) {
+  final navBarClip = find
+      .descendant(
+        of: find.bySemanticsLabel('Navigation bar'),
+        matching: find.byType(ClipRRect),
+      )
+      .first;
+  return tester.getCenter(navBarClip).dy;
+}
+
+double _navIconSlotCenterY(WidgetTester tester, AppShellTabId tabId) {
+  final slot = find.byKey(ValueKey('nav_icon_slot_${tabId.name}'));
+  expect(slot, findsOneWidget);
+  return tester.getCenter(slot).dy;
+}
+
+double _navIconVisualOffsetY(WidgetTester tester, AppShellTabId tabId) {
+  final icon = find.byKey(ValueKey('nav_icon_visual_${tabId.name}'));
+  expect(icon, findsOneWidget);
+  final transform = tester.widget<Transform>(icon);
+  return transform.transform.getTranslation().y;
+}
+
+double _navIconSlotCenterX(WidgetTester tester, AppShellTabId tabId) {
+  final slot = find.byKey(ValueKey('nav_icon_slot_${tabId.name}'));
+  expect(slot, findsOneWidget);
+  return tester.getCenter(slot).dx;
+}
+
+double _selectedPillCenterX(WidgetTester tester) {
+  final pill = find.byKey(const ValueKey('nav_selected_pill'));
+  expect(pill, findsOneWidget);
+  return tester.getCenter(pill).dx;
+}
+
+double _selectedPillCenterY(WidgetTester tester) {
+  final pill = find.byKey(const ValueKey('nav_selected_pill'));
+  expect(pill, findsOneWidget);
+  return tester.getCenter(pill).dy;
+}
+
+double _selectedPillScaleY(WidgetTester tester) {
+  final transform = find.byKey(const ValueKey('nav_selected_pill_transform'));
+  expect(transform, findsOneWidget);
+  return tester.widget<Transform>(transform).transform.storage[5];
+}
+
+List<double> _navLabelOpacities(WidgetTester tester, AppShellTabId tabId) {
+  final label = _navLabelFinder(tabId);
+  expect(label, findsOneWidget);
+
+  final opacities = tester
+      .widgetList<Opacity>(
+        find.ancestor(of: label, matching: find.byType(Opacity)),
+      )
+      .map((opacity) => opacity.opacity)
+      .toList();
+  return opacities.isEmpty ? [1.0] : opacities;
+}
+
+Finder _navLabelFinder(AppShellTabId tabId) {
+  return find.byKey(ValueKey('nav_label_${tabId.name}'));
 }
 
 class _FakeSyncStatusNotifier extends SyncStatusNotifier {

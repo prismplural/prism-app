@@ -49,6 +49,9 @@ const _kNavBarBorderWidth = 1.0;
 
 const _kNavBarSelectedItemPillHeight = 32.0;
 const _kNavBarSelectedItemPillTop = 8.0;
+const _kNavBarPrimaryPillHorizontalInset = 8.0;
+const _kNavBarIconOnlyIconOpticalOffsetY = 1.0;
+const _kNavBarLabelRevealSlotHeight = kNavBarLabelFontSize + 4.0;
 
 /// Extra vertical breathing room around the icon + label stack so scaled text
 /// still fits after decoration insets and font metric differences.
@@ -242,22 +245,127 @@ double _measurePrimaryNavBarRowHeight({
 }
 
 @visibleForTesting
+double navBarPrimaryPillLayoutHeight({required bool prominentIcons}) {
+  return prominentIcons
+      ? kNavBarIconOnlyItemIconHeight
+      : _kNavBarSelectedItemPillHeight;
+}
+
+@visibleForTesting
+double navBarPrimaryPillHeight({
+  required bool prominentIcons,
+  required double labelVisibility,
+}) {
+  if (!prominentIcons) return _kNavBarSelectedItemPillHeight;
+  return lerpDouble(
+    kNavBarIconOnlyItemIconHeight,
+    _kNavBarSelectedItemPillHeight,
+    labelVisibility.clamp(0.0, 1.0).toDouble(),
+  )!;
+}
+
+@visibleForTesting
+double navBarPrimaryPillScaleY({
+  required bool prominentIcons,
+  required double labelVisibility,
+}) {
+  final layoutHeight = navBarPrimaryPillLayoutHeight(
+    prominentIcons: prominentIcons,
+  );
+  return navBarPrimaryPillHeight(
+        prominentIcons: prominentIcons,
+        labelVisibility: labelVisibility,
+      ) /
+      layoutHeight;
+}
+
+@visibleForTesting
+double navBarLabelRevealLiftY({required double labelVisibility}) {
+  return labelVisibility.clamp(0.0, 1.0).toDouble() *
+      _kNavBarLabelRevealSlotHeight /
+      2;
+}
+
+@visibleForTesting
+double navBarPrimaryPillLayoutTop({
+  required double rowHeight,
+  required bool prominentIcons,
+}) {
+  if (!prominentIcons) return _kNavBarSelectedItemPillTop;
+  final layoutHeight = navBarPrimaryPillLayoutHeight(
+    prominentIcons: prominentIcons,
+  );
+  return (rowHeight - layoutHeight).clamp(0.0, rowHeight) / 2;
+}
+
+@visibleForTesting
 double navBarPrimaryPillTop({
   required double rowHeight,
   required bool prominentIcons,
   required double labelVisibility,
 }) {
   if (!prominentIcons) return _kNavBarSelectedItemPillTop;
-  final iconOnlyTop =
-      (rowHeight - kNavBarIconOnlyItemIconHeight).clamp(0.0, rowHeight) / 2;
-  final labelsVisibleTop =
-      (rowHeight - kNavBarIconOnlyItemIconHeight - kNavBarLabelFontSize - 2) /
-      2;
-  return lerpDouble(
-    iconOnlyTop,
-    labelsVisibleTop.clamp(0.0, rowHeight),
-    labelVisibility.clamp(0.0, 1.0).toDouble(),
-  )!;
+  final visibility = labelVisibility.clamp(0.0, 1.0).toDouble();
+  final pillHeight = navBarPrimaryPillHeight(
+    prominentIcons: prominentIcons,
+    labelVisibility: visibility,
+  );
+  final centerY =
+      (rowHeight / 2) - navBarLabelRevealLiftY(labelVisibility: visibility);
+  return (centerY - (pillHeight / 2)).clamp(0.0, rowHeight);
+}
+
+@visibleForTesting
+double navBarPrimaryPillPaintOffsetY({
+  required double rowHeight,
+  required bool prominentIcons,
+  required double labelVisibility,
+}) {
+  final layoutHeight = navBarPrimaryPillLayoutHeight(
+    prominentIcons: prominentIcons,
+  );
+  final visualHeight = navBarPrimaryPillHeight(
+    prominentIcons: prominentIcons,
+    labelVisibility: labelVisibility,
+  );
+  return navBarPrimaryPillTop(
+        rowHeight: rowHeight,
+        prominentIcons: prominentIcons,
+        labelVisibility: labelVisibility,
+      ) -
+      navBarPrimaryPillLayoutTop(
+        rowHeight: rowHeight,
+        prominentIcons: prominentIcons,
+      ) -
+      ((layoutHeight - visualHeight) / 2);
+}
+
+@visibleForTesting
+double navBarPrimaryContentOffsetX({
+  required double segmentWidth,
+  required bool prominentIcons,
+  required double pillWidth,
+}) {
+  if (!prominentIcons) return 0.0;
+  return _kNavBarPrimaryPillHorizontalInset +
+      (pillWidth / 2) -
+      (segmentWidth / 2);
+}
+
+@visibleForTesting
+double navBarIconOpticalOffsetY({required bool prominentIcons}) {
+  return prominentIcons ? _kNavBarIconOnlyIconOpticalOffsetY : 0.0;
+}
+
+@visibleForTesting
+double navBarEffectiveLabelVisibility({
+  required NavBarLabelDisplayMode labelDisplayMode,
+  required bool revealLabelsWhenExpanded,
+  required double expandProgress,
+}) {
+  if (labelDisplayMode != NavBarLabelDisplayMode.iconsOnly) return 1.0;
+  if (!revealLabelsWhenExpanded) return 0.0;
+  return expandProgress.clamp(0.0, 1.0).toDouble();
 }
 
 double _measureOverflowNavBarRowHeight({
@@ -521,7 +629,7 @@ class NavBarInset extends InheritedWidget {
 /// Nav bar dimensions.
 const kFloatingNavBarHeight = 64.0;
 const kFloatingNavBarSideMargin = 16.0;
-const kFloatingNavBarBottomMargin = 2.0; // Sits close to the iOS home indicator
+const kFloatingNavBarBottomMargin = 8.0;
 
 /// Sidebar dimensions.
 const _kSidebarWidth = 200.0;
@@ -1023,6 +1131,14 @@ class _AppShellState extends ConsumerState<AppShell>
       final safeCurrentIndex = currentVisibleIndex < 0
           ? 0
           : currentVisibleIndex;
+      final mobilePrimaryLabels = [
+        for (final tab in mobileLayout.primaryTabs)
+          tab.localizedLabel(context, terminologyPlural: terms.plural),
+      ];
+      final mobileOverflowLabels = [
+        for (final tab in mobileLayout.overflowTabs)
+          tab.localizedLabel(context, terminologyPlural: terms.plural),
+      ];
 
       // Mobile layout: stack with floating bottom bar.
       // Hide the nav bar on sub-routes (detail screens) — only show on root tabs.
@@ -1103,7 +1219,9 @@ class _AppShellState extends ConsumerState<AppShell>
                       child: _FloatingNavBar(
                         key: _navBarKey,
                         primaryTabs: mobileLayout.primaryTabs,
+                        primaryLabels: mobilePrimaryLabels,
                         overflowTabs: mobileLayout.overflowTabs,
+                        overflowLabels: mobileOverflowLabels,
                         overflowColumns: mobileLayout.spec.overflowColumns,
                         overflowRows: mobileLayout.spec.overflowRows,
                         rowHeight: mobileLayout.rowHeight,
@@ -1213,7 +1331,9 @@ class _FloatingNavBar extends StatefulWidget {
   _FloatingNavBar({
     super.key,
     required this.primaryTabs,
+    required this.primaryLabels,
     required this.overflowTabs,
+    required this.overflowLabels,
     required this.overflowColumns,
     required this.overflowRows,
     required this.rowHeight,
@@ -1228,13 +1348,17 @@ class _FloatingNavBar extends StatefulWidget {
          overflowTabs.isEmpty
              ? overflowColumns == 0 && overflowRows == 0
              : overflowColumns > 0 && overflowRows > 0,
-       );
+       ),
+       assert(primaryTabs.length == primaryLabels.length),
+       assert(overflowTabs.length == overflowLabels.length);
 
   /// Tabs shown directly in the bar.
   final List<AppShellTab> primaryTabs;
+  final List<String> primaryLabels;
 
   /// Tabs shown in the expanded overflow menu.
   final List<AppShellTab> overflowTabs;
+  final List<String> overflowLabels;
   final int overflowColumns;
   final int overflowRows;
   final double rowHeight;
@@ -1398,7 +1522,6 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
     final boardsBadge = ref.watch(boardsTabBadgeProvider);
-    final terms = watchTerminology(context, ref);
 
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1412,7 +1535,6 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         chatUnreadCount: chatUnreadCount,
         boardsBadge: boardsBadge,
         isDark: isDark,
-        terminologyPlural: terms.plural,
         showLabels: showLabels,
       );
     }
@@ -1429,10 +1551,11 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         final showExpandedLabels =
             widget.labelDisplayMode != NavBarLabelDisplayMode.iconsOnly ||
             widget.revealLabelsWhenExpanded;
-        final labelVisibility =
-            widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
-            ? t
-            : 1.0;
+        final labelVisibility = navBarEffectiveLabelVisibility(
+          labelDisplayMode: widget.labelDisplayMode,
+          revealLabelsWhenExpanded: widget.revealLabelsWhenExpanded,
+          expandProgress: t,
+        );
         final prominentIcons =
             widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly;
         final radius =
@@ -1457,45 +1580,47 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                     // Overflow rows (top, revealed by expansion). The partial
                     // row sits on top so the full row is adjacent to the
                     // primary row — more ergonomic than a gap-on-bottom layout.
-                    ClipRect(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        heightFactor: t,
-                        child: SizedBox(
-                          height: _overflowAreaHeight,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Column(
-                              children: [
-                                for (
-                                  var r = 0;
-                                  r < _overflowRowSlots.length;
-                                  r++
-                                ) ...[
-                                  if (r > 0)
-                                    const SizedBox(height: _kNavBarRowGap),
-                                  SizedBox(
-                                    height: widget.overflowRowHeight,
-                                    child: _buildOverflowRow(
-                                      slots: _overflowRowSlots[r],
-                                      expandProgress: t,
-                                      terminologyPlural: terms.plural,
-                                      isDark: isDark,
-                                      showSyncBadge: showSyncBadge,
-                                      dueCount: dueCount,
-                                      chatUnreadCount: chatUnreadCount,
-                                      boardsBadge: boardsBadge,
-                                      showLabels: showExpandedLabels,
-                                      labelVisibility: labelVisibility,
+                    if (t > 0)
+                      ClipRect(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          heightFactor: t,
+                          child: SizedBox(
+                            height: _overflowAreaHeight,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Column(
+                                children: [
+                                  for (
+                                    var r = 0;
+                                    r < _overflowRowSlots.length;
+                                    r++
+                                  ) ...[
+                                    if (r > 0)
+                                      const SizedBox(height: _kNavBarRowGap),
+                                    SizedBox(
+                                      height: widget.overflowRowHeight,
+                                      child: _buildOverflowRow(
+                                        slots: _overflowRowSlots[r],
+                                        expandProgress: t,
+                                        isDark: isDark,
+                                        showSyncBadge: showSyncBadge,
+                                        dueCount: dueCount,
+                                        chatUnreadCount: chatUnreadCount,
+                                        boardsBadge: boardsBadge,
+                                        showLabels: showExpandedLabels,
+                                        labelVisibility: labelVisibility,
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
                     // Subtle separator line between rows
                     if (t > 0)
                       Opacity(
@@ -1525,11 +1650,20 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                               Theme.of(context),
                             );
 
-                            final pillHeight = prominentIcons
-                                ? kNavBarIconOnlyItemIconHeight
-                                : _kNavBarSelectedItemPillHeight;
-                            final pillTop = navBarPrimaryPillTop(
+                            final pillHeight = navBarPrimaryPillLayoutHeight(
+                              prominentIcons: prominentIcons,
+                            );
+                            final pillTop = navBarPrimaryPillLayoutTop(
                               rowHeight: widget.rowHeight,
+                              prominentIcons: prominentIcons,
+                            );
+                            final pillPaintOffsetY =
+                                navBarPrimaryPillPaintOffsetY(
+                                  rowHeight: widget.rowHeight,
+                                  prominentIcons: prominentIcons,
+                                  labelVisibility: labelVisibility,
+                                );
+                            final pillScaleY = navBarPrimaryPillScaleY(
                               prominentIcons: prominentIcons,
                               labelVisibility: labelVisibility,
                             );
@@ -1539,6 +1673,11 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                     kNavBarIconOnlySelectedItemPillWidth,
                                   )
                                 : segWidth - 16;
+                            final contentOffsetX = navBarPrimaryContentOffsetX(
+                              segmentWidth: segWidth,
+                              prominentIcons: prominentIcons,
+                              pillWidth: pillWidth,
+                            );
                             return Stack(
                               children: [
                                 // Sliding pill (hidden when overflow tab selected)
@@ -1555,22 +1694,41 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                                 _pillController.value)
                                           : _pillController.value;
                                       return Transform.translate(
-                                        offset: Offset(slot * segWidth + 8, 0),
+                                        offset: Offset(
+                                          slot * segWidth +
+                                              _kNavBarPrimaryPillHorizontalInset,
+                                          0,
+                                        ),
                                         child: child,
                                       );
                                     },
                                     child: Padding(
                                       padding: EdgeInsets.only(top: pillTop),
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: pillColor,
-                                          borderRadius: BorderRadius.circular(
-                                            PrismShapes.of(context).radius(16),
+                                      child: Transform.translate(
+                                        offset: Offset(0, pillPaintOffsetY),
+                                        child: Transform.scale(
+                                          key: const ValueKey(
+                                            'nav_selected_pill_transform',
                                           ),
-                                        ),
-                                        child: SizedBox(
-                                          width: pillWidth,
-                                          height: pillHeight,
+                                          scaleY: pillScaleY,
+                                          child: DecoratedBox(
+                                            key: const ValueKey(
+                                              'nav_selected_pill',
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: pillColor,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    PrismShapes.of(
+                                                      context,
+                                                    ).radius(16),
+                                                  ),
+                                            ),
+                                            child: SizedBox(
+                                              width: pillWidth,
+                                              height: pillHeight,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1587,7 +1745,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                         return Expanded(
                                           child: _NavBarItem(
                                             tab: tab,
-                                            terminologyPlural: terms.plural,
+                                            label: widget.primaryLabels[i],
                                             isSelected: isSelected,
                                             accentColor: widget.accentColor,
                                             isDark: isDark,
@@ -1599,6 +1757,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                             showLabel: showExpandedLabels,
                                             labelVisibility: labelVisibility,
                                             prominentIcon: prominentIcons,
+                                            horizontalContentOffset:
+                                                contentOffsetX,
                                             onTap: () => _handleTap(i),
                                           ),
                                         );
@@ -1637,7 +1797,6 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   Widget _buildOverflowSlot({
     required ({int index, AppShellTab tab})? slot,
     required double expandProgress,
-    required String terminologyPlural,
     required bool isDark,
     required bool showSyncBadge,
     required int dueCount,
@@ -1656,38 +1815,38 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       staggerEnd,
       curve: Curves.easeOut,
     ).transform(expandProgress);
-    final isSelected = slot.index == _overflowTabIndex;
+    if (itemT <= 0) return const SizedBox.shrink();
 
-    return Opacity(
-      opacity: itemT,
-      child: Transform.translate(
-        offset: Offset(0, (1 - itemT) * 8),
-        child: _NavBarItem(
-          tab: slot.tab,
-          terminologyPlural: terminologyPlural,
-          isSelected: isSelected,
-          accentColor: widget.accentColor,
-          isDark: isDark,
-          showSyncBadge: showSyncBadge,
-          habitsDueCount: dueCount,
-          chatUnreadCount: chatUnreadCount,
-          boardsBadge: boardsBadge,
-          rowHeight: widget.rowHeight,
-          showLabel: showLabels,
-          labelVisibility: labelVisibility,
-          prominentIcon:
-              widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly,
-          showItemPill: true,
-          onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
-        ),
+    final isSelected = slot.index == _overflowTabIndex;
+    final item = Transform.translate(
+      offset: Offset(0, (1 - itemT) * 8),
+      child: _NavBarItem(
+        tab: slot.tab,
+        label: widget.overflowLabels[slot.index],
+        isSelected: isSelected,
+        accentColor: widget.accentColor,
+        isDark: isDark,
+        showSyncBadge: showSyncBadge,
+        habitsDueCount: dueCount,
+        chatUnreadCount: chatUnreadCount,
+        boardsBadge: boardsBadge,
+        rowHeight: widget.rowHeight,
+        showLabel: showLabels,
+        labelVisibility: labelVisibility,
+        prominentIcon:
+            widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly,
+        showItemPill: true,
+        onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
       ),
     );
+
+    if (itemT >= 1) return item;
+    return Opacity(opacity: itemT, child: item);
   }
 
   Widget _buildOverflowRow({
     required List<({int index, AppShellTab tab})?> slots,
     required double expandProgress,
-    required String terminologyPlural,
     required bool isDark,
     required bool showSyncBadge,
     required int dueCount,
@@ -1719,7 +1878,6 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                 child: _buildOverflowSlot(
                   slot: slot,
                   expandProgress: expandProgress,
-                  terminologyPlural: terminologyPlural,
                   isDark: isDark,
                   showSyncBadge: showSyncBadge,
                   dueCount: dueCount,
@@ -1785,7 +1943,6 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required int chatUnreadCount,
     required int boardsBadge,
     required bool isDark,
-    required String terminologyPlural,
     required bool showLabels,
   }) {
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
@@ -1820,13 +1977,22 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final segmentWidth = constraints.maxWidth / tabCount;
-                  final pillHeight = prominentIcons
-                      ? kNavBarIconOnlyItemIconHeight
-                      : _kNavBarSelectedItemPillHeight;
-                  final pillTop = navBarPrimaryPillTop(
+                  final simpleLabelVisibility = showLabels ? 1.0 : 0.0;
+                  final pillHeight = navBarPrimaryPillLayoutHeight(
+                    prominentIcons: prominentIcons,
+                  );
+                  final pillTop = navBarPrimaryPillLayoutTop(
                     rowHeight: widget.rowHeight,
                     prominentIcons: prominentIcons,
-                    labelVisibility: showLabels ? 1.0 : 0.0,
+                  );
+                  final pillPaintOffsetY = navBarPrimaryPillPaintOffsetY(
+                    rowHeight: widget.rowHeight,
+                    prominentIcons: prominentIcons,
+                    labelVisibility: simpleLabelVisibility,
+                  );
+                  final pillScaleY = navBarPrimaryPillScaleY(
+                    prominentIcons: prominentIcons,
+                    labelVisibility: simpleLabelVisibility,
                   );
                   final pillWidth = prominentIcons
                       ? math.min(
@@ -1834,6 +2000,11 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           kNavBarIconOnlySelectedItemPillWidth,
                         )
                       : segmentWidth - 16;
+                  final contentOffsetX = navBarPrimaryContentOffsetX(
+                    segmentWidth: segmentWidth,
+                    prominentIcons: prominentIcons,
+                    pillWidth: pillWidth,
+                  );
                   return Stack(
                     children: [
                       // Sliding pill — uses Transform.translate (paint-only,
@@ -1847,22 +2018,36 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                               ? (tabCount - 1 - _pillController.value)
                               : _pillController.value;
                           return Transform.translate(
-                            offset: Offset(slot * segmentWidth + 8, 0),
+                            offset: Offset(
+                              slot * segmentWidth +
+                                  _kNavBarPrimaryPillHorizontalInset,
+                              0,
+                            ),
                             child: child,
                           );
                         },
                         child: Padding(
                           padding: EdgeInsets.only(top: pillTop),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: pillColor,
-                              borderRadius: BorderRadius.circular(
-                                shapes.radius(16),
+                          child: Transform.translate(
+                            offset: Offset(0, pillPaintOffsetY),
+                            child: Transform.scale(
+                              key: const ValueKey(
+                                'nav_selected_pill_transform',
                               ),
-                            ),
-                            child: SizedBox(
-                              width: pillWidth,
-                              height: pillHeight,
+                              scaleY: pillScaleY,
+                              child: DecoratedBox(
+                                key: const ValueKey('nav_selected_pill'),
+                                decoration: BoxDecoration(
+                                  color: pillColor,
+                                  borderRadius: BorderRadius.circular(
+                                    shapes.radius(16),
+                                  ),
+                                ),
+                                child: SizedBox(
+                                  width: pillWidth,
+                                  height: pillHeight,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -1881,7 +2066,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                             return Expanded(
                               child: _NavBarItem(
                                 tab: tab,
-                                terminologyPlural: terminologyPlural,
+                                label: widget.primaryLabels[index],
                                 isSelected: isSelected,
                                 accentColor: widget.accentColor,
                                 isDark: isDark,
@@ -1891,8 +2076,9 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 boardsBadge: boardsBadge,
                                 rowHeight: widget.rowHeight,
                                 showLabel: showLabels,
-                                labelVisibility: showLabels ? 1.0 : 0.0,
+                                labelVisibility: simpleLabelVisibility,
                                 prominentIcon: prominentIcons,
+                                horizontalContentOffset: contentOffsetX,
                                 onTap: () => widget.onTap(index),
                               ),
                             );
@@ -1971,7 +2157,7 @@ class _MoreTrigger extends StatelessWidget {
 class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
     required this.tab,
-    required this.terminologyPlural,
+    required this.label,
     required this.isSelected,
     required this.accentColor,
     required this.isDark,
@@ -1983,12 +2169,13 @@ class _NavBarItem extends StatelessWidget {
     required this.showLabel,
     required this.labelVisibility,
     required this.prominentIcon,
+    this.horizontalContentOffset = 0.0,
     required this.onTap,
     this.showItemPill = false,
   });
 
   final AppShellTab tab;
-  final String terminologyPlural;
+  final String label;
   final bool isSelected;
   final Color accentColor;
   final bool isDark;
@@ -2000,6 +2187,7 @@ class _NavBarItem extends StatelessWidget {
   final bool showLabel;
   final double labelVisibility;
   final bool prominentIcon;
+  final double horizontalContentOffset;
   final VoidCallback onTap;
 
   /// When true, render a per-item pill behind the icon (for overflow row).
@@ -2009,10 +2197,6 @@ class _NavBarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final itemIcon = isSelected ? tab.activeIcon : tab.icon;
-    final itemLabel = tab.localizedLabel(
-      context,
-      terminologyPlural: terminologyPlural,
-    );
     final visibleLabelFactor = showLabel
         ? labelVisibility.clamp(0.0, 1.0).toDouble()
         : 0.0;
@@ -2028,6 +2212,11 @@ class _NavBarItem extends StatelessWidget {
     final restingIconWidth = prominentIcon
         ? kNavBarIconOnlyItemIconHeight
         : kNavBarItemWidth;
+    final iconLift = navBarLabelRevealLiftY(
+      labelVisibility: visibleLabelFactor,
+    );
+    final labelOffsetY =
+        (iconHeight / 2) + (_kNavBarLabelRevealSlotHeight / 2) - iconLift;
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -2044,9 +2233,42 @@ class _NavBarItem extends StatelessWidget {
       child: iconWidget,
     );
 
+    final iconOpticalOffsetY = navBarIconOpticalOffsetY(
+      prominentIcons: prominentIcon,
+    );
+    if (iconOpticalOffsetY != 0) {
+      iconWidget = Transform.translate(
+        key: ValueKey('nav_icon_visual_${tab.id.name}'),
+        offset: Offset(0, iconOpticalOffsetY),
+        child: iconWidget,
+      );
+    } else {
+      iconWidget = KeyedSubtree(
+        key: ValueKey('nav_icon_visual_${tab.id.name}'),
+        child: iconWidget,
+      );
+    }
+
     final semanticLabel = tab.id == AppShellTabId.chat && chatUnreadCount > 0
-        ? context.l10n.navUnreadCount(itemLabel, chatUnreadCount)
-        : itemLabel;
+        ? context.l10n.navUnreadCount(label, chatUnreadCount)
+        : label;
+    final labelWidget = visibleLabelFactor <= 0
+        ? const SizedBox.shrink()
+        : Transform.translate(
+            offset: Offset(0, labelOffsetY),
+            child: _NavBarLabel(
+              key: ValueKey('nav_label_${tab.id.name}'),
+              label: label,
+              style: navBarLabelTextStyle(
+                context,
+                isSelected: isSelected,
+                color: isSelected
+                    ? theme.colorScheme.onSurface
+                    : _navInactiveLabelColor(theme),
+              ),
+              opacity: visibleLabelFactor,
+            ),
+          );
 
     return Semantics(
       selected: isSelected,
@@ -2055,57 +2277,70 @@ class _NavBarItem extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: iconHeight,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                width: showItemPill && isSelected
-                    ? selectedPillWidth
-                    : restingIconWidth,
-                alignment: Alignment.center,
-                decoration: showItemPill
-                    ? BoxDecoration(
-                        color: isSelected
-                            ? _navSelectedPillColor(theme)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(
-                          PrismShapes.of(context).radius(16),
-                        ),
-                      )
-                    : null,
-                child: iconWidget,
-              ),
-            ),
-            ClipRect(
-              child: Align(
-                heightFactor: visibleLabelFactor,
-                child: Opacity(
-                  opacity: visibleLabelFactor,
-                  child: Text(
-                    itemLabel,
-                    style: navBarLabelTextStyle(
-                      context,
-                      isSelected: isSelected,
-                      color: isSelected
-                          ? theme.colorScheme.onSurface
-                          : _navInactiveLabelColor(theme),
+        child: SizedBox(
+          height: rowHeight,
+          child: Transform.translate(
+            offset: Offset(horizontalContentOffset, 0),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Transform.translate(
+                  offset: Offset(0, -iconLift),
+                  child: SizedBox(
+                    height: iconHeight,
+                    child: Container(
+                      key: ValueKey('nav_icon_slot_${tab.id.name}'),
+                      width: showItemPill && isSelected
+                          ? selectedPillWidth
+                          : restingIconWidth,
+                      alignment: Alignment.center,
+                      decoration: showItemPill
+                          ? BoxDecoration(
+                              color: isSelected
+                                  ? _navSelectedPillColor(theme)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(
+                                PrismShapes.of(context).radius(16),
+                              ),
+                            )
+                          : null,
+                      child: iconWidget,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: false,
                   ),
                 ),
-              ),
+                labelWidget,
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+}
+
+class _NavBarLabel extends StatelessWidget {
+  const _NavBarLabel({
+    super.key,
+    required this.label,
+    required this.style,
+    required this.opacity,
+  });
+
+  final String label;
+  final TextStyle style;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      style: style,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
+    if (opacity >= 1) return text;
+    return Opacity(opacity: opacity, child: text);
   }
 }
 
