@@ -49,7 +49,7 @@ void main() {
 
       final tabs = container.read(activeNavBarTabsProvider);
 
-      // Home is forced first; settings order is whatever the user configured.
+      // Required tabs are movable, so configured order is preserved.
       expect(tabIds(tabs), [
         AppShellTabId.home,
         AppShellTabId.polls,
@@ -94,7 +94,7 @@ void main() {
       ]);
     });
 
-    test('home is always first, settings position follows config', () {
+    test('home and settings positions follow config', () {
       final container = makeContainer(
         settings: const SystemSettings(
           navBarItems: ['settings', 'polls', 'home', 'chat'],
@@ -104,13 +104,10 @@ void main() {
 
       final tabs = container.read(activeNavBarTabsProvider);
 
-      expect(tabs.first.id, AppShellTabId.home);
-      // Settings is movable — its relative order among non-Home tabs is
-      // preserved from the config.
       expect(tabIds(tabs), [
-        AppShellTabId.home,
         AppShellTabId.settings,
         AppShellTabId.polls,
+        AppShellTabId.home,
         AppShellTabId.chat,
       ]);
     });
@@ -220,12 +217,28 @@ void main() {
       expect(tabIds(overflow), [AppShellTabId.settings]);
     });
 
-    test('home configured in overflow is not duplicated', () {
+    test(
+      'home configured in overflow stays in overflow without duplication',
+      () {
+        final container = makeContainer(
+          settings: const SystemSettings(
+            navBarItems: ['chat', 'settings'],
+            navBarOverflowItems: ['home', 'polls'],
+          ),
+        );
+        addTearDown(container.dispose);
+
+        final primary = container.read(activeNavBarTabsProvider);
+        final overflow = container.read(navBarOverflowTabsProvider);
+
+        expect(tabIds(primary), [AppShellTabId.chat, AppShellTabId.settings]);
+        expect(tabIds(overflow), [AppShellTabId.home, AppShellTabId.polls]);
+      },
+    );
+
+    test('home is reinserted into primary when missing and space remains', () {
       final container = makeContainer(
-        settings: const SystemSettings(
-          navBarItems: ['chat', 'settings'],
-          navBarOverflowItems: ['home', 'polls'],
-        ),
+        settings: const SystemSettings(navBarItems: ['chat', 'settings']),
       );
       addTearDown(container.dispose);
 
@@ -237,7 +250,63 @@ void main() {
         AppShellTabId.chat,
         AppShellTabId.settings,
       ]);
-      expect(tabIds(overflow), [AppShellTabId.polls]);
+      expect(tabIds(overflow), isEmpty);
+    });
+
+    test(
+      'home is reinserted into overflow when missing and primary is full',
+      () {
+        final container = makeContainer(
+          settings: const SystemSettings(
+            navBarItems: ['chat', 'habits', 'polls', 'members', 'settings'],
+          ),
+        );
+        addTearDown(container.dispose);
+
+        final primary = container.read(activeNavBarTabsProvider);
+        final overflow = container.read(navBarOverflowTabsProvider);
+
+        expect(tabIds(primary), [
+          AppShellTabId.chat,
+          AppShellTabId.habits,
+          AppShellTabId.polls,
+          AppShellTabId.members,
+          AppShellTabId.settings,
+        ]);
+        expect(tabIds(overflow), [AppShellTabId.home]);
+      },
+    );
+
+    test('explicit empty primary promotes first overflow item', () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: [],
+          navBarOverflowItems: ['home', 'settings', 'polls'],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(tabIds(primary), [AppShellTabId.home]);
+      expect(tabIds(overflow), [AppShellTabId.settings, AppShellTabId.polls]);
+    });
+
+    test('explicit empty primary can keep home in overflow', () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: [],
+          navBarOverflowItems: ['settings', 'home', 'polls'],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(tabIds(primary), [AppShellTabId.settings]);
+      expect(tabIds(overflow), [AppShellTabId.home, AppShellTabId.polls]);
     });
 
     test('duplicate IDs in config are deduplicated', () {

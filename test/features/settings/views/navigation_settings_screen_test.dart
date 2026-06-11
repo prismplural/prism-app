@@ -85,21 +85,15 @@ void main() {
       expect(find.text('Settings'), findsOneWidget);
     });
 
-    testWidgets('only Home shows a lock icon', (tester) async {
+    testWidgets('required tabs are movable but not removable', (tester) async {
       await tester.pumpWidget(buildSubjectWithMedia());
       await tester.pumpAndSettle();
 
-      // Only Home is locked.
-      expect(find.byIcon(AppIcons.lockOutline), findsOneWidget);
-    });
-
-    testWidgets('non-required tabs show remove button', (tester) async {
-      await tester.pumpWidget(buildSubjectWithMedia());
-      await tester.pumpAndSettle();
-
-      // Chat, Habits, and Polls can be hidden. Settings is required but movable.
+      expect(find.byIcon(AppIcons.lockOutline), findsNothing);
       expect(find.byIcon(AppIcons.removeCircleOutline), findsNWidgets(3));
+      expect(findRowSemantics('Home', 'Remove'), findsNothing);
       expect(findRowSemantics('Settings', 'Remove'), findsNothing);
+      expect(findRowSemantics('Home', 'Move to More menu'), findsOneWidget);
     });
 
     testWidgets('available tabs section shows tabs not in current nav', (
@@ -422,6 +416,44 @@ void main() {
       expect(repo.duplicateLayoutEmissions, isEmpty);
       expect(repo.settings.navBarItems, contains('reminders'));
       expect(repo.settings.navBarOverflowItems, isNot(contains('reminders')));
+    });
+
+    testWidgets('moving Home to More persists without duplicates', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(700, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final repo = _ReactiveSystemSettingsRepository(
+        const SystemSettings(
+          navBarItems: ['home', 'chat', 'habits', 'settings'],
+          navBarOverflowItems: ['polls'],
+        ),
+      );
+      addTearDown(repo.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [systemSettingsRepositoryProvider.overrideWithValue(repo)],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(700, 900)),
+              child: NavigationSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(findRowSemantics('Home', 'Move to More menu'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(repo.duplicateLayoutEmissions, isEmpty);
+      expect(repo.settings.navBarItems, isNot(contains('home')));
+      expect(repo.settings.navBarOverflowItems, contains('home'));
     });
 
     testWidgets(

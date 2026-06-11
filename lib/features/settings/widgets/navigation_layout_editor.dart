@@ -327,10 +327,6 @@ class NavigationLayoutEditor extends StatelessWidget {
       }
     }
 
-    final homeIdx = primaryItems.indexWhere((t) => t.id == AppShellTabId.home);
-    if (homeIdx >= 0 && homeIdx != 0) return;
-    if (overflowItems.any((t) => t.id == AppShellTabId.home)) return;
-
     _persistNormalized(context, primaryItems, overflowItems);
   }
 

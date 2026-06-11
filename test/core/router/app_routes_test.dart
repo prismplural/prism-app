@@ -69,9 +69,9 @@ void main() {
   });
 
   group('AppShellTab.isLocked', () {
-    test('home is locked', () {
+    test('home is not locked', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.home);
-      expect(tab.isLocked, isTrue);
+      expect(tab.isLocked, isFalse);
     });
 
     test('settings is not locked (user may move it)', () {
@@ -83,6 +83,7 @@ void main() {
 
     test('all other tabs are not locked', () {
       const unlockedIds = [
+        AppShellTabId.home,
         AppShellTabId.chat,
         AppShellTabId.habits,
         AppShellTabId.polls,

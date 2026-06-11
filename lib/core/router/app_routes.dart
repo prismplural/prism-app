@@ -174,11 +174,11 @@ class AppShellTab {
   final String rootLocation;
 
   /// Whether this tab is locked in the nav bar (cannot be removed/reordered).
-  /// Only Home is locked — it must always be the first primary tab.
-  bool get isLocked => id == AppShellTabId.home;
+  bool get isLocked => false;
 
   /// Whether this tab must remain reachable from either the nav bar or More.
-  /// Settings is required so users cannot softlock themselves out of config.
+  /// Home and Settings are required so users cannot softlock themselves out of
+  /// core fronting history or config.
   bool get isRequired =>
       id == AppShellTabId.home || id == AppShellTabId.settings;
 

@@ -895,8 +895,10 @@ typedef NavLayout = ({List<AppShellTab> primary, List<AppShellTab> overflow});
 /// so they never disagree.
 ///
 /// Invariants:
-/// - Home is always the first primary tab.
+/// - Home is always present in either primary or overflow.
 /// - Settings is always present in either primary or overflow.
+/// - Primary is never empty after overflow is populated, so More remains
+///   reachable.
 /// - Primary never exceeds [kMaxPrimaryNavTabs]; excess spills to the front
 ///   of overflow preserving order.
 /// - A tab never appears in both primary and overflow.
@@ -919,20 +921,27 @@ NavLayout normalizeNavLayout({
   final seen = <String>{};
 
   var primary = _resolveTabIds(primaryIds, flags, tabById, seen);
-
-  // Force Home to position 0 (always-enabled).
-  primary.removeWhere((t) => t.id == AppShellTabId.home);
   final overflow = _resolveTabIds(overflowIds, flags, tabById, seen);
-  overflow.removeWhere((t) => t.id == AppShellTabId.home);
 
+  // Home must stay reachable, but it is user-movable like Settings.
   final homeTab = tabById[AppShellTabId.home.name]!;
-  primary.insert(0, homeTab);
-  seen.add(AppShellTabId.home.name);
+  if (!seen.contains(AppShellTabId.home.name)) {
+    if (primary.length < kMaxPrimaryNavTabs) {
+      primary.insert(0, homeTab);
+    } else {
+      overflow.add(homeTab);
+    }
+    seen.add(AppShellTabId.home.name);
+  }
 
   // Settings must stay reachable so users can always return to configuration.
   if (!primary.any((t) => t.id == AppShellTabId.settings) &&
       !overflow.any((t) => t.id == AppShellTabId.settings)) {
     overflow.add(tabById[AppShellTabId.settings.name]!);
+  }
+
+  if (primary.isEmpty && overflow.isNotEmpty) {
+    primary.add(overflow.removeAt(0));
   }
 
   // Enforce the primary cap: excess spills to the front of overflow in order.
@@ -949,8 +958,9 @@ NavLayout _watchNavLayout(Ref ref) {
   final configured = ref.watch(navBarItemsProvider);
   final overflowIds = ref.watch(navBarOverflowItemsProvider);
   final flags = ref.watch(featureFlagsProvider);
-  final primaryIds = configured.isEmpty ? defaultNavBarTabIds : configured;
-  final resolvedOverflowIds = overflowIds.isEmpty && configured.isEmpty
+  final usesDefaultLayout = configured.isEmpty && overflowIds.isEmpty;
+  final primaryIds = usesDefaultLayout ? defaultNavBarTabIds : configured;
+  final resolvedOverflowIds = usesDefaultLayout
       ? defaultNavBarOverflowTabIds
       : overflowIds;
   return normalizeNavLayout(
