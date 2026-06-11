@@ -411,5 +411,54 @@ void main() {
       expect(cacheFileExists('healed'), isTrue);
       hydrator.dispose();
     });
+
+    test('retry resolves a THUMBNAIL id and heals the thumbnail blob (B1)',
+        () async {
+      await db.into(db.mediaAttachments).insert(
+            MediaAttachmentsCompanion(
+              id: const Value('att-th'),
+              mediaId: const Value('full-z'),
+              mediaType: const Value('image'),
+              encryptionKeyB64: const Value('a2V5'),
+              contentHash: const Value('ch-full-z'),
+              plaintextHash: const Value('ph-full-z'),
+              thumbnailMediaId: const Value('thumb-z'),
+              thumbnailContentHash: const Value('tc-thumb-z'),
+              thumbnailPlaintextHash: const Value('tp-thumb-z'),
+            ),
+          );
+      final hydrator = makeHydrator();
+      final got = landed(hydrator, 1);
+
+      // A `media_uploaded` announcing the THUMBNAIL id — it has no row of its
+      // own, so this only heals if retry resolves it via thumbnail_media_id.
+      await hydrator.retry('thumb-z');
+
+      expect(await got, ['thumb-z']);
+      expect(cacheFileExists('thumb-z'), isTrue);
+      hydrator.dispose();
+    });
+
+    test('retry on an already-cached blob still announces availability (m2)',
+        () async {
+      await seedRow('present');
+      downloads.cached.add('present'); // already in the local cache
+      final hydrator = makeHydrator();
+      final got = landed(hydrator, 1);
+
+      await hydrator.retry('present');
+
+      expect(
+        await got,
+        ['present'],
+        reason: 'announce so the reactor drops the stale missing-media entry',
+      );
+      expect(
+        downloads.calls.containsKey('present'),
+        isFalse,
+        reason: 'no re-download — it was already cached',
+      );
+      hydrator.dispose();
+    });
   });
 }

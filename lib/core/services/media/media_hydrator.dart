@@ -192,18 +192,29 @@ class MediaHydrator {
     _cached.remove(mediaId);
     final MediaAttachment? row;
     try {
-      row = await _attachmentsDao.getByMediaId(mediaId);
+      // Resolve by EITHER id: the re-supplied blob may be a thumbnail, which
+      // lives in `thumbnail_media_id` on its parent row (no row of its own).
+      row = await _attachmentsDao.getByAnyMediaId(mediaId);
     } catch (e) {
       _log('MediaHydrator.retry: failed to load $mediaId (non-fatal): $e');
       return;
     }
     if (row == null) return;
-    enqueueIfMissing(
-      mediaId: row.mediaId,
-      encryptionKeyB64: row.encryptionKeyB64,
-      contentHash: row.contentHash,
-      plaintextHash: row.plaintextHash,
-    );
+    if (row.thumbnailMediaId == mediaId) {
+      enqueueIfMissing(
+        mediaId: mediaId,
+        encryptionKeyB64: row.encryptionKeyB64,
+        contentHash: row.thumbnailContentHash,
+        plaintextHash: row.thumbnailPlaintextHash,
+      );
+    } else {
+      enqueueIfMissing(
+        mediaId: row.mediaId,
+        encryptionKeyB64: row.encryptionKeyB64,
+        contentHash: row.contentHash,
+        plaintextHash: row.plaintextHash,
+      );
+    }
   }
 
   Future<void> _scheduleIfReallyMissing(_HydrationTask task) async {
@@ -220,6 +231,14 @@ class MediaHydrator {
     if (cached) {
       _inProgress.remove(task.mediaId);
       _cached.add(task.mediaId);
+      // Already present — still announce so the media heal reactor drops it from the
+      // missing-media set. A `retry` (heal-completion) or a re-walk can land
+      // here for an entry created by an earlier give-up / on-view miss that has
+      // since resolved; without this the stale entry re-broadcasts on every
+      // re-supply lapse until it goes terminal.
+      if (!_events.isClosed) {
+        _events.add(MediaAvailableEvent(task.mediaId));
+      }
       return;
     }
     _queue.add(task);

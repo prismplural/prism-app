@@ -61,9 +61,15 @@ final mediaHealResponderProvider = Provider<MediaHealResponder>((ref) {
       // relay's idempotent upsert coalesces concurrent responders.
       final ciphertext = await downloadManager.readCachedCiphertext(mediaId);
       if (ciphertext == null) return ReUploadResult.failed; // raced out of cache
-      final attachment = await attachmentsDao.getByMediaId(mediaId);
-      final contentHash = attachment?.contentHash;
-      if (contentHash == null) return ReUploadResult.failed;
+      // The request may target a thumbnail, which lives in `thumbnail_media_id`
+      // on its parent row (no row of its own) — resolve by either id and pick
+      // the matching ciphertext hash.
+      final attachment = await attachmentsDao.getByAnyMediaId(mediaId);
+      if (attachment == null) return ReUploadResult.failed;
+      final contentHash = attachment.mediaId == mediaId
+          ? attachment.contentHash
+          : attachment.thumbnailContentHash;
+      if (contentHash.isEmpty) return ReUploadResult.failed;
       final outcome = await ffi.uploadMedia(
         handle: handle,
         mediaId: mediaId,
@@ -124,12 +130,20 @@ final mediaHealReactorProvider = Provider<void>((ref) {
   ) {
     final msg = next.value;
     if (msg == null) return;
+    // `.catchError` on each fire-and-forget: the responder's holds-check / send
+    // and the hydrator's retry can throw (null handle, transient relay error),
+    // and an unawaited throw would surface as an unhandled zone error.
     if (msg.kind == mediaRequestKind) {
       unawaited(
-        ref.read(mediaHealResponderProvider).onMediaRequest(msg.mediaId),
+        ref
+            .read(mediaHealResponderProvider)
+            .onMediaRequest(msg.mediaId)
+            .catchError((_) {}),
       );
     } else if (msg.kind == mediaUploadedKind) {
-      unawaited(ref.read(mediaHydratorProvider).retry(msg.mediaId));
+      unawaited(
+        ref.read(mediaHydratorProvider).retry(msg.mediaId).catchError((_) {}),
+      );
     }
   });
 
@@ -140,7 +154,13 @@ final mediaHealReactorProvider = Provider<void>((ref) {
   ref.listen<AsyncValue<MediaAvailableEvent>>(mediaAvailableProvider, (_, next) {
     final mediaId = next.value?.mediaId;
     if (mediaId != null) {
-      unawaited(ref.read(databaseProvider).missingMediaDao.remove(mediaId));
+      unawaited(
+        ref
+            .read(databaseProvider)
+            .missingMediaDao
+            .remove(mediaId)
+            .catchError((_) {}),
+      );
     }
   });
 
@@ -151,7 +171,7 @@ final mediaHealReactorProvider = Provider<void>((ref) {
         runHealCadence(
           ref.read(mediaHealRequesterProvider),
           ref.read(mediaHydratorProvider),
-        ),
+        ).catchError((_) {}),
       );
     }
   });

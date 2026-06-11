@@ -108,4 +108,20 @@ void main() {
     expect(uploaded, ['a', 'b'], reason: 'third re-upload is throttled');
     expect(announced, ['a', 'b']);
   });
+
+  test('a failed re-upload does NOT consume a rate-limit slot', () async {
+    // A `failed` result includes pre-network misses (no cached ciphertext, no
+    // resolvable hash — e.g. the thumbnail-lookup gap before B1). Those must not
+    // burn the self-limit window, or a burst of un-uploadable requests would
+    // starve legitimate re-supplies.
+    held = {'a', 'b', 'c'};
+    final responder = build(maxReUploadsPerWindow: 2);
+    uploadResult = ReUploadResult.failed;
+    await responder.onMediaRequest('a'); // failed → no slot spent
+    await responder.onMediaRequest('b'); // failed → no slot spent
+    uploadResult = ReUploadResult.committed;
+    await responder.onMediaRequest('c'); // window still open → proceeds
+    expect(uploaded, ['a', 'b', 'c'], reason: 'failures freed the window for c');
+    expect(announced, ['c']);
+  });
 }

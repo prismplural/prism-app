@@ -39,6 +39,24 @@ class MediaAttachmentsDao extends DatabaseAccessor<AppDatabase>
             ..limit(1))
           .getSingleOrNull();
 
+  /// Resolve an attachment by EITHER its primary `media_id` OR its
+  /// `thumbnail_media_id`. The media heal (re-supply + re-download) can target a
+  /// thumbnail, which has no row of its own — it lives in the
+  /// `thumbnail_media_id` column of its parent attachment. Returns null when
+  /// neither matches. Empty `mediaId` returns null rather than spuriously
+  /// matching the many rows whose `thumbnail_media_id` defaults to ''.
+  Future<MediaAttachment?> getByAnyMediaId(String mediaId) {
+    if (mediaId.isEmpty) return Future.value(null);
+    return (select(mediaAttachments)
+          ..where(
+            (a) =>
+                a.mediaId.equals(mediaId) |
+                a.thumbnailMediaId.equals(mediaId),
+          )
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
   Future<List<MediaAttachment>> getAll() =>
       (select(mediaAttachments)..where((a) => a.isDeleted.equals(false))).get();
 

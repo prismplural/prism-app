@@ -76,16 +76,21 @@ Future<int> reconcileOrphanMedia({
     //    have its still-referenced .enc nuked here.
     final claimed = <String>{};
     final rows = await db
-        .customSelect('SELECT media_id FROM media_attachments')
+        .customSelect(
+          'SELECT media_id, thumbnail_media_id FROM media_attachments',
+        )
         .get();
     for (final row in rows) {
       final mediaId = row.read<String>('media_id');
       if (mediaId.isNotEmpty) claimed.add(mediaId);
+      // A thumbnail (media thumbnails) lives in `thumbnail_media_id` and has
+      // NO row of its own, so it must be claimed explicitly — otherwise every
+      // cached thumbnail `.enc` looks like an orphan and is swept on each
+      // launch (which, once relay retention shortens and the media heal can re-supply it,
+      // would be permanent loss).
+      final thumbnailMediaId = row.read<String>('thumbnail_media_id');
+      if (thumbnailMediaId.isNotEmpty) claimed.add(thumbnailMediaId);
     }
-    // Thumbnail mediaIds — `media_attachments.thumbnail_media_id` references
-    // a second media row, but that second row is also represented as its own
-    // row in `media_attachments` (image thumbnails are full attachments),
-    // so the SELECT above already covers them. No separate query needed.
 
     // 2. Walk the cache dir, collecting `.enc` filenames whose media_id is
     //    not in the claimed set.

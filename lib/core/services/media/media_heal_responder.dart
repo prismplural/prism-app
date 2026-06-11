@@ -97,11 +97,9 @@ class MediaHealResponder {
     if (present.contains(mediaId)) return; // already re-supplied or relay holds it
 
     // Self-rate-limit: cap re-supply uploads per window so a request flood
-    // can't make this device storm the relay. Reserve the slot before the
-    // upload.
+    // can't make this device storm the relay. Gate before the upload…
     final now = _clockMs();
     if (_selfRateLimited(now)) return;
-    _recentUploads.add(now);
 
     final ReUploadResult result;
     try {
@@ -110,8 +108,16 @@ class MediaHealResponder {
       return; // transient upload failure → skip
     }
 
+    // …but only spend a slot when an upload actually reached the relay
+    // (committed or in-progress). A `failed` result includes pre-network
+    // misses — a raced-out-of-cache blob, an unresolved content hash — which
+    // must NOT consume the window, or a burst of un-uploadable requests would
+    // starve legitimate re-supplies.
+    if (result == ReUploadResult.failed) return;
+    _recentUploads.add(now);
+
     // Only a committed upload announces. inProgress (another responder is
-    // mid-upload) and failed both stay silent.
+    // mid-upload) stays silent.
     if (result == ReUploadResult.committed) {
       await sendMediaUploaded(mediaId);
     }

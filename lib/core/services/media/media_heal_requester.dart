@@ -88,6 +88,13 @@ class MediaHealRequester {
     );
   }
 
+  /// The blob for [mediaId] is now present locally — drop it from the
+  /// missing-media set (idempotent; a no-op when nothing is tracked). Called on
+  /// an on-view load that succeeds, which (unlike the hydrator) emits no
+  /// `MediaAvailableEvent`, so without this an entry created by a prior on-view
+  /// miss would linger and re-broadcast after each re-supply lapse.
+  Future<void> markResolved(String mediaId) => dao.remove(mediaId);
+
   /// The bounded cadence (run on app resume / each sync-pull). Re-checks the
   /// whole pending set with one coalesced (chunked) batch-exists, drops any that
   /// healed, then for the still-absent due entries either re-requests (with

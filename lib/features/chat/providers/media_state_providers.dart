@@ -120,6 +120,18 @@ final mediaFileProvider = FutureProvider.autoDispose
       }
       final bytes = result.bytes;
 
+      // The blob is present — clear any stale missing-media entry from a prior
+      // on-view miss. This success path emits no MediaAvailableEvent, so the media heal
+      // reactor wouldn't otherwise drop it. Best-effort; idempotent.
+      try {
+        unawaited(
+          ref
+              .read(mediaHealRequesterProvider)
+              .markResolved(params.mediaId)
+              .catchError((_) {}),
+        );
+      } catch (_) {}
+
       // Evict oldest entry when at capacity (FIFO).
       if (_imageMemoryCache.length >= _maxImageCacheEntries) {
         _imageMemoryCache.remove(_imageMemoryCache.keys.first);

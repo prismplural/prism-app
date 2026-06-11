@@ -68,6 +68,27 @@ void main() {
       );
     });
 
+    test('keeps a thumbnail .enc claimed via thumbnail_media_id (B2)', () async {
+      // A thumbnail has no row of its own — it lives in thumbnail_media_id on
+      // the parent. The reconciler must claim it, or it sweeps every cached
+      // thumbnail on launch.
+      await db.into(db.mediaAttachments).insert(
+            const MediaAttachmentsCompanion(
+              id: Value('att-1'),
+              mediaId: Value('full-1'),
+              mediaType: Value('image'),
+              thumbnailMediaId: Value('thumb-1'),
+            ),
+          );
+      await seedEnc('full-1');
+      await seedEnc('thumb-1');
+
+      final deleted = await reconcileOrphanMedia(db: db, mediaDir: mediaDir);
+      expect(deleted, 0, reason: 'thumbnail is claimed, not an orphan');
+      expect(await File(p.join(mediaDir.path, 'thumb-1.enc')).exists(), isTrue);
+      expect(await File(p.join(mediaDir.path, 'full-1.enc')).exists(), isTrue);
+    });
+
     test(
       'recovers .enc files stranded by a mid-_resetChat crash '
       '(rows deleted, file loop never ran)',
