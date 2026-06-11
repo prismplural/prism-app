@@ -102,6 +102,21 @@ void main() {
           '99999999-9999-4999-8999-999999999999',
         );
 
+        // H7 regression: the fixture's `groups[].members` are SHORT IDs (the
+        // real `pk;export` shape). The parser must translate them to UUIDs so
+        // the UUID-keyed group importer resolves both members. With the
+        // translation reverted this resolves zero memberships — on this
+        // fresh db the revert manifests as zero inserts (on a populated db
+        // the production bug additionally soft-deletes existing memberships).
+        final entries = await db.memberGroupsDao.entriesForGroup(
+          groups.single.id,
+        );
+        expect(entries, hasLength(2));
+        expect(
+          entries.map((e) => e.pkMemberUuid).toSet(),
+          {_alphaUuid, _betaUuid},
+        );
+
         final sessions = await _sessions(db);
         expect(sessions, hasLength(3));
 
