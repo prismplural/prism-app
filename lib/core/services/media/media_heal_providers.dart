@@ -38,8 +38,10 @@ final mediaHealRequesterProvider = Provider<MediaHealRequester>((ref) {
   return MediaHealRequester(
     dao: ref.watch(databaseProvider).missingMediaDao,
     batchExists: (ids) => _batchExists(ref, ids),
-    sendMediaRequest: (mediaId) =>
-        sender.send(kind: mediaRequestKind, mediaId: mediaId),
+    sendMediaRequest: (mediaId, {required forceRepair}) => sender.send(
+      kind: forceRepair ? mediaRepairRequestKind : mediaRequestKind,
+      mediaId: mediaId,
+    ),
   );
 });
 
@@ -60,7 +62,8 @@ final mediaHealResponderProvider = Provider<MediaHealResponder>((ref) {
       // Re-upload the exact cached ciphertext — no decrypt/re-encrypt; the
       // relay's idempotent upsert coalesces concurrent responders.
       final ciphertext = await downloadManager.readCachedCiphertext(mediaId);
-      if (ciphertext == null) return ReUploadResult.failed; // raced out of cache
+      if (ciphertext == null)
+        return ReUploadResult.failed; // raced out of cache
       // The request may target a thumbnail, which lives in `thumbnail_media_id`
       // on its parent row (no row of its own) — resolve by either id and pick
       // the matching ciphertext hash.
@@ -108,7 +111,7 @@ Future<void> requestAllMissingMedia({
   required MediaHydrator hydrator,
   required int nowMs,
 }) async {
-  await dao.requestAllNow(nowMs);
+  await dao.requestAllNow(nowMs, promoteToRepair: true);
   await runHealCadence(requester, hydrator);
 }
 
@@ -117,6 +120,8 @@ Future<void> requestAllMissingMedia({
 /// outlives transient widget rebuilds.
 ///
 /// - A peer's `media_request` ⇒ the responder re-supplies the blob if held.
+/// - A peer's `media_request_repair` ⇒ same, but bypasses metadata-only
+///   `batch-exists` because the requester already saw a relay-confirmed 404.
 /// - A peer's `media_uploaded` ⇒ heal-completion: re-download the just-supplied
 ///   blob (emits `MediaAvailableEvent` → the UI refreshes).
 /// - Each completed sync pull ⇒ the requester's cadence re-checks the
@@ -140,6 +145,13 @@ final mediaHealReactorProvider = Provider<void>((ref) {
             .onMediaRequest(msg.mediaId)
             .catchError((_) {}),
       );
+    } else if (msg.kind == mediaRepairRequestKind) {
+      unawaited(
+        ref
+            .read(mediaHealResponderProvider)
+            .onMediaRequest(msg.mediaId, forceRepair: true)
+            .catchError((_) {}),
+      );
     } else if (msg.kind == mediaUploadedKind) {
       unawaited(
         ref.read(mediaHydratorProvider).retry(msg.mediaId).catchError((_) {}),
@@ -151,7 +163,10 @@ final mediaHealReactorProvider = Provider<void>((ref) {
   // missing — drop it from the set. Removal is **success-driven** (not
   // batch-exists-present-driven), so a flapping short-TTL re-supply can't reset
   // the entry's terminal clock / backoff.
-  ref.listen<AsyncValue<MediaAvailableEvent>>(mediaAvailableProvider, (_, next) {
+  ref.listen<AsyncValue<MediaAvailableEvent>>(mediaAvailableProvider, (
+    _,
+    next,
+  ) {
     final mediaId = next.value?.mediaId;
     if (mediaId != null) {
       unawaited(

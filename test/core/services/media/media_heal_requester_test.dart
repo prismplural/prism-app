@@ -34,7 +34,8 @@ void main() {
         if (batchError != null) throw batchError!;
         return ids.where(present.contains).toList();
       },
-      sendMediaRequest: (id) async => requested.add(id),
+      sendMediaRequest: (id, {required forceRepair}) async =>
+          requested.add('${forceRepair ? 'repair' : 'normal'}:$id'),
     );
   }
 
@@ -52,37 +53,55 @@ void main() {
   group('onReferencedAbsent', () {
     test('relay holds the blob → no record, no request', () async {
       present = {'x'};
-      await build().onReferencedAbsent('x', priority: MissingMediaDao.priorityChat);
+      await build().onReferencedAbsent(
+        'x',
+        priority: MissingMediaDao.priorityChat,
+      );
       expect(await dao.getById('x'), isNull);
       expect(requested, isEmpty);
     });
 
-    test('confirmed 404 requests even when batch-exists says present (M1a)',
-        () async {
-      // The committed-but-fileless repair case: metadata says servable, but the
-      // relay's download 404'd. A retry can't conjure the file, so request.
-      present = {'x'};
+    test(
+      'confirmed 404 requests even when batch-exists says present (M1a)',
+      () async {
+        // The committed-but-fileless repair case: metadata says servable, but the
+        // relay's download 404'd. A retry can't conjure the file, so request.
+        present = {'x'};
+        await build().onReferencedAbsent(
+          'x',
+          priority: MissingMediaDao.priorityChat,
+          fromNotFound: true,
+        );
+        expect(await dao.getById('x'), isNotNull, reason: 'recorded missing');
+        expect(requested, [
+          'repair:x',
+        ], reason: 'requested despite "present" metadata');
+        expect(
+          MissingMediaDao.isRepairState((await dao.getById('x'))!.state),
+          isTrue,
+          reason: 'repair intent persists for later retries',
+        );
+      },
+    );
+
+    test('confirmed absent → records missing + requests once', () async {
       await build().onReferencedAbsent(
         'x',
         priority: MissingMediaDao.priorityChat,
-        fromNotFound: true,
       );
-      expect(await dao.getById('x'), isNotNull, reason: 'recorded missing');
-      expect(requested, ['x'], reason: 'requested despite "present" metadata');
-    });
-
-    test('confirmed absent → records missing + requests once', () async {
-      await build().onReferencedAbsent('x', priority: MissingMediaDao.priorityChat);
       final row = await dao.getById('x');
       expect(row, isNotNull);
       expect(row!.attempts, 1);
       expect(row.nextEligibleAt, greaterThan(clock), reason: 'cooldown armed');
-      expect(requested, ['x']);
+      expect(requested, ['normal:x']);
     });
 
     test('batch-exists failure (old relay/transient) → no-op', () async {
       batchError = Exception('feature absent');
-      await build().onReferencedAbsent('x', priority: MissingMediaDao.priorityChat);
+      await build().onReferencedAbsent(
+        'x',
+        priority: MissingMediaDao.priorityChat,
+      );
       expect(await dao.getById('x'), isNull);
       expect(requested, isEmpty);
     });
@@ -90,19 +109,29 @@ void main() {
     test('repeat while in cooldown does not re-request', () async {
       final r = build();
       await r.onReferencedAbsent('x', priority: MissingMediaDao.priorityChat);
-      expect(requested, ['x']);
+      expect(requested, ['normal:x']);
       // Same blob viewed again before the cooldown elapses.
       clock += const Duration(seconds: 30).inMilliseconds;
       await r.onReferencedAbsent('x', priority: MissingMediaDao.priorityChat);
-      expect(requested, ['x'], reason: 'still in cooldown → cadence will handle it');
+      expect(requested, [
+        'normal:x',
+      ], reason: 'still in cooldown → cadence will handle it');
     });
   });
 
   group('runCadence', () {
     test('returns healed entries for re-download WITHOUT removing them, and '
         'requests still-absent due ones', () async {
-      await dao.markMissing(mediaId: 'healed', priority: MissingMediaDao.priorityChat, nowMs: clock);
-      await dao.markMissing(mediaId: 'absent', priority: MissingMediaDao.priorityChat, nowMs: clock);
+      await dao.markMissing(
+        mediaId: 'healed',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: clock,
+      );
+      await dao.markMissing(
+        mediaId: 'absent',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: clock,
+      );
       present = {'healed'};
 
       final healed = await build().runCadence();
@@ -111,34 +140,59 @@ void main() {
       // Removal is success-driven (on a cache hit), NOT here — so a flapping
       // short-TTL re-supply can't reset the entry's terminal clock/backoff.
       expect(await dao.getById('healed'), isNotNull, reason: 'entry preserved');
-      expect(requested, ['absent']);
+      expect(requested, ['normal:absent']);
       final row = await dao.getById('absent');
       expect(row!.attempts, 1);
       expect(row.nextEligibleAt, greaterThan(clock));
     });
 
-    test('returns the healed media ids and requests the still-absent rest',
-        () async {
-      await dao.markMissing(mediaId: 'h1', priority: MissingMediaDao.priorityChat, nowMs: clock);
-      await dao.markMissing(mediaId: 'h2', priority: MissingMediaDao.priorityChat, nowMs: clock);
-      await dao.markMissing(mediaId: 'still', priority: MissingMediaDao.priorityChat, nowMs: clock);
-      present = {'h1', 'h2'};
+    test(
+      'returns the healed media ids and requests the still-absent rest',
+      () async {
+        await dao.markMissing(
+          mediaId: 'h1',
+          priority: MissingMediaDao.priorityChat,
+          nowMs: clock,
+        );
+        await dao.markMissing(
+          mediaId: 'h2',
+          priority: MissingMediaDao.priorityChat,
+          nowMs: clock,
+        );
+        await dao.markMissing(
+          mediaId: 'still',
+          priority: MissingMediaDao.priorityChat,
+          nowMs: clock,
+        );
+        present = {'h1', 'h2'};
 
-      final healed = await build().runCadence();
+        final healed = await build().runCadence();
 
-      expect(healed.toSet(), {'h1', 'h2'});
-      expect(requested, ['still'], reason: 'still-absent blob is re-requested');
-      // All three remain in the set; healed ones are removed on a cache hit.
-      expect((await dao.pendingMediaIds()).toSet(), {'h1', 'h2', 'still'});
-    });
+        expect(healed.toSet(), {'h1', 'h2'});
+        expect(requested, [
+          'normal:still',
+        ], reason: 'still-absent blob is re-requested');
+        // All three remain in the set; healed ones are removed on a cache hit.
+        expect((await dao.pendingMediaIds()).toSet(), {'h1', 'h2', 'still'});
+      },
+    );
 
     test('a healed-then-failed-redownload preserves the terminal clock', () async {
       // Heal-flap: blob present → returned for re-download (not removed) → the
       // re-download fails (TTL expired) so it is re-confirmed absent. Because the
       // entry was never removed, markMissing updates it in place — firstMissingAt
       // and the backoff are NOT reset.
-      await dao.markMissing(mediaId: 'flap', priority: MissingMediaDao.priorityChat, nowMs: 1000);
-      await dao.recordRequested(mediaId: 'flap', attempts: 3, nextEligibleAtMs: 999999, nowMs: 1000);
+      await dao.markMissing(
+        mediaId: 'flap',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: 1000,
+      );
+      await dao.recordRequested(
+        mediaId: 'flap',
+        attempts: 3,
+        nextEligibleAtMs: 999999,
+        nowMs: 1000,
+      );
       clock = 2000;
       present = {'flap'};
       final r = build();
@@ -146,33 +200,83 @@ void main() {
       // Re-download failed → re-confirmed absent on the next miss (still in
       // cooldown, so no re-request — isolates the clock-preservation check).
       present = {};
-      await r.onReferencedAbsent('flap', priority: MissingMediaDao.priorityChat);
+      await r.onReferencedAbsent(
+        'flap',
+        priority: MissingMediaDao.priorityChat,
+      );
       final row = await dao.getById('flap');
-      expect(row!.firstMissingAt, 1000, reason: 'terminal clock preserved across the flap');
+      expect(
+        row!.firstMissingAt,
+        1000,
+        reason: 'terminal clock preserved across the flap',
+      );
       expect(row.attempts, 3, reason: 'backoff not reset');
     });
 
     test('batch-exists failure → no-op (no drop, no request)', () async {
-      await dao.markMissing(mediaId: 'a', priority: MissingMediaDao.priorityChat, nowMs: clock);
+      await dao.markMissing(
+        mediaId: 'a',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: clock,
+      );
       batchError = Exception('feature absent');
       await build().runCadence();
       expect(await dao.getById('a'), isNotNull);
       expect(requested, isEmpty);
     });
 
-    test('entries past the terminal window become terminal, not requested', () async {
-      await dao.markMissing(mediaId: 'old', priority: MissingMediaDao.priorityChat, nowMs: clock);
-      // 15 days later, still absent + due.
-      clock += const Duration(days: 15).inMilliseconds;
-      await build().runCadence();
-      expect(requested, isEmpty);
-      expect((await dao.getById('old'))!.state, MissingMediaDao.stateTerminal);
-      expect(await dao.terminalCount(), 1);
-    });
+    test(
+      'entries past the terminal window become terminal, not requested',
+      () async {
+        await dao.markMissing(
+          mediaId: 'old',
+          priority: MissingMediaDao.priorityChat,
+          nowMs: clock,
+        );
+        // 15 days later, still absent + due.
+        clock += const Duration(days: 15).inMilliseconds;
+        await build().runCadence();
+        expect(requested, isEmpty);
+        expect(
+          (await dao.getById('old'))!.state,
+          MissingMediaDao.stateTerminal,
+        );
+        expect(await dao.terminalCount(), 1);
+      },
+    );
+
+    test(
+      'repair entries past the terminal window become terminal_repair, not requested',
+      () async {
+        await dao.markMissing(
+          mediaId: 'old-repair',
+          priority: MissingMediaDao.priorityChat,
+          nowMs: clock,
+          forceRepair: true,
+        );
+        clock += const Duration(days: 15).inMilliseconds;
+        await build().runCadence();
+        expect(requested, isEmpty);
+        expect(
+          (await dao.getById('old-repair'))!.state,
+          MissingMediaDao.stateTerminalRepair,
+        );
+        expect(await dao.terminalCount(), 1);
+      },
+    );
 
     test('not-due entries are skipped', () async {
-      await dao.markMissing(mediaId: 'a', priority: MissingMediaDao.priorityChat, nowMs: clock);
-      await dao.recordRequested(mediaId: 'a', attempts: 1, nextEligibleAtMs: clock + 999999, nowMs: clock);
+      await dao.markMissing(
+        mediaId: 'a',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: clock,
+      );
+      await dao.recordRequested(
+        mediaId: 'a',
+        attempts: 1,
+        nextEligibleAtMs: clock + 999999,
+        nowMs: clock,
+      );
       await build().runCadence();
       expect(requested, isEmpty, reason: 'still cooling down');
       // batch-exists still ran over the pending set (to detect heals).
@@ -181,12 +285,57 @@ void main() {
 
     test('coalesces a large set into chunked batch-exists calls', () async {
       for (var i = 0; i < 3; i++) {
-        await dao.markMissing(mediaId: 'm$i', priority: MissingMediaDao.priorityChat, nowMs: clock);
+        await dao.markMissing(
+          mediaId: 'm$i',
+          priority: MissingMediaDao.priorityChat,
+          nowMs: clock,
+        );
       }
       await build(batchChunkSize: 2).runCadence();
       // 3 ids, chunk size 2 → two batch-exists calls (2 + 1).
       expect(batchCalls.map((c) => c.length).toList(), [2, 1]);
-      expect(requested.toSet(), {'m0', 'm1', 'm2'});
+      expect(requested.toSet(), {'normal:m0', 'normal:m1', 'normal:m2'});
+    });
+
+    test('repair entries re-request as repair after the cooldown', () async {
+      final r = build();
+      await r.onReferencedAbsent(
+        'repair-me',
+        priority: MissingMediaDao.priorityChat,
+        fromNotFound: true,
+      );
+      expect(requested, ['repair:repair-me']);
+
+      requested.clear();
+      present = {};
+      clock += const Duration(minutes: 6).inMilliseconds;
+      await r.runCadence();
+      expect(requested, [
+        'repair:repair-me',
+      ], reason: 'later cadence preserves repair semantics');
+    });
+
+    test('user force-request promotes legacy pending entries to repair', () async {
+      await dao.markMissing(
+        mediaId: 'legacy',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: clock,
+      );
+      await dao.recordRequested(
+        mediaId: 'legacy',
+        attempts: 1,
+        nextEligibleAtMs: clock + 999999,
+        nowMs: clock,
+      );
+
+      await dao.requestAllNow(clock, promoteToRepair: true);
+      await build().runCadence();
+
+      expect(requested, ['repair:legacy']);
+      expect(
+        (await dao.getById('legacy'))!.state,
+        MissingMediaDao.statePendingRepair,
+      );
     });
   });
 
@@ -195,8 +344,16 @@ void main() {
       profileCooldown: const Duration(minutes: 2),
       chatCooldown: const Duration(minutes: 10),
     );
-    await dao.markMissing(mediaId: 'p', priority: MissingMediaDao.priorityProfile, nowMs: clock);
-    await dao.markMissing(mediaId: 'c', priority: MissingMediaDao.priorityChat, nowMs: clock);
+    await dao.markMissing(
+      mediaId: 'p',
+      priority: MissingMediaDao.priorityProfile,
+      nowMs: clock,
+    );
+    await dao.markMissing(
+      mediaId: 'c',
+      priority: MissingMediaDao.priorityChat,
+      nowMs: clock,
+    );
     await r.runCadence();
     final p = (await dao.getById('p'))!.nextEligibleAt - clock;
     final c = (await dao.getById('c'))!.nextEligibleAt - clock;

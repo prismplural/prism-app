@@ -7,7 +7,8 @@ import 'package:prism_plurality/core/database/daos/missing_media_dao.dart';
 typedef BatchExistsFn = Future<List<String>> Function(List<String> mediaIds);
 
 /// Broadcasts a `media_request` for `mediaId` over the ephemeral lane.
-typedef SendMediaRequestFn = Future<void> Function(String mediaId);
+typedef SendMediaRequestFn =
+    Future<void> Function(String mediaId, {required bool forceRepair});
 
 /// The demand-driven heal's **requester** (media heal).
 ///
@@ -82,7 +83,8 @@ class MediaHealRequester {
       } catch (_) {
         return; // feature absent / transient → no-op, never a storm
       }
-      if (present.contains(mediaId)) return; // relay holds it; not really missing
+      if (present.contains(mediaId))
+        return; // relay holds it; not really missing
     }
     // Else: a relay-confirmed 404. Even a "servable" batch-exists row whose
     // file is missing — the committed-but-fileless repair case — can't be fixed
@@ -90,15 +92,22 @@ class MediaHealRequester {
     // and the relay's repair path restores the file. Cooldown-gated below, so
     // this still can't storm the lane.
 
-    await dao.markMissing(mediaId: mediaId, priority: priority, nowMs: now);
+    await dao.markMissing(
+      mediaId: mediaId,
+      priority: priority,
+      nowMs: now,
+      forceRepair: fromNotFound,
+    );
     final entry = await dao.getById(mediaId);
-    if (entry == null || entry.state != MissingMediaDao.statePending) return;
-    if (entry.nextEligibleAt > now) return; // already in cooldown; cadence covers it
+    if (entry == null || !MissingMediaDao.isPendingState(entry.state)) return;
+    if (entry.nextEligibleAt > now)
+      return; // already in cooldown; cadence covers it
     await _request(
       mediaId: entry.mediaId,
       attempts: entry.attempts,
       priority: entry.priority,
       now: now,
+      forceRepair: MissingMediaDao.isRepairState(entry.state),
     );
   }
 
@@ -125,8 +134,9 @@ class MediaHealRequester {
     final present = <String>{};
     try {
       for (var i = 0; i < pending.length; i += batchChunkSize) {
-        final end =
-            (i + batchChunkSize < pending.length) ? i + batchChunkSize : pending.length;
+        final end = (i + batchChunkSize < pending.length)
+            ? i + batchChunkSize
+            : pending.length;
         present.addAll(await batchExists(pending.sublist(i, end)));
       }
     } catch (_) {
@@ -160,6 +170,7 @@ class MediaHealRequester {
           attempts: d.attempts,
           priority: d.priority,
           now: now,
+          forceRepair: d.forceRepair,
         );
       }
     }
@@ -171,6 +182,7 @@ class MediaHealRequester {
     required int attempts,
     required int priority,
     required int now,
+    required bool forceRepair,
   }) async {
     // A send failure (handle flipped to null, old relay lacking ephemeral lane) must not
     // throw out of here (it's `unawaited`d) and must still arm the cooldown —
@@ -178,7 +190,7 @@ class MediaHealRequester {
     // bypassing the per-media bound. Arm backoff regardless; the cadence retries
     // the send next window.
     try {
-      await sendMediaRequest(mediaId);
+      await sendMediaRequest(mediaId, forceRepair: forceRepair);
     } catch (_) {}
     final nextAttempts = attempts + 1;
     await dao.recordRequested(

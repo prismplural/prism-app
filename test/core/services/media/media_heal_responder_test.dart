@@ -50,18 +50,28 @@ void main() {
     expect(announced, isEmpty);
   });
 
-  test('aborts if the relay already holds it after jitter', () async {
+  test(
+    'ordinary requests abort if the relay already holds it after jitter',
+    () async {
+      held = {'x'};
+      present = {'x'};
+      await build().onMediaRequest('x');
+      expect(jitterCalls, 1, reason: 'jitter still spreads concurrent holders');
+      expect(uploaded, isEmpty);
+      expect(announced, isEmpty);
+    },
+  );
+
+  test('repair requests bypass metadata-only batch-exists', () async {
     held = {'x'};
     present = {'x'};
-    await build().onMediaRequest('x');
-    expect(jitterCalls, 1, reason: 'jitter runs before the re-check');
-    expect(uploaded, isEmpty);
-    expect(announced, isEmpty);
+    await build().onMediaRequest('x', forceRepair: true);
+    expect(uploaded, ['x']);
+    expect(announced, ['x']);
   });
 
   test('re-uploads and announces when committed', () async {
     held = {'x'};
-    present = {};
     uploadResult = ReUploadResult.committed;
     await build().onMediaRequest('x');
     expect(uploaded, ['x']);
@@ -84,18 +94,18 @@ void main() {
     expect(announced, isEmpty);
   });
 
-  test('batch-exists error → quiet no-op (no upload, no announce)', () async {
-    held = {'x'};
-    batchError = Exception('transient');
-    await build().onMediaRequest('x');
-    expect(uploaded, isEmpty);
-    expect(announced, isEmpty);
-  });
-
   test('a transient upload error is swallowed (no announce)', () async {
     held = {'x'};
     uploadError = Exception('network');
     await build().onMediaRequest('x');
+    expect(announced, isEmpty);
+  });
+
+  test('batch-exists error → quiet no-op for ordinary requests', () async {
+    held = {'x'};
+    batchError = Exception('transient');
+    await build().onMediaRequest('x');
+    expect(uploaded, isEmpty);
     expect(announced, isEmpty);
   });
 
@@ -121,7 +131,36 @@ void main() {
     await responder.onMediaRequest('b'); // failed → no slot spent
     uploadResult = ReUploadResult.committed;
     await responder.onMediaRequest('c'); // window still open → proceeds
-    expect(uploaded, ['a', 'b', 'c'], reason: 'failures freed the window for c');
+    expect(uploaded, [
+      'a',
+      'b',
+      'c',
+    ], reason: 'failures freed the window for c');
     expect(announced, ['c']);
   });
+
+  test(
+    'a stale repair request is bounded by the same rate-limit window',
+    () async {
+      // Document the accepted residual risk: a delayed repair request can still
+      // force one idempotent upload even after metadata says the relay is healthy,
+      // but it cannot create an unbounded storm because it spends the same local
+      // responder slot as any other successful re-supply attempt.
+      held = {'stale', 'real'};
+      present = {'stale'};
+      final responder = build(maxReUploadsPerWindow: 1);
+
+      await responder.onMediaRequest('stale', forceRepair: true);
+      await responder.onMediaRequest('real');
+
+      expect(uploaded, [
+        'stale',
+      ], reason: 'the stale repair consumed the one slot in this window');
+      expect(
+        announced,
+        ['stale'],
+        reason: 'idempotent relay 200s are still treated as committed today',
+      );
+    },
+  );
 }

@@ -28,20 +28,23 @@ import 'package:prism_plurality/features/chat/providers/media_available_provider
 
 class _SpyResponder extends MediaHealResponder {
   _SpyResponder()
-      : super(
-          holdsBlob: (_) async => false,
-          batchExists: (_) async => const [],
-          reUpload: (_) async => ReUploadResult.failed,
-          sendMediaUploaded: (_) async {},
-        );
+    : super(
+        holdsBlob: (_) async => false,
+        batchExists: (_) async => const [],
+        reUpload: (_) async => ReUploadResult.failed,
+        sendMediaUploaded: (_) async {},
+      );
   final List<String> requests = [];
   @override
-  Future<void> onMediaRequest(String mediaId) async => requests.add(mediaId);
+  Future<void> onMediaRequest(
+    String mediaId, {
+    bool forceRepair = false,
+  }) async => requests.add('${forceRepair ? 'repair' : 'normal'}:$mediaId');
 }
 
 class _SpyHydrator extends MediaHydrator {
   _SpyHydrator(MediaAttachmentsDao dao, DownloadManager dm)
-      : super(attachmentsDao: dao, downloadManager: dm);
+    : super(attachmentsDao: dao, downloadManager: dm);
   final List<String> retried = [];
   @override
   Future<void> retry(String mediaId) async => retried.add(mediaId);
@@ -49,11 +52,11 @@ class _SpyHydrator extends MediaHydrator {
 
 class _SpyRequester extends MediaHealRequester {
   _SpyRequester(MissingMediaDao dao)
-      : super(
-          dao: dao,
-          batchExists: (_) async => const [],
-          sendMediaRequest: (_) async {},
-        );
+    : super(
+        dao: dao,
+        batchExists: (_) async => const [],
+        sendMediaRequest: (_, {required forceRepair}) async {},
+      );
   int cadenceRuns = 0;
   List<String> healed = [];
   @override
@@ -104,7 +107,11 @@ void main() {
     // Activate the reactor exactly as `app.dart` does — a live `listen` keeps it
     // (and its three internal `ref.listen`s) subscribed. Settle so the underlying
     // broadcast subscriptions are live before we emit.
-    container.listen(mediaHealReactorProvider, (_, _) {}, fireImmediately: true);
+    container.listen(
+      mediaHealReactorProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
     await settle();
   });
 
@@ -117,28 +124,47 @@ void main() {
   });
 
   EphemeralMessage msg(String kind, String mediaId) => EphemeralMessage(
-        senderDeviceId: 'peer',
-        kind: kind,
-        mediaId: mediaId,
-        epochId: 1,
-      );
+    senderDeviceId: 'peer',
+    kind: kind,
+    mediaId: mediaId,
+    epochId: 1,
+  );
 
   test('a peer media_request drives the responder, not the hydrator', () async {
     ephemeral.add(msg(mediaRequestKind, 'blob-req'));
     await settle();
 
-    expect(responder.requests, ['blob-req']);
-    expect(hydrator.retried, isEmpty, reason: 'a request is the responder’s job');
+    expect(responder.requests, ['normal:blob-req']);
+    expect(
+      hydrator.retried,
+      isEmpty,
+      reason: 'a request is the responder’s job',
+    );
   });
 
-  test('a peer media_uploaded drives the hydrator re-download, not the responder',
-      () async {
-    ephemeral.add(msg(mediaUploadedKind, 'blob-up'));
-    await settle();
+  test(
+    'a peer media_request_repair drives the responder in repair mode',
+    () async {
+      ephemeral.add(msg(mediaRepairRequestKind, 'blob-repair'));
+      await settle();
 
-    expect(hydrator.retried, ['blob-up'], reason: 'heal-completion re-download');
-    expect(responder.requests, isEmpty);
-  });
+      expect(responder.requests, ['repair:blob-repair']);
+      expect(hydrator.retried, isEmpty);
+    },
+  );
+
+  test(
+    'a peer media_uploaded drives the hydrator re-download, not the responder',
+    () async {
+      ephemeral.add(msg(mediaUploadedKind, 'blob-up'));
+      await settle();
+
+      expect(hydrator.retried, [
+        'blob-up',
+      ], reason: 'heal-completion re-download');
+      expect(responder.requests, isEmpty);
+    },
+  );
 
   test('an unknown ephemeral kind is ignored by both sinks', () async {
     ephemeral.add(msg('some_other_kind', 'blob-x'));
@@ -148,35 +174,42 @@ void main() {
     expect(hydrator.retried, isEmpty);
   });
 
-  test('a media-available event removes the blob from the missing-media set',
-      () async {
-    await db.missingMediaDao.markMissing(
-      mediaId: 'now-here',
-      priority: MissingMediaDao.priorityChat,
-      nowMs: 1000,
-    );
-    expect(await db.missingMediaDao.getById('now-here'), isNotNull);
+  test(
+    'a media-available event removes the blob from the missing-media set',
+    () async {
+      await db.missingMediaDao.markMissing(
+        mediaId: 'now-here',
+        priority: MissingMediaDao.priorityChat,
+        nowMs: 1000,
+      );
+      expect(await db.missingMediaDao.getById('now-here'), isNotNull);
 
-    available.add(const MediaAvailableEvent('now-here'));
-    await settle();
+      available.add(const MediaAvailableEvent('now-here'));
+      await settle();
 
-    expect(
-      await db.missingMediaDao.getById('now-here'),
-      isNull,
-      reason: 'a blob that landed in cache is no longer missing',
-    );
-  });
+      expect(
+        await db.missingMediaDao.getById('now-here'),
+        isNull,
+        reason: 'a blob that landed in cache is no longer missing',
+      );
+    },
+  );
 
-  test('a completed sync runs the cadence and re-downloads what it healed',
-      () async {
-    requester.healed = ['h1', 'h2'];
-    syncEvents.add(SyncEvent('SyncCompleted', {'type': 'SyncCompleted'}));
-    await settle();
+  test(
+    'a completed sync runs the cadence and re-downloads what it healed',
+    () async {
+      requester.healed = ['h1', 'h2'];
+      syncEvents.add(SyncEvent('SyncCompleted', {'type': 'SyncCompleted'}));
+      await settle();
 
-    expect(requester.cadenceRuns, 1);
-    expect(hydrator.retried, containsAll(<String>['h1', 'h2']),
-        reason: 'each healed blob is re-pulled to emit MediaAvailable');
-  });
+      expect(requester.cadenceRuns, 1);
+      expect(
+        hydrator.retried,
+        containsAll(<String>['h1', 'h2']),
+        reason: 'each healed blob is re-pulled to emit MediaAvailable',
+      );
+    },
+  );
 
   test('a non-completion sync event does not run the cadence', () async {
     syncEvents.add(SyncEvent('SyncStarted', {'type': 'SyncStarted'}));

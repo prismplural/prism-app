@@ -13,12 +13,14 @@ class MissingMediaDue {
     required this.priority,
     required this.attempts,
     required this.firstMissingAt,
+    required this.forceRepair,
   });
 
   final String mediaId;
   final int priority;
   final int attempts;
   final int firstMissingAt;
+  final bool forceRepair;
 }
 
 /// Persistent store for the demand-driven heal's missing-media set (media heal).
@@ -28,7 +30,18 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
   MissingMediaDao(super.db);
 
   static const statePending = 'pending';
+  static const statePendingRepair = 'pending_repair';
   static const stateTerminal = 'terminal';
+  static const stateTerminalRepair = 'terminal_repair';
+
+  static bool isPendingState(String state) =>
+      state == statePending || state == statePendingRepair;
+
+  static bool isTerminalState(String state) =>
+      state == stateTerminal || state == stateTerminalRepair;
+
+  static bool isRepairState(String state) =>
+      state == statePendingRepair || state == stateTerminalRepair;
 
   /// Profile / member images — heal first.
   static const priorityProfile = 0;
@@ -45,13 +58,27 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
     required String mediaId,
     required int priority,
     required int nowMs,
+    bool forceRepair = false,
   }) {
     return customStatement(
       'INSERT INTO missing_media '
       '(media_id, priority, first_missing_at, attempts, next_eligible_at, state) '
       'VALUES (?, ?, ?, 0, 0, ?) '
-      'ON CONFLICT(media_id) DO UPDATE SET priority = MIN(priority, excluded.priority)',
-      [mediaId, priority, nowMs, statePending],
+      'ON CONFLICT(media_id) DO UPDATE SET '
+      'priority = MIN(priority, excluded.priority), '
+      'state = CASE '
+      "  WHEN excluded.state = '$statePendingRepair' AND state = '$statePending' "
+      "    THEN '$statePendingRepair' "
+      "  WHEN excluded.state = '$statePendingRepair' AND state = '$stateTerminal' "
+      "    THEN '$stateTerminalRepair' "
+      '  ELSE state '
+      'END',
+      [
+        mediaId,
+        priority,
+        nowMs,
+        forceRepair ? statePendingRepair : statePending,
+      ],
     );
   }
 
@@ -60,7 +87,10 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
   Future<List<String>> pendingMediaIds() async {
     final q = selectOnly(missingMediaEntries)
       ..addColumns([missingMediaEntries.mediaId])
-      ..where(missingMediaEntries.state.equals(statePending));
+      ..where(
+        missingMediaEntries.state.equals(statePending) |
+            missingMediaEntries.state.equals(statePendingRepair),
+      );
     final rows = await q.get();
     return rows.map((r) => r.read(missingMediaEntries.mediaId)!).toList();
   }
@@ -74,9 +104,11 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
         missingMediaEntries.priority,
         missingMediaEntries.attempts,
         missingMediaEntries.firstMissingAt,
+        missingMediaEntries.state,
       ])
       ..where(
-        missingMediaEntries.state.equals(statePending) &
+        (missingMediaEntries.state.equals(statePending) |
+                missingMediaEntries.state.equals(statePendingRepair)) &
             missingMediaEntries.nextEligibleAt.isSmallerOrEqualValue(nowMs),
       )
       ..orderBy([
@@ -92,6 +124,7 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
             priority: r.read(missingMediaEntries.priority)!,
             attempts: r.read(missingMediaEntries.attempts)!,
             firstMissingAt: r.read(missingMediaEntries.firstMissingAt)!,
+            forceRepair: isRepairState(r.read(missingMediaEntries.state)!),
           ),
         )
         .toList();
@@ -105,58 +138,76 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
     required int nextEligibleAtMs,
     required int nowMs,
   }) {
-    return (update(missingMediaEntries)
-          ..where((t) => t.mediaId.equals(mediaId)))
-        .write(
-          MissingMediaEntriesCompanion(
-            attempts: Value(attempts),
-            lastRequestedAt: Value(nowMs),
-            nextEligibleAt: Value(nextEligibleAtMs),
-          ),
-        );
+    return (update(
+      missingMediaEntries,
+    )..where((t) => t.mediaId.equals(mediaId))).write(
+      MissingMediaEntriesCompanion(
+        attempts: Value(attempts),
+        lastRequestedAt: Value(nowMs),
+        nextEligibleAt: Value(nextEligibleAtMs),
+      ),
+    );
   }
 
   /// Move an entry to terminal-unavailable (the long window elapsed with no
   /// holder). Retained, never dropped, and revivable via [requestAllNow].
   Future<void> markTerminal(String mediaId) {
-    return (update(missingMediaEntries)
-          ..where((t) => t.mediaId.equals(mediaId)))
-        .write(const MissingMediaEntriesCompanion(state: Value(stateTerminal)));
+    return customStatement(
+      'UPDATE missing_media '
+      'SET state = CASE '
+      "  WHEN state = '$statePendingRepair' THEN '$stateTerminalRepair' "
+      "  ELSE '$stateTerminal' "
+      'END '
+      'WHERE media_id = ?',
+      [mediaId],
+    );
   }
 
   /// Remove an entry — the blob healed (cached) or the relay now holds it
   /// (a holder returned). The heal succeeded; it is no longer "missing".
   Future<void> remove(String mediaId) {
-    return (delete(missingMediaEntries)..where((t) => t.mediaId.equals(mediaId)))
-        .go();
+    return (delete(
+      missingMediaEntries,
+    )..where((t) => t.mediaId.equals(mediaId))).go();
   }
 
   /// Re-arm every entry (pending AND terminal) for an immediate, fresh retry —
   /// the user-initiated "Request Missing Media" action and terminal revival.
   /// Resets `firstMissingAt` (restarts the terminal clock) and `attempts` so a
   /// long-terminal blob actually gets a request broadcast instead of being
-  /// immediately re-terminalized by the next cadence.
-  Future<void> requestAllNow(int nowMs) {
-    return (update(missingMediaEntries)).write(
-      MissingMediaEntriesCompanion(
-        state: const Value(statePending),
-        nextEligibleAt: const Value(0),
-        attempts: const Value(0),
-        firstMissingAt: Value(nowMs),
-      ),
+  /// immediately re-terminalized by the next cadence. When [promoteToRepair]
+  /// is true, legacy plain entries are upgraded so the retry uses the repair
+  /// request path.
+  Future<void> requestAllNow(int nowMs, {bool promoteToRepair = false}) {
+    return customStatement(
+      'UPDATE missing_media '
+      'SET state = CASE '
+      "  WHEN state = '$stateTerminalRepair' THEN '$statePendingRepair' "
+      "  WHEN state = '$stateTerminal' THEN CASE "
+      "    WHEN ? = 1 THEN '$statePendingRepair' "
+      "    ELSE '$statePending' "
+      '  END '
+      "  WHEN state = '$statePending' AND ? = 1 THEN '$statePendingRepair' "
+      '  ELSE state '
+      'END, '
+      'next_eligible_at = 0, '
+      'attempts = 0, '
+      'first_missing_at = ?',
+      [promoteToRepair ? 1 : 0, promoteToRepair ? 1 : 0, nowMs],
     );
   }
 
   Future<MissingMediaEntry?> getById(String mediaId) {
-    return (select(missingMediaEntries)
-          ..where((t) => t.mediaId.equals(mediaId)))
-        .getSingleOrNull();
+    return (select(
+      missingMediaEntries,
+    )..where((t) => t.mediaId.equals(mediaId))).getSingleOrNull();
   }
 
-  /// Count of entries still awaiting a holder (`pending`).
+  /// Count of entries still awaiting a holder (`pending` or `pending_repair`).
   Future<int> pendingCount() async {
     final row = await customSelect(
-      "SELECT COUNT(*) AS c FROM missing_media WHERE state = 'pending'",
+      "SELECT COUNT(*) AS c FROM missing_media "
+      "WHERE state IN ('pending', 'pending_repair')",
       readsFrom: {missingMediaEntries},
     ).getSingle();
     return row.read<int>('c');
@@ -165,7 +216,8 @@ class MissingMediaDao extends DatabaseAccessor<AppDatabase>
   /// Count of entries judged terminal-unavailable.
   Future<int> terminalCount() async {
     final row = await customSelect(
-      "SELECT COUNT(*) AS c FROM missing_media WHERE state = 'terminal'",
+      "SELECT COUNT(*) AS c FROM missing_media "
+      "WHERE state IN ('terminal', 'terminal_repair')",
       readsFrom: {missingMediaEntries},
     ).getSingle();
     return row.read<int>('c');

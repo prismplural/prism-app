@@ -28,15 +28,21 @@ typedef JitterFn = Future<void> Function();
 /// The demand-driven heal's **responder** (media heal).
 ///
 /// On a peer's `media_request{X}`, a device that holds `X.enc` waits a random
-/// jitter, re-checks batch-exists (someone else — or the relay — may already
-/// hold it), and if still absent re-uploads `X` with a short TTL via the
-/// re-supply class, then announces `media_uploaded{X}` so requesters can fetch
-/// it. The idempotent upsert makes concurrent responders safe: the first
-/// commits and announces; the rest get `inProgress` (202) and stay silent.
+/// jitter, re-checks batch-exists, and if still absent re-uploads `X` with a
+/// short TTL via the re-supply class, then announces `media_uploaded{X}` so
+/// requesters can fetch it. The relay's idempotent reserve path makes
+/// concurrent responders safe: a true repair commits and announces, an
+/// already-servable row is a harmless idempotent 200, and a raced writer gets
+/// `inProgress` (202) and stays silent.
 ///
-/// Every gate is fail-safe: not holding the blob, the relay already holding it,
-/// a batch-exists/transient error, or a non-committed upload all end in a quiet
-/// no-op — never a blind re-upload storm.
+/// A relay-confirmed 404 uses `forceRepair`: metadata-only `batch-exists` is
+/// known untrustworthy for the committed-but-fileless case, so that explicit
+/// repair request bypasses the local short-circuit and reaches the relay's
+/// real repair decision.
+///
+/// Every gate is fail-safe: not holding the blob or a non-committed upload ends
+/// in a quiet no-op, and the self-rate-limit keeps an explicit request flood
+/// from turning into a re-upload storm.
 class MediaHealResponder {
   MediaHealResponder({
     required this.holdsBlob,
@@ -49,8 +55,8 @@ class MediaHealResponder {
     this.rateWindow = const Duration(minutes: 1),
     int Function()? clockMs,
     Random? random,
-  })  : _jitter = jitter ?? _defaultJitter(maxJitter, random ?? Random()),
-        _clockMs = clockMs ?? _systemClockMs;
+  }) : _jitter = jitter ?? _defaultJitter(maxJitter, random ?? Random()),
+       _clockMs = clockMs ?? _systemClockMs;
 
   final HoldsBlobFn holdsBlob;
   final BatchExistsFn batchExists;
@@ -83,18 +89,24 @@ class MediaHealResponder {
 
   /// Handle a peer's request for `mediaId`. Safe to call for any request — it
   /// returns immediately if this device can't help.
-  Future<void> onMediaRequest(String mediaId) async {
+  Future<void> onMediaRequest(
+    String mediaId, {
+    bool forceRepair = false,
+  }) async {
     if (!await holdsBlob(mediaId)) return; // we don't hold it → can't supply
 
     await _jitter();
 
-    final List<String> present;
-    try {
-      present = await batchExists([mediaId]);
-    } catch (_) {
-      return; // transient / feature-absent → skip; the requester re-issues
+    if (!forceRepair) {
+      final List<String> present;
+      try {
+        present = await batchExists([mediaId]);
+      } catch (_) {
+        return; // transient / feature-absent → skip; the requester re-issues
+      }
+      if (present.contains(mediaId))
+        return; // already re-supplied or relay holds it
     }
-    if (present.contains(mediaId)) return; // already re-supplied or relay holds it
 
     // Self-rate-limit: cap re-supply uploads per window so a request flood
     // can't make this device storm the relay. Gate before the upload…

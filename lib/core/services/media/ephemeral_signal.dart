@@ -8,8 +8,11 @@ import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 
 /// Ephemeral signal-lane message kinds (ephemeral media signaling). The requester
 /// broadcasts [mediaRequestKind] for a missing blob; a holder responds with
-/// [mediaUploadedKind] once it has re-supplied it.
+/// [mediaUploadedKind] once it has re-supplied it. A relay-confirmed 404 uses
+/// [mediaRepairRequestKind], which tells responders to bypass metadata-only
+/// `batch-exists` and hit the relay's idempotent repair path directly.
 const String mediaRequestKind = 'media_request';
+const String mediaRepairRequestKind = 'media_request_repair';
 const String mediaUploadedKind = 'media_uploaded';
 
 /// A decoded ephemeral signal-lane message (ephemeral media signaling) drained from
@@ -90,24 +93,24 @@ class EphemeralSignalSender {
     required String kind,
     required String mediaId,
     String? recipientDeviceId,
-  }) => _send(
-    kind: kind,
-    mediaId: mediaId,
-    recipientDeviceId: recipientDeviceId,
-  );
+  }) =>
+      _send(kind: kind, mediaId: mediaId, recipientDeviceId: recipientDeviceId);
 }
 
 final ephemeralSignalSenderProvider = Provider<EphemeralSignalSender>((ref) {
-  return EphemeralSignalSender((
-    {required String kind,
+  return EphemeralSignalSender(({
+    required String kind,
     required String mediaId,
-    String? recipientDeviceId}) async {
+    String? recipientDeviceId,
+  }) async {
     // Resolve the handle lazily from the current value — never await it. A
     // null/loading handle throws so the caller can back off; a fresh handle is
     // re-read on the next send.
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) {
-      throw StateError('sync handle unavailable; cannot send ephemeral message');
+      throw StateError(
+        'sync handle unavailable; cannot send ephemeral message',
+      );
     }
     await ffi.sendEphemeral(
       handle: handle,
