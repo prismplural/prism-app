@@ -28,10 +28,14 @@ const int kMaxAdaptiveOverflowColumns = 5;
 /// Shared visual metrics for both the real nav bar and the settings preview.
 const double kNavBarLabelFontSize = 12.0;
 const double kNavBarItemIconSize = 23.0;
+const double kNavBarIconOnlyItemIconSize = 27.0;
 const double kNavBarItemIconHeight = 32.0;
+const double kNavBarIconOnlyItemIconHeight = 38.0;
 const double kNavBarItemWidth = 40.0;
 const double kNavBarSelectedItemPillWidth = 56.0;
+const double kNavBarIconOnlySelectedItemPillWidth = 60.0;
 const double kNavBarMoreTriggerIconSize = 22.0;
+const double kNavBarIconOnlyMoreTriggerIconSize = 25.0;
 
 const double _kSimpleBarHorizontalPadding = 24.0;
 const double _kOverflowBarHorizontalPadding = 16.0;

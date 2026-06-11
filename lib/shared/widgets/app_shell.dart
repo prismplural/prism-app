@@ -47,6 +47,9 @@ const _kMoreButtonWidth = 44.0;
 /// Border width used by the floating nav container decoration.
 const _kNavBarBorderWidth = 1.0;
 
+const _kNavBarSelectedItemPillHeight = 32.0;
+const _kNavBarSelectedItemPillTop = 8.0;
+
 /// Extra vertical breathing room around the icon + label stack so scaled text
 /// still fits after decoration insets and font metric differences.
 const _kNavBarItemVerticalPadding = 12.0;
@@ -236,6 +239,25 @@ double _measurePrimaryNavBarRowHeight({
         _kNavBarItemVerticalPadding +
         (_kNavBarBorderWidth * 2),
   );
+}
+
+@visibleForTesting
+double navBarPrimaryPillTop({
+  required double rowHeight,
+  required bool prominentIcons,
+  required double labelVisibility,
+}) {
+  if (!prominentIcons) return _kNavBarSelectedItemPillTop;
+  final iconOnlyTop =
+      (rowHeight - kNavBarIconOnlyItemIconHeight).clamp(0.0, rowHeight) / 2;
+  final labelsVisibleTop =
+      (rowHeight - kNavBarIconOnlyItemIconHeight - kNavBarLabelFontSize - 2) /
+      2;
+  return lerpDouble(
+    iconOnlyTop,
+    labelsVisibleTop.clamp(0.0, rowHeight),
+    labelVisibility.clamp(0.0, 1.0).toDouble(),
+  )!;
 }
 
 double _measureOverflowNavBarRowHeight({
@@ -1411,6 +1433,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
             widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
             ? t
             : 1.0;
+        final prominentIcons =
+            widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly;
         final radius =
             _collapsedRadius + (_expandedRadius - _collapsedRadius) * t;
 
@@ -1501,7 +1525,20 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                               Theme.of(context),
                             );
 
-                            final pillWidth = segWidth - 16;
+                            final pillHeight = prominentIcons
+                                ? kNavBarIconOnlyItemIconHeight
+                                : _kNavBarSelectedItemPillHeight;
+                            final pillTop = navBarPrimaryPillTop(
+                              rowHeight: widget.rowHeight,
+                              prominentIcons: prominentIcons,
+                              labelVisibility: labelVisibility,
+                            );
+                            final pillWidth = prominentIcons
+                                ? math.min(
+                                    segWidth - 8,
+                                    kNavBarIconOnlySelectedItemPillWidth,
+                                  )
+                                : segWidth - 16;
                             return Stack(
                               children: [
                                 // Sliding pill (hidden when overflow tab selected)
@@ -1523,7 +1560,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                       );
                                     },
                                     child: Padding(
-                                      padding: const EdgeInsets.only(top: 8),
+                                      padding: EdgeInsets.only(top: pillTop),
                                       child: DecoratedBox(
                                         decoration: BoxDecoration(
                                           color: pillColor,
@@ -1533,7 +1570,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                         ),
                                         child: SizedBox(
                                           width: pillWidth,
-                                          height: 32,
+                                          height: pillHeight,
                                         ),
                                       ),
                                     ),
@@ -1561,6 +1598,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                             rowHeight: widget.rowHeight,
                                             showLabel: showExpandedLabels,
                                             labelVisibility: labelVisibility,
+                                            prominentIcon: prominentIcons,
                                             onTap: () => _handleTap(i),
                                           ),
                                         );
@@ -1575,6 +1613,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                       accentColor: widget.accentColor,
                                       isDark: isDark,
                                       rowHeight: widget.rowHeight,
+                                      prominentIcon: prominentIcons,
                                       onTap: _toggleExpand,
                                     ),
                                   ],
@@ -1636,6 +1675,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
           rowHeight: widget.rowHeight,
           showLabel: showLabels,
           labelVisibility: labelVisibility,
+          prominentIcon:
+              widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly,
           showItemPill: true,
           onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
         ),
@@ -1750,6 +1791,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final tabCount = widget.primaryTabs.length;
     final shapes = PrismShapes.of(context);
+    final prominentIcons =
+        widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly;
 
     // Pill colors
     final pillColor = _navSelectedPillColor(Theme.of(context));
@@ -1777,7 +1820,20 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final segmentWidth = constraints.maxWidth / tabCount;
-                  final pillWidth = segmentWidth - 16;
+                  final pillHeight = prominentIcons
+                      ? kNavBarIconOnlyItemIconHeight
+                      : _kNavBarSelectedItemPillHeight;
+                  final pillTop = navBarPrimaryPillTop(
+                    rowHeight: widget.rowHeight,
+                    prominentIcons: prominentIcons,
+                    labelVisibility: showLabels ? 1.0 : 0.0,
+                  );
+                  final pillWidth = prominentIcons
+                      ? math.min(
+                          segmentWidth - 8,
+                          kNavBarIconOnlySelectedItemPillWidth,
+                        )
+                      : segmentWidth - 16;
                   return Stack(
                     children: [
                       // Sliding pill — uses Transform.translate (paint-only,
@@ -1796,7 +1852,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           );
                         },
                         child: Padding(
-                          padding: const EdgeInsets.only(top: 8),
+                          padding: EdgeInsets.only(top: pillTop),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: pillColor,
@@ -1804,7 +1860,10 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 shapes.radius(16),
                               ),
                             ),
-                            child: SizedBox(width: pillWidth, height: 32),
+                            child: SizedBox(
+                              width: pillWidth,
+                              height: pillHeight,
+                            ),
                           ),
                         ),
                       ),
@@ -1833,6 +1892,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 rowHeight: widget.rowHeight,
                                 showLabel: showLabels,
                                 labelVisibility: showLabels ? 1.0 : 0.0,
+                                prominentIcon: prominentIcons,
                                 onTap: () => widget.onTap(index),
                               ),
                             );
@@ -1860,6 +1920,7 @@ class _MoreTrigger extends StatelessWidget {
     required this.accentColor,
     required this.isDark,
     required this.rowHeight,
+    required this.prominentIcon,
     required this.onTap,
   });
 
@@ -1869,6 +1930,7 @@ class _MoreTrigger extends StatelessWidget {
   final Color accentColor;
   final bool isDark;
   final double rowHeight;
+  final bool prominentIcon;
   final VoidCallback onTap;
 
   @override
@@ -1892,7 +1954,9 @@ class _MoreTrigger extends StatelessWidget {
               angle: animationValue * 0.785, // 45 degrees
               child: Icon(
                 AppIcons.moreVert,
-                size: kNavBarMoreTriggerIconSize,
+                size: prominentIcon
+                    ? kNavBarIconOnlyMoreTriggerIconSize
+                    : kNavBarMoreTriggerIconSize,
                 color: iconColor,
               ),
             ),
@@ -1918,6 +1982,7 @@ class _NavBarItem extends StatelessWidget {
     required this.rowHeight,
     required this.showLabel,
     required this.labelVisibility,
+    required this.prominentIcon,
     required this.onTap,
     this.showItemPill = false,
   });
@@ -1934,6 +1999,7 @@ class _NavBarItem extends StatelessWidget {
   final double rowHeight;
   final bool showLabel;
   final double labelVisibility;
+  final bool prominentIcon;
   final VoidCallback onTap;
 
   /// When true, render a per-item pill behind the icon (for overflow row).
@@ -1950,10 +2016,22 @@ class _NavBarItem extends StatelessWidget {
     final visibleLabelFactor = showLabel
         ? labelVisibility.clamp(0.0, 1.0).toDouble()
         : 0.0;
+    final iconSize = prominentIcon
+        ? kNavBarIconOnlyItemIconSize
+        : kNavBarItemIconSize;
+    final iconHeight = prominentIcon
+        ? kNavBarIconOnlyItemIconHeight
+        : kNavBarItemIconHeight;
+    final selectedPillWidth = prominentIcon
+        ? kNavBarIconOnlySelectedItemPillWidth
+        : kNavBarSelectedItemPillWidth;
+    final restingIconWidth = prominentIcon
+        ? kNavBarIconOnlyItemIconHeight
+        : kNavBarItemWidth;
 
     Widget iconWidget = Icon(
       itemIcon,
-      size: kNavBarItemIconSize,
+      size: iconSize,
       color: isSelected ? accentColor : _navInactiveIconColor(theme),
     );
 
@@ -1982,13 +2060,13 @@ class _NavBarItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: kNavBarItemIconHeight,
+              height: iconHeight,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
                 width: showItemPill && isSelected
-                    ? kNavBarSelectedItemPillWidth
-                    : kNavBarItemWidth,
+                    ? selectedPillWidth
+                    : restingIconWidth,
                 alignment: Alignment.center,
                 decoration: showItemPill
                     ? BoxDecoration(

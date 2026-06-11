@@ -180,6 +180,37 @@ void main() {
     expect(layout.rowHeight, kFloatingNavBarHeight);
   });
 
+  test('icon-only mode uses larger centered collapsed icons', () {
+    expect(kNavBarIconOnlyItemIconSize, greaterThan(kNavBarItemIconSize));
+
+    final collapsedTop = navBarPrimaryPillTop(
+      rowHeight: kFloatingNavBarHeight,
+      prominentIcons: true,
+      labelVisibility: 0,
+    );
+
+    expect(
+      collapsedTop,
+      (kFloatingNavBarHeight - kNavBarIconOnlyItemIconHeight) / 2,
+    );
+    expect(
+      navBarPrimaryPillTop(
+        rowHeight: kFloatingNavBarHeight,
+        prominentIcons: false,
+        labelVisibility: 0,
+      ),
+      8,
+    );
+    expect(
+      navBarPrimaryPillTop(
+        rowHeight: kFloatingNavBarHeight,
+        prominentIcons: true,
+        labelVisibility: 1,
+      ),
+      lessThan(collapsedTop),
+    );
+  });
+
   test('reports a four-row expanded overflow layout when needed', () {
     final primaryTabs = appShellTabs.take(5).toList();
     final overflowTabs = [
