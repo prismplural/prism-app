@@ -224,6 +224,23 @@ void main() {
       expect(action, QuickSwitchAction.createNew);
     });
 
+    test('switch before session start returns createNew', () {
+      final now = DateTime(2026, 1, 1, 11, 59, 50);
+      final session = _session(
+        id: 'a',
+        start: DateTime(2026, 1, 1, 12, 0, 0),
+        memberId: 'alice',
+      );
+
+      final action = service.evaluateQuickSwitch(
+        session,
+        thresholdSeconds: 30,
+        now: now,
+      );
+
+      expect(action, QuickSwitchAction.createNew);
+    });
+
     test('threshold of 0 always returns createNew', () {
       final now = DateTime(2026, 1, 1, 12, 0, 0);
       final session = _session(

@@ -27,6 +27,8 @@ import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
+enum _SessionTimingMode { startEarlier, startNow, pastSession }
+
 /// Modal for creating a new fronting session with full details.
 ///
 /// Opens via [PrismSheet.showFullScreen] for consistency with other modals.
@@ -88,7 +90,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   final _notesKey = GlobalKey();
   late DateTime _startTime;
   DateTime? _endTime;
-  bool _isHistorical = false;
+  late _SessionTimingMode _timingMode;
   bool _saving = false;
 
   /// Per-action override of the add-front behavior. Initialised from the
@@ -114,12 +116,16 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       _selectedIds.where((id) => id != _unknownId).toList();
   bool get _canSubmit => _selectedIds.isNotEmpty;
   bool get _isDirty => _notesController.text.trim().isNotEmpty;
+  bool get _isHistorical => _timingMode == _SessionTimingMode.pastSession;
+  bool get _isStartEarlier => _timingMode == _SessionTimingMode.startEarlier;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _isHistorical = widget.initialHistorical;
+    _timingMode = widget.initialHistorical
+        ? _SessionTimingMode.pastSession
+        : _SessionTimingMode.startNow;
     if (_isHistorical) {
       _startTime = DateTime.now().subtract(const Duration(hours: 1));
       _endTime = DateTime.now();
@@ -207,12 +213,14 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
           case FrontStartBehavior.additive:
             await notifier.startFronting(
               ids,
+              startTime: _isStartEarlier ? _startTime : null,
               confidence: _confidence,
               notes: notes,
             );
           case FrontStartBehavior.replace:
             await notifier.replaceFronting(
               ids,
+              startTime: _isStartEarlier ? _startTime : null,
               confidence: _confidence,
               notes: notes,
             );
@@ -232,19 +240,20 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     }
   }
 
-  void _enterHistoricalMode() {
+  void _setTimingMode(_SessionTimingMode timingMode) {
     setState(() {
-      _isHistorical = true;
-      _startTime = DateTime.now().subtract(const Duration(hours: 1));
-      _endTime = DateTime.now();
-    });
-  }
-
-  void _exitHistoricalMode() {
-    setState(() {
-      _isHistorical = false;
-      _startTime = DateTime.now();
-      _endTime = null;
+      _timingMode = timingMode;
+      switch (timingMode) {
+        case _SessionTimingMode.startEarlier:
+          _startTime = DateTime.now().subtract(const Duration(minutes: 15));
+          _endTime = null;
+        case _SessionTimingMode.startNow:
+          _startTime = DateTime.now();
+          _endTime = null;
+        case _SessionTimingMode.pastSession:
+          _startTime = DateTime.now().subtract(const Duration(hours: 1));
+          _endTime = DateTime.now();
+      }
     });
   }
 
@@ -373,29 +382,29 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                         ),
                       ),
                       const SizedBox(height: 12),
-                      PrismSegmentedControl<bool>(
+                      PrismSegmentedControl<_SessionTimingMode>(
                         key: const Key('sessionTimeSegmentedControl'),
                         segments: [
                           PrismSegment(
-                            value: false,
+                            value: _SessionTimingMode.startEarlier,
+                            label: context.l10n.frontingSessionTimeStartEarlier,
+                          ),
+                          PrismSegment(
+                            value: _SessionTimingMode.startNow,
                             label: context.l10n.frontingSessionTimeStartNow,
                           ),
                           PrismSegment(
-                            value: true,
+                            value: _SessionTimingMode.pastSession,
                             label: context.l10n.frontingSessionTimePastSession,
                           ),
                         ],
-                        selected: _isHistorical,
-                        onChanged: (isHistorical) {
+                        selected: _timingMode,
+                        onChanged: (timingMode) {
                           if (_saving) return;
-                          if (isHistorical) {
-                            _enterHistoricalMode();
-                          } else {
-                            _exitHistoricalMode();
-                          }
+                          _setTimingMode(timingMode);
                         },
                       ),
-                      if (_isHistorical) ...[
+                      if (_isStartEarlier || _isHistorical) ...[
                         const SizedBox(height: 16),
                         PrismDateTimePills(
                           label: context.l10n.frontingStart,
@@ -404,14 +413,16 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                           lastDate: DateTime.now(),
                           onChanged: (dt) => setState(() => _startTime = dt),
                         ),
-                        const SizedBox(height: 16),
-                        PrismDateTimePills(
-                          label: context.l10n.frontingEnd,
-                          dateTime: _endTime ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                          onChanged: (dt) => setState(() => _endTime = dt),
-                        ),
+                        if (_isHistorical) ...[
+                          const SizedBox(height: 16),
+                          PrismDateTimePills(
+                            label: context.l10n.frontingEnd,
+                            dateTime: _endTime ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                            onChanged: (dt) => setState(() => _endTime = dt),
+                          ),
+                        ],
                       ],
                       const SizedBox(height: 24),
 

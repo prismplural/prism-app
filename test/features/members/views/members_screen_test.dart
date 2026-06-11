@@ -239,6 +239,7 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     List<String> memberIds, {
     FrontConfidence? confidence,
     String? notes,
+    DateTime? startTime,
   }) async {
     replaceFrontingCalls.add(memberIds);
   }

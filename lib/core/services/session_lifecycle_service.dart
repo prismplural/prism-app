@@ -522,7 +522,7 @@ class SessionLifecycleService {
         .difference(currentSession.startTime)
         .inSeconds;
 
-    if (thresholdSeconds > 0 && elapsed <= thresholdSeconds) {
+    if (thresholdSeconds > 0 && elapsed >= 0 && elapsed <= thresholdSeconds) {
       return QuickSwitchAction.correctExisting;
     }
 

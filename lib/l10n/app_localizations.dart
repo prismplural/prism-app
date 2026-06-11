@@ -4196,6 +4196,12 @@ abstract class AppLocalizations {
   /// **'Session Time'**
   String get frontingSessionTime;
 
+  /// Segmented-control option on the add-front sheet for starting an active session at an earlier time
+  ///
+  /// In en, this message translates to:
+  /// **'Start Earlier'**
+  String get frontingSessionTimeStartEarlier;
+
   /// Segmented-control option on the add-front sheet for starting a session immediately
   ///
   /// In en, this message translates to:

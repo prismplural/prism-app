@@ -344,7 +344,8 @@ class FrontingMutationService {
         }
 
         for (final s in replaceableActives) {
-          await _repository.endSession(s.id, at);
+          final endTime = at.isBefore(s.startTime) ? s.startTime : at;
+          await _repository.endSession(s.id, endTime);
         }
 
         // 2. Start a fresh session for each requested member, all sharing

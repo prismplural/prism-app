@@ -691,6 +691,7 @@
   "frontingQuickFrontHoldInstruction": "Mantén presionado",
   "frontingNewSession": "Nueva sesión",
   "frontingSessionTime": "Tiempo de la sesión",
+  "frontingSessionTimeStartEarlier": "Empezar antes",
   "frontingSessionTimeStartNow": "Empezar ahora",
   "frontingSessionTimePastSession": "Sesión pasada",
   "frontingLogPastSession": "Registrar sesión pasada",

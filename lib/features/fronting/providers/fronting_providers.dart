@@ -194,6 +194,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     List<String> memberIds, {
     FrontConfidence? confidence,
     String? notes,
+    DateTime? startTime,
   }) async {
     final quickSwitchThreshold = ref.read(quickSwitchThresholdProvider);
     final result = await _unwrapMutation(
@@ -201,6 +202,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
           .read(frontingMutationServiceProvider)
           .replaceFronting(
             memberIds,
+            now: startTime,
             confidence: confidence,
             notes: notes,
             quickSwitchThresholdSeconds: quickSwitchThreshold,

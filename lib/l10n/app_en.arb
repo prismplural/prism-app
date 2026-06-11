@@ -3171,6 +3171,10 @@
   "@frontingSessionTime": {
     "description": "Section header on the add-front sheet for choosing between a live session and a historical session"
   },
+  "frontingSessionTimeStartEarlier": "Start Earlier",
+  "@frontingSessionTimeStartEarlier": {
+    "description": "Segmented-control option on the add-front sheet for starting an active session at an earlier time"
+  },
   "frontingSessionTimeStartNow": "Start Now",
   "@frontingSessionTimeStartNow": {
     "description": "Segmented-control option on the add-front sheet for starting a session immediately"

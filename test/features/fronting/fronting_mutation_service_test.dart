@@ -596,6 +596,50 @@ void main() {
         },
       );
 
+      test(
+        'backdated replacement does not quick-switch or end before start',
+        () async {
+          final repo = FakeFrontingSessionRepository();
+          final aliceStart = DateTime(2026, 4, 25, 12);
+          final replacementStart = aliceStart.subtract(
+            const Duration(minutes: 15),
+          );
+          await repo.createSession(
+            FrontingSession(
+              id: 'alice-old',
+              startTime: aliceStart,
+              memberId: 'alice',
+            ),
+          );
+
+          final svc = FrontingMutationService(
+            repository: repo,
+            mutationRunner: MutationRunner(
+              transactionRunner: _passthroughTransactionRunner,
+            ),
+          );
+
+          final result = await svc.replaceFronting(
+            ['bob'],
+            now: replacementStart,
+            quickSwitchThresholdSeconds: 30,
+          );
+
+          expect(result.isSuccess, isTrue);
+          expect(repo.sessions, hasLength(2));
+
+          final alice = repo.sessions.firstWhere((s) => s.id == 'alice-old');
+          expect(alice.memberId, 'alice');
+          expect(alice.startTime, aliceStart);
+          expect(alice.endTime, aliceStart);
+
+          final bob = repo.sessions.firstWhere((s) => s.id != 'alice-old');
+          expect(bob.memberId, 'bob');
+          expect(bob.startTime, replacementStart);
+          expect(bob.endTime, isNull);
+        },
+      );
+
       test('ends all active normal fronts AND starts the new session in one '
           'transaction with a single captured now', () async {
         final repo = FakeFrontingSessionRepository();

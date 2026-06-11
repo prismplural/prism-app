@@ -39,7 +39,9 @@ List<Member> _bigMemberList() =>
 /// on the multi-select payload without hitting the real DB.
 class _FakeFrontingNotifier extends FrontingNotifier {
   final List<List<String>> startFrontingCalls = [];
+  final List<DateTime?> startFrontingStartTimes = [];
   final List<List<String>> replaceFrontingCalls = [];
+  final List<DateTime?> replaceFrontingStartTimes = [];
   final List<({List<String> memberIds, DateTime startTime, DateTime endTime})>
   logHistoricalFrontingCalls = [];
 
@@ -54,6 +56,7 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     DateTime? startTime,
   }) async {
     startFrontingCalls.add(List<String>.from(memberIds));
+    startFrontingStartTimes.add(startTime);
   }
 
   @override
@@ -61,8 +64,10 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     List<String> memberIds, {
     FrontConfidence? confidence,
     String? notes,
+    DateTime? startTime,
   }) async {
     replaceFrontingCalls.add(List<String>.from(memberIds));
+    replaceFrontingStartTimes.add(startTime);
   }
 
   @override
@@ -968,6 +973,102 @@ void main() {
 
       expect(find.byType(AddFrontSessionSheet), findsOneWidget);
       expect(find.text('Discard changes?'), findsOneWidget);
+    });
+  });
+
+  group('session time modes', () {
+    Future<void> scrollToSessionTime(WidgetTester tester) async {
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('sessionTimeSegmentedControl')),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(AddFrontSessionSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('renders Start Earlier, Start Now, and Past Session choices', (
+      tester,
+    ) async {
+      final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
+      await tester.pumpWidget(_buildSheetTrigger(members: members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await scrollToSessionTime(tester);
+
+      expect(find.text('Start Earlier'), findsOneWidget);
+      expect(find.text('Start Now'), findsOneWidget);
+      expect(find.text('Past Session'), findsOneWidget);
+    });
+
+    testWidgets(
+      'Start Earlier shows start only and submits additive startTime',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        final members = List.generate(
+          3,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(
+          _buildSheetTrigger(members: members, fakeNotifier: notifier),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('M0'));
+        await tester.pumpAndSettle();
+        await scrollToSessionTime(tester);
+
+        await tester.tap(find.text('Start Earlier'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Start'), findsOneWidget);
+        expect(find.text('End'), findsNothing);
+
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+
+        expect(notifier.startFrontingCalls, hasLength(1));
+        expect(notifier.startFrontingCalls.single, equals(['id0']));
+        expect(notifier.startFrontingStartTimes.single, isNotNull);
+        expect(notifier.replaceFrontingCalls, isEmpty);
+        expect(notifier.logHistoricalFrontingCalls, isEmpty);
+      },
+    );
+
+    testWidgets('Start Earlier with replace submits replace startTime', (
+      tester,
+    ) async {
+      final notifier = _FakeFrontingNotifier();
+      final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
+      await tester.pumpWidget(
+        _buildSheetTrigger(
+          members: members,
+          fakeNotifier: notifier,
+          addFrontDefaultBehavior: FrontStartBehavior.replace,
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('M0'));
+      await tester.pumpAndSettle();
+      await scrollToSessionTime(tester);
+
+      await tester.tap(find.text('Start Earlier'));
+      await tester.pumpAndSettle();
+      await tester.tap(_saveButton());
+      await tester.pumpAndSettle();
+
+      expect(notifier.replaceFrontingCalls, hasLength(1));
+      expect(notifier.replaceFrontingCalls.single, equals(['id0']));
+      expect(notifier.replaceFrontingStartTimes.single, isNotNull);
+      expect(notifier.startFrontingCalls, isEmpty);
     });
   });
 

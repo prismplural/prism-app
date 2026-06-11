@@ -2453,6 +2453,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingSessionTime => 'Tiempo de la sesión';
 
   @override
+  String get frontingSessionTimeStartEarlier => 'Empezar antes';
+
+  @override
   String get frontingSessionTimeStartNow => 'Empezar ahora';
 
   @override
