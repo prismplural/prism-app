@@ -609,6 +609,40 @@ void main() {
     expect(find.text(''), findsNothing);
   });
 
+  testWidgets('profile slider anchor labels sit close to the painted track', (
+    tester,
+  ) async {
+    final sliderField = CustomField(
+      id: 'slider-spacing',
+      name: 'Slider spacing',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        leftLabel: 'Left anchor',
+        rightLabel: 'Right anchor',
+        gradientPresetId: 'sad-happy',
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(fields: [sliderField], values: [value(sliderField.id, '50')]),
+    );
+    await tester.pump();
+
+    final trackFinder = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_SliderDisplayTrack',
+    );
+    expect(trackFinder, findsOneWidget);
+
+    final trackRect = tester.getRect(trackFinder);
+    final leftLabelRect = tester.getRect(find.text('Left anchor'));
+    final paintedTrackBottom = trackRect.top + trackRect.height / 2 + 4;
+
+    expect(leftLabelRect.top - paintedTrackBottom, lessThanOrEqualTo(12));
+  });
+
   testWidgets('short text stays grouped even with long names and values', (
     tester,
   ) async {

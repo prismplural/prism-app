@@ -517,7 +517,7 @@ class _SliderDisplayWidget extends StatelessWidget {
           ),
         ),
         if (isLabeled) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           _SliderLabelRow(config: config),
         ],
       ],
@@ -689,7 +689,11 @@ class _RenderSliderDisplayTrack extends RenderBox {
   TextStyle? thumbLabelStyle;
   TextDirection textDirection;
 
-  static const double _sliderHeight = 48.0;
+  static const double _labeledSliderHeight = 24.0;
+  static const double _numericSliderHeight = 48.0;
+
+  double get _sliderHeight =>
+      isLabeled ? _labeledSliderHeight : _numericSliderHeight;
 
   void update({
     required double fraction,
@@ -705,6 +709,7 @@ class _RenderSliderDisplayTrack extends RenderBox {
     String? thumbLabel,
     TextStyle? thumbLabelStyle,
   }) {
+    final oldSliderHeight = _sliderHeight;
     final changed =
         this.fraction != fraction ||
         this.divisions != divisions ||
@@ -732,7 +737,11 @@ class _RenderSliderDisplayTrack extends RenderBox {
     this.textDirection = textDirection;
     this.thumbLabel = thumbLabel;
     this.thumbLabelStyle = thumbLabelStyle;
-    markNeedsPaint();
+    if (oldSliderHeight != _sliderHeight) {
+      markNeedsLayout();
+    } else {
+      markNeedsPaint();
+    }
   }
 
   @override
