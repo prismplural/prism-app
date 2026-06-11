@@ -226,10 +226,35 @@ class PkAutoPollNotifier extends Notifier<void> {
         await ref
             .read(pluralKitSyncProvider.notifier)
             .syncLiveFrontersOnly(isManual: false, direction: direction);
+        bus.emit(const PkAutoPollTick(outcome: 'ok'));
       } else {
-        await ref.read(pluralKitSyncServiceProvider).pollFrontersOnly();
+        // 2026-06 PK audit M3: `pollFrontersOnly` now classifies its outcome
+        // instead of swallowing everything. Map the classification onto this
+        // notifier's EXISTING behaviors (richer handling — surfacing auth to
+        // the UI, distinct copy — is the follow-up batch's job):
+        //  * ok / skipped → healthy tick.
+        //  * authFailed   → emit a distinct `auth_failed` outcome so a revoked
+        //                   token stops logging as healthy. We do NOT clear the
+        //                   token or stop the loop here.
+        //  * rateLimited  → reuse the 429 backoff path (`_kMinBackoffOn429`).
+        //  * transient    → treat like the catch-block: failed + back off.
+        final outcome = await ref
+            .read(pluralKitSyncServiceProvider)
+            .pollFrontersOnly();
+        switch (outcome) {
+          case PkPollOutcome.ok:
+          case PkPollOutcome.skipped:
+            bus.emit(const PkAutoPollTick(outcome: 'ok'));
+          case PkPollOutcome.authFailed:
+            bus.emit(const PkAutoPollTick(outcome: 'auth_failed'));
+          case PkPollOutcome.rateLimited:
+            bus.emit(const PkAutoPollTick(outcome: 'skipped', reason: 'rate_limited'));
+            _overrideNext = _kMinBackoffOn429;
+          case PkPollOutcome.transientError:
+            bus.emit(const PkAutoPollTick(outcome: 'failed'));
+            _overrideNext = _kMinBackoffOn429;
+        }
       }
-      bus.emit(const PkAutoPollTick(outcome: 'ok'));
     } catch (e) {
       // PK sync services swallow most errors; anything that escapes here is
       // unexpected. Back off one cycle to avoid hammering.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -459,6 +460,84 @@ class PkFileSystemMismatchError implements Exception {
       "a different system's data into yours, so it was blocked.";
 }
 
+/// Thrown by [PluralKitSyncService.pushOverrideSwitch] when the caller chose a
+/// NON-empty set of fronters but EVERY chosen member dropped out as unmapped or
+/// PK-sync-excluded (2026-06 PK audit M8b). Posting the resulting empty member
+/// list would silently clear PK's current front — the opposite of the user's
+/// intent — so we throw instead. The "Who's fronting?" controller's catch
+/// renders this [toString] into `state.error`, naming the members that couldn't
+/// be pushed so the user can map/include them. (A genuinely empty input list —
+/// "nobody is fronting" — is a legitimate switch-out and is NOT routed here.)
+class PkAllChosenFrontersUnmappedException implements Exception {
+  /// Display names (or local ids) of the chosen members that had no usable PK
+  /// link. Non-empty by construction.
+  final List<String> droppedMemberLabels;
+
+  const PkAllChosenFrontersUnmappedException(this.droppedMemberLabels);
+
+  @override
+  String toString() {
+    final names = droppedMemberLabels.join(', ');
+    return 'None of the chosen fronters are linked to PluralKit yet '
+        '($names), so the switch was not pushed. Link or include them via '
+        'the mapping screen, then try again.';
+  }
+}
+
+/// Classified outcome of a single [PluralKitSyncService.pollFrontersOnly] tick
+/// (2026-06 PK audit M3). The method used to swallow everything and return a
+/// bare bool, so a revoked token kept polling at full cadence forever while the
+/// auto-poll log cheerfully reported `outcome: 'ok'`, and the 2-minute 429
+/// backoff was unreachable in fullSync mode (no exception escaped to trigger
+/// it). Returning a typed outcome lets the auto-poll notifier map auth/429 to
+/// its existing behaviors without exposing the raw exception.
+enum PkPollOutcome {
+  /// The poll completed; the live switch may or may not have been newly pulled
+  /// (both "pulled a new switch" and "nothing new" are healthy `ok`s — the
+  /// distinction never mattered to the caller, only success-vs-failure did).
+  ok,
+
+  /// The poll was a no-op for a benign local reason (not auto-syncable, already
+  /// syncing, no client, current switch already known, unmapped fronters).
+  skipped,
+
+  /// PK rejected the token (401). The token is bad; the caller should stop
+  /// reporting healthy and log an auth failure (do NOT auto-clear the token).
+  authFailed,
+
+  /// PK rate-limited (429). The caller should back off one cycle.
+  rateLimited,
+
+  /// Any other transient failure (network, 5xx, unexpected). The caller may
+  /// back off but should not treat it as a permanent auth problem.
+  transientError,
+}
+
+// ---------------------------------------------------------------------------
+// 2026-06 PK audit — wave-3 mass-deletion circuit breaker
+// ---------------------------------------------------------------------------
+
+/// Maximum number of pending PK deletions an UNATTENDED (automatic) sync will
+/// execute in a single pass before tripping the mass-deletion circuit breaker.
+///
+/// Rationale: devices that ran the OLD fronting migration can hold a residual
+/// pool of `(link, intent)` tombstones queued for REAL PK switch/member
+/// deletions — and a row-by-row deletion pusher cannot tell those apart from a
+/// handful of genuine user deletes. A future C1-class interaction bug could
+/// likewise enqueue a large batch. Deleting a PK switch erases EVERY
+/// co-fronter's entry, and deletions cascade across re-imports, so an
+/// unattended mass delete is the highest-blast-radius failure in this
+/// subsystem.
+///
+/// 25 is chosen as comfortably above any plausible single-session burst of
+/// genuine user deletes (you don't hand-delete 25 fronts or members in one
+/// sitting without noticing), while small enough to catch a runaway migration
+/// residual or a bug-enqueued batch before it touches PK. The user-confirmed
+/// manual destructive-push flow (`previewPendingDestructivePush` →
+/// confirmation) is the EXISTING consent path and is allowed to exceed this —
+/// the breaker only protects the silent/unattended paths.
+const int kPkMassDeletionAutoThreshold = 25;
+
 const _pluralKitSyncFailedPrefix = 'PluralKit sync failed: ';
 
 /// Return a user-facing PluralKit sync error with subsystem clarity.
@@ -520,6 +599,60 @@ class PluralKitSyncService {
 
   PluralKitSyncState _state = const PluralKitSyncState();
   Future<PkPushSwitchesResult>? _pushInFlight;
+
+  /// 2026-06 PK audit M9 — trailing-change dirty flag. When a
+  /// [pushPendingSwitches] call arrives while a push is already in flight, the
+  /// in-flight future was captured BEFORE the new local state existed, so
+  /// returning it would drop the trailing change (rapid A→B→C leaves C
+  /// unpushed). Instead we mark dirty; on completion exactly ONE follow-up run
+  /// fires (with default args), which the dirty caller(s) await via
+  /// [_pushFollowUp]. The follow-up's own in-sync short-circuit terminates the
+  /// chain when state is stable (a follow-up never sets the flag itself).
+  bool _pushDirty = false;
+
+  /// Completer that resolves to the result of the next follow-up run scheduled
+  /// by the M9 dirty flag. Shared by all callers that arrived mid-flight, so a
+  /// burst of trailing triggers coalesces into a single follow-up.
+  Completer<PkPushSwitchesResult>? _pushFollowUp;
+
+  /// Last-used default args for [pushPendingSwitches], captured so a follow-up
+  /// run uses the same shape. Per the M9 contract the follow-up runs with
+  /// DEFAULT args (no `knownCurrentFronters` — that snapshot is stale by the
+  /// time the follow-up fires); only the stale-link callback and the
+  /// refresh-on-stale-link flag are carried so the follow-up behaves like the
+  /// triggering caller and its stale messages aren't silently dropped.
+  void Function(String message)? _lastPushOnStaleLink;
+  bool _lastPushRefreshMembersOnStaleLink = true;
+
+  /// 2026-06 PK audit M11 — coalescing queue for member-edit pushes.
+  ///
+  /// Before this, every `pushMemberUpdate` call built its OWN
+  /// [PluralKitClient] (and therefore its own `PkRequestQueue`), so a bulk edit
+  /// — or a CRDT batch replaying another device's member edits — fanned out N
+  /// parallel queues, each pacing independently and defeating PK's 3/s write
+  /// budget. Now all member-edit pushes funnel through a SINGLE drain loop:
+  ///
+  /// - [_pendingMemberPushes] holds the LATEST state per member id. Rapid
+  ///   successive edits to the same member coalesce — the drain always reads
+  ///   the freshest map entry, so only one PATCH of the newest state is sent.
+  /// - Different members are processed SEQUENTIALLY through one client (one
+  ///   request queue), so the 3/s pacing holds across the whole burst.
+  /// - [_memberPushWaiters] lets each caller await the boolean result of the
+  ///   eventual PATCH (or skip). Successive callers for the same member share
+  ///   one completer, so they all observe the coalesced outcome.
+  /// - [_memberPushDrain] is the in-flight loop; non-null means a drain is
+  ///   running and new edits will be picked up by it rather than starting a
+  ///   second loop. The field survives provider rebuilds because the service
+  ///   identity is stable (audit H10).
+  final Map<String, domain.Member> _pendingMemberPushes = {};
+  final Map<String, Completer<bool>> _memberPushWaiters = {};
+  Future<void>? _memberPushDrain;
+
+  /// Optional override for the push service used by the member-edit drain.
+  /// Set by the legacy [pushMemberUpdate] test seam; production leaves it null
+  /// and the drain falls back to `const PkPushService()`.
+  PkPushService? _memberPushServiceOverride;
+
   SyncStateCallback? onStateChanged;
 
   PluralKitSyncService({
@@ -811,40 +944,124 @@ class PluralKitSyncService {
       final client = await _buildClient();
       if (client == null) return null;
       try {
-        // Resolve local IDs → PK short IDs (pluralkitId column). Use the
-        // batched lookup so we only fetch the members we need instead of
-        // walking the entire member table on every override push. The empty
-        // case is well-defined: createSwitch accepts `members: []` to clear
-        // PK's current fronters (see bug C1).
-        final pkMemberIds = <String>[];
+        // Resolve local IDs → PK refs. Use the batched lookup so we only fetch
+        // the members we need instead of walking the entire member table on
+        // every override push.
+        //
+        // 2026-06 PK audit M8b — distinguish two empty-payload cases:
+        //  * EMPTY input list ("nobody is fronting"): a legitimate switch-out.
+        //    `createSwitch([])` clears PK's current fronters (see bug C1).
+        //  * NON-EMPTY input where every chosen member dropped out (unmapped or
+        //    PK-sync-excluded): posting `[]` would silently clear PK's front,
+        //    the OPPOSITE of intent. Throw a typed error naming the dropped
+        //    members instead of clearing.
+        // Partial drops (some mapped, some not) proceed with the mapped subset
+        // but log the dropped names so the silent loss is visible.
+        //
+        // 2026-06 PK audit H12b — the wire payload prefers each member's uuid
+        // (stable under PK Premium short-id changes), falling back to the short
+        // id when no uuid is stored.
+        //
+        // INCLUSION filter: a member must carry a non-empty `pluralkitId` to be
+        // pushed — IDENTICAL to `_doPushPendingSwitches`' `localIdToPkId`
+        // build. A uuid-only member must NOT be widened in here: the pending
+        // push computes its local set from short ids, so an override that
+        // fronts a uuid-only member would be followed by a pending push whose
+        // local set EXCLUDES them while PK's echo INCLUDES their short id —
+        // posting a switch that un-fronts them. Keep the two filters in
+        // lockstep; uuid-only members are dropped (and counted) like any other
+        // unusable link until their short id is backfilled.
+        final wireRefs = <String>[];
+        final droppedLabels = <String>[];
         if (localMemberIds.isNotEmpty) {
           final members = await _memberRepository.getMembersByIds(
             localMemberIds,
           );
-          // Preserve the caller's intended ordering on the PK payload.
-          final localIdToPkId = <String, String>{};
-          for (final m in members) {
-            if (m.pluralkitSyncIgnored) continue;
-            final pkId = m.pluralkitId?.trim();
-            if (pkId != null && pkId.isNotEmpty) {
-              localIdToPkId[m.id] = pkId;
-            }
-          }
+          final byId = {for (final m in members) m.id: m};
           for (final localId in localMemberIds) {
-            final pkId = localIdToPkId[localId];
-            if (pkId != null) pkMemberIds.add(pkId);
+            final m = byId[localId];
+            final pkId = m?.pluralkitId?.trim();
+            final pkUuid = m?.pluralkitUuid?.trim();
+            final hasShortId = pkId != null && pkId.isNotEmpty;
+            final includable =
+                m != null && !m.pluralkitSyncIgnored && hasShortId;
+            if (!includable) {
+              if (m != null &&
+                  !m.pluralkitSyncIgnored &&
+                  pkUuid != null &&
+                  pkUuid.isNotEmpty) {
+                // uuid-only link: deliberately dropped for pending-push parity
+                // (see the inclusion-filter comment above).
+                debugPrint(
+                  '[PK_SVC] pushOverrideSwitch: dropped ${m.name} — has a PK '
+                  'uuid but no short id; the pending-push pipeline keys on '
+                  'short ids, so including it here would desync the next push '
+                  '(2026-06 PK audit wave-3 nit: override/pending parity).',
+                );
+              }
+              droppedLabels.add(m?.name.trim().isNotEmpty == true
+                  ? m!.name
+                  : localId);
+              continue;
+            }
+            // uuid-first wire ref (H12b) — short id required above, uuid
+            // preferred on the wire when both are present.
+            wireRefs.add(
+              (pkUuid != null && pkUuid.isNotEmpty) ? pkUuid : pkId,
+            );
+          }
+
+          if (wireRefs.isEmpty) {
+            // Every chosen member dropped — refuse to clear PK's front.
+            throw PkAllChosenFrontersUnmappedException(droppedLabels);
+          }
+          if (droppedLabels.isNotEmpty) {
+            debugPrint(
+              '[PK_SVC] pushOverrideSwitch: ${droppedLabels.length} chosen '
+              'member(s) had no usable PK link and were dropped from the '
+              'override switch: ${droppedLabels.join(', ')} (2026-06 PK audit '
+              'M8b partial drop).',
+            );
           }
         }
 
-        return await client.createSwitch(pkMemberIds, timestamp: at);
+        try {
+          return await client.createSwitch(wireRefs, timestamp: at);
+        } on PluralKitApiError catch (e) {
+          // 2026-06 PK audit M8a — 40004 (identical-to-current-front) is
+          // benign success: PK's front ALREADY matches the chosen set, so the
+          // resolution is effectively done. The caller advances its import
+          // cursor off the returned switch's id/timestamp, so we must hand
+          // back a real switch (not null, which the controller renders as a
+          // hard failure). Fetch the current fronters and return them.
+          //
+          // NB if this fallback fetch itself returns null (204 — the system
+          // has NEVER switched), `applyFronterResolution` treats the null as a
+          // hard push failure (`_overrideSwitchPushFailedMessage`) and aborts
+          // the apply, leaving the user to retry. That combination (40004 on
+          // create + never-switched on fetch) is contradictory per the API
+          // contract — 40004 only fires when a current front exists — so the
+          // retry-able hard error is the honest surfacing if it ever occurs.
+          if (e.statusCode == 400 &&
+              (e.code == 40004 || e.message.contains('40004'))) {
+            debugPrint(
+              '[PK_SVC] pushOverrideSwitch: PK reports the chosen front is '
+              'already current (40004); fetching current fronters instead of '
+              'failing (2026-06 PK audit M8a).',
+            );
+            return await client.getCurrentFronters();
+          }
+          rethrow;
+        }
       } finally {
         client.dispose();
       }
     } on Object catch (e) {
       // Only swallow network failures — they're retry-friendly and the
       // caller treats `null` as "skip cursor advance, let the next sync
-      // reconcile." Auth errors, 4xx/5xx, etc. must propagate so the caller
-      // sees them instead of silently succeeding. See bug I2.
+      // reconcile." Auth errors, 4xx/5xx, the M8b unmapped-all error, etc.
+      // must propagate so the caller sees them instead of silently succeeding.
+      // See bug I2.
       if (isPluralKitNetworkException(e)) {
         debugPrint('[PK_SVC] pushOverrideSwitch network failure: $e');
         return null;
@@ -1989,13 +2206,21 @@ class PluralKitSyncService {
       int switchesDeletedOnPk = 0;
       int membersDeletedOnPk = 0;
       if (direction.pushEnabled) {
+        // 2026-06 PK audit wave-3 mass-deletion breaker: a MANUAL sync reaches
+        // here only AFTER the setup screen's `_confirmPluralKitDeleteRisk`
+        // consent gate (`_syncRecent` → `previewPendingDestructivePush` →
+        // confirmation dialog), so a deliberate large cleanup is allowed. An
+        // AUTOMATIC (background / auto-poll) sync has no such consent, so the
+        // breaker can trip and skip an oversized deletion batch.
         switchesDeletedOnPk = await _pushPendingSwitchDeletions(
           client: client,
           onStaleLink: staleLinkMessages.add,
+          allowMassDeletion: isManual,
         );
         membersDeletedOnPk = await _pushPendingMemberDeletions(
           client: client,
           onStaleLink: staleLinkMessages.add,
+          allowMassDeletion: isManual,
         );
         // The PkSwitchPushed event emitted inside pushPendingSwitches only
         // knows about creations (it runs before this deletion pass). Emit a
@@ -2077,6 +2302,40 @@ class PluralKitSyncService {
       );
 
       return finalSummary;
+    } on PluralKitAuthError catch (e) {
+      // 2026-06 PK audit M3: a 401 mid-sync (token revoked between connect and
+      // now) must produce a DISTINCT, actionable user-facing error and emit the
+      // dedicated auth-failed bus event — not the generic "PluralKit sync
+      // failed: …" string that reads like a transient blip. We do NOT
+      // auto-clear the token; the user re-links from the setup screen. Tone
+      // mirrors `setToken`'s 401 copy.
+      const authMessage =
+          'PluralKit token was rejected — re-link your account in PluralKit '
+          'settings to keep syncing.';
+      _emit(
+        _state.copyWith(
+          isSyncing: false,
+          syncError: formatPluralKitSyncError(authMessage),
+        ),
+      );
+      final redacted = PkSyncEvent.redact(e.toString(), client.currentToken);
+      _bus.emit(
+        PkSyncCompleted(
+          durationMs: stopwatch.elapsedMilliseconds,
+          pulled: 0,
+          pushed: 0,
+          error: authMessage,
+        ),
+      );
+      _bus.emit(const PkTokenAuthFailed());
+      _bus.emit(
+        PkRequestFailed(
+          stage: 'syncRecentData',
+          errorKind: 'auth',
+          message: redacted,
+        ),
+      );
+      rethrow;
     } catch (e) {
       _emit(
         _state.copyWith(
@@ -2492,9 +2751,13 @@ class PluralKitSyncService {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
     try {
+      // 2026-06 PK audit H12a: thread the connected system id so the resolver
+      // can reject a foreign member returned by a stale short-id GET.
+      final connectedSystemId = (await _syncDao.getSyncState()).systemId;
       return await PkLiveFronterResolutionService(
         memberRepository: _memberRepository,
         client: client,
+        connectedSystemId: connectedSystemId,
       ).importCurrentFronter(ref, includeAvatar: includeAvatar);
     } finally {
       client.dispose();
@@ -2508,9 +2771,12 @@ class PluralKitSyncService {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
     try {
+      // 2026-06 PK audit H12a: thread the connected system id (see above).
+      final connectedSystemId = (await _syncDao.getSyncState()).systemId;
       return await PkLiveFronterResolutionService(
         memberRepository: _memberRepository,
         client: client,
+        connectedSystemId: connectedSystemId,
       ).linkCurrentFronterToLocal(ref, localMemberId);
     } finally {
       client.dispose();
@@ -2708,7 +2974,38 @@ class PluralKitSyncService {
       if (i % 10 == 0 || i == pkMembers.length - 1) {
         onProgress?.call(i + 1, pkMembers.length, pk.name);
       }
-      final localMember = byPkUuid[pk.uuid] ?? byPkId[pk.id];
+      // 2026-06 PK audit H12a: the short-id fallback is only safe when the
+      // matched local row isn't already bound to a DIFFERENT PK uuid. PK short
+      // ids live in a globally-dense namespace and become user-changeable under
+      // Premium, so a local member's stale `pluralkit_id` can collide with a
+      // genuinely different `@me` member's short id. The UUID is the stable
+      // key (and `pk` here comes from `GET /systems/@me/members`, so it is
+      // always one of OUR members) — so adopt by short id ONLY when the local
+      // has no conflicting uuid (null/blank → completing a partial link) or its
+      // uuid agrees with the incoming one. Otherwise ignore the short-id match
+      // and let `pk` create a fresh row, never overwriting a different
+      // identity's profile.
+      final uuidMatch = byPkUuid[pk.uuid];
+      domain.Member? localMember = uuidMatch;
+      if (localMember == null) {
+        final shortIdMatch = byPkId[pk.id];
+        if (shortIdMatch != null) {
+          final matchUuid = shortIdMatch.pluralkitUuid?.trim();
+          final incomingUuid = pk.uuid.trim();
+          if (matchUuid == null ||
+              matchUuid.isEmpty ||
+              matchUuid == incomingUuid) {
+            localMember = shortIdMatch;
+          } else {
+            debugPrint(
+              '[PK_SVC] _importMembers: short-id ${pk.id} collides with local '
+              '${shortIdMatch.id} bound to a different uuid ($matchUuid vs '
+              '$incomingUuid); NOT adopting by short id (2026-06 PK audit '
+              'H12a) — creating fresh from incoming uuid.',
+            );
+          }
+        }
+      }
       if (localMember == null && skippedPkUuids.contains(pk.uuid.trim())) {
         skipped++;
         debugPrint(
@@ -3907,6 +4204,59 @@ class PluralKitSyncService {
   bool _hasPkMemberId(domain.Member member) =>
       (member.pluralkitId ?? '').trim().isNotEmpty;
 
+  /// Count of switch-deletion candidates that would actually reach a PK
+  /// mutation this pass — i.e. epoch-current, lease-free, with a valid PK
+  /// switch uuid. Mirrors `previewPendingDestructivePush`'s switch filter so
+  /// the wave-3 mass-deletion breaker counts the same population the user sees
+  /// in the destructive-push confirmation dialog.
+  int _eligibleSwitchDeletionCount(
+    List<domain.FrontingSession> candidates,
+    int currentEpoch,
+  ) {
+    final now = DateTime.now();
+    var count = 0;
+    for (final session in candidates) {
+      final pkUuid = session.pluralkitUuid?.trim();
+      if (!_deleteIntentMatchesCurrentEpoch(
+            session.deleteIntentEpoch,
+            currentEpoch,
+          ) ||
+          _deleteLeaseActive(session.deletePushStartedAt, now) ||
+          pkUuid == null ||
+          pkUuid.isEmpty ||
+          !isPluralKitSwitchUuid(pkUuid)) {
+        continue;
+      }
+      count++;
+    }
+    return count;
+  }
+
+  /// Count of member-deletion candidates that would reach a PK DELETE this pass
+  /// — epoch-current, lease-free, with a PK short id, and not protected by the
+  /// R5 cascade guard. Mirrors `previewPendingDestructivePush`'s member filter.
+  int _eligibleMemberDeletionCount(
+    List<domain.Member> candidates,
+    int currentEpoch,
+    Set<String> membersWithLiveLinkedSessions,
+  ) {
+    final now = DateTime.now();
+    var count = 0;
+    for (final member in candidates) {
+      if (!_deleteIntentMatchesCurrentEpoch(
+            member.deleteIntentEpoch,
+            currentEpoch,
+          ) ||
+          _deleteLeaseActive(member.deletePushStartedAt, now) ||
+          !_hasPkMemberId(member) ||
+          membersWithLiveLinkedSessions.contains(member.id)) {
+        continue;
+      }
+      count++;
+    }
+    return count;
+  }
+
   Set<String> _memberIdsWithLiveLinkedSessions(
     List<domain.FrontingSession> rows,
   ) {
@@ -4078,15 +4428,50 @@ class PluralKitSyncService {
   }
 
   /// Push pending switch deletions. Returns the number that succeeded.
+  ///
+  /// 2026-06 PK audit wave-3 mass-deletion breaker: when [allowMassDeletion] is
+  /// false (automatic/unattended syncs) and the count of ELIGIBLE deletion
+  /// candidates exceeds [kPkMassDeletionAutoThreshold], NONE are executed —
+  /// the device emits [PkMassDeletionBlocked], surfaces a stale-link-channel
+  /// message, and bails. The user-confirmed manual destructive-push path
+  /// (`previewPendingDestructivePush` → confirmation in `_syncRecent`) sets
+  /// [allowMassDeletion] true (via `isManual`), so a deliberate large cleanup
+  /// still proceeds — only silent paths are protected.
   Future<int> _pushPendingSwitchDeletions({
     required PluralKitClient client,
     void Function(String message)? onStaleLink,
     PkPushService? pushServiceOverride,
+    bool allowMassDeletion = false,
   }) async {
     final currentEpoch = await _syncDao.getLinkEpoch();
     final candidates = await _frontingSessionRepository
         .getDeletedLinkedSessions();
     if (candidates.isEmpty) return 0;
+
+    if (!allowMassDeletion) {
+      final eligible = _eligibleSwitchDeletionCount(candidates, currentEpoch);
+      if (eligible > kPkMassDeletionAutoThreshold) {
+        debugPrint(
+          '[PK] Mass-deletion breaker TRIPPED: $eligible eligible switch '
+          'deletions exceed the $kPkMassDeletionAutoThreshold auto-threshold; '
+          'refusing to delete any on this unattended sync. Run a manual sync '
+          'to confirm (2026-06 PK audit wave-3 mass-deletion breaker).',
+        );
+        _bus.emit(
+          PkMassDeletionBlocked(
+            kind: 'switches',
+            candidateCount: eligible,
+            threshold: kPkMassDeletionAutoThreshold,
+          ),
+        );
+        onStaleLink?.call(
+          'Skipped deleting $eligible PluralKit switches automatically — '
+          "that's an unusually large batch. Open PluralKit settings and run a "
+          'manual sync to review and confirm the deletions.',
+        );
+        return 0;
+      }
+    }
 
     final push = pushServiceOverride ?? const PkPushService();
     int deleted = 0;
@@ -4326,15 +4711,37 @@ class PluralKitSyncService {
   /// departing member, DELETE only sole-fronter snapshots) can be exercised
   /// in isolation (without the full `syncRecentData` pull/push pipeline).
   /// Production callers go through `syncRecentData`.
+  ///
+  /// [allowMassDeletion] defaults to true so the H2 snapshot/PATCH tests that
+  /// drive a handful of deletions in isolation aren't tripped by the wave-3
+  /// mass-deletion breaker; the breaker test passes false explicitly.
   @visibleForTesting
   Future<int> debugPushPendingSwitchDeletions({
     required PluralKitClient client,
     void Function(String message)? onStaleLink,
     PkPushService? pushServiceOverride,
+    bool allowMassDeletion = true,
   }) => _pushPendingSwitchDeletions(
     client: client,
     onStaleLink: onStaleLink,
     pushServiceOverride: pushServiceOverride,
+    allowMassDeletion: allowMassDeletion,
+  );
+
+  /// Test-only entry point onto the member-deletion pusher so the wave-3
+  /// mass-deletion breaker can be exercised in isolation. [allowMassDeletion]
+  /// defaults to true for the same reason as the switch seam above.
+  @visibleForTesting
+  Future<int> debugPushPendingMemberDeletions({
+    required PluralKitClient client,
+    void Function(String message)? onStaleLink,
+    PkPushService? pushServiceOverride,
+    bool allowMassDeletion = true,
+  }) => _pushPendingMemberDeletions(
+    client: client,
+    onStaleLink: onStaleLink,
+    pushServiceOverride: pushServiceOverride,
+    allowMassDeletion: allowMassDeletion,
   );
 
   /// Push pending member deletions. Runs AFTER switch deletions (caller
@@ -4344,6 +4751,7 @@ class PluralKitSyncService {
     required PluralKitClient client,
     void Function(String message)? onStaleLink,
     PkPushService? pushServiceOverride,
+    bool allowMassDeletion = false,
   }) async {
     final currentEpoch = await _syncDao.getLinkEpoch();
     final candidates = await _memberRepository.getDeletedLinkedMembers();
@@ -4354,6 +4762,37 @@ class PluralKitSyncService {
     final membersWithLiveLinkedSessions = _memberIdsWithLiveLinkedSessions(
       liveSessions,
     );
+
+    // 2026-06 PK audit wave-3 mass-deletion breaker (symmetric with the switch
+    // pusher): on unattended syncs, refuse a batch larger than the threshold.
+    if (!allowMassDeletion) {
+      final eligible = _eligibleMemberDeletionCount(
+        candidates,
+        currentEpoch,
+        membersWithLiveLinkedSessions,
+      );
+      if (eligible > kPkMassDeletionAutoThreshold) {
+        debugPrint(
+          '[PK] Mass-deletion breaker TRIPPED: $eligible eligible member '
+          'deletions exceed the $kPkMassDeletionAutoThreshold auto-threshold; '
+          'refusing to delete any on this unattended sync. Run a manual sync '
+          'to confirm (2026-06 PK audit wave-3 mass-deletion breaker).',
+        );
+        _bus.emit(
+          PkMassDeletionBlocked(
+            kind: 'members',
+            candidateCount: eligible,
+            threshold: kPkMassDeletionAutoThreshold,
+          ),
+        );
+        onStaleLink?.call(
+          'Skipped deleting $eligible PluralKit members automatically — '
+          "that's an unusually large batch. Open PluralKit settings and run a "
+          'manual sync to review and confirm the deletions.',
+        );
+        return 0;
+      }
+    }
 
     final push = pushServiceOverride ?? const PkPushService();
     int deleted = 0;
@@ -4464,7 +4903,52 @@ class PluralKitSyncService {
     }
 
     final existing = _pushInFlight;
-    if (existing != null) return existing;
+    if (existing != null) {
+      // 2026-06 PK audit M9: a push is already running. The running future
+      // captured the member/session state from BEFORE this call's trigger, so
+      // simply returning it would drop the trailing change. Mark dirty and hand
+      // back the follow-up future — exactly ONE follow-up runs after the
+      // current push, picking up the latest state. A burst of mid-flight
+      // triggers coalesces onto the same [_pushFollowUp] completer.
+      _pushDirty = true;
+      // Carry this caller's stale-link sink AND refresh flag onto the
+      // follow-up so the follow-up behaves like the latest trigger (last
+      // writer wins — the sink is an additive log channel, and the refresh
+      // flag must reflect the most recent caller's sync mode rather than a
+      // stale earlier capture).
+      _lastPushOnStaleLink = onStaleLink ?? _lastPushOnStaleLink;
+      _lastPushRefreshMembersOnStaleLink = refreshMembersOnStaleLink;
+      final followUp = (_pushFollowUp ??= Completer<PkPushSwitchesResult>());
+      return followUp.future;
+    }
+
+    // Remember default-arg shape for any follow-up the dirty flag schedules.
+    _lastPushOnStaleLink = onStaleLink;
+    _lastPushRefreshMembersOnStaleLink = refreshMembersOnStaleLink;
+
+    return _runOnePush(
+      pushService: pushService ?? const PkPushService(),
+      onStaleLink: onStaleLink,
+      knownCurrentFronters: knownCurrentFronters,
+      refreshMembersOnStaleLink: refreshMembersOnStaleLink,
+    );
+  }
+
+  /// Runs a single push and, on completion, schedules at most one follow-up if
+  /// the M9 dirty flag was raised while it ran. The follow-up resolves the
+  /// shared [_pushFollowUp] completer so mid-flight callers get a result that
+  /// reflects their trailing state. Terminates naturally: a follow-up that
+  /// finds the state already in sync short-circuits inside
+  /// [_doPushPendingSwitches] without raising the dirty flag (only EXTERNAL
+  /// callers raise it), so identical-state runs don't re-trigger.
+  Future<PkPushSwitchesResult> _runOnePush({
+    required PkPushService pushService,
+    void Function(String message)? onStaleLink,
+    PKSwitch? knownCurrentFronters,
+    required bool refreshMembersOnStaleLink,
+  }) {
+    // A fresh run starts clean — only external mid-flight callers set dirty.
+    _pushDirty = false;
 
     // Captured via callback from inside `_doPushPendingSwitches` as soon as
     // the client is built. We redact against this rather than a separately-
@@ -4477,7 +4961,7 @@ class PluralKitSyncService {
     late final Future<PkPushSwitchesResult> future;
     future =
         _doPushPendingSwitches(
-              pushService: pushService ?? const PkPushService(),
+              pushService: pushService,
               onStaleLink: onStaleLink,
               knownCurrentFronters: knownCurrentFronters,
               onClientReady: (token) => clientToken = token,
@@ -4500,14 +4984,66 @@ class PluralKitSyncService {
                 ),
               );
               throw e;
-            })
-            .whenComplete(() {
-              if (identical(_pushInFlight, future)) {
-                _pushInFlight = null;
-              }
             });
+
+    // Settle the in-flight slot + the M9 follow-up on BOTH success and failure,
+    // but only SCHEDULE a follow-up after a SUCCESSFUL run. A failed run already
+    // delivered its error to every waiter (including the dirty ones); re-running
+    // on an unchanged failing state would just loop on the same error — the
+    // existing "concurrent callers share one exception" contract. The follow-up
+    // exists to flush a TRAILING change after a healthy push, where the in-sync
+    // short-circuit terminates the chain when state is stable.
+    future.then(
+      (result) {
+        if (identical(_pushInFlight, future)) _pushInFlight = null;
+        _settlePushFollowUp(succeeded: true, completedResult: result);
+      },
+      onError: (Object e, StackTrace st) {
+        if (identical(_pushInFlight, future)) _pushInFlight = null;
+        _settlePushFollowUp(succeeded: false, error: e, stackTrace: st);
+      },
+    );
     _pushInFlight = future;
     return future;
+  }
+
+  /// 2026-06 PK audit M9 follow-up scheduler. Called once the current run
+  /// settles. When a mid-flight caller raised the dirty flag AND the run
+  /// SUCCEEDED, start exactly one follow-up (default args, NO stale
+  /// `knownCurrentFronters`) and forward its outcome to the shared completer;
+  /// the follow-up's in-sync short-circuit terminates the chain on stable state.
+  /// On failure, or when no trailing change was flagged, resolve the waiters
+  /// directly from this run's outcome — no follow-up.
+  void _settlePushFollowUp({
+    required bool succeeded,
+    PkPushSwitchesResult? completedResult,
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    final waiter = _pushFollowUp;
+    if (waiter == null) return; // nobody arrived mid-flight.
+
+    if (succeeded && _pushDirty) {
+      // Detach the completer so the NEXT run can collect its own waiters, then
+      // run one follow-up and forward its outcome to the detached waiter.
+      _pushFollowUp = null;
+      _runOnePush(
+        pushService: const PkPushService(),
+        onStaleLink: _lastPushOnStaleLink,
+        knownCurrentFronters: null,
+        refreshMembersOnStaleLink: _lastPushRefreshMembersOnStaleLink,
+      ).then(waiter.complete, onError: waiter.completeError);
+      return;
+    }
+
+    // No trailing change (or the run failed) — resolve the waiters from this
+    // run's own outcome so mid-flight callers still get an answer.
+    _pushFollowUp = null;
+    if (succeeded) {
+      waiter.complete(completedResult);
+    } else {
+      waiter.completeError(error!, stackTrace);
+    }
   }
 
   Future<PkPushSwitchesResult> _doPushPendingSwitches({
@@ -4524,11 +5060,23 @@ class PluralKitSyncService {
     try {
       final members = await _memberRepository.getAllMembers();
       final localIdToPkId = <String, String>{};
+      // 2026-06 PK audit H12b: parallel short-id → uuid map. ALL comparison /
+      // stamping logic stays keyed on the SHORT id (PK returns
+      // `pkCurrent.members` as short ids, so the 40004/in-sync reasoning must
+      // compare in short-id space). The uuid map exists SOLELY to translate the
+      // ordered short-id wire list into uuids at the POST/PATCH boundary, since
+      // short ids become user-changeable under PK Premium and the uuid is the
+      // only stable ref. Members without a uuid fall back to their short id.
+      final pkIdToPkUuid = <String, String>{};
       for (final m in members) {
         if (m.pluralkitSyncIgnored) continue;
         final pkId = m.pluralkitId?.trim();
         if (pkId != null && pkId.isNotEmpty) {
           localIdToPkId[m.id] = pkId;
+          final pkUuid = m.pluralkitUuid?.trim();
+          if (pkUuid != null && pkUuid.isNotEmpty) {
+            pkIdToPkUuid[pkId] = pkUuid;
+          }
         }
       }
 
@@ -4549,6 +5097,15 @@ class PluralKitSyncService {
         localActive,
         localIdToPkId,
         membersById,
+      );
+      // 2026-06 PK audit H12b: index-aligned uuid-first wire refs. This list
+      // is byte-for-byte the same ORDER as `localPkIdsForPush`; only the values
+      // differ (uuid where known, else the short id). NEVER feed this into a
+      // comparison against `pkCurrent.members` (those are short ids) — it is
+      // ONLY for createSwitch / updateSwitchMembers payloads.
+      final localWireRefsForPush = _wireRefsForPush(
+        localPkIdsForPush,
+        pkIdToPkUuid,
       );
       final localPkSet = _sortedUniqueStrings(localPkIdsForPush);
       final activeSleepOnly = localActive.isEmpty && hasActiveSleep;
@@ -4573,7 +5130,9 @@ class PluralKitSyncService {
           final switchUuid = pkCurrent?.id.trim();
           if (switchUuid != null && switchUuid.isNotEmpty) {
             try {
-              await client.updateSwitchMembers(switchUuid, localPkIdsForPush);
+              // H12b: send uuid-first refs on the wire; the order matches the
+              // short-id comparison list above exactly (same indices).
+              await client.updateSwitchMembers(switchUuid, localWireRefsForPush);
               final repair = await _repairUnstampedEntrants(
                 localActive: localActive,
                 localIdToPkId: localIdToPkId,
@@ -4616,8 +5175,11 @@ class PluralKitSyncService {
       PKSwitch newSwitch;
       var pushedPkSet = localPkSet;
       try {
+        // H12b: POST uuid-first wire refs. `pushedPkSet`/`localPkSet` stay in
+        // SHORT-id space for entrant stamping below (PK echoes the switch with
+        // short ids and our local rows key on short ids).
         newSwitch = await pushService.pushSwitch(
-          localPkIdsForPush,
+          localWireRefsForPush,
           client,
           timestamp: pushTs,
         );
@@ -4638,6 +5200,7 @@ class PluralKitSyncService {
           client: client,
           pushService: pushService,
           localPkIdsForPush: localPkIdsForPush,
+          pkIdToPkUuid: pkIdToPkUuid,
           timestamp: pushTs,
           onStaleLink: onStaleLink,
           staleError: e,
@@ -4661,10 +5224,14 @@ class PluralKitSyncService {
     }
   }
 
+  /// Returns `(createdSwitch, filteredShortIds)`. The second element is in
+  /// SHORT-id space so the caller's entrant stamping stays correct; the POST
+  /// itself uses uuid-first wire refs (2026-06 PK audit H12b).
   Future<(PKSwitch, List<String>)?> _retrySwitchPushAfterStaleLink({
     required PluralKitClient client,
     required PkPushService pushService,
     required List<String> localPkIdsForPush,
+    required Map<String, String> pkIdToPkUuid,
     required DateTime timestamp,
     required PkStaleLinkException staleError,
     void Function(String message)? onStaleLink,
@@ -4687,17 +5254,32 @@ class PluralKitSyncService {
       'refreshing PK members and retrying once.',
     );
 
-    final livePkIds = (await client.getMembers())
-        .map((m) => m.id.trim())
-        .where((id) => id.isNotEmpty)
-        .toSet();
+    // Refresh from PK: keep the live short ids for filtering AND a fresh
+    // short-id → uuid map so the retry POST carries current uuids even if a
+    // member's short id changed (Premium) since the cached map was built.
+    final liveMembers = await client.getMembers();
+    final livePkIds = <String>{};
+    final refreshedPkIdToUuid = <String, String>{};
+    for (final m in liveMembers) {
+      final id = m.id.trim();
+      if (id.isEmpty) continue;
+      livePkIds.add(id);
+      final uuid = m.uuid.trim();
+      if (uuid.isNotEmpty) refreshedPkIdToUuid[id] = uuid;
+    }
     final filteredPkIdsForPush = localPkIdsForPush
         .where(livePkIds.contains)
         .toList();
+    // H12b: build the index-aligned wire list from the refreshed map first,
+    // falling back to the originally-captured map then the short id.
+    final filteredWireRefs = [
+      for (final pkId in filteredPkIdsForPush)
+        refreshedPkIdToUuid[pkId] ?? pkIdToPkUuid[pkId] ?? pkId,
+    ];
 
     try {
       final created = await pushService.pushSwitch(
-        filteredPkIdsForPush,
+        filteredWireRefs,
         client,
         timestamp: timestamp,
       );
@@ -4812,6 +5394,20 @@ class PluralKitSyncService {
     return ordered;
   }
 
+  /// 2026-06 PK audit H12b: translate an ordered short-id push list into
+  /// index-aligned uuid-first wire refs. The output has the SAME length and
+  /// order as [orderedShortIds]; each entry is the member's uuid when known,
+  /// else the short id unchanged. This is the ONLY place a uuid enters a switch
+  /// payload — every set/order comparison upstream keeps using the short ids.
+  List<String> _wireRefsForPush(
+    List<String> orderedShortIds,
+    Map<String, String> pkIdToPkUuid,
+  ) {
+    return [
+      for (final pkId in orderedShortIds) pkIdToPkUuid[pkId] ?? pkId,
+    ];
+  }
+
   List<String> _sortedUniqueStrings(Iterable<String> values) {
     final ids = values.map((value) => value.trim()).where(_hasText).toSet();
     return ids.toList()..sort();
@@ -4843,8 +5439,19 @@ class PluralKitSyncService {
   /// sync's delete-risk preview.
   ///
   /// Returns true if a PATCH was actually sent, false when skipped (no link,
-  /// not connected, etc.). Errors are swallowed with a debugPrint so a failed
-  /// push never breaks the user's edit flow — the next manual sync retries.
+  /// not connected, direction config forbids every field, etc.). Errors are
+  /// surfaced as a redacted [PkRequestFailed] event (so the sync log sees them)
+  /// and swallowed so a failed push never breaks the user's edit flow — the
+  /// next manual sync retries.
+  ///
+  /// 2026-06 PK audit M11 — the push is enqueued onto a SINGLE coalescing drain
+  /// (see [_pendingMemberPushes]) instead of building a per-call client. Rapid
+  /// successive edits to the SAME member coalesce to one PATCH of the latest
+  /// state; different members run sequentially through one client+queue so PK's
+  /// 3/s write budget is respected across a bulk edit or a CRDT replay burst.
+  /// Per-field direction config now gates the payload too: only push-allowed
+  /// fields reach PK, and a member whose every relevant field is pull-only is
+  /// skipped without a network call.
   Future<bool> pushMemberUpdate(
     domain.Member member, {
     PkPushService? pushService,
@@ -4854,12 +5461,158 @@ class PluralKitSyncService {
     if (pkId == null || pkId.isEmpty) return false;
     if (!_state.canAutoSync) return false;
 
-    final client = await _buildClient();
-    if (client == null) return false;
+    // Carry the legacy test seam through to the drain. Production never sets
+    // this, so concurrent callers always share the same `const PkPushService`.
+    if (pushService != null) _memberPushServiceOverride = pushService;
 
-    final push = pushService ?? const PkPushService();
+    // Record the latest state for this member; coalesce successive edits.
+    _pendingMemberPushes[member.id] = member;
+    final waiter = _memberPushWaiters.putIfAbsent(
+      member.id,
+      Completer<bool>.new,
+    );
+
+    // Start the drain if one isn't already running; otherwise the in-flight
+    // loop will pick this member up on its next iteration.
+    _memberPushDrain ??= _drainMemberPushes();
+
+    return waiter.future;
+  }
+
+  /// Drain [_pendingMemberPushes] through ONE client until empty (2026-06 PK
+  /// audit M11). Members are processed one at a time so the client's request
+  /// queue paces the whole burst; the latest map entry is read at dispatch
+  /// time so a same-member edit that arrived after enqueue still wins.
+  Future<void> _drainMemberPushes() async {
     try {
-      await push.pushMember(member, client, includeProxyTags: false);
+      final push = _memberPushServiceOverride ?? const PkPushService();
+
+      // Per-field direction gating uses the persisted field-sync config; load
+      // it once per drain (it changes rarely and a stale read just retries on
+      // the next manual sync).
+      //
+      // Guarded (wave-3 verifier): if this setup read throws persistently
+      // (realistically only a closed DB at shutdown/teardown), an unguarded
+      // throw would leave the queue non-empty -> the restart branch below
+      // would re-spawn the drain forever, leaking one unhandled async error
+      // per cycle and never resolving the waiters. Fail every pending waiter
+      // `false` and clear the queue instead — the next edit starts a fresh
+      // drain against a (hopefully) healthy DB.
+      final PluralKitSyncStateData syncRow;
+      try {
+        syncRow = await _syncDao.getSyncState();
+      } catch (e) {
+        debugPrint('[PK_PUSH] member-push drain setup failed: $e');
+        _pendingMemberPushes.clear();
+        final waiters = List.of(_memberPushWaiters.values);
+        _memberPushWaiters.clear();
+        for (final w in waiters) {
+          w.complete(false);
+        }
+        return;
+      }
+      final globalDirection = parseGlobalSyncDirection(syncRow.fieldSyncConfig);
+      final fieldConfigs = parseFieldSyncConfig(syncRow.fieldSyncConfig);
+
+      PluralKitClient? client;
+      try {
+        while (_pendingMemberPushes.isNotEmpty) {
+          final id = _pendingMemberPushes.keys.first;
+          final member = _pendingMemberPushes.remove(id)!;
+          final waiter = _memberPushWaiters.remove(id);
+
+          bool result;
+          try {
+            // Build the client lazily on first dispatch so a drain with only
+            // direction-skipped members never dispatches a request (the
+            // object itself is cheap; its HTTP client connects lazily).
+            client ??= await _buildClient();
+            if (client == null) {
+              result = false;
+            } else {
+              result = await _pushOneMember(
+                member,
+                client,
+                push,
+                globalDirection,
+                fieldConfigs,
+              );
+            }
+          } catch (e) {
+            result = false;
+            _bus.emit(
+              PkRequestFailed(
+                stage: 'pushMemberUpdate',
+                errorKind: 'unknown',
+                message: PkSyncEvent.redact(
+                  e.toString(),
+                  client?.currentToken,
+                ),
+              ),
+            );
+          }
+          waiter?.complete(result);
+        }
+      } finally {
+        client?.dispose();
+      }
+    } finally {
+      _memberPushDrain = null;
+      // A new edit may have arrived between the loop's last `isEmpty` check and
+      // clearing the drain handle; restart so it isn't stranded.
+      if (_pendingMemberPushes.isNotEmpty) {
+        _memberPushDrain = _drainMemberPushes();
+      }
+    }
+  }
+
+  /// PATCH one member through [client], honoring per-field push direction.
+  /// Returns true only when a PATCH was actually sent. A stale link (404)
+  /// clears the local link and returns false.
+  Future<bool> _pushOneMember(
+    domain.Member member,
+    PluralKitClient client,
+    PkPushService push,
+    PkSyncDirection globalDirection,
+    Map<String, PkFieldSyncConfig> fieldConfigs,
+  ) async {
+    // 2026-06 PK audit M11 — gate the payload by per-field direction. Without a
+    // PK snapshot we can't do differs/would-clear gating here (that lives in
+    // the bidirectional sync's `_pushableFields`), but we CAN drop fields the
+    // user configured pull-only so an unrelated edit never pushes them.
+    final config = fieldConfigs[member.id] ?? const PkFieldSyncConfig();
+    final allowedFields = _pushAllowedPayloadKeys(config, globalDirection);
+
+    // Every relevant field is pull-only (or sync disabled): nothing to push.
+    // Skip without a network call — the gated payload would be `{}`, which PK
+    // rejects with 400, and the empty-payload guard in `pushMemberFull` only
+    // fires when a `pkMember` snapshot is present (which this path lacks).
+    if (allowedFields.isEmpty) return false;
+
+    // Same guard for the empty-VALUES corner (wave-3 verifier): the payload
+    // omits null/empty locals on this snapshot-less path, so a member whose
+    // allowed fields are all unset (e.g. color toggled OFF on an otherwise
+    // empty member) would also produce `{}` -> spurious PK 400.
+    final hasAnyPushableValue =
+        (allowedFields.contains('display_name') &&
+            _hasText(member.pluralkitDisplayName)) ||
+        (allowedFields.contains('pronouns') && _hasText(member.pronouns)) ||
+        (allowedFields.contains('description') && _hasText(member.bio)) ||
+        (allowedFields.contains('birthday') && _hasText(member.birthday)) ||
+        (allowedFields.contains('color') &&
+            member.customColorEnabled &&
+            _hasText(member.customColorHex));
+    if (!hasAnyPushableValue) return false;
+
+    try {
+      await push.pushMemberFull(
+        member,
+        client,
+        // Proxy-tag removals route through manual sync's delete-risk preview;
+        // never include them on the auto-push PATCH.
+        includeProxyTags: false,
+        allowedFields: allowedFields,
+      );
       return true;
     } on PkStaleLinkException {
       try {
@@ -4868,12 +5621,36 @@ class PluralKitSyncService {
         );
       } catch (_) {}
       return false;
-    } catch (e) {
-      debugPrint('[PK] pushMemberUpdate failed for ${member.id}: $e');
-      return false;
-    } finally {
-      client.dispose();
     }
+  }
+
+  /// The PK payload keys a member-edit auto-push MAY carry given [config] and
+  /// the overall [direction]. Matches `PkBidirectionalService._pushField`'s
+  /// direction semantics (plus an explicit `disabled -> false`, strictly more
+  /// conservative); the keys MUST match the payload keys in
+  /// `PkPushService._memberToPayload`.
+  ///
+  /// `proxy_tags` is intentionally omitted: this path always passes
+  /// `includeProxyTags: false` (destructive tag changes go through manual
+  /// sync's delete-risk preview), so including it would never affect the body.
+  Set<String> _pushAllowedPayloadKeys(
+    PkFieldSyncConfig config,
+    PkSyncDirection direction,
+  ) {
+    bool pushField(PkSyncDirection field) {
+      if (direction == PkSyncDirection.pullOnly) return false;
+      if (direction == PkSyncDirection.pushOnly) return true;
+      if (direction == PkSyncDirection.disabled) return false;
+      return field.pushEnabled;
+    }
+
+    return <String>{
+      if (pushField(config.displayName)) 'display_name',
+      if (pushField(config.pronouns)) 'pronouns',
+      if (pushField(config.description)) 'description',
+      if (pushField(config.birthday)) 'birthday',
+      if (pushField(config.color)) 'color',
+    };
   }
 
   /// Lightweight poll: GET /systems/@me/fronters and pull only the current
@@ -4882,17 +5659,23 @@ class PluralKitSyncService {
   /// limits via the client's request queue and no-ops when auto-sync isn't
   /// ready.
   ///
-  /// Returns true when the current switch was pulled, false otherwise. Errors
-  /// are swallowed with a debugPrint.
-  Future<bool> pollFrontersOnly() async {
-    if (!_state.canAutoSync) return false;
-    if (_state.isSyncing) return false;
+  /// Returns a classified [PkPollOutcome] (2026-06 PK audit M3). Previously this
+  /// returned a bare bool and swallowed EVERY exception, so a revoked token
+  /// (401) or a rate-limit (429) were indistinguishable from "nothing new" and
+  /// the auto-poll loop logged a healthy `ok` forever. Now auth/429/transient
+  /// failures are surfaced as distinct outcomes the caller can route to its
+  /// existing auth-log / 429-backoff behaviors; benign no-ops are `skipped` and
+  /// a successful pull (or a successful "nothing new") is `ok`. We still do NOT
+  /// throw and do NOT auto-clear the token here — classification only.
+  Future<PkPollOutcome> pollFrontersOnly() async {
+    if (!_state.canAutoSync) return PkPollOutcome.skipped;
+    if (_state.isSyncing) return PkPollOutcome.skipped;
     final client = await _buildClient();
-    if (client == null) return false;
+    if (client == null) return PkPollOutcome.skipped;
 
     try {
       final PKSwitch? current = await client.getCurrentFronters();
-      if (current == null) return false;
+      if (current == null) return PkPollOutcome.skipped;
 
       // If we've already ingested this switch, skip the heavier path. Include
       // user tombstones: deleting the current PK-backed row is intentional
@@ -4902,14 +5685,14 @@ class PluralKitSyncService {
       final seenLive = sessions.any(
         (s) => s.pluralkitUuid?.trim() == currentSwitchId,
       );
-      if (seenLive) return false;
+      if (seenLive) return PkPollOutcome.skipped;
 
       final deletedLinked = await _frontingSessionRepository
           .getDeletedLinkedSessions();
       final seenDeleted = deletedLinked.any(
         (s) => s.pluralkitUuid?.trim() == currentSwitchId,
       );
-      if (seenDeleted) return false;
+      if (seenDeleted) return PkPollOutcome.skipped;
 
       final pull = await _pullLiveFronterSwitch(current);
       final unmappedCount = pull.unmappedNotice?.refs.length ?? 0;
@@ -4920,10 +5703,20 @@ class PluralKitSyncService {
           '${unmappedCount == 1 ? 'fronter' : 'fronters'}.',
         );
       }
-      return pull.pulled;
+      // Both a fresh pull and a "nothing new" are healthy: the loop should keep
+      // its configured cadence and report `ok`.
+      return PkPollOutcome.ok;
+    } on PluralKitAuthError catch (e) {
+      // 401 — token revoked/invalid. Surface as a distinct outcome so the loop
+      // stops claiming health. Do NOT auto-clear (the user must re-link).
+      debugPrint('[PK] pollFrontersOnly auth failure (token rejected): $e');
+      return PkPollOutcome.authFailed;
+    } on PluralKitRateLimitError catch (e) {
+      debugPrint('[PK] pollFrontersOnly rate-limited: $e');
+      return PkPollOutcome.rateLimited;
     } catch (e) {
       debugPrint('[PK] pollFrontersOnly failed: $e');
-      return false;
+      return PkPollOutcome.transientError;
     } finally {
       client.dispose();
     }

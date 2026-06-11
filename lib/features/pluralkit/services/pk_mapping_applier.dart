@@ -125,12 +125,21 @@ class PkMappingApplier {
   final DateTime Function() _now;
   final PkSyncEventBus _bus;
 
+  /// Short id of the connected system, when the caller knows it. Used for the
+  /// 2026-06 PK audit H12a ownership check in [_priorPkIdentityStillUsable]:
+  /// the prior-row probe GETs a member by its recorded UUID, and if PK reports
+  /// that member as owned by a DIFFERENT system the recorded id is foreign —
+  /// treat it as unusable (re-create fresh) rather than re-linking a stranger.
+  /// Null → unknowable; keep pre-H12 behavior.
+  final String? _connectedSystemId;
+
   PkMappingApplier({
     required MemberRepository members,
     required PkMappingStateDao state,
     required PkPushService pushService,
     required PluralKitClient client,
     required PkSyncEventBus bus,
+    String? connectedSystemId,
     PkBannerCacheService? bannerCacheService,
     Uuid? uuid,
     DateTime Function()? now,
@@ -139,6 +148,10 @@ class PkMappingApplier {
        _pushService = pushService,
        _client = client,
        _bus = bus,
+       _connectedSystemId =
+           (connectedSystemId != null && connectedSystemId.trim().isNotEmpty)
+           ? connectedSystemId.trim()
+           : null,
        _bannerCacheService = bannerCacheService ?? PkBannerCacheService(),
        _uuid = uuid ?? const Uuid(),
        _now = now ?? DateTime.now;
@@ -314,7 +327,21 @@ class PkMappingApplier {
     final uuid = priorState.pkMemberUuid;
     if (uuid == null || uuid.trim().isEmpty) return false;
     try {
-      await _client.getMember(uuid);
+      final fetched = await _client.getMember(uuid);
+      // 2026-06 PK audit H12a: validate ownership of the probed member. If PK
+      // reports it as owned by a different system than the connected one, the
+      // recorded id no longer points at OUR member (foreign re-use through the
+      // global namespace) — treat it exactly like a 404 so the caller
+      // re-creates fresh instead of re-linking a stranger. When the connected
+      // system id is unknown or PK omits `system`, fall through to "usable".
+      // PK hids are case-insensitive — compare lowercased (H2 convention).
+      final owner = fetched.system?.trim();
+      if (_connectedSystemId != null &&
+          owner != null &&
+          owner.isNotEmpty &&
+          owner.toLowerCase() != _connectedSystemId.toLowerCase()) {
+        return false;
+      }
       return true;
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) return false;
@@ -634,8 +661,10 @@ class PkMappingApplier {
     //    (no duplicate POST); on 404 it's gone → fall through to a FRESH
     //    create. We deliberately spend ONE GET on this rarer path to avoid
     //    both a duplicate POST (when the member survives) and resurrecting a
-    //    reference to a deleted member (when it doesn't). Foreign-ownership
-    //    validation of the fetched member is H12's scope, not this fix's.
+    //    reference to a deleted member (when it doesn't). 2026-06 PK audit
+    //    H12a now also validates ownership inside `_priorPkIdentityStillUsable`
+    //    — a member owned by a DIFFERENT system is treated as gone (re-create),
+    //    so a stale uuid resolving into another system can't be re-linked.
     if (priorState?.pkMemberId != null && priorState?.pkMemberUuid != null) {
       final reusable = await _priorPkIdentityStillUsable(priorState!);
       if (reusable) {

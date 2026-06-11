@@ -30,6 +30,7 @@ import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -184,6 +185,15 @@ Future<void> _seedPostWizardState(
       directionConfirmed: const Value(true),
       mappingAcknowledged: const Value(true),
       linkedAt: Value(now.subtract(const Duration(minutes: 1))),
+      // 2026-06 PK audit M11: pushMemberUpdate now gates the payload by the
+      // configured direction (pull-only default = no push). Seed the
+      // push-enabled direction a production edit-push user actually has.
+      fieldSyncConfig: Value(
+        serializeFieldSyncConfigWithGlobalDirection(
+          null,
+          PkSyncDirection.bidirectional,
+        ),
+      ),
     ),
   );
   await service.loadState();

@@ -328,6 +328,7 @@ void main() {
     required FakePluralKitClient client,
     PkSyncEventBus? bus,
     Uuid? uuid,
+    String? connectedSystemId,
   }) {
     return PkMappingApplier(
       members: repo,
@@ -336,6 +337,7 @@ void main() {
       client: client,
       bus: bus ?? PkSyncEventBus(),
       uuid: uuid,
+      connectedSystemId: connectedSystemId,
     );
   }
 
@@ -1712,6 +1714,108 @@ void main() {
         reason: 'Intact import must not create a duplicate local member',
       );
     });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
+  // 2026-06 PK audit H12a — `_priorPkIdentityStillUsable` ownership check.
+  //
+  // The prior-row reuse probe GETs the recorded member by uuid. If PK reports
+  // it as owned by a DIFFERENT system (a foreign re-use through the global
+  // namespace), the recorded id is NOT our member — treat it as gone and
+  // re-create fresh rather than re-linking a stranger.
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('H12a: prior-row reuse validates ownership', () {
+    test(
+      'applied Push + link cleared + recorded member now owned by another '
+      'system → re-POSTs fresh (does NOT re-link the foreign member)',
+      () async {
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        var nextCreate = 0;
+        final client = FakePluralKitClient(
+          // The recorded uuid resolves to a member owned by 'venus', not our
+          // connected 'pktchv' system.
+          onGetMember: (ref) => PKMember(
+            id: 'foreign',
+            uuid: ref,
+            name: 'Stranger',
+            system: 'venus',
+          ),
+          onCreate: (data) {
+            nextCreate++;
+            return PKMember(
+              id: 'newid$nextCreate',
+              uuid: 'new-uuid-$nextCreate',
+              name: data['name'] as String,
+            );
+          },
+        );
+        final applier = buildApplier(
+          repo: repo,
+          client: client,
+          connectedSystemId: 'pktchv',
+        );
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+        expect(client.createCallCount, 1);
+
+        await repo.clearPluralKitLink('l1');
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.createCallCount,
+          2,
+          reason: 'foreign-owned recorded member → treat as gone, create fresh',
+        );
+        final updated = await repo.getMemberById('l1');
+        expect(updated!.pluralkitUuid, 'new-uuid-2');
+      },
+    );
+
+    test(
+      'applied Push + link cleared + recorded member owned by the connected '
+      'system → re-links (ownership OK, no duplicate POST)',
+      () async {
+        final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+        final client = FakePluralKitClient(
+          onGetMember: (ref) => PKMember(
+            id: 'newid',
+            uuid: ref,
+            name: 'Alice',
+            system: 'pktchv', // SAME system → usable
+          ),
+          onCreate: (data) => PKMember(
+            id: 'newid',
+            uuid: 'new-uuid',
+            name: data['name'] as String,
+          ),
+        );
+        final applier = buildApplier(
+          repo: repo,
+          client: client,
+          connectedSystemId: 'pktchv',
+        );
+
+        await applier.apply([const PkPushNewDecision(localMemberId: 'l1')]);
+        expect(client.createCallCount, 1);
+
+        await repo.clearPluralKitLink('l1');
+        final results = await applier.apply([
+          const PkPushNewDecision(localMemberId: 'l1'),
+        ]);
+
+        expect(results.single.outcome, PkApplyOutcome.applied);
+        expect(
+          client.createCallCount,
+          1,
+          reason: 'owned-by-us recorded member → re-link, no second POST',
+        );
+        expect((await repo.getMemberById('l1'))!.pluralkitUuid, 'new-uuid');
+      },
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────

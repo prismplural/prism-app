@@ -541,8 +541,15 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       // exceptions. Cap the probe at 5s so offline users don't wait the
       // client's 15s default. Non-network exceptions fall through to the
       // outer catch, which already routes them into `state.error`.
+      // 2026-06 PK audit H12a: capture the connected system id from the
+      // pre-flight probe so the applier can reject prior-row reuse of a member
+      // that PK reports as owned by a different system (stale short/uuid ref).
+      String? connectedSystemId;
       try {
-        await client.getSystem().timeout(const Duration(seconds: 5));
+        final probedSystem = await client.getSystem().timeout(
+          const Duration(seconds: 5),
+        );
+        connectedSystemId = probedSystem.id;
       } on Object catch (e) {
         if (isPluralKitNetworkException(e)) {
           if (!ref.mounted) return null;
@@ -570,6 +577,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
         pushService: const PkPushService(),
         client: client,
         bus: bus,
+        connectedSystemId: connectedSystemId,
       );
 
       // Build the full decision list — PK decisions first, then local-only.

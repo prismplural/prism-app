@@ -16,16 +16,28 @@ import 'package:uuid/uuid.dart';
 class PkLiveFronterResolutionService {
   final MemberRepository _members;
   final PluralKitClient _client;
+
+  /// Short id of the system this token is connected to, when known (read from
+  /// the sync DAO row by the caller in `PluralKitSyncService`). Used for the
+  /// 2026-06 PK audit H12a ownership check: a fetched member carrying a
+  /// `system` field that differs from this id belongs to ANOTHER system, so we
+  /// must NOT link/import it (stale short ids resolve into the global member
+  /// namespace and can return a stranger). Null → ownership unknowable; keep
+  /// current behavior.
+  final String? _connectedSystemId;
+
   final Uuid _uuid;
   final DateTime Function() _now;
 
   PkLiveFronterResolutionService({
     required MemberRepository memberRepository,
     required PluralKitClient client,
+    String? connectedSystemId,
     Uuid? uuid,
     DateTime Function()? now,
   }) : _members = memberRepository,
        _client = client,
+       _connectedSystemId = _blankToNull(connectedSystemId),
        _uuid = uuid ?? const Uuid(),
        _now = now ?? DateTime.now;
 
@@ -109,7 +121,9 @@ class PkLiveFronterResolutionService {
         (requireAvatarUrl && avatarUrl == null);
 
     if (needsFetch) {
-      return _requireUuid(await _client.getMember(pkUuid ?? pkId));
+      final fetched = await _client.getMember(pkUuid ?? pkId);
+      _requireOwnership(fetched);
+      return _requireUuid(fetched);
     }
 
     return _requireUuid(
@@ -121,6 +135,29 @@ class PkLiveFronterResolutionService {
         avatarUrl: avatarUrl,
       ),
     );
+  }
+
+  /// 2026-06 PK audit H12a: a fetched member's `system` (present only on
+  /// `GET /members/{ref}`) must match the connected system. When it differs we
+  /// resolved a FOREIGN member through the global short-id namespace (a stale
+  /// short id, possibly user-changed under PK Premium) — refuse to write it.
+  /// We treat this like a stale link rather than a hard error since the local
+  /// pkId is simply pointing at the wrong system now; a [StateError] surfaces
+  /// to the caller's existing error path the same way the deleted-owner /
+  /// already-linked guards do.
+  void _requireOwnership(PKMember pk) {
+    final owner = _blankToNull(pk.system);
+    final connected = _connectedSystemId;
+    if (owner == null || connected == null) return;
+    // PK hids are case-insensitive (the API accepts uppercase/dashed refs) —
+    // compare lowercased, matching the H2 deletion pusher's convention.
+    if (owner.toLowerCase() != connected.toLowerCase()) {
+      throw StateError(
+        'PluralKit member ${pk.id} belongs to a different system ($owner, '
+        'not $connected) — its short id is stale. Refusing to '
+        'link/import foreign data; re-link via the mapping screen.',
+      );
+    }
   }
 
   PKMember _requireUuid(PKMember pk) {

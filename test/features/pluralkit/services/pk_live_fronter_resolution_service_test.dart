@@ -474,6 +474,174 @@ void main() {
     },
   );
 
+  // ───────────────────────────────────────────────────────────────────────
+  // 2026-06 PK audit H12a — ownership validation on fetched members.
+  //
+  // A stale/foreign short id can resolve to ANOTHER system's member
+  // (live-verified: GET /members/zzzzz → 200, system "venus"). When the
+  // fetched member declares a `system` that differs from the connected one,
+  // the resolver must refuse to link/import it.
+  // ───────────────────────────────────────────────────────────────────────
+
+  group('H12a ownership validation', () {
+    test('link refuses a fetched member owned by a different system', () async {
+      final repo = _FakeMemberRepository([
+        _local(id: 'local-1', name: 'Local Name'),
+      ]);
+      final client = _FakePluralKitClient(
+        members: const [
+          PKMember(
+            id: 'zzzzz',
+            uuid: 'pk-uuid-foreign',
+            name: 'Stranger',
+            system: 'venus', // owned by a DIFFERENT system
+          ),
+        ],
+      );
+      final service = PkLiveFronterResolutionService(
+        memberRepository: repo,
+        client: client,
+        connectedSystemId: 'pktchv', // our connected system
+      );
+
+      await expectLater(
+        service.linkCurrentFronterToLocal(
+          const PkUnmappedFronterRef(pkId: 'zzzzz'),
+          'local-1',
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      // Nothing was written — the foreign member was treated as stale.
+      expect(repo.updateCount, 0);
+      final local = (await repo.getMemberById('local-1'))!;
+      expect(local.pluralkitId, isNull);
+      expect(local.pluralkitUuid, isNull);
+    });
+
+    test('import refuses a fetched member owned by a different system',
+        () async {
+      final repo = _FakeMemberRepository(const []);
+      final client = _FakePluralKitClient(
+        members: const [
+          PKMember(
+            id: 'zzzzz',
+            uuid: 'pk-uuid-foreign',
+            name: 'Stranger',
+            system: 'venus',
+          ),
+        ],
+      );
+      final service = PkLiveFronterResolutionService(
+        memberRepository: repo,
+        client: client,
+        connectedSystemId: 'pktchv',
+      );
+
+      await expectLater(
+        service.importCurrentFronter(
+          const PkUnmappedFronterRef(pkId: 'zzzzz'),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      // No foreign member was imported.
+      expect(repo.createCount, 0);
+      expect((await repo.getAllMembers()), isEmpty);
+    });
+
+    test('link proceeds when the fetched member is owned by the connected '
+        'system', () async {
+      final repo = _FakeMemberRepository([
+        _local(id: 'local-1', name: 'Local Name'),
+      ]);
+      final client = _FakePluralKitClient(
+        members: const [
+          PKMember(
+            id: 'abcde',
+            uuid: 'pk-uuid-1',
+            name: 'PK Name',
+            displayName: 'PK Display',
+            system: 'pktchv', // SAME system → ownership OK
+          ),
+        ],
+      );
+      final service = PkLiveFronterResolutionService(
+        memberRepository: repo,
+        client: client,
+        connectedSystemId: 'pktchv',
+      );
+
+      final result = await service.linkCurrentFronterToLocal(
+        const PkUnmappedFronterRef(pkId: 'abcde'),
+        'local-1',
+      );
+
+      expect(result.id, 'local-1');
+      final local = (await repo.getMemberById('local-1'))!;
+      expect(local.pluralkitUuid, 'pk-uuid-1');
+    });
+
+    test('ownership comparison is case-insensitive (PK hids are)', () async {
+      // PK accepts uppercase hids; an uppercase `system` echo must not be
+      // mistaken for a foreign owner (wave-3 nit: H2 lowercase convention).
+      final repo = _FakeMemberRepository([
+        _local(id: 'local-1', name: 'Local Name'),
+      ]);
+      final client = _FakePluralKitClient(
+        members: const [
+          PKMember(
+            id: 'abcde',
+            uuid: 'pk-uuid-1',
+            name: 'PK Name',
+            system: 'PKTCHV', // uppercase echo of the same system
+          ),
+        ],
+      );
+      final service = PkLiveFronterResolutionService(
+        memberRepository: repo,
+        client: client,
+        connectedSystemId: 'pktchv',
+      );
+
+      final result = await service.linkCurrentFronterToLocal(
+        const PkUnmappedFronterRef(pkId: 'abcde'),
+        'local-1',
+      );
+      expect(result.id, 'local-1');
+      expect((await repo.getMemberById('local-1'))!.pluralkitUuid, 'pk-uuid-1');
+    });
+
+    test('link proceeds when connectedSystemId is unknown (null) even if a '
+        'system field is present', () async {
+      // Ownership is unknowable → keep current behavior, do not block.
+      final repo = _FakeMemberRepository([
+        _local(id: 'local-1', name: 'Local Name'),
+      ]);
+      final client = _FakePluralKitClient(
+        members: const [
+          PKMember(
+            id: 'abcde',
+            uuid: 'pk-uuid-1',
+            name: 'PK Name',
+            system: 'venus',
+          ),
+        ],
+      );
+      final service = PkLiveFronterResolutionService(
+        memberRepository: repo,
+        client: client,
+        // connectedSystemId omitted → null.
+      );
+
+      final result = await service.linkCurrentFronterToLocal(
+        const PkUnmappedFronterRef(pkId: 'abcde'),
+        'local-1',
+      );
+      expect(result.id, 'local-1');
+      expect((await repo.getMemberById('local-1'))!.pluralkitUuid, 'pk-uuid-1');
+    });
+  });
+
   test('import fails when a deleted member still owns the PK link', () async {
     final repo = _FakeMemberRepository([
       _local(

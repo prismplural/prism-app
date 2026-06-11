@@ -512,6 +512,74 @@ void main() {
   // PR 2 Part 1.7 site 8: _linkBackLocally writeback uses
   // recordPluralKitIdentity (NOT applyPluralKitLink) so the write bypasses
   // Rule A but preserves Rule B — never transitioning sync_ignored.
+  // ─────────────────────────────────────────────────────────────────────
+  // 2026-06 PK audit H12a — ownership validation on the already-linked
+  // refresh path. A linked member's short-id refresh that resolves to ANOTHER
+  // system's member must be rejected (PkForeignMemberException), not handed
+  // back as this member's data.
+  // ─────────────────────────────────────────────────────────────────────
+
+  test('already-linked refresh rejects a foreign-system member (H12a)',
+      () async {
+    // Connected system id = pktchv in the sync row.
+    await syncDao.upsertSyncState(
+      const PluralKitSyncStateCompanion(
+        id: Value('pk_config'),
+        systemId: Value('pktchv'),
+      ),
+    );
+    // Member linked only by SHORT id (no uuid) so the refresh GETs by short id.
+    final linkedRepo = _FakeMemberRepo([
+      _member(id: 'm1', name: 'Alice', pluralkitId: 'zzzzz'),
+    ]);
+    final localContainer = ProviderContainer(overrides: [
+      databaseProvider.overrideWithValue(db),
+      memberRepositoryProvider.overrideWithValue(linkedRepo),
+      pluralKitSyncServiceProvider.overrideWithValue(syncSvc),
+      frontingMigrationWritesBlockedProvider.overrideWithValue(false),
+    ]);
+    addTearDown(localContainer.dispose);
+
+    // The short-id GET resolves to a member owned by a DIFFERENT system.
+    client.onGet = (ref) =>
+        PKMember(id: ref, uuid: 'uuid-foreign', name: 'Stranger', system: 'venus');
+
+    final svc = localContainer.read(pkOneShotPushServiceProvider);
+    await expectLater(
+      svc.pushSingleMember('m1'),
+      throwsA(isA<PkForeignMemberException>()),
+    );
+    expect(client.createCallCount, 0, reason: 'no POST on a foreign refresh');
+  });
+
+  test('already-linked refresh proceeds when ownership matches (H12a)',
+      () async {
+    await syncDao.upsertSyncState(
+      const PluralKitSyncStateCompanion(
+        id: Value('pk_config'),
+        systemId: Value('pktchv'),
+      ),
+    );
+    final linkedRepo = _FakeMemberRepo([
+      _member(id: 'm1', name: 'Alice', pluralkitId: 'abcde'),
+    ]);
+    final localContainer = ProviderContainer(overrides: [
+      databaseProvider.overrideWithValue(db),
+      memberRepositoryProvider.overrideWithValue(linkedRepo),
+      pluralKitSyncServiceProvider.overrideWithValue(syncSvc),
+      frontingMigrationWritesBlockedProvider.overrideWithValue(false),
+    ]);
+    addTearDown(localContainer.dispose);
+
+    client.onGet = (ref) =>
+        PKMember(id: ref, uuid: 'uuid-abcde', name: 'Alice', system: 'pktchv');
+
+    final svc = localContainer.read(pkOneShotPushServiceProvider);
+    final result = await svc.pushSingleMember('m1');
+    expect(result.uuid, 'uuid-abcde');
+    expect(client.createCallCount, 0, reason: 'already linked → refresh only');
+  });
+
   test('_linkBackLocally uses recordPluralKitIdentity (NOT '
       'applyPluralKitLink)', () async {
     final recordingRepo = _RecordingMemberRepo(

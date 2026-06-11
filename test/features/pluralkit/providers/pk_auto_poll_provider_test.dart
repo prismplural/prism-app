@@ -21,12 +21,17 @@ class _FakePkSyncService implements PluralKitSyncService {
   Object? pollThrows;
   bool storedTokenPresent = true;
 
+  /// 2026-06 PK audit M3: pollFrontersOnly now classifies its outcome instead
+  /// of returning a bare bool. Defaults to `ok` (a healthy tick); tests set it
+  /// to drive the auth/429/transient mappings in the auto-poll notifier.
+  PkPollOutcome pollOutcome = PkPollOutcome.ok;
+
   @override
-  Future<bool> pollFrontersOnly() async {
+  Future<PkPollOutcome> pollFrontersOnly() async {
     pollCount++;
     final err = pollThrows;
     if (err != null) throw err;
-    return false;
+    return pollOutcome;
   }
 
   @override
@@ -369,6 +374,63 @@ void main() {
       expect(ticks.single.reason, isNull);
       expect(ticks.single.error, isNull);
     });
+
+    test(
+      'M3: an authFailed poll outcome emits PkAutoPollTick(outcome: '
+      '"auth_failed") — a revoked token no longer logs as healthy',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService()
+          ..pollOutcome = PkPollOutcome.authFailed;
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c.read(_fakePkSyncProvider.notifier).set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'auth_failed');
+        expect(fake.pollCount, 1);
+      },
+    );
+
+    test(
+      'M3: a rateLimited poll outcome emits a skipped tick (reason '
+      '"rate_limited") and routes into the 429 backoff path',
+      () async {
+        final capture = PkSyncEventBusCapture();
+        final fake = _FakePkSyncService()
+          ..pollOutcome = PkPollOutcome.rateLimited;
+        final c = _container(fake, bus: capture.bus);
+        addTearDown(c.dispose);
+
+        c.read(_fakePkSyncProvider.notifier).set(
+              const PluralKitSyncState(
+                isConnected: true,
+                directionConfirmed: true,
+                mappingAcknowledged: true,
+              ),
+            );
+        await c.read(pkAutoPollSettingsProvider.future);
+        c.read(pkAutoPollProvider.notifier).markForegrounded(true);
+        await Future<void>.delayed(Duration.zero);
+
+        final ticks = autoPollTicks(capture).toList();
+        expect(ticks, hasLength(1));
+        expect(ticks.single.outcome, 'skipped');
+        expect(ticks.single.reason, 'rate_limited');
+        expect(fake.pollCount, 1);
+      },
+    );
 
     test(
       'failed tick (service throws) emits PkAutoPollTick(outcome: "failed") without error payload',

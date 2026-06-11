@@ -79,6 +79,21 @@ class PKMember {
   /// PK-assigned creation timestamp (read-only on the API).
   final DateTime? created;
 
+  /// Owning system's short id, present ONLY on the `GET /members/{ref}`
+  /// single-member endpoint (the list endpoints `GET /systems/@me/members`
+  /// and the inline switch/fronter member objects omit it).
+  ///
+  /// 2026-06 PK audit H12a — short ids are a globally-dense namespace, so a
+  /// stale or foreign short id can resolve to ANOTHER system's member
+  /// (live-verified: `GET /members/zzzzz` → 200, system "venus"). Whenever a
+  /// fetched member carries this field, ownership-sensitive call sites
+  /// (link / import / re-link / crash-recovery reuse) compare it against the
+  /// connected system id and treat a mismatch exactly like a 404/stale link
+  /// rather than adopting foreign data. Null means "PK didn't tell us"
+  /// (a list-endpoint object, or an older payload) — callers keep their
+  /// prior behavior when ownership is unknowable.
+  final String? system;
+
   const PKMember({
     required this.id,
     required this.uuid,
@@ -93,6 +108,7 @@ class PKMember {
     this.bannerUrl,
     this.hasBannerField = false,
     this.created,
+    this.system,
   });
 
   factory PKMember.fromJson(Map<String, dynamic> json) {
@@ -121,6 +137,9 @@ class PKMember {
       bannerUrl: json['banner'] as String?,
       hasBannerField: json.containsKey('banner'),
       created: created,
+      // 2026-06 PK audit H12a: only `GET /members/{ref}` includes `system`;
+      // list/embedded shapes leave it absent → null → ownership unknown.
+      system: json['system'] as String?,
     );
   }
 }

@@ -225,10 +225,16 @@ class FakePluralKitClient implements PluralKitClient {
   PKSwitch? currentFrontersToReturn;
   int getCurrentFrontersCallCount = 0;
 
+  /// When set, [getCurrentFronters] throws this instead of returning — used by
+  /// the 2026-06 PK audit M3 poll-outcome tests to drive 401/429 paths.
+  Object? getCurrentFrontersError;
+
   @override
   Future<PKSwitch?> getCurrentFronters() async {
     calls.add('getCurrentFronters');
     getCurrentFrontersCallCount++;
+    final err = getCurrentFrontersError;
+    if (err != null) throw err;
     return currentFrontersToReturn;
   }
 
@@ -979,9 +985,11 @@ void main() {
         expect(service.state.canAutoSync, isTrue);
         expect(service.state.lastSyncDate, isNull);
 
-        final pulled = await service.pollFrontersOnly();
+        final outcome = await service.pollFrontersOnly();
 
-        expect(pulled, isTrue);
+        // 2026-06 PK audit M3: classified outcome — a successful live pull is
+        // `ok` (was a bare `true`).
+        expect(outcome, PkPollOutcome.ok);
         expect(
           fakeClient.getSwitchesCallCount,
           0,
@@ -1057,9 +1065,11 @@ void main() {
         );
         await service.loadState();
 
-        final ranFullSync = await service.pollFrontersOnly();
+        final outcome = await service.pollFrontersOnly();
 
-        expect(ranFullSync, isFalse);
+        // 2026-06 PK audit M3: a tombstoned/already-known current switch is a
+        // benign `skipped` (was a bare `false`).
+        expect(outcome, PkPollOutcome.skipped);
         expect(
           fakeClient.getSwitchesCallCount,
           0,
@@ -1067,6 +1077,59 @@ void main() {
         );
       },
     );
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 2026-06 PK audit M3 — classified poll outcomes. A revoked token (401)
+    // or rate-limit (429) used to be swallowed and reported as `ok`; now they
+    // surface as distinct outcomes so the auto-poll loop can stop claiming
+    // health / back off.
+    // ─────────────────────────────────────────────────────────────────────
+
+    Future<PluralKitSyncService> readyService(FakePluralKitClient fakeClient,
+        AppDatabase db) async {
+      final service = _makeService(fakeClient: fakeClient, db: db);
+      await service.setToken('valid-token');
+      await db.pluralKitSyncDao.upsertSyncState(
+        const PluralKitSyncStateCompanion(
+          id: Value('pk_config'),
+          directionConfirmed: Value(true),
+        ),
+      );
+      await service.acknowledgeMapping();
+      await service.loadState();
+      expect(service.state.canAutoSync, isTrue);
+      return service;
+    }
+
+    test('M3: a 401 mid-poll returns PkPollOutcome.authFailed', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient()
+        ..getCurrentFrontersError = const PluralKitAuthError();
+      final service = await readyService(fakeClient, db);
+
+      expect(await service.pollFrontersOnly(), PkPollOutcome.authFailed);
+    });
+
+    test('M3: a 429 mid-poll returns PkPollOutcome.rateLimited', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient()
+        ..getCurrentFrontersError = const PluralKitRateLimitError();
+      final service = await readyService(fakeClient, db);
+
+      expect(await service.pollFrontersOnly(), PkPollOutcome.rateLimited);
+    });
+
+    test('M3: an unexpected transport error returns transientError', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient()
+        ..getCurrentFrontersError = StateError('socket boom');
+      final service = await readyService(fakeClient, db);
+
+      expect(await service.pollFrontersOnly(), PkPollOutcome.transientError);
+    });
   });
 
   group('syncLiveFrontersOnly', () {
@@ -1388,7 +1451,8 @@ void main() {
         expect(summary!.switchesPulled, 0);
         expect(summary.switchesPushed, 1);
         expect(harness.client.createSwitchCalls, hasLength(1));
-        expect(harness.client.createSwitchCalls.single.memberIds, ['pkA']);
+        // 2026-06 PK audit H12b: the wire payload prefers the stable uuid.
+        expect(harness.client.createSwitchCalls.single.memberIds, ['uuid-a']);
         expect(
           harness.client.getCurrentFrontersCallCount,
           1,
@@ -1464,9 +1528,11 @@ void main() {
 
         expect(summary!.switchesPulled, 1);
         expect(summary.switchesPushed, 1);
+        // 2026-06 PK audit H12b: uuid-first wire payload, same order as the
+        // short-id comparison list (pkA→uuid-a, pkB→uuid-b).
         expect(harness.client.createSwitchCalls.single.memberIds, [
-          'pkA',
-          'pkB',
+          'uuid-a',
+          'uuid-b',
         ]);
         expect(harness.client.getCurrentFrontersCallCount, 1);
         expect(harness.client.calls, ['getCurrentFronters', 'createSwitch']);
@@ -2614,7 +2680,8 @@ void main() {
       expect(harness.client.createSwitchMemberIds.single, ['pkA']);
     });
 
-    test('is idempotent under concurrent successful calls', () async {
+    test('concurrent successful calls: original pushes, follow-up flushes '
+        'trailing state (2026-06 PK audit M9)', () async {
       final client = _RecordingPushClient()..holdCreateSwitch = true;
       final harness = await setupSnapshot(
         members: [member('a', 'pkA')],
@@ -2623,17 +2690,26 @@ void main() {
       );
 
       final first = harness.service.pushPendingSwitches();
+      // A second trigger arrives mid-flight → M9 dirty flag → ONE follow-up.
       final second = harness.service.pushPendingSwitches();
       await Future<void>.delayed(Duration.zero);
       client.releaseCreateSwitch();
 
       final results = await Future.wait([first, second]);
+      // The original push created the switch. The follow-up ran once, found PK
+      // already in sync (state unchanged), and short-circuited — exactly ONE
+      // createSwitch, no runaway loop.
       expect(harness.client.createSwitchCallCount, 1);
-      expect(results[0].pushed, 1);
-      expect(results[1].pushed, 1);
+      expect(results[0].pushed, 1, reason: 'the original push created A');
+      expect(
+        results[1].pushed,
+        0,
+        reason: 'the M9 follow-up found PK already in sync (nothing trailing)',
+      );
     });
 
-    test('concurrent callers receive the same push exception', () async {
+    test('concurrent callers receive the same push exception; a failed run '
+        'does NOT schedule an M9 follow-up', () async {
       final client = _RecordingPushClient()
         ..holdCreateSwitch = true
         ..throwCreateError = Exception('boom');
@@ -2650,6 +2726,9 @@ void main() {
 
       await expectLater(first, throwsA(isA<Exception>()));
       await expectLater(second, throwsA(isA<Exception>()));
+      // A failing run delivers its error to every waiter (incl. the dirty one)
+      // and does NOT re-run — re-running on the same failing state would loop
+      // on the same error. Exactly one createSwitch attempt.
       expect(harness.client.createSwitchCallCount, 1);
     });
 
@@ -2727,8 +2806,12 @@ void main() {
       await harness.service.pushPendingSwitches();
 
       expect(harness.client.createSwitchCallCount, 2);
+      // First push: local rows carry no uuid → short-id fallback wire (H12b).
       expect(harness.client.createSwitchMemberIds[0], ['pkB', 'pkC', 'pkA']);
-      expect(harness.client.createSwitchMemberIds[1], ['pkB', 'pkA']);
+      // Retry: refreshed from PK's getMembers() (which DOES carry uuids), so the
+      // stale-link retry wire prefers the uuids — same order, uuid values
+      // (2026-06 PK audit H12b: uuid-first once a stable uuid is known).
+      expect(harness.client.createSwitchMemberIds[1], ['uuid-b', 'uuid-a']);
     });
 
     test('stale-link retry fails permanently after one retry', () async {
@@ -2876,11 +2959,17 @@ class _RecordingPushClient extends FakePluralKitClient {
       staleFailuresRemaining--;
       throw const PluralKitApiError(404, 'stale');
     }
-    return PKSwitch(
+    final created = PKSwitch(
       id: 'sw-$createSwitchCallCount',
       timestamp: timestamp ?? DateTime.now(),
       members: memberIds,
     );
+    // 2026-06 PK audit M9: a successful push becomes PK's current front, so
+    // getCurrentFronters must echo it — otherwise an M9 follow-up run would see
+    // PK still "empty" and re-push the same set, spuriously inflating the call
+    // count. (The real API behaves this way.)
+    current = created;
+    return created;
   }
 
   @override
@@ -3415,6 +3504,67 @@ void _registerWs3PrDTests() {
       expect(patch.containsKey('delete_intent_epoch'), isFalse);
       expect(patch.containsKey('delete_push_started_at'), isFalse);
     });
+
+    test(
+      'H12a: short-id match bound to a DIFFERENT uuid is NOT adopted — '
+      'fresh local created, stale row untouched',
+      () async {
+        // The byPkId fallback exists to complete PARTIAL links (short id, no
+        // uuid). A local already bound to a different uuid means its short id
+        // is stale/collided (short ids are globally dense and user-changeable
+        // under PK Premium) — adopting would overwrite a different identity's
+        // profile. The import must create the incoming member fresh instead.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = _RecordingMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'l-stale',
+              name: 'Stale Holder',
+              createdAt: DateTime.utc(2026),
+              pluralkitId: 'aaaaa', // collides with the incoming short id...
+              pluralkitUuid: 'pk-uuid-OTHER', // ...but owned by a different uuid
+            ),
+          ]);
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = [
+            const PKMember(
+              id: 'aaaaa',
+              uuid: 'pk-uuid-FRESH',
+              name: 'Incoming Member',
+            ),
+          ];
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+        );
+
+        await service.setToken('valid-token');
+        await service.importMembersOnly();
+
+        // No adoption of the stale row.
+        expect(
+          memberRepo.applyLinkCalls,
+          isEmpty,
+          reason: 'a short-id match bound to a different uuid must not be '
+              'adopted (2026-06 PK audit H12a)',
+        );
+        final stale = await memberRepo.getMemberById('l-stale');
+        expect(stale!.pluralkitUuid, 'pk-uuid-OTHER',
+            reason: 'stale row untouched');
+        expect(stale.name, 'Stale Holder');
+
+        // A FRESH local was created from the incoming uuid.
+        final all = await memberRepo.getAllMembers();
+        expect(all, hasLength(2));
+        final fresh = all.firstWhere((m) => m.id != 'l-stale');
+        expect(fresh.pluralkitUuid, 'pk-uuid-FRESH');
+        expect(fresh.pluralkitId, 'aaaaa');
+        expect(fresh.name, 'Incoming Member');
+      },
+    );
   });
 
   group('PR 2: _buildShortIdToUuidMap / _buildUuidToLocalIdMap skip excluded',
@@ -3467,9 +3617,293 @@ void _registerWs3PrDTests() {
       expect(fakeClient.createSwitchCalls, hasLength(1));
       expect(
         fakeClient.createSwitchCalls.single.memberIds,
-        ['activ'],
-        reason: 'excluded local PK ID must not appear in override switch',
+        ['uuid-active'],
+        reason: 'excluded local must not appear; active wire ref is uuid-first '
+            '(2026-06 PK audit H12b)',
       );
+    });
+
+    test('H12b: falls back to the short id when a member has no uuid',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-nouuid',
+            name: 'No UUID',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'shrta',
+            // pluralkitUuid intentionally absent.
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      await service.setToken('valid-token');
+
+      await service.pushOverrideSwitch(['l-nouuid'], DateTime.utc(2026, 6, 1));
+
+      expect(fakeClient.createSwitchCalls.single.memberIds, ['shrta'],
+          reason: 'uuid-less members fall back to the short id on the wire');
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 2026-06 PK audit M8 — pushOverrideSwitch 40004 + dropped-member cases.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('M8a: 40004 (front already current) is benign — returns current '
+        'fronters instead of null', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-a',
+            name: 'A',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'pka',
+            pluralkitUuid: 'uuid-a',
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient()
+        // The POST 400s with code 40004 — front already matches.
+        ..createSwitchIdGenerator = (_) {
+          throw const PluralKitApiError(
+            400,
+            '{"code":40004,"message":"already fronting"}',
+            code: 40004,
+          );
+        }
+        // The benign fallback fetches the current fronters.
+        ..currentFrontersToReturn = PKSwitch(
+          id: '00000000-0000-0000-0000-0000000000a1',
+          timestamp: DateTime.utc(2026, 6, 1, 12),
+          members: const ['uuid-a'],
+        );
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      await service.setToken('valid-token');
+
+      final result = await service.pushOverrideSwitch(
+        ['l-a'],
+        DateTime.utc(2026, 6, 1, 12),
+      );
+
+      // NOT null — the caller's cursor-advance keeps working.
+      expect(result, isNotNull);
+      expect(result!.id, '00000000-0000-0000-0000-0000000000a1');
+      expect(fakeClient.getCurrentFrontersCallCount, 1);
+    });
+
+    test('M8b: a non-empty choice where EVERY member is unmapped throws '
+        'PkAllChosenFrontersUnmappedException (does NOT clear PK)', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      // Both chosen locals are PK-sync-excluded → dropped.
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-x',
+            name: 'Excluded X',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'pkx',
+            pluralkitUuid: 'uuid-x',
+            pluralkitSyncIgnored: true,
+          ),
+          domain.Member(
+            id: 'l-y',
+            name: 'Unlinked Y',
+            createdAt: DateTime.utc(2026),
+            // no PK link at all.
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      await service.setToken('valid-token');
+
+      await expectLater(
+        service.pushOverrideSwitch(
+          ['l-x', 'l-y'],
+          DateTime.utc(2026, 6, 1, 12),
+        ),
+        throwsA(
+          isA<PkAllChosenFrontersUnmappedException>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('Excluded X'), contains('Unlinked Y')),
+          ),
+        ),
+      );
+      // No empty switch was ever posted (PK front not cleared).
+      expect(fakeClient.createSwitchCalls, isEmpty);
+    });
+
+    test('M8b: an EMPTY choice (nobody fronting) is a legitimate switch-out — '
+        'posts members: []', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(fakeClient: fakeClient, db: db);
+      await service.setToken('valid-token');
+
+      final result = await service.pushOverrideSwitch(
+        const [],
+        DateTime.utc(2026, 6, 1, 12),
+      );
+
+      expect(result, isNotNull);
+      expect(fakeClient.createSwitchCalls, hasLength(1));
+      expect(fakeClient.createSwitchCalls.single.memberIds, isEmpty,
+          reason: 'empty input clears PK fronters (legit switch-out)');
+    });
+
+    test('M8b: a PARTIAL drop proceeds with the mapped subset', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-mapped',
+            name: 'Mapped',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'pkm',
+            pluralkitUuid: 'uuid-m',
+          ),
+          domain.Member(
+            id: 'l-dropped',
+            name: 'Dropped',
+            createdAt: DateTime.utc(2026),
+            pluralkitSyncIgnored: true,
+            pluralkitId: 'pkd',
+            pluralkitUuid: 'uuid-d',
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      await service.setToken('valid-token');
+
+      final result = await service.pushOverrideSwitch(
+        ['l-mapped', 'l-dropped'],
+        DateTime.utc(2026, 6, 1, 12),
+      );
+
+      expect(result, isNotNull);
+      expect(fakeClient.createSwitchCalls, hasLength(1));
+      // Only the mapped member's (uuid) ref is on the wire; the dropped one is
+      // silently skipped (logged via debugPrint).
+      expect(fakeClient.createSwitchCalls.single.memberIds, ['uuid-m']);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Wave-3 nit: override/pending-push parity for uuid-only members. The
+    // pending push (`_doPushPendingSwitches`) keys its local set on SHORT ids,
+    // so an override that fronted a uuid-only member would be un-fronted by
+    // the very next pending push (local set excludes them, PK echo includes
+    // their short id). The override's inclusion filter therefore requires a
+    // short id, exactly like the pending push.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test('uuid-only member (no short id) is DROPPED for pending-push parity',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-mapped',
+            name: 'Mapped',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'pkm',
+            pluralkitUuid: 'uuid-m',
+          ),
+          domain.Member(
+            id: 'l-uuidonly',
+            name: 'UuidOnly',
+            createdAt: DateTime.utc(2026),
+            // uuid present, but NO short id — must be dropped, not pushed.
+            pluralkitUuid: 'uuid-orphan',
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      await service.setToken('valid-token');
+
+      final result = await service.pushOverrideSwitch(
+        ['l-mapped', 'l-uuidonly'],
+        DateTime.utc(2026, 6, 1, 12),
+      );
+
+      expect(result, isNotNull);
+      expect(fakeClient.createSwitchCalls, hasLength(1));
+      expect(
+        fakeClient.createSwitchCalls.single.memberIds,
+        ['uuid-m'],
+        reason: 'the uuid-only member must NOT reach the wire — the pending '
+            'push would immediately un-front it (override/pending parity)',
+      );
+    });
+
+    test('ALL chosen members uuid-only → M8b typed exception, never an empty '
+        'switch', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = FakeMemberRepository()
+        ..seed([
+          domain.Member(
+            id: 'l-u1',
+            name: 'Orphan One',
+            createdAt: DateTime.utc(2026),
+            pluralkitUuid: 'uuid-1',
+          ),
+          domain.Member(
+            id: 'l-u2',
+            name: 'Orphan Two',
+            createdAt: DateTime.utc(2026),
+            pluralkitUuid: 'uuid-2',
+          ),
+        ]);
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      await service.setToken('valid-token');
+
+      await expectLater(
+        service.pushOverrideSwitch(
+          ['l-u1', 'l-u2'],
+          DateTime.utc(2026, 6, 1, 12),
+        ),
+        throwsA(
+          isA<PkAllChosenFrontersUnmappedException>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('Orphan One'), contains('Orphan Two')),
+          ),
+        ),
+      );
+      expect(fakeClient.createSwitchCalls, isEmpty,
+          reason: 'PK front must not be cleared by an all-dropped choice');
     });
   });
 
@@ -3508,6 +3942,188 @@ void _registerWs3PrDTests() {
 
       expect(result, isFalse);
       expect(counted.pushMemberCallCount, 0);
+    });
+  });
+
+  // 2026-06 PK audit M11 — the member-edit push path must funnel through ONE
+  // coalescing drain (one client + queue), gate the payload by per-field
+  // direction config, skip a member whose every field is pull-only, and surface
+  // failures. These tests cover the service-side mechanics; the trigger-field
+  // fix is covered in `app_shell_pk_push_trigger_test.dart`.
+  group('M11: pushMemberUpdate coalescing + per-field gating', () {
+    /// Build a push-ready service: connected, direction+mapping confirmed, and
+    /// a persisted global sync direction so the per-field gate allows push.
+    Future<PluralKitSyncService> readyService({
+      required AppDatabase db,
+      required FakePluralKitClient fakeClient,
+      FakeMemberRepository? memberRepo,
+      PkSyncDirection globalDirection = PkSyncDirection.bidirectional,
+      Map<String, PkFieldSyncConfig> fieldConfigs = const {},
+    }) async {
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+      );
+      // setToken first — a fresh connect resets direction/mapping gates and
+      // rewrites the sync row, so the direction + config writes must follow it.
+      await service.setToken('valid-token');
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          isConnected: const Value(true),
+          directionConfirmed: const Value(true),
+          mappingAcknowledged: const Value(true),
+          fieldSyncConfig: Value(
+            serializeFieldSyncConfig(
+              fieldConfigs,
+              globalDirection: globalDirection,
+            ),
+          ),
+        ),
+      );
+      await service.loadState();
+      expect(service.state.canAutoSync, isTrue);
+      return service;
+    }
+
+    domain.Member linked(String id, {String pkId = 'aaaaa'}) => domain.Member(
+      id: id,
+      name: 'M-$id',
+      createdAt: DateTime.utc(2026),
+      pluralkitId: pkId,
+      pluralkitUuid: 'uuid-$id',
+      pluralkitDisplayName: 'Disp $id',
+    );
+
+    test('a synchronous burst of edits uses ONE client (no queue fan-out)',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      final service = await readyService(db: db, fakeClient: fakeClient);
+      final push = _RecordingPushService();
+      // setToken's validation already built+disposed one client; baseline it.
+      final disposesBeforeBurst = fakeClient.disposeCallCount;
+
+      // Fire three different members in one synchronous burst — the fan-out bug
+      // would build (and dispose) three independent clients/queues.
+      final futures = [
+        service.pushMemberUpdate(linked('a'), pushService: push),
+        service.pushMemberUpdate(linked('b'), pushService: push),
+        service.pushMemberUpdate(linked('c'), pushService: push),
+      ];
+      final results = await Future.wait(futures);
+
+      expect(results, everyElement(isTrue));
+      expect(push.calls.map((c) => c.memberId).toSet(), {'a', 'b', 'c'});
+      expect(
+        fakeClient.disposeCallCount - disposesBeforeBurst,
+        1,
+        reason: 'the whole burst must drain through a single client',
+      );
+    });
+
+    test('rapid edits to the SAME member coalesce to one PATCH of the latest '
+        'state', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      final service = await readyService(db: db, fakeClient: fakeClient);
+      final push = _RecordingPushService();
+
+      // Two edits to the same member arrive before the drain dispatches; only
+      // the latest should be sent.
+      final f1 = service.pushMemberUpdate(
+        linked('a').copyWith(pluralkitDisplayName: 'first'),
+        pushService: push,
+      );
+      final f2 = service.pushMemberUpdate(
+        linked('a').copyWith(pluralkitDisplayName: 'second'),
+        pushService: push,
+      );
+      await Future.wait([f1, f2]);
+
+      final aCalls = push.calls.where((c) => c.memberId == 'a').toList();
+      expect(aCalls, hasLength(1), reason: 'same-member edits coalesce');
+    });
+
+    test('passes the per-field direction-allowed key set as allowedFields',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      // displayName push-allowed; pronouns pull-only; rest default
+      // bidirectional. Under bidirectional global, pull-only fields drop out.
+      final service = await readyService(
+        db: db,
+        fakeClient: fakeClient,
+        fieldConfigs: {
+          'a': const PkFieldSyncConfig(
+            pronouns: PkSyncDirection.pullOnly,
+          ),
+        },
+      );
+      final push = _RecordingPushService();
+
+      await service.pushMemberUpdate(linked('a'), pushService: push);
+
+      final call = push.calls.single;
+      expect(call.allowedFields, isNotNull);
+      expect(call.allowedFields, contains('display_name'));
+      expect(
+        call.allowedFields,
+        isNot(contains('pronouns')),
+        reason: 'a pull-only field must never enter the auto-push payload',
+      );
+      // proxy_tags is never auto-pushed (manual-sync delete-risk preview path).
+      expect(call.allowedFields, isNot(contains('proxy_tags')));
+      expect(call.proxyTags, isFalse);
+    });
+
+    test('skips the PATCH (no network) when every field is pull-only',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      final service = await readyService(
+        db: db,
+        fakeClient: fakeClient,
+        globalDirection: PkSyncDirection.pullOnly,
+      );
+      final push = _RecordingPushService();
+
+      final result = await service.pushMemberUpdate(
+        linked('a'),
+        pushService: push,
+      );
+
+      expect(result, isFalse);
+      expect(push.calls, isEmpty, reason: 'empty allowed set must skip PATCH');
+    });
+
+    test('stale link (404) clears the local PK link and returns false',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      final memberRepo = FakeMemberRepository()..seed([linked('a')]);
+      final service = await readyService(
+        db: db,
+        fakeClient: fakeClient,
+        memberRepo: memberRepo,
+      );
+      final push = _RecordingPushService(staleLinkFor: 'a');
+
+      final result = await service.pushMemberUpdate(
+        linked('a'),
+        pushService: push,
+      );
+
+      expect(result, isFalse);
+      final after = await memberRepo.getMemberById('a');
+      expect(after?.pluralkitId, isNull);
+      expect(after?.pluralkitUuid, isNull);
     });
   });
 
@@ -3568,14 +4184,15 @@ void _registerWs3PrDTests() {
 
       await service.pushPendingSwitches();
 
-      // createSwitch must include only the active member's PK ID.
+      // createSwitch must include only the active member — as a uuid-first
+      // wire ref (2026-06 PK audit H12b).
       expect(fakeClient.createSwitchCalls, hasLength(1));
       expect(
         fakeClient.createSwitchCalls.single.memberIds,
-        ['activ'],
+        ['uuid-active'],
         reason:
             'excluded local PK ID must not appear in the regular push '
-            'pipeline (per v7 fix)',
+            'pipeline (per v7 fix); active member sent as uuid (H12b)',
       );
     });
   });
@@ -3643,6 +4260,48 @@ class _CountingPushService extends PkPushService {
   }) async {
     pushMemberCallCount++;
     return 'stub';
+  }
+}
+
+/// Records every `pushMemberFull` call so the 2026-06 PK audit M11 coalescing
+/// + per-field-gating tests can inspect order, member, and the gated
+/// `allowedFields` set. Optionally throws [PkStaleLinkException] for one
+/// member id (to drive the unlink path).
+class _RecordingPushService extends PkPushService {
+  _RecordingPushService({this.staleLinkFor});
+
+  /// When set, a call for this member id throws [PkStaleLinkException].
+  final String? staleLinkFor;
+
+  final List<({String memberId, Set<String>? allowedFields, bool proxyTags})>
+  calls = [];
+
+  @override
+  Future<PKMember> pushMemberFull(
+    domain.Member member,
+    PluralKitClient client, {
+    PKMember? pkMember,
+    bool includeProxyTags = true,
+    Set<String>? allowedFields,
+  }) async {
+    calls.add((
+      memberId: member.id,
+      allowedFields: allowedFields,
+      proxyTags: includeProxyTags,
+    ));
+    if (staleLinkFor != null && member.id == staleLinkFor) {
+      throw PkStaleLinkException(
+        localId: member.id,
+        pkId: member.pluralkitId ?? '',
+        kind: PkStaleLinkKind.member,
+        cause: const PluralKitApiError(404, 'gone'),
+      );
+    }
+    return PKMember(
+      id: member.pluralkitId ?? 'stub',
+      uuid: 'uuid-${member.id}',
+      name: member.name,
+    );
   }
 }
 

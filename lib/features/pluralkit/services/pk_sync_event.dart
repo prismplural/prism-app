@@ -277,6 +277,43 @@ class PkMappingDecisionFailed extends PkSyncEvent {
   bool get isError => true;
 }
 
+/// 2026-06 PK audit wave-3 mass-deletion breaker: emitted when an UNATTENDED
+/// sync declined to execute a batch of pending PK deletions because the
+/// candidate count exceeded the safety threshold. The user-confirmed manual
+/// destructive-push path is unaffected; this only fires on automatic paths.
+class PkMassDeletionBlocked extends PkSyncEvent {
+  const PkMassDeletionBlocked({
+    required this.kind,
+    required this.candidateCount,
+    required this.threshold,
+  });
+
+  /// `'switches'` or `'members'` — which deletion pusher tripped.
+  final String kind;
+
+  /// How many eligible deletion candidates were queued.
+  final int candidateCount;
+
+  /// The threshold that was exceeded.
+  final int threshold;
+
+  @override
+  String get summary =>
+      'Blocked auto-deletion of $candidateCount $kind on PluralKit '
+      '(over the $threshold safety limit) — confirm a manual sync to proceed';
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'kind': 'pkMassDeletionBlocked',
+        'deletion_kind': kind,
+        'candidate_count': candidateCount,
+        'threshold': threshold,
+      };
+
+  @override
+  bool get isError => true;
+}
+
 class PkRateLimitHit extends PkSyncEvent {
   const PkRateLimitHit({required this.attempt, required this.backoffSeconds});
 

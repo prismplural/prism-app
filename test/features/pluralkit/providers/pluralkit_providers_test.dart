@@ -541,6 +541,52 @@ void main() {
       expect(ctx.service.pushMemberCalls, 0);
     });
 
+    test('pushMemberUpdate is a no-op in pullOnly direction (2026-06 PK '
+        'audit M11)', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeComplete,
+        initialServiceState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
+        syncMode: PkSyncMode.fullSync,
+        syncDirection: PkSyncDirection.pullOnly,
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final member = domain.Member(
+        id: 'm-1',
+        name: 'Ada',
+        createdAt: DateTime.utc(2026, 4, 30),
+        pluralkitId: 'abcde',
+      );
+      await notifier.pushMemberUpdate(member);
+      expect(ctx.service.pushMemberCalls, 0);
+    });
+
+    test('pushMemberUpdate delegates to the service in a push-enabled '
+        'direction (2026-06 PK audit M11)', () async {
+      final ctx = await primedContainer(
+        FrontingMigrationService.modeComplete,
+        initialServiceState: const PluralKitSyncState(
+          isConnected: true,
+          directionConfirmed: true,
+          mappingAcknowledged: true,
+        ),
+        syncMode: PkSyncMode.fullSync,
+        syncDirection: PkSyncDirection.pushOnly,
+      );
+      final notifier = ctx.container.read(pluralKitSyncProvider.notifier);
+      final member = domain.Member(
+        id: 'm-1',
+        name: 'Ada',
+        createdAt: DateTime.utc(2026, 4, 30),
+        pluralkitId: 'abcde',
+      );
+      await notifier.pushMemberUpdate(member);
+      expect(ctx.service.pushMemberCalls, 1);
+    });
+
     test('performFullImport throws PkSyncMigrationGatedException while '
         'blocked', () async {
       final ctx = await primedContainer(FrontingMigrationService.modeBlocked);

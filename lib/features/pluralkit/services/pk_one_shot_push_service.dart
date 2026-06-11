@@ -10,6 +10,29 @@ import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
+/// 2026-06 PK audit H12a — a fetched PK member that declares a `system`
+/// (only `GET /members/{ref}` does) different from the connected system is a
+/// FOREIGN member resolved through the global short-id namespace. Treat it as
+/// a stale link rather than reusing/refreshing it. Thrown by the one-shot push
+/// service's already-linked-refresh and crash-recovery-reuse paths; the UI
+/// surfaces it like any other push failure (re-link via the mapping screen).
+class PkForeignMemberException implements Exception {
+  final String pkRef;
+  final String ownerSystem;
+  final String connectedSystem;
+  const PkForeignMemberException({
+    required this.pkRef,
+    required this.ownerSystem,
+    required this.connectedSystem,
+  });
+
+  @override
+  String toString() =>
+      'PkForeignMemberException: PK member $pkRef belongs to system '
+      '$ownerSystem, not the connected system $connectedSystem; its short id '
+      'is stale. Re-link via the mapping screen.';
+}
+
 /// Thrown when a one-shot push is requested for a member that already has
 /// a push in-flight from this app instance. UI surfaces (banner row +
 /// dialog confirm + retry tap) can race; the second caller should treat
@@ -101,6 +124,26 @@ class PkOneShotPushService {
     }
   }
 
+  /// 2026-06 PK audit H12a: reject a fetched member whose owning `system`
+  /// (present only on `GET /members/{ref}`) differs from the connected system.
+  /// Reads the connected system id lazily from the sync DAO — when it's unknown
+  /// (no row, blank) we keep current behavior, exactly like the resolver.
+  Future<void> _requireOwnership(PKMember fetched, String ref) async {
+    final owner = fetched.system?.trim();
+    if (owner == null || owner.isEmpty) return;
+    final syncRow = await _ref.read(pluralKitSyncDaoProvider).getSyncState();
+    final connected = syncRow.systemId?.trim();
+    if (connected == null || connected.isEmpty) return;
+    // PK hids are case-insensitive — compare lowercased (H2 convention).
+    if (owner.toLowerCase() != connected.toLowerCase()) {
+      throw PkForeignMemberException(
+        pkRef: ref,
+        ownerSystem: owner,
+        connectedSystem: connected,
+      );
+    }
+  }
+
   Future<PKMember> _runPush(String memberId, PluralKitClient client) async {
     final repo = _ref.read(memberRepositoryProvider);
     final mappingState = _ref.read(pkMappingStateDaoProvider);
@@ -121,7 +164,12 @@ class PkOneShotPushService {
           (member.pluralkitUuid?.isNotEmpty ?? false)
               ? member.pluralkitUuid!
               : member.pluralkitId!;
-      return await client.getMember(ref);
+      final fetched = await client.getMember(ref);
+      // 2026-06 PK audit H12a: if we fell back to the short id and PK returned
+      // a member owned by a DIFFERENT system, the short id is stale (foreign).
+      // Refuse to hand back foreign data as this member's refresh.
+      await _requireOwnership(fetched, ref);
+      return fetched;
     }
 
     // Crash-recovery: same row key as the mapping-applier's `PkPushNewDecision`
@@ -136,6 +184,10 @@ class PkOneShotPushService {
         prior.pkMemberUuid != null &&
         prior.status == 'pending') {
       final existing = await client.getMember(prior.pkMemberUuid!);
+      // 2026-06 PK audit H12a: the recovery ref is a UUID (stable), so a
+      // mismatch here is unlikely, but validate defensively — never link a
+      // member owned by another system into our local row.
+      await _requireOwnership(existing, prior.pkMemberUuid!);
       await _linkBackLocally(memberId, existing);
       return existing;
     }

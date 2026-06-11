@@ -5,8 +5,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
@@ -66,12 +68,17 @@ class _FakeClient implements PluralKitClient {
     this.systemToReturn = const PKSystem(id: 'sys-1', name: 'Event System'),
     this.membersToReturn = const [],
     this.throwAuthError = false,
+    this.throwAuthOnGetMembers = false,
     this.throwOnGetSystemWithToken,
   });
 
   PKSystem systemToReturn;
   List<PKMember> membersToReturn;
   bool throwAuthError;
+
+  /// When set, `getMembers()` throws a 401 — used by the 2026-06 PK audit M3
+  /// test to drive a token revoked MID-sync (after `getSystem` already passed).
+  bool throwAuthOnGetMembers;
 
   /// When set, `getSystem()` throws `Exception('boom token=<value>')`. Used to
   /// exercise the redaction path so the test can assert that the token is
@@ -88,7 +95,13 @@ class _FakeClient implements PluralKitClient {
   }
 
   @override
-  Future<List<PKMember>> getMembers() async => membersToReturn;
+  Future<List<PKMember>> getMembers() async {
+    if (throwAuthOnGetMembers) throw const PluralKitAuthError();
+    return membersToReturn;
+  }
+
+  @override
+  String get currentToken => 'fake-token';
 
   @override
   Future<List<PKSwitch>> getSwitches({
@@ -237,6 +250,64 @@ void main() {
     });
 
     test(
+      'pushMemberUpdate failure emits PkRequestFailed with redacted token '
+      '(2026-06 PK audit M11)',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final capture = PkSyncEventBusCapture();
+        final client = _FakeClient();
+        final service = _makeService(db: db, bus: capture.bus, client: client);
+
+        // Bring the service to canAutoSync and persist a push-enabled global
+        // direction so the per-field gate doesn't skip the member.
+        await service.setToken('valid-token');
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            directionConfirmed: const Value(true),
+            mappingAcknowledged: const Value(true),
+            fieldSyncConfig: Value(
+              serializeFieldSyncConfig(
+                const {},
+                globalDirection: PkSyncDirection.bidirectional,
+              ),
+            ),
+          ),
+        );
+        await service.loadState();
+        capture.events.clear();
+
+        // The fake client reports `currentToken == 'fake-token'`; the failure
+        // message embeds it so we can assert it's stripped by redaction.
+        final result = await service.pushMemberUpdate(
+          domain.Member(
+            id: 'm-1',
+            name: 'Ada',
+            createdAt: DateTime.utc(2026),
+            pluralkitId: 'aaaaa',
+            pluralkitUuid: 'uuid-m1',
+            pluralkitDisplayName: 'Ada',
+          ),
+          pushService: _FailingPushService(
+            Exception('boom token=fake-token leaked'),
+          ),
+        );
+
+        expect(result, isFalse);
+        final failures = capture.events.whereType<PkRequestFailed>().toList();
+        expect(failures, hasLength(1));
+        expect(failures.single.stage, 'pushMemberUpdate');
+        expect(
+          failures.single.message.contains('fake-token'),
+          isFalse,
+          reason: 'token must be redacted from the failure event',
+        );
+        expect(failures.single.message.contains('[REDACTED]'), isTrue);
+      },
+    );
+
+    test(
       'importMembersOnly success emits PkMembersImported with count',
       () async {
         final db = AppDatabase(NativeDatabase.memory());
@@ -358,6 +429,62 @@ void main() {
       },
     );
 
+    test(
+      'M3: a 401 MID-sync emits PkTokenAuthFailed + a distinct auth syncError '
+      '(not the generic formatted error), without auto-clearing the token',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final capture = PkSyncEventBusCapture();
+        const token = 'valid-then-revoked';
+        // getSystem passes (connect ok); getMembers throws 401 mid-sync.
+        final client = _FakeClient(throwAuthOnGetMembers: true);
+        final service = _makeService(
+          db: db,
+          bus: capture.bus,
+          client: client,
+          tokenOverride: token,
+        );
+
+        // Fully set up AND already synced once (lastSyncDate set) so we take
+        // the incremental branch that calls getMembers — not performFullImport.
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            isConnected: const Value(true),
+            directionConfirmed: const Value(true),
+            mappingAcknowledged: const Value(true),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 1)),
+          ),
+        );
+        await service.loadState();
+
+        await expectLater(
+          service.syncRecentData(direction: PkSyncDirection.pullOnly),
+          throwsA(isA<PluralKitAuthError>()),
+        );
+
+        // Dedicated auth event emitted.
+        expect(capture.events.whereType<PkTokenAuthFailed>(), hasLength(1));
+
+        // User-facing syncError is the actionable re-link copy, NOT the bare
+        // exception toString.
+        final syncError = service.state.syncError ?? '';
+        expect(syncError, contains('re-link'));
+        expect(syncError.contains('PluralKitAuthError'), isFalse);
+
+        // The request-failed event is tagged auth (not 'unknown').
+        final failures = capture.events.whereType<PkRequestFailed>().toList();
+        expect(failures, hasLength(1));
+        expect(failures.single.stage, 'syncRecentData');
+        expect(failures.single.errorKind, 'auth');
+
+        // The token must NOT be auto-cleared — the row still has it / no
+        // PkTokenCleared was emitted.
+        expect(capture.events.whereType<PkTokenCleared>(), isEmpty);
+      },
+    );
+
     // PARTIAL COVERAGE: A green PkSyncPullCompleted + PkSwitchPushed(pushed)
     // happy path requires a pre-existing lastSyncDate, a valid mapped member
     // set, and a multi-page PK switch fake — that fixture lives in the
@@ -390,4 +517,23 @@ void main() {
       });
     });
   });
+}
+
+/// PkPushService that throws on `pushMemberFull` — drives the M11
+/// member-edit failure event path.
+class _FailingPushService extends PkPushService {
+  _FailingPushService(this.error);
+
+  final Object error;
+
+  @override
+  Future<PKMember> pushMemberFull(
+    domain.Member member,
+    PluralKitClient client, {
+    PKMember? pkMember,
+    bool includeProxyTags = true,
+    Set<String>? allowedFields,
+  }) async {
+    throw error;
+  }
 }
