@@ -92,6 +92,11 @@ class _FakeClient implements PluralKitClient {
   final List<String> deletedMembers = [];
   final List<String> deletedSwitches = [];
 
+  /// PK-side switch snapshots served by [getSwitch] (2026-06 PK audit H2:
+  /// the deletion pusher fetches the authoritative co-fronter list before
+  /// any switch write). Missing ref → 404 with code 20007, like live PK.
+  final Map<String, PKSwitch> switchSnapshots = {};
+
   /// Status to return from deleteMember/deleteSwitch. `null` = 204 success.
   int? memberDeleteStatus;
   int? switchDeleteStatus;
@@ -121,6 +126,19 @@ class _FakeClient implements PluralKitClient {
     if (status != null) {
       throw PluralKitApiError(status, 'err');
     }
+  }
+
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) async {
+    final sw = switchSnapshots[switchRef.trim()];
+    if (sw == null) {
+      throw const PluralKitApiError(
+        404,
+        '{"message":"Switch not found.","code":20007}',
+        code: 20007,
+      );
+    }
+    return sw;
   }
 
   // -- unused-but-required stubs --------------------------------------------
@@ -614,13 +632,21 @@ void main() {
             's1',
             startTime: DateTime(2026, 2, 1),
             endTime: DateTime(2026, 2, 1, 1),
+            memberId: 'local-a',
             pluralkitUuid: _switchUuid1,
             isDeleted: true,
             deleteIntentEpoch: 0,
           ),
         );
 
-      final client = _FakeClient();
+      // 2026-06 PK audit H2: the pusher GETs the switch and only DELETEs
+      // when the departing member is the snapshot's sole fronter.
+      final client = _FakeClient()
+        ..switchSnapshots[_switchUuid1] = PKSwitch(
+          id: _switchUuid1,
+          timestamp: DateTime.utc(2026, 2, 1),
+          members: const ['pkA'],
+        );
       final (:svc, :epoch) = await _makeService(
         client: client,
         db: db,
@@ -864,12 +890,18 @@ void main() {
           _session(
             's1',
             startTime: DateTime(2026, 2, 1),
+            memberId: 'local-a',
             pluralkitUuid: _switchUuid1,
             isDeleted: true,
             deleteIntentEpoch: 0,
           ),
         );
-      final client = _FakeClient();
+      final client = _FakeClient()
+        ..switchSnapshots[_switchUuid1] = PKSwitch(
+          id: _switchUuid1,
+          timestamp: DateTime.utc(2026, 2, 1),
+          members: const ['pkA'],
+        );
       final (:svc, :epoch) = await _makeService(
         client: client,
         db: db,
@@ -1092,12 +1124,18 @@ void main() {
           _session(
             's1',
             startTime: DateTime(2026, 2, 1),
+            memberId: 'local-a',
             pluralkitUuid: _switchUuid1,
             isDeleted: true,
             deleteIntentEpoch: 0,
           ),
         );
-      final client = _FakeClient();
+      final client = _FakeClient()
+        ..switchSnapshots[_switchUuid1] = PKSwitch(
+          id: _switchUuid1,
+          timestamp: DateTime.utc(2026, 2, 1),
+          members: const ['pkA'],
+        );
       final (:svc, :epoch) = await _makeService(
         client: client,
         db: db,

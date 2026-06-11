@@ -252,6 +252,9 @@ PluralKitSyncService _makePkImportService(
 }
 
 class _PkMigrationFakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   _PkMigrationFakeClient({
     required this.members,
     required this.switchesNewestFirst,

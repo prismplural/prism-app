@@ -79,6 +79,9 @@ void _installSecureStorageStub() {
 // ---------------------------------------------------------------------------
 
 class _FakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   final String _systemId;
   final List<PKMember> _members;
 

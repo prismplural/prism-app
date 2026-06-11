@@ -89,6 +89,9 @@ class _SecureStorageStub {
 // ---------------------------------------------------------------------------
 
 class FakePluralKitClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   int getSystemCallCount = 0;
   int getSwitchesCallCount = 0;
   int getMembersCallCount = 0;
@@ -3581,6 +3584,7 @@ class _CountingPushService extends PkPushService {
     PluralKitClient client, {
     PKMember? pkMember,
     bool includeProxyTags = true,
+    Set<String>? allowedFields,
   }) async {
     pushMemberCallCount++;
     return 'stub';

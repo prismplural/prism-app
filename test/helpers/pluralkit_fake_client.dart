@@ -2,6 +2,9 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 class FakePluralKitClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   FakePluralKitClient({
     this.system = const PKSystem(id: 'pk-system', name: 'Test PK System'),
     this.members = const <PKMember>[],

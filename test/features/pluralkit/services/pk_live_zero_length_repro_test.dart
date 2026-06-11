@@ -220,6 +220,9 @@ domain.Member _localMember({
 }
 
 class _ScopedSwitchClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   _ScopedSwitchClient({
     required this.delegate,
     required List<PKSwitch> switchesNewestFirst,

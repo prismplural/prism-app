@@ -1157,6 +1157,9 @@ void main() {
 }
 
 class _StubClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   final List<PKGroup> groups;
   _StubClient(this.groups);
   @override
@@ -1590,6 +1593,9 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
 /// Minimal PluralKitClient stub for reattribute tests — only getGroups is
 /// invoked, everything else throws.
 class _ReattributeFakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   _ReattributeFakeClient(this._groups);
   final List<PKGroup> _groups;
 

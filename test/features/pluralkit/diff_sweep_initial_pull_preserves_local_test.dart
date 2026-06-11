@@ -73,6 +73,9 @@ class _SecureStorageStub {
 // ---------------------------------------------------------------------------
 
 class _FakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   final List<List<PKSwitch>> switchPages;
 
   _FakeClient(this.switchPages);

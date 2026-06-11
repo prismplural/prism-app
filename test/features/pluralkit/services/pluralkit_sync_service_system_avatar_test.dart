@@ -59,6 +59,9 @@ class _SecureStorageStub {
 // ---------------------------------------------------------------------------
 
 class _FakePKClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   PKSystem system = const PKSystem(id: 'sys-1', name: 'Test');
 
   @override

@@ -36,6 +36,9 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 /// switches, no groups. Used so the full-import path can run end-to-end with
 /// only the member loop doing meaningful work.
 class _ProgressFakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   _ProgressFakeClient({required this.members});
 
   final List<PKMember> members;

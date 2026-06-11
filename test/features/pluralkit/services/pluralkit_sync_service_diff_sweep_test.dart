@@ -81,6 +81,9 @@ class _SecureStorageStub {
 // ---------------------------------------------------------------------------
 
 class _FakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   /// Pages are popped in order. Each call to getSwitches removes the first page.
   /// When empty, returns [].
   final List<List<PKSwitch>> switchPages;
@@ -162,6 +165,86 @@ class _FakeClient implements PluralKitClient {
   @override
   Future<PKSwitch?> getCurrentFronters() async => null;
 
+  @override
+  void dispose() {}
+}
+
+// ---------------------------------------------------------------------------
+// Fake client that genuinely paginates by `before` (strictly exclusive,
+// newest-first, limit clamped to 100) over a full switch history. Unlike
+// [_FakeClient] (which pre-cans pages and ignores `before`), this is the only
+// way to exercise the incremental sweep's pagination — the structural blind
+// spot that let 2026-06 PK audit H3 survive.
+// ---------------------------------------------------------------------------
+
+class _PaginatingClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
+  /// Full history, any order — sorted newest-first internally.
+  _PaginatingClient(List<PKSwitch> history)
+    : _history = [...history]
+        ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+  final List<PKSwitch> _history;
+
+  /// Number of getSwitches calls — lets a test prove paging actually happened.
+  int pageCalls = 0;
+
+  @override
+  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+    pageCalls++;
+    final clamped = limit > 100 ? 100 : limit;
+    final filtered = before == null
+        ? _history
+        // Strictly exclusive: t < before (newest-first already).
+        : _history.where((s) => s.timestamp.isBefore(before)).toList();
+    return filtered.take(clamped).toList();
+  }
+
+  @override
+  String get currentToken => 'fake-token';
+  @override
+  Future<PKSystem> getSystem() async => const PKSystem(id: 'sys', name: 'T');
+  @override
+  Future<List<PKMember>> getMembers() async => const [];
+  @override
+  Future<PKMember> getMember(String memberRef) => throw UnimplementedError();
+  @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
+  @override
+  Future<List<String>> getGroupMembers(String groupRef) async => const [];
+  @override
+  Future<void> addMembersToGroup(String groupRef, List<String> memberRefs) =>
+      throw UnimplementedError();
+  @override
+  Future<void> removeMembersFromGroup(
+    String groupRef,
+    List<String> memberRefs,
+  ) => throw UnimplementedError();
+  @override
+  Future<PKMember> createMember(Map<String, dynamic> data) =>
+      throw UnimplementedError();
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> updateSwitch(String switchId, {required DateTime timestamp}) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> updateSwitchMembers(String switchId, List<String> memberIds) =>
+      throw UnimplementedError();
+  @override
+  Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
+  @override
+  Future<void> deleteMember(String id) => throw UnimplementedError();
+  @override
+  Future<List<int>> downloadBytes(String url) async => const [];
+  @override
+  Future<PKSwitch?> getCurrentFronters() async => null;
   @override
   void dispose() {}
 }
@@ -331,7 +414,7 @@ domain.Member _member({
 
 PluralKitSyncService _makeService({
   required AppDatabase db,
-  required _FakeClient client,
+  required PluralKitClient client,
   DriftMemberRepository? memberRepo,
   DriftFrontingSessionRepository? sessionRepo,
 }) {
@@ -2464,5 +2547,93 @@ void main() {
         expect(raw!.isDeleted, isTrue);
       },
     );
+  });
+
+  // -- 2026-06 PK audit H3: null-cursor incremental sweep paginates ALL ------
+  //
+  // Previously `reachedCursor = (cursor == null)` + `if (reachedCursor)
+  // break;` made the incremental sweep import only the newest ≤100 switches
+  // and then advance the cursor past everything older — a silent permanent
+  // history gap. These tests use a `before`-honoring fake client over a
+  // >150-switch fixture and assert the null-cursor path walks every page.
+
+  group('null-cursor incremental pagination (H3)', () {
+    test('null cursor imports ALL switches, not just the newest page', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+
+      // 175 switches: A enters at the OLDEST and stays fronting the whole
+      // time (every switch lists ['pkA']). The diff sweep collapses this to
+      // exactly ONE open A row anchored at the OLDEST switch — but only if
+      // the sweep actually paged back far enough to SEE the oldest switch.
+      // If H3 regressed (only the newest 100 fetched), the row would anchor
+      // on a newer switch and the oldest pages would be silently dropped.
+      const total = 175;
+      final base = DateTime.utc(2026, 1, 1, 0);
+      final history = <PKSwitch>[
+        for (var i = 0; i < total; i++)
+          PKSwitch(
+            // Zero-padded ids so lexicographic id tiebreaks are stable.
+            id: 'sw-${i.toString().padLeft(4, '0')}',
+            timestamp: base.add(Duration(minutes: i)),
+            members: const ['pkA'],
+          ),
+      ];
+      const oldestSwitchId = 'sw-0000';
+      final newestSwitchId = 'sw-${(total - 1).toString().padLeft(4, '0')}';
+
+      // Incremental branch: lastSyncDate set, cursor NULL.
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          switchCursorTimestamp: const Value(null),
+          switchCursorId: const Value(null),
+          lastSyncDate: Value(base.add(const Duration(days: 1))),
+        ),
+      );
+
+      final client = _PaginatingClient(history);
+      final service = _makeService(db: db, client: client);
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.loadState();
+
+      await service.syncRecentData();
+
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      final sessions = await sessionRepo.getAllSessions();
+      expect(
+        sessions,
+        hasLength(1),
+        reason: 'A fronted continuously → one collapsed open row',
+      );
+      expect(
+        sessions.single.pluralkitUuid,
+        oldestSwitchId,
+        reason: 'H3: the OLDEST switch must be reached — the row anchors there '
+            'only if every page back to the start was fetched',
+      );
+      expect(sessions.single.endTime, isNull);
+
+      // Proof the client genuinely paged (175 over 100/page = ≥2 pages).
+      expect(
+        client.pageCalls,
+        greaterThanOrEqualTo(2),
+        reason: 'a single page could not have covered 175 switches',
+      );
+
+      // Cursor advanced to the newest switch.
+      final state = await db.pluralKitSyncDao.getSyncState();
+      expect(state.switchCursorId, newestSwitchId);
+    });
   });
 }

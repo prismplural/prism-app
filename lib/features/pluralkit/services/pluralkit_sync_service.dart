@@ -1643,7 +1643,17 @@ class PluralKitSyncService {
         final newSwitches = <PKSwitch>[];
         int pageNum = 0;
         int totalFetched = 0;
-        bool reachedCursor = (cursor == null); // no cursor → fetch all
+        // 2026-06 PK audit H3: `reachedCursor` must start false. When the
+        // cursor is null we want to walk ALL of history, so there is nothing
+        // to "reach" — the loop terminates on a short page (`< 100`) or the
+        // `_maxIncrementalPages` cap. The previous `cursor == null` seed broke
+        // exactly the null-cursor case: page 1 fetched the newest ≤100
+        // switches, `if (reachedCursor) break;` exited before paging older
+        // ones, and the cursor then advanced past everything else — a silent
+        // permanent history gap (reachable on first link of a >100-switch
+        // system, or after a full re-import reset the cursor while retaining
+        // `lastSyncDate`).
+        bool reachedCursor = false;
         DateTime? previousPageBefore;
 
         while (true) {
@@ -2775,7 +2785,18 @@ class PluralKitSyncService {
     // a row the sweep just wrote (WS3 step 9 / review finding #8). We
     // reuse the precomputed `uuidToLocalId` / `pkUuidByLocalId` from the
     // top of this method — no second member-table scan.
+    // We track BOTH the canonical deterministic ids (for the common case)
+    // and the canonical (switchUuid, localMemberId) PAIRS (2026-06 PK audit
+    // C1). The pair set is what lets us tell a locally-pushed front — which
+    // lives under a random v4 row id stamped with the switch uuid by
+    // `_stampEntrants`, never re-keyed to the deterministic id, so
+    // non-canonical by construction — apart from a true rescue artifact.
+    // A row whose (pluralkit_uuid, member_id) IS a canonical pair must be
+    // left alone even if its id isn't canonical; the corrective sweep's
+    // `_findSessionByPkSwitchAndMember` fallback adopts and updates it in
+    // place, preserving the locally-pushed history under its existing row id.
     final canonicalIds = <String>{};
+    final canonicalPairs = <String>{};
     final canonPrev = <String>{};
     for (final sw in allSwitches) {
       final newActive = <String>{};
@@ -2794,27 +2815,81 @@ class PluralKitSyncService {
             pkUuidByLocalId: pkUuidByLocalId,
           ),
         );
+        canonicalPairs.add(_canonicalPairKey(sw.id, entrantLocalId));
       }
       canonPrev
         ..clear()
         ..addAll(newActive);
     }
+    // Members the canonical set could actually resolve. A row whose
+    // `member_id` is NOT in here (member unmapped, auto-unlinked, or
+    // `pluralkitSyncIgnored`) must be left entirely alone — see 2026-06 PK
+    // audit H4: a member temporarily excluded/unmapped on this device must
+    // not have its history tombstoned (and, via C1, its shared switches
+    // queued for PK-side deletion) just because the canonical set, built
+    // only from currently-resolvable members, doesn't cover it.
+    //
+    // Built from the COMPOSED mapping (shortIdToUuid ∘ uuidToLocalId) —
+    // exactly the resolution chain the canonical loop above uses. Building
+    // it from `uuidToLocalId.values` alone would mark a member with a uuid
+    // but an empty short id as "resolvable" even though the canonical set
+    // can never reach them (switch payloads list short ids), tombstoning
+    // their rows instead of H4-skipping them.
+    final resolvableMemberIds = <String>{
+      for (final pkUuid in shortIdToUuid.values)
+        if (uuidToLocalId.containsKey(pkUuid)) uuidToLocalId[pkUuid]!,
+    };
     var tombstonedStale = 0;
+    var adoptedCanonicalPair = 0;
+    var skippedUnresolvableMember = 0;
     await _syncDao.attachedDatabase.transaction(() async {
       final allSessions = await _frontingSessionRepository.getAllSessions();
       for (final s in allSessions) {
-        if (isPluralKitSwitchUuid(s.pluralkitUuid) &&
-            !s.isDeleted &&
-            !canonicalIds.contains(s.id)) {
-          await _frontingSessionRepository.deleteSession(s.id);
-          tombstonedStale++;
+        if (!isPluralKitSwitchUuid(s.pluralkitUuid) || s.isDeleted) continue;
+        // Already canonical by id — the sweep will adopt it; nothing to do.
+        if (canonicalIds.contains(s.id)) continue;
+
+        final memberId = s.memberId;
+        // H4: member this row belongs to isn't currently resolvable —
+        // never destroy its history here.
+        if (memberId == null || !resolvableMemberIds.contains(memberId)) {
+          skippedUnresolvableMember++;
+          continue;
         }
+
+        // C1: the row's (switch, member) pair IS canonical even though its
+        // id is non-canonical (a locally-pushed front under a random v4 id,
+        // or a legacy/pre-derivation row id). Leave it live — the sweep's
+        // `_findSessionByPkSwitchAndMember` fallback adopts and updates it
+        // in place under its existing id.
+        if (canonicalPairs.contains(
+          _canonicalPairKey(s.pluralkitUuid!, memberId),
+        )) {
+          adoptedCanonicalPair++;
+          continue;
+        }
+
+        // Survivor: resolvable member, pair NOT canonical (a genuine rescue
+        // fan-out artifact, or a switch the API no longer reports). Tombstone
+        // it — but clear the PK link FIRST so `_pushPendingSwitchDeletions`
+        // does not mistake importer cleanup for a user-requested PluralKit
+        // deletion (C1; mirrors the zero-length-close idiom). Skipping the
+        // `clearPluralKitLink` here is exactly what queued real
+        // `DELETE /switches/{uuid}` calls against live PK history.
+        await _frontingSessionRepository.clearPluralKitLink(s.id);
+        await _frontingSessionRepository.deleteSession(s.id);
+        tombstonedStale++;
       }
     });
-    if (tombstonedStale > 0) {
+    if (tombstonedStale > 0 ||
+        adoptedCanonicalPair > 0 ||
+        skippedUnresolvableMember > 0) {
       debugPrint(
-        '[PK_FULL_IMPORT] tombstoned $tombstonedStale stale PK-linked '
-        'rows not in canonical API set (rescue fan-out artifacts).',
+        '[PK_FULL_IMPORT] canonicalization: tombstoned $tombstonedStale '
+        'rescue/orphan rows (link cleared, no delete intent), left '
+        '$adoptedCanonicalPair rows with canonical (switch,member) pairs '
+        'for in-place adoption, skipped $skippedUnresolvableMember rows '
+        'for unresolvable members (2026-06 PK audit C1/H4).',
       );
     }
 
@@ -3410,6 +3485,15 @@ class PluralKitSyncService {
     return _PkUpsertOutcome.row(existing.id);
   }
 
+  /// Stable key for a canonical (switch uuid, local member id) pair. Used by
+  /// the canonicalization pass (2026-06 PK audit C1) to recognize a
+  /// locally-pushed front whose row id is non-canonical but whose
+  /// (pluralkit_uuid, member_id) the API still agrees with — those rows are
+  /// adopted in place by the sweep, never tombstoned. Switch uuids and local
+  /// member ids never contain ' ', so it is a collision-free separator.
+  static String _canonicalPairKey(String switchUuid, String localMemberId) =>
+      '$switchUuid $localMemberId';
+
   Future<domain.FrontingSession?> _findSessionByPkSwitchAndMember({
     required String switchId,
     required String localId,
@@ -3751,12 +3835,17 @@ class PluralKitSyncService {
       )) {
         final age = Duration(milliseconds: nowMs - startedAtMs!);
         debugPrint(
-          '[PK] Switch deletion for ${session.id} started by another '
-          'device ${age.inSeconds}s ago — skipping this pass.',
+          '[PK] Switch deletion for ${session.id} has an active lease '
+          '(stamped ${age.inSeconds}s ago by another device or by a prior '
+          'failed attempt on this one) — skipping this pass.',
         );
         continue;
       }
       if (startedAtMs == null) {
+        // NB: the lease is stamped before the snapshot GET below, so a
+        // transient GET/PATCH failure burns up to the full lease window
+        // before this device retries. That mirrors the pre-existing
+        // DELETE-failure behavior and errs toward never double-writing PK.
         await _frontingSessionRepository.stampDeletePushStartedAt(
           session.id,
           nowMs,
@@ -3803,6 +3892,151 @@ class PluralKitSyncService {
         await _frontingSessionRepository.clearPluralKitLink(session.id);
         continue;
       }
+
+      // 2026-06 PK audit H2: a PK switch is a FULL fronting snapshot shared
+      // by ALL its co-fronters — there is no per-member switch-delete on the
+      // API. `DELETE /switches/{uuid}` erases EVERY member's entry at that
+      // switch, so "remove one member" must be a members PATCH down to the
+      // remaining co-fronters. Crucially, the remaining list must come from
+      // PK ITSELF: local canonical rows only carry ENTRANT switch uuids, so
+      // a member who entered at an EARLIER switch and was still fronting at
+      // this one has no local row linked here — any locally-derived sibling
+      // list silently drops continuing fronters from the snapshot (and the
+      // inverse heuristic fails too: DELETE is harmless to continuing
+      // members but erases co-entrants). So: fetch the switch, subtract the
+      // departing member, and PATCH/DELETE based on what PK actually has.
+      final PKSwitch pkSwitchSnapshot;
+      try {
+        pkSwitchSnapshot = await client.getSwitch(pkUuid.trim());
+      } on PluralKitAuthError {
+        rethrow;
+      } on PluralKitApiError catch (e) {
+        if (e.statusCode == 404 ||
+            e.code == 20007 ||
+            (e.statusCode == 400 && e.code == 40006)) {
+          // Switch gone (or its ref is invalid) — nothing to delete or
+          // remove on PK. Clear the link so we stop retrying.
+          debugPrint(
+            '[PK] Switch ${pkUuid.trim()} for deleted session ${session.id} '
+            'is gone/invalid on PK (${e.statusCode}/${e.code}); clearing '
+            'local link.',
+          );
+          await _frontingSessionRepository.clearPluralKitLink(session.id);
+          continue;
+        }
+        debugPrint(
+          '[PK] Failed to fetch switch ${pkUuid.trim()} before deletion '
+          'push: $e — retrying next pass.',
+        );
+        continue;
+      } catch (e) {
+        debugPrint(
+          '[PK] Failed to fetch switch ${pkUuid.trim()} before deletion '
+          'push: $e — retrying next pass.',
+        );
+        continue;
+      }
+
+      // Resolve the departing member's PK refs so we can subtract them from
+      // the snapshot. Hids are case-insensitive on PK, and the snapshot list
+      // could in principle carry uuids — match both, trimmed + lowercased.
+      final departingLocalId = fresh.memberId;
+      final departingMember = departingLocalId == null
+          ? null
+          : await _memberRepository.getMemberById(departingLocalId);
+      final departShort = departingMember?.pluralkitId?.trim().toLowerCase();
+      final departUuid = departingMember?.pluralkitUuid?.trim().toLowerCase();
+      final hasShort = departShort != null && departShort.isNotEmpty;
+      final hasUuid = departUuid != null && departUuid.isNotEmpty;
+      if (!hasShort && !hasUuid) {
+        // Fail-safe: we cannot tell which snapshot entry is the departing
+        // member, so we can neither PATCH nor safely DELETE (the snapshot
+        // may include co-fronters). Clear the local link and leave PK alone.
+        debugPrint(
+          '[PK] Deleted session ${session.id} has no resolvable PK member '
+          'ref (memberId=$departingLocalId); clearing local link WITHOUT '
+          'touching PK (2026-06 PK audit H2 fail-safe).',
+        );
+        await _frontingSessionRepository.clearPluralKitLink(session.id);
+        continue;
+      }
+
+      // PK's order is preserved — only the departing member is subtracted.
+      final remaining = <String>[];
+      var removedAny = false;
+      for (final ref in pkSwitchSnapshot.members) {
+        final norm = ref.trim().toLowerCase();
+        if ((hasShort && norm == departShort) ||
+            (hasUuid && norm == departUuid)) {
+          removedAny = true;
+          continue;
+        }
+        remaining.add(ref);
+      }
+
+      if (!removedAny) {
+        // The departing member is not on the PK switch at all — the removal
+        // is already effective server-side. Handled, not pushed.
+        debugPrint(
+          '[PK] Member $departingLocalId is not on switch ${pkUuid.trim()} '
+          'per PK snapshot; nothing to remove — clearing local link.',
+        );
+        await _frontingSessionRepository.clearPluralKitLink(session.id);
+        continue;
+      }
+
+      if (remaining.isNotEmpty) {
+        try {
+          // Co-fronters remain on the snapshot: patch the switch down to
+          // them, removing only the departing member.
+          await client.updateSwitchMembers(pkUuid.trim(), remaining);
+          await _frontingSessionRepository.clearPluralKitLink(session.id);
+          deleted++;
+          debugPrint(
+            '[PK] Removed member from shared switch ${pkUuid.trim()} via '
+            'members PATCH (${remaining.length} co-fronter(s) kept, PK '
+            'order preserved) instead of deleting the switch (2026-06 PK '
+            'audit H2).',
+          );
+        } on PluralKitApiError catch (e) {
+          if (e is PluralKitAuthError) {
+            rethrow;
+          } else if (e.statusCode == 404 || e.code == 20007) {
+            // Switch vanished between GET and PATCH. Clear the link.
+            debugPrint(
+              '[PK] Shared switch ${pkUuid.trim()} vanished before members '
+              'PATCH; clearing local link.',
+            );
+            await _frontingSessionRepository.clearPluralKitLink(session.id);
+          } else if (e.statusCode == 400 &&
+              (e.code == 40004 || e.message.contains('40004'))) {
+            // PK rejected the PATCH as identical-to-current — the member
+            // set already matches `remaining`, so the removal is
+            // effectively done. Treat as success.
+            debugPrint(
+              '[PK] Members PATCH on shared switch ${pkUuid.trim()} '
+              'reported 40004 (already identical); treating as success.',
+            );
+            await _frontingSessionRepository.clearPluralKitLink(session.id);
+            deleted++;
+          } else {
+            debugPrint(
+              '[PK] Members PATCH failed removing member from shared switch '
+              '${pkUuid.trim()}: $e',
+            );
+          }
+        } catch (e) {
+          debugPrint(
+            '[PK] Members PATCH failed removing member from shared switch '
+            '${pkUuid.trim()}: $e',
+          );
+        }
+        continue;
+      }
+
+      // The departing member was the snapshot's SOLE fronter — full-snapshot
+      // semantics mean no continuing member exists on this switch, so the
+      // historical DELETE path below is safe.
       try {
         await push.pushSwitchDeletion(session.id, pkUuid.trim(), client);
         await _frontingSessionRepository.clearPluralKitLink(session.id);
@@ -3820,6 +4054,22 @@ class PluralKitSyncService {
     }
     return deleted;
   }
+
+  /// Test-only entry point onto the switch-deletion pusher so the 2026-06 PK
+  /// audit H2 PK-snapshot-based behavior (GET the switch, PATCH out the
+  /// departing member, DELETE only sole-fronter snapshots) can be exercised
+  /// in isolation (without the full `syncRecentData` pull/push pipeline).
+  /// Production callers go through `syncRecentData`.
+  @visibleForTesting
+  Future<int> debugPushPendingSwitchDeletions({
+    required PluralKitClient client,
+    void Function(String message)? onStaleLink,
+    PkPushService? pushServiceOverride,
+  }) => _pushPendingSwitchDeletions(
+    client: client,
+    onStaleLink: onStaleLink,
+    pushServiceOverride: pushServiceOverride,
+  );
 
   /// Push pending member deletions. Runs AFTER switch deletions (caller
   /// orders). R5 cascade guard included: skip any member that still has

@@ -56,6 +56,9 @@ class _SecureStorageStub {
 /// `dispose()` — the entry points `importSystemAvatar` uses. Other methods
 /// throw if exercised, which helps surface incidental usage in tests.
 class _FakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   _FakeClient(this.system);
   final PKSystem system;
   int getSystemCalls = 0;

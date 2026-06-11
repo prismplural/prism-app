@@ -59,6 +59,9 @@ class _SecureStorageStub {
 /// `FakePluralKitClient` in `pluralkit_sync_service_test.dart` but pared down
 /// to the surface used by event-emission tests.
 class _FakeClient implements PluralKitClient {
+  @override
+  Future<PKSwitch> getSwitch(String switchRef) =>
+      throw UnimplementedError();
   _FakeClient({
     this.systemToReturn = const PKSystem(id: 'sys-1', name: 'Event System'),
     this.membersToReturn = const [],
