@@ -260,6 +260,46 @@ void main() {
       expect(entry!.pendingPkOp, 'push_add');
       expect(repo.creates.length, createsBefore);
     });
+
+    test(
+      'reviving a stale tombstone refreshes the created_at recency stamp '
+      '(2026-06 PK audit wave-3 verifier issue 1 — intent age, not row age)',
+      () async {
+        await setupRepo(
+          members: [_member(id: 'm1', pluralkitUuid: 'pk-m1')],
+        );
+        await _seedGroup(db, id: 'g1', pluralkitUuid: 'pk-g1');
+
+        // Build the tombstone, then BACKDATE its stamp far past the push
+        // retry cap. The revive runs through upsertEntry's
+        // insertOnConflictUpdate, whose DO UPDATE writes only the companion —
+        // clientDefault does NOT fire, so without the explicit createdAt in
+        // addMemberToGroup's companion the revived push_add would inherit
+        // this stale stamp and be instantly "expired" under the age cap.
+        await repo.addMemberToGroup('g1', 'm1', 'unused-uuid');
+        await repo.removeMemberFromGroup('g1', 'm1');
+        final tombstoneId = (await (db.select(db.memberGroupEntries)
+              ..where((e) => e.memberId.equals('m1'))).getSingle())
+            .id;
+        final stale = DateTime.now().subtract(const Duration(days: 60));
+        await (db.update(db.memberGroupEntries)
+              ..where((e) => e.id.equals(tombstoneId)))
+            .write(MemberGroupEntriesCompanion(createdAt: Value(stale)));
+
+        final before = DateTime.now().subtract(const Duration(seconds: 5));
+        await repo.addMemberToGroup('g1', 'm1', 'unused-uuid');
+
+        final revived = await _findEntry(db, 'g1', 'm1');
+        expect(revived!.isDeleted, isFalse);
+        expect(revived.pendingPkOp, 'push_add');
+        expect(revived.createdAt, isNotNull);
+        expect(
+          revived.createdAt!.isAfter(before),
+          isTrue,
+          reason: 'the upsert revive must restamp created_at explicitly',
+        );
+      },
+    );
   });
 
   group('removeMemberFromGroup pending_pk_op', () {

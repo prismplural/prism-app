@@ -552,4 +552,160 @@ void main() {
       expect(affected, 0);
     });
   });
+
+  // 2026-06 PK audit wave-3 DAO additions.
+  group('wave-3 audit DAO methods', () {
+    test('getGroupByIdIncludingDeleted finds a tombstone (M13)', () async {
+      await db.into(db.memberGroups).insert(
+            pkFixtureGroup(id: 'g1', isDeleted: true),
+          );
+      final row = await db.memberGroupsDao.getGroupByIdIncludingDeleted('g1');
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isTrue);
+      // The active-only accessor must NOT see it.
+      expect(await db.memberGroupsDao.getGroupById('g1'), isNull);
+    });
+
+    test('getGroupByIdIncludingDeleted returns null for an unknown id',
+        () async {
+      expect(
+        await db.memberGroupsDao.getGroupByIdIncludingDeleted('nope'),
+        isNull,
+      );
+    });
+
+    test(
+      'deleteGroup KEEPS pluralkit_uuid on the tombstone '
+      '(wave-3 verifier issue 3 — uuid findability for the M13 guard)',
+      () async {
+        await db.into(db.memberGroups).insert(
+              pkFixtureGroup(id: 'g1', pluralkitUuid: 'pk-g1'),
+            );
+        await db.memberGroupsDao.deleteGroup('g1');
+
+        final tombstone =
+            await db.memberGroupsDao.getGroupByIdIncludingDeleted('g1');
+        expect(tombstone!.isDeleted, isTrue);
+        expect(tombstone.pluralkitUuid, 'pk-g1',
+            reason: 'the partial unique index only covers active rows, so '
+                'the tombstone can and must keep its uuid');
+        // And the uuid-keyed tombstone lookup the importer guard uses sees it.
+        final byUuid = await db.memberGroupsDao
+            .findByPluralkitUuidIncludingDeleted('pk-g1');
+        expect(byUuid, isNotNull);
+        expect(byUuid!.id, 'g1');
+        // Re-import-shaped insert under the same uuid must not violate the
+        // partial unique index (tombstones are excluded from it).
+        await db.into(db.memberGroups).insert(
+              pkFixtureGroup(id: 'g1-new', pluralkitUuid: 'pk-g1'),
+            );
+      },
+    );
+
+    test(
+      'softDeleteEntryWithPendingOp refreshes created_at '
+      '(wave-3 verifier issue 1 — intent age, not row age)',
+      () async {
+        await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(id: 'e1', groupId: 'g1', memberId: 'm1'),
+            );
+        // Backdate to simulate a steady-state membership far older than the
+        // push retry cap.
+        await (db.update(db.memberGroupEntries)
+              ..where((e) => e.id.equals('e1')))
+            .write(
+          MemberGroupEntriesCompanion(
+            createdAt:
+                Value(DateTime.now().subtract(const Duration(days: 60))),
+          ),
+        );
+
+        final before = DateTime.now().subtract(const Duration(seconds: 5));
+        await db.memberGroupsDao.softDeleteEntryWithPendingOp(
+          'e1',
+          pendingPkOp: 'push_remove',
+        );
+
+        final row = await (db.select(db.memberGroupEntries)
+              ..where((e) => e.id.equals('e1')))
+            .getSingle();
+        expect(row.isDeleted, isTrue);
+        expect(row.pendingPkOp, 'push_remove');
+        expect(row.createdAt!.isAfter(before), isTrue,
+            reason: 'queuing a remove must reset the intent-age clock');
+      },
+    );
+
+    test('member_group_entries.created_at clientDefault stamps now on insert',
+        () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
+      final before = DateTime.now().subtract(const Duration(seconds: 5));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'e1', groupId: 'g1', memberId: 'm1'),
+          );
+      final row = await (db.select(db.memberGroupEntries)
+            ..where((e) => e.id.equals('e1')))
+          .getSingle();
+      expect(row.createdAt, isNotNull);
+      expect(row.createdAt!.isAfter(before), isTrue,
+          reason: 'clientDefault must stamp a recent created_at (H6b)');
+    });
+
+    test('softDeleteEntryWithPendingOpGuarded only fires on the expected state '
+        '(H6c)', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
+      // Active row, push_remove (the CRDT-revive shape).
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'e1',
+              groupId: 'g1',
+              memberId: 'm1',
+              pendingPkOp: 'push_remove',
+            ),
+          );
+
+      // Matches expectedActive=true → re-tombstones.
+      final hits = await db.memberGroupsDao.softDeleteEntryWithPendingOpGuarded(
+        'e1',
+        pendingPkOp: 'push_remove',
+        expectedActive: true,
+      );
+      expect(hits, 1);
+      var row = await (db.select(db.memberGroupEntries)
+            ..where((e) => e.id.equals('e1')))
+          .getSingle();
+      expect(row.isDeleted, isTrue);
+
+      // A second call expecting active now MISSES (row is already deleted).
+      final miss = await db.memberGroupsDao.softDeleteEntryWithPendingOpGuarded(
+        'e1',
+        pendingPkOp: 'push_remove',
+        expectedActive: true,
+      );
+      expect(miss, 0);
+
+      // A push_add row is never matched (guard requires push_remove).
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'e2',
+              groupId: 'g1',
+              memberId: 'm2',
+              pendingPkOp: 'push_add',
+            ),
+          );
+      final addMiss = await db.memberGroupsDao
+          .softDeleteEntryWithPendingOpGuarded(
+        'e2',
+        pendingPkOp: 'push_remove',
+        expectedActive: true,
+      );
+      expect(addMiss, 0);
+      row = await (db.select(db.memberGroupEntries)
+            ..where((e) => e.id.equals('e2')))
+          .getSingle();
+      expect(row.isDeleted, isFalse,
+          reason: 'a concurrent push_add re-add must not be clobbered (H6c)');
+    });
+  });
 }

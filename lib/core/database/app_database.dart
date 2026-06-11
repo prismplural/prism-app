@@ -107,7 +107,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 36;
+  static const currentSchemaVersion = 37;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -930,6 +930,33 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         current = 36;
+      }
+      if (current == 36 && to >= 37) {
+        // member_group_entries.created_at — local-only creation stamp for the
+        // PK reconcile recency-grace window (2026-06 PK audit H6). NOT in
+        // prismSyncSchema. Idempotent: dev/test DBs created at the current
+        // schema may already carry it. Existing rows backfill to "now" so a
+        // device that upgrades mid-flight does not treat its entire pre-fix
+        // backlog as ancient and reconcile-delete it on the first pull; the
+        // grace window simply protects everything for one window post-upgrade,
+        // which is the fail-safe direction.
+        final entryCols = (await customSelect(
+          'PRAGMA table_info(member_group_entries)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!entryCols.contains('created_at')) {
+          await migrator.addColumn(
+            memberGroupEntries,
+            memberGroupEntries.createdAt,
+          );
+          // addColumn with a clientDefault leaves existing rows NULL; backfill
+          // to the migration wall-clock so the grace check has a real stamp.
+          await customStatement(
+            'UPDATE member_group_entries '
+            'SET created_at = ? WHERE created_at IS NULL',
+            [DateTime.now().millisecondsSinceEpoch ~/ 1000],
+          );
+        }
+        current = 37;
       }
       if (current != to) {
         throw UnsupportedError(

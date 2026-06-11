@@ -16101,6 +16101,18 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     defaultValue: const Constant('none'),
     clientDefault: () => 'none',
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: DateTime.now,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16110,6 +16122,7 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     pkMemberUuid,
     isDeleted,
     pendingPkOp,
+    createdAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16177,6 +16190,12 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         ),
       );
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
     return context;
   }
 
@@ -16214,6 +16233,10 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         DriftSqlType.string,
         data['${effectivePrefix}pending_pk_op'],
       )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      ),
     );
   }
 
@@ -16232,6 +16255,7 @@ class MemberGroupEntryRow extends DataClass
   final String? pkMemberUuid;
   final bool isDeleted;
   final String pendingPkOp;
+  final DateTime? createdAt;
   const MemberGroupEntryRow({
     required this.id,
     required this.groupId,
@@ -16240,6 +16264,7 @@ class MemberGroupEntryRow extends DataClass
     this.pkMemberUuid,
     required this.isDeleted,
     required this.pendingPkOp,
+    this.createdAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16255,6 +16280,9 @@ class MemberGroupEntryRow extends DataClass
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
     map['pending_pk_op'] = Variable<String>(pendingPkOp);
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
     return map;
   }
 
@@ -16271,6 +16299,9 @@ class MemberGroupEntryRow extends DataClass
           : Value(pkMemberUuid),
       isDeleted: Value(isDeleted),
       pendingPkOp: Value(pendingPkOp),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
     );
   }
 
@@ -16287,6 +16318,7 @@ class MemberGroupEntryRow extends DataClass
       pkMemberUuid: serializer.fromJson<String?>(json['pkMemberUuid']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       pendingPkOp: serializer.fromJson<String>(json['pendingPkOp']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
     );
   }
   @override
@@ -16300,6 +16332,7 @@ class MemberGroupEntryRow extends DataClass
       'pkMemberUuid': serializer.toJson<String?>(pkMemberUuid),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'pendingPkOp': serializer.toJson<String>(pendingPkOp),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
     };
   }
 
@@ -16311,6 +16344,7 @@ class MemberGroupEntryRow extends DataClass
     Value<String?> pkMemberUuid = const Value.absent(),
     bool? isDeleted,
     String? pendingPkOp,
+    Value<DateTime?> createdAt = const Value.absent(),
   }) => MemberGroupEntryRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -16319,6 +16353,7 @@ class MemberGroupEntryRow extends DataClass
     pkMemberUuid: pkMemberUuid.present ? pkMemberUuid.value : this.pkMemberUuid,
     isDeleted: isDeleted ?? this.isDeleted,
     pendingPkOp: pendingPkOp ?? this.pendingPkOp,
+    createdAt: createdAt.present ? createdAt.value : this.createdAt,
   );
   MemberGroupEntryRow copyWithCompanion(MemberGroupEntriesCompanion data) {
     return MemberGroupEntryRow(
@@ -16335,6 +16370,7 @@ class MemberGroupEntryRow extends DataClass
       pendingPkOp: data.pendingPkOp.present
           ? data.pendingPkOp.value
           : this.pendingPkOp,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
 
@@ -16347,7 +16383,8 @@ class MemberGroupEntryRow extends DataClass
           ..write('pkGroupUuid: $pkGroupUuid, ')
           ..write('pkMemberUuid: $pkMemberUuid, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('pendingPkOp: $pendingPkOp')
+          ..write('pendingPkOp: $pendingPkOp, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
@@ -16361,6 +16398,7 @@ class MemberGroupEntryRow extends DataClass
     pkMemberUuid,
     isDeleted,
     pendingPkOp,
+    createdAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -16372,7 +16410,8 @@ class MemberGroupEntryRow extends DataClass
           other.pkGroupUuid == this.pkGroupUuid &&
           other.pkMemberUuid == this.pkMemberUuid &&
           other.isDeleted == this.isDeleted &&
-          other.pendingPkOp == this.pendingPkOp);
+          other.pendingPkOp == this.pendingPkOp &&
+          other.createdAt == this.createdAt);
 }
 
 class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
@@ -16383,6 +16422,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
   final Value<String?> pkMemberUuid;
   final Value<bool> isDeleted;
   final Value<String> pendingPkOp;
+  final Value<DateTime?> createdAt;
   final Value<int> rowid;
   const MemberGroupEntriesCompanion({
     this.id = const Value.absent(),
@@ -16392,6 +16432,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     this.pkMemberUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.pendingPkOp = const Value.absent(),
+    this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupEntriesCompanion.insert({
@@ -16402,6 +16443,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     this.pkMemberUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.pendingPkOp = const Value.absent(),
+    this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -16414,6 +16456,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Expression<String>? pkMemberUuid,
     Expression<bool>? isDeleted,
     Expression<String>? pendingPkOp,
+    Expression<DateTime>? createdAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16424,6 +16467,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       if (pkMemberUuid != null) 'pk_member_uuid': pkMemberUuid,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (pendingPkOp != null) 'pending_pk_op': pendingPkOp,
+      if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16436,6 +16480,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Value<String?>? pkMemberUuid,
     Value<bool>? isDeleted,
     Value<String>? pendingPkOp,
+    Value<DateTime?>? createdAt,
     Value<int>? rowid,
   }) {
     return MemberGroupEntriesCompanion(
@@ -16446,6 +16491,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       pkMemberUuid: pkMemberUuid ?? this.pkMemberUuid,
       isDeleted: isDeleted ?? this.isDeleted,
       pendingPkOp: pendingPkOp ?? this.pendingPkOp,
+      createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16474,6 +16520,9 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     if (pendingPkOp.present) {
       map['pending_pk_op'] = Variable<String>(pendingPkOp.value);
     }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16490,6 +16539,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
           ..write('pkMemberUuid: $pkMemberUuid, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('pendingPkOp: $pendingPkOp, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -34207,6 +34257,7 @@ typedef $$MemberGroupEntriesTableCreateCompanionBuilder =
       Value<String?> pkMemberUuid,
       Value<bool> isDeleted,
       Value<String> pendingPkOp,
+      Value<DateTime?> createdAt,
       Value<int> rowid,
     });
 typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
@@ -34218,6 +34269,7 @@ typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
       Value<String?> pkMemberUuid,
       Value<bool> isDeleted,
       Value<String> pendingPkOp,
+      Value<DateTime?> createdAt,
       Value<int> rowid,
     });
 
@@ -34262,6 +34314,11 @@ class $$MemberGroupEntriesTableFilterComposer
 
   ColumnFilters<String> get pendingPkOp => $composableBuilder(
     column: $table.pendingPkOp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -34309,6 +34366,11 @@ class $$MemberGroupEntriesTableOrderingComposer
     column: $table.pendingPkOp,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupEntriesTableAnnotationComposer
@@ -34346,6 +34408,9 @@ class $$MemberGroupEntriesTableAnnotationComposer
     column: $table.pendingPkOp,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
 
 class $$MemberGroupEntriesTableTableManager
@@ -34395,6 +34460,7 @@ class $$MemberGroupEntriesTableTableManager
                 Value<String?> pkMemberUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<String> pendingPkOp = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion(
                 id: id,
@@ -34404,6 +34470,7 @@ class $$MemberGroupEntriesTableTableManager
                 pkMemberUuid: pkMemberUuid,
                 isDeleted: isDeleted,
                 pendingPkOp: pendingPkOp,
+                createdAt: createdAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -34415,6 +34482,7 @@ class $$MemberGroupEntriesTableTableManager
                 Value<String?> pkMemberUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<String> pendingPkOp = const Value.absent(),
+                Value<DateTime?> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion.insert(
                 id: id,
@@ -34424,6 +34492,7 @@ class $$MemberGroupEntriesTableTableManager
                 pkMemberUuid: pkMemberUuid,
                 isDeleted: isDeleted,
                 pendingPkOp: pendingPkOp,
+                createdAt: createdAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

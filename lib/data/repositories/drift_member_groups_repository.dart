@@ -342,6 +342,14 @@ class DriftMemberGroupsRepository
       pkMemberUuid: Value(member?.pluralkitUuid),
       isDeleted: const Value(false),
       pendingPkOp: Value(pendingPkOp),
+      // Local-only recency stamp (wave-3 verifier issue 1, 2026-06 PK audit
+      // H6b/M15): "row creation or latest local membership mutation". Must be
+      // EXPLICIT here — the upsertEntry revive path below is an
+      // insertOnConflictUpdate whose DO UPDATE writes only the companion, so
+      // `clientDefault` would NOT fire and a revived tombstone would keep its
+      // stale stamp, instantly "expiring" the fresh push_add under the
+      // age-based retry cap (and dropping it from the H6b removal grace).
+      createdAt: Value(DateTime.now()),
     );
 
     // Entry insert + parent sort_state update in one transaction so a mid-

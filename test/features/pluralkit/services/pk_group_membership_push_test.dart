@@ -470,8 +470,15 @@ void main() {
     );
 
     test(
-      'push_remove ∧ is_deleted=0 → flips to push_add, no PK call this round',
+      'H6c: push_remove ∧ is_deleted=0 (CRDT revive) → user remove wins, '
+      're-tombstones and pushes the remove (NOT flipped to push_add)',
       () async {
+        // 2026-06 PK audit H6c. A push_remove row that is currently ACTIVE got
+        // there via a CRDT REVIVE from a peer (the local re-add path sets
+        // push_add itself, so it never lands here). The pre-fix code flipped
+        // push_remove → push_add and silently pushed the member back to PK,
+        // permanently losing the user's remove. The fix re-asserts the
+        // tombstone and pushes the REMOVE so PK converges to the deletion.
         buildImporter([_member('m1', pkUuid: 'pk-m1')]);
         await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
         await _seedEntry(
@@ -490,12 +497,49 @@ void main() {
           PkSyncDirection.bidirectional,
         );
 
+        // Compensation re-tombstoned, then the remove bucket pushed to PK
+        // (default programmable response is 204) and hard-deleted the row.
         expect(result.compensated, 1);
+        expect(result.removed, 1);
+        // The member was REMOVED on PK, never re-added.
         expect(client.addCalls, isEmpty);
+        expect(client.removeCalls, hasLength(1));
+        expect(client.removeCalls.single.refs, ['pk-m1']);
+        // Row hard-deleted after the successful remove push.
+        expect(await _findEntry(db, 'e1'), isNull);
+      },
+    );
 
-        final entry = await _findEntry(db, 'e1');
-        expect(entry!.pendingPkOp, 'push_add');
-        expect(entry.isDeleted, isFalse);
+    test(
+      'H6c: lost race — concurrent local re-add flips to push_add before the '
+      'guarded re-tombstone runs → no spurious remove pushed',
+      () async {
+        // If the row is push_ADD by the time compensation evaluates it, the
+        // guarded re-tombstone (which requires pending_pk_op = push_remove)
+        // misses and we do not clobber the user's fresh re-add. Here we seed a
+        // push_add active row directly to stand in for the post-race state;
+        // it must push as an ADD, never a remove.
+        buildImporter([_member('m1', pkUuid: 'pk-m1')]);
+        await _seedGroup(db, id: 'g1', pkUuid: 'pk-g1');
+        await _seedEntry(
+          db,
+          id: 'e1',
+          groupId: 'g1',
+          memberId: 'm1',
+          pkGroupUuid: 'pk-g1',
+          pkMemberUuid: 'pk-m1',
+          pendingPkOp: 'push_add',
+          isDeleted: false,
+        );
+
+        final result = await importer.pushPendingGroupOps(
+          client,
+          PkSyncDirection.bidirectional,
+        );
+
+        expect(client.removeCalls, isEmpty);
+        expect(client.addCalls, hasLength(1));
+        expect(result.added, 1);
       },
     );
   });
@@ -688,8 +732,11 @@ void main() {
       );
 
       client.addResponses.add(const PluralKitApiError(404, 'not found'));
+      // M15a (2026-06 PK audit): the refetch 404 must carry code 20004
+      // (group genuinely gone) to trigger terminal cleanup. A bare 404 is now
+      // treated as transient — covered separately below.
       client.getMembersResponses['pk-g1'] =
-          const PluralKitApiError(404, 'group gone');
+          const PluralKitApiError(404, 'group gone', code: 20004);
 
       final result = await importer.pushPendingGroupOps(
         client,
@@ -739,9 +786,9 @@ void main() {
             .add(const PluralKitApiError(404, 'group not found'));
         client.removeResponses
             .add(const PluralKitApiError(404, 'group not found'));
-        // Both refetches hit the same group, both 404.
+        // Both refetches hit the same group, both 404 code 20004 (M15a).
         client.getMembersResponses['pk-g1'] =
-            const PluralKitApiError(404, 'group gone');
+            const PluralKitApiError(404, 'group gone', code: 20004);
 
         await importer.pushPendingGroupOps(
           client,
@@ -793,11 +840,12 @@ void main() {
           pkMemberUuid: 'pk-m2',
           pendingPkOp: 'push_add',
         );
-        // Force the remove POST to 4xx and the refetch to 404. Any add
-        // POSTs in this run must not interfere.
+        // Force the remove POST to 4xx and the refetch to 404 code 20004
+        // (M15a — group genuinely gone). Any add POSTs in this run must not
+        // interfere.
         client.removeResponses.add(const PluralKitApiError(404, 'not found'));
         client.getMembersResponses['pk-g1'] =
-            const PluralKitApiError(404, 'group gone');
+            const PluralKitApiError(404, 'group gone', code: 20004);
 
         final result = await importer.pushPendingGroupOps(
           client,

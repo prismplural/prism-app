@@ -177,6 +177,21 @@ void main() {
         );
   }
 
+  // 2026-06 PK audit H6b: the removal-reconcile recency grace protects entries
+  // younger than `removalRecencyGrace` (48h). Removal tests that create an
+  // entry then expect it dropped on a later pull must first age the entry past
+  // the window — the steady-state case (a stable membership later removed on
+  // PK). This sets EVERY entry's local `created_at` to well before the grace
+  // cutoff so the destructive pass treats them as eligible.
+  Future<void> ageAllEntriesPastGrace() async {
+    final ancient = DateTime.now().subtract(
+      PkGroupsImporter.removalRecencyGrace * 2,
+    );
+    await db
+        .update(db.memberGroupEntries)
+        .write(MemberGroupEntriesCompanion(createdAt: Value(ancient)));
+  }
+
   test('deterministic entry ID is stable across runs', () {
     final a = PkGroupsImporter.deriveEntryId('g-uuid', 'm-uuid');
     final b = PkGroupsImporter.deriveEntryId('g-uuid', 'm-uuid');
@@ -354,8 +369,17 @@ void main() {
   });
 
   test(
-    're-imports a PK group when a deleted tombstone has the same UUID',
+    'M13/issue 3: a deleted tombstone that KEPT its UUID (non-deterministic '
+    'row id) blocks re-import — user deletion is preserved',
     () async {
+      // CONTRACT INVERSION (2026-06 PK audit wave-3 verifier issue 3): this
+      // test previously asserted the opposite — that a uuid-bearing tombstone
+      // is happily bypassed and the group re-imported under the deterministic
+      // id. That bypass was the resurrection vector for groups adopted under
+      // their ORIGINAL row id (repair's linkGroupToPluralkitUuid, pre-
+      // deterministic imports), whose deletion the deterministic-id guard
+      // alone cannot see. deleteGroup now keeps the uuid on the tombstone,
+      // and the importer consults findByPluralkitUuidIncludingDeleted.
       await db
           .into(db.memberGroups)
           .insert(
@@ -382,11 +406,12 @@ void main() {
         ),
       ], overwriteMetadata: true);
 
-      expect(result.groupsInserted, 1);
-      final active = await db.memberGroupsDao.findByPluralkitUuid('pk-g-1');
-      expect(active, isNotNull);
-      expect(active!.id, PkGroupsImporter.deriveGroupId('pk-g-1'));
-      expect(active.isDeleted, isFalse);
+      expect(result.groupsInserted, 0);
+      expect(result.groupsPreservedAsDeletedTombstone, 1);
+      expect(await db.memberGroupsDao.findByPluralkitUuid('pk-g-1'), isNull);
+      // No entries materialized for the preserved-deleted group.
+      final entries = await (db.select(db.memberGroupEntries)).get();
+      expect(entries, isEmpty);
     },
   );
 
@@ -676,6 +701,10 @@ void main() {
       var entries = await db.memberGroupsDao.entriesForGroup(g.id);
       expect(entries, hasLength(2));
 
+      // Age the entries past the H6b grace window so the removal reconcile is
+      // eligible (steady-state membership later dropped on PK).
+      await ageAllEntriesPastGrace();
+
       // Re-import with only A; B should be removed.
       final r = await importer.importGroups([
         const PKGroup(
@@ -831,6 +860,10 @@ void main() {
       ),
     ], overwriteMetadata: true);
 
+    // Age the seeded entries past the H6b grace window so the membership
+    // removal below is eligible.
+    await ageAllEntriesPastGrace();
+
     creates.clear();
     updates.clear();
     deletes.clear();
@@ -848,23 +881,18 @@ void main() {
 
     expect(creates, isEmpty);
 
-    final groupUpdate = updates.singleWhere(
-      (call) => call['table'] == 'member_groups',
-    );
-    final groupFields = groupUpdate['fields']! as Map<String, dynamic>;
+    // M14a (2026-06 PK audit): an immediate second pull with no identity
+    // change, no metadata overwrite, and a last_seen heartbeat that is NOT yet
+    // due (< 24h) must emit NO member_groups update — the pre-fix code churned
+    // one out every pull. The membership delete still flows.
+    final groupUpdates = updates
+        .where((call) => call['table'] == 'member_groups')
+        .toList();
     expect(
-      groupUpdate['entityId'],
-      PkGroupsImporter.deriveGroupSyncEntityId('pk-g-1'),
+      groupUpdates,
+      isEmpty,
+      reason: 'unchanged group on rapid second pull must not emit an update',
     );
-    // overwriteMetadata: false → only the three PK-linkage columns.
-    // Narrow patch, no `is_deleted` — see `lib/data/sync/field_diff.dart`.
-    expect(groupFields.keys.toSet(), {
-      'last_seen_from_pk_at',
-      'pluralkit_id',
-      'pluralkit_uuid',
-    });
-    expect(groupFields['pluralkit_id'], 'abcde');
-    expect(groupFields['pluralkit_uuid'], 'pk-g-1');
 
     expect(
       deletes.map((call) => '${call['table']}:${call['entityId']}').toList(),
@@ -1288,6 +1316,20 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
           memberIds: ['pk-mem-1'],
         ),
       ]);
+
+      // 2026-06 PK audit H6b: age the entry past the removal grace window so
+      // the steady-state "PK dropped this member" destructive path is eligible.
+      await db
+          .update(db.memberGroupEntries)
+          .write(
+            MemberGroupEntriesCompanion(
+              createdAt: Value(
+                DateTime.now().subtract(
+                  PkGroupsImporter.removalRecencyGrace * 2,
+                ),
+              ),
+            ),
+          );
 
       // PK drops the member. Local row has pending=none (was synced from PK
       // originally). Reconcile must soft-delete it — that's the legitimate

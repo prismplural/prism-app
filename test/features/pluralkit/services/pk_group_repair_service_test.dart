@@ -1527,4 +1527,157 @@ void main() {
       expect(row.isDeleted, isFalse);
     },
   );
+
+  // M14c (2026-06 PK audit): a dismissed (groupId, suspectedUuid) pair must not
+  // be auto-re-flagged on the next repair run. Unlike keep-local-only (which
+  // leaves the group syncSuppressed and is therefore skipped), dismiss clears
+  // suppression — so without dismissal memory the next run re-suppresses it.
+  test('dismissed review pair is NOT re-flagged by a later repair run',
+      () async {
+    await db.into(db.members).insert(
+          pkFixtureMember(
+            id: 'member-a',
+            name: 'Alice',
+            pluralkitUuid: 'pk-member-a',
+          ),
+        );
+    await db.into(db.memberGroups).insert(
+          pkFixtureGroup(
+            id: 'plain-group',
+            name: 'Cluster',
+            createdAt: DateTime(2024, 1, 1),
+          ),
+        );
+    await db.into(db.memberGroupEntries).insert(
+          pkFixtureEntry(
+            id: 'plain-entry',
+            groupId: 'plain-group',
+            memberId: 'member-a',
+            pkMemberUuid: 'pk-member-a',
+          ),
+        );
+
+    final dismissalStore = _InMemoryDismissalStore();
+    final service = PkGroupRepairService(
+      memberGroupsDao: db.memberGroupsDao,
+      aliasesDao: db.pkGroupSyncAliasesDao,
+      hasRepairToken: ({String? token}) async => true,
+      fetchRepairReferenceData: ({String? token}) async {
+        return const PkRepairReferenceData(
+          system: PKSystem(id: 'system-1', name: 'Test'),
+          members: [PKMember(id: 'm1', uuid: 'pk-member-a', name: 'Alice')],
+          groups: [
+            PKGroup(
+              id: 'g1',
+              uuid: 'pk-group-1',
+              name: 'Cluster',
+              memberIds: ['pk-member-a'],
+            ),
+          ],
+        );
+      },
+      dismissalStore: dismissalStore,
+    );
+
+    final firstReport = await service.run(token: 'provided-token');
+    expect(firstReport.ambiguousGroupsSuppressed, 1);
+    expect(await service.getPendingReviewCount(), 1);
+
+    // Dismiss clears suppression AND records the (group, uuid) pair.
+    await service.dismissReviewItems(['plain-group']);
+    expect(
+      dismissalStore._keys,
+      contains(
+        PkGroupReviewDismissalStore.keyFor('plain-group', 'pk-group-1'),
+      ),
+    );
+    var group = await (db.select(
+      db.memberGroups,
+    )..where((t) => t.id.equals('plain-group'))).getSingle();
+    expect(group.syncSuppressed, isFalse);
+    expect(group.suspectedPkGroupUuid, null);
+
+    // Second run must NOT re-flag the dismissed pair.
+    final secondReport = await service.run(token: 'provided-token');
+    expect(
+      secondReport.ambiguousGroupsSuppressed,
+      0,
+      reason: 'M14c: a dismissed pair must never be auto-re-flagged',
+    );
+    expect(await service.getPendingReviewCount(), 0);
+    group = await (db.select(
+      db.memberGroups,
+    )..where((t) => t.id.equals('plain-group'))).getSingle();
+    expect(group.suspectedPkGroupUuid, null);
+  });
+
+  test('a DIFFERENT candidate uuid for a dismissed group IS still flaggable',
+      () async {
+    // Dismissal is keyed on (groupId, suspectedUuid); rejecting one candidate
+    // must not permanently blind the group to a different future candidate.
+    final dismissalStore = _InMemoryDismissalStore();
+    await dismissalStore.remember([
+      PkGroupReviewDismissalStore.keyFor('plain-group', 'pk-group-OLD'),
+    ]);
+
+    await db.into(db.members).insert(
+          pkFixtureMember(
+            id: 'member-a',
+            name: 'Alice',
+            pluralkitUuid: 'pk-member-a',
+          ),
+        );
+    await db.into(db.memberGroups).insert(
+          pkFixtureGroup(
+            id: 'plain-group',
+            name: 'Cluster',
+            createdAt: DateTime(2024, 1, 1),
+          ),
+        );
+    await db.into(db.memberGroupEntries).insert(
+          pkFixtureEntry(
+            id: 'plain-entry',
+            groupId: 'plain-group',
+            memberId: 'member-a',
+            pkMemberUuid: 'pk-member-a',
+          ),
+        );
+
+    final service = PkGroupRepairService(
+      memberGroupsDao: db.memberGroupsDao,
+      aliasesDao: db.pkGroupSyncAliasesDao,
+      hasRepairToken: ({String? token}) async => true,
+      fetchRepairReferenceData: ({String? token}) async {
+        return const PkRepairReferenceData(
+          system: PKSystem(id: 'system-1', name: 'Test'),
+          members: [PKMember(id: 'm1', uuid: 'pk-member-a', name: 'Alice')],
+          groups: [
+            // NEW candidate uuid, different from the dismissed one.
+            PKGroup(
+              id: 'g1',
+              uuid: 'pk-group-NEW',
+              name: 'Cluster',
+              memberIds: ['pk-member-a'],
+            ),
+          ],
+        );
+      },
+      dismissalStore: dismissalStore,
+    );
+
+    final report = await service.run(token: 'provided-token');
+    expect(
+      report.ambiguousGroupsSuppressed,
+      1,
+      reason: 'a different candidate uuid is not the dismissed pair',
+    );
+  });
+}
+
+class _InMemoryDismissalStore implements PkGroupReviewDismissalStore {
+  final Set<String> _keys = {};
+  @override
+  Future<Set<String>> dismissedKeys() async => {..._keys};
+  @override
+  Future<void> remember(Iterable<String> keys) async => _keys.addAll(keys);
 }
