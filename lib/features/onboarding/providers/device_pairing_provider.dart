@@ -186,6 +186,29 @@ String _epochVerificationFailureMessage({required bool credentialsDurable}) {
       'verify the latest sync epoch. Please start pairing again.';
 }
 
+/// Whether the pairing snapshot ACK-delete may fire.
+///
+/// The first condition gates the ACK on the post-bootstrap consumer-delivery
+/// drain having emptied the journal — never ACK (and let the relay discard the
+/// snapshot) until every snapshot row is durably in Drift, so a crash between
+/// the Rust import-commit and the Dart apply re-derives losslessly.
+///
+/// The catch-up-success condition is a CONJUNCTION, NOT a replacement: the
+/// joiner must also have caught up past the snapshot (pulled and applied the
+/// tail the initiator pushed after cutting the snapshot) before the relay is
+/// allowed to discard its only bootstrap source. If catch-up failed or timed
+/// out, the snapshot stays on the relay (its TTL covers cleanup) and a one-shot
+/// retry re-runs catch-up + ACK on the next successful syncNow.
+///
+/// `catchUpSucceeded` defaults to `true` so call sites that only reason about
+/// the journal-drain dimension (the journal-drain wiring tests) stay meaningful.
+bool shouldAckSnapshotApplied({
+  required bool journalDrained,
+  bool catchUpSucceeded = true,
+}) {
+  return journalDrained && catchUpSucceeded;
+}
+
 class DevicePairingNotifier extends Notifier<PairingState> {
   /// Monotonically increasing generation counter. Each new pairing attempt
   /// increments the counter and captures the value; async continuations bail
@@ -201,6 +224,23 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// fresh-install onboarding can pair against a custom relay before any
   /// sync settings exist in platform storage.
   String? _pairingRelayUrl;
+
+  /// Set once the post-bootstrap consumer-delivery drain has emptied the
+  /// journal. The pairing snapshot ACK-delete gates on this drain having
+  /// completed, in CONJUNCTION with the catch-up-success condition. Reset at the
+  /// start of each snapshot-bootstrap attempt.
+  bool _bootstrapJournalDrained = false;
+
+  /// Live subscription for the one-shot pending-snapshot-ACK retry. When
+  /// the initial post-bootstrap catch-up fails, the relay keeps the snapshot
+  /// (TTL covers cleanup) and this listener re-runs catch-up + ACK on the next
+  /// successful syncNow, then closes itself. Non-null only while a retry is
+  /// armed; cleared on fire, on a new pairing attempt, and on reset.
+  ProviderSubscription<AsyncValue<SyncEvent>>? _pendingSnapshotAckRetrySub;
+
+  /// Guards re-entrancy while the armed retry is mid-flight so overlapping
+  /// `SyncCompleted` events can't launch the catch-up + ACK twice.
+  bool _pendingSnapshotAckRetryRunning = false;
 
   /// Handle backing the currently active relay pairing ceremony. This can be
   /// available before prismSyncHandleProvider has published its AsyncValue.
@@ -278,6 +318,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     if (shouldCancelCeremony) {
       unawaited(_cancelActiveCeremony(activeCeremonyHandle));
     }
+    _disposePendingSnapshotAckRetry();
     _pendingPin = null;
     _pairingRelayUrl = null;
     _activeCeremonyHandle = null;
@@ -943,6 +984,128 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     );
   }
 
+  /// Arm the one-shot pending-snapshot-ACK retry. Called when the initial
+  /// post-pairing catch-up did not succeed (or the journal had not drained) so
+  /// the snapshot ACK-delete was withheld and the relay still holds the
+  /// joiner's bootstrap source. The next successful `syncNow` re-runs catch-up
+  /// and, if it now succeeds, ACK-deletes the snapshot — after which the
+  /// listener closes itself. Idempotent: re-arming while already armed is a
+  /// no-op, so a per-attempt single retry is installed.
+  void _armPendingSnapshotAckRetry(ffi.PrismSyncHandle handle) {
+    if (_pendingSnapshotAckRetrySub != null) return;
+    final myGeneration = _generation;
+    _pendingSnapshotAckRetrySub = ref.listen<AsyncValue<SyncEvent>>(
+      syncEventStreamProvider,
+      (_, next) {
+        next.whenData((event) {
+          // Only a clean SyncCompleted (no structured error) means the cursor
+          // advanced — an errored cycle hasn't caught us up, so keep waiting.
+          if (!event.isSyncCompleted || event.errorKind != null) return;
+          if (_generation != myGeneration) {
+            _disposePendingSnapshotAckRetry();
+            return;
+          }
+          if (_pendingSnapshotAckRetryRunning) return;
+          _pendingSnapshotAckRetryRunning = true;
+          unawaited(
+            _runPendingSnapshotAckRetry(handle, myGeneration).whenComplete(() {
+              _pendingSnapshotAckRetryRunning = false;
+            }),
+          );
+        });
+      },
+    );
+  }
+
+  /// Re-run catch-up and, if it now succeeds with a drained journal, ACK-delete
+  /// the retained snapshot. Disposes the armed listener whether or not the ACK
+  /// fires this round: this is a single-shot retry (a still-failing catch-up
+  /// stays covered by the relay's snapshot TTL), so it never loops on every
+  /// completion. `catchUp`/`ack` are injectable for tests; production uses the
+  /// real FFI.
+  Future<void> _runPendingSnapshotAckRetry(
+    ffi.PrismSyncHandle handle,
+    int myGeneration, {
+    Future<void> Function(ffi.PrismSyncHandle handle)? catchUp,
+    Future<void> Function({required ffi.PrismSyncHandle handle})? ack,
+  }) async {
+    // Tear down the listener up front so this retry fires exactly once.
+    _disposePendingSnapshotAckRetry();
+
+    final catchUpFn = catchUp ?? _runPostBootstrapCatchUp;
+    final ackFn = ack ?? ffi.acknowledgeSnapshotApplied;
+
+    var catchUpSucceeded = true;
+    try {
+      await catchUpFn(handle);
+    } catch (e, st) {
+      catchUpSucceeded = false;
+      ErrorReportingService.instance.report(
+        'Pending snapshot-ACK retry catch-up failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+
+    if (_generation != myGeneration) return;
+
+    if (shouldAckSnapshotApplied(
+      journalDrained: _bootstrapJournalDrained,
+      catchUpSucceeded: catchUpSucceeded,
+    )) {
+      try {
+        await ackFn(handle: handle);
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'acknowledgeSnapshotApplied retry failed (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    }
+  }
+
+  void _disposePendingSnapshotAckRetry() {
+    _pendingSnapshotAckRetrySub?.close();
+    _pendingSnapshotAckRetrySub = null;
+  }
+
+  /// Test seam: drive the armed-retry runner directly (the production trigger is
+  /// the next successful `SyncCompleted` on [syncEventStreamProvider]). The
+  /// `catchUp`/`ack` closures stand in for the real FFI so the gate logic can be
+  /// asserted without a live engine.
+  @visibleForTesting
+  Future<void> runPendingSnapshotAckRetryForTest(
+    ffi.PrismSyncHandle handle, {
+    required Future<void> Function(ffi.PrismSyncHandle handle) catchUp,
+    required Future<void> Function({required ffi.PrismSyncHandle handle}) ack,
+  }) {
+    return _runPendingSnapshotAckRetry(
+      handle,
+      _generation,
+      catchUp: catchUp,
+      ack: ack,
+    );
+  }
+
+  /// Test seam: whether a pending-snapshot-ACK retry is currently armed.
+  @visibleForTesting
+  bool get pendingSnapshotAckRetryArmed => _pendingSnapshotAckRetrySub != null;
+
+  /// Test seam: arm the retry without running the full bootstrap flow.
+  @visibleForTesting
+  void armPendingSnapshotAckRetryForTest(ffi.PrismSyncHandle handle) {
+    _armPendingSnapshotAckRetry(handle);
+  }
+
+  /// Test seam: set the journal-drained flag so retry tests can compose the
+  /// ACK conjunction without standing up the full bootstrap drain.
+  @visibleForTesting
+  // ignore: avoid_setters_without_getters
+  set bootstrapJournalDrainedForTest(bool value) {
+    _bootstrapJournalDrained = value;
+  }
+
   /// Run the snapshot-download + apply phase. Extracted so the retry path can
   /// re-invoke just this chunk (the relay-side ceremony state is already
   /// committed by [completeJoinerCeremony]).
@@ -968,6 +1131,10 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // (signalBatchComplete).
     final outcomeFuture = strictCoordinator.enterStrictMode();
     syncAdapter.beginSyncBatch();
+    _bootstrapJournalDrained = false;
+    // A retry armed by a previous attempt no longer applies to this fresh
+    // bootstrap; tear it down so it can't ACK against the wrong attempt.
+    _disposePendingSnapshotAckRetry();
 
     var fatalSnapshotError = false;
     String? fatalSnapshotMessage;
@@ -1229,10 +1396,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // trigger. Run one explicit catch-up now so the joiner recovers the
     // initiator's post-pairing epoch rotation and applies any rows that landed
     // after the snapshot was cut.
+    var catchUpSucceeded = true;
     try {
       await _runPostBootstrapCatchUp(handle);
     } on TimeoutException catch (e, st) {
       syncIncomplete = true;
+      catchUpSucceeded = false;
       if (_generation == myGeneration) {
         progressNotifier.markTimedOut();
       }
@@ -1248,6 +1417,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         Error.throwWithStackTrace(e, st);
       }
       syncIncomplete = true;
+      catchUpSucceeded = false;
       ErrorReportingService.instance.report(
         'Post-pairing catch-up failed after snapshot apply '
         '(non-fatal): $e',
@@ -1258,19 +1428,41 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     if (_generation != myGeneration) return;
 
-    // Snapshot apply succeeded. ACK now so the relay can discard the retained
-    // bootstrap snapshot; transient catch-up failures above do not need a
-    // snapshot retry because the restored baseline is already local.
-    // Best-effort: errors here don't undo a good pairing, and older relays
-    // respond 405 which the FFI folds to Ok.
-    try {
-      await ffi.acknowledgeSnapshotApplied(handle: handle);
-    } catch (e, st) {
+    // ACK-delete the relay's retained bootstrap snapshot only once it is safe to
+    // do so — composing TWO conditions:
+    //   1. the post-bootstrap consumer-delivery drain emptied the journal, so a
+    //      crash between the Rust import-commit and the Dart apply re-derives
+    //      losslessly; and
+    //   2. catch-up succeeded, so the joiner has pulled and applied the tail the
+    //      initiator pushed after cutting the snapshot.
+    // If catch-up failed/timed out, the snapshot is the joiner's only bootstrap
+    // source for that tail, so we must NOT discard it: leave it on the relay (its
+    // 24h TTL covers cleanup) and arm a one-shot retry that re-runs catch-up and
+    // ACK on the next successful syncNow. Best-effort: a failed ACK doesn't undo a
+    // good pairing, and older relays respond 405, which the FFI folds to Ok.
+    if (shouldAckSnapshotApplied(
+      journalDrained: _bootstrapJournalDrained,
+      catchUpSucceeded: catchUpSucceeded,
+    )) {
+      try {
+        await ffi.acknowledgeSnapshotApplied(handle: handle);
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'acknowledgeSnapshotApplied failed (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    } else {
+      final reason = !_bootstrapJournalDrained
+          ? 'consumer-delivery journal not yet drained'
+          : 'post-pairing catch-up did not succeed';
       ErrorReportingService.instance.report(
-        'acknowledgeSnapshotApplied failed (non-fatal): $e',
+        'Skipping snapshot ACK-delete ($reason); snapshot retained on the relay '
+        '(TTL covers cleanup), retry armed for the next successful syncNow',
         severity: ErrorSeverity.warning,
-        stackTrace: st,
       );
+      _armPendingSnapshotAckRetry(handle);
     }
 
     if (_generation != myGeneration) return;

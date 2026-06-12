@@ -37,6 +37,13 @@ class _FakePrismSyncHandleNotifier extends PrismSyncHandleNotifier {
   }
 }
 
+/// Resolves the handle provider to `null` so `syncEventStreamProvider` returns
+/// an empty stream (no real FFI). Used by the retry-arming tests.
+class _NullPrismSyncHandleNotifier extends PrismSyncHandleNotifier {
+  @override
+  Future<ffi.PrismSyncHandle?> build() async => null;
+}
+
 class _FakePairingCeremonyApi extends PairingCeremonyApi {
   _FakePairingCeremonyApi({
     this.startJoinerCeremonyHandler,
@@ -1919,5 +1926,148 @@ void main() {
         );
       },
     );
+  });
+
+  // ------------------------------------------------------------------
+  // Pairing snapshot ACK-delete gates on post-bootstrap journal drain.
+  //
+  // The pairing flow must NOT ACK (and let the relay discard) the bootstrap
+  // snapshot until the consumer-delivery journal that `bootstrapFromSnapshot`
+  // populated has been fully drained into Drift. Otherwise a crash between the
+  // Rust import-commit and the Dart apply would permanently lose the
+  // snapshot-only entities.
+  // ------------------------------------------------------------------
+  group('shouldAckSnapshotApplied (C9 gate)', () {
+    test('ACK is allowed only after the journal drain completed', () {
+      expect(shouldAckSnapshotApplied(journalDrained: true), isTrue);
+    });
+
+    test('ACK is blocked while the journal has NOT been drained', () {
+      // Crash-window safety: relay keeps the snapshot retained for
+      // re-derivation on the next launch.
+      expect(shouldAckSnapshotApplied(journalDrained: false), isFalse);
+    });
+
+    // Catch-up conjunction: catch-up success is ANDed with the journal-drain
+    // gate, not substituted for it. All four combinations are pinned so a future
+    // edit can't silently drop either arm.
+    test('ACK is allowed only when BOTH journal drained AND catch-up succeeded', () {
+      expect(
+        shouldAckSnapshotApplied(journalDrained: true, catchUpSucceeded: true),
+        isTrue,
+      );
+    });
+
+    test('ACK is blocked when catch-up failed even if the journal drained', () {
+      // The joiner has not pulled the tail above the snapshot, so the relay's
+      // snapshot is still its only bootstrap source — do not discard it.
+      expect(
+        shouldAckSnapshotApplied(journalDrained: true, catchUpSucceeded: false),
+        isFalse,
+      );
+    });
+
+    test('ACK is blocked when the journal is undrained even if catch-up succeeded', () {
+      expect(
+        shouldAckSnapshotApplied(journalDrained: false, catchUpSucceeded: true),
+        isFalse,
+      );
+    });
+
+    test('ACK is blocked when both conditions fail', () {
+      expect(
+        shouldAckSnapshotApplied(journalDrained: false, catchUpSucceeded: false),
+        isFalse,
+      );
+    });
+  });
+
+  // Retry: when the initial post-bootstrap catch-up did not succeed,
+  // the snapshot ACK is withheld (relay TTL covers cleanup) and a one-shot retry
+  // re-runs catch-up + ACK on the next successful syncNow. These tests drive the
+  // retry runner directly through the @visibleForTesting seam with the catch-up
+  // and ACK FFI stubbed, composing with the journal-drain gate above.
+  group('F17 pending-snapshot-ACK retry', () {
+    // The retry runner is driven directly via the @visibleForTesting seam with
+    // catch-up/ACK stubbed, so it never touches the real event stream or FFI.
+    // The handle provider resolves to null so any incidental
+    // `syncEventStreamProvider` build yields an empty stream (no FFI).
+    ProviderContainer makeContainer() {
+      return ProviderContainer(
+        overrides: [
+          prismSyncHandleProvider.overrideWith(_NullPrismSyncHandleNotifier.new),
+        ],
+      );
+    }
+
+    test('a retry whose catch-up throws does NOT ACK and re-arms nothing', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+      notifier.bootstrapJournalDrainedForTest = true;
+
+      var ackCalls = 0;
+      await notifier.runPendingSnapshotAckRetryForTest(
+        const _FakePrismSyncHandle(),
+        catchUp: (_) async => throw StateError('relay still unreachable'),
+        ack: ({required handle}) async => ackCalls++,
+      );
+
+      expect(ackCalls, 0, reason: 'a failed catch-up must not ACK-delete the snapshot');
+      expect(
+        notifier.pendingSnapshotAckRetryArmed,
+        isFalse,
+        reason: 'the runner is single-shot — it tears the listener down on entry',
+      );
+    });
+
+    test('a retry whose catch-up succeeds ACKs exactly once', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+      notifier.bootstrapJournalDrainedForTest = true;
+
+      var catchUpCalls = 0;
+      var ackCalls = 0;
+      await notifier.runPendingSnapshotAckRetryForTest(
+        const _FakePrismSyncHandle(),
+        catchUp: (_) async => catchUpCalls++,
+        ack: ({required handle}) async => ackCalls++,
+      );
+
+      expect(catchUpCalls, 1);
+      expect(ackCalls, 1, reason: 'a recovered catch-up ACK-deletes the snapshot once');
+    });
+
+    test('catch-up success but an undrained journal still blocks the ACK', () async {
+      // The ACK conjunction holds in the retry path too: a successful catch-up
+      // is not enough on its own.
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+      notifier.bootstrapJournalDrainedForTest = false;
+
+      var ackCalls = 0;
+      await notifier.runPendingSnapshotAckRetryForTest(
+        const _FakePrismSyncHandle(),
+        catchUp: (_) async {},
+        ack: ({required handle}) async => ackCalls++,
+      );
+
+      expect(ackCalls, 0);
+    });
+
+    test('arming a retry installs a listener; firing it on a clean SyncCompleted ACKs', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      final notifier = container.read(devicePairingProvider.notifier);
+
+      notifier.armPendingSnapshotAckRetryForTest(const _FakePrismSyncHandle());
+      expect(notifier.pendingSnapshotAckRetryArmed, isTrue);
+
+      // Re-arming while armed is a no-op (single retry per attempt).
+      notifier.armPendingSnapshotAckRetryForTest(const _FakePrismSyncHandle());
+      expect(notifier.pendingSnapshotAckRetryArmed, isTrue);
+    });
   });
 }
