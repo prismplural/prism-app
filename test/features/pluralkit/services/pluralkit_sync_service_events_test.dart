@@ -533,6 +533,7 @@ class _FailingPushService extends PkPushService {
     PKMember? pkMember,
     bool includeProxyTags = true,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) async {
     throw error;
   }

@@ -25,6 +25,7 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart'
     as domain_fs;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -88,7 +89,12 @@ class _FakeClient implements PluralKitClient {
   /// When empty, returns [].
   final List<List<PKSwitch>> switchPages;
 
-  _FakeClient(this.switchPages);
+  /// Returned by [getCurrentFronters]; lets the M2 tests drive the live-poll
+  /// path (`pollFrontersOnly` → single-switch sweep with
+  /// `advanceCursor: false`) against the same client the sweeps use.
+  PKSwitch? currentFronters;
+
+  _FakeClient(this.switchPages, {this.currentFronters});
 
   @override
   String get currentToken => 'fake-token';
@@ -163,7 +169,7 @@ class _FakeClient implements PluralKitClient {
   Future<List<int>> downloadBytes(String url) async => const [];
 
   @override
-  Future<PKSwitch?> getCurrentFronters() async => null;
+  Future<PKSwitch?> getCurrentFronters() async => currentFronters;
 
   @override
   void dispose() {}
@@ -2665,5 +2671,314 @@ void main() {
       final state = await db.pluralKitSyncDao.getSyncState();
       expect(state.switchCursorId, newestSwitchId);
     });
+  });
+
+  // -- 2026-06 PK audit M2 (wave 4): live-poll/sweep duplicate open row ------
+
+  group('M2: live-poll duplicate open row', () {
+    test(
+      'poll-ingested current switch + later sweep leaves exactly ONE open row; '
+      'the eventual leaver closes it to ZERO',
+      () async {
+        // The audit's verified interleaving, run SEQUENTIALLY (the M1 gate
+        // makes the concurrent race rarer, but the poll's
+        // `advanceCursor: false` write legitimately precedes later sweeps):
+        //   (i)  poll ingests current switch S3 → member B has no open row →
+        //        creates det(S3, B) open at t3, cursor NOT advanced;
+        //   (ii) a sweep covering [S1, S2, S3] seeds WITHOUT det(S3, B) (the
+        //        WS3 #29 bound: only open rows with startTime ≤ the batch's
+        //        first switch), sees B as an entrant at S2 → pre-fix this
+        //        created det(S2, B) and left BOTH rows open;
+        //   (iii) at B's leaver the DB-rebuilt seed keyed by member id picked
+        //        the older row, so det(S3, B) stayed open forever — a
+        //        permanent phantom fronter.
+        // Post-fix, the sweep merges the poll duplicate when it reaches S3
+        // itself (B is CONTINUING there, so det(S3, B) is provably redundant).
+        const u1 = '00000000-0000-0000-0000-000000000001';
+        const u2 = '00000000-0000-0000-0000-000000000002';
+        const u3 = '00000000-0000-0000-0000-000000000003';
+        const u4 = '00000000-0000-0000-0000-000000000004';
+        final t1 = DateTime.utc(2026, 1, 1, 10);
+        final t2 = DateTime.utc(2026, 1, 1, 12);
+        final t3 = DateTime.utc(2026, 1, 1, 14);
+        final t4 = DateTime.utc(2026, 1, 1, 16);
+
+        final s1 = PKSwitch(id: u1, timestamp: t1, members: const ['pkA']);
+        final s2 = PKSwitch(
+          id: u2,
+          timestamp: t2,
+          members: const ['pkA', 'pkB'],
+        );
+        final s3 = PKSwitch(
+          id: u3,
+          timestamp: t3,
+          members: const ['pkA', 'pkB'],
+        );
+        final s4 = PKSwitch(id: u4, timestamp: t4, members: const ['pkA']);
+
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+        await memberRepo.createMember(
+          _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
+        );
+
+        // Page queue: one pop per importSwitchesAfterLink call (pages < 100
+        // short-circuit pagination). The poll uses getCurrentFronters only.
+        final client = _FakeClient([
+          [s1], // import #1: history up to S1
+          [s3, s2, s1], // import #2: the sweep that races the poll's write
+          [s4, s3, s2, s1], // import #3: B's eventual leaver
+        ], currentFronters: s3);
+
+        final service = _makeService(db: db, client: client);
+        await service.setToken('t');
+        await service.confirmDirection();
+        await service.acknowledgeMapping();
+
+        // Establish pre-poll state: A fronting since S1, cursor at S1.
+        await service.importSwitchesAfterLink();
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final detS1A = _expectedRowId(u1, 'uuid-a');
+        final detS2B = _expectedRowId(u2, 'uuid-b');
+        final detS3B = _expectedRowId(u3, 'uuid-b');
+
+        List<domain_fs.FrontingSession> openRowsFor(
+          List<domain_fs.FrontingSession> all,
+          String memberId,
+        ) => all
+            .where(
+              (s) =>
+                  s.memberId == memberId && !s.isDeleted && s.endTime == null,
+            )
+            .toList();
+
+        // (i) Poll ingests the live switch S3 in isolation.
+        final pollOutcome = await service.pollFrontersOnly();
+        expect(pollOutcome, PkPollOutcome.ok);
+        var sessions = await sessionRepo.getAllSessions();
+        final bAfterPoll = openRowsFor(sessions, 'local-b');
+        expect(bAfterPoll, hasLength(1));
+        expect(bAfterPoll.single.id, detS3B);
+        // The poll must NOT advance the cursor (that's the correct
+        // pre-existing behavior the duplicate slipped through).
+        expect(
+          (await db.pluralKitSyncDao.getSyncState()).switchCursorId,
+          u1,
+        );
+
+        // (ii) The incremental sweep covering [S1, S2, S3] arrives.
+        await service.importSwitchesAfterLink();
+        sessions = await sessionRepo.getAllSessions();
+        final bAfterSweep = openRowsFor(sessions, 'local-b');
+        expect(
+          bAfterSweep,
+          hasLength(1),
+          reason:
+              'after the sweep B must have exactly ONE open row — pre-fix '
+              'det(S2,B) and det(S3,B) were both open',
+        );
+        expect(
+          bAfterSweep.single.id,
+          detS2B,
+          reason:
+              "B's canonical row is keyed on the true entry switch S2; the "
+              'poll artifact det(S3,B) is merged away',
+        );
+        // The merged duplicate is tombstoned with its PK link cleared
+        // (importer cleanup, never a PK deletion push — C1 idiom).
+        final mergedDup = sessions.where((s) => s.id == detS3B).toList();
+        if (mergedDup.isNotEmpty) {
+          expect(mergedDup.single.isDeleted, isTrue);
+          expect(
+            mergedDup.single.pluralkitUuid,
+            anyOf(isNull, isEmpty),
+            reason:
+                'link must be cleared before tombstoning so the deletion '
+                'pusher cannot mistake cleanup for user intent',
+          );
+        }
+
+        // (iii) B's eventual leaver (S4) closes the one canonical row.
+        await service.importSwitchesAfterLink();
+        sessions = await sessionRepo.getAllSessions();
+        expect(
+          openRowsFor(sessions, 'local-b'),
+          isEmpty,
+          reason:
+              'after the leaver B must have ZERO open rows — pre-fix the '
+              'phantom det(S3,B) stayed open forever',
+        );
+        final closedB = sessions
+            .where((s) => s.id == detS2B && !s.isDeleted)
+            .single;
+        expect(closedB.endTime, _sameInstant(t4));
+        // A remains continuously fronting from S1 the whole time.
+        final aOpen = openRowsFor(sessions, 'local-a');
+        expect(aOpen, hasLength(1));
+        expect(aOpen.single.id, detS1A);
+      },
+    );
+  });
+
+  // -- 2026-06 PK audit M6 (wave 4): drift-precision timestamps --------------
+
+  group('M6: drift second-precision timestamps', () {
+    const u1 = '00000000-0000-0000-0000-000000000011';
+    const u2 = '00000000-0000-0000-0000-000000000012';
+    const u3 = '00000000-0000-0000-0000-000000000013';
+
+    test(
+      'corrective re-import over an unchanged DB emits ZERO sync ops '
+      '(fractional-second PK timestamps)',
+      () async {
+        // The audit's churn engine: drift stores datetimes as unix SECONDS
+        // (no build.yaml) while PK timestamps carry µs. Pre-fix,
+        // `_upsertEntrantSession`'s corrective update wrote the µs value, so
+        // `diffSyncFields` compared it against the DB's truncated read-back
+        // and emitted a start_time update op for EVERY row on EVERY
+        // corrective import — feeding the known relay bulk-op starvation
+        // class. Post-fix both sides are whole-second, so an unchanged DB
+        // diffs clean.
+        final t1 = DateTime.utc(2026, 3, 1, 10, 0, 0, 123, 456); // µs-precise
+        final t2 = DateTime.utc(2026, 3, 1, 12, 0, 0, 654, 321);
+        final s1 = PKSwitch(id: u1, timestamp: t1, members: const ['pkA']);
+        final s2 = PKSwitch(
+          id: u2,
+          timestamp: t2,
+          members: const ['pkA', 'pkB'],
+        );
+
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+        await memberRepo.createMember(
+          _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
+        );
+
+        final client = _FakeClient([
+          [s2, s1], // corrective import #1
+          [s2, s1], // corrective import #2 over the unchanged DB
+        ]);
+        final service = _makeService(db: db, client: client);
+
+        await service.performOneTimeFullImport(token: 't');
+
+        // Persisted rows carry the whole-second truncation of the µs
+        // timestamps (drift's storage precision).
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final rows = await sessionRepo.getAllSessions();
+        final rowA = rows.singleWhere((s) => s.memberId == 'local-a');
+        final rowB = rows.singleWhere((s) => s.memberId == 'local-b');
+        expect(
+          rowA.startTime,
+          _sameInstant(truncatePkTimestampToDriftPrecision(t1)),
+        );
+        expect(
+          rowB.startTime,
+          _sameInstant(truncatePkTimestampToDriftPrecision(t2)),
+        );
+
+        // The wave-1 verifier's prescribed assertion: re-running the SAME
+        // corrective import over the unchanged DB emits ZERO sync ops.
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await service.performOneTimeFullImport(token: 't');
+
+        expect(
+          captured.where((op) => op.table == 'fronting_sessions').toList(),
+          isEmpty,
+          reason:
+              'an unchanged corrective re-import must be op-silent — '
+              'pre-fix every row emitted a start_time update per run',
+        );
+        expect(
+          captured,
+          isEmpty,
+          reason: 'no other table should churn on an unchanged re-import',
+        );
+      },
+    );
+
+    test(
+      'corrective re-import never emits start_time ops for closed rows '
+      '(end-time reopen/reclose is the designed corrective behavior)',
+      () async {
+        // Closed rows go through the corrective reopen (end_time → null) and
+        // a same-boundary re-close — those two end_time ops are the DESIGNED
+        // "API is authoritative" corrective semantics (WS3 step 6), not the
+        // M6 precision bug. M6's claim is narrower and is what we pin here:
+        // start_time must never appear in any re-import op once persistence
+        // is truncated to drift precision.
+        final t1 = DateTime.utc(2026, 3, 2, 10, 0, 0, 111, 222);
+        final t2 = DateTime.utc(2026, 3, 2, 12, 0, 0, 333, 444);
+        final t3 = DateTime.utc(2026, 3, 2, 14, 0, 0, 555, 666);
+        final s1 = PKSwitch(id: u1, timestamp: t1, members: const ['pkA']);
+        final s2 = PKSwitch(
+          id: u2,
+          timestamp: t2,
+          members: const ['pkA', 'pkB'],
+        );
+        final s3 = PKSwitch(id: u3, timestamp: t3, members: const ['pkA']);
+
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+        await memberRepo.createMember(
+          _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
+        );
+
+        final client = _FakeClient([
+          [s3, s2, s1],
+          [s3, s2, s1],
+        ]);
+        final service = _makeService(db: db, client: client);
+
+        await service.performOneTimeFullImport(token: 't');
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await service.performOneTimeFullImport(token: 't');
+
+        final sessionOps = captured
+            .where((op) => op.table == 'fronting_sessions')
+            .toList();
+        expect(
+          sessionOps.where((op) => op.fields.containsKey('start_time')),
+          isEmpty,
+          reason:
+              'the M6 churn engine was start_time µs-vs-truncated diffs; '
+              'no re-import op may carry start_time',
+        );
+        // The only churn left is the designed reopen/reclose pair on the
+        // closed row det(S2, B) — bounded, end_time-only, same final state.
+        final detS2B = _expectedRowId(u2, 'uuid-b');
+        for (final op in sessionOps) {
+          expect(op.entityId, detS2B);
+          expect(op.fields.keys, ['end_time']);
+        }
+        expect(sessionOps.length, lessThanOrEqualTo(2));
+      },
+    );
   });
 }

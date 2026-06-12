@@ -263,6 +263,15 @@ class PkSyncSummary {
   /// from the mapping screen.
   final List<String> staleLinkMessages;
 
+  /// Human-readable messages for member pushes PK rejected (400 validation /
+  /// 5xx) or payload fields client-side cap validation dropped during this
+  /// run. Per-member isolation (2026-06 PK audit M10a — wave 4) converts
+  /// what used to be a sync-aborting throw into an entry here: the member is
+  /// counted in [membersSkipped] and the rest of the batch proceeds.
+  /// Parallel channel to [staleLinkMessages], which stays reserved for
+  /// PK-side deletions of previously linked rows.
+  final List<String> pushSkippedMessages;
+
   /// Actionable unmapped current-fronter state observed during a live-front
   /// pull. This is intentionally separate from [staleLinkMessages], which is
   /// reserved for PK-side deletions of previously linked local rows.
@@ -286,6 +295,7 @@ class PkSyncSummary {
     this.membersDeletedOnPk = 0,
     this.switchesDeletedOnPk = 0,
     this.staleLinkMessages = const [],
+    this.pushSkippedMessages = const [],
     this.liveUnmappedFronters,
     int liveUnmappedFrontersCount = 0,
     String? liveUnmappedFrontersDismissalKey,
@@ -314,6 +324,7 @@ class PkSyncSummary {
   bool get hasSummaryDetails =>
       totalChanges > 0 ||
       staleLinkMessages.isNotEmpty ||
+      pushSkippedMessages.isNotEmpty ||
       hasLiveUnmappedFronters;
 
   Map<String, dynamic> toJson() {
@@ -329,6 +340,7 @@ class PkSyncSummary {
       'membersDeletedOnPk': membersDeletedOnPk,
       'switchesDeletedOnPk': switchesDeletedOnPk,
       'staleLinkMessages': staleLinkMessages,
+      'pushSkippedMessages': pushSkippedMessages,
       if (unmappedCount > 0) 'liveUnmappedFrontersCount': unmappedCount,
       'liveUnmappedFrontersDismissalKey': ?unmappedDismissalKey,
       'observedLiveFronters': observedLiveFronters,
@@ -347,6 +359,11 @@ class PkSyncSummary {
       switchesDeletedOnPk: json['switchesDeletedOnPk'] as int? ?? 0,
       staleLinkMessages:
           (json['staleLinkMessages'] as List?)?.whereType<String>().toList() ??
+          const [],
+      pushSkippedMessages:
+          (json['pushSkippedMessages'] as List?)
+              ?.whereType<String>()
+              .toList() ??
           const [],
       liveUnmappedFrontersCount: _nonNegativeInt(
         json['liveUnmappedFrontersCount'],
@@ -375,6 +392,9 @@ class PkSyncSummary {
     }
     if (staleLinkMessages.isNotEmpty) {
       parts.add('${staleLinkMessages.length} stale links cleared');
+    }
+    if (pushSkippedMessages.isNotEmpty) {
+      parts.add('${pushSkippedMessages.length} push problems');
     }
     final unmappedCount = liveUnmappedFrontersCount;
     if (unmappedCount > 0) {

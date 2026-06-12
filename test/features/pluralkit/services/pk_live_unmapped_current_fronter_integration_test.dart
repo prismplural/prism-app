@@ -116,9 +116,13 @@ void main() {
             expect(imported.pluralkitId, pkMember.id);
             expect(imported.pluralkitUuid, pkMember.uuid);
 
+            // The post-resolution re-pull models the mapping controller's
+            // automatic refresh, not a second manual tap — a manual pull
+            // inside 60s now throws PkManualSyncCooldownException (2026-06
+            // PK audit M1, wave 4).
             final secondSummary = await service.syncLiveFrontersOnly(
               direction: PkSyncDirection.pullOnly,
-              isManual: true,
+              isManual: false,
             );
 
             expect(secondSummary, isNotNull);

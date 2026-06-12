@@ -51,6 +51,40 @@ bool isPluralKitSwitchUuid(String? value) {
       _pluralKitSwitchUuidPattern.hasMatch(trimmed);
 }
 
+/// Truncate a PluralKit API timestamp to whole-second precision — the exact
+/// precision drift persists datetime columns at (2026-06 PK audit M6, wave 4).
+///
+/// Ground truth: this app has no `build.yaml`, so drift stores `dateTime()`
+/// columns as unix SECONDS; PK switch timestamps carry microseconds. Writing a
+/// µs value and reading it back yields the second-truncated instant, so any
+/// diff between an in-memory PK timestamp and a persisted row "changes" on
+/// EVERY reprocess — `diffSyncFields` then emits a CRDT update op per
+/// historical row per corrective import (feeding the known relay bulk-op
+/// starvation class). Truncating at the PERSISTENCE BOUNDARY — every site the
+/// diff sweep derives a row's start/end (or an in-memory presence timestamp
+/// that must compare equal to a DB-reconstituted one) from a switch
+/// timestamp — makes re-processing diff clean.
+///
+/// Scope notes (deliberate):
+/// - The FETCH side keeps µs everywhere it talks to the API: the `before`
+///   pagination param, `PkSwitchCursor.covers()`, and the cursor's
+///   `switchCursorTimestamp` all carry the API's exact timestamps. Truncating
+///   those would break the strictly-exclusive `t < before` paging contract.
+/// - Deterministic row ids derive from (entry-switch id, member uuid) — no
+///   timestamp — so id stability is unaffected.
+/// - Changing drift's storage format itself (build.yaml / TEXT columns) is an
+///   app-wide blast radius and explicitly out of scope.
+///
+/// Uses integer floor division, which is exact for any UTC instant (Dart's
+/// `%` on a positive divisor is non-negative, so pre-1970 instants floor
+/// correctly too — not that PK history reaches 1969).
+DateTime truncatePkTimestampToDriftPrecision(DateTime timestamp) {
+  final utc = timestamp.toUtc();
+  final micros = utc.microsecondsSinceEpoch;
+  final wholeSeconds = micros - (micros % Duration.microsecondsPerSecond);
+  return DateTime.fromMicrosecondsSinceEpoch(wholeSeconds, isUtc: true);
+}
+
 /// Snapshot of one local member's currently-active PluralKit presence
 /// during a diff sweep (WS3 step 3).
 ///
@@ -484,6 +518,39 @@ class PkAllChosenFrontersUnmappedException implements Exception {
   }
 }
 
+/// Thrown by the manual pull entry points ([PluralKitSyncService.syncRecentData]
+/// and [PluralKitSyncService.syncLiveFrontersOnly] with `isManual: true`) when
+/// the 60-second manual-sync cooldown has not yet elapsed (2026-06 PK audit M1,
+/// wave 4).
+///
+/// Before this, the cooldown lived ONLY in the setup screen's button-disable
+/// logic (`canManualSync`); the fronting-screen sync button called
+/// `syncRecentData(isManual: true)` with no check, so it could fire a full
+/// network round-trip every tap. Enforcing it IN-SERVICE makes the cooldown a
+/// real contract rather than UI advice. A typed exception (rather than a silent
+/// null/no-op) is the distinguishable outcome the audit asks for: the
+/// fronting-screen catch renders [toString] as a friendly "please wait" toast,
+/// while the setup screen keeps its button disabled and therefore never reaches
+/// this path. [remaining] is the time left before the next manual sync is
+/// allowed, so callers can render an accurate countdown.
+class PkManualSyncCooldownException implements Exception {
+  PkManualSyncCooldownException(this.remaining);
+
+  /// Time remaining before another manual sync is permitted. Always positive
+  /// (a non-positive remaining means the cooldown elapsed and no exception is
+  /// thrown).
+  final Duration remaining;
+
+  @override
+  String toString() {
+    final seconds = remaining.inSeconds + (remaining.inMilliseconds % 1000 > 0 ? 1 : 0);
+    final clamped = seconds < 1 ? 1 : seconds;
+    return 'Please wait $clamped more '
+        '${clamped == 1 ? 'second' : 'seconds'} before syncing with '
+        'PluralKit again.';
+  }
+}
+
 /// Classified outcome of a single [PluralKitSyncService.pollFrontersOnly] tick
 /// (2026-06 PK audit M3). The method used to swallow everything and return a
 /// bare bool, so a revoked token kept polling at full cadence forever while the
@@ -600,6 +667,92 @@ class PluralKitSyncService {
   PluralKitSyncState _state = const PluralKitSyncState();
   Future<PkPushSwitchesResult>? _pushInFlight;
 
+  /// 2026-06 PK audit M1 (wave 4) — service-level PULL gate.
+  ///
+  /// Every pull-side entry point (syncRecentData, performFullImport /
+  /// _performFullImport, importFromFile, importFromFileWithToken,
+  /// importMembersOnly, syncLiveFrontersOnly, importSwitchesAfterLink,
+  /// pollFrontersOnly) claims this flag SYNCHRONOUSLY before its first `await`
+  /// via [_claimPull], and releases it via [_releasePull] in a `finally`.
+  ///
+  /// Why a dedicated boolean and not just `_state.isSyncing`: the existing
+  /// `isSyncing` is part of the EMITTED state and drives the UI, but several
+  /// entry points only CHECKED `isSyncing` and then awaited before the matching
+  /// `_emit(isSyncing: true)` claimed it — most damagingly `syncRecentData`'s
+  /// first-sync branch, which `await`s a token read and then `performFullImport`
+  /// (it is the latter that finally claims). Two concurrent callers could both
+  /// pass the bare `if (_state.isSyncing)` check during that await gap, both
+  /// enter, the loser silently no-ops inside `performFullImport`, yet the outer
+  /// `syncRecentData` still stamped `lastManualSyncDate` and emitted a
+  /// successful `PkSyncCompleted(0,0)` that never ran. A plain in-memory boolean
+  /// claimed with NO await between the check and the set closes that window
+  /// (Dart's single-threaded event loop guarantees the check-then-set pair is
+  /// atomic). `pollFrontersOnly` likewise only checked `isSyncing` and never
+  /// claimed anything, so a poll-driven `advanceCursor:false` sweep could
+  /// interleave with an in-flight incremental sweep.
+  ///
+  /// The PUSH machinery (`_pushInFlight`, the M9 follow-up) is deliberately
+  /// SEPARATE — pushes must keep interleaving with pulls (pull's phase-4 push
+  /// runs `allowDuringSync: true`). `pushPendingSwitches` continues to read
+  /// `_state.isSyncing` (kept in sync with this flag — every claim is paired
+  /// with the existing `_emit(isSyncing: true)`, and `_pullInFlight` is OR'd
+  /// into push's bail) so the push/pull serialization contract is unchanged.
+  bool _pullInFlight = false;
+
+  /// Test seam (2026-06 PK audit M1) — lets the concurrency tests force a pull
+  /// to be in flight without spinning up a real long-running import, so they can
+  /// assert that every other entry point bails as busy. Production never calls
+  /// this; the flag is otherwise only mutated by [_claimPull]/[_releasePull].
+  @visibleForTesting
+  bool get pullInFlightForTesting => _pullInFlight;
+
+  /// Synchronously claim the pull gate (2026-06 PK audit M1). Returns `true`
+  /// when the gate was free and is now held by this caller; `false` when a pull
+  /// (this flag OR a legacy `_emit(isSyncing:true)` claim) is already running,
+  /// in which case the caller MUST bail as busy WITHOUT stamping cooldowns or
+  /// emitting a success event. There is intentionally NO `await` in this method
+  /// — callers rely on the check-then-set being atomic under the event loop.
+  bool _claimPull() {
+    if (_pullInFlight || _state.isSyncing) return false;
+    _pullInFlight = true;
+    return true;
+  }
+
+  /// Release the pull gate. Idempotent; safe to call from a `finally` even when
+  /// the matching [_claimPull] returned false (the caller simply never set it).
+  void _releasePull() {
+    _pullInFlight = false;
+  }
+
+  /// Manual-sync cooldown window (mirrors [PluralKitSyncState.canManualSync]).
+  static const Duration _manualSyncCooldown = Duration(seconds: 60);
+
+  /// Time remaining on the manual-sync cooldown, or [Duration.zero] when a
+  /// manual sync is allowed right now (2026-06 PK audit M1). Computed from the
+  /// stored `lastManualSyncDate` so it survives a service rebuild (H10) — the
+  /// in-memory `_state` is restored from the DAO on init.
+  Duration _manualSyncCooldownRemaining() {
+    final last = _state.lastManualSyncDate;
+    if (last == null) return Duration.zero;
+    final elapsed = DateTime.now().difference(last);
+    if (elapsed >= _manualSyncCooldown) return Duration.zero;
+    return _manualSyncCooldown - elapsed;
+  }
+
+  /// Throw [PkManualSyncCooldownException] when a manual pull is requested
+  /// inside the cooldown window. No-op for automatic syncs (the cooldown only
+  /// rate-limits user-initiated taps, never the auto-poll cadence) and when the
+  /// cooldown has elapsed. Called by the manual entry points BEFORE they claim
+  /// the pull gate so a rejected manual sync neither holds the gate nor stamps a
+  /// fresh cooldown.
+  void _enforceManualCooldown({required bool isManual}) {
+    if (!isManual) return;
+    final remaining = _manualSyncCooldownRemaining();
+    if (remaining > Duration.zero) {
+      throw PkManualSyncCooldownException(remaining);
+    }
+  }
+
   /// 2026-06 PK audit M9 — trailing-change dirty flag. When a
   /// [pushPendingSwitches] call arrives while a push is already in flight, the
   /// in-flight future was captured BEFORE the new local state existed, so
@@ -609,6 +762,30 @@ class PluralKitSyncService {
   /// [_pushFollowUp]. The follow-up's own in-sync short-circuit terminates the
   /// chain when state is stable (a follow-up never sets the flag itself).
   bool _pushDirty = false;
+
+  /// 2026-06 PK audit M12 (wave 4) — the local fronter ORDER (short-id space)
+  /// this service last pushed to, or last observed in agreement with,
+  /// PluralKit.
+  ///
+  /// The order-only repatch (same member SET, different ORDER) used to fire on
+  /// EVERY push trigger with the locally-derived order (startTime desc →
+  /// displayOrder → memberId), deterministically reverting any PK-side reorder
+  /// (`pk;sw move`) the next time the app shell trigger fired — and the local
+  /// side never learns PK's order, so the clobber repeated forever. Ordered
+  /// co-fronter push is deliberate (docs/plans/pk-cofronter-push-fix.md:
+  /// PK-follows-local is the intended direction for genuine local changes), so
+  /// the defensible middle is: re-PATCH the order only when the LOCAL order
+  /// actually CHANGED since this baseline — then local intent legitimately
+  /// wins. While local order is unchanged, a PK-side reorder survives.
+  ///
+  /// The baseline is only comparable while it refers to the SAME member set;
+  /// a set change (new switch push, pulled co-fronter, etc.) invalidates it,
+  /// and the next same-set observation re-anchors WITHOUT patching — i.e. on
+  /// ambiguity PK's stored order wins, the M12-safe direction. In-memory only:
+  /// the service identity is stable across handle transitions (H10), and after
+  /// an app restart the first divergent observation re-anchors silently, so a
+  /// restart can never replay a stale local order onto PK.
+  List<String>? _lastObservedLocalPushOrder;
 
   /// Completer that resolves to the result of the next follow-up run scheduled
   /// by the M9 dirty flag. Shared by all callers that arrived mid-flight, so a
@@ -1353,17 +1530,30 @@ class PluralKitSyncService {
   /// Fast member-only import. Returns system name and PK members for UI.
   Future<(String? systemName, List<PKMember> pkMembers)>
   importMembersOnly() async {
-    debugPrint('[PK_SVC] importMembersOnly: building client...');
-    final client = await _buildClient();
-    if (client == null) {
-      debugPrint(
-        '[PK_SVC] importMembersOnly: _buildClient returned null '
-        '(token missing from secure storage?)',
-      );
-      throw StateError('Not connected');
+    // 2026-06 PK audit M1: claim the shared pull gate synchronously BEFORE the
+    // `_buildClient()` await — previously this method emitted `isSyncing:true`
+    // only AFTER building the client, leaving a window where it could run
+    // concurrently with another pull. A busy caller throws (the mapping flow
+    // that drives this can retry); an explicit error beats returning a partial
+    // roster mid-sweep.
+    if (!_claimPull()) {
+      throw StateError('PluralKit sync is already running');
     }
-
+    // M1 hardening: the client build lives INSIDE the try so any throw out of
+    // the token read (not just classified PlatformExceptions) hits the
+    // `finally` and releases the gate — a leak here would lock out every pull
+    // until the service is rebuilt.
+    PluralKitClient? client;
     try {
+      debugPrint('[PK_SVC] importMembersOnly: building client...');
+      client = await _buildClient();
+      if (client == null) {
+        debugPrint(
+          '[PK_SVC] importMembersOnly: _buildClient returned null '
+          '(token missing from secure storage?)',
+        );
+        throw StateError('Not connected');
+      }
       _emit(
         _state.copyWith(
           isSyncing: true,
@@ -1437,13 +1627,15 @@ class PluralKitSyncService {
           // Redact against the client's actual token (not a separately-captured
           // value) so a clearToken/setToken race between read-and-build can't
           // leave us redacting against a stale or null token while the
-          // exception text still embeds the live one.
-          message: PkSyncEvent.redact(e.toString(), client.currentToken),
+          // exception text still embeds the live one. Null when the client
+          // build itself failed — redact tolerates that.
+          message: PkSyncEvent.redact(e.toString(), client?.currentToken),
         ),
       );
       rethrow;
     } finally {
-      client.dispose();
+      client?.dispose();
+      _releasePull(); // 2026-06 PK audit M1
     }
   }
 
@@ -1474,7 +1666,12 @@ class PluralKitSyncService {
   /// when the sweep re-derives them (v5 UUIDs from entry-switch + member uuid).
   /// CRDT field-LWW handles boundary correction on collision.
   Future<void> performFullImport() async {
-    if (_state.isSyncing) return;
+    // 2026-06 PK audit M1: preserve this wrapper's historical silent-no-op
+    // busy contract (the setup screen calls it bare). The check below and
+    // `_performFullImport`'s own synchronous `_claimPull()` run with NO await
+    // between them, so the pair is atomic under the event loop — the check is
+    // a contract adapter, not the mutual exclusion itself (that lives inside).
+    if (_pullInFlight || _state.isSyncing) return;
     await _performFullImport();
   }
 
@@ -1490,13 +1687,20 @@ class PluralKitSyncService {
   Future<PkTokenImportResult> _performFullImport({
     bool useRepairToken = false,
     String? token,
+    bool gateAlreadyHeld = false,
   }) async {
     if (!useRepairToken && !_state.canAutoSync) {
       throw StateError(
         'Setup incomplete — confirm direction and mapping before auto-syncing.',
       );
     }
-    if (_state.isSyncing) {
+    // 2026-06 PK audit M1: claim the service-level pull gate synchronously,
+    // UNLESS an outer pull already holds it ([syncRecentData]'s first-sync
+    // branch passes `gateAlreadyHeld: true`). A standalone busy caller throws —
+    // an explicit "re-import all" is a user action where a clear error beats a
+    // silent no-op (and preserves the prior `performOneTimeFullImport` contract
+    // that some callers catch).
+    if (!gateAlreadyHeld && !_claimPull()) {
       throw StateError('PluralKit import is already running');
     }
     _emit(
@@ -1508,11 +1712,23 @@ class PluralKitSyncService {
       ),
     );
 
-    final client = useRepairToken
-        ? await _buildRepairClient(token: token)
-        : await _buildClient();
+    // M1 hardening: the build await sits between the gate claim and the main
+    // try/finally, so an unexpected throw out of the token read would leak the
+    // gate until service rebuild. Release-and-rethrow keeps the existing
+    // null-client semantics byte-identical while closing the leak.
+    final PluralKitClient? client;
+    try {
+      client = useRepairToken
+          ? await _buildRepairClient(token: token)
+          : await _buildClient();
+    } catch (_) {
+      _emit(_state.copyWith(isSyncing: false));
+      if (!gateAlreadyHeld) _releasePull();
+      rethrow;
+    }
     if (client == null) {
       _emit(_state.copyWith(isSyncing: false));
+      if (!gateAlreadyHeld) _releasePull();
       throw StateError(
         useRepairToken
             ? 'PluralKit token is required for one-time import'
@@ -1521,7 +1737,13 @@ class PluralKitSyncService {
     }
 
     try {
-      final run = await _runFullImportWithClient(client, updateSyncState: true);
+      final run = await _runFullImportWithClient(
+        client,
+        updateSyncState: true,
+        // Wave 4 Premium systemId refresh: only connected-token runs may
+        // rewrite the stored system short id (see helper doc).
+        refreshStoredSystemId: !useRepairToken,
+      );
       final statusParts = [
         'Imported ${run.members.length} members and '
             '${run.switchesImported} switches.',
@@ -1552,6 +1774,9 @@ class PluralKitSyncService {
       rethrow;
     } finally {
       client.dispose();
+      // Release only the claim we made; the gate-already-held path leaves the
+      // outer pull (syncRecentData) to release it in its own finally.
+      if (!gateAlreadyHeld) _releasePull();
     }
   }
 
@@ -1572,37 +1797,52 @@ class PluralKitSyncService {
       _emit(_state.copyWith(syncProgress: p, syncStatus: s));
     }
 
-    _emit(
-      _state.copyWith(
-        isSyncing: true,
-        syncProgress: 0.0,
-        syncStatus: 'Importing from file…',
-        clearError: true,
-      ),
-    );
-
-    // 2026-06 PK audit H8: if the app is currently LINKED to a PK system,
-    // reject a foreign export before any write. The no-token path has no live
-    // API system to compare against, so we compare the export's identity
-    // against the linked system row. The sync DAO only persists the short id
-    // (set by `setToken`), so this is a short-id comparison even though the
-    // export also carries a uuid. If the app is NOT linked (`systemId` null),
-    // we allow any file — a fresh import has nothing to clobber.
-    final linkedSystemId = (await _syncDao.getSyncState()).systemId?.trim();
-    if (linkedSystemId != null && linkedSystemId.isNotEmpty) {
-      final fileId = export.system.id.trim();
-      if (fileId != linkedSystemId) {
-        _emit(_state.copyWith(isSyncing: false));
-        throw PkFileSystemMismatchError(
-          fileSystemName: export.system.name,
-          fileSystemId: export.system.uuid ?? export.system.id,
-          targetSystemName: null,
-          targetSystemId: linkedSystemId,
-        );
-      }
+    // 2026-06 PK audit M1 (defect c): `importFromFile` previously had NO
+    // re-entrancy guard at all — it went straight to `_emit(isSyncing: true)`
+    // and an `await _syncDao.getSyncState()`, so it could run concurrently with
+    // any other pull (or a second file import). Claim the shared pull gate
+    // synchronously before the first await; a busy caller returns a benign
+    // "nothing imported" result rather than racing the in-flight sweep.
+    if (!_claimPull()) {
+      return PkFileImportResult(
+        systemName: export.system.name,
+        membersImported: 0,
+        groupsImported: 0,
+        switchesCreated: 0,
+        switchesSkipped: export.switches.length,
+      );
     }
-
     try {
+      _emit(
+        _state.copyWith(
+          isSyncing: true,
+          syncProgress: 0.0,
+          syncStatus: 'Importing from file…',
+          clearError: true,
+        ),
+      );
+
+      // 2026-06 PK audit H8: if the app is currently LINKED to a PK system,
+      // reject a foreign export before any write. The no-token path has no live
+      // API system to compare against, so we compare the export's identity
+      // against the linked system row. The sync DAO only persists the short id
+      // (set by `setToken`), so this is a short-id comparison even though the
+      // export also carries a uuid. If the app is NOT linked (`systemId` null),
+      // we allow any file — a fresh import has nothing to clobber.
+      final linkedSystemId = (await _syncDao.getSyncState()).systemId?.trim();
+      if (linkedSystemId != null && linkedSystemId.isNotEmpty) {
+        final fileId = export.system.id.trim();
+        if (fileId != linkedSystemId) {
+          _emit(_state.copyWith(isSyncing: false));
+          throw PkFileSystemMismatchError(
+            fileSystemName: export.system.name,
+            fileSystemId: export.system.uuid ?? export.system.id,
+            targetSystemName: null,
+            targetSystemId: linkedSystemId,
+          );
+        }
+      }
+
       progress(0.05, 'Importing ${export.members.length} members…');
       await _importMembers(
         null,
@@ -1674,6 +1914,10 @@ class PluralKitSyncService {
         ),
       );
       rethrow;
+    } finally {
+      // 2026-06 PK audit M1: always release the pull gate (the claim above
+      // returned true to reach this body).
+      _releasePull();
     }
   }
 
@@ -1694,7 +1938,11 @@ class PluralKitSyncService {
       _emit(_state.copyWith(syncProgress: p, syncStatus: s));
     }
 
-    if (_state.isSyncing) {
+    // 2026-06 PK audit M1: claim the shared pull gate synchronously (covers the
+    // window where another pull holds `_pullInFlight` but has not yet emitted
+    // `isSyncing:true`). A busy caller gets the benign "nothing imported"
+    // result the method already returned for its old `isSyncing` check.
+    if (!_claimPull()) {
       return PkFileTokenFrontingImportResult(
         systemName: export.system.name,
         membersImported: 0,
@@ -1723,9 +1971,19 @@ class PluralKitSyncService {
       ),
     );
 
-    final client = await _buildRepairClient(token: token);
+    // M1 hardening: release-and-rethrow around the build await so a throw out
+    // of the token read cannot leak the pull gate (see _performFullImport).
+    final PluralKitClient? client;
+    try {
+      client = await _buildRepairClient(token: token);
+    } catch (_) {
+      _emit(_state.copyWith(isSyncing: false));
+      _releasePull();
+      rethrow;
+    }
     if (client == null) {
       _emit(_state.copyWith(isSyncing: false));
+      _releasePull();
       throw StateError('PluralKit token is required for file + token import');
     }
 
@@ -1858,6 +2116,7 @@ class PluralKitSyncService {
       rethrow;
     } finally {
       client.dispose();
+      _releasePull(); // 2026-06 PK audit M1
     }
   }
 
@@ -1875,9 +2134,35 @@ class PluralKitSyncService {
         'Setup incomplete — confirm direction and mapping before auto-syncing.',
       );
     }
-    // Claim isSyncing before the first await so no concurrent caller can
-    // slip through the flag check during an await gap.
-    if (_state.isSyncing) return null;
+    // 2026-06 PK audit M1: enforce the manual cooldown IN-SERVICE before any
+    // gate claim or side effect — the fronting-screen sync button has no
+    // button-disable guard, so without this a tap could fire a full sync every
+    // time. Throws a typed cooldown exception the caller surfaces as a "please
+    // wait" toast; automatic syncs are never cooled down.
+    _enforceManualCooldown(isManual: isManual);
+    // 2026-06 PK audit M1: claim the service-level pull gate SYNCHRONOUSLY
+    // (no await between check and claim) so a concurrent caller can't slip
+    // through during the first-sync branch's token-read await gap. The loser
+    // returns null WITHOUT stamping a cooldown or emitting a phantom
+    // `PkSyncCompleted` — the exact double-entry bug the audit cited.
+    if (!_claimPull()) return null;
+    try {
+      return await _syncRecentDataInner(
+        isManual: isManual,
+        direction: direction,
+      );
+    } finally {
+      _releasePull();
+    }
+  }
+
+  /// Body of [syncRecentData]. Runs with the pull gate already held by the
+  /// public entry point (2026-06 PK audit M1), so its first-sync branch can call
+  /// `_performFullImport(gateAlreadyHeld: true)` without re-claiming.
+  Future<PkSyncSummary?> _syncRecentDataInner({
+    required bool isManual,
+    required PkSyncDirection direction,
+  }) async {
     final stopwatch = Stopwatch()..start();
     _bus.emit(
       PkSyncStarted(
@@ -1896,7 +2181,13 @@ class PluralKitSyncService {
       // one value stale).
       final capturedToken = await _getToken();
       try {
-        await performFullImport();
+        // 2026-06 PK audit M1: the pull gate is already held by syncRecentData,
+        // so run the full import WITHOUT re-claiming. Previously this called the
+        // public `performFullImport()`, whose own `isSyncing` check could pass
+        // for a concurrent caller during this branch's await gap, then silently
+        // no-op inside — while the code below still stamped `lastManualSyncDate`
+        // and emitted a successful `PkSyncCompleted(0,0)` that never ran.
+        await _performFullImport(gateAlreadyHeld: true);
       } catch (e) {
         final postFailureToken = await _getToken();
         var error = PkSyncEvent.redact(e.toString(), capturedToken);
@@ -1969,6 +2260,15 @@ class PluralKitSyncService {
         _emit(
           _state.copyWith(syncProgress: 0.1, syncStatus: 'Syncing members...'),
         );
+
+        // Wave 4 Premium systemId refresh: keep the stored system short id
+        // fresh on the REGULAR sync cadence, not just on rare full imports — a
+        // Premium system-hid rename would otherwise false-positive every
+        // stored-id ownership comparison (H12a class) until the next full
+        // re-import. One extra GET next to the much heavier getMembers call;
+        // this client is always the connected token, so the rename inference
+        // is safe (see [_refreshStoredSystemIdIfChanged]).
+        await _refreshStoredSystemIdIfChanged(await client.getSystem());
 
         final pkMembers = await client.getMembers();
 
@@ -2251,6 +2551,14 @@ class PluralKitSyncService {
         membersDeletedOnPk: membersDeletedOnPk,
         switchesDeletedOnPk: switchesDeletedOnPk,
         staleLinkMessages: List.unmodifiable(staleLinkMessages),
+        // M10a (wave 4): per-member push isolation converts what used to be a
+        // sync-aborting throw into a skipped member + message; the COUNT
+        // already flows via `membersSkipped`, but the rebuild above dropped
+        // the message list, so the UI summary card could never explain WHICH
+        // members were skipped or why.
+        pushSkippedMessages: List.unmodifiable(
+          summary?.pushSkippedMessages ?? const <String>[],
+        ),
       );
 
       final statusParts = <String>[];
@@ -2277,6 +2585,14 @@ class PluralKitSyncService {
         );
       }
 
+      // M10a (wave 4): surface push-skip messages through the same channel as
+      // stale-link messages — a member whose PATCH was rejected/dropped is
+      // user-actionable (fix the oversized field, re-sync) and must not vanish
+      // into a debugPrint.
+      final userFacingMessages = <String>[
+        ...staleLinkMessages,
+        ...finalSummary.pushSkippedMessages,
+      ];
       _emit(
         _state.copyWith(
           isSyncing: false,
@@ -2284,10 +2600,10 @@ class PluralKitSyncService {
           syncStatus: statusParts.isNotEmpty
               ? '${statusParts.join('. ')}.'
               : 'Everything is up to date.',
-          syncError: staleLinkMessages.isEmpty
+          syncError: userFacingMessages.isEmpty
               ? null
-              : staleLinkMessages.join('\n'),
-          clearError: staleLinkMessages.isEmpty,
+              : userFacingMessages.join('\n'),
+          clearError: userFacingMessages.isEmpty,
           lastSyncDate: now,
           lastManualSyncDate: isManual ? now : _state.lastManualSyncDate,
         ),
@@ -2378,7 +2694,13 @@ class PluralKitSyncService {
     PKSwitch? knownCurrentFronters,
   }) async {
     if (!_state.canAutoSync) return null;
-    if (_state.isSyncing) return null;
+    // 2026-06 PK audit M1: enforce the manual cooldown in-service (the
+    // fronting-screen / setup-screen sync buttons both route manual live-front
+    // syncs here), then claim the shared pull gate synchronously so this can't
+    // interleave with an incremental sweep — two passes holding independent
+    // in-memory active maps would re-close rows at different timestamps.
+    _enforceManualCooldown(isManual: isManual);
+    if (!_claimPull()) return null;
 
     final stopwatch = Stopwatch()..start();
     _bus.emit(
@@ -2541,6 +2863,8 @@ class PluralKitSyncService {
         ),
       );
       rethrow;
+    } finally {
+      _releasePull(); // 2026-06 PK audit M1
     }
   }
 
@@ -2669,7 +2993,15 @@ class PluralKitSyncService {
       if (_hasText(session.pluralkitUuid)) continue;
       final memberId = session.memberId;
       if (memberId == null || !currentLocalIds.contains(memberId)) continue;
-      if (session.startTime.isAfter(currentSwitch.timestamp)) continue;
+      // M6: `session.startTime` is a persisted (whole-second) value; truncate
+      // the API side so the bound compares like-for-like. Behaviorally
+      // identical — the truncated left side already lost any distinguishing
+      // sub-second precision.
+      if (session.startTime.isAfter(
+        truncatePkTimestampToDriftPrecision(currentSwitch.timestamp),
+      )) {
+        continue;
+      }
 
       try {
         await _frontingSessionRepository.updateSession(
@@ -3003,6 +3335,55 @@ class PluralKitSyncService {
               '$incomingUuid); NOT adopting by short id (2026-06 PK audit '
               'H12a) — creating fresh from incoming uuid.',
             );
+            // 2026-06 PK audit H12a follow-up (wave 4): the refused row's
+            // `pluralkit_id` is provably STALE — `@me` says short id `pk.id`
+            // now belongs to `pk.uuid`, while this row is bound to a different
+            // uuid. Leaving it in place creates a duplicate-short-id degenerate
+            // state: two local rows carrying the same short id, where every
+            // shortId-keyed path (live fronter resolution, push wire-ref
+            // fallback, this very map on the NEXT import) can pick the wrong
+            // row. Clear ONLY the short id; the uuid binding stays — if that
+            // uuid is still in this roster, its own iteration re-stamps the
+            // row's current short id via the update path's
+            // `pluralkitId: pk.id`. Non-fatal on failure: the import must not
+            // abort over bookkeeping cleanup.
+            //
+            // The clear MUST re-read the row and write a TARGETED partial
+            // patch — `byPkUuid`/`byPkId` are load-time snapshots that the
+            // update branch never refreshes. Counterexample (Premium short-id
+            // recycling): row R = {uuid: Ux, shortId: y1 (stale)}, incoming
+            // roster X = (Ux, x1) then Y = (Uy, y1). X's iteration re-stamps
+            // R with `pluralkit_id: x1` plus fresh profile fields; Y's
+            // refusal then matches R via the STALE byPkId snapshot. A
+            // full-object `updateMember(staleSnapshot.copyWith(...))` here
+            // would clear the just-corrected x1 AND revert every profile
+            // field X wrote (emitting CRDT revert ops that re-apply next
+            // sync). The fresh read + conditional partial patch only fires
+            // when the row STILL carries the collided short id, and
+            // `updateMemberFields` diffs only the provided key against the
+            // CURRENT row, so nothing else can be touched.
+            try {
+              final fresh = await _memberRepository.getMemberById(
+                shortIdMatch.id,
+              );
+              if (fresh != null &&
+                  !fresh.isDeleted &&
+                  fresh.pluralkitId?.trim() == pk.id) {
+                await _memberRepository.updateMemberFields(fresh.id, {
+                  'pluralkit_id': null,
+                });
+              }
+              // Keep the in-memory index consistent with the DB so later
+              // iterations of THIS import don't re-match the row by the
+              // recycled short id (whether we just cleared it or an earlier
+              // iteration already re-stamped the row's identity).
+              byPkId.remove(pk.id);
+            } catch (e) {
+              debugPrint(
+                '[PK_SVC] _importMembers: failed to clear stale collided '
+                'short id ${pk.id} on ${shortIdMatch.id} (non-fatal): $e',
+              );
+            }
           }
         }
       }
@@ -3189,12 +3570,52 @@ class PluralKitSyncService {
     return allSwitches;
   }
 
+  /// Persist a changed `@me` system short id onto the sync DAO row (2026-06 PK
+  /// audit wave 4 — Premium systemId refresh).
+  ///
+  /// PK Premium (~Feb 2026) makes system short ids user-changeable, but the
+  /// stored `systemId` was written exactly once, by `setToken`. Every
+  /// H12a-style ownership check (and `importFromFile`'s linked-system gate)
+  /// compares against that stored short id, so a Premium rename would
+  /// false-positive every such check forever. `GET /systems/@me` is bound to
+  /// the token, so a different short id under the SAME token is by definition
+  /// the same system renamed — no uuid comparison is needed (and the row has
+  /// no uuid column; adding one is a schema bump, out of scope here).
+  ///
+  /// Deliberately refreshes only when a stored id already EXISTS: callers must
+  /// only invoke this with a system fetched via the CONNECTED token (never a
+  /// repair/one-shot token, which may belong to a different system).
+  Future<void> _refreshStoredSystemIdIfChanged(PKSystem system) async {
+    final fresh = system.id.trim();
+    if (fresh.isEmpty) return;
+    final stored = (await _syncDao.getSyncState()).systemId?.trim();
+    if (stored == null || stored.isEmpty || stored == fresh) return;
+    await _syncDao.upsertSyncState(
+      PluralKitSyncStateCompanion(
+        id: const Value('pk_config'),
+        systemId: Value(fresh),
+      ),
+    );
+    debugPrint(
+      '[PK_SVC] stored PK system short id refreshed: $stored → $fresh '
+      '(Premium rename; same token-bound system).',
+    );
+  }
+
   Future<PkTokenImportResult> _runFullImportWithClient(
     PluralKitClient client, {
     required bool updateSyncState,
+    bool refreshStoredSystemId = false,
   }) async {
     // -- Members (0-10%) --
     final system = await client.getSystem();
+    // Wave 4 Premium systemId refresh — only when this run uses the CONNECTED
+    // token (`_performFullImport` passes `!useRepairToken`); a repair-token
+    // one-shot may legitimately target a different system and must not
+    // overwrite the connected row's identity.
+    if (refreshStoredSystemId) {
+      await _refreshStoredSystemIdIfChanged(system);
+    }
     _emit(
       _state.copyWith(syncProgress: 0.02, syncStatus: 'Fetching members...'),
     );
@@ -3618,9 +4039,33 @@ class PluralKitSyncService {
     // pre-loop below populates one entry per currently-open PK row, and
     // the entrant/leaver paths below add and remove entries.
     final active = <String, _PkActivePresence>{};
+    // M6: the seed bound compares against PERSISTED row startTimes, which
+    // drift stores at whole-second precision — so the bound itself must be
+    // truncated for a like-for-like comparison. (Behaviorally identical to the
+    // old µs bound: a stored startTime is always ≤ its µs original, so any row
+    // the µs bound included, the truncated bound includes too; rows from a
+    // later same-second switch were ALREADY included pre-M6 because their
+    // stored startTime had lost the distinguishing µs.) API-facing values —
+    // the cursor, `before` paging — keep µs; see
+    // [truncatePkTimestampToDriftPrecision].
     final firstSwitchTimestamp = switches.isEmpty
         ? null
-        : switches.first.timestamp;
+        : truncatePkTimestampToDriftPrecision(switches.first.timestamp);
+
+    // 2026-06 PK audit M2 (wave 4): open PK-linked rows the seed bound
+    // EXCLUDES (started after the batch's first switch), keyed by
+    // (switch uuid, member id). These are exactly the live-poll artifacts the
+    // audit's interleaving produces: the poll ingests the CURRENT switch S3
+    // with `advanceCursor: false`, opening det(S3, B); a later sweep covering
+    // [S2, S3] seeds without that row (the WS3 #29 bound — correctly, so old
+    // switches can't close rows whose leavers the batch may not contain), sees
+    // B as an entrant at S2, and opens det(S2, B) — TWO open rows for B. At
+    // B's eventual leaver the DB-rebuilt seed keys by member id and the older
+    // row wins, so det(S3, B) stays open forever: a permanent phantom fronter.
+    // The map lets the loop MERGE the duplicate at the moment it can reason
+    // about it — when the sweep reaches S3 itself (see the continuing-member
+    // reconciliation block inside the loop).
+    final seedExcludedOpenRowsByPair = <String, domain.FrontingSession>{};
 
     // Populate `active` from the database. WS3 step 5 / review #29: this
     // runs unconditionally now (not only when [prevActive] is non-empty),
@@ -3640,6 +4085,12 @@ class PluralKitSyncService {
           s.memberId != null) {
         if (firstSwitchTimestamp != null &&
             s.startTime.isAfter(firstSwitchTimestamp)) {
+          // M2: remember the excluded open row so the loop can merge it if it
+          // turns out to duplicate a continuing presence at its own switch.
+          seedExcludedOpenRowsByPair[_canonicalPairKey(
+            s.pluralkitUuid!.trim(),
+            s.memberId!,
+          )] = s;
           continue;
         }
         final localId = s.memberId!;
@@ -3676,6 +4127,14 @@ class PluralKitSyncService {
     for (var i = 0; i < switches.length; i++) {
       final sw = switches[i];
       onProgress?.call(i);
+
+      // M6: every row-facing use of this switch's timestamp (presence
+      // startedAt, leaver close end_time, the zero-length / ordering
+      // comparisons) goes through the truncated value so in-memory state is
+      // byte-identical to what a DB-reconstituted pass would see. The RAW
+      // `sw.timestamp` is still used for the batch cursor below — that value
+      // round-trips to the API's `before` param and must keep µs.
+      final swRowTime = truncatePkTimestampToDriftPrecision(sw.timestamp);
 
       // Resolve this switch's member list to local member IDs.
       // Also track which short IDs couldn't be resolved for reporting.
@@ -3760,7 +4219,10 @@ class PluralKitSyncService {
               active[localId] = _PkActivePresence(
                 localMemberId: localId,
                 pkMemberUuid: pkUuidByLocalId[localId],
-                startedAt: sw.timestamp,
+                // M6: track the truncated instant — identical to the value the
+                // row persisted, so a presence built here compares the same as
+                // one reconstituted from the DB on a crash-resume pass.
+                startedAt: swRowTime,
                 rowId: outcome.rowId,
               );
             case _PkUpsertOutcomeKind.tombstoneCollision:
@@ -3775,7 +4237,7 @@ class PluralKitSyncService {
               active[localId] = _PkActivePresence(
                 localMemberId: localId,
                 pkMemberUuid: pkUuidByLocalId[localId],
-                startedAt: sw.timestamp,
+                startedAt: swRowTime, // M6 — see the `row` case above.
                 isTombstonedCollision: true,
               );
             case _PkUpsertOutcomeKind.tombstonePreserved:
@@ -3813,25 +4275,34 @@ class PluralKitSyncService {
             //    typed error so the UI surfaces this rather than silently
             //    writing a negative-duration row that re-exports as
             //    garbage.
-            if (sw.timestamp.isBefore(presence!.startedAt)) {
+            //
+            // M6: all three comparisons (and the close write) use the
+            // TRUNCATED switch time. `presence.startedAt` is already
+            // truncated whether it came from an entrant in this loop or from
+            // the DB rebuild, so the zero-length decision is now identical
+            // between the in-memory and DB-seeded passes — pre-M6 a
+            // sub-second presence reconstituted from the DB was "closed" with
+            // a µs end_time that drift then truncated into a stored
+            // start == end row the in-memory pass would have discarded.
+            if (swRowTime.isBefore(presence!.startedAt)) {
               throw PkSwitchOrderingError(
                 rowId: rowId,
                 startTime: presence.startedAt,
-                endTime: sw.timestamp,
+                endTime: swRowTime,
                 switchId: sw.id,
               );
             }
-            if (sw.timestamp.isAtSameMomentAs(presence.startedAt)) {
+            if (swRowTime.isAtSameMomentAs(presence.startedAt)) {
               zeroLengthCloseSkipped++;
               await _frontingSessionRepository.clearPluralKitLink(rowId);
               await _frontingSessionRepository.deleteSession(rowId);
               debugPrint(
                 '[PK_SWEEP] zero-length presence discarded on row $rowId '
-                '(start == end == ${sw.timestamp.toIso8601String()}); '
+                '(start == end == ${swRowTime.toIso8601String()}); '
                 'cleared PK link before tombstoning to avoid delete push.',
               );
             } else {
-              await _frontingSessionRepository.endSession(rowId, sw.timestamp);
+              await _frontingSessionRepository.endSession(rowId, swRowTime);
             }
           } else if (presence != null && presence.isTombstonedCollision) {
             // Step 6 + review #33: a tombstoned-collision presence was
@@ -3851,6 +4322,50 @@ class PluralKitSyncService {
           // matches the prior behavior where leavers were unconditionally
           // removed from `prevActive` via `prevActive = newActive`.
           active.remove(localId);
+        }
+
+        // 2026-06 PK audit M2 (wave 4): merge live-poll duplicates for
+        // CONTINUING members. A member in `newActive ∩ prevActive` neither
+        // enters nor leaves at this switch — but if an OPEN seed-excluded row
+        // exists keyed (THIS switch, this member), it is a live-poll artifact:
+        // the poll ingested the then-current switch in isolation
+        // (`advanceCursor: false`) and opened a row for a member whose true
+        // entry — visible to THIS sweep — was an earlier covered switch. The
+        // member's presence is already tracked by the earlier row, so the
+        // poll row is a structural duplicate; tombstone it via the
+        // clear-link-before-delete idiom (importer cleanup, NEVER a PK
+        // deletion push — C1).
+        //
+        // Why merge HERE and not at the entrant switch: at entrant time the
+        // sweep cannot know whether the member stays continuously present
+        // through the duplicate's switch. If the member leaves and re-enters
+        // at that switch, the duplicate row IS the legitimate re-entry row —
+        // and in exactly that case the member arrives at this switch as an
+        // ENTRANT, whose `_upsertEntrantSession` finds the row by its
+        // deterministic id / (uuid, member) pair and adopts it. Only a
+        // CONTINUING member proves the row redundant. Restricting the lookup
+        // to switches the batch itself covers (the map key is this `sw.id`)
+        // preserves the WS3 #29 guarantee: the sweep never touches rows whose
+        // switches it cannot see.
+        //
+        // This fixes the SEQUENTIAL case (poll write, then a later legitimate
+        // sweep), which the M1 gate alone cannot: the poll's
+        // `advanceCursor: false` rows always precede later sweeps.
+        for (final localId in newActive.intersection(prevActiveKeys)) {
+          final pairKey = _canonicalPairKey(sw.id, localId);
+          final duplicate = seedExcludedOpenRowsByPair[pairKey];
+          if (duplicate == null) continue;
+          final presence = active[localId];
+          if (presence == null || duplicate.id == presence.rowId) continue;
+          await _frontingSessionRepository.clearPluralKitLink(duplicate.id);
+          await _frontingSessionRepository.deleteSession(duplicate.id);
+          seedExcludedOpenRowsByPair.remove(pairKey);
+          debugPrint(
+            '[PK_SWEEP] merged live-poll duplicate ${duplicate.id} for '
+            'member $localId at switch ${sw.id}: presence already tracked '
+            'by ${presence.rowId ?? '<tombstoned collision>'} from an '
+            'earlier covered switch (2026-06 PK audit M2).',
+          );
         }
       });
 
@@ -3912,6 +4427,15 @@ class PluralKitSyncService {
     required String? switchImportSource,
     required String? pkFileSwitchId,
   }) async {
+    // 2026-06 PK audit M6 (wave 4): persist the switch timestamp at drift's
+    // whole-second precision. Writing the raw µs value here was the op-churn
+    // engine: drift truncates on store, so the next reprocess compared the
+    // in-memory µs timestamp against the truncated read-back, saw "changed",
+    // and emitted a CRDT update op for the row — once per historical row per
+    // corrective import.
+    final rowStartTime = truncatePkTimestampToDriftPrecision(
+      switchEntry.timestamp,
+    );
     var existing =
         await _frontingSessionRepository.getSessionById(rowId) ??
         await _findSessionByPkSwitchAndMember(
@@ -3924,7 +4448,7 @@ class PluralKitSyncService {
         await _frontingSessionRepository.createSession(
           domain.FrontingSession(
             id: rowId,
-            startTime: switchEntry.timestamp,
+            startTime: rowStartTime,
             memberId: localId,
             pluralkitUuid: switchEntry.id,
             pkImportSource: switchImportSource,
@@ -4031,9 +4555,16 @@ class PluralKitSyncService {
     //
     // Corrective import also clears delete-push bookkeeping because a
     // resurrected PK row is no longer a pending local deletion.
+    //
+    // M6: `startTime` is the drift-truncated value — this corrective update is
+    // THE audit-cited churn site: re-importing an unchanged row used to write
+    // the µs timestamp over the truncated stored one, which `diffSyncFields`
+    // (correctly) reported as a change, emitting a sync op per row per run.
+    // With both sides at whole-second precision, an unchanged row diffs empty
+    // and `updateSession` no-ops.
     final corrected = existing.copyWith(
       isDeleted: corrective ? false : existing.isDeleted,
-      startTime: switchEntry.timestamp,
+      startTime: rowStartTime,
       memberId: localId,
       pluralkitUuid: switchEntry.id,
       pkImportSource: switchImportSource ?? existing.pkImportSource,
@@ -4094,7 +4625,12 @@ class PluralKitSyncService {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot import switch history');
     }
-    if (_state.isSyncing) return;
+    // 2026-06 PK audit M1: claim the shared pull gate synchronously. The
+    // post-mapping bootstrap (`_runPostApplyBootstrap`) calls this sequentially
+    // after `syncLiveFrontersOnly`, so each release-before-next ordering still
+    // holds; a concurrent caller bails as a benign no-op (matching the prior
+    // `isSyncing` early-return contract).
+    if (!_claimPull()) return;
     _emit(
       _state.copyWith(
         isSyncing: true,
@@ -4104,9 +4640,19 @@ class PluralKitSyncService {
       ),
     );
 
-    final client = await _buildClient();
+    // M1 hardening: release-and-rethrow around the build await so a throw out
+    // of the token read cannot leak the pull gate (see _performFullImport).
+    final PluralKitClient? client;
+    try {
+      client = await _buildClient();
+    } catch (_) {
+      _emit(_state.copyWith(isSyncing: false));
+      _releasePull();
+      rethrow;
+    }
     if (client == null) {
       _emit(_state.copyWith(isSyncing: false));
+      _releasePull();
       throw StateError('Not connected');
     }
 
@@ -4180,6 +4726,7 @@ class PluralKitSyncService {
       rethrow;
     } finally {
       client.dispose();
+      _releasePull(); // 2026-06 PK audit M1
     }
   }
 
@@ -4898,7 +5445,13 @@ class PluralKitSyncService {
     if (linkedAt == null) {
       return const PkPushSwitchesResult();
     }
-    if (_state.isSyncing && !allowDuringSync) {
+    // 2026-06 PK audit M1: bail when a pull holds EITHER the legacy emitted
+    // `isSyncing` flag OR the synchronous `_pullInFlight` gate. The gate is
+    // claimed before the first await at every pull entry point, so a window
+    // where a pull has started but not yet emitted `isSyncing:true` (e.g.
+    // syncRecentData's first-sync branch) is still treated as in-progress.
+    // Pull's own phase-4 push passes `allowDuringSync: true` to bypass this.
+    if ((_state.isSyncing || _pullInFlight) && !allowDuringSync) {
       return const PkPushSwitchesResult();
     }
 
@@ -5123,45 +5676,91 @@ class PluralKitSyncService {
       final pkPkSet = _sortedUniqueStrings(pkCurrent?.members ?? const []);
 
       if (_sameStringSet(localPkSet, pkPkSet)) {
-        if (!_sameStringList(
+        final orderDiffersFromPk = !_sameStringList(
           localPkIdsForPush,
           pkCurrent?.members ?? const [],
-        )) {
-          final switchUuid = pkCurrent?.id.trim();
-          if (switchUuid != null && switchUuid.isNotEmpty) {
-            try {
-              // H12b: send uuid-first refs on the wire; the order matches the
-              // short-id comparison list above exactly (same indices).
-              await client.updateSwitchMembers(switchUuid, localWireRefsForPush);
-              final repair = await _repairUnstampedEntrants(
-                localActive: localActive,
-                localIdToPkId: localIdToPkId,
-                pkCurrent: pkCurrent,
-                pkPkSet: pkPkSet.toSet(),
-              );
-              return PkPushSwitchesResult(pushed: 1, repaired: repair.repaired);
-            } on PluralKitApiError catch (e) {
-              if (e.statusCode == 404) {
-                debugPrint(
-                  '[PK_PUSH] Current switch vanished before order patch '
-                  '(switchUuid=$switchUuid); treating as stale.',
+        );
+        if (orderDiffersFromPk) {
+          // 2026-06 PK audit M12 (wave 4): only re-PATCH the order when the
+          // LOCAL order genuinely changed since the baseline (see
+          // [_lastObservedLocalPushOrder]). The baseline is comparable only
+          // while it covers the same member set; on a null / different-set
+          // baseline we re-anchor WITHOUT patching, so a PK-side reorder
+          // (`pk;sw move`) — or a cold start, or a set change that reshuffled
+          // the locally-derived order — never gets clobbered by a trigger
+          // that carries no local reorder intent.
+          final baseline = _lastObservedLocalPushOrder;
+          final baselineComparable =
+              baseline != null &&
+              _sameStringSet(_sortedUniqueStrings(baseline), localPkSet);
+          final localOrderChanged =
+              baselineComparable &&
+              !_sameStringList(localPkIdsForPush, baseline);
+          if (!localOrderChanged) {
+            debugPrint(
+              '[PK_PUSH] order differs from PK but local order is '
+              '${baselineComparable ? 'unchanged since last push' : 'newly observed'}; '
+              'leaving the PK-side order in place (2026-06 PK audit M12).',
+            );
+            _lastObservedLocalPushOrder = List.unmodifiable(localPkIdsForPush);
+          } else {
+            final switchUuid = pkCurrent?.id.trim();
+            if (switchUuid != null && switchUuid.isNotEmpty) {
+              try {
+                // H12b: send uuid-first refs on the wire; the order matches the
+                // short-id comparison list above exactly (same indices).
+                await client.updateSwitchMembers(
+                  switchUuid,
+                  localWireRefsForPush,
                 );
-                onStaleLink?.call(
-                  'A PluralKit switch target was removed on the server — '
-                  'skipped reordering the current front. (switchId=$switchUuid)',
+                // M12: a successful order PATCH re-anchors the baseline.
+                _lastObservedLocalPushOrder = List.unmodifiable(
+                  localPkIdsForPush,
                 );
-                return const PkPushSwitchesResult();
-              }
-              if (e.statusCode == 400 && e.message.contains('40004')) {
-                debugPrint(
-                  '[PK_PUSH] PK rejected order-only switch patch as '
-                  'identical (40004); treating as in sync.',
+                final repair = await _repairUnstampedEntrants(
+                  localActive: localActive,
+                  localIdToPkId: localIdToPkId,
+                  pkCurrent: pkCurrent,
+                  pkPkSet: pkPkSet.toSet(),
                 );
-              } else {
-                rethrow;
+                return PkPushSwitchesResult(
+                  pushed: 1,
+                  repaired: repair.repaired,
+                );
+              } on PluralKitApiError catch (e) {
+                if (e.statusCode == 404) {
+                  debugPrint(
+                    '[PK_PUSH] Current switch vanished before order patch '
+                    '(switchUuid=$switchUuid); treating as stale.',
+                  );
+                  onStaleLink?.call(
+                    'A PluralKit switch target was removed on the server — '
+                    'skipped reordering the current front. '
+                    '(switchId=$switchUuid)',
+                  );
+                  return const PkPushSwitchesResult();
+                }
+                if (e.statusCode == 400 && e.message.contains('40004')) {
+                  debugPrint(
+                    '[PK_PUSH] PK rejected order-only switch patch as '
+                    'identical (40004); treating as in sync.',
+                  );
+                  // M12: PK says the order already matches — in sync.
+                  _lastObservedLocalPushOrder = List.unmodifiable(
+                    localPkIdsForPush,
+                  );
+                } else {
+                  // Failed PATCH: leave the baseline as-is so the genuine
+                  // local reorder retries on the next trigger.
+                  rethrow;
+                }
               }
             }
           }
+        } else {
+          // M12: local and PK fully agree — anchor the baseline so the NEXT
+          // divergence can be classified as local-reorder vs PK-reorder.
+          _lastObservedLocalPushOrder = List.unmodifiable(localPkIdsForPush);
         }
         return _repairUnstampedEntrants(
           localActive: localActive,
@@ -5174,6 +5773,10 @@ class PluralKitSyncService {
       final pushTs = DateTime.now().toUtc();
       PKSwitch newSwitch;
       var pushedPkSet = localPkSet;
+      // M12: the ordered short-id list actually sent on the wire — what PK now
+      // stores as the switch order, and therefore the new order baseline. The
+      // stale-link retry below narrows it to the filtered list.
+      var pushedOrder = localPkIdsForPush;
       try {
         // H12b: POST uuid-first wire refs. `pushedPkSet`/`localPkSet` stay in
         // SHORT-id space for entrant stamping below (PK echoes the switch with
@@ -5209,7 +5812,12 @@ class PluralKitSyncService {
         if (retry == null) return const PkPushSwitchesResult();
         newSwitch = retry.$1;
         pushedPkSet = retry.$2;
+        pushedOrder = retry.$2; // M12: retry list IS the ordered wire list.
       }
+
+      // M12: a successful set push establishes the order baseline — PK now
+      // stores exactly this order, and it was derived from local state.
+      _lastObservedLocalPushOrder = List.unmodifiable(pushedOrder);
 
       final entrantPkIds = pushedPkSet.toSet()..removeAll(pkPkSet);
       await _stampEntrants(
@@ -5669,9 +6277,30 @@ class PluralKitSyncService {
   /// throw and do NOT auto-clear the token here — classification only.
   Future<PkPollOutcome> pollFrontersOnly() async {
     if (!_state.canAutoSync) return PkPollOutcome.skipped;
-    if (_state.isSyncing) return PkPollOutcome.skipped;
-    final client = await _buildClient();
-    if (client == null) return PkPollOutcome.skipped;
+    // 2026-06 PK audit M1 (defect d): the poll used to CHECK `isSyncing` but
+    // never CLAIM anything, so a poll that passed the check could still be
+    // mid-flight (its own awaits: client build, fronters GET, session reads)
+    // when an incremental sweep started — two interleaved sweeps holding
+    // independent in-memory active maps, re-closing the same rows at different
+    // timestamps. Claim the shared pull gate synchronously; a busy poll is a
+    // benign `skipped` tick, identical to the old early-return contract.
+    if (!_claimPull()) return PkPollOutcome.skipped;
+    // M1 hardening: release-and-classify around the build await so a throw out
+    // of the token read cannot leak the pull gate (see _performFullImport).
+    // The poll's contract is never-throw, so a build failure is a transient
+    // outcome rather than a rethrow.
+    final PluralKitClient? client;
+    try {
+      client = await _buildClient();
+    } catch (e) {
+      _releasePull();
+      debugPrint('[PK] pollFrontersOnly client build failed: $e');
+      return PkPollOutcome.transientError;
+    }
+    if (client == null) {
+      _releasePull();
+      return PkPollOutcome.skipped;
+    }
 
     try {
       final PKSwitch? current = await client.getCurrentFronters();
@@ -5719,6 +6348,7 @@ class PluralKitSyncService {
       return PkPollOutcome.transientError;
     } finally {
       client.dispose();
+      _releasePull(); // 2026-06 PK audit M1
     }
   }
 }

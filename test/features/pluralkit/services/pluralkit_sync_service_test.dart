@@ -289,7 +289,27 @@ class FakeMemberRepository implements MemberRepository {
   Future<int> updateMemberFields(
     String id,
     Map<String, dynamic> changedFields,
-  ) async => throw UnimplementedError();
+  ) async {
+    // Mirrors the real repository's TARGETED partial-patch semantics for the
+    // identity keys the tests exercise: only the provided keys are applied to
+    // the CURRENT row (the H12a wave-4 cleanup depends on exactly this — a
+    // full-object write from a stale snapshot is the bug under test).
+    final existing = _members[id];
+    if (existing == null || existing.isDeleted) return 0;
+    var updated = existing;
+    if (changedFields.containsKey('pluralkit_id')) {
+      updated = updated.copyWith(
+        pluralkitId: changedFields['pluralkit_id'] as String?,
+      );
+    }
+    if (changedFields.containsKey('pluralkit_uuid')) {
+      updated = updated.copyWith(
+        pluralkitUuid: changedFields['pluralkit_uuid'] as String?,
+      );
+    }
+    _members[id] = updated;
+    return 1;
+  }
 
   @override
   Future<int> applyPluralKitLink(
@@ -2428,7 +2448,111 @@ void main() {
       );
     });
 
-    test('patches current PK switch when only fronter order differs', () async {
+    // 2026-06 PK audit M12 (wave 4): the order-only repatch contract. The
+    // pre-M12 test here pinned "always re-PATCH the locally-derived order" —
+    // which deterministically clobbered every PK-side reorder (`pk;sw move`)
+    // on the next trigger fire. The new contract (per
+    // docs/plans/pk-cofronter-push-fix.md: PK-follows-local only for GENUINE
+    // local changes): a PATCH fires only when the LOCAL order changed since
+    // the last pushed/observed baseline; a newly-observed divergence (cold
+    // start, set change) re-anchors silently and PK's order survives.
+    test(
+      'M12: order-only repatch fires on a genuine local reorder, not on '
+      'first observation',
+      () async {
+        // PK stores [pkB, pkA]; local derived order (startTime desc) is also
+        // [pkB, pkA] — in sync, so the first trigger anchors the baseline.
+        final harness = await setupSnapshot(
+          members: [member('a', 'pkA'), member('b', 'pkB')],
+          sessions: [
+            session(
+              's-a',
+              'a',
+              startTime: DateTime.utc(2026, 2, 1, 12),
+              pluralkitUuid: 'sw-current',
+            ),
+            session(
+              's-b',
+              'b',
+              startTime: DateTime.utc(2026, 2, 1, 12, 5),
+              pluralkitUuid: 'sw-current',
+            ),
+          ],
+          current: pkSwitch('sw-current', const ['pkB', 'pkA']),
+        );
+
+        final anchor = await harness.service.pushPendingSwitches();
+        expect(anchor.pushed, 0);
+        expect(harness.client.updateSwitchMembersCalls, isEmpty);
+
+        // Genuine local reorder: A's session restarts and becomes newest, so
+        // the derived order flips to [pkA, pkB] — local intent must win.
+        final idx = harness.sessionRepo.sessions.indexWhere(
+          (s) => s.id == 's-a',
+        );
+        harness.sessionRepo.sessions[idx] = harness.sessionRepo.sessions[idx]
+            .copyWith(startTime: DateTime.utc(2026, 2, 1, 12, 10));
+
+        final result = await harness.service.pushPendingSwitches();
+
+        expect(result.pushed, 1);
+        expect(harness.client.createSwitchCallCount, 0);
+        expect(
+          harness.client.updateSwitchMembersCalls.single.switchId,
+          'sw-current',
+        );
+        expect(harness.client.updateSwitchMembersCalls.single.memberIds, [
+          'pkA',
+          'pkB',
+        ]);
+      },
+    );
+
+    test(
+      'M12: newly-observed order divergence re-anchors WITHOUT patching',
+      () async {
+        // Cold start (no baseline): local [pkB, pkA] vs PK [pkA, pkB]. The
+        // pre-M12 code PATCHed here on every trigger, reverting `pk;sw move`
+        // forever. Now the first observation anchors silently, and repeated
+        // triggers with an unchanged local order stay silent.
+        final harness = await setupSnapshot(
+          members: [member('a', 'pkA'), member('b', 'pkB')],
+          sessions: [
+            session(
+              's-a',
+              'a',
+              startTime: DateTime.utc(2026, 2, 1, 12),
+              pluralkitUuid: 'sw-current',
+            ),
+            session(
+              's-b',
+              'b',
+              startTime: DateTime.utc(2026, 2, 1, 12, 5),
+              pluralkitUuid: 'sw-current',
+            ),
+          ],
+          current: pkSwitch('sw-current', const ['pkA', 'pkB']),
+        );
+
+        final first = await harness.service.pushPendingSwitches();
+        final second = await harness.service.pushPendingSwitches();
+
+        expect(first.pushed, 0);
+        expect(second.pushed, 0);
+        expect(harness.client.createSwitchCallCount, 0);
+        expect(
+          harness.client.updateSwitchMembersCalls,
+          isEmpty,
+          reason:
+              'a divergence with no observed local change must never '
+              'clobber the PK-side order',
+        );
+      },
+    );
+
+    test('M12: a PK-side reorder survives unrelated trigger fires', () async {
+      // Anchor while in sync, then reorder on the PK side (`pk;sw move`).
+      // Subsequent triggers carry no local reorder intent → no PATCH.
       final harness = await setupSnapshot(
         members: [member('a', 'pkA'), member('b', 'pkB')],
         sessions: [
@@ -2445,61 +2569,142 @@ void main() {
             pluralkitUuid: 'sw-current',
           ),
         ],
-        current: pkSwitch('sw-current', const ['pkA', 'pkB']),
+        current: pkSwitch('sw-current', const ['pkB', 'pkA']),
       );
+
+      await harness.service.pushPendingSwitches(); // anchor (in sync)
+
+      // PK-side reorder happens between triggers.
+      harness.client.current = pkSwitch('sw-current', const ['pkA', 'pkB']);
 
       final result = await harness.service.pushPendingSwitches();
 
-      expect(result.pushed, 1);
-      expect(harness.client.createSwitchCallCount, 0);
-      expect(
-        harness.client.updateSwitchMembersCalls.single.switchId,
-        'sw-current',
-      );
-      expect(harness.client.updateSwitchMembersCalls.single.memberIds, [
-        'pkB',
-        'pkA',
-      ]);
-    });
-
-    test('skips stale current switch when order-only patch 404s', () async {
-      final messages = <String>[];
-      final client =
-          _RecordingPushClient(
-              current: pkSwitch('sw-current', const ['pkA', 'pkB']),
-            )
-            ..throwUpdateSwitchMembersError = const PluralKitApiError(
-              404,
-              'switch gone',
-            );
-      final harness = await setupSnapshot(
-        members: [member('a', 'pkA'), member('b', 'pkB')],
-        sessions: [
-          session(
-            's-a',
-            'a',
-            startTime: DateTime.utc(2026, 2, 1, 12),
-            pluralkitUuid: 'sw-current',
-          ),
-          session(
-            's-b',
-            'b',
-            startTime: DateTime.utc(2026, 2, 1, 12, 5),
-            pluralkitUuid: 'sw-current',
-          ),
-        ],
-        client: client,
-      );
-
-      final result = await harness.service.pushPendingSwitches(
-        onStaleLink: messages.add,
-      );
-
       expect(result.pushed, 0);
       expect(harness.client.createSwitchCallCount, 0);
-      expect(harness.client.updateSwitchMembersCalls, hasLength(1));
-      expect(messages, isNotEmpty);
+      expect(harness.client.updateSwitchMembersCalls, isEmpty);
     });
+
+    test(
+      'M12: skips stale current switch when a genuine reorder patch 404s',
+      () async {
+        // Same 404-stale coverage as pre-M12, reached through the NEW
+        // contract: anchor in sync first, then a genuine local reorder
+        // triggers the PATCH, which 404s (switch vanished server-side).
+        final messages = <String>[];
+        final client =
+            _RecordingPushClient(
+                current: pkSwitch('sw-current', const ['pkB', 'pkA']),
+              )
+              ..throwUpdateSwitchMembersError = const PluralKitApiError(
+                404,
+                'switch gone',
+              );
+        final harness = await setupSnapshot(
+          members: [member('a', 'pkA'), member('b', 'pkB')],
+          sessions: [
+            session(
+              's-a',
+              'a',
+              startTime: DateTime.utc(2026, 2, 1, 12),
+              pluralkitUuid: 'sw-current',
+            ),
+            session(
+              's-b',
+              'b',
+              startTime: DateTime.utc(2026, 2, 1, 12, 5),
+              pluralkitUuid: 'sw-current',
+            ),
+          ],
+          client: client,
+        );
+
+        // Anchor: local [pkB, pkA] == PK → no patch, error not reached.
+        await harness.service.pushPendingSwitches(onStaleLink: messages.add);
+        expect(harness.client.updateSwitchMembersCalls, isEmpty);
+
+        // Genuine local reorder → patch attempt → 404 → stale handling.
+        final idx = harness.sessionRepo.sessions.indexWhere(
+          (s) => s.id == 's-a',
+        );
+        harness.sessionRepo.sessions[idx] = harness.sessionRepo.sessions[idx]
+            .copyWith(startTime: DateTime.utc(2026, 2, 1, 12, 10));
+
+        final result = await harness.service.pushPendingSwitches(
+          onStaleLink: messages.add,
+        );
+
+        expect(result.pushed, 0);
+        expect(harness.client.createSwitchCallCount, 0);
+        expect(harness.client.updateSwitchMembersCalls, hasLength(1));
+        expect(messages, isNotEmpty);
+      },
+    );
+
+    test(
+      'M12: 40004 on a genuine reorder patch re-anchors the baseline '
+      '(no retry loop)',
+      () async {
+        // PK rejecting the order PATCH as identical (40004) means our
+        // pkCurrent snapshot was stale and PK already stores this order —
+        // the code treats it as in-sync and re-anchors the baseline. Without
+        // the re-anchor, every later trigger would see local ≠ stale
+        // baseline and re-attempt the same PATCH forever.
+        final client =
+            _RecordingPushClient(
+                current: pkSwitch('sw-current', const ['pkB', 'pkA']),
+              )
+              ..throwUpdateSwitchMembersError = const PluralKitApiError(
+                400,
+                '{"code":40004,"message":"identical members"}',
+              );
+        final harness = await setupSnapshot(
+          members: [member('a', 'pkA'), member('b', 'pkB')],
+          sessions: [
+            session(
+              's-a',
+              'a',
+              startTime: DateTime.utc(2026, 2, 1, 12),
+              pluralkitUuid: 'sw-current',
+            ),
+            session(
+              's-b',
+              'b',
+              startTime: DateTime.utc(2026, 2, 1, 12, 5),
+              pluralkitUuid: 'sw-current',
+            ),
+          ],
+          client: client,
+        );
+
+        // Anchor: local [pkB, pkA] == PK → no patch.
+        await harness.service.pushPendingSwitches();
+        expect(harness.client.updateSwitchMembersCalls, isEmpty);
+
+        // Genuine local reorder → one patch attempt → 40004 → in-sync.
+        final idx = harness.sessionRepo.sessions.indexWhere(
+          (s) => s.id == 's-a',
+        );
+        harness.sessionRepo.sessions[idx] = harness.sessionRepo.sessions[idx]
+            .copyWith(startTime: DateTime.utc(2026, 2, 1, 12, 10));
+
+        final second = await harness.service.pushPendingSwitches();
+        expect(second.pushed, 0);
+        expect(harness.client.updateSwitchMembersCalls, hasLength(1));
+
+        // Re-anchor pinned: an unchanged local order must NOT re-attempt the
+        // patch (the error is still armed — a retry would also record a 2nd
+        // call, so this assertion catches either failure shape).
+        final third = await harness.service.pushPendingSwitches();
+        expect(third.pushed, 0);
+        expect(
+          harness.client.updateSwitchMembersCalls,
+          hasLength(1),
+          reason: '40004 must re-anchor the baseline; otherwise every '
+              'trigger retries the identical PATCH forever',
+        );
+        expect(harness.client.createSwitchCallCount, 0);
+      },
+    );
 
     test(
       'uses display order as tie-breaker for simultaneous fronters',
@@ -3553,8 +3758,20 @@ void _registerWs3PrDTests() {
         );
         final stale = await memberRepo.getMemberById('l-stale');
         expect(stale!.pluralkitUuid, 'pk-uuid-OTHER',
-            reason: 'stale row untouched');
+            reason: 'the uuid binding stays — it may still be valid');
         expect(stale.name, 'Stale Holder');
+        // Wave-4 H12a follow-up: the refusal CLEARS the provably-stale
+        // collided short id (`@me` says 'aaaaa' belongs to pk-uuid-FRESH
+        // now). Leaving it would keep TWO local rows carrying the same
+        // short id, where every shortId-keyed path (live fronter
+        // resolution, push wire-ref fallback, the next import's byPkId map)
+        // could pick the wrong row.
+        expect(
+          stale.pluralkitId,
+          isNull,
+          reason: 'the collided short id is provably stale and must be '
+              'cleared (wave 4)',
+        );
 
         // A FRESH local was created from the incoming uuid.
         final all = await memberRepo.getAllMembers();
@@ -3563,6 +3780,155 @@ void _registerWs3PrDTests() {
         expect(fresh.pluralkitUuid, 'pk-uuid-FRESH');
         expect(fresh.pluralkitId, 'aaaaa');
         expect(fresh.name, 'Incoming Member');
+        expect(
+          all.where((m) => m.pluralkitId == 'aaaaa'),
+          hasLength(1),
+          reason: 'exactly one local row may carry a given short id after '
+              'the refusal cleanup',
+        );
+      },
+    );
+
+    test(
+      'H12a wave 4: refusal cleanup must not clobber a row re-stamped '
+      'EARLIER in the same import (stale-snapshot regression)',
+      () async {
+        // Premium short-id recycling, X-before-Y ordering: row R is bound to
+        // uuid pk-uuid-X but carries the STALE short id 'yyyyy'. The incoming
+        // roster reassigns 'yyyyy' to a different member Y and gives X the
+        // new short id 'xxxxx'. X iterates FIRST and re-stamps R (fresh
+        // identity + profile fields). Y's refusal then matches R via the
+        // LOAD-TIME byPkId snapshot — a full-object write from that snapshot
+        // would clear the just-corrected pluralkit_id AND revert every
+        // profile field X wrote, emitting CRDT revert ops. The fix re-reads
+        // the row and only clears when it STILL carries the collided short
+        // id, via a targeted partial patch.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = _RecordingMemberRepository()
+          ..seed([
+            domain.Member(
+              id: 'l-r',
+              name: 'Holder',
+              createdAt: DateTime.utc(2026),
+              pluralkitUuid: 'pk-uuid-X',
+              pluralkitId: 'yyyyy', // stale — '@me' now gives X 'xxxxx'
+            ),
+          ]);
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = [
+            // X FIRST: re-stamps R with the corrected identity + profile.
+            const PKMember(
+              id: 'xxxxx',
+              uuid: 'pk-uuid-X',
+              name: 'X Fresh',
+              displayName: 'X Display',
+            ),
+            // Y SECOND: collides with R's stale short id via the load-time
+            // snapshot and must NOT touch R.
+            const PKMember(id: 'yyyyy', uuid: 'pk-uuid-Y', name: 'Y Member'),
+          ];
+        final service = _makeService(
+          fakeClient: fakeClient,
+          db: db,
+          memberRepo: memberRepo,
+        );
+
+        await service.setToken('valid-token');
+        await service.importMembersOnly();
+
+        final holder = await memberRepo.getMemberById('l-r');
+        expect(
+          holder!.pluralkitId,
+          'xxxxx',
+          reason: "Y's refusal cleanup must not clear the short id X's "
+              'iteration just corrected',
+        );
+        expect(holder.pluralkitUuid, 'pk-uuid-X');
+        expect(
+          holder.pluralkitDisplayName,
+          'X Display',
+          reason: "profile fields written by X's iteration must not be "
+              'reverted by a stale-snapshot full-object write',
+        );
+
+        // Y was still created fresh from its uuid, carrying the short id.
+        final all = await memberRepo.getAllMembers();
+        expect(all, hasLength(2));
+        final fresh = all.firstWhere((m) => m.id != 'l-r');
+        expect(fresh.pluralkitUuid, 'pk-uuid-Y');
+        expect(fresh.pluralkitId, 'yyyyy');
+        // Exactly one applyPluralKitLink — X's update. Y's refusal must not
+        // produce a second adoption write against R.
+        expect(memberRepo.applyLinkCalls, hasLength(1));
+        expect(memberRepo.applyLinkCalls.single.memberId, 'l-r');
+      },
+    );
+
+    test(
+      'wave 4: Premium systemId refresh — incremental sync persists a '
+      'renamed system short id; repair-token one-shot never does',
+      () async {
+        // PK Premium makes SYSTEM short ids user-changeable, but the stored
+        // `systemId` was written exactly once (setToken). Ownership checks
+        // (H12a class) and `importFromFile`'s linked-system gate compare
+        // against it, so a rename would false-positive forever. `@me` is
+        // token-bound, so a new short id under the SAME token is the same
+        // system renamed — syncRecentData now refreshes the stored value.
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final fakeClient = FakePluralKitClient()
+          ..membersToReturn = const []
+          ..switchesToReturn = const [];
+        final service = _makeService(fakeClient: fakeClient, db: db);
+
+        await service.setToken('valid-token');
+        await service.confirmDirection();
+        await service.acknowledgeMapping();
+        expect(
+          (await db.pluralKitSyncDao.getSyncState()).systemId,
+          'sys-1',
+          reason: 'setToken stores the connect-time short id',
+        );
+
+        // Take the incremental branch (lastSyncDate non-null).
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            lastSyncDate: Value(DateTime.utc(2026, 1, 20)),
+          ),
+        );
+        await service.loadState();
+
+        // The user renames their system hid on PK (Premium).
+        fakeClient.systemToReturn = const PKSystem(
+          id: 'sys-renamed',
+          name: 'Test System',
+        );
+
+        await service.syncRecentData(direction: PkSyncDirection.pullOnly);
+        expect(
+          (await db.pluralKitSyncDao.getSyncState()).systemId,
+          'sys-renamed',
+          reason: 'the regular sync cadence must keep the stored short id '
+              'fresh',
+        );
+
+        // A repair-token one-shot may legitimately target a DIFFERENT
+        // system; it must never overwrite the connected row's identity.
+        fakeClient.systemToReturn = const PKSystem(
+          id: 'sys-foreign',
+          name: 'Someone Else',
+        );
+        await service.performOneTimeFullImport(token: 'other-token');
+        expect(
+          (await db.pluralKitSyncDao.getSyncState()).systemId,
+          'sys-renamed',
+          reason: 'repair-token imports must not rewrite the stored system '
+              'identity',
+        );
       },
     );
   });
@@ -4257,6 +4623,7 @@ class _CountingPushService extends PkPushService {
     PKMember? pkMember,
     bool includeProxyTags = true,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) async {
     pushMemberCallCount++;
     return 'stub';
@@ -4283,6 +4650,7 @@ class _RecordingPushService extends PkPushService {
     PKMember? pkMember,
     bool includeProxyTags = true,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) async {
     calls.add((
       memberId: member.id,
