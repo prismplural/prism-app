@@ -226,7 +226,7 @@ class FakePluralKitClient implements PluralKitClient {
   int getCurrentFrontersCallCount = 0;
 
   /// When set, [getCurrentFronters] throws this instead of returning — used by
-  /// the 2026-06 PK audit M3 poll-outcome tests to drive 401/429 paths.
+  /// the M3 poll-outcome tests to drive 401/429 paths.
   Object? getCurrentFrontersError;
 
   @override
@@ -292,7 +292,7 @@ class FakeMemberRepository implements MemberRepository {
   ) async {
     // Mirrors the real repository's TARGETED partial-patch semantics for the
     // identity keys the tests exercise: only the provided keys are applied to
-    // the CURRENT row (the H12a wave-4 cleanup depends on exactly this — a
+    // the CURRENT row (the H12a cleanup depends on exactly this — a
     // full-object write from a stale snapshot is the bug under test).
     final existing = _members[id];
     if (existing == null || existing.isDeleted) return 0;
@@ -728,16 +728,10 @@ void main() {
       expect(await service.buildClientIfConnected(), isNotNull);
     });
 
-    // 2026-06 PK audit H9: these two tests previously asserted that a FAILED
-    // setToken deleted the token slot ("token deleted from storage") — which
-    // pinned the bug. The old flow wrote the new token BEFORE validating and
-    // deleted the slot on any failure, so a failed rotation (even a transient
-    // network blip) destroyed the working token while the DB stayed
-    // `isConnected=true`. The new contract: validation happens against an
-    // ephemeral client FIRST, so a failure never touches storage at all. On a
-    // fresh (never-connected) device the observable end state is similar
-    // (no token, not connected) — but nothing was ever WRITTEN, which the
-    // writeCount assertions pin. The rotation case is covered separately in
+    // H9: these two tests previously pinned the bug (failed setToken deleted
+    // the token slot). Validation now happens against an ephemeral client
+    // FIRST, so a failure never writes storage — pinned by the writeCount
+    // assertions; the rotation case lives in
     // pluralkit_sync_service_set_token_test.dart.
     test(
       '401 from getSystem: isConnected = false, storage never written (H9)',
@@ -1007,7 +1001,7 @@ void main() {
 
         final outcome = await service.pollFrontersOnly();
 
-        // 2026-06 PK audit M3: classified outcome — a successful live pull is
+        // M3: classified outcome — a successful live pull is
         // `ok` (was a bare `true`).
         expect(outcome, PkPollOutcome.ok);
         expect(
@@ -1087,7 +1081,7 @@ void main() {
 
         final outcome = await service.pollFrontersOnly();
 
-        // 2026-06 PK audit M3: a tombstoned/already-known current switch is a
+        // M3: a tombstoned/already-known current switch is a
         // benign `skipped` (was a bare `false`).
         expect(outcome, PkPollOutcome.skipped);
         expect(
@@ -1099,7 +1093,7 @@ void main() {
     );
 
     // ─────────────────────────────────────────────────────────────────────
-    // 2026-06 PK audit M3 — classified poll outcomes. A revoked token (401)
+    // M3 — classified poll outcomes. A revoked token (401)
     // or rate-limit (429) used to be swallowed and reported as `ok`; now they
     // surface as distinct outcomes so the auto-poll loop can stop claiming
     // health / back off.
@@ -1471,7 +1465,7 @@ void main() {
         expect(summary!.switchesPulled, 0);
         expect(summary.switchesPushed, 1);
         expect(harness.client.createSwitchCalls, hasLength(1));
-        // 2026-06 PK audit H12b: the wire payload prefers the stable uuid.
+        // H12b: the wire payload prefers the stable uuid.
         expect(harness.client.createSwitchCalls.single.memberIds, ['uuid-a']);
         expect(
           harness.client.getCurrentFrontersCallCount,
@@ -1548,7 +1542,7 @@ void main() {
 
         expect(summary!.switchesPulled, 1);
         expect(summary.switchesPushed, 1);
-        // 2026-06 PK audit H12b: uuid-first wire payload, same order as the
+        // H12b: uuid-first wire payload, same order as the
         // short-id comparison list (pkA→uuid-a, pkB→uuid-b).
         expect(harness.client.createSwitchCalls.single.memberIds, [
           'uuid-a',
@@ -2448,14 +2442,10 @@ void main() {
       );
     });
 
-    // 2026-06 PK audit M12 (wave 4): the order-only repatch contract. The
-    // pre-M12 test here pinned "always re-PATCH the locally-derived order" —
-    // which deterministically clobbered every PK-side reorder (`pk;sw move`)
-    // on the next trigger fire. The new contract (per
-    // docs/plans/pk-cofronter-push-fix.md: PK-follows-local only for GENUINE
-    // local changes): a PATCH fires only when the LOCAL order changed since
-    // the last pushed/observed baseline; a newly-observed divergence (cold
-    // start, set change) re-anchors silently and PK's order survives.
+    // M12: the order-only repatch contract — pre-M12 this pinned "always
+    // re-PATCH the locally-derived order", clobbering every PK-side reorder.
+    // Now a PATCH fires only when the LOCAL order changed since the baseline;
+    // a newly-observed divergence re-anchors silently and PK's order survives.
     test(
       'M12: order-only repatch fires on a genuine local reorder, not on '
       'first observation',
@@ -3015,7 +3005,7 @@ void main() {
       expect(harness.client.createSwitchMemberIds[0], ['pkB', 'pkC', 'pkA']);
       // Retry: refreshed from PK's getMembers() (which DOES carry uuids), so the
       // stale-link retry wire prefers the uuids — same order, uuid values
-      // (2026-06 PK audit H12b: uuid-first once a stable uuid is known).
+      // (H12b: uuid-first once a stable uuid is known).
       expect(harness.client.createSwitchMemberIds[1], ['uuid-b', 'uuid-a']);
     });
 
@@ -3169,7 +3159,7 @@ class _RecordingPushClient extends FakePluralKitClient {
       timestamp: timestamp ?? DateTime.now(),
       members: memberIds,
     );
-    // 2026-06 PK audit M9: a successful push becomes PK's current front, so
+    // M9: a successful push becomes PK's current front, so
     // getCurrentFronters must echo it — otherwise an M9 follow-up run would see
     // PK still "empty" and re-push the same set, spuriously inflating the call
     // count. (The real API behaves this way.)
@@ -3321,10 +3311,8 @@ void _registerWs3PrDTests() {
         // double the count for reasons unrelated to step 7.
         //
         // `systemId` must match the fake client's system ('sys-1') so the
-        // setToken below is a SAME-system rotation: 2026-06 PK audit M4
-        // made a different-system setToken null the cursor + lastSyncDate,
-        // and a cursor never legitimately exists without a systemId
-        // (setToken writes the systemId before any sweep can advance one).
+        // setToken below is a SAME-system rotation — M4 nulls the cursor +
+        // lastSyncDate on a different-system setToken.
         await countingDao.upsertSyncState(
           PluralKitSyncStateCompanion(
             id: const Value('pk_config'),
@@ -3770,7 +3758,7 @@ void _registerWs3PrDTests() {
           stale.pluralkitId,
           isNull,
           reason: 'the collided short id is provably stale and must be '
-              'cleared (wave 4)',
+              'cleared',
         );
 
         // A FRESH local was created from the incoming uuid.
@@ -3790,19 +3778,14 @@ void _registerWs3PrDTests() {
     );
 
     test(
-      'H12a wave 4: refusal cleanup must not clobber a row re-stamped '
+      'H12a: refusal cleanup must not clobber a row re-stamped '
       'EARLIER in the same import (stale-snapshot regression)',
       () async {
-        // Premium short-id recycling, X-before-Y ordering: row R is bound to
-        // uuid pk-uuid-X but carries the STALE short id 'yyyyy'. The incoming
-        // roster reassigns 'yyyyy' to a different member Y and gives X the
-        // new short id 'xxxxx'. X iterates FIRST and re-stamps R (fresh
-        // identity + profile fields). Y's refusal then matches R via the
-        // LOAD-TIME byPkId snapshot — a full-object write from that snapshot
-        // would clear the just-corrected pluralkit_id AND revert every
-        // profile field X wrote, emitting CRDT revert ops. The fix re-reads
-        // the row and only clears when it STILL carries the collided short
-        // id, via a targeted partial patch.
+        // Premium short-id recycling, X-before-Y: X re-stamps row R first;
+        // Y's refusal then matches R via the LOAD-TIME byPkId snapshot, and
+        // a full-object write would revert everything X wrote. The fix
+        // re-reads the row and clears only when it STILL carries the
+        // collided short id, via a targeted partial patch.
         final db = _makeDb();
         addTearDown(db.close);
 
@@ -3867,7 +3850,7 @@ void _registerWs3PrDTests() {
     );
 
     test(
-      'wave 4: Premium systemId refresh — incremental sync persists a '
+      'Premium systemId refresh — incremental sync persists a '
       'renamed system short id; repair-token one-shot never does',
       () async {
         // PK Premium makes SYSTEM short ids user-changeable, but the stored
@@ -3935,14 +3918,10 @@ void _registerWs3PrDTests() {
 
   group('PR 2: _buildShortIdToUuidMap / _buildUuidToLocalIdMap skip excluded',
       () {
-    // These maps feed switch import (resolving PK short IDs → local member
-    // IDs) and live fronter import. Direct testing is awkward — instead we
-    // drive a public path that consumes the maps and assert the excluded
-    // member's identity never surfaces in the post-import state. The
-    // `_doPushPendingSwitches` group below covers the symmetric write
-    // direction (excluded PK ID never gets pushed). Here we use
-    // pushOverrideSwitch as the closest public consumer of the same
-    // exclude-aware "local → PK id" semantic.
+    // These maps feed switch and live-fronter import; direct testing is
+    // awkward, so we drive pushOverrideSwitch (the closest public consumer
+    // of the exclude-aware "local → PK id" semantic) and assert the excluded
+    // member's identity never surfaces post-import.
     test('pushOverrideSwitch localIdToPkId build skips excluded', () async {
       final db = _makeDb();
       addTearDown(db.close);
@@ -4018,7 +3997,7 @@ void _registerWs3PrDTests() {
     });
 
     // ─────────────────────────────────────────────────────────────────────
-    // 2026-06 PK audit M8 — pushOverrideSwitch 40004 + dropped-member cases.
+    // M8 — pushOverrideSwitch 40004 + dropped-member cases.
     // ─────────────────────────────────────────────────────────────────────
 
     test('M8a: 40004 (front already current) is benign — returns current '
@@ -4176,12 +4155,10 @@ void _registerWs3PrDTests() {
     });
 
     // ─────────────────────────────────────────────────────────────────────
-    // Wave-3 nit: override/pending-push parity for uuid-only members. The
-    // pending push (`_doPushPendingSwitches`) keys its local set on SHORT ids,
-    // so an override that fronted a uuid-only member would be un-fronted by
-    // the very next pending push (local set excludes them, PK echo includes
-    // their short id). The override's inclusion filter therefore requires a
-    // short id, exactly like the pending push.
+    // Wave-3 nit: override/pending-push parity — the pending push keys its
+    // local set on SHORT ids, so an override fronting a uuid-only member
+    // would be un-fronted by the next pending push; the override's inclusion
+    // filter therefore requires a short id too.
     // ─────────────────────────────────────────────────────────────────────
 
     test('uuid-only member (no short id) is DROPPED for pending-push parity',
@@ -4311,7 +4288,7 @@ void _registerWs3PrDTests() {
     });
   });
 
-  // 2026-06 PK audit M11 — the member-edit push path must funnel through ONE
+  // M11 — the member-edit push path must funnel through ONE
   // coalescing drain (one client + queue), gate the payload by per-field
   // direction config, skip a member whose every field is pull-only, and surface
   // failures. These tests cover the service-side mechanics; the trigger-field
@@ -4551,7 +4528,7 @@ void _registerWs3PrDTests() {
       await service.pushPendingSwitches();
 
       // createSwitch must include only the active member — as a uuid-first
-      // wire ref (2026-06 PK audit H12b).
+      // wire ref (H12b).
       expect(fakeClient.createSwitchCalls, hasLength(1));
       expect(
         fakeClient.createSwitchCalls.single.memberIds,
@@ -4630,7 +4607,7 @@ class _CountingPushService extends PkPushService {
   }
 }
 
-/// Records every `pushMemberFull` call so the 2026-06 PK audit M11 coalescing
+/// Records every `pushMemberFull` call so the M11 coalescing
 /// + per-field-gating tests can inspect order, member, and the gated
 /// `allowedFields` set. Optionally throws [PkStaleLinkException] for one
 /// member id (to drive the unlink path).

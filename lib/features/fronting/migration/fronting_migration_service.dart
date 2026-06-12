@@ -1049,13 +1049,9 @@ class FrontingMigrationService {
       }
     }
 
-    // Step 6: delete PK-imported rows.  Done LAST among the per-row
-    // steps so the comment join above could still find PK parents.
-    //
-    // Clear the PK link BEFORE tombstoning (2026-06 PK audit C1 idiom):
-    // `deleteSession` stamps `deleteIntentEpoch` on any PK-linked row,
-    // which queues a real `DELETE /switches/{uuid}` against PluralKit.
-    // These rows are migration fan-out replacements, not user deletions —
+    // Step 6: delete PK-imported rows, LAST so the comment join above could
+    // still find PK parents. Clear the PK link BEFORE tombstoning (C1) —
+    // these rows are migration fan-out replacements, not user deletions, and
     // the PK-side switches must survive the migration.
     for (final c in classified) {
       if (c.kind != _SessionKind.pkImported) continue;

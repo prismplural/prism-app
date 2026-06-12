@@ -6,28 +6,18 @@ import 'package:intl/intl.dart';
 /// for display.
 const int birthdayNoYearSentinel = 4;
 
-/// LEGACY PluralKit "no year" sentinel (2026-06 PK audit low, wave 4).
-///
-/// PK's server source (DateUtils.cs) treats `0001-MM-DD` exactly like
-/// `0004-MM-DD` — older data may still carry it on the wire. We accept it on
-/// READ ([isBirthdayYearHidden]) so legacy birthdays display as month+day
-/// instead of "year 1", but NEVER write it: [formatBirthdayWire] always
-/// emits [birthdayNoYearSentinel] for hidden years (0004 is a leap year, so
-/// Feb 29 birthdays survive; 0001 is not). The stored raw wire string is only
-/// rewritten when the user actually edits the birthday, so unedited legacy
-/// `0001` members keep their string byte-identical.
+/// LEGACY PluralKit "no year" sentinel (2026-06 PK audit low). PK treats
+/// `0001-MM-DD` like `0004-MM-DD`, so accept it on READ (legacy birthdays
+/// display as month+day) but NEVER write it: [formatBirthdayWire] always
+/// emits [birthdayNoYearSentinel] (0004 is a leap year; 0001 is not). The
+/// raw wire string is only rewritten when the user edits the birthday.
 const int birthdayNoYearLegacySentinel = 1;
 
-/// Parses a PK-style `YYYY-MM-DD` birthday string.
-///
-/// Returns `null` for missing / empty / malformed input. Sentinel years
-/// (`0004`, legacy `0001`) are preserved verbatim on the [DateTime] so
-/// callers can detect them via [isBirthdayYearHidden].
-///
-/// Calendar-invalid dates (e.g. `2020-02-30`, `2020-13-01`) return `null`
-/// instead of being silently normalized by `DateTime(y, m, d)` (which would
-/// turn 02-30 into Mar 2 — 2026-06 PK audit low, wave 4): the constructor's
-/// result must round-trip the parsed components exactly.
+/// Parses a PK-style `YYYY-MM-DD` birthday string. Returns `null` for
+/// missing/empty/malformed input; sentinel years (`0004`, legacy `0001`) are
+/// preserved verbatim so callers can detect them via [isBirthdayYearHidden].
+/// Calendar-invalid dates (e.g. `2020-02-30`) return `null` rather than
+/// being silently normalized by `DateTime(y, m, d)`.
 DateTime? parseBirthday(String? value) {
   if (value == null) return null;
   final trimmed = value.trim();

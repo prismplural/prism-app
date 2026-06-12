@@ -473,7 +473,7 @@ void main() {
       'H6c: push_remove ∧ is_deleted=0 (CRDT revive) → user remove wins, '
       're-tombstones and pushes the remove (NOT flipped to push_add)',
       () async {
-        // 2026-06 PK audit H6c. A push_remove row that is currently ACTIVE got
+        // H6c. A push_remove row that is currently ACTIVE got
         // there via a CRDT REVIVE from a peer (the local re-add path sets
         // push_add itself, so it never lands here). The pre-fix code flipped
         // push_remove → push_add and silently pushed the member back to PK,
@@ -732,7 +732,7 @@ void main() {
       );
 
       client.addResponses.add(const PluralKitApiError(404, 'not found'));
-      // M15a (2026-06 PK audit): the refetch 404 must carry code 20004
+      // M15a: the refetch 404 must carry code 20004
       // (group genuinely gone) to trigger terminal cleanup. A bare 404 is now
       // treated as transient — covered separately below.
       client.getMembersResponses['pk-g1'] =

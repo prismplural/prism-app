@@ -144,7 +144,7 @@ void main() {
   });
 
   group('PKSystem.fromJson', () {
-    // 2026-06 PK audit H8: the system uuid is the stable identity key for the
+    // H8: the system uuid is the stable identity key for the
     // file-import system check (short ids become user-changeable with PK
     // Premium). Both the API response and the pk;export root carry it.
     test('parses uuid alongside the short id', () {

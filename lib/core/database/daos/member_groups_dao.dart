@@ -161,20 +161,11 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     await (update(memberGroupEntries)..where((e) => e.groupId.equals(id)))
         .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
     // Soft-delete the group itself. The tombstone KEEPS its `pluralkit_uuid`
-    // (wave-3 verifier issue 3, 2026-06 PK audit M13): the partial unique
-    // index `idx_member_groups_pluralkit_uuid` is scoped
-    // `WHERE pluralkit_uuid IS NOT NULL AND is_deleted = 0`, so tombstones
-    // never collide with a re-imported active row — the old `Value(null)`
-    // write here was not required by any constraint, and it made the
-    // tombstone unfindable by UUID, which is exactly how the importer's
-    // resurrection guard was bypassed for repair-linked (non-deterministic
-    // row id) groups. Wire note: the delete op itself carries no field map,
-    // so the nulling was never emitted at delete time; the one observable
-    // change is the pairing-bootstrap path (sync_bootstrap.dart), which now
-    // emits the tombstone under its canonical `pk-group:<uuid>` entity id —
-    // MATCHING the entity id the original `syncRecordDelete` used (the
-    // repository computes it before this DAO call), where the nulled
-    // tombstone used to bootstrap under the mismatched local row id.
+    // (M13): the partial unique index only covers active rows, so no
+    // collision is possible, and nulling it made the tombstone unfindable by
+    // UUID — bypassing the importer's resurrection guard for repair-linked
+    // groups. Pairing bootstrap now emits the tombstone under its canonical
+    // `pk-group:<uuid>` entity id, matching the original delete op.
     await (update(memberGroups)..where((g) => g.id.equals(id))).write(
       const MemberGroupsCompanion(isDeleted: Value(true)),
     );
@@ -212,20 +203,11 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
         const MemberGroupEntriesCompanion(isDeleted: Value(true)),
       );
 
-  /// Soft-delete an entry and atomically set its `pending_pk_op` intent.
-  /// Used by the repository's `removeMemberFromGroup` so a single DAO call
-  /// captures both "row is gone locally" and "row needs to be pushed to PK
-  /// as a remove" (or `'none'` for non-PK entries).
-  ///
-  /// Also refreshes the local-only `created_at` recency stamp (wave-3
-  /// verifier issue 1, 2026-06 PK audit M15): the push orchestrator's
-  /// age-based retry cap measures INTENT age off this column. Without the
-  /// refresh, removing a membership whose row is older than
-  /// `PkGroupsImporter.pushRetryMaxAge` (the steady-state common case) would
-  /// be "expired" the instant the user queued it — one transient 4xx away
-  /// from the cap hard-deleting the tombstone and the next pull reverting
-  /// the remove. The column's contract is "row creation or latest local
-  /// membership mutation" (see member_group_entries_table.dart).
+  /// Soft-delete an entry and atomically set its `pending_pk_op` intent
+  /// (repository `removeMemberFromGroup`). Also refreshes the local-only
+  /// `created_at` recency stamp (M15): the push retry cap measures INTENT
+  /// age off this column, so without the refresh a remove queued on an old
+  /// row would be "expired" the instant the user queued it.
   Future<void> softDeleteEntryWithPendingOp(
     String id, {
     required String pendingPkOp,
@@ -237,21 +219,12 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     ),
   );
 
-  /// Guarded re-tombstone for the H6c compensation (2026-06 PK audit). Re-soft-
-  /// deletes an entry that a CRDT revive flipped back to active while the local
-  /// user's pending intent still stands, but ONLY when the row currently
-  /// matches the expected state (`is_deleted = !expectedActive` AND
-  /// `pending_pk_op = [pendingPkOp]` — the SAME value is both the guard and
-  /// the re-written intent, i.e. "re-assert this exact intent if it is still
-  /// queued"; wave-3 verifier issue 6 made the WHERE honest about that).
-  /// Returns the number of rows touched (0 or 1); a 0 means a concurrent
-  /// local re-add (push_add) or other mutation won the race, so the caller
-  /// backs off rather than clobbering the new state.
-  ///
-  /// Deliberately does NOT refresh `created_at`: the re-tombstone re-asserts
-  /// an EXISTING user intent, so the retry-cap clock keeps running from the
-  /// last genuine local mutation (the CRDT revive apply already restamped it
-  /// via drift_sync_adapter — see wave-3 verifier issue 2).
+  /// Guarded re-tombstone for the H6c compensation: re-soft-deletes an entry
+  /// a CRDT revive flipped active, but ONLY when the row still matches the
+  /// expected state (same `pending_pk_op`, `is_deleted = !expectedActive`).
+  /// Returns rows touched (0 or 1); 0 means a concurrent local mutation won
+  /// the race — back off. Deliberately does NOT refresh `created_at`: this
+  /// re-asserts an EXISTING intent, so the retry-cap clock keeps running.
   Future<int> softDeleteEntryWithPendingOpGuarded(
     String id, {
     required String pendingPkOp,
@@ -560,15 +533,10 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<List<MemberGroupRow>> getAllGroupsIncludingDeleted() =>
       select(memberGroups).get();
 
-  /// Look up a group by primary-key id INCLUDING tombstoned rows.
-  ///
-  /// Used by the PK groups importer's M13 fix (2026-06 PK audit): a
-  /// user-deleted PK-linked group keeps its deterministic `pk-group-<uuid>`
-  /// row id. `deleteGroup` now KEEPS `pluralkit_uuid` on the tombstone (the
-  /// partial unique index excludes tombstones), so the uuid-keyed
-  /// [findByPluralkitUuidIncludingDeleted] also finds it; this id-keyed
-  /// lookup remains the primary guard and the only one that catches LEGACY
-  /// tombstones whose uuid was nulled by the pre-fix deleteGroup.
+  /// Look up a group by primary-key id INCLUDING tombstoned rows. Primary
+  /// lookup for the importer's M13 resurrection guard, and the only one that
+  /// catches LEGACY tombstones whose uuid was nulled by the pre-fix
+  /// deleteGroup.
   Future<MemberGroupRow?> getGroupByIdIncludingDeleted(String id) =>
       (select(memberGroups)..where((g) => g.id.equals(id))).getSingleOrNull();
 

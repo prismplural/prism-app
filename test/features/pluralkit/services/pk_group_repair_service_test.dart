@@ -1528,7 +1528,7 @@ void main() {
     },
   );
 
-  // M14c (2026-06 PK audit): a dismissed (groupId, suspectedUuid) pair must not
+  // M14c: a dismissed (groupId, suspectedUuid) pair must not
   // be auto-re-flagged on the next repair run. Unlike keep-local-only (which
   // leaves the group syncSuppressed and is therefore skipped), dismiss clears
   // suppression — so without dismissal memory the next run re-suppresses it.

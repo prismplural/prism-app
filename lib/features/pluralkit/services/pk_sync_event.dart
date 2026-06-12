@@ -277,7 +277,7 @@ class PkMappingDecisionFailed extends PkSyncEvent {
   bool get isError => true;
 }
 
-/// 2026-06 PK audit wave-3 mass-deletion breaker: emitted when an UNATTENDED
+/// Mass-deletion breaker: emitted when an UNATTENDED
 /// sync declined to execute a batch of pending PK deletions because the
 /// candidate count exceeded the safety threshold. The user-confirmed manual
 /// destructive-push path is unaffected; this only fires on automatic paths.

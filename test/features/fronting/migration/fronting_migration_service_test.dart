@@ -614,16 +614,11 @@ void main() {
     );
 
     // -------------------------------------------------------------------
-    // Step 6 must not queue PK-side switch deletions (2026-06 PK audit,
-    // C1 idiom)
+    // Step 6 must not queue PK-side switch deletions (the C1 idiom): in
+    // production `deleteSession` stamps `deleteIntentEpoch` on PK-linked
+    // rows, and step-6 deletions are migration fan-out replacements, so
+    // the link must be cleared first. Other tests here omit pkSyncDao.
     // -------------------------------------------------------------------
-    //
-    // In production the session repository is wired with pkSyncDao, so
-    // `deleteSession` stamps `deleteIntentEpoch` on any PK-linked row —
-    // the marker that queues a real `DELETE /switches/{uuid}` against
-    // PluralKit. Step 6's deletions are migration fan-out replacements,
-    // not user deletions, so the link must be cleared first. The other
-    // tests in this file omit pkSyncDao and therefore cannot see this.
     test(
       'solo upgradeAndKeep: step-6 PK row deletions stamp no delete '
       'intent and queue no PK switch deletions (production pkSyncDao wiring)',

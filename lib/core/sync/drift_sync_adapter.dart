@@ -1394,19 +1394,11 @@ Future<bool> _applyMemberGroupEntryFields(
     groupId: Value(resolvedGroupId),
     memberId: Value(resolvedMemberId),
     isDeleted: f.boolField('is_deleted'),
-    // LOCAL-ONLY recency stamp — never read from or written to wire field
-    // maps (it is not in prismSyncSchema and toSyncFields below omits it).
-    // Stamped on EVERY apply that touches this row (2026-06 PK audit wave-3
-    // verifier issue 2): drift's `clientDefault` fires only on a true
-    // INSERT, so an apply that revives an existing tombstone (the
-    // insertOnConflictUpdate DO-UPDATE / the UPDATE branch of
-    // _insertOrUpdateById) would otherwise keep the ORIGINAL stamp — and a
-    // peer's fresh re-add landing on an old local tombstone would look
-    // "old" to the importer's H6b removal-recency grace, letting the next
-    // PK pull reconcile-delete the just-revived entry and destroy the
-    // originating device's unpushed push_add. Refreshing here makes every
-    // inbound touch count as "recent" on THIS device — the fail-safe
-    // direction for both consumers of the stamp (H6b grace, M15 retry cap).
+    // LOCAL-ONLY recency stamp — not in prismSyncSchema, never on the wire.
+    // Stamped on EVERY apply: `clientDefault` only fires on a true INSERT,
+    // so a tombstone revive would keep the original stamp and a peer's fresh
+    // re-add would look "old" to the H6b removal grace, letting the next PK
+    // pull delete the just-revived entry. Fail-safe for H6b and the M15 cap.
     createdAt: Value(DateTime.now()),
   );
   await _insertOrUpdateById(

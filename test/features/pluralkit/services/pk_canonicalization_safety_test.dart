@@ -1,20 +1,7 @@
-/// 2026-06 PK audit C1 / H4: corrective full-import canonicalization safety.
-///
-/// The structural reason C1 survived earlier review is that every diff-sweep
-/// test built `DriftFrontingSessionRepository(dao, null)` WITHOUT `pkSyncDao`,
-/// so `deleteSession`'s intent stamping (the mechanism that later queues real
-/// `DELETE /switches/{uuid}` calls) never fired in tests. These tests wire the
-/// repository WITH `pkSyncDao` so the stamping is live, and assert the
-/// canonicalization pass:
-///
-///  (a) ADOPTS a locally-pushed-style row (random v4 id, real switch uuid,
-///      resolvable member) in place instead of tombstoning it — the
-///      `_findSessionByPkSwitchAndMember` fallback re-keys nothing and keeps
-///      the existing row id. NO row anywhere gets a delete intent.
-///  (b) LEAVES rows for an unmapped/unlinked member entirely alone (H4).
-///  (c) TOMBSTONES a genuine rescue artifact (linked to a switch uuid the API
-///      fixture does not contain) — but with the PK link cleared FIRST and no
-///      delete intent stamped, so the deletion pusher never DELETEs PK history.
+/// C1 / H4: corrective full-import canonicalization safety. Earlier tests
+/// built the repository WITHOUT `pkSyncDao`, so delete-intent stamping never
+/// fired; these wire it in and assert adoption-in-place, H4 leave-alone for
+/// unmapped members, and link-cleared/no-intent tombstoning of artifacts.
 library;
 
 import 'package:drift/drift.dart' show Value;

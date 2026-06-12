@@ -513,10 +513,9 @@ void main() {
   // recordPluralKitIdentity (NOT applyPluralKitLink) so the write bypasses
   // Rule A but preserves Rule B — never transitioning sync_ignored.
   // ─────────────────────────────────────────────────────────────────────
-  // 2026-06 PK audit H12a — ownership validation on the already-linked
-  // refresh path. A linked member's short-id refresh that resolves to ANOTHER
-  // system's member must be rejected (PkForeignMemberException), not handed
-  // back as this member's data.
+  // H12a — ownership validation on the already-linked refresh path: a
+  // short-id refresh resolving to ANOTHER system's member must throw
+  // PkForeignMemberException, not hand back foreign data.
   // ─────────────────────────────────────────────────────────────────────
 
   test('already-linked refresh rejects a foreign-system member (H12a)',

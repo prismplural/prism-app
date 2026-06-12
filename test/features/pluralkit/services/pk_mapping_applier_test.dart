@@ -1431,14 +1431,10 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // 2026-06 PK audit H11 — the `applied` short-circuit must re-validate the
-  // decision's surviving effect, not no-op forever once it's been undone.
-  //
-  // Decision ids are stable, so after a user unlinks a member (stale-link
-  // clear / PK-side deletion / manual unlink) a re-attempted Push/Link used to
-  // silently no-op while the UI reported success. The short-circuit now only
-  // fires when the effect still holds; otherwise it falls through to a fresh
-  // apply. Skip is terminal and keeps the short-circuit.
+  // H11 — the `applied` short-circuit must re-validate the decision's
+  // surviving effect: ids are stable, so after an unlink a re-attempted
+  // Push/Link used to no-op forever while the UI reported success. Skip is
+  // terminal and keeps the short-circuit.
   // ───────────────────────────────────────────────────────────────────────
 
   group('H11: applied short-circuit re-validates surviving effect', () {
@@ -1717,12 +1713,9 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // 2026-06 PK audit H12a — `_priorPkIdentityStillUsable` ownership check.
-  //
-  // The prior-row reuse probe GETs the recorded member by uuid. If PK reports
-  // it as owned by a DIFFERENT system (a foreign re-use through the global
-  // namespace), the recorded id is NOT our member — treat it as gone and
-  // re-create fresh rather than re-linking a stranger.
+  // H12a — `_priorPkIdentityStillUsable` ownership check: a recorded member
+  // PK now reports as owned by a DIFFERENT system is not ours — treat it as
+  // gone and re-create fresh rather than re-linking a stranger.
   // ───────────────────────────────────────────────────────────────────────
 
   group('H12a: prior-row reuse validates ownership', () {
@@ -1819,7 +1812,7 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // 2026-06 PK audit M7 — `_recordPending` must NOT null out PK identifiers a
+  // M7 — `_recordPending` must NOT null out PK identifiers a
   // prior crashed run already persisted post-POST. The old upsert wrote
   // explicit `Value(null)` ids at the start of every (re)apply, so a crash
   // between `_recordPending` and the local link-back left a `pending` row with

@@ -11,7 +11,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 /// then stamps `user_version = 36` (optionally dropping the new column) so
 /// reopening runs the v36 → v37 migration chain. Mirrors
 /// migration_v31_to_v32_test. The new column is the local-only
-/// `member_group_entries.created_at` recency stamp (2026-06 PK audit H6b).
+/// `member_group_entries.created_at` recency stamp (H6b).
 Future<File> _seedV36Db(String name, {required bool dropColumn}) async {
   final tempDir = Directory.systemTemp.createTempSync(name);
   addTearDown(() {

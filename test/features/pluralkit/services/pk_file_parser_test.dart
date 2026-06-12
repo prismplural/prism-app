@@ -1,13 +1,7 @@
-/// Unit tests for [parsePkExportFile].
-///
-/// Focus is the H7 fix: a real `pk;export` references group members by SHORT
-/// ID (hid) in `groups[].members`, but downstream group reconciliation is
-/// UUID-keyed. The parser translates hids → UUIDs using the export's own
-/// `members[]` table so both real exports and the live-API shape (UUIDs) work.
-///
-/// Also pins the parser's pre-existing contracts that the rest of the import
-/// pipeline relies on but that had ZERO unit coverage: version gating,
-/// malformed-entry skipping, and switch member IDs staying as hids.
+/// Unit tests for [parsePkExportFile], focused on the H7 hid→UUID
+/// normalization of `groups[].members`, plus previously-uncovered parser
+/// contracts: version gating, malformed-entry skipping, and switch member
+/// ids staying as hids.
 library;
 
 import 'dart:convert';

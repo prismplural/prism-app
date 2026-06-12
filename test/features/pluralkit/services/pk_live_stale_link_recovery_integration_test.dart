@@ -185,7 +185,7 @@ Future<void> _seedPostWizardState(
       directionConfirmed: const Value(true),
       mappingAcknowledged: const Value(true),
       linkedAt: Value(now.subtract(const Duration(minutes: 1))),
-      // 2026-06 PK audit M11: pushMemberUpdate now gates the payload by the
+      // M11: pushMemberUpdate gates the payload by the
       // configured direction (pull-only default = no push). Seed the
       // push-enabled direction a production edit-push user actually has.
       fieldSyncConfig: Value(

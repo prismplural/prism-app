@@ -1,17 +1,7 @@
-/// 2026-06 PK audit — wave-3 mass-deletion circuit breaker.
-///
-/// Devices that ran the OLD fronting migration can hold a residual pool of
-/// `(link, intent)` tombstones queued for REAL PK deletions, indistinguishable
-/// row-by-row from genuine user deletes. The breaker refuses to execute an
-/// over-threshold batch of PK deletions on UNATTENDED (automatic) syncs — it
-/// emits a [PkMassDeletionBlocked] event, surfaces a stale-link message, and
-/// bails. The user-confirmed MANUAL destructive-push path
-/// (`previewPendingDestructivePush` → confirmation → `syncRecentData` with
-/// `allowMassDeletion: true`) is allowed to proceed.
-///
-/// These tests drive the deletion pushers in isolation via the
-/// `debugPushPending*Deletions` seams against REAL Drift repos wired WITH
-/// `pkSyncDao` (so delete-intent stamping runs against the same DB).
+/// Mass-deletion circuit breaker: unattended syncs refuse an over-threshold
+/// batch of PK deletions (migration residuals are indistinguishable from
+/// real deletes); the confirmed manual destructive-push path proceeds.
+/// Drives the `debugPushPending*Deletions` seams against REAL Drift repos.
 library;
 
 import 'package:flutter/services.dart';
@@ -252,7 +242,7 @@ void main() {
     resetPkBusMainIsolateForTest();
   });
 
-  group('wave-3 mass-deletion breaker (member deletions)', () {
+  group('mass-deletion breaker (member deletions)', () {
     test(
       'over-threshold candidates on an AUTOMATIC sync → zero PK deletes + '
       'PkMassDeletionBlocked emitted',
@@ -393,7 +383,7 @@ void main() {
     );
   });
 
-  group('wave-3 mass-deletion breaker (switch deletions)', () {
+  group('mass-deletion breaker (switch deletions)', () {
     test(
       'over-threshold candidates on an AUTOMATIC sync → zero PK calls + '
       'PkMassDeletionBlocked(kind: switches) emitted',

@@ -40,11 +40,9 @@ class PkRequestQueue {
   /// Enqueue a request. Returns a Future that completes with the result
   /// once the request has been executed (respecting rate limits).
   ///
-  /// [idempotent] requests (GETs / downloads — no side effects) additionally
-  /// retry transport failures and 5xx responses up to 2 extra attempts so a
-  /// single Fly/Caddy blip doesn't abort a multi-hundred-request import.
-  /// Non-idempotent requests (POST/PATCH/DELETE) never retry on those errors —
-  /// only 429 retry applies, the same for both. Defaults to false.
+  /// [idempotent] requests (GETs — no side effects) additionally retry
+  /// transport failures and 5xx up to 2 extra attempts; non-idempotent
+  /// requests only get the shared 429 retry. Defaults to false.
   Future<T> enqueue<T>(
     Future<T> Function() request, {
     bool idempotent = false,

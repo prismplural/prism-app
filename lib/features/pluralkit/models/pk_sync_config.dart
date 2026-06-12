@@ -265,7 +265,7 @@ class PkSyncSummary {
 
   /// Human-readable messages for member pushes PK rejected (400 validation /
   /// 5xx) or payload fields client-side cap validation dropped during this
-  /// run. Per-member isolation (2026-06 PK audit M10a — wave 4) converts
+  /// run. Per-member isolation (M10a) converts
   /// what used to be a sync-aborting throw into an entry here: the member is
   /// counted in [membersSkipped] and the rest of the batch proceeds.
   /// Parallel channel to [staleLinkMessages], which stays reserved for

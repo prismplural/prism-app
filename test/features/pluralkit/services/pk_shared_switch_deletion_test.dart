@@ -1,19 +1,7 @@
-/// 2026-06 PK audit H2: deleting one co-fronter's session row must NOT
-/// `DELETE` the whole shared PluralKit switch — and the "remaining members"
-/// list must come from PK ITSELF, not from local sibling rows.
-///
-/// A PK switch is a FULL fronting snapshot shared by ALL its co-fronters;
-/// there is no per-member switch delete on the API (live-verified). `DELETE
-/// /switches/{uuid}` erases every member's entry at that switch. And because
-/// canonical local rows only carry ENTRANT switch uuids, a member who entered
-/// at an EARLIER switch and was still fronting at this one has no local row
-/// linked here — a locally-derived sibling list would silently drop them from
-/// the snapshot. So the pusher GETs the switch, subtracts only the departing
-/// member, and PATCHes the remainder (or DELETEs when the departing member
-/// was the snapshot's sole fronter).
-///
-/// These tests use REAL Drift repos wired WITH `pkSyncDao` so the
-/// intent-stamping the pusher gates on runs against the same database.
+/// H2: deleting one co-fronter's row must not DELETE the whole shared PK
+/// switch, and the remaining-members list must come from PK itself (local
+/// rows only carry ENTRANT switch uuids). Tests use REAL Drift repos wired
+/// WITH `pkSyncDao` so intent stamping runs against the same database.
 library;
 
 import 'package:drift/native.dart';
@@ -233,7 +221,7 @@ void main() {
       'snapshot [A,B,C], local rows only A@sw2 + C@sw2 (B entered at sw1) '
       '→ deleting A PATCHes [B,C] in PK order',
       () async {
-        // THE verifier-proved regression: PK history sw1=[B], sw2=[A,B,C].
+        // THE key regression: PK history sw1=[B], sw2=[A,B,C].
         // Local canonical rows carry only ENTRANT switch uuids: B@sw1,
         // A@sw2, C@sw2. A locally-derived sibling list for sw2 sees only C
         // and would PATCH sw2 to [C] — removing B from sw2's full snapshot,

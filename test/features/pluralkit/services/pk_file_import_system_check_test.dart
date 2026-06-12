@@ -1,20 +1,7 @@
-/// 2026-06 PK audit H8: system-identity check on file import.
-///
-/// `importFromFileWithToken` used to call `client.getSystem()` and DISCARD
-/// the result, writing members/groups right after — so a wrong file plus a
-/// valid token merged a foreign roster irreversibly (and the rows later
-/// became push-eligible). `importFromFile` (no-token path) had no check at
-/// all.
-///
-/// New contract, pinned here:
-/// - token path: the export's system identity is compared against the
-///   token's system BEFORE any write. UUID comparison is preferred when both
-///   sides carry one (short ids become user-changeable with PK Premium);
-///   short id is the fallback. Mismatch throws [PkFileSystemMismatchError]
-///   with both names/ids — before a single member row is written.
-/// - no-token path: if the app is LINKED (sync DAO has a systemId), the
-///   export must match the linked system (short-id comparison — the DAO only
-///   stores the short id). If not linked, any file is allowed.
+/// H8: system-identity check on file import — the export must match the
+/// token's system (uuid preferred, short id fallback) or the linked system
+/// on the no-token path, BEFORE any write; a mismatch throws
+/// [PkFileSystemMismatchError]. Unlinked with no token allows any file.
 library;
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;

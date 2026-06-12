@@ -228,16 +228,10 @@ class PkAutoPollNotifier extends Notifier<void> {
             .syncLiveFrontersOnly(isManual: false, direction: direction);
         bus.emit(const PkAutoPollTick(outcome: 'ok'));
       } else {
-        // 2026-06 PK audit M3: `pollFrontersOnly` now classifies its outcome
-        // instead of swallowing everything. Map the classification onto this
-        // notifier's EXISTING behaviors (richer handling — surfacing auth to
-        // the UI, distinct copy — is the follow-up batch's job):
-        //  * ok / skipped → healthy tick.
-        //  * authFailed   → emit a distinct `auth_failed` outcome so a revoked
-        //                   token stops logging as healthy. We do NOT clear the
-        //                   token or stop the loop here.
-        //  * rateLimited  → reuse the 429 backoff path (`_kMinBackoffOn429`).
-        //  * transient    → treat like the catch-block: failed + back off.
+        // Map `pollFrontersOnly`'s classified outcome onto this notifier's
+        // existing behaviors: ok/skipped → healthy tick; authFailed →
+        // distinct `auth_failed` outcome (token kept, loop continues);
+        // rateLimited → the 429 backoff path; transient → failed + back off.
         final outcome = await ref
             .read(pluralKitSyncServiceProvider)
             .pollFrontersOnly();

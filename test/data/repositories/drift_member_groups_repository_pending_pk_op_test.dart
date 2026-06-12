@@ -263,7 +263,7 @@ void main() {
 
     test(
       'reviving a stale tombstone refreshes the created_at recency stamp '
-      '(2026-06 PK audit wave-3 verifier issue 1 — intent age, not row age)',
+      '(intent age, not row age)',
       () async {
         await setupRepo(
           members: [_member(id: 'm1', pluralkitUuid: 'pk-m1')],

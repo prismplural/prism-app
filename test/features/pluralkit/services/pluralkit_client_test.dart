@@ -450,7 +450,7 @@ void main() {
     });
   });
 
-  // 2026-06 PK audit low (wave 4): downloadBytes is bounded by
+  // downloadBytes is bounded by
   // PluralKitClient.maxDownloadBytes via a STREAMED read — oversized bodies
   // abort mid-transfer instead of being buffered and checked afterwards.
   group('PluralKitClient — downloadBytes size cap', () {

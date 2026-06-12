@@ -38,8 +38,7 @@ void main() {
     });
 
     test(
-      'treats LEGACY year 0001 as the hidden-year sentinel '
-      '(2026-06 PK audit low — wave 4)',
+      'treats LEGACY year 0001 as the hidden-year sentinel',
       () {
         // PK's server source (DateUtils.cs) treats 0001 like 0004; older
         // data may still carry it on the wire.
@@ -58,8 +57,7 @@ void main() {
     });
 
     test(
-      'rejects calendar-invalid dates instead of silently normalizing '
-      '(2026-06 PK audit low — wave 4)',
+      'rejects calendar-invalid dates instead of silently normalizing',
       () {
         // DateTime(2020, 2, 30) would silently become Mar 2 — parseBirthday
         // must reject the overflow rather than invent a different date.
@@ -117,8 +115,7 @@ void main() {
     });
 
     test(
-      'legacy 0001 is read as hidden but NEVER written as the sentinel '
-      '(2026-06 PK audit low — wave 4)',
+      'legacy 0001 is read as hidden but NEVER written as the sentinel',
       () {
         final parsed = parseBirthday('0001-07-15')!;
         expect(isBirthdayYearHidden(parsed), isTrue);
@@ -149,8 +146,7 @@ void main() {
     });
 
     test(
-      'legacy 0001 hidden year also displays month+day, not "year 1" '
-      '(2026-06 PK audit low — wave 4)',
+      'legacy 0001 hidden year also displays month+day, not "year 1"',
       () {
         final dt = parseBirthday('0001-07-15')!;
         final out = formatBirthdayDisplay(dt, 'en_US');

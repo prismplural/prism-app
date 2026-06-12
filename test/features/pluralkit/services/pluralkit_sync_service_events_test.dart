@@ -76,7 +76,7 @@ class _FakeClient implements PluralKitClient {
   List<PKMember> membersToReturn;
   bool throwAuthError;
 
-  /// When set, `getMembers()` throws a 401 — used by the 2026-06 PK audit M3
+  /// When set, `getMembers()` throws a 401 — used by the M3
   /// test to drive a token revoked MID-sync (after `getSystem` already passed).
   bool throwAuthOnGetMembers;
 

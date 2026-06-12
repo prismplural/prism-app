@@ -37,18 +37,13 @@ class PkBidirectionalService {
   /// [lastSyncDate] — the last time a sync completed (unused here, kept for API stability).
   /// [memberRepository] — for persisting pulled changes.
   /// [client] — PK API client.
-  /// [onPushSkipped] — optional hook invoked once per push-skip message (the
-  ///   same strings collected on [PkSyncSummary.pushSkippedMessages]), so the
-  ///   orchestrating sync service can merge them into its user-facing error
-  ///   channel the way `onStaleLink` callbacks already do.
+  /// [onPushSkipped] — optional hook invoked once per push-skip message so
+  ///   the orchestrator can merge them into its user-facing error channel.
   ///
-  /// Per-member push isolation (2026-06 PK audit M10a — wave 4): a
-  /// [PluralKitApiError] from one member's push (400 validation, 5xx) no
-  /// longer aborts the whole sync — the member is counted + a classified
-  /// message collected, and the loop continues, so one oversized bio can't
-  /// brick the remaining members, the group push, the switch pull, and the
-  /// cursor advance forever. [PluralKitAuthError] still propagates: a revoked
-  /// token fails every member identically and is handled upstream (M3).
+  /// Per-member push isolation (2026-06 PK audit M10a): a [PluralKitApiError]
+  /// from one member's push no longer aborts the whole sync — count, collect
+  /// a classified message, continue. [PluralKitAuthError] still propagates
+  /// (a revoked token fails every member identically; handled upstream, M3).
   ///
   /// Returns a summary of what was synced.
   Future<PkSyncSummary> syncMembers({
@@ -243,7 +238,7 @@ class PkBidirectionalService {
   }
 
   /// Build a user-facing, classified reason for a per-member push failure
-  /// (2026-06 PK audit M10a). For PK validation rejections (400 code 40001)
+  /// (M10a). For PK validation rejections (400 code 40001)
   /// the per-field `errors` map — `max_length` / `actual_length`, parsed
   /// from the raw body that [PluralKitApiError.message] preserves — is
   /// flattened into the message so the user can see exactly which field to
@@ -295,24 +290,12 @@ class PkBidirectionalService {
     return 'validation failed (code 40001)';
   }
 
-  /// Compute the exact set of PK payload keys that may be pushed for [local].
-  ///
-  /// A field is included only when ALL of:
-  ///   (a) its per-field direction config (or overall direction) allows push;
-  ///   (b) it actually differs from the PK value; and
-  ///   (c) it is not a would-clear (local null/empty + PK populated).
-  ///
-  /// This both decides whether to trigger a push (non-empty set) AND gates the
-  /// payload builder so a single triggering edit can't null-clear unrelated
-  /// PK-only fields (audit H1). Per-field direction now gates the payload, not
-  /// just the trigger: a pull-only field never appears in a push body even
-  /// when it differs.
-  ///
-  /// Plan 08 "Conflict semantics on link": we never push an empty local value
-  /// over a populated PK value — that would be a "null-clear on link" for any
-  /// field the user hadn't set locally. Field CLEARS therefore do not
-  /// propagate from this auto-push path; an explicit "clear PK field X" needs a
-  /// dedicated path. The keys here MUST match the PK payload keys used by
+  /// The exact set of PK payload keys that may be pushed for [local]: a field
+  /// is included only when its direction config allows push, it differs from
+  /// the PK value, and it is not a would-clear (local null/empty + PK
+  /// populated). Decides whether to push AND gates the payload so one edit
+  /// can't null-clear unrelated PK-only fields (audit H1); clears never
+  /// propagate from auto-push. Keys MUST match
   /// `PkPushService._memberToPayload`.
   Set<String> _pushableFields(
     domain.Member local,

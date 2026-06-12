@@ -475,12 +475,9 @@ void main() {
   );
 
   // ───────────────────────────────────────────────────────────────────────
-  // 2026-06 PK audit H12a — ownership validation on fetched members.
-  //
-  // A stale/foreign short id can resolve to ANOTHER system's member
-  // (live-verified: GET /members/zzzzz → 200, system "venus"). When the
-  // fetched member declares a `system` that differs from the connected one,
-  // the resolver must refuse to link/import it.
+  // H12a — ownership validation: a stale/foreign short id can resolve to
+  // ANOTHER system's member, so a fetched member whose `system` differs
+  // from the connected one must be refused.
   // ───────────────────────────────────────────────────────────────────────
 
   group('H12a ownership validation', () {
@@ -583,7 +580,7 @@ void main() {
 
     test('ownership comparison is case-insensitive (PK hids are)', () async {
       // PK accepts uppercase hids; an uppercase `system` echo must not be
-      // mistaken for a foreign owner (wave-3 nit: H2 lowercase convention).
+      // mistaken for a foreign owner (H2 lowercase convention).
       final repo = _FakeMemberRepository([
         _local(id: 'local-1', name: 'Local Name'),
       ]);

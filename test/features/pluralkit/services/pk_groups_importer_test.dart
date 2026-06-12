@@ -177,7 +177,7 @@ void main() {
         );
   }
 
-  // 2026-06 PK audit H6b: the removal-reconcile recency grace protects entries
+  // H6b: the removal-reconcile recency grace protects entries
   // younger than `removalRecencyGrace` (48h). Removal tests that create an
   // entry then expect it dropped on a later pull must first age the entry past
   // the window — the steady-state case (a stable membership later removed on
@@ -372,14 +372,10 @@ void main() {
     'M13/issue 3: a deleted tombstone that KEPT its UUID (non-deterministic '
     'row id) blocks re-import — user deletion is preserved',
     () async {
-      // CONTRACT INVERSION (2026-06 PK audit wave-3 verifier issue 3): this
-      // test previously asserted the opposite — that a uuid-bearing tombstone
-      // is happily bypassed and the group re-imported under the deterministic
-      // id. That bypass was the resurrection vector for groups adopted under
-      // their ORIGINAL row id (repair's linkGroupToPluralkitUuid, pre-
-      // deterministic imports), whose deletion the deterministic-id guard
-      // alone cannot see. deleteGroup now keeps the uuid on the tombstone,
-      // and the importer consults findByPluralkitUuidIncludingDeleted.
+      // CONTRACT INVERSION: this previously asserted the uuid-bearing
+      // tombstone was bypassed — the resurrection vector for groups adopted
+      // under their original row id. deleteGroup now keeps the uuid and the
+      // importer consults findByPluralkitUuidIncludingDeleted.
       await db
           .into(db.memberGroups)
           .insert(
@@ -881,7 +877,7 @@ void main() {
 
     expect(creates, isEmpty);
 
-    // M14a (2026-06 PK audit): an immediate second pull with no identity
+    // M14a: an immediate second pull with no identity
     // change, no metadata overwrite, and a last_seen heartbeat that is NOT yet
     // due (< 24h) must emit NO member_groups update — the pre-fix code churned
     // one out every pull. The membership delete still flows.
@@ -1317,7 +1313,7 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
         ),
       ]);
 
-      // 2026-06 PK audit H6b: age the entry past the removal grace window so
+      // H6b: age the entry past the removal grace window so
       // the steady-state "PK dropped this member" destructive path is eligible.
       await db
           .update(db.memberGroupEntries)

@@ -1,26 +1,7 @@
-/// 2026-06 PK audit M1 (wave 4) — service-level pull mutual exclusion.
-///
-/// The audit's verified defects, each pinned here against the REAL entry
-/// points (no seams that bypass the gate):
-///
-/// (a) `syncRecentData`'s first-sync branch awaited a token read BEFORE
-///     `performFullImport` claimed `isSyncing`, so two concurrent callers
-///     could both enter; the loser silently no-op'd inside the import yet
-///     still stamped `lastManualSyncDate` and emitted a successful
-///     `PkSyncCompleted(0,0)` that never ran.
-/// (b) the 60s manual cooldown was UI-advisory only — the fronting screen's
-///     sync button called `syncRecentData(isManual: true)` with no check.
-/// (c) `importFromFile` had no re-entrancy guard at all.
-/// (d) `pollFrontersOnly` checked `isSyncing` but never claimed it, so a
-///     poll-driven sweep could interleave with an in-flight incremental
-///     sweep (two independent in-memory active maps re-closing rows at
-///     different timestamps).
-///
-/// The fix is a single synchronous `_pullInFlight` gate claimed with no
-/// awaits between check and set at every pull entry point, plus in-service
-/// cooldown enforcement via [PkManualSyncCooldownException]. These tests
-/// drive a REAL hang (a Completer-gated fake client) so the loser races the
-/// winner through the genuine await gaps.
+/// M1 — service-level pull mutual exclusion: every pull entry point claims
+/// the synchronous `_pullInFlight` gate, and the manual cooldown is enforced
+/// in-service via [PkManualSyncCooldownException]. Tests drive a REAL hang
+/// (Completer-gated fake client) through the genuine await gaps.
 library;
 
 import 'dart:async';

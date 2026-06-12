@@ -660,15 +660,10 @@ void main() {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 2026-06 PK audit H10: `pluralKitSyncServiceProvider` must yield a STABLE
-  // service instance across `prismSyncHandleProvider` transitions (null→data
-  // on boot, data→data on every sync reconfigure). The old wiring `ref.watch`ed
-  // handle-bearing providers, so each transition rebuilt the whole service:
-  // `_state` reset (isConnected=false until loadState), `isSyncing` /
-  // `_pushInFlight` wiped mid-import, and the orphaned instance's still-live
-  // `onStateChanged` closure double-delivered into the notifier. The new
-  // wiring builds once with `ref.read` and rebinds the volatile dependencies
-  // in place via `updateVolatileDependencies` from a `ref.listen`.
+  // H10: `pluralKitSyncServiceProvider` must yield a STABLE service instance
+  // across `prismSyncHandleProvider` transitions — the old `ref.watch` wiring
+  // rebuilt the service mid-import (state reset, double delivery). New wiring
+  // builds once and rebinds via `updateVolatileDependencies`.
   // ──────────────────────────────────────────────────────────────────────────
   group('H10: pluralKitSyncServiceProvider — handle-transition stability', () {
     Future<void> settle() async {

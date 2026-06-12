@@ -51,13 +51,12 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
 
   /// Expected length of a PluralKit token (`pk;token` emits a 64-character
   /// base64-ish string). Soft signal only: a mismatch shows an inline
-  /// warning but never blocks submitting, since PK could change the format
-  /// (2026-06 PK audit low — wave 4).
+  /// warning but never blocks submitting, since PK could change the format.
   static const int _pkTokenExpectedLength = 64;
 
   /// The token as it would be submitted: ALL whitespace stripped, including
   /// internal newlines that PDF viewers and email clients inject into
-  /// copied tokens (2026-06 PK audit low — wave 4).
+  /// copied tokens.
   String get _strippedToken =>
       _tokenController.text.replaceAll(RegExp(r'\s+'), '');
 
@@ -120,7 +119,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
 
     // Clear the field only once the auth result is known to be GOOD. The old
     // unconditional clear meant a 401 wiped the pasted token and forced a
-    // full re-paste (2026-06 PK audit low — wave 4). setToken sets syncError
+    // full re-paste. setToken sets syncError
     // on every failure path and clears it on success, so a null syncError
     // here means the token validated and was persisted.
     if (!mounted) return;

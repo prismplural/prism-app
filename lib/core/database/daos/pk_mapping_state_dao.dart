@@ -23,21 +23,12 @@ class PkMappingStateDao extends DatabaseAccessor<AppDatabase>
   Future<void> upsert(PkMappingStateCompanion state) =>
       into(pkMappingState).insertOnConflictUpdate(state);
 
-  /// Mark a decision `pending` ahead of (re)applying it WITHOUT clobbering any
-  /// PK identifiers a prior (possibly crashed) attempt already persisted.
-  ///
-  /// 2026-06 PK audit M7: the applier's old `_recordPending` upserted with
-  /// explicit `pkMemberId: Value(null)` / `pkMemberUuid: Value(null)` at the
-  /// START of every (re)apply, wiping the ids that `_applyPushNew` writes
-  /// post-POST. A crash between this row write and the local link-back then
-  /// left a `pending` row with NULL ids → the next retry could not recognise
-  /// the in-flight POST and re-POSTed → duplicate PK member. This method
-  /// preserves the identifier columns (and `createdAt`) when the row already
-  /// exists, only touching `decisionType` / `localMemberId` / `status` /
-  /// `errorMessage` / `updatedAt`. The caller still passes the ids it knows
-  /// about (e.g. for `link` / `import` decisions, which derive them straight
-  /// from the decision) — those land on a FRESH insert; on conflict they are
-  /// intentionally ignored in favour of whatever is already stored.
+  /// Mark a decision `pending` ahead of (re)applying it WITHOUT clobbering
+  /// any PK identifiers a prior (possibly crashed) attempt persisted (2026-06
+  /// PK audit M7) — the old upsert nulled them, so a crash between POST and
+  /// link-back made the retry re-POST a duplicate PK member. On an existing
+  /// row only decisionType/localMemberId/status/errorMessage/updatedAt are
+  /// touched; caller-passed ids land only on a fresh insert.
   Future<void> recordPending(PkMappingStateCompanion state) async {
     final id = state.id.value;
     final existing = await getById(id);

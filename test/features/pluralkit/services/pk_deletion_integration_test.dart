@@ -92,7 +92,7 @@ class _FakeClient implements PluralKitClient {
   final List<String> deletedMembers = [];
   final List<String> deletedSwitches = [];
 
-  /// PK-side switch snapshots served by [getSwitch] (2026-06 PK audit H2:
+  /// PK-side switch snapshots served by [getSwitch] (H2:
   /// the deletion pusher fetches the authoritative co-fronter list before
   /// any switch write). Missing ref → 404 with code 20007, like live PK.
   final Map<String, PKSwitch> switchSnapshots = {};
@@ -639,7 +639,7 @@ void main() {
           ),
         );
 
-      // 2026-06 PK audit H2: the pusher GETs the switch and only DELETEs
+      // H2: the pusher GETs the switch and only DELETEs
       // when the departing member is the snapshot's sole fronter.
       final client = _FakeClient()
         ..switchSnapshots[_switchUuid1] = PKSwitch(

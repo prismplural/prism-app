@@ -10,9 +10,10 @@ import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
-/// 2026-06 PK audit H12a — a fetched PK member that declares a `system`
+/// A fetched PK member that declares a `system`
 /// (only `GET /members/{ref}` does) different from the connected system is a
-/// FOREIGN member resolved through the global short-id namespace. Treat it as
+/// FOREIGN member resolved through the global short-id namespace
+/// (2026-06 PK audit H12a). Treat it as
 /// a stale link rather than reusing/refreshing it. Thrown by the one-shot push
 /// service's already-linked-refresh and crash-recovery-reuse paths; the UI
 /// surfaces it like any other push failure (re-link via the mapping screen).
@@ -124,7 +125,7 @@ class PkOneShotPushService {
     }
   }
 
-  /// 2026-06 PK audit H12a: reject a fetched member whose owning `system`
+  /// Reject a fetched member whose owning `system`
   /// (present only on `GET /members/{ref}`) differs from the connected system.
   /// Reads the connected system id lazily from the sync DAO — when it's unknown
   /// (no row, blank) we keep current behavior, exactly like the resolver.
@@ -165,7 +166,7 @@ class PkOneShotPushService {
               ? member.pluralkitUuid!
               : member.pluralkitId!;
       final fetched = await client.getMember(ref);
-      // 2026-06 PK audit H12a: if we fell back to the short id and PK returned
+      // If we fell back to the short id and PK returned
       // a member owned by a DIFFERENT system, the short id is stale (foreign).
       // Refuse to hand back foreign data as this member's refresh.
       await _requireOwnership(fetched, ref);
@@ -184,7 +185,7 @@ class PkOneShotPushService {
         prior.pkMemberUuid != null &&
         prior.status == 'pending') {
       final existing = await client.getMember(prior.pkMemberUuid!);
-      // 2026-06 PK audit H12a: the recovery ref is a UUID (stable), so a
+      // The recovery ref is a UUID (stable), so a
       // mismatch here is unlikely, but validate defensively — never link a
       // member owned by another system into our local row.
       await _requireOwnership(existing, prior.pkMemberUuid!);

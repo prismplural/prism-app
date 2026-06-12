@@ -11,7 +11,7 @@ class PKSystem {
 
   /// Full UUID — the only stable cross-time identity key. Short ids become
   /// user-changeable with PK Premium (~Feb 2026), so the UUID is what the
-  /// file-import system-identity check (2026-06 PK audit H8) prefers.
+  /// file-import system-identity check (H8) prefers.
   ///
   /// Nullable because some legacy/partial payloads (and older `pk;export`
   /// roots) may omit it; callers must fall back to [id] when it is absent.
@@ -34,8 +34,7 @@ class PKSystem {
     return PKSystem(
       id: json['id'] as String,
       // Both the API (`GET /systems/@me`) and the `pk;export` root carry
-      // `uuid`; parse it so the file-import identity check has a stable key
-      // (2026-06 PK audit H8).
+      // `uuid`; parse it so the file-import identity check has a stable key.
       uuid: json['uuid'] as String?,
       name: json['name'] as String?,
       description: json['description'] as String?,
@@ -80,18 +79,11 @@ class PKMember {
   final DateTime? created;
 
   /// Owning system's short id, present ONLY on the `GET /members/{ref}`
-  /// single-member endpoint (the list endpoints `GET /systems/@me/members`
-  /// and the inline switch/fronter member objects omit it).
-  ///
-  /// 2026-06 PK audit H12a — short ids are a globally-dense namespace, so a
-  /// stale or foreign short id can resolve to ANOTHER system's member
-  /// (live-verified: `GET /members/zzzzz` → 200, system "venus"). Whenever a
-  /// fetched member carries this field, ownership-sensitive call sites
-  /// (link / import / re-link / crash-recovery reuse) compare it against the
-  /// connected system id and treat a mismatch exactly like a 404/stale link
-  /// rather than adopting foreign data. Null means "PK didn't tell us"
-  /// (a list-endpoint object, or an older payload) — callers keep their
-  /// prior behavior when ownership is unknowable.
+  /// single-member endpoint. Short ids are a globally-dense namespace, so a
+  /// stale/foreign short id can resolve to ANOTHER system's member;
+  /// ownership-sensitive call sites compare this against the connected system
+  /// and treat a mismatch like a 404/stale link. Null means "PK didn't tell
+  /// us" — callers keep prior behavior when ownership is unknowable.
   final String? system;
 
   const PKMember({
@@ -137,7 +129,7 @@ class PKMember {
       bannerUrl: json['banner'] as String?,
       hasBannerField: json.containsKey('banner'),
       created: created,
-      // 2026-06 PK audit H12a: only `GET /members/{ref}` includes `system`;
+      // Only `GET /members/{ref}` includes `system`;
       // list/embedded shapes leave it absent → null → ownership unknown.
       system: json['system'] as String?,
     );

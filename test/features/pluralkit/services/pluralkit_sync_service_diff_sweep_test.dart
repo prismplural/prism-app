@@ -180,7 +180,7 @@ class _FakeClient implements PluralKitClient {
 // newest-first, limit clamped to 100) over a full switch history. Unlike
 // [_FakeClient] (which pre-cans pages and ignores `before`), this is the only
 // way to exercise the incremental sweep's pagination — the structural blind
-// spot that let 2026-06 PK audit H3 survive.
+// spot that let H3 survive.
 // ---------------------------------------------------------------------------
 
 class _PaginatingClient implements PluralKitClient {
@@ -1128,24 +1128,11 @@ void main() {
     test('performFullImport preserves a soft-deleted rescue row '
         '(2026-06 PK audit H5: still-linked tombstones are never '
         'resurrected)', () async {
-      // HISTORY: this was the P1 "upgradeAndKeep → resurrect" regression
-      // guard, asserting that a corrective re-import undeleted the
-      // migration's soft-deleted rescue rows. That assertion only ever
-      // held in THIS harness: the repositories here are built without
-      // `pkSyncDao`, so `deleteSession` never stamps `deleteIntentEpoch`
-      // (the audit's documented test blind spot #2). In PRODUCTION the
-      // DAO is wired (database_providers.dart), the migration's deletes
-      // on linked rows ARE intent-stamped, and the WS3 step-4 preserve
-      // branch already refused to resurrect them — the "resurrect"
-      // contract this test pinned has not matched production since WS3.
-      //
-      // 2026-06 PK audit H5 then widened the preserve branch to ANY
-      // still-linked tombstone (intent-less ones are how a PEER's delete
-      // arrives, since `is_deleted` syncs but `delete_intent_epoch` is
-      // device-local; resurrecting them undoes the user's delete
-      // everywhere and aborts the originating device's PK deletion).
-      // The harness now agrees with production: preserved, surfaced via
-      // `tombstonePreservedCount`.
+      // Formerly the P1 "upgradeAndKeep → resurrect" guard, which only held
+      // because this harness omitted `pkSyncDao` (production intent-stamped
+      // these deletes and already preserved them). H5 widened the preserve
+      // branch to ANY still-linked tombstone, so the harness now agrees with
+      // production: preserved, surfaced via `tombstonePreservedCount`.
       final db = _makeDb();
       addTearDown(db.close);
 
@@ -1889,7 +1876,7 @@ void main() {
         // `lastSyncDate` so syncRecentData enters the incremental path
         // rather than diverting to performFullImport, and `systemId`
         // matching the fake client ('sys') so the setToken below is a
-        // SAME-system rotation — 2026-06 PK audit M4 made a
+        // SAME-system rotation — M4 made a
         // different-system setToken null the cursor + lastSyncDate, and a
         // cursor never legitimately exists without a systemId (setToken
         // writes the systemId before any sweep can advance a cursor).
@@ -2585,7 +2572,7 @@ void main() {
     );
   });
 
-  // -- 2026-06 PK audit H3: null-cursor incremental sweep paginates ALL ------
+  // -- H3: null-cursor incremental sweep paginates ALL -----------------------
   //
   // Previously `reachedCursor = (cursor == null)` + `if (reachedCursor)
   // break;` made the incremental sweep import only the newest ≤100 switches
@@ -2673,27 +2660,19 @@ void main() {
     });
   });
 
-  // -- 2026-06 PK audit M2 (wave 4): live-poll/sweep duplicate open row ------
+  // -- M2: live-poll/sweep duplicate open row --------------------------------
 
   group('M2: live-poll duplicate open row', () {
     test(
       'poll-ingested current switch + later sweep leaves exactly ONE open row; '
       'the eventual leaver closes it to ZERO',
       () async {
-        // The audit's verified interleaving, run SEQUENTIALLY (the M1 gate
-        // makes the concurrent race rarer, but the poll's
-        // `advanceCursor: false` write legitimately precedes later sweeps):
-        //   (i)  poll ingests current switch S3 → member B has no open row →
-        //        creates det(S3, B) open at t3, cursor NOT advanced;
-        //   (ii) a sweep covering [S1, S2, S3] seeds WITHOUT det(S3, B) (the
-        //        WS3 #29 bound: only open rows with startTime ≤ the batch's
-        //        first switch), sees B as an entrant at S2 → pre-fix this
-        //        created det(S2, B) and left BOTH rows open;
-        //   (iii) at B's leaver the DB-rebuilt seed keyed by member id picked
-        //        the older row, so det(S3, B) stayed open forever — a
-        //        permanent phantom fronter.
-        // Post-fix, the sweep merges the poll duplicate when it reaches S3
-        // itself (B is CONTINUING there, so det(S3, B) is provably redundant).
+        // The audit's verified interleaving, run SEQUENTIALLY: (i) the poll
+        // ingests current switch S3 and opens det(S3, B); (ii) a sweep over
+        // [S1..S3] seeds without that row (WS3 #29 bound) and pre-fix opened
+        // det(S2, B) too; (iii) the leaver closed only the older row, leaving
+        // det(S3, B) a permanent phantom. Post-fix the sweep merges the
+        // duplicate at S3, where B is CONTINUING and the row is redundant.
         const u1 = '00000000-0000-0000-0000-000000000001';
         const u2 = '00000000-0000-0000-0000-000000000002';
         const u3 = '00000000-0000-0000-0000-000000000003';
@@ -2828,7 +2807,7 @@ void main() {
     );
   });
 
-  // -- 2026-06 PK audit M6 (wave 4): drift-precision timestamps --------------
+  // -- M6: drift-precision timestamps ----------------------------------------
 
   group('M6: drift second-precision timestamps', () {
     const u1 = '00000000-0000-0000-0000-000000000011';
@@ -2839,14 +2818,10 @@ void main() {
       'corrective re-import over an unchanged DB emits ZERO sync ops '
       '(fractional-second PK timestamps)',
       () async {
-        // The audit's churn engine: drift stores datetimes as unix SECONDS
-        // (no build.yaml) while PK timestamps carry µs. Pre-fix,
-        // `_upsertEntrantSession`'s corrective update wrote the µs value, so
-        // `diffSyncFields` compared it against the DB's truncated read-back
-        // and emitted a start_time update op for EVERY row on EVERY
-        // corrective import — feeding the known relay bulk-op starvation
-        // class. Post-fix both sides are whole-second, so an unchanged DB
-        // diffs clean.
+        // The audit's churn engine: drift stores datetimes as whole SECONDS
+        // while PK timestamps carry µs, so pre-fix every corrective import
+        // emitted a start_time update op per row. Post-fix both sides are
+        // whole-second and an unchanged DB diffs clean.
         final t1 = DateTime.utc(2026, 3, 1, 10, 0, 0, 123, 456); // µs-precise
         final t2 = DateTime.utc(2026, 3, 1, 12, 0, 0, 654, 321);
         final s1 = PKSwitch(id: u1, timestamp: t1, members: const ['pkA']);
@@ -2892,7 +2867,7 @@ void main() {
           _sameInstant(truncatePkTimestampToDriftPrecision(t2)),
         );
 
-        // The wave-1 verifier's prescribed assertion: re-running the SAME
+        // The key assertion: re-running the SAME
         // corrective import over the unchanged DB emits ZERO sync ops.
         final captured = <CapturedSyncOp>[];
         SyncRecordMixin.installCaptureSinkForTesting(captured.add);

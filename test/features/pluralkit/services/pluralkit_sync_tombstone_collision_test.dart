@@ -1,27 +1,10 @@
 /// Integration test: PluralKit corrective re-import tombstone semantics.
 ///
-/// PR E2 (WS3 step 4 / review #3) originally preserved only tombstones whose
-/// `deleteIntentEpoch` was non-null (user explicitly deleted on THIS device,
-/// push queued) and kept the resurrection behavior for intent-less ones.
-///
-/// 2026-06 PK audit H5 widened the preserve branch to ANY still-linked
-/// tombstone: `delete_intent_epoch` is deliberately device-local while
-/// `is_deleted` SYNCS, so a deletion made on device A arrives on device B as
-/// an INTENT-LESS tombstone (link intact, `deleteIntentEpoch == null`). Under
-/// the old rule, B's corrective import resurrected it, the resurrection
-/// synced back to A, and A's deletion pusher aborted the genuine pending PK
-/// deletion ("resurrected by CRDT merge") — the user's delete was undone
-/// everywhere and never reached PluralKit. Corrective mode now preserves on
-/// `existing.isDeleted` alone, and both cases count into
-/// `tombstonePreservedCount` for the import-result UI.
-///
-/// The rescue/migration tombstones that genuinely RELY on corrective
-/// resurrection are unaffected because wave 1's canonicalization (and the
-/// zero-length-close path) clear the PK link BEFORE tombstoning: a
-/// link-cleared tombstone (`pluralkit_uuid == null`) is invisible to both
-/// entrant lookups (`getSessionById(canonical id)` and
-/// `_findSessionByPkSwitchAndMember`), so the sweep creates a fresh row
-/// instead of colliding — covered by the third test below.
+/// H5 widened the corrective preserve branch to ANY still-linked tombstone:
+/// `is_deleted` syncs but `delete_intent_epoch` is device-local, so a peer's
+/// delete arrives intent-less and the old rule resurrected it (undoing the
+/// delete everywhere). Rescue/migration tombstones still rebuild because
+/// cleanup clears the PK link BEFORE tombstoning (C1).
 ///
 /// The composite partial unique index on `(pluralkit_uuid, member_id)`
 /// from schema v7 still protects against duplicate live rows when member
@@ -342,18 +325,11 @@ void main() {
 
   test('corrective re-import preserves an INTENT-LESS tombstone with the '
       'link intact (peer-synced delete, 2026-06 PK audit H5)', () async {
-    // Companion to the test above — and the H5 regression guard. This test
-    // PREVIOUSLY asserted the resurrection behavior for intent-less
-    // tombstones, which codified the cross-device hole: `is_deleted` syncs
-    // but `delete_intent_epoch` is device-local, so a deletion made on
-    // device A arrives HERE (device B) exactly like this row — isDeleted
-    // true, deleteIntentEpoch null, PK link intact. Resurrecting it synced
-    // the revival back to A, whose deletion pusher then aborted the real PK
-    // DELETE ("resurrected by CRDT merge"). Corrective mode must now
-    // preserve ANY still-linked tombstone. The rescue/migration tombstones
-    // that used to rely on this resurrection are link-CLEARED before
-    // tombstoning since wave 1 (see the next test), so they never reach the
-    // collision branch at all.
+    // The H5 regression guard (this test previously asserted resurrection):
+    // a peer's delete arrives intent-less with the link intact, and reviving
+    // it aborted the originating device's real PK DELETE. Any still-linked
+    // tombstone must be preserved; cleanup tombstones are link-cleared (C1)
+    // and never reach this branch.
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -446,14 +422,10 @@ void main() {
   test('corrective re-import REBUILDS a link-cleared, intent-less tombstone '
       'at the deterministic id (importer/migration cleanup — 2026-06 PK '
       'audit H5 discriminator)', () async {
-    // The fronting migration's step-6 deletions (and any other importer
-    // cleanup using the wave-1 clear-link-before-delete idiom) leave a
-    // tombstone with pluralkit_uuid == null AND deleteIntentEpoch == null —
-    // but AT the deterministic det(switch, member) row id, so the corrective
-    // sweep still finds it via getSessionById. Post-migration "re-import
-    // from PluralKit" is a documented recovery flow: this shape must
-    // rebuild, not preserve. (User intent always keeps the link or the
-    // intent stamp — see the two preserve tests above.)
+    // C1-idiom cleanup (e.g. migration step 6) leaves a link-cleared,
+    // intent-less tombstone AT the deterministic row id, so the sweep still
+    // finds it by id. Post-migration re-import is a documented recovery
+    // flow: this shape must REBUILD, not preserve.
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -519,17 +491,12 @@ void main() {
         reason: 'a rebuild is not a preservation');
   });
 
-  test('link-cleared tombstone (wave-1 canonicalization / zero-length-close '
+  test('link-cleared tombstone (canonicalization / zero-length-close '
       'style) does not block a fresh canonical row', () async {
-    // Interaction guard for H5: the rescue/migration tombstones that the old
-    // resurrection branch served are created with `clearPluralKitLink` FIRST
-    // (canonicalization survivor branch + zero-length-close path), so their
-    // `pluralkit_uuid` is null. They must be invisible to the entrant
-    // lookups: `getSessionById` misses (random row id, not the canonical
-    // derived id) and `_findSessionByPkSwitchAndMember` misses (null uuid
-    // can't match). The sweep then creates a FRESH live row for the API
-    // switch instead of either resurrecting or being blocked by the
-    // tombstone.
+    // Interaction guard for H5: link-cleared tombstones (canonicalization /
+    // zero-length-close) live at random row ids with null uuids, so both
+    // entrant lookups miss them and the sweep creates a FRESH live row
+    // rather than resurrecting or being blocked.
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -550,7 +517,7 @@ void main() {
         startTime: DateTime(2026, 4, 1, 12),
         memberId: const Value('local-member-id'),
         // pluralkitUuid deliberately absent (null) — cleared before
-        // tombstoning per the wave-1 C1 idiom.
+        // tombstoning per the C1 idiom.
         isDeleted: const Value(true),
       ),
     );

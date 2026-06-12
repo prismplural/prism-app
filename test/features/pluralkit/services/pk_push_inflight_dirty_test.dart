@@ -1,13 +1,7 @@
-/// 2026-06 PK audit M9 — `pushPendingSwitches` must not drop the trailing
-/// change. When a push is in flight and a new trigger arrives (rapid A→B→C
-/// switching), the in-flight future captured the OLD state, so returning it
-/// would leave the latest state unpushed. The dirty-flag schedules EXACTLY one
-/// follow-up run after the current push, and mid-flight callers await it.
-///
-/// Contract verified here:
-///  * a trigger arriving mid-flight causes exactly ONE follow-up run;
-///  * no follow-up runs when no trigger arrived mid-flight;
-///  * the chain terminates (no infinite loop) when state stays stable.
+/// M9 — `pushPendingSwitches` must not drop the trailing change: a trigger
+/// arriving mid-flight schedules EXACTLY one follow-up run (mid-flight
+/// callers await it), no follow-up fires without a trigger, and the chain
+/// terminates when state stays stable.
 library;
 
 import 'dart:async';

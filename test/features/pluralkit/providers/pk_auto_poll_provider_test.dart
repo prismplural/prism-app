@@ -21,7 +21,7 @@ class _FakePkSyncService implements PluralKitSyncService {
   Object? pollThrows;
   bool storedTokenPresent = true;
 
-  /// 2026-06 PK audit M3: pollFrontersOnly now classifies its outcome instead
+  /// M3: pollFrontersOnly classifies its outcome instead
   /// of returning a bare bool. Defaults to `ok` (a healthy tick); tests set it
   /// to drive the auth/429/transient mappings in the auto-poll notifier.
   PkPollOutcome pollOutcome = PkPollOutcome.ok;

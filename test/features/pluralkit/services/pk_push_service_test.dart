@@ -308,12 +308,9 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // H1: per-field-gated PATCH payload (allowedFields)
-  //
-  // On the PATCH path the bidirectional service passes `allowedFields` — the
-  // exact set of PK keys that may be written. Keys outside the set are omitted
-  // (PK preserves), and gated fields never emit explicit `null`, so a single
-  // triggering edit can never null-clear an unrelated PK-only field.
+  // H1: per-field-gated PATCH payload — keys outside `allowedFields` are
+  // omitted (PK preserves) and gated fields never emit explicit `null`, so
+  // one edit can't null-clear an unrelated PK-only field.
   // -------------------------------------------------------------------------
 
   group('_memberToPayload PATCH gating (H1)', () {
@@ -460,12 +457,9 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 2026-06 PK audit M10b (wave 4): client-side validation of PK caps before
-  // a push leaves the app. PATCH drops the offending field (PK keeps its
-  // value — never silent truncation); POST truncates only the required
-  // `name`; both surface via onFieldSkipped. Caps live-verified 2026-06-10:
-  // name/display_name/pronouns 100, description 1000, color exactly 6-hex
-  // with no '#', birthday strict yyyy-MM-dd.
+  // M10b: client-side validation of PK caps — PATCH drops the offending
+  // field (never silent truncation), POST truncates only the required
+  // `name`, both surface via onFieldSkipped. Caps live-verified 2026-06-10.
   // -------------------------------------------------------------------------
 
   group('PkFieldLimits payload validation (M10b)', () {

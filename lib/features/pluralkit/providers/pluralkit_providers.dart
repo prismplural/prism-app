@@ -44,7 +44,7 @@ class PkSyncMigrationGatedException implements Exception {
 
 /// Build a [PkGroupsImporter] bound to the CURRENT sync handle.
 ///
-/// 2026-06 PK audit H10 — resolved via `ref.read` (never `ref.watch`) so it
+/// Resolved via `ref.read` (never `ref.watch`) so it
 /// can be called both at first build and from the `ref.listen` refresh below
 /// without making the surrounding provider reactive to the handle.
 PkGroupsImporter _buildPkGroupsImporter(Ref ref) => PkGroupsImporter(
@@ -53,26 +53,12 @@ PkGroupsImporter _buildPkGroupsImporter(Ref ref) => PkGroupsImporter(
   syncHandle: ref.read(prismSyncHandleProvider).value,
 );
 
-/// Singleton PluralKit sync service.
-///
-/// 2026-06 PK audit H10 — the service instance must be STABLE across
-/// `prismSyncHandleProvider` transitions. Every transition (null→data on boot,
-/// data→data on each sync reconfigure) rebuilds `memberRepositoryProvider`,
-/// `frontingSessionRepositoryProvider`, `systemSettingsRepositoryProvider`
-/// (all of which `ref.watch` the handle), so the OLD code's `ref.watch` of
-/// those providers rebuilt the entire service mid-flight: `_state` reset
-/// (isConnected=false until loadState), `_pushInFlight`/`isSyncing` wiped,
-/// while the old instance's still-live `onStateChanged` closure kept emitting
-/// (double delivery), and a second import could start concurrently with the
-/// first.
-///
-/// Fix: build ONCE with `ref.read` (no `ref.watch` of any handle-bearing
-/// provider → no rebuild on transition), then `ref.listen` the handle and push
-/// handle-fresh dependencies into the SAME instance via
-/// [PluralKitSyncService.updateVolatileDependencies]. The concurrency gates on
-/// the instance (`_pushInFlight`, `isSyncing`, `_state`) therefore survive
-/// every transition, while group import and member/fronting writes still pick
-/// up the new handle.
+/// Singleton PluralKit sync service. The instance must be STABLE across
+/// `prismSyncHandleProvider` transitions (2026-06 PK audit H10): watching
+/// handle-bearing providers rebuilt the service mid-flight (state reset,
+/// double emission, concurrent imports). Build ONCE with `ref.read`, then
+/// `ref.listen` the handle and swap in fresh dependencies via
+/// [PluralKitSyncService.updateVolatileDependencies].
 final pluralKitSyncServiceProvider = Provider<PluralKitSyncService>((ref) {
   final service = PluralKitSyncService(
     memberRepository: ref.read(memberRepositoryProvider),

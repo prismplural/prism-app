@@ -553,8 +553,8 @@ void main() {
     });
   });
 
-  // 2026-06 PK audit wave-3 DAO additions.
-  group('wave-3 audit DAO methods', () {
+  // Guarded DAO helpers added for the PK audit fixes.
+  group('PK audit DAO methods', () {
     test('getGroupByIdIncludingDeleted finds a tombstone (M13)', () async {
       await db.into(db.memberGroups).insert(
             pkFixtureGroup(id: 'g1', isDeleted: true),
@@ -576,7 +576,7 @@ void main() {
 
     test(
       'deleteGroup KEEPS pluralkit_uuid on the tombstone '
-      '(wave-3 verifier issue 3 — uuid findability for the M13 guard)',
+      '(uuid findability for the M13 guard)',
       () async {
         await db.into(db.memberGroups).insert(
               pkFixtureGroup(id: 'g1', pluralkitUuid: 'pk-g1'),
@@ -604,7 +604,7 @@ void main() {
 
     test(
       'softDeleteEntryWithPendingOp refreshes created_at '
-      '(wave-3 verifier issue 1 — intent age, not row age)',
+      '(intent age, not row age)',
       () async {
         await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
         await db.into(db.memberGroupEntries).insert(

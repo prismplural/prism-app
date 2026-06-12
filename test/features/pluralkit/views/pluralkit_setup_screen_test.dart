@@ -828,7 +828,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 2026-06 PK audit low (wave 4): token paste robustness — strip ALL
+  // Token paste robustness — strip ALL
   // whitespace (PDF/email copies inject internal newlines), soft-warn on
   // implausible length without blocking submit, and never clear the field
   // before the auth result is known (a 401 used to force a full re-paste).

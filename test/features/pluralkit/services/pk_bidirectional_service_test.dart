@@ -1048,12 +1048,9 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // H1: PATCH payload is per-field gated.
-  //
-  // Once any field triggers a push the payload must carry ONLY the fields that
-  // (a) differ, (b) are push-allowed by direction config, and (c) are not a
-  // would-clear. A bio edit must never null-clear PK-only pronouns; a pull-only
-  // field must never appear in a push body even when it differs.
+  // H1: PATCH payload is per-field gated — it carries ONLY fields that
+  // differ, are push-allowed by direction config, and are not a would-clear.
+  // A bio edit must never null-clear PK-only pronouns.
   // -------------------------------------------------------------------------
 
   group('H1: per-field-gated PATCH payload', () {
@@ -2027,7 +2024,7 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 2026-06 PK audit M10a (wave 4): per-member push isolation. One member's
+  // M10a: per-member push isolation. One member's
   // PluralKitApiError (400 validation, 5xx) must not abort the remaining
   // members — it is counted, classified into pushSkippedMessages, and the
   // loop continues. PluralKitAuthError still aborts (M3 owns the messaging).

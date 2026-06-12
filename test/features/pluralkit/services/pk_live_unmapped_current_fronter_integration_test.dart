@@ -118,8 +118,7 @@ void main() {
 
             // The post-resolution re-pull models the mapping controller's
             // automatic refresh, not a second manual tap — a manual pull
-            // inside 60s now throws PkManualSyncCooldownException (2026-06
-            // PK audit M1, wave 4).
+            // inside 60s throws PkManualSyncCooldownException (M1).
             final secondSummary = await service.syncLiveFrontersOnly(
               direction: PkSyncDirection.pullOnly,
               isManual: false,

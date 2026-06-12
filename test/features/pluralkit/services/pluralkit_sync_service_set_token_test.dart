@@ -689,15 +689,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 2026-06 PK audit H9: failed token rotation must not destroy the working
-  // token, and the DB/storage must never diverge.
-  //
-  // The old setToken wrote the new token to secure storage BEFORE validation
-  // (overwriting the working one) and deleted the slot on ANY failure — even a
-  // transient network blip — while never persisting isConnected=false. New
-  // contract: validate first (ephemeral client), persist only on success with
-  // a CHECKED safeSecureWrite, and leave the prior token + connection state
-  // completely untouched on any failure.
+  // H9: failed token rotation must not destroy the working token, and the
+  // DB/storage must never diverge. New contract: validate first (ephemeral
+  // client), persist only on success with a CHECKED safeSecureWrite, and
+  // leave the prior token + connection state untouched on any failure.
   // ---------------------------------------------------------------------------
 
   group('H9: setToken failure leaves the working token intact', () {
@@ -861,10 +856,10 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 2026-06 PK audit M4: a different-system swap must null the switch cursor
+  // M4: a different-system swap must null the switch cursor
   // and lastSyncDate (parity with clearToken). Otherwise the OLD system's
   // cursor `covers()` the NEW system's history: if the user dismisses the
-  // mapping flow (the audit's "escape hatch"), the new system's switches are
+  // mapping flow, the new system's switches are
   // silently never imported.
   // ---------------------------------------------------------------------------
 

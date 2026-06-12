@@ -61,13 +61,9 @@ class PkDeletionForbiddenException implements Exception {
 }
 
 /// PluralKit API field caps, live-verified 2026-06-10 against
-/// api.pluralkit.me (2026-06 PK audit M10b — wave 4).
-///
-/// Server behavior on violation: 400 with body code `40001` and a per-field
-/// `errors` map carrying `max_length` / `actual_length`. Validating here
-/// keeps an over-cap local value from 400-ing every sync run (the M10
-/// "bricked sync" class) — the offending FIELD is dropped from the payload
-/// and surfaced instead.
+/// api.pluralkit.me (2026-06 PK audit M10b). Violations 400 with code
+/// `40001`; validating here keeps an over-cap local value from 400-ing every
+/// sync run — the offending FIELD is dropped from the payload and surfaced.
 abstract final class PkFieldLimits {
   /// `name`, `display_name`, and `pronouns` cap (characters).
   static const int nameMaxLength = 100;
@@ -128,20 +124,15 @@ class PkPushService {
   /// If the member has a [pluralkitId], performs a PATCH (update).
   /// Otherwise performs a POST (create) and returns the new PK member ID.
   ///
-  /// On the PATCH path, callers that hold the PK member and per-field
-  /// direction config (the bidirectional service) MUST pass [allowedFields]
-  /// to gate the payload: only listed keys are serialized. Keys absent from
-  /// the set are omitted entirely so PK preserves its value. This prevents
-  /// H1 — a single triggering edit null-clearing unrelated PK-only fields.
-  /// When [allowedFields] is null (legacy PATCH callers with no PK snapshot),
-  /// the payload falls back to "every local non-null field," which never
-  /// emits explicit nulls because there is no remote to clear against.
+  /// On the PATCH path, callers holding the PK snapshot MUST pass
+  /// [allowedFields]: only listed keys are serialized, absent keys are
+  /// omitted so PK preserves its value (H1 guard). A null [allowedFields]
+  /// (legacy callers) falls back to "every local non-null field".
   ///
   /// Returns the PK 5-character member ID (existing or newly created).
   ///
-  /// [onFieldSkipped] (2026-06 PK audit M10b) is invoked once per payload
-  /// field that client-side cap validation dropped (PATCH) or truncated
-  /// (POST `name`), with the PK field key and a human-readable reason.
+  /// [onFieldSkipped] is invoked once per field dropped (PATCH) or truncated
+  /// (POST `name`) by client-side cap validation.
   Future<String> pushMember(
     domain.Member member,
     PluralKitClient client, {
@@ -249,30 +240,12 @@ class PkPushService {
   ///
   /// Skips avatar (blob-to-URL conversion not supported by PK API).
   ///
-  /// Field gating (PATCH only):
-  /// - When [allowedFields] is supplied, a field appears in the payload ONLY
-  ///   when its PK key is in the set. The caller (bidirectional service) has
-  ///   already decided per-field that the value differs, push is allowed by
-  ///   direction config, and it is not a would-clear; so each allowed field
-  ///   is written from its local value and explicit nulls are NEVER emitted.
-  ///   Field clears do not propagate from this path — see plan 08.
-  /// - When [allowedFields] is null (legacy PATCH callers with no PK
-  ///   snapshot), every local non-null field is included via [_setOrClear].
-  ///   Explicit nulls only ever appear when a [pkMember] remote value is
-  ///   present, which legacy callers don't pass, so this stays non-destructive.
-  ///
-  /// For POST ([isPatch] = false), nulls are always omitted (PK treats
-  /// omit = clear on POST) and [allowedFields] is ignored — creates always
-  /// send the member's full local non-null shape.
-  ///
-  /// Cap validation (2026-06 PK audit M10b): every string-valued payload
-  /// entry is checked against [PkFieldLimits] before the map is returned.
-  /// - PATCH: an invalid field is DROPPED from the payload (PK keeps its
-  ///   value) and surfaced via [onFieldSkipped] — never silently truncated.
-  /// - POST: same skip rule, EXCEPT the required `name`, which is truncated
-  ///   to [PkFieldLimits.nameMaxLength] (a create must not fail forever) and
-  ///   surfaced.
-  /// Explicit-null clears and the `proxy_tags` list are exempt (non-string).
+  /// Field gating (PATCH only): with [allowedFields], only listed keys appear
+  /// and explicit nulls are NEVER emitted (field clears do not propagate from
+  /// this path); when null, every local non-null field is included via
+  /// [_setOrClear]. POST omits nulls and ignores [allowedFields]. Cap
+  /// validation drops over-[PkFieldLimits] fields (PATCH) or truncates the
+  /// required `name` (POST), surfacing each via [onFieldSkipped].
   Map<String, dynamic> _memberToPayload(
     domain.Member member, {
     PKMember? pkMember,
@@ -353,7 +326,7 @@ class PkPushService {
       data['color'] = _stripHash(member.customColorHex!);
     }
 
-    // 2026-06 PK audit M10b: validate the assembled payload against the
+    // Validate the assembled payload against the
     // live-verified PK caps so an over-cap/garbage local value can't 400
     // (code 40001) every sync run. See the method doc for the skip-vs-
     // truncate rules per method.
@@ -403,10 +376,9 @@ class PkPushService {
   ///   to clear PK.
   /// - Otherwise: omit.
   ///
-  /// When [gated] is true the caller (bidirectional service via
-  /// [allowedFields]) has pre-decided this field is includable and not a
-  /// would-clear, so we never emit an explicit `null`: a null local here just
-  /// omits the key rather than destroying the PK value (H1 guard).
+  /// When [gated] is true the caller has pre-decided this field is includable
+  /// and not a would-clear, so never emit an explicit `null` — a null local
+  /// just omits the key (H1 guard).
   void _setOrClear(
     Map<String, dynamic> data,
     String key, {

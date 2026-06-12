@@ -665,22 +665,12 @@ Widget _maybeBadge({
   return child;
 }
 
-/// True when the two members have identical values for every field that the
-/// PK member PATCH payload actually carries. The compared set is kept in
-/// lock-step with the keys `PkPushService._memberToPayload` serializes on the
-/// auto-push path (`display_name` ← `pluralkitDisplayName`, `pronouns`,
-/// `description` ← `bio`, `birthday`, `color` ← `customColorEnabled` +
-/// `customColorHex`). `proxyTagsJson` is deliberately NOT compared: the
-/// auto-push always passes `includeProxyTags: false` (destructive tag changes
-/// route through manual sync's delete-risk preview), so a proxy-tag-only edit
-/// would fire a PATCH whose body can't carry the change — a wasted call.
-///
-/// 2026-06 PK audit M11 — this previously compared the LOCAL-ONLY [Member.name]
-/// and [Member.displayName] (the in-app display name), neither of which is ever
-/// pushed. So editing the PK display name (`pluralkitDisplayName`) didn't fire
-/// the auto-push, while editing the local name fired a useless PATCH. Changes
-/// to purely-local fields (emoji, avatar bytes, isAdmin, in-app display name,
-/// etc.) must NOT trigger a PK push.
+/// True when the two members have identical values for every field the PK
+/// member PATCH payload actually carries — kept in lock-step with
+/// `PkPushService._memberToPayload`'s auto-push keys. `proxyTagsJson` is NOT
+/// compared (auto-push passes `includeProxyTags: false`, so a tag-only edit
+/// would fire a PATCH that can't carry it). Purely-local fields (emoji,
+/// avatar bytes, in-app display name, etc.) must NOT trigger a PK push.
 bool _pkSyncRelevantFieldsEqual(Member a, Member b) {
   return a.pluralkitDisplayName == b.pluralkitDisplayName &&
       a.pronouns == b.pronouns &&

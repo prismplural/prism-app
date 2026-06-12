@@ -48,13 +48,13 @@ class PkGroupsImportResult {
   final int groupsWithUnknownMembership;
 
   /// Entries that PK's authoritative set omits but were preserved anyway
-  /// because they fall inside the H6b recency-grace window (2026-06 PK audit).
+  /// because they fall inside the H6b recency-grace window.
   /// Surfaces the fail-safe so a high count is visible rather than silent.
   final int entriesSkippedRecent;
 
   /// Groups the importer would otherwise have re-created from PK but skipped
-  /// because the deterministic row id is a user-deleted tombstone (2026-06 PK
-  /// audit M13 — board-delete-resurrection class). Mirrors the session
+  /// because the deterministic row id is a user-deleted tombstone
+  /// (board-delete-resurrection class). Mirrors the session
   /// tombstone-preserved counter pattern.
   final int groupsPreservedAsDeletedTombstone;
 
@@ -142,23 +142,13 @@ class PkGroupsImporter with SyncRecordMixin {
   static const _groupTable = 'member_groups';
   static const _entryTable = 'member_group_entries';
 
-  /// Recency grace for destructive PK-removal reconcile (2026-06 PK audit H6b).
-  ///
-  /// A `member_group_entries` row younger than this window is NEVER
-  /// reconcile-deleted, even when PK's authoritative member list omits it.
-  /// Rationale: `pending_pk_op` is per-device, so a peer that just received a
-  /// CRDT *create* for an add another device hasn't pushed to PK yet would
-  /// otherwise treat PK as authoritative and soft-delete the brand-new entry
-  /// (then sync a HARD delete back, destroying the originating device's
-  /// unpushed `push_add` intent — H6 scenario A). `created_at` is local-only
-  /// and set via `clientDefault` at *apply* time, so a sync-applied row is
-  /// "recent" on the reconciling device precisely while that race window is
-  /// open. 48h is deliberately generous: a genuine PK-side removal of an old
-  /// entry still takes effect on the next reconcile after the window lapses,
-  /// and removals of fresh entries fail SAFE (the membership survives locally
-  /// a little longer) rather than fail DESTRUCTIVE (a real add is lost). The
-  /// window only gates the soft-delete pass; inserts and metadata are
-  /// unaffected.
+  /// Recency grace for destructive PK-removal reconcile (2026-06 PK audit
+  /// H6b): a `member_group_entries` row younger than this is never
+  /// reconcile-deleted. `pending_pk_op` is per-device, so a reconciling peer
+  /// would otherwise soft-delete a fresh entry whose add hasn't reached PK
+  /// yet, destroying the unpushed intent. `created_at` is local and set at
+  /// apply time, so a synced row is "recent" exactly during that race window.
+  /// Only gates the soft-delete pass.
   static const removalRecencyGrace = Duration(hours: 48);
 
   /// Minimum interval between pure `last_seen_from_pk_at` refresh emissions for
@@ -168,16 +158,11 @@ class PkGroupsImporter with SyncRecordMixin {
   /// only the lonely "I saw this group again" heartbeat is rate-limited.
   static const lastSeenRefreshInterval = Duration(hours: 24);
 
-  /// Age cap for a permanently-failing group-membership push intent (2026-06 PK
-  /// audit M15). The `member_group_entries` pending-op rows have no
-  /// `retry_count` column, so we cap by INTENT age — `created_at` is refreshed
-  /// whenever a pending op is set, so it reads as "time since the user queued
-  /// this intent". A push candidate that keeps 4xx-failing past this window is
-  /// marked terminal
-  /// and counted in the result rather than retried forever every sync. 7 days
-  /// is long enough to ride out a sustained PK outage or a slow user fix, short
-  /// enough that a genuinely impossible push (e.g. an unmapped ref that will
-  /// never resolve) stops churning the op log within a week.
+  /// Age cap for a permanently-failing group-membership push intent (2026-06
+  /// PK audit M15). Pending-op rows have no `retry_count` column, so cap by
+  /// INTENT age (`created_at` is refreshed whenever a pending op is set): a
+  /// candidate still 4xx-failing past this window is marked terminal and
+  /// counted, rather than retried forever every sync.
   static const pushRetryMaxAge = Duration(days: 7);
 
   PkGroupsImporter({
@@ -260,15 +245,12 @@ class PkGroupsImporter with SyncRecordMixin {
   /// only membership is reconciled. When true (explicit re-import / user
   /// action), metadata is replaced with PK's values.
   ///
-  /// When [pushClient] is supplied AND [direction] includes push, this device's
-  /// pending `pending_pk_op` intents are drained to PluralKit BEFORE the
-  /// membership reconcile (2026-06 PK audit H6a). Draining first means the PK
-  /// authoritative set the reconcile reads already reflects this device's local
-  /// adds/removes, so the destructive removal pass can't soft-delete (and
-  /// HARD-delete to peers) an add that simply hadn't reached PK yet. The push
-  /// is failure-isolated: a thrown error is swallowed so a transient PK outage
-  /// never aborts the pull. Callers that already drive push separately can omit
-  /// [pushClient]; passing it is idempotent with the orchestrator's own mutex.
+  /// When [pushClient] is supplied AND [direction] includes push, pending
+  /// `pending_pk_op` intents are drained to PluralKit BEFORE the membership
+  /// reconcile (2026-06 PK audit H6a), so the authoritative set already
+  /// reflects local adds/removes and the removal pass can't delete an add
+  /// that hadn't reached PK yet. Push failures are swallowed — a transient
+  /// PK outage never aborts the pull.
   Future<PkGroupsImportResult> importGroups(
     List<PKGroup> pkGroups, {
     bool overwriteMetadata = false,
@@ -287,7 +269,7 @@ class PkGroupsImporter with SyncRecordMixin {
     // updates, no destructive reconcile, no inserts.
     if (!direction.pullEnabled) return result;
 
-    // H6a (2026-06 PK audit): drain this device's pending intents to PK FIRST
+    // Drain this device's pending intents to PK FIRST
     // so the authoritative member set we reconcile against already reflects
     // them. MUST be failure-isolated — a push failure must not abort the pull
     // (which would block legitimate inbound PK changes whenever PK is flaky).
@@ -331,29 +313,13 @@ class PkGroupsImporter with SyncRecordMixin {
       final groupLocalId = existing?.id ?? deriveGroupId(pk.uuid);
 
       if (existing == null) {
-        // M13 (2026-06 PK audit): resurrection guard. Without this check the
-        // upsert below would revive a user-deleted group's row
-        // (is_deleted=false@fresh-HLC) AND re-create every entry, syncing
-        // creates back to peers — the board-delete-resurrection UX class.
-        // Two lookups (wave-3 verifier issue 3):
-        //   1. By the deterministic `pk-group-<uuid>` row id — catches
-        //      importer-created groups even when the tombstone's
-        //      `pluralkit_uuid` was nulled (every deleteGroup before the
-        //      wave-3 fix did that).
-        //   2. By UUID including deleted — catches groups adopted under
-        //      their ORIGINAL row id (repair's linkGroupToPluralkitUuid,
-        //      pre-deterministic imports), whose tombstones the id lookup
-        //      can't see. Works because deleteGroup now KEEPS the uuid on
-        //      the tombstone (the partial unique index only covers active
-        //      rows). The active-only lookup above already returned null, so
-        //      any hit here is by construction a tombstone.
-        // Residual: a LEGACY non-deterministic-id tombstone whose uuid was
-        // already nulled by the old deleteGroup is invisible to both lookups
-        // and can still resurrect once. Its replacement row then dies under
-        // guard #1 or #2 on any later deletion.
-        // PK has no group-deletion push yet, so "deleted locally, stays
-        // deleted locally" is the honest behavior; we surface a count so the
-        // skip is visible, not silent.
+        // Resurrection guard (2026-06 PK audit M13): without it the upsert
+        // would revive a user-deleted group and re-create every entry on
+        // peers. Tombstones are found by the deterministic `pk-group-<uuid>`
+        // id (catches nulled-uuid tombstones) AND by uuid including deleted
+        // (groups adopted under their original row id). PK has no
+        // group-deletion push, so deleted locally stays deleted; skips are
+        // counted, not silent.
         var tombstone = await _dao.getGroupByIdIncludingDeleted(groupLocalId);
         if (tombstone == null || !tombstone.isDeleted) {
           // Id lookup yielded nothing deleted (no row, or an active unlinked
@@ -403,15 +369,11 @@ class PkGroupsImporter with SyncRecordMixin {
         }
         result = result.copyWith(groupsInserted: result.groupsInserted + 1);
       } else {
-        // Existing row. M14a (2026-06 PK audit): the pre-fix code wrote AND
-        // emitted last_seen_from_pk_at for EVERY group on EVERY pull, churning
-        // the op log / relay. Now:
-        //   - PK-link columns (pluralkit_id / pluralkit_uuid) emit only when
-        //     they actually change.
-        //   - A pure last_seen_from_pk_at heartbeat refreshes (and emits) at
-        //     most once per `lastSeenRefreshInterval` (24h) per group.
-        //   - overwriteMetadata still forces a metadata write + emit.
-        // Never touch emoji (R8). avatar_image_data preserved across PK pulls.
+        // Existing row. PK-link columns emit only when they actually change;
+        // a pure last_seen_from_pk_at heartbeat emits at most once per
+        // `lastSeenRefreshInterval` per group (the old code emitted for every
+        // group on every pull). Never touch emoji (R8); avatar_image_data is
+        // preserved across PK pulls.
         final identityChanged =
             existing.pluralkitId != pk.id ||
             existing.pluralkitUuid != pk.uuid;
@@ -651,16 +613,11 @@ class PkGroupsImporter with SyncRecordMixin {
             continue;
           }
           if (authoritativeSet.contains(pkUuid)) continue; // preserve.
-          // 2026-06 PK audit H6b: recency grace. A row younger than
-          // `removalRecencyGrace` is never reconcile-deleted. This blocks the
-          // cross-device intent-loss race: device B's local `push_add` synced
-          // its CRDT create to device A; A pulls PK (which lacks the member
-          // because B hasn't pushed yet) and would otherwise soft-delete +
-          // emit a HARD delete that destroys B's row AND its unpushed intent.
-          // The stamp is local + set at apply time, so a freshly synced row is
-          // "recent" on A exactly during that window. A NULL stamp (rows that
-          // predate the column) is treated as NOT recent → still eligible, so
-          // a missing stamp never permanently leaks a PK membership.
+          // Recency grace (H6b): a row younger than `removalRecencyGrace` is
+          // never reconcile-deleted — see the constant's doc for the
+          // cross-device intent-loss race. A NULL stamp (rows predating the
+          // column) counts as NOT recent, so a missing stamp never
+          // permanently leaks a PK membership.
           final createdAt = entry.createdAt;
           if (createdAt != null && createdAt.isAfter(graceCutoff)) {
             skippedRecent++;
@@ -786,14 +743,11 @@ class PkGroupsImporter with SyncRecordMixin {
     final aliases = await _db.pkGroupSyncAliasesDao.getByPkGroupUuid(
       pkGroupUuid,
     );
-    // M14b (2026-06 PK audit): emit each legacy alias's delete ONCE, then drop
-    // the alias row. The pre-fix code re-emitted these tombstones on every pull
-    // forever (deleteByLegacyEntityId had zero callers). The canonical alias
-    // row (legacyEntityId == canonicalEntityId, or empty) is never a delete
-    // target and is left untouched. The repair flow re-creates aliases when a
-    // fresh duplicate is merged, so a NEW alias still gets its one delete on
-    // the next pull before being cleaned — convergence is preserved, churn is
-    // not.
+    // Emit each legacy alias's delete ONCE, then drop the alias row (2026-06
+    // PK audit M14b); the pre-fix code re-emitted these tombstones on every
+    // pull forever. The canonical alias row is never a delete target, and
+    // repair re-creates aliases when a fresh duplicate is merged, so
+    // convergence is preserved without the churn.
     final legacyEntityIdsToDelete = <String, String>{}; // legacyEntityId -> raw
     for (final alias in aliases) {
       final raw = alias.legacyEntityId;
@@ -805,22 +759,11 @@ class PkGroupsImporter with SyncRecordMixin {
     }
     for (final entry in legacyEntityIdsToDelete.entries) {
       await _emitDelete(_groupTable, entry.key);
-      // Drop the alias row so this delete is not re-emitted on the next pull.
-      // Keyed on the RAW stored value so the DELETE matches the persisted row
-      // even when it carried surrounding whitespace.
-      //
-      // COUPLING NOTE (wave-3 verifier issue 5): the alias row also powers
-      // the INBOUND legacy-id redirect — drift_sync_adapter's
-      // `_pkGroupAliasForLegacyEntityId` (adapter ~:858) resolves inbound ops
-      // addressed to a legacy entity id onto the canonical `pk-group:<uuid>`
-      // row via this same table. Deleting the row here means a LATE inbound
-      // op still addressed to the legacy id (a peer that hasn't processed
-      // the canonicalization yet) loses that redirect. Accepted because it
-      // is rare (legacy ids only originate from pre-canonicalization peers,
-      // and ops are usually contiguous) and mitigated twice: the adapter
-      // re-records an alias when it sees a genuinely-legacy inbound id, and
-      // the legacy-id DELETE op emitted above is durable in the log, so any
-      // peer replaying history still tombstones the legacy entity.
+      // Drop the alias row so this delete is not re-emitted; keyed on the
+      // RAW stored value so the DELETE matches rows with whitespace. The
+      // alias also powers drift_sync_adapter's inbound legacy-id redirect,
+      // so a late inbound op loses it — accepted: rare, the adapter
+      // re-records aliases, and the emitted DELETE op is durable in the log.
       await _db.pkGroupSyncAliasesDao.deleteByLegacyEntityId(entry.value);
     }
   }
@@ -857,20 +800,12 @@ class PkGroupsImporter with SyncRecordMixin {
     return settings.pkGroupSyncV2Enabled;
   }
 
-  /// M14d (2026-06 PK audit): light projection of active, non-excluded members
-  /// for the PK group reconcile. The importer only needs each member's id and
-  /// PK UUID — never the avatar/banner/header blobs the full member rows carry.
-  /// Projecting into [_PkReconcileMember] up front keeps the reconcile's
-  /// working set (the `pkUuidToLocalMemberId` map and the `memberById` lookup
-  /// it builds twice per pull, in importGroups + reattribute) blob-free, and
-  /// drops excluded locals once at the source so no downstream call site can
-  /// re-attribute / push / remove them.
-  ///
-  /// NOTE: this still routes through `MemberRepository.getAllMembers()` so the
-  /// member source stays injectable (tests seed a fake repo). Eliminating the
-  /// blob read at the repository layer itself needs a light-projection method
-  /// on the MemberRepository interface, which lives outside this change's
-  /// file ownership — see the wave-3 report deviation note.
+  /// Light projection of active, non-excluded members for the PK group
+  /// reconcile (2026-06 PK audit M14d): the importer needs only id + PK UUID,
+  /// never the avatar/banner blobs, and excluded locals are dropped at the
+  /// source so no downstream site can re-attribute/push/remove them. Still
+  /// routes through `MemberRepository.getAllMembers()` so the member source
+  /// stays injectable; a repository-level light projection is out of scope.
   Future<List<_PkReconcileMember>> _loadReconcileMembers() async {
     final members = await _memberRepository.getAllMembers();
     return [
@@ -1091,8 +1026,8 @@ class PkGroupsImporter with SyncRecordMixin {
         continue;
       }
 
-      // Pre-push CRDT-conflict compensation (v3-patches-2 #8, refined by the
-      // 2026-06 PK audit H6c). state disagrees with intent.
+      // Pre-push CRDT-conflict compensation (v3-patches-2 #8): state
+      // disagrees with intent.
       final isAdd = entry.pendingPkOp == 'push_add';
       var isRemove = entry.pendingPkOp == 'push_remove';
       if (isAdd && entry.isDeleted) {
@@ -1108,33 +1043,12 @@ class PkGroupsImporter with SyncRecordMixin {
         continue;
       }
       if (isRemove && !entry.isDeleted) {
-        // H6c (2026-06 PK audit): a push_remove row that is currently ACTIVE
-        // can ONLY have got here via a CRDT REVIVE from a peer — verified at
-        // drift_member_groups_repository.addMemberToGroup, the local re-add
-        // path sets push_add ITSELF (the companion overwrites the queued
-        // push_remove), so a genuine local re-add never reaches this branch.
-        // The pre-fix code flipped push_remove → push_add here, which silently
-        // pushed the member BACK to PK and permanently lost the user's remove
-        // intent (scenario B in the audit). The user's remove must win: re-
-        // assert the tombstone (is_deleted = true), KEEP push_remove, and let
-        // it push as a remove this round so PK converges to the deletion.
-        //
-        // DELIBERATE NO-EMIT TRADE-OFF (wave-3 verifier issue 4): neither
-        // this re-tombstone nor the orchestrator's hard-deletes (the post-204
-        // cleanup in _pushRemoveBucket and the M15 cap's
-        // _failOrCapRemoveCandidates) emit ANY CRDT op. Emitting a delete
-        // here would hand peers a back-door HARD delete of what might be a
-        // peer's legitimate re-add racing this compensation — the exact
-        // intent-destruction class H6 exists to close. The cost is a bounded
-        // divergence window: this device shows the member removed while
-        // peers still show the revived entry, and the CRDT log alone will
-        // NOT reconcile it. Convergence instead arrives via PluralKit: once
-        // the remove lands on PK, each peer's next pull reconciles its own
-        // copy against the post-remove authoritative set (subject to its own
-        // H6b grace window, so a peer protecting a fresh revive converges
-        // one grace-window later). PK is the tiebreaker of record for
-        // membership, which is the contract bidirectional group sync
-        // already assumes everywhere else in this file.
+        // An ACTIVE push_remove row can only be a CRDT revive from a peer —
+        // the local re-add path sets push_add itself (2026-06 PK audit H6c).
+        // The user's remove wins: re-assert the tombstone, keep push_remove,
+        // push the remove this round. Deliberately NO CRDT emit — that would
+        // hard-delete a peer's possibly-legitimate racing re-add; peers
+        // converge via their next PK pull (PK is the membership tiebreaker).
         final hits = await _dao.softDeleteEntryWithPendingOpGuarded(
           entry.id,
           pendingPkOp: 'push_remove',
@@ -1204,15 +1118,11 @@ class PkGroupsImporter with SyncRecordMixin {
       }
       return result.copyWith(added: result.added + added);
     } on PluralKitApiError catch (e) {
-      // Wave-3 verifier issue 1 (2026-06 PK audit): PluralKitAuthError (401)
-      // and PluralKitRateLimitError (429) SUBCLASS PluralKitApiError
-      // (pluralkit_client.dart:34,46), so without this explicit exclusion
-      // they satisfy the 4xx range check below and enter the refetch/cap
-      // path — where the refetch fails the same way (same token / same
-      // rate-limit window) and the age cap could then destroy intents on a
-      // routine token rotation or 429 burst. Auth / rate-limit failures are
-      // environmental, not per-intent: keep every intent pending and
-      // untouched; the next sync round retries.
+      // Auth (401) and rate-limit (429) errors SUBCLASS PluralKitApiError,
+      // so without this exclusion they'd satisfy the 4xx check and enter the
+      // refetch/cap path — destroying intents on a routine token rotation or
+      // 429 burst. They are environmental, not per-intent: keep every intent
+      // pending; the next sync round retries.
       if (e is PluralKitAuthError || e is PluralKitRateLimitError) {
         debugPrint(
           '[PK push] addMembersToGroup($groupPkUuid) ${e.statusCode} '
@@ -1220,7 +1130,7 @@ class PkGroupsImporter with SyncRecordMixin {
         );
         return result.copyWith(failed: result.failed + candidates.length);
       }
-      // M15c (2026-06 PK audit): a bulk add with one invalid ref fails ATOMIC
+      // A bulk add with one invalid ref fails ATOMIC (2026-06 PK audit M15c)
       // with 404 code 20003, and the message NAMES the bad ref (live-verified).
       // Without isolating it, the single bad ref poisons the whole bucket
       // forever — every retry re-sends all refs, hits the same 20003, and no
@@ -1320,7 +1230,7 @@ class PkGroupsImporter with SyncRecordMixin {
       }
       return result.copyWith(removed: result.removed + removed);
     } on PluralKitApiError catch (e) {
-      // Wave-3 verifier issue 1: auth (401) / rate-limit (429) are
+      // Auth (401) / rate-limit (429) are
       // PluralKitApiError SUBCLASSES and would otherwise enter the
       // refetch/cap path below, where the cap can hard-delete push_remove
       // tombstones on a routine token rotation or 429 burst — silently
@@ -1372,18 +1282,14 @@ class PkGroupsImporter with SyncRecordMixin {
       authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
     } on PluralKitApiError catch (e) {
       if (_isGroupGone404(e)) {
-        // PK group is genuinely gone (404 + code 20004 — M15a, 2026-06 PK
-        // audit). 2nd-pass review [P3]: we have to handle BOTH push_add AND
-        // push_remove rows in the same group atomically, otherwise a later
-        // push_remove bucket for the same gone group will see its tombstones
-        // already cleared to pending=none and the guarded DELETE will miss →
-        // zombie. Use the shared helper that hard-deletes remove tombstones
-        // first, then clears the rest. push_add candidates count as stranded
-        // (no local row hard-delete needed; they stay active as local-only).
+        // PK group is genuinely gone (404 + code 20004 — M15a). push_add AND
+        // push_remove rows must be cleaned atomically, else a later
+        // push_remove bucket sees pending=none tombstones and the guarded
+        // DELETE misses (zombie). push_add candidates count as stranded.
         await _terminalCleanupForGoneGroup(groupPkUuid);
         return result.copyWith(stranded: result.stranded + candidates.length);
       }
-      // Wave-3 verifier issue 1: an auth/rate-limit/5xx failure on the
+      // An auth/rate-limit/5xx failure on the
       // REFETCH is environmental too (same token / same 429 window that just
       // failed the POST, or a server-side blip) — it must bypass the age cap
       // entirely, or a token rotation could terminal-drop intents that would
@@ -1456,7 +1362,7 @@ class PkGroupsImporter with SyncRecordMixin {
         final removed = await _terminalCleanupForGoneGroup(groupPkUuid);
         return result.copyWith(removed: result.removed + removed);
       }
-      // Wave-3 verifier issue 1: auth/rate-limit/5xx on the refetch bypasses
+      // Auth/rate-limit/5xx on the refetch bypasses
       // the cap — a hard-deleted push_remove tombstone is unrecoverable (the
       // next pull re-imports the member), so environmental failures must
       // never reach _failOrCapRemoveCandidates.
@@ -1498,21 +1404,16 @@ class PkGroupsImporter with SyncRecordMixin {
   }
 
   /// True when [e] is a PK 404 whose parsed `code` is 20004 — the
-  /// "group not found" code (M15a, 2026-06 PK audit; live-verified that
+  /// "group not found" code (2026-06 PK audit M15a; live-verified that
   /// `GET /groups/{deleted}/members` returns 404 code 20004). Any other 404
   /// shape (auth proxy, transient) must NOT trigger terminal intent cleanup.
   static bool _isGroupGone404(PluralKitApiError e) =>
       e.statusCode == 404 && e.code == 20004;
 
-  /// Age-based retry cap (M15, 2026-06 PK audit). `member_group_entries`
-  /// pending ops have no `retry_count` column (only the deferred-ops table
-  /// does), so we cap by INTENT age (`created_at` is refreshed whenever a
-  /// pending op is set): a push candidate
-  /// that has kept failing past [pushRetryMaxAge] is marked terminal (pending
-  /// cleared / tombstone hard-deleted) and counted under [
-  /// PkGroupMembershipPushResult.terminallyFailed] so it is surfaceable, rather
-  /// than retried forever every sync. Candidates younger than the cap stay
-  /// pending and count as ordinary [failed]. Returns the updated result.
+  /// Age-based retry cap (see [pushRetryMaxAge]): candidates failing past the
+  /// cap are marked terminal (pending cleared / tombstone hard-deleted) and
+  /// counted under [PkGroupMembershipPushResult.terminallyFailed]; younger
+  /// ones stay pending as ordinary [failed]. Returns the updated result.
   Future<PkGroupMembershipPushResult> _failOrCapAddCandidates(
     String groupPkUuid,
     List<_PushCandidate> candidates,

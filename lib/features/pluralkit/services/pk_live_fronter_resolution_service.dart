@@ -19,7 +19,7 @@ class PkLiveFronterResolutionService {
 
   /// Short id of the system this token is connected to, when known (read from
   /// the sync DAO row by the caller in `PluralKitSyncService`). Used for the
-  /// 2026-06 PK audit H12a ownership check: a fetched member carrying a
+  /// H12a ownership check: a fetched member carrying a
   /// `system` field that differs from this id belongs to ANOTHER system, so we
   /// must NOT link/import it (stale short ids resolve into the global member
   /// namespace and can return a stranger). Null → ownership unknowable; keep
@@ -137,14 +137,11 @@ class PkLiveFronterResolutionService {
     );
   }
 
-  /// 2026-06 PK audit H12a: a fetched member's `system` (present only on
-  /// `GET /members/{ref}`) must match the connected system. When it differs we
-  /// resolved a FOREIGN member through the global short-id namespace (a stale
-  /// short id, possibly user-changed under PK Premium) — refuse to write it.
-  /// We treat this like a stale link rather than a hard error since the local
-  /// pkId is simply pointing at the wrong system now; a [StateError] surfaces
-  /// to the caller's existing error path the same way the deleted-owner /
-  /// already-linked guards do.
+  /// A fetched member's `system` (present only on `GET /members/{ref}`) must
+  /// match the connected system; a mismatch means a FOREIGN member resolved
+  /// through the global short-id namespace — refuse to write it. Treated as a
+  /// stale link (a [StateError] on the caller's existing error path), not a
+  /// hard error.
   void _requireOwnership(PKMember pk) {
     final owner = _blankToNull(pk.system);
     final connected = _connectedSystemId;

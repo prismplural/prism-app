@@ -126,7 +126,7 @@ class PkMappingApplier {
   final PkSyncEventBus _bus;
 
   /// Short id of the connected system, when the caller knows it. Used for the
-  /// 2026-06 PK audit H12a ownership check in [_priorPkIdentityStillUsable]:
+  /// H12a ownership check in [_priorPkIdentityStillUsable]:
   /// the prior-row probe GETs a member by its recorded UUID, and if PK reports
   /// that member as owned by a DIFFERENT system the recorded id is foreign —
   /// treat it as unusable (re-create fresh) rather than re-linking a stranger.
@@ -235,29 +235,11 @@ class PkMappingApplier {
   }
 
   /// True when a decision recorded as `applied` STILL has its effect in
-  /// place, so the `_applyOne` short-circuit is safe.
-  ///
-  /// 2026-06 PK audit H11: decision ids are stable
-  /// (`push:<localId>`, `link:<pkUuid>:<localId>`, `import:<pkUuid>`), so a
-  /// bare `status == 'applied'` short-circuit no-ops FOREVER once the effect
-  /// is undone (member unlinked via stale-link clear, PK-side deletion, or
-  /// manual unlink) — while the screen's `_ResultsSummary` still counts the
-  /// no-op as success. A re-Push/re-Link must therefore re-validate the
-  /// effect and fall through to a FRESH apply when it no longer holds.
-  ///
-  /// The one-shot push path documents the same hazard and keeps its own
-  /// namespace so the two flows don't poison each other
-  /// (`pk_one_shot_push_service.dart` `_pushStateId`). Here both flows write
-  /// `push:<localId>`-style ids into the SAME table, so the applier owns the
-  /// re-validation.
-  ///
-  /// Effect checks by kind:
-  /// - `push` / `link`: the local member must still carry a PK link that
-  ///   resolves in the caller's snapshot. A cleared or stale link → re-apply.
-  /// - `import`: the imported local member must still exist AND be linked to
-  ///   this PK member → otherwise re-import.
-  /// - `skip`: a skip has no remote/local effect that can be invalidated by a
-  ///   later unlink, so keeping the short-circuit is always correct.
+  /// place, so the `_applyOne` short-circuit is safe. Decision ids are stable
+  /// (2026-06 PK audit H11), so a bare `status == 'applied'` check no-ops
+  /// FOREVER once the effect is undone (unlink, PK-side deletion).
+  /// `push`/`link` need a still-resolving PK link; `import` needs the member
+  /// to exist and be linked; `skip` has no invalidatable effect.
   Future<bool> _appliedEffectStillHolds(
     PkMappingDecision decision, {
     PkResolutionSnapshot? resolution,
@@ -306,16 +288,11 @@ class PkMappingApplier {
   }
 
   /// Whether the PK member recorded by a prior push ([priorState]) can be
-  /// re-linked instead of re-POSTed (2026-06 PK audit H11/M7).
-  ///
-  /// For an `applied` prior row we GET the member by its recorded uuid: 200 →
-  /// reuse (true); 404 → the member was deleted on PK, so a re-Push should
-  /// create afresh (false). For a `pending` prior row (the M7 crash window) we
-  /// trust the recorded ids unconditionally — the POST that wrote them just
-  /// happened, so a network probe would only add a transient-failure abort
-  /// risk to a recovery that should always re-link. Any non-404 PK/network
-  /// error from the probe propagates so the apply records `failed` rather than
-  /// silently re-POSTing into a possible duplicate.
+  /// re-linked instead of re-POSTed (H11/M7). `applied` rows probe
+  /// `getMember(uuid)`: 200 → reuse, 404 → create afresh. `pending` rows (the
+  /// M7 crash window) are trusted unconditionally — the POST just happened.
+  /// Non-404 probe errors propagate so the apply records `failed` rather
+  /// than re-POSTing a possible duplicate.
   Future<bool> _priorPkIdentityStillUsable(PkMappingStateData priorState) async {
     // NB `!= 'applied'` deliberately also trusts `failed` rows: the
     // M7 failed-link-back lineage (POST succeeded, local writeback threw)
@@ -328,7 +305,7 @@ class PkMappingApplier {
     if (uuid == null || uuid.trim().isEmpty) return false;
     try {
       final fetched = await _client.getMember(uuid);
-      // 2026-06 PK audit H12a: validate ownership of the probed member. If PK
+      // Validate ownership of the probed member. If PK
       // reports it as owned by a different system than the connected one, the
       // recorded id no longer points at OUR member (foreign re-use through the
       // global namespace) — treat it exactly like a 404 so the caller
@@ -392,7 +369,7 @@ class PkMappingApplier {
         pkMemberUuid = decision.pkMemberUuid;
         localId = decision.localMemberId;
     }
-    // 2026-06 PK audit M7: route through `recordPending` (NOT `upsert`) so a
+    // Route through `recordPending` (NOT `upsert`) so a
     // re-apply does NOT overwrite PK identifiers a prior crashed run already
     // persisted post-POST. The `pkMemberId` / `pkMemberUuid` below are only
     // honoured on a FRESH insert; on conflict they are preserved. For `push`
@@ -642,29 +619,12 @@ class PkMappingApplier {
       return;
     }
 
-    // Recovery via the prior run's recorded PK identifiers — reuse them
-    // instead of re-POSTing a duplicate PK member. Two distinct cases reach
-    // here, distinguished by the prior row's status:
-    //
-    //  * `pending` (2026-06 PK audit M7 crash window): the prior run POSTed
-    //    but crashed before the local write-back. The PK member was JUST
-    //    created and certainly exists — re-link straight away, NO network
-    //    probe. Probing here would let a transient GET failure abort a
-    //    recovery that would otherwise succeed, and re-POSTing is exactly the
-    //    duplicate the M7 guard exists to prevent.
-    //
-    //  * `applied` (2026-06 PK audit H11 re-apply after an unlink): the prior
-    //    push fully completed, THEN the user unlinked (stale-link clear,
-    //    PK-side deletion, or manual unlink) and re-ran Push. The recorded
-    //    uuid may now point to a PK member the user deleted. Probe
-    //    `getMember(uuid)` first: on 200 the member still exists → re-link
-    //    (no duplicate POST); on 404 it's gone → fall through to a FRESH
-    //    create. We deliberately spend ONE GET on this rarer path to avoid
-    //    both a duplicate POST (when the member survives) and resurrecting a
-    //    reference to a deleted member (when it doesn't). 2026-06 PK audit
-    //    H12a now also validates ownership inside `_priorPkIdentityStillUsable`
-    //    — a member owned by a DIFFERENT system is treated as gone (re-create),
-    //    so a stale uuid resolving into another system can't be re-linked.
+    // Recovery via the prior run's recorded PK identifiers — reuse instead
+    // of re-POSTing a duplicate. `pending` (M7 crash window): the POST just
+    // happened, re-link with NO network probe (a transient GET failure must
+    // not abort the recovery). `applied` (H11 re-apply after unlink): probe
+    // getMember(uuid) — 200 re-links, 404 falls through to a fresh create;
+    // ownership is validated so another system's member counts as gone.
     if (priorState?.pkMemberId != null && priorState?.pkMemberUuid != null) {
       final reusable = await _priorPkIdentityStillUsable(priorState!);
       if (reusable) {

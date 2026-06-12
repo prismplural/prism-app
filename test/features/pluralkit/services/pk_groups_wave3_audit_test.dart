@@ -1,19 +1,7 @@
-// Wave-3 regression tests for the 2026-06 PK sync audit, GROUPS surface.
-//
-// Covers the findings patched in the wave-3 batch:
-//   H6a — push-before-reconcile ordering (drain local intents to PK first).
-//   H6b — recency grace: a freshly-arrived entry is never reconcile-deleted.
-//   M13 — a user-deleted PK group must not resurrect on the next pull.
-//   M14a — no member_groups update emitted when nothing changed; lonely
-//          last_seen heartbeat is rate-limited.
-//   M14b — legacy alias deletes are emit-once-then-cleaned.
-//   M15a — 404 terminal cleanup is gated on parsed code 20004.
-//   M15(retry-cap) — a pending op older than pushRetryMaxAge is given up on.
-//   M15c — a poisoned bulk-add ref (404 code 20003) is dropped while the valid
-//          refs in the same bucket proceed.
-//
-// Each test is written to FAIL against the pre-fix importer. See the audit at
-// docs/reviews/2026-06-10-pluralkit-sync-audit.md.
+// Regression tests for the 2026-06 PK sync audit, GROUPS surface: H6a
+// push-before-reconcile, H6b recency grace, M13 resurrection guard, M14a/b
+// emit hygiene, M15a/c terminal-cleanup gating, and the M15 retry cap.
+// Each test is written to FAIL against the pre-fix importer.
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';

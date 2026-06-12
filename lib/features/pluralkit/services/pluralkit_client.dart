@@ -54,7 +54,7 @@ class PluralKitRateLimitError extends PluralKitApiError {
 }
 
 /// Thrown by [PluralKitClient.downloadBytes] when a download exceeds
-/// [PluralKitClient.maxDownloadBytes] (2026-06 PK audit low — wave 4).
+/// [PluralKitClient.maxDownloadBytes].
 ///
 /// The read is streamed and aborted as soon as the cap is crossed, so an
 /// oversized (or hostile, e.g. an endless external avatar URL) response is
@@ -341,15 +341,10 @@ class PluralKitClient {
         .toList();
   }
 
-  /// GET /systems/@me/switches/{switchRef} — fetch one switch by UUID.
-  ///
-  /// Returns the switch with its FULL fronting-member snapshot (PK inlines
-  /// member objects on this endpoint; [PKSwitch.fromJson] normalizes them to
-  /// short ids either way). Used by the deletion pusher (2026-06 PK audit H2)
-  /// to obtain the PK-authoritative co-fronter list before removing a single
-  /// member from a shared switch — local rows only carry ENTRANT switch
-  /// uuids, so they cannot reconstruct members who entered earlier and were
-  /// still fronting. A deleted switch returns 404 with code `20007`.
+  /// GET /systems/@me/switches/{switchRef} — fetch one switch by UUID, with
+  /// its FULL fronting-member snapshot. Used by the deletion pusher (H2) for
+  /// the PK-authoritative co-fronter list — local rows only carry ENTRANT
+  /// switch uuids. A deleted switch returns 404 with code `20007`.
   Future<PKSwitch> getSwitch(String switchRef) async {
     final ref = switchRef.trim();
     if (ref.isEmpty) {
@@ -509,7 +504,7 @@ class PluralKitClient {
     await _delete('$_baseUrl/members/$id');
   }
 
-  /// Hard cap for [downloadBytes] (2026-06 PK audit low — wave 4). Sized for
+  /// Hard cap for [downloadBytes] (2026-06 PK audit low). Sized for
   /// avatars/banners: PK's own CDN limit is 1 MiB, but members may carry
   /// arbitrary external image URLs, so allow generous headroom while still
   /// bounding memory and bandwidth.

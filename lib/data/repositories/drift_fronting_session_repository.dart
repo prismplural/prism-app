@@ -176,22 +176,12 @@ class DriftFrontingSessionRepository
   Future<void> updateSession(domain.FrontingSession session) async {
     final existingRow = await _dao.getSessionById(session.id);
     if (existingRow == null) return;
-    // 2026-06 PK audit H5 discriminator: a tombstone is revivable here only
-    // when this write is restoring a PK identity onto importer/migration
-    // CLEANUP — the existing row is link-cleared (the wave-1
-    // clear-link-before-delete idiom) with no local delete intent, AND the
-    // incoming session carries a PK link (the corrective sweep's rebuild).
-    // Everything else stays a strict no-op:
-    // - a tombstone with the PK link still INTACT is user intent — either a
-    //   local delete awaiting its PK push, or a peer device's delete that
-    //   arrived via CRDT merge (is_deleted syncs; delete_intent_epoch is
-    //   deliberately device-local). Reviving those undoes the user's delete
-    //   everywhere and aborts the originating device's pending PK deletion.
-    //   (The previous gate required the link to be INTACT to revive —
-    //   written when migration tombstones kept their links; that was
-    //   exactly the peer-synced-delete shape, the H5 hole.)
-    // - an ordinary edit on a user-deleted, never-linked session carries no
-    //   incoming PK link and must not resurrect the row.
+    // H5 discriminator: a tombstone is revivable only when this write
+    // restores a PK identity onto importer/migration CLEANUP — link-cleared
+    // (the C1 idiom), no local delete intent, and the incoming session
+    // carries a PK link. A tombstone with the link INTACT is user intent
+    // (local delete awaiting push, or a peer's synced delete — is_deleted
+    // syncs, delete_intent_epoch is device-local) and must stay deleted.
     final canReviveImporterCleanupTombstone =
         existingRow.isDeleted &&
         !session.isDeleted &&

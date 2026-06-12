@@ -213,7 +213,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  // 2026-06 PK audit M11 — the member-edit auto-push trigger must compare the
+  // M11 — the member-edit auto-push trigger must compare the
   // fields the PK PATCH payload actually carries (display_name ←
   // pluralkitDisplayName, pronouns, description ← bio, birthday, color,
   // proxy_tags), NOT the local-only `name` / in-app `displayName`.
@@ -395,7 +395,7 @@ void main() {
       // Proxy-tag edits deliberately do NOT fire: the auto-push always passes
       // includeProxyTags: false (destructive tag changes route through manual
       // sync's delete-risk preview), so a proxy-tag-only edit would PATCH a
-      // body that cannot carry the change — a wasted call (wave-3 verifier).
+      // body that cannot carry the change — a wasted call.
       expect(
         await runEdit(
           tester,

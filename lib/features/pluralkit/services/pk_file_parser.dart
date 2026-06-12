@@ -131,25 +131,12 @@ String? _normalizeHid(String raw) {
 
 /// Parse a `pk;export` JSON string into structured data.
 ///
-/// **Identity contract:** the on-the-wire `pk;export` file references group
-/// members by their PluralKit *short ID* (hid) in `groups[].members`, whereas
-/// the live API (`GET /systems/@me/groups?with_members=true`) returns member
-/// *UUIDs*. Downstream group reconciliation ([PkGroupsImporter]) is UUID-keyed
-/// and runs removal-mode ("authoritative set") semantics, so feeding it hids
-/// would resolve zero members and soft-delete every existing membership.
-///
-/// To make both inputs work, this parser **normalizes `groups[].memberIds` to
-/// always be UUIDs**: each hid is translated through a hid→uuid map built from
-/// the export's own `members[]` (every member entry carries both `id` and
-/// `uuid`). Entries that are already UUID-shaped are kept verbatim (tolerates
-/// the live-API shape and any future PK format change). A hid with no match in
-/// `members[]` (corrupted / hand-edited file) is dropped and tallied on
-/// [PkFileExport.unresolvableGroupMemberRefs].
-///
-/// `switches[].memberIds` are deliberately **left as hids** — switch matching
-/// (`PkFrontingSwitchKey`) and the file-switch provenance id
-/// (`_pkFileSwitchSourceId`) compare file hids against the API's short-ID
-/// `members`, so translating them would break canonicalization.
+/// Identity contract: the export references group members by short ID (hid)
+/// while the live API returns UUIDs, and the UUID-keyed reconcile would
+/// soft-delete every membership if fed hids — so `groups[].memberIds` is
+/// normalized to UUIDs via the export's own `members[]` (unresolvable hids
+/// are dropped and tallied). `switches[].memberIds` deliberately stay hids;
+/// switch canonicalization compares file hids against API short IDs.
 ///
 /// Runs on a background isolate via [compute] — callers should await the
 /// future but not expect ordering guarantees relative to other async work.

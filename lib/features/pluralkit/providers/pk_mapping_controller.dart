@@ -541,7 +541,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       // exceptions. Cap the probe at 5s so offline users don't wait the
       // client's 15s default. Non-network exceptions fall through to the
       // outer catch, which already routes them into `state.error`.
-      // 2026-06 PK audit H12a: capture the connected system id from the
+      // Capture the connected system id from the
       // pre-flight probe so the applier can reject prior-row reuse of a member
       // that PK reports as owned by a different system (stale short/uuid ref).
       String? connectedSystemId;
