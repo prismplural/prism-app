@@ -120,6 +120,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clearEmoji => 'Clear emoji';
 
   @override
+  String get searchIcons => 'Search icons';
+
+  @override
+  String get clearIcon => 'Clear icon';
+
+  @override
+  String get pickIcon => 'Pick icon';
+
+  @override
+  String get iconPickerEmojiTab => 'Emoji';
+
+  @override
+  String get iconPickerIconsTab => 'Icons';
+
+  @override
+  String get iconPickerNoResults => 'No icons found';
+
+  @override
   String get dismiss => 'Dismiss';
 
   @override

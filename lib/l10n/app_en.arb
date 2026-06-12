@@ -168,6 +168,30 @@
   "@clearEmoji": {
     "description": "Tooltip and semantics label for removing an emoji from a record"
   },
+  "searchIcons": "Search icons",
+  "@searchIcons": {
+    "description": "Hint text and semantics label for Phosphor icon search"
+  },
+  "clearIcon": "Clear icon",
+  "@clearIcon": {
+    "description": "Tooltip and semantics label for removing a selected icon"
+  },
+  "pickIcon": "Pick icon",
+  "@pickIcon": {
+    "description": "Tooltip and semantics label for choosing an icon"
+  },
+  "iconPickerEmojiTab": "Emoji",
+  "@iconPickerEmojiTab": {
+    "description": "Tab label for emoji choices in the combined icon picker"
+  },
+  "iconPickerIconsTab": "Icons",
+  "@iconPickerIconsTab": {
+    "description": "Tab label for Phosphor icon choices in the combined icon picker"
+  },
+  "iconPickerNoResults": "No icons found",
+  "@iconPickerNoResults": {
+    "description": "Empty state text when icon picker search has no matching icons"
+  },
   "dismiss": "Dismiss",
   "@dismiss": {
     "description": "Accessibility barrier label for dismissing dialogs"

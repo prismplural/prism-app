@@ -296,6 +296,42 @@ abstract class AppLocalizations {
   /// **'Clear emoji'**
   String get clearEmoji;
 
+  /// Hint text and semantics label for Phosphor icon search
+  ///
+  /// In en, this message translates to:
+  /// **'Search icons'**
+  String get searchIcons;
+
+  /// Tooltip and semantics label for removing a selected icon
+  ///
+  /// In en, this message translates to:
+  /// **'Clear icon'**
+  String get clearIcon;
+
+  /// Tooltip and semantics label for choosing an icon
+  ///
+  /// In en, this message translates to:
+  /// **'Pick icon'**
+  String get pickIcon;
+
+  /// Tab label for emoji choices in the combined icon picker
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji'**
+  String get iconPickerEmojiTab;
+
+  /// Tab label for Phosphor icon choices in the combined icon picker
+  ///
+  /// In en, this message translates to:
+  /// **'Icons'**
+  String get iconPickerIconsTab;
+
+  /// Empty state text when icon picker search has no matching icons
+  ///
+  /// In en, this message translates to:
+  /// **'No icons found'**
+  String get iconPickerNoResults;
+
   /// Accessibility barrier label for dismissing dialogs
   ///
   /// In en, this message translates to:
