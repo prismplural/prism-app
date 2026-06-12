@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
@@ -11,22 +13,94 @@ import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.da
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-/// Full screen for sync debugging and troubleshooting.
-///
-/// Shows connection status, last sync time, and sync status derived from
-/// the FFI SyncStatus provider. Also displays a list of common issues
-/// with suggested fixes.
+class _SyncEntityCounts {
+  const _SyncEntityCounts({required this.total, required this.last24h});
+
+  final int total;
+  final int last24h;
+}
+
+final _syncEntityCountsProvider = FutureProvider.autoDispose<_SyncEntityCounts>(
+  (ref) async {
+    final db = ref.watch(databaseProvider);
+
+    const tables = [
+      'members',
+      'fronting_sessions',
+      'conversations',
+      'chat_messages',
+      'polls',
+      'poll_options',
+      'poll_votes',
+      'habits',
+      'habit_completions',
+      'member_groups',
+      'member_group_entries',
+      'custom_fields',
+      'custom_field_values',
+      'notes',
+      'front_session_comments',
+      'conversation_categories',
+      'reminders',
+      'friends',
+    ];
+
+    const dateColumns = <String, String>{
+      'members': 'created_at',
+      'fronting_sessions': 'start_time',
+      'conversations': 'created_at',
+      'chat_messages': 'timestamp',
+      'polls': 'created_at',
+      'poll_votes': 'voted_at',
+      'habits': 'created_at',
+      'habit_completions': 'created_at',
+      'member_groups': 'created_at',
+      'custom_fields': 'created_at',
+      'notes': 'created_at',
+      'front_session_comments': 'created_at',
+      'conversation_categories': 'created_at',
+      'reminders': 'created_at',
+      'friends': 'created_at',
+    };
+
+    final totalParts = tables.map(
+      (table) => 'SELECT COUNT(*) AS c FROM $table WHERE is_deleted = 0',
+    );
+    final totalSql =
+        'SELECT SUM(c) AS total FROM (${totalParts.join(' UNION ALL ')})';
+    final totalResult = await db.customSelect(totalSql).getSingle();
+    final total = totalResult.read<int>('total');
+
+    final cutoffMs = DateTime.now()
+        .subtract(const Duration(hours: 24))
+        .millisecondsSinceEpoch;
+    final cutoffSec = cutoffMs ~/ 1000;
+    final recentParts = dateColumns.entries.map((entry) {
+      final tableCutoff = entry.key == 'chat_messages' ? cutoffMs : cutoffSec;
+      return 'SELECT COUNT(*) AS c FROM ${entry.key} '
+          'WHERE is_deleted = 0 AND ${entry.value} >= $tableCutoff';
+    });
+    final recentSql =
+        'SELECT SUM(c) AS total FROM (${recentParts.join(' UNION ALL ')})';
+    final recentResult = await db.customSelect(recentSql).getSingle();
+    final last24h = recentResult.read<int>('total');
+
+    return _SyncEntityCounts(total: total, last24h: last24h);
+  },
+);
+
+/// Advanced sync recovery and diagnostics screen.
 class SyncTroubleshootingScreen extends ConsumerWidget {
   const SyncTroubleshootingScreen({super.key});
 
@@ -36,6 +110,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     final relayUrl = ref.watch(relayUrlProvider).value;
     final syncId = ref.watch(syncIdProvider).value;
     final deviceId = ref.watch(syncDeviceIdProvider).value;
+    final nodeId = ref.watch(nodeIdProvider).value;
     final hasDeviceSecret =
         ref.watch(syncDeviceSecretPresentProvider).value ?? false;
     final syncStatus = ref.watch(syncStatusProvider);
@@ -50,33 +125,18 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     );
     final hasActiveHandle = handle != null;
 
-    final connectionColor = !isConfigured
-        ? theme.colorScheme.outline
-        : hasActiveHandle
-        ? Colors.green
-        : theme.colorScheme.primary;
-    final connectionIcon = !isConfigured
-        ? AppIcons.cloudOffOutlined
-        : hasActiveHandle
-        ? AppIcons.cloudDoneOutlined
-        : AppIcons.cloudSyncOutlined;
-    final connectionTitle = !isConfigured
-        ? context.l10n.syncTroubleshootingNotConfigured
-        : hasActiveHandle
-        ? context.l10n.syncTroubleshootingConnected
-        : context.l10n.syncTroubleshootingConfiguredLocally;
-    final connectionSubtitle = !isConfigured
-        ? context.l10n.syncTroubleshootingNotConfiguredSubtitle
-        : hasActiveHandle
-        ? context.l10n.syncTroubleshootingConnectedSubtitle
-        : context.l10n.syncTroubleshootingConfiguredLocallySubtitle;
-
     final canSyncNow = isConfigured && hasActiveHandle && !syncStatus.isSyncing;
     VoidCallback? syncNowCallback;
     if (canSyncNow) {
       final h = handle;
       syncNowCallback = () => _syncNow(ref, context, h);
     }
+    final hasSupportInfo =
+        (syncId != null && syncId.isNotEmpty) ||
+        (relayUrl != null && relayUrl.isNotEmpty) ||
+        (nodeId != null && nodeId.isNotEmpty);
+    final hasAttentionItems =
+        syncStatus.lastError != null || syncStatus.quarantinedBatchCount > 0;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -88,311 +148,200 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
-            // -- Connection Status --
-            _SectionHeader(
-              title: context.l10n.syncTroubleshootingConnectionStatus,
+            PrismSection(
+              title: context.l10n.syncTroubleshootingActions,
+              child: PrismGroupedSectionCard(
+                child: Column(
+                  children: _withRowDividers([
+                    PrismSettingsRow(
+                      icon: AppIcons.sync,
+                      title: context.l10n.syncTroubleshootingForceSync,
+                      subtitle:
+                          context.l10n.syncTroubleshootingForceSyncSubtitle,
+                      enabled: syncNowCallback != null,
+                      showChevron: false,
+                      onTap: syncNowCallback,
+                    ),
+                    PrismSettingsRow(
+                      icon: AppIcons.restartAlt,
+                      title: context.l10n.syncTroubleshootingResetSync,
+                      subtitle:
+                          context.l10n.syncTroubleshootingResetSyncSubtitle,
+                      enabled: isConfigured || hasActiveHandle,
+                      destructive: true,
+                      showChevron: false,
+                      onTap: () => _confirmReset(context, ref),
+                    ),
+                    PrismSettingsRow(
+                      icon: AppIcons.helpOutline,
+                      title: context.l10n.syncTroubleshootingTipsTitle,
+                      subtitle: context.l10n.syncTroubleshootingTipsSubtitle,
+                      onTap: () => context.push(
+                        AppRoutePaths.settingsSyncTroubleshootingTips,
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PrismSurface(
-                padding: const EdgeInsets.all(16),
-                child: Row(
+
+            if (hasSupportInfo)
+              PrismSection(
+                title: context.l10n.syncTroubleshootingSupportInfo,
+                child: PrismGroupedSectionCard(
+                  child: Column(
+                    children: _withRowDividers([
+                      if (syncId != null && syncId.isNotEmpty)
+                        _CopyableSupportRow(
+                          icon: AppIcons.tag,
+                          label: context.l10n.syncTroubleshootingSyncId,
+                          value: syncId,
+                          onCopy: () => _copySupportValue(
+                            context,
+                            context.l10n.syncTroubleshootingSyncId,
+                            syncId,
+                          ),
+                        ),
+                      if (relayUrl != null && relayUrl.isNotEmpty)
+                        _CopyableSupportRow(
+                          icon: AppIcons.link,
+                          label: context.l10n.syncTroubleshootingRelayUrl,
+                          value: relayUrl,
+                          onCopy: () => _copySupportValue(
+                            context,
+                            context.l10n.syncTroubleshootingRelayUrl,
+                            relayUrl,
+                          ),
+                        ),
+                      if (nodeId != null && nodeId.isNotEmpty)
+                        _CopyableSupportRow(
+                          icon: AppIcons.fingerprint,
+                          label: context.l10n.syncNodeIdLabel,
+                          value: nodeId,
+                          onCopy: () => _copySupportValue(
+                            context,
+                            context.l10n.syncNodeIdLabel,
+                            nodeId,
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+              ),
+
+            if (hasAttentionItems)
+              PrismSection(
+                title: context.l10n.syncTroubleshootingNeedsAttention,
+                child: Column(
                   children: [
-                    Icon(connectionIcon, size: 32, color: connectionColor),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            connectionTitle,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: connectionColor,
-                            ),
+                    if (syncStatus.lastError != null)
+                      PrismGroupedSectionCard(
+                        child: PrismSettingsRow(
+                          icon: AppIcons.errorOutline,
+                          iconColor: theme.colorScheme.error,
+                          title: context.l10n.syncTroubleshootingLastError,
+                          subtitle: syncStatus.lastError,
+                          showChevron: false,
+                        ),
+                      ),
+                    if (syncStatus.lastError != null &&
+                        syncStatus.quarantinedBatchCount > 0)
+                      const SizedBox(height: 10),
+                    if (syncStatus.quarantinedBatchCount > 0)
+                      PrismGroupedSectionCard(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    AppIcons.warningAmberRounded,
+                                    color: theme.colorScheme.error,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          context.l10n
+                                              .syncQuarantinedBatchBannerTitle(
+                                                syncStatus
+                                                    .quarantinedBatchCount,
+                                              ),
+                                          style: theme.textTheme.bodyLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          context
+                                              .l10n
+                                              .syncQuarantinedBatchBannerBody,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                height: 1.3,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _QuarantineRepairAction(),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            connectionSubtitle,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+            PrismSection(
+              title: context.l10n.syncTroubleshootingActivity,
+              child: PrismGroupedSectionCard(
+                child: _SyncActivityRows(syncStatus: syncStatus),
+              ),
+            ),
+
+            PrismSection(
+              title: context.l10n.syncTroubleshootingDiagnostics,
+              description: context.l10n.syncTroubleshootingDiagnosticsSubtitle,
+              child: PrismGroupedSectionCard(
+                child: Column(
+                  children: [
+                    PrismSettingsRow(
+                      icon: AppIcons.receiptLongOutlined,
+                      title: context.l10n.syncTroubleshootingEventLogTitle,
+                      subtitle:
+                          context.l10n.syncTroubleshootingEventLogSubtitle,
+                      onTap: () =>
+                          context.push(AppRoutePaths.settingsSyncDebug),
+                    ),
+                    const Divider(height: 1, indent: 60, endIndent: 12),
+                    PrismSettingsRow(
+                      icon: AppIcons.lock,
+                      title: context.l10n.syncTroubleshootingCryptoStorageTitle,
+                      subtitle:
+                          context.l10n.syncTroubleshootingCryptoStorageSubtitle,
+                      onTap: () => context.push(
+                        AppRoutePaths.settingsCryptoStorageDebug,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-
-            // -- Last Sync Time --
-            _SectionHeader(title: context.l10n.syncTroubleshootingLastSync),
-            PrismListRow(
-              leading: Icon(AppIcons.schedule),
-              title: Text(context.l10n.syncTroubleshootingLastSuccessful),
-              subtitle: Text(
-                syncStatus.lastSyncAt != null
-                    ? _formatDateTime(syncStatus.lastSyncAt!)
-                    : context.l10n.syncTroubleshootingNeverSynced,
-              ),
-            ),
-
-            // -- Last Error --
-            if (syncStatus.lastError != null) ...[
-              PrismListRow(
-                leading: Icon(
-                  AppIcons.errorOutline,
-                  color: theme.colorScheme.error,
-                ),
-                title: Text(context.l10n.syncTroubleshootingLastError),
-                subtitle: Text(syncStatus.lastError!),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: PrismSurface(
-                  fillColor: theme.colorScheme.errorContainer,
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        AppIcons.warningAmberRounded,
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          syncStatus.lastError!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-
-            // -- Push-quarantine banner + repair (Phase 1B + 1C) --
-            //
-            // Some local mutations couldn't fit in the relay's 1 MB envelope
-            // cap and were quarantined. The banner surfaces the count and
-            // explains the recovery, and the Repair button below runs the
-            // Phase 1C repartition to unstick them.
-            if (syncStatus.quarantinedBatchCount > 0) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: PrismSurface(
-                  fillColor: theme.colorScheme.errorContainer,
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        AppIcons.warningAmberRounded,
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.l10n.syncQuarantinedBatchBannerTitle(
-                                syncStatus.quarantinedBatchCount,
-                              ),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              context.l10n.syncQuarantinedBatchBannerBody,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: _QuarantineRepairAction(),
-              ),
-            ],
-
-            // -- Current State --
-            PrismListRow(
-              leading: Icon(AppIcons.infoOutline),
-              title: Text(context.l10n.syncTroubleshootingCurrentState),
-              subtitle: Text(
-                syncStatus.isSyncing
-                    ? context.l10n.syncTroubleshootingSyncing
-                    : context.l10n.syncTroubleshootingIdle,
-              ),
-            ),
-            if (syncStatus.pendingOps > 0)
-              PrismListRow(
-                leading: Icon(AppIcons.pendingOutlined),
-                title: Text(context.l10n.syncTroubleshootingPendingOps),
-                subtitle: Text(
-                  context.l10n.syncTroubleshootingPendingOpsValue(
-                    syncStatus.pendingOps,
-                  ),
-                ),
-              ),
-            if (syncId != null && syncId.isNotEmpty)
-              PrismListRow(
-                leading: Icon(AppIcons.tag),
-                title: Text(context.l10n.syncTroubleshootingSyncId),
-                subtitle: Text(
-                  syncId,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-            if (relayUrl != null && relayUrl.isNotEmpty)
-              PrismListRow(
-                leading: Icon(AppIcons.link),
-                title: Text(context.l10n.syncTroubleshootingRelayUrl),
-                subtitle: Text(
-                  relayUrl,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-
-            const Divider(height: 32, indent: 16, endIndent: 16),
-
-            // -- Actions --
-            _SectionHeader(title: context.l10n.syncTroubleshootingActions),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PrismButton(
-                onPressed: syncNowCallback ?? () {},
-                enabled: syncNowCallback != null,
-                icon: AppIcons.sync,
-                label: context.l10n.syncTroubleshootingForceSync,
-                tone: PrismButtonTone.filled,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PrismButton(
-                onPressed: () => _confirmReset(context, ref),
-                enabled: isConfigured || hasActiveHandle,
-                icon: AppIcons.restartAlt,
-                label: context.l10n.syncTroubleshootingResetSync,
-                tone: PrismButtonTone.destructive,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PrismButton(
-                onPressed: () => _confirmRepair(context, ref),
-                enabled: isConfigured || hasActiveHandle,
-                icon: AppIcons.personOffOutlined,
-                label: context.l10n.syncTroubleshootingRepair,
-                tone: PrismButtonTone.destructive,
-              ),
-            ),
-            _SectionHeader(
-              title: context.l10n.syncTroubleshootingPluralKitSection,
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: PrismSectionCard(
-                padding: EdgeInsets.zero,
-                child: PrismListRow(
-                  leading: Icon(AppIcons.buildCircleOutlined),
-                  title: Text(context.l10n.syncTroubleshootingPkRepairTitle),
-                  subtitle: Text(
-                    context.l10n.syncTroubleshootingPkRepairSubtitle,
-                  ),
-                  showChevron: true,
-                  onTap: () => context.push(AppRoutePaths.settingsPluralkit),
-                ),
-              ),
-            ),
-            const Divider(height: 32, indent: 16, endIndent: 16),
-
-            // -- Advanced diagnostics (collapsed) --
-            //
-            // Deep technical screens — useful when sharing a diagnostic
-            // with support, not for self-serve fixes. Kept collapsed by
-            // default so non-technical beta users see the actionable
-            // surfaces above without being distracted by raw event
-            // streams or keychain inventories.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: PrismExpandableSection(
-                leading: Icon(AppIcons.buildCircleOutlined),
-                title: const Text('Advanced diagnostics'),
-                subtitle: const Text(
-                  'For support requests — these screens show technical '
-                  'details, not user actions',
-                ),
-                children: [
-                  PrismListRow(
-                    leading: Icon(AppIcons.receiptLongOutlined),
-                    title: const Text('Sync event log'),
-                    subtitle: const Text(
-                      'Stream of sync events from this session',
-                    ),
-                    showChevron: true,
-                    onTap: () => context.push(AppRoutePaths.settingsSyncDebug),
-                  ),
-                  PrismListRow(
-                    leading: Icon(AppIcons.lock),
-                    title: const Text('Crypto storage'),
-                    subtitle: const Text(
-                      'Keychain inventory + per-boot snapshot history',
-                    ),
-                    showChevron: true,
-                    onTap: () =>
-                        context.push(AppRoutePaths.settingsCryptoStorageDebug),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 32, indent: 16, endIndent: 16),
-
-            // -- Common Issues --
-            _SectionHeader(title: context.l10n.syncTroubleshootingCommonIssues),
-            _TroubleshootingTile(
-              icon: AppIcons.syncProblem,
-              title: context.l10n.syncTroubleshootingIssue1Title,
-              description: context.l10n.syncTroubleshootingIssue1Description,
-            ),
-            _TroubleshootingTile(
-              icon: AppIcons.copyAll,
-              title: context.l10n.syncTroubleshootingIssue2Title,
-              description: context.l10n.syncTroubleshootingIssue2Description,
-            ),
-            _TroubleshootingTile(
-              icon: AppIcons.wifiOff,
-              title: context.l10n.syncTroubleshootingIssue3Title,
-              description: context.l10n.syncTroubleshootingIssue3Description,
-            ),
-            _TroubleshootingTile(
-              icon: AppIcons.speed,
-              title: context.l10n.syncTroubleshootingIssue4Title,
-              description: context.l10n.syncTroubleshootingIssue4Description,
-            ),
-            _TroubleshootingTile(
-              icon: AppIcons.personOffOutlined,
-              title: context.l10n.syncTroubleshootingIssue5Title,
-              description: context.l10n.syncTroubleshootingIssue5Description,
-            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -422,16 +371,50 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     }
   }
 
+  void _copySupportValue(BuildContext context, String label, String value) {
+    unawaited(() async {
+      await Clipboard.setData(ClipboardData(text: value));
+      if (!context.mounted) return;
+      PrismToast.show(
+        context,
+        message: context.l10n.syncTroubleshootingCopied(label),
+      );
+    }());
+  }
+
   void _confirmReset(BuildContext context, WidgetRef ref) {
     unawaited(
-      PrismDialog.confirm(
+      PrismDialog.show<String>(
         context: context,
         title: context.l10n.syncTroubleshootingResetTitle,
         message: context.l10n.syncTroubleshootingResetMessage,
-        confirmLabel: context.l10n.syncTroubleshootingResetConfirm,
-        destructive: true,
-      ).then((confirmed) async {
-        if (!confirmed) return;
+        actions: [
+          PrismButton(
+            label: context.l10n.cancel,
+            tone: PrismButtonTone.outlined,
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+          ),
+          PrismButton(
+            label: context.l10n.syncTroubleshootingBackupFirst,
+            tone: PrismButtonTone.filled,
+            onPressed: () =>
+                Navigator.of(context, rootNavigator: true).pop('backup'),
+          ),
+          PrismButton(
+            label: context.l10n.syncTroubleshootingResetConfirm,
+            tone: PrismButtonTone.destructive,
+            onPressed: () =>
+                Navigator.of(context, rootNavigator: true).pop('reset'),
+          ),
+        ],
+        builder: (dialogContext) => const SizedBox.shrink(),
+      ).then((result) async {
+        if (result == 'backup') {
+          if (!context.mounted) return;
+          unawaited(context.push(AppRoutePaths.settingsImportExport));
+          return;
+        }
+        if (result != 'reset') return;
         try {
           await ref
               .read(resetDataNotifierProvider.notifier)
@@ -440,58 +423,6 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           PrismToast.show(
             context,
             message: context.l10n.syncTroubleshootingResetSuccess,
-          );
-        } catch (e) {
-          if (!context.mounted) return;
-          PrismToast.error(
-            context,
-            message: context.l10n.syncTroubleshootingFailed(e),
-          );
-        }
-      }),
-    );
-  }
-
-  void _confirmRepair(BuildContext context, WidgetRef ref) {
-    unawaited(
-      PrismDialog.show<String>(
-        context: context,
-        title: context.l10n.syncTroubleshootingRepairTitle,
-        message: context.l10n.syncTroubleshootingRepairMessage,
-        actions: [
-          PrismButton(
-            label: context.l10n.cancel,
-            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-          ),
-          PrismButton(
-            label: context.l10n.syncTroubleshootingRepairNow,
-            onPressed: () =>
-                Navigator.of(context, rootNavigator: true).pop('repair'),
-            tone: PrismButtonTone.destructive,
-          ),
-          PrismButton(
-            label: context.l10n.syncTroubleshootingExportFirst,
-            onPressed: () =>
-                Navigator.of(context, rootNavigator: true).pop('export'),
-            tone: PrismButtonTone.filled,
-          ),
-        ],
-        builder: (dialogContext) => const SizedBox.shrink(),
-      ).then((result) async {
-        if (result == 'export') {
-          if (!context.mounted) return;
-          unawaited(context.push(AppRoutePaths.settingsImportExport));
-          return;
-        }
-        if (result != 'repair') return;
-        try {
-          await ref
-              .read(resetDataNotifierProvider.notifier)
-              .reset(ResetCategory.sync);
-          if (!context.mounted) return;
-          PrismToast.show(
-            context,
-            message: context.l10n.syncTroubleshootingCredentialsCleared,
           );
           context.go(AppRoutePaths.settingsSync);
         } catch (e) {
@@ -504,38 +435,205 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
       }),
     );
   }
-
-  String _formatDateTime(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    final timeStr =
-        '${dt.hour.toString().padLeft(2, '0')}:'
-        '${dt.minute.toString().padLeft(2, '0')}:'
-        '${dt.second.toString().padLeft(2, '0')}';
-    final dateStr =
-        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
-        '${dt.day.toString().padLeft(2, '0')}';
-
-    if (diff.inSeconds < 60) return 'Just now ($timeStr)';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago ($timeStr)';
-    if (diff.inHours < 24) return '${diff.inHours}h ago ($timeStr)';
-    return '$dateStr $timeStr';
-  }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-  final String title;
+String _formatDateTime(DateTime dt) {
+  final diff = DateTime.now().difference(dt);
+  final timeStr =
+      '${dt.hour.toString().padLeft(2, '0')}:'
+      '${dt.minute.toString().padLeft(2, '0')}:'
+      '${dt.second.toString().padLeft(2, '0')}';
+  final dateStr =
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-'
+      '${dt.day.toString().padLeft(2, '0')}';
+
+  if (diff.inSeconds < 60) return 'Just now ($timeStr)';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago ($timeStr)';
+  if (diff.inHours < 24) return '${diff.inHours}h ago ($timeStr)';
+  return '$dateStr $timeStr';
+}
+
+List<Widget> _withRowDividers(List<Widget> rows) {
+  final children = <Widget>[];
+  for (var i = 0; i < rows.length; i++) {
+    if (i > 0) {
+      children.add(const Divider(height: 1, indent: 60, endIndent: 12));
+    }
+    children.add(rows[i]);
+  }
+  return children;
+}
+
+class _CopyableSupportRow extends StatelessWidget {
+  const _CopyableSupportRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onCopy,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onCopy;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w600,
+    final theme = Theme.of(context);
+    return PrismSettingsRow(
+      icon: icon,
+      title: label,
+      subtitleWidget: Text(
+        value,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: 'monospace',
+          height: 1.25,
         ),
+      ),
+      trailing: Icon(
+        AppIcons.copyAll,
+        size: 18,
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
+      ),
+      showChevron: false,
+      onTap: onCopy,
+      onLongPress: onCopy,
+      onSecondaryTap: onCopy,
+    );
+  }
+}
+
+class _SyncActivityRows extends ConsumerWidget {
+  const _SyncActivityRows({required this.syncStatus});
+
+  final SyncStatus syncStatus;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countsAsync = ref.watch(_syncEntityCountsProvider);
+    final rows = <(String, String)>[
+      (
+        context.l10n.syncTroubleshootingLastSuccessful,
+        syncStatus.lastSyncAt != null
+            ? _formatDateTime(syncStatus.lastSyncAt!)
+            : context.l10n.syncTroubleshootingNeverSynced,
+      ),
+      (
+        context.l10n.syncTroubleshootingCurrentState,
+        syncStatus.isSyncing
+            ? context.l10n.syncTroubleshootingSyncing
+            : context.l10n.syncTroubleshootingIdle,
+      ),
+      if (syncStatus.pendingOps > 0)
+        (
+          context.l10n.syncTroubleshootingPendingOps,
+          context.l10n.syncTroubleshootingPendingOpsValue(
+            syncStatus.pendingOps,
+          ),
+        ),
+      ...countsAsync.maybeWhen(
+        data: (counts) => [
+          (
+            context.l10n.syncLast24h,
+            context.l10n.syncEntitiesCount(counts.last24h),
+          ),
+          (
+            context.l10n.syncTotal,
+            context.l10n.syncEntitiesCount(counts.total),
+          ),
+        ],
+        loading: () => [
+          (context.l10n.syncLast24h, context.l10n.loading),
+          (context.l10n.syncTotal, context.l10n.loading),
+        ],
+        orElse: () => const <(String, String)>[],
+      ),
+    ];
+
+    return Column(
+      children: _withRowDividers([
+        for (final row in rows)
+          _ActivityDetailRow(label: row.$1, value: row.$2),
+      ]),
+    );
+  }
+}
+
+class _ActivityDetailRow extends StatelessWidget {
+  const _ActivityDetailRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: theme.textTheme.bodyMedium),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SyncTroubleshootingTipsScreen extends StatelessWidget {
+  const SyncTroubleshootingTipsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return PrismPageScaffold(
+      topBar: PrismTopBar(
+        title: context.l10n.syncTroubleshootingTipsTitle,
+        showBackButton: true,
+      ),
+      bodyPadding: EdgeInsets.zero,
+      body: ListView(
+        padding: EdgeInsets.only(top: 12, bottom: NavBarInset.of(context)),
+        children: [
+          _TroubleshootingTile(
+            icon: AppIcons.syncProblem,
+            title: context.l10n.syncTroubleshootingIssue1Title,
+            description: context.l10n.syncTroubleshootingIssue1Description,
+          ),
+          _TroubleshootingTile(
+            icon: AppIcons.copyAll,
+            title: context.l10n.syncTroubleshootingIssue2Title,
+            description: context.l10n.syncTroubleshootingIssue2Description,
+          ),
+          _TroubleshootingTile(
+            icon: AppIcons.wifiOff,
+            title: context.l10n.syncTroubleshootingIssue3Title,
+            description: context.l10n.syncTroubleshootingIssue3Description,
+          ),
+          _TroubleshootingTile(
+            icon: AppIcons.speed,
+            title: context.l10n.syncTroubleshootingIssue4Title,
+            description: context.l10n.syncTroubleshootingIssue4Description,
+          ),
+          _TroubleshootingTile(
+            icon: AppIcons.personOffOutlined,
+            title: context.l10n.syncTroubleshootingIssue5Title,
+            description: context.l10n.syncTroubleshootingIssue5Description,
+          ),
+        ],
       ),
     );
   }

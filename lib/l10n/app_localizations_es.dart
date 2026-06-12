@@ -533,7 +533,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'No se pudo cargar la configuración de sincronización';
 
   @override
-  String get syncNotSetUp => 'La sincronización no está configurada';
+  String get syncNotSetUp => 'Activar Prism Sync';
 
   @override
   String get syncNotSetUpDescription =>
@@ -557,7 +557,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncSetUpAnotherDeviceSubtitle =>
-      'Generar un código QR de emparejamiento';
+      'Escanea un código de emparejamiento';
 
   @override
   String get syncManageDevices => 'Administrar dispositivos';
@@ -581,11 +581,32 @@ class AppLocalizationsEs extends AppLocalizations {
       'Mostrar tu frase de recuperación de 12 palabras';
 
   @override
-  String get syncPreferencesSection => 'Preferencias de sincronización';
+  String get syncPreferencesSection => 'Preferencias';
 
   @override
   String get syncPreferencesDescription =>
       'Controla qué configuraciones se comparten entre tus dispositivos vía sincronización.';
+
+  @override
+  String get syncPreferenceAppearanceTitle => 'Apariencia';
+
+  @override
+  String get syncPreferenceAppearanceSubtitle =>
+      'Comparte la apariencia entre dispositivos.';
+
+  @override
+  String get syncPreferenceLocalAppearanceTitle => 'Apariencia local';
+
+  @override
+  String get syncPreferenceLocalAppearanceSubtitle =>
+      'No aplicar cambios de apariencia de otros dispositivos.';
+
+  @override
+  String get syncPreferenceNavigationTitle => 'Navegación';
+
+  @override
+  String get syncPreferenceNavigationSubtitle =>
+      'Comparte el orden de pestañas.';
 
   @override
   String get syncNavigationLayoutTitle => 'Sincronizar diseño de navegación';
@@ -644,13 +665,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncNodeIdNotInitialised => 'No inicializado';
 
   @override
-  String get syncTroubleshootingLink => 'Solución de problemas';
+  String get syncTroubleshootingLink => 'Avanzado';
 
   @override
-  String get syncLast24h => 'Sincronizado últimas 24h';
+  String get syncLast24h => 'Últimas 24 h';
 
   @override
-  String get syncTotal => 'Total sincronizado';
+  String get syncTotal => 'Total';
 
   @override
   String syncEntitiesCount(int count) {
@@ -670,6 +691,61 @@ class AppLocalizationsEs extends AppLocalizations {
   String syncFailed(Object error) {
     return 'Error de sincronización de Prism: $error';
   }
+
+  @override
+  String get syncSummarySectionTitle => 'Prism Sync';
+
+  @override
+  String get syncDevicesSectionTitle => 'Dispositivos';
+
+  @override
+  String get syncSecuritySectionTitle => 'Seguridad';
+
+  @override
+  String get syncSummaryConnected => 'Conectado';
+
+  @override
+  String get syncSummaryReconnecting => 'Reconectando';
+
+  @override
+  String get syncSummaryNeedsAttention => 'Requiere atención';
+
+  @override
+  String get syncSummaryOffline => 'Sin conexión';
+
+  @override
+  String get syncSummaryActivityChecking => 'Buscando cambios...';
+
+  @override
+  String get syncSummaryActivitySyncing => 'Sincronizando...';
+
+  @override
+  String get syncSummaryActivityReconnecting => 'Reconectando...';
+
+  @override
+  String get syncSummaryNeedsRepair => 'Requiere reparación';
+
+  @override
+  String syncSummaryPendingUploads(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count cargas pendientes',
+      one: '1 carga pendiente',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get syncSummarySyncedJustNow => 'Sincronizado ahora mismo';
+
+  @override
+  String syncSummarySyncedAt(String timeAgo) {
+    return 'Sincronizado $timeAgo';
+  }
+
+  @override
+  String get syncSummaryNeverSynced => 'Nunca sincronizado';
 
   @override
   String get syncStatusError => 'Error de sincronización de Prism';
@@ -1800,8 +1876,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get devicesIdCopied => 'ID del dispositivo copiado';
 
   @override
-  String get syncTroubleshootingTitle =>
-      'Resolución de Problemas de Prism Sync';
+  String get syncTroubleshootingTitle => 'Avanzado';
 
   @override
   String get syncTroubleshootingConnectionStatus => 'Estado de Conexión';
@@ -1903,24 +1978,70 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncTroubleshootingRelayUrl => 'URL del Relay';
 
   @override
+  String get syncTroubleshootingSupportInfo => 'Información para soporte';
+
+  @override
+  String get syncTroubleshootingNeedsAttention => 'Requiere atención';
+
+  @override
+  String get syncTroubleshootingActivity => 'Actividad';
+
+  @override
+  String syncTroubleshootingCopied(String label) {
+    return '$label copiado';
+  }
+
+  @override
   String get syncTroubleshootingActions => 'Acciones';
 
   @override
-  String get syncTroubleshootingForceSync => 'Forzar Sincronización';
+  String get syncTroubleshootingForceSync => 'Sincronizar ahora';
+
+  @override
+  String get syncTroubleshootingForceSyncSubtitle =>
+      'Envía y recibe cambios pendientes de inmediato.';
 
   @override
   String get syncTroubleshootingOpenEventLog =>
       'Abrir Registro de Eventos de Prism Sync';
 
   @override
-  String get syncTroubleshootingResetSync =>
-      'Restablecer Sistema de Sincronización';
+  String get syncTroubleshootingResetSync => 'Restablecer sincronización';
 
   @override
-  String get syncTroubleshootingRepair => 'Reemparejar Dispositivo';
+  String get syncTroubleshootingResetSyncSubtitle =>
+      'Borra la configuración de sincronización de este dispositivo; los datos locales se conservan.';
 
   @override
-  String get syncTroubleshootingCommonIssues => 'Problemas Comunes';
+  String get syncTroubleshootingTipsTitle =>
+      'Consejos de solución de problemas';
+
+  @override
+  String get syncTroubleshootingTipsSubtitle =>
+      'Soluciones comunes para problemas de conexión, duplicados y emparejamiento.';
+
+  @override
+  String get syncTroubleshootingDiagnostics => 'Diagnósticos';
+
+  @override
+  String get syncTroubleshootingDiagnosticsSubtitle =>
+      'Registros técnicos para soporte y depuración avanzada; no suelen hacer falta para problemas cotidianos.';
+
+  @override
+  String get syncTroubleshootingEventLogTitle =>
+      'Registro de eventos de sincronización';
+
+  @override
+  String get syncTroubleshootingEventLogSubtitle =>
+      'Eventos de sincronización de esta sesión';
+
+  @override
+  String get syncTroubleshootingCryptoStorageTitle =>
+      'Almacenamiento criptográfico';
+
+  @override
+  String get syncTroubleshootingCryptoStorageSubtitle =>
+      'Inventario del llavero e historial de instantáneas por arranque';
 
   @override
   String get syncTroubleshootingIssue1Title =>
@@ -1928,7 +2049,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncTroubleshootingIssue1Description =>
-      'Comprueba que la URL del relay y el ID de sincronización estén correctamente configurados. Ambos dispositivos deben usar el mismo ID de sincronización.';
+      'Comprueba que la URL del relay y el ID de sincronización coincidan en ambos dispositivos.';
 
   @override
   String get syncTroubleshootingIssue2Title => '¿Datos duplicados?';
@@ -1957,7 +2078,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncTroubleshootingIssue5Description =>
-      'Si el emparejamiento falló a la mitad, la identidad del dispositivo puede ser inconsistente. Usa \'Reemparejar Dispositivo\' para generar una identidad nueva.';
+      'Si el emparejamiento falló a la mitad, la identidad del dispositivo puede ser inconsistente. Usa Restablecer sincronización para borrar la identidad de sincronización de este dispositivo y emparejar de nuevo.';
 
   @override
   String get syncTroubleshootingFinished => 'Sincronización completada';
@@ -1969,46 +2090,21 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncTroubleshootingResetTitle =>
-      '¿Restablecer sistema de sincronización?';
+      '¿Restablecer configuración de sincronización?';
 
   @override
   String get syncTroubleshootingResetMessage =>
-      'Esto conserva los datos locales, pero borra claves de sincronización, configuración del relay, identidad del dispositivo e historial de sincronización. Deberás configurar la sincronización de nuevo.';
+      'Esto borra las credenciales de sincronización, la configuración del relay, la identidad del dispositivo y el historial de sincronización en este dispositivo. Tus datos locales de Prism se conservan aquí.\n\nDespués de restablecer, Prism volverá a la pantalla de configuración de sincronización para que puedas emparejar de nuevo. Exporta primero si quieres una copia adicional antes de cambiar la configuración de sincronización.';
 
   @override
-  String get syncTroubleshootingResetConfirm => 'Restablecer';
+  String get syncTroubleshootingResetConfirm => 'Restablecer sincronización';
 
   @override
   String get syncTroubleshootingResetSuccess =>
       'Sistema de sincronización restablecido';
 
   @override
-  String get syncTroubleshootingRepairTitle => '¿Reemparejar Dispositivo?';
-
-  @override
-  String get syncTroubleshootingRepairMessage =>
-      'Esto borrará tus credenciales de sincronización y requerirá que emparejes de nuevo. Los cambios locales no sincronizados se perderán.\n\nRecomendamos exportar los datos primero como medida de seguridad.';
-
-  @override
-  String get syncTroubleshootingRepairNow => 'Reemparejar ahora';
-
-  @override
-  String get syncTroubleshootingExportFirst => 'Exportar datos primero';
-
-  @override
-  String get syncTroubleshootingCredentialsCleared =>
-      'Credenciales de sincronización borradas';
-
-  @override
-  String get syncTroubleshootingPluralKitSection => 'PluralKit';
-
-  @override
-  String get syncTroubleshootingPkRepairTitle =>
-      'Abrir reparación de grupos de PluralKit';
-
-  @override
-  String get syncTroubleshootingPkRepairSubtitle =>
-      'Usa la pantalla de configuración de PluralKit para ejecutar la reparación de grupos y revisar coincidencias de grupos PK suprimidas.';
+  String get syncTroubleshootingBackupFirst => 'Hacer copia primero';
 
   @override
   String featureChatDescription(String term) {

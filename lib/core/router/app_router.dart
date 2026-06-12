@@ -578,6 +578,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'sync-troubleshooting',
                     builder: (context, state) =>
                         const SyncTroubleshootingScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'tips',
+                        builder: (context, state) =>
+                            const SyncTroubleshootingTipsScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'devices',

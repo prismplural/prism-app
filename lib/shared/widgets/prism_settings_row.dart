@@ -10,20 +10,29 @@ class PrismSettingsRow extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.subtitleWidget,
     this.iconColor,
     this.trailing,
     this.onTap,
+    this.onLongPress,
+    this.onSecondaryTap,
     this.enabled = true,
     this.showChevron = true,
     this.destructive = false,
-  });
+  }) : assert(
+         subtitle == null || subtitleWidget == null,
+         'Use either subtitle or subtitleWidget, not both.',
+       );
 
   final IconData icon;
   final String title;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final Color? iconColor;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final bool enabled;
   final bool showChevron;
   final bool destructive;
@@ -42,8 +51,10 @@ class PrismSettingsRow extends StatelessWidget {
 
     return PrismListRow(
       title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
+      subtitle: subtitleWidget ?? (subtitle != null ? Text(subtitle!) : null),
       onTap: onTap,
+      onLongPress: onLongPress,
+      onSecondaryTap: onSecondaryTap,
       enabled: enabled,
       destructive: destructive,
       showChevron: showChevron,

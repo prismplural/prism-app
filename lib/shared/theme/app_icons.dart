@@ -364,6 +364,8 @@ abstract final class AppIcons {
   static final duotoneKey = PhosphorIcons.key(PhosphorIconsStyle.duotone);
   static final duotoneLock = PhosphorIcons.lock(PhosphorIconsStyle.duotone);
   static final duotoneCloud = PhosphorIcons.cloud(PhosphorIconsStyle.duotone);
+  static final duotoneCloudCheck = PhosphorIcons.cloudCheck(PhosphorIconsStyle.duotone);
+  static final duotoneCloudOff = PhosphorIcons.cloudSlash(PhosphorIconsStyle.duotone);
   static final duotoneNotifications = PhosphorIcons.bell(PhosphorIconsStyle.duotone);
   static final duotoneCalendar = PhosphorIcons.calendarBlank(PhosphorIconsStyle.duotone);
   static final duotoneFolder = PhosphorIcons.folder(PhosphorIconsStyle.duotone);

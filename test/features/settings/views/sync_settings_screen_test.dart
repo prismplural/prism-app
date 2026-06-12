@@ -460,6 +460,73 @@ void main() {
     );
   });
 
+  group('buildSyncSummaryPresentation', () {
+    test('keeps a connected headline while a quick sync is active', () {
+      final lastSyncAt = DateTime.utc(2026, 6, 11, 12);
+
+      final idle = buildSyncSummaryPresentation(
+        syncStatus: SyncStatus(lastSyncAt: lastSyncAt),
+        hasActiveHandle: true,
+        handleIsLoading: false,
+        canAttemptReconnect: true,
+        wsConnected: true,
+        syncDatabaseReady: true,
+      );
+      final syncing = buildSyncSummaryPresentation(
+        syncStatus: SyncStatus(isSyncing: true, lastSyncAt: lastSyncAt),
+        hasActiveHandle: true,
+        handleIsLoading: false,
+        canAttemptReconnect: true,
+        wsConnected: true,
+        syncDatabaseReady: true,
+      );
+
+      expect(idle.headline, SyncSummaryHeadline.connected);
+      expect(syncing.headline, SyncSummaryHeadline.connected);
+      expect(idle.activity, SyncSummaryActivity.checkingForChanges);
+      expect(syncing.activity, SyncSummaryActivity.syncing);
+    });
+
+    test('uses pending uploads as the activity when local ops are queued', () {
+      final summary = buildSyncSummaryPresentation(
+        syncStatus: const SyncStatus(pendingOps: 3),
+        hasActiveHandle: true,
+        handleIsLoading: false,
+        canAttemptReconnect: true,
+        wsConnected: true,
+        syncDatabaseReady: true,
+      );
+
+      expect(summary.headline, SyncSummaryHeadline.connected);
+      expect(summary.activity, SyncSummaryActivity.pendingUploads);
+      expect(summary.pendingUploads, 3);
+    });
+
+    test('surfaces attention and offline states separately', () {
+      final attention = buildSyncSummaryPresentation(
+        syncStatus: const SyncStatus(lastError: 'Relay unavailable'),
+        hasActiveHandle: true,
+        handleIsLoading: false,
+        canAttemptReconnect: true,
+        wsConnected: true,
+        syncDatabaseReady: true,
+      );
+      final offline = buildSyncSummaryPresentation(
+        syncStatus: const SyncStatus(),
+        hasActiveHandle: false,
+        handleIsLoading: false,
+        canAttemptReconnect: true,
+        wsConnected: false,
+        syncDatabaseReady: true,
+      );
+
+      expect(attention.headline, SyncSummaryHeadline.needsAttention);
+      expect(attention.tone, SyncSummaryTone.error);
+      expect(offline.headline, SyncSummaryHeadline.offline);
+      expect(offline.tone, SyncSummaryTone.error);
+    });
+  });
+
   group('Verify saved backup row visibility', () {
     // The "Verify saved backup" row uses the same canSetUpAnotherDeviceRow
     // gate as "Set up another device" — it should appear only when handle,

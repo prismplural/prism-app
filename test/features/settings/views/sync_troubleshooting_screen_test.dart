@@ -6,12 +6,14 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 void main() {
   Widget buildScreen({
     Locale locale = const Locale('en'),
     int quarantinedBatchCount = 0,
+    int pendingOps = 0,
     bool resetThrows = false,
   }) {
     return ProviderScope(
@@ -31,6 +33,7 @@ void main() {
         syncStatusProvider.overrideWith(
           () => _StubSyncStatusNotifier(
             quarantinedBatchCount: quarantinedBatchCount,
+            pendingOps: pendingOps,
           ),
         ),
         if (resetThrows)
@@ -49,38 +52,19 @@ void main() {
     );
   }
 
-  testWidgets('re-pair dialog offers export-first recovery', (tester) async {
-    await tester.pumpWidget(buildScreen());
-
-    await tester.scrollUntilVisible(
-      find.text('Re-pair Device'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-
-    await tester.tap(find.text('Re-pair Device'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Re-pair Device?'), findsOneWidget);
-    expect(find.text('Export Data First'), findsOneWidget);
-    expect(find.text('Re-pair Now'), findsOneWidget);
-  });
-
   testWidgets('reset sync failure shows an error toast', (tester) async {
     addTearDown(PrismToast.resetForTest);
 
     await tester.pumpWidget(buildScreen(resetThrows: true));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Reset Sync System'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Reset Sync System'));
+    await tester.tap(find.text('Reset sync').first);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Reset'));
+    expect(find.text('Reset sync setup?'), findsOneWidget);
+    expect(find.text('Back up first'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(PrismButton, 'Reset sync').last);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -90,65 +74,19 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('re-pair reset failure shows an error toast', (tester) async {
-    addTearDown(PrismToast.resetForTest);
-
-    await tester.pumpWidget(buildScreen(resetThrows: true));
+  testWidgets('renders activity items as compact detail rows', (tester) async {
+    await tester.pumpWidget(buildScreen(pendingOps: 3));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Re-pair Device'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('Re-pair Device'));
-    await tester.pumpAndSettle();
+    await _scrollUntilVisible(tester, find.text('Activity'));
 
-    await tester.tap(find.text('Re-pair Now'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.textContaining('Prism sync failed:'), findsOneWidget);
-
-    PrismToast.dismiss();
-    await tester.pump();
-  });
-
-  testWidgets('shows a PluralKit repair entry point', (tester) async {
-    await tester.pumpWidget(buildScreen());
-
-    await tester.scrollUntilVisible(
-      find.text('Open PluralKit group repair'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-
-    expect(find.text('Open PluralKit group repair'), findsOneWidget);
-    expect(
-      find.textContaining('run group repair and check any suppressed PK group'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('shows the PluralKit repair entry point in Spanish', (
-    tester,
-  ) async {
-    await tester.pumpWidget(buildScreen(locale: const Locale('es')));
-
-    await tester.scrollUntilVisible(
-      find.text('Abrir reparación de grupos de PluralKit'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-
-    expect(
-      find.text('Abrir reparación de grupos de PluralKit'),
-      findsOneWidget,
-    );
-    expect(
-      find.textContaining('revisar coincidencias de grupos PK'),
-      findsOneWidget,
-    );
+    expect(find.byType(Table), findsNothing);
+    expect(find.text('Last successful sync'), findsOneWidget);
+    expect(find.text('Never synced'), findsOneWidget);
+    expect(find.text('Current sync state'), findsOneWidget);
+    expect(find.text('Idle'), findsOneWidget);
+    expect(find.text('Pending operations'), findsOneWidget);
+    expect(find.text('3 ops waiting to sync'), findsOneWidget);
   });
 
   // ── Phase 1B: push-quarantine banner ──
@@ -213,12 +151,12 @@ void main() {
       await tester.pumpWidget(buildScreen(quarantinedBatchCount: 7));
       await tester.pumpAndSettle();
 
-      await tester.scrollUntilVisible(
-        find.text('Repair stuck sync'),
-        300,
-        scrollable: find.byType(Scrollable).first,
+      final repairButton = find.widgetWithText(
+        PrismButton,
+        'Repair stuck sync',
       );
-      await tester.tap(find.text('Repair stuck sync'));
+      await _scrollUntilVisible(tester, repairButton);
+      await tester.tap(repairButton);
       // Pump enough frames for the override future to complete and the
       // snackbar to mount. Don't `pumpAndSettle` because the toast has
       // a 3-second auto-dismiss timer that would block forever; pump a
@@ -250,12 +188,12 @@ void main() {
       await tester.pumpWidget(buildScreen(quarantinedBatchCount: 1));
       await tester.pumpAndSettle();
 
-      await tester.scrollUntilVisible(
-        find.text('Repair stuck sync'),
-        300,
-        scrollable: find.byType(Scrollable).first,
+      final repairButton = find.widgetWithText(
+        PrismButton,
+        'Repair stuck sync',
       );
-      await tester.tap(find.text('Repair stuck sync'));
+      await _scrollUntilVisible(tester, repairButton);
+      await tester.tap(repairButton);
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
@@ -268,14 +206,34 @@ void main() {
   );
 }
 
+Future<void> _scrollUntilVisible(WidgetTester tester, Finder finder) async {
+  await tester.scrollUntilVisible(
+    finder,
+    240,
+    scrollable: find.byType(Scrollable).first,
+  );
+  await tester.pumpAndSettle();
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, -160));
+  await tester.pumpAndSettle();
+}
+
 class _StubSyncStatusNotifier extends SyncStatusNotifier {
-  _StubSyncStatusNotifier({required this.quarantinedBatchCount});
+  _StubSyncStatusNotifier({
+    required this.quarantinedBatchCount,
+    required this.pendingOps,
+  });
 
   final int quarantinedBatchCount;
+  final int pendingOps;
 
   @override
   SyncStatus build() {
-    return SyncStatus(quarantinedBatchCount: quarantinedBatchCount);
+    return SyncStatus(
+      pendingOps: pendingOps,
+      quarantinedBatchCount: quarantinedBatchCount,
+    );
   }
 
   @override

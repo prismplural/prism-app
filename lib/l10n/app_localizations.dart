@@ -1043,7 +1043,7 @@ abstract class AppLocalizations {
   /// Title when sync has not been configured
   ///
   /// In en, this message translates to:
-  /// **'Sync is not set up'**
+  /// **'Enable Prism Sync'**
   String get syncNotSetUp;
 
   /// Description shown when sync is not configured
@@ -1085,7 +1085,7 @@ abstract class AppLocalizations {
   /// Settings row subtitle: set up another device
   ///
   /// In en, this message translates to:
-  /// **'Generate a pairing QR code'**
+  /// **'Scan a pairing code'**
   String get syncSetUpAnotherDeviceSubtitle;
 
   /// Settings row title: manage devices
@@ -1127,7 +1127,7 @@ abstract class AppLocalizations {
   /// Section title for sync preferences
   ///
   /// In en, this message translates to:
-  /// **'Sync Preferences'**
+  /// **'Preferences'**
   String get syncPreferencesSection;
 
   /// Description for sync preferences section
@@ -1135,6 +1135,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Control what settings are shared across your devices via sync.'**
   String get syncPreferencesDescription;
+
+  /// Toggle title in Prism Sync preferences for sharing appearance settings
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get syncPreferenceAppearanceTitle;
+
+  /// Toggle subtitle in Prism Sync preferences for sharing appearance settings
+  ///
+  /// In en, this message translates to:
+  /// **'Share appearance settings across devices.'**
+  String get syncPreferenceAppearanceSubtitle;
+
+  /// Toggle title in Prism Sync preferences for ignoring incoming synced appearance settings
+  ///
+  /// In en, this message translates to:
+  /// **'Local appearance'**
+  String get syncPreferenceLocalAppearanceTitle;
+
+  /// Toggle subtitle in Prism Sync preferences for ignoring incoming synced appearance settings
+  ///
+  /// In en, this message translates to:
+  /// **'Do not apply appearance changes from other devices.'**
+  String get syncPreferenceLocalAppearanceSubtitle;
+
+  /// Toggle title in Prism Sync preferences for sharing navigation layout
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get syncPreferenceNavigationTitle;
+
+  /// Toggle subtitle in Prism Sync preferences for sharing navigation layout
+  ///
+  /// In en, this message translates to:
+  /// **'Share tab order across devices.'**
+  String get syncPreferenceNavigationSubtitle;
 
   /// Toggle title: sync navigation layout
   ///
@@ -1235,25 +1271,25 @@ abstract class AppLocalizations {
   /// Settings row title: troubleshooting link
   ///
   /// In en, this message translates to:
-  /// **'Troubleshooting'**
+  /// **'Advanced'**
   String get syncTroubleshootingLink;
 
   /// Label for synced last 24h count
   ///
   /// In en, this message translates to:
-  /// **'Synced last 24h'**
+  /// **'Last 24h'**
   String get syncLast24h;
 
   /// Label for total synced count
   ///
   /// In en, this message translates to:
-  /// **'Total synced'**
+  /// **'Total'**
   String get syncTotal;
 
   /// Number of synced entities
   ///
   /// In en, this message translates to:
-  /// **'{count} entities'**
+  /// **'{count, plural, =1{1 entity} other{{count} entities}}'**
   String syncEntitiesCount(int count);
 
   /// Toast message after a successful manual sync
@@ -1267,6 +1303,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Prism sync failed: {error}'**
   String syncFailed(Object error);
+
+  /// Settings sync summary section title
+  ///
+  /// In en, this message translates to:
+  /// **'Prism Sync'**
+  String get syncSummarySectionTitle;
+
+  /// Settings sync device-management section title
+  ///
+  /// In en, this message translates to:
+  /// **'Devices'**
+  String get syncDevicesSectionTitle;
+
+  /// Settings sync security and recovery-actions section title
+  ///
+  /// In en, this message translates to:
+  /// **'Security'**
+  String get syncSecuritySectionTitle;
+
+  /// Sync summary headline: connected state
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get syncSummaryConnected;
+
+  /// Sync summary headline: reconnecting state
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting'**
+  String get syncSummaryReconnecting;
+
+  /// Sync summary headline: warning or error state
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get syncSummaryNeedsAttention;
+
+  /// Sync summary headline: offline state
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get syncSummaryOffline;
+
+  /// Sync summary activity chip: idle connected state
+  ///
+  /// In en, this message translates to:
+  /// **'Checking for changes...'**
+  String get syncSummaryActivityChecking;
+
+  /// Sync summary activity chip: active sync state
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing...'**
+  String get syncSummaryActivitySyncing;
+
+  /// Sync summary activity chip: reconnecting state
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting...'**
+  String get syncSummaryActivityReconnecting;
+
+  /// Sync summary activity chip: sync database repair needed
+  ///
+  /// In en, this message translates to:
+  /// **'Needs repair'**
+  String get syncSummaryNeedsRepair;
+
+  /// Sync summary activity chip: local changes waiting to upload
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 pending upload} other{{count} pending uploads}}'**
+  String syncSummaryPendingUploads(int count);
+
+  /// Sync summary chip: last successful sync was moments ago
+  ///
+  /// In en, this message translates to:
+  /// **'Synced just now'**
+  String get syncSummarySyncedJustNow;
+
+  /// Sync summary chip: last successful sync time
+  ///
+  /// In en, this message translates to:
+  /// **'Synced {timeAgo}'**
+  String syncSummarySyncedAt(String timeAgo);
+
+  /// Sync summary chip: no successful sync yet
+  ///
+  /// In en, this message translates to:
+  /// **'Never synced'**
+  String get syncSummaryNeverSynced;
 
   /// Sync status card: error state title
   ///
@@ -3245,7 +3371,7 @@ abstract class AppLocalizations {
   /// Title of the sync troubleshooting screen
   ///
   /// In en, this message translates to:
-  /// **'Prism Sync Troubleshooting'**
+  /// **'Advanced'**
   String get syncTroubleshootingTitle;
 
   /// Section header: connection status
@@ -3392,6 +3518,30 @@ abstract class AppLocalizations {
   /// **'Relay URL'**
   String get syncTroubleshootingRelayUrl;
 
+  /// Section header for copyable sync identifiers used in support requests
+  ///
+  /// In en, this message translates to:
+  /// **'Support info'**
+  String get syncTroubleshootingSupportInfo;
+
+  /// Section header for active sync errors or repairable sync issues
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get syncTroubleshootingNeedsAttention;
+
+  /// Section header for lower-priority sync activity and stats
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get syncTroubleshootingActivity;
+
+  /// Toast when a sync support identifier is copied to clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'{label} copied'**
+  String syncTroubleshootingCopied(String label);
+
   /// Section header: actions
   ///
   /// In en, this message translates to:
@@ -3401,8 +3551,14 @@ abstract class AppLocalizations {
   /// Button: force sync now
   ///
   /// In en, this message translates to:
-  /// **'Force Sync'**
+  /// **'Sync now'**
   String get syncTroubleshootingForceSync;
+
+  /// Subtitle for the manual sync action row
+  ///
+  /// In en, this message translates to:
+  /// **'Push and pull pending changes right away.'**
+  String get syncTroubleshootingForceSyncSubtitle;
 
   /// Button: open sync event log
   ///
@@ -3413,20 +3569,62 @@ abstract class AppLocalizations {
   /// Button: reset sync system
   ///
   /// In en, this message translates to:
-  /// **'Reset Sync System'**
+  /// **'Reset sync'**
   String get syncTroubleshootingResetSync;
 
-  /// Button: re-pair device
+  /// Subtitle for the reset sync action row
   ///
   /// In en, this message translates to:
-  /// **'Re-pair Device'**
-  String get syncTroubleshootingRepair;
+  /// **'Clear sync setup on this device; local data stays.'**
+  String get syncTroubleshootingResetSyncSubtitle;
 
-  /// Section header: common issues
+  /// Title for sync troubleshooting tips row and detail screen
   ///
   /// In en, this message translates to:
-  /// **'Common Issues'**
-  String get syncTroubleshootingCommonIssues;
+  /// **'Troubleshooting tips'**
+  String get syncTroubleshootingTipsTitle;
+
+  /// Subtitle for row linking to sync troubleshooting tips
+  ///
+  /// In en, this message translates to:
+  /// **'Common fixes for connection, duplicate, and pairing issues.'**
+  String get syncTroubleshootingTipsSubtitle;
+
+  /// Section header for advanced sync diagnostic links
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics'**
+  String get syncTroubleshootingDiagnostics;
+
+  /// Short description for the advanced sync diagnostics section
+  ///
+  /// In en, this message translates to:
+  /// **'Technical logs for support and deeper debugging; not usually needed for everyday fixes.'**
+  String get syncTroubleshootingDiagnosticsSubtitle;
+
+  /// Row title for the sync event log diagnostics screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sync event log'**
+  String get syncTroubleshootingEventLogTitle;
+
+  /// Row subtitle for the sync event log diagnostics screen
+  ///
+  /// In en, this message translates to:
+  /// **'Stream of sync events from this session'**
+  String get syncTroubleshootingEventLogSubtitle;
+
+  /// Row title for the sync crypto storage diagnostics screen
+  ///
+  /// In en, this message translates to:
+  /// **'Crypto storage'**
+  String get syncTroubleshootingCryptoStorageTitle;
+
+  /// Row subtitle for the sync crypto storage diagnostics screen
+  ///
+  /// In en, this message translates to:
+  /// **'Keychain inventory and per-boot snapshot history'**
+  String get syncTroubleshootingCryptoStorageSubtitle;
 
   /// Common issue 1 title
   ///
@@ -3437,7 +3635,7 @@ abstract class AppLocalizations {
   /// Common issue 1 description
   ///
   /// In en, this message translates to:
-  /// **'Check that your relay URL and sync ID are correctly configured in Sync settings. Both devices must use the same sync ID.'**
+  /// **'Check that the relay URL and sync ID match on both devices.'**
   String get syncTroubleshootingIssue1Description;
 
   /// Common issue 2 title
@@ -3485,7 +3683,7 @@ abstract class AppLocalizations {
   /// Common issue 5 description
   ///
   /// In en, this message translates to:
-  /// **'If pairing failed mid-way, your device identity may be inconsistent. Use \"Re-pair Device\" to generate a fresh identity and pair again.'**
+  /// **'If pairing failed mid-way, your device identity may be inconsistent. Use Reset sync to clear this device\'s sync identity, then pair again.'**
   String get syncTroubleshootingIssue5Description;
 
   /// Toast when sync finishes
@@ -3503,19 +3701,19 @@ abstract class AppLocalizations {
   /// Dialog title for sync reset
   ///
   /// In en, this message translates to:
-  /// **'Reset sync system?'**
+  /// **'Reset sync setup?'**
   String get syncTroubleshootingResetTitle;
 
   /// Dialog message for sync reset
   ///
   /// In en, this message translates to:
-  /// **'This keeps your local app data, but wipes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.'**
+  /// **'This clears sync credentials, relay settings, device identity, and sync history on this device. Your local Prism data stays here.\n\nAfter reset, Prism will return to the sync setup screen so you can pair again. Export first if you want an extra backup before changing sync setup.'**
   String get syncTroubleshootingResetMessage;
 
   /// Button: confirm sync reset
   ///
   /// In en, this message translates to:
-  /// **'Reset'**
+  /// **'Reset sync'**
   String get syncTroubleshootingResetConfirm;
 
   /// Toast after sync reset
@@ -3524,53 +3722,11 @@ abstract class AppLocalizations {
   /// **'Sync system reset'**
   String get syncTroubleshootingResetSuccess;
 
-  /// Dialog title for re-pair
+  /// Button: go to import/export before resetting sync
   ///
   /// In en, this message translates to:
-  /// **'Re-pair Device?'**
-  String get syncTroubleshootingRepairTitle;
-
-  /// Dialog message for re-pair
-  ///
-  /// In en, this message translates to:
-  /// **'This will clear your sync credentials and require you to pair again. Any local changes not yet synced will be lost.\n\nWe recommend exporting your data first as a safety net.'**
-  String get syncTroubleshootingRepairMessage;
-
-  /// Button: re-pair now
-  ///
-  /// In en, this message translates to:
-  /// **'Re-pair Now'**
-  String get syncTroubleshootingRepairNow;
-
-  /// Button: export data first before re-pair
-  ///
-  /// In en, this message translates to:
-  /// **'Export Data First'**
-  String get syncTroubleshootingExportFirst;
-
-  /// Toast after credentials cleared
-  ///
-  /// In en, this message translates to:
-  /// **'Sync credentials cleared'**
-  String get syncTroubleshootingCredentialsCleared;
-
-  /// Section header for PluralKit-related sync troubleshooting actions
-  ///
-  /// In en, this message translates to:
-  /// **'PluralKit'**
-  String get syncTroubleshootingPluralKitSection;
-
-  /// Row title linking to PluralKit group repair from sync troubleshooting
-  ///
-  /// In en, this message translates to:
-  /// **'Open PluralKit group repair'**
-  String get syncTroubleshootingPkRepairTitle;
-
-  /// Row subtitle linking to PluralKit group repair from sync troubleshooting
-  ///
-  /// In en, this message translates to:
-  /// **'Use the PluralKit setup screen to run group repair and check any suppressed PK group matches.'**
-  String get syncTroubleshootingPkRepairSubtitle;
+  /// **'Back up first'**
+  String get syncTroubleshootingBackupFirst;
 
   /// Description text on chat feature settings screen
   ///

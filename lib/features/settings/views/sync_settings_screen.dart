@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -21,11 +24,9 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
@@ -33,9 +34,13 @@ import 'package:prism_plurality/features/settings/widgets/change_pin_sheet.dart'
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 // ---------------------------------------------------------------------------
 // Sync entity counts provider
@@ -52,6 +57,92 @@ bool canTriggerManualSync({
   if (!syncDatabaseReady) return false;
   if (isSyncActive || isHandleLoading) return false;
   return hasHandle || hasRelayUrl;
+}
+
+enum SyncSummaryHeadline { connected, reconnecting, needsAttention, offline }
+
+enum SyncSummaryTone { healthy, warning, error }
+
+enum SyncSummaryActivity {
+  checkingForChanges,
+  syncing,
+  pendingUploads,
+  reconnecting,
+  needsRepair,
+  none,
+}
+
+class SyncSummaryPresentation {
+  const SyncSummaryPresentation({
+    required this.headline,
+    required this.tone,
+    required this.activity,
+    required this.pendingUploads,
+  });
+
+  final SyncSummaryHeadline headline;
+  final SyncSummaryTone tone;
+  final SyncSummaryActivity activity;
+  final int pendingUploads;
+}
+
+@visibleForTesting
+SyncSummaryPresentation buildSyncSummaryPresentation({
+  required SyncStatus syncStatus,
+  required bool hasActiveHandle,
+  required bool handleIsLoading,
+  required bool canAttemptReconnect,
+  required bool wsConnected,
+  required bool syncDatabaseReady,
+}) {
+  final SyncSummaryHeadline headline;
+  final SyncSummaryTone tone;
+
+  if (!syncDatabaseReady) {
+    headline = SyncSummaryHeadline.needsAttention;
+    tone = SyncSummaryTone.error;
+  } else if (syncStatus.lastError != null) {
+    headline = SyncSummaryHeadline.needsAttention;
+    tone = SyncSummaryTone.error;
+  } else if (syncStatus.hasSyncIssues) {
+    headline = SyncSummaryHeadline.needsAttention;
+    tone = SyncSummaryTone.warning;
+  } else if (handleIsLoading || (hasActiveHandle && !wsConnected)) {
+    headline = SyncSummaryHeadline.reconnecting;
+    tone = SyncSummaryTone.warning;
+  } else if (hasActiveHandle) {
+    headline = SyncSummaryHeadline.connected;
+    tone = SyncSummaryTone.healthy;
+  } else if (canAttemptReconnect) {
+    headline = SyncSummaryHeadline.offline;
+    tone = SyncSummaryTone.error;
+  } else {
+    headline = SyncSummaryHeadline.offline;
+    tone = SyncSummaryTone.error;
+  }
+
+  final SyncSummaryActivity activity;
+  if (!syncDatabaseReady) {
+    activity = SyncSummaryActivity.needsRepair;
+  } else if (syncStatus.isSyncing) {
+    activity = SyncSummaryActivity.syncing;
+  } else if (syncStatus.pendingOps > 0) {
+    activity = SyncSummaryActivity.pendingUploads;
+  } else {
+    activity = switch (headline) {
+      SyncSummaryHeadline.connected => SyncSummaryActivity.checkingForChanges,
+      SyncSummaryHeadline.reconnecting => SyncSummaryActivity.reconnecting,
+      SyncSummaryHeadline.needsAttention ||
+      SyncSummaryHeadline.offline => SyncSummaryActivity.none,
+    };
+  }
+
+  return SyncSummaryPresentation(
+    headline: headline,
+    tone: tone,
+    activity: activity,
+    pendingUploads: syncStatus.pendingOps,
+  );
 }
 
 @visibleForTesting
@@ -121,89 +212,6 @@ bool shouldShowJoinOnlyReplaceState(SyncDisconnectMarker? marker) {
       marker.nextSetupConstraint ==
           SyncSetupConstraint.joinOnlyReplaceLocalData;
 }
-
-class SyncEntityCounts {
-  const SyncEntityCounts({required this.total, required this.last24h});
-  final int total;
-  final int last24h;
-}
-
-final syncEntityCountsProvider = FutureProvider.autoDispose<SyncEntityCounts>((
-  ref,
-) async {
-  final db = ref.watch(databaseProvider);
-
-  // All synced entity tables with is_deleted column.
-  const tables = [
-    'members',
-    'fronting_sessions',
-    'conversations',
-    'chat_messages',
-    'polls',
-    'poll_options',
-    'poll_votes',
-    'habits',
-    'habit_completions',
-    'member_groups',
-    'member_group_entries',
-    'custom_fields',
-    'custom_field_values',
-    'notes',
-    'front_session_comments',
-    'conversation_categories',
-    'reminders',
-    'friends',
-  ];
-
-  // Tables mapped to the date column to use for "last 24h" filtering.
-  // Tables without a date column are excluded from the 24h count.
-  const dateColumns = <String, String>{
-    'members': 'created_at',
-    'fronting_sessions': 'start_time',
-    'conversations': 'created_at',
-    'chat_messages': 'timestamp',
-    'polls': 'created_at',
-    'poll_votes': 'voted_at',
-    'habits': 'created_at',
-    'habit_completions': 'created_at',
-    'member_groups': 'created_at',
-    'custom_fields': 'created_at',
-    'notes': 'created_at',
-    'front_session_comments': 'created_at',
-    'conversation_categories': 'created_at',
-    'reminders': 'created_at',
-    'friends': 'created_at',
-  };
-
-  // Build a single SQL query: total count across all tables.
-  final totalParts = tables.map(
-    (t) => 'SELECT COUNT(*) AS c FROM $t WHERE is_deleted = 0',
-  );
-  final totalSql =
-      'SELECT SUM(c) AS total FROM (${totalParts.join(' UNION ALL ')})';
-
-  final totalResult = await db.customSelect(totalSql).getSingle();
-  final total = totalResult.read<int>('total');
-
-  // Build a single SQL query: count of entities with a recent date.
-  // chat_messages.timestamp is ms-since-epoch (v27); others are seconds.
-  final cutoffMs = DateTime.now()
-      .subtract(const Duration(hours: 24))
-      .millisecondsSinceEpoch;
-  final cutoffSec = cutoffMs ~/ 1000;
-  final recentParts = dateColumns.entries.map((e) {
-    final tableCutoff = e.key == 'chat_messages' ? cutoffMs : cutoffSec;
-    return 'SELECT COUNT(*) AS c FROM ${e.key} '
-        'WHERE is_deleted = 0 AND ${e.value} >= $tableCutoff';
-  });
-  final recentSql =
-      'SELECT SUM(c) AS total FROM (${recentParts.join(' UNION ALL ')})';
-
-  final recentResult = await db.customSelect(recentSql).getSingle();
-  final last24h = recentResult.read<int>('total');
-
-  return SyncEntityCounts(total: total, last24h: last24h);
-});
 
 class SyncSettingsScreen extends ConsumerWidget {
   const SyncSettingsScreen({super.key});
@@ -324,6 +332,8 @@ class _SetupView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final shapes = PrismShapes.of(context);
+    final accent = theme.colorScheme.primary;
     final markerAsync = ref.watch(syncDisconnectMarkerProvider);
     if (markerAsync.isLoading && !markerAsync.hasValue) {
       return const PrismLoadingState();
@@ -337,43 +347,179 @@ class _SetupView extends ConsumerWidget {
       return const _JoinOnlyReplaceSetupView();
     }
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              AppIcons.duotoneSync,
-              size: 64,
-              color: theme.colorScheme.primary.withValues(alpha: 0.6),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              context.l10n.syncNotSetUp,
-              style: theme.textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.syncNotSetUpDescription,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    final radius = BorderRadius.circular(
+      shapes.radius(PrismTokens.radiusLarge),
+    );
+
+    return SafeArea(
+      top: false,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            PrismTokens.pageHorizontalPadding,
+            28,
+            PrismTokens.pageHorizontalPadding,
+            28 + NavBarInset.of(context),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: GlassSurface(
+              borderRadius: radius,
+              tint: accent,
+              backgroundColor: _setupCardFill(theme, accent),
+              borderColor: accent.withValues(alpha: 0.16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: accent.withValues(alpha: 0.18),
+                            blurRadius: 28,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: GlassSurface.circle(
+                        size: 82,
+                        tint: accent,
+                        backgroundColor: accent.withValues(alpha: 0.08),
+                        borderColor: accent.withValues(alpha: 0.24),
+                        child: PhosphorIcon(
+                          AppIcons.duotoneSync,
+                          size: 48,
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    context.l10n.syncNotSetUp,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    context.l10n.syncNotSetUpDescription,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  _SetupBenefitPoint(
+                    icon: AppIcons.duotoneLock,
+                    title: 'Private by design',
+                    subtitle: 'The server cannot read your Prism data.',
+                    tint: accent,
+                  ),
+                  const SizedBox(height: 12),
+                  _SetupBenefitPoint(
+                    icon: AppIcons.duotoneDevices,
+                    title: 'Keeps devices current',
+                    subtitle:
+                        'Changes you make here show up on your other devices.',
+                    tint: accent,
+                  ),
+                  const SizedBox(height: 12),
+                  _SetupBenefitPoint(
+                    icon: AppIcons.duotoneKey,
+                    title: 'Use your recovery phrase',
+                    subtitle:
+                        'The 12 words and PIN you set up when you installed Prism.',
+                    tint: accent,
+                  ),
+                  const SizedBox(height: 26),
+                  PrismButton(
+                    label: context.l10n.syncSetupButton,
+                    icon: AppIcons.lockOutline,
+                    tone: PrismButtonTone.filled,
+                    expanded: true,
+                    onPressed: () => context.push(AppRoutePaths.syncSetup),
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
-            PrismButton(
-              label: context.l10n.syncSetupButton,
-              icon: AppIcons.lockOutline,
-              tone: PrismButtonTone.filled,
-              onPressed: () => context.push(AppRoutePaths.syncSetup),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _SetupBenefitPoint extends StatelessWidget {
+  const _SetupBenefitPoint({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.tint,
+  });
+
+  final PhosphorIconData icon;
+  final String title;
+  final String subtitle;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        TintedGlassSurface.circle(
+          size: 42,
+          tint: tint,
+          tintStrength: 0.12,
+          borderColor: tint.withValues(alpha: 0.14),
+          child: PhosphorIcon(icon, size: 24, color: tint),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Color _setupCardFill(ThemeData theme, Color accent) {
+  final isDark = theme.brightness == Brightness.dark;
+  final surface = isDark
+      ? theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.34)
+      : theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.70);
+  return Color.alphaBlend(
+    accent.withValues(alpha: isDark ? 0.035 : 0.025),
+    surface,
+  );
 }
 
 class _JoinOnlyReplaceSetupView extends ConsumerWidget {
@@ -631,7 +777,6 @@ class _ConfiguredView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final syncStatus = ref.watch(syncStatusProvider);
     final syncHealth = ref.watch(syncHealthProvider);
     final handleAsync = ref.watch(prismSyncHandleProvider);
@@ -659,6 +804,9 @@ class _ConfiguredView extends ConsumerWidget {
       hasDeviceSecret: pairingDeviceSecretAsync.value ?? false,
       hasWrappedDek: pairingWrappedDekAsync.value ?? false,
     );
+    final canVerifySavedBackup =
+        canSetUpAnotherDevice && nodeId != null && nodeId.isNotEmpty;
+    final canChangePin = syncHealth == SyncHealthState.healthy;
 
     final quarantinedAsync = ref.watch(quarantinedItemsProvider);
 
@@ -675,13 +823,23 @@ class _ConfiguredView extends ConsumerWidget {
     return ListView(
       padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
       children: [
-        // Status card — no section title, stands alone at top
-        _StatusCard(
-          syncStatus: syncStatus,
-          hasActiveHandle: handle != null,
-          handleIsLoading: isHandleLoading,
-          canAttemptReconnect: hasRelayUrl,
-          wsConnected: wsConnected,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            PrismTokens.pageHorizontalPadding,
+            PrismTokens.sectionSpacing,
+            PrismTokens.pageHorizontalPadding,
+            0,
+          ),
+          child: _SyncSummaryPanel(
+            syncStatus: syncStatus,
+            hasActiveHandle: handle != null,
+            handleIsLoading: isHandleLoading,
+            canAttemptReconnect: hasRelayUrl,
+            wsConnected: wsConnected,
+            syncDatabaseReady: syncDatabaseReady,
+            canSyncNow: canSyncNow,
+            onSyncNow: () => _syncNow(context, ref, handle, relayUrl),
+          ),
         ),
 
         // Some local changes couldn't fit one sync envelope and were
@@ -690,37 +848,13 @@ class _ConfiguredView extends ConsumerWidget {
         if (syncStatus.quarantinedBatchCount > 0)
           _QuarantineMainBanner(count: syncStatus.quarantinedBatchCount),
 
-        // Primary actions
         PrismSection(
-          title: 'Sync',
+          title: context.l10n.syncDevicesSectionTitle,
           child: PrismGroupedSectionCard(
             child: Column(
               children: [
-                PrismSettingsRow(
-                  icon: AppIcons.sync,
-                  title: context.l10n.syncNowTitle,
-                  subtitle: isSyncActive
-                      ? context.l10n.syncInProgress
-                      : !syncDatabaseReady
-                      ? 'Sync database needs repair before syncing.'
-                      : isHandleLoading
-                      ? context.l10n.syncStatusWaiting
-                      : context.l10n.syncNowSubtitle,
-                  showChevron: false,
-                  enabled: canSyncNow,
-                  trailing: isSyncActive || isHandleLoading
-                      ? PrismSpinner(
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 20,
-                        )
-                      : null,
-                  onTap: canSyncNow
-                      ? () => _syncNow(context, ref, handle, relayUrl)
-                      : null,
-                ),
                 if (syncHealth ==
                     SyncHealthState.runtimeDekRestoreDeferred) ...[
-                  const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.passwordOutlined,
                     title: 'Recover sync access',
@@ -738,7 +872,8 @@ class _ConfiguredView extends ConsumerWidget {
                   ),
                 ],
                 if (handle != null) ...[
-                  const Divider(height: 1, indent: 60, endIndent: 12),
+                  if (syncHealth == SyncHealthState.runtimeDekRestoreDeferred)
+                    const Divider(height: 1, indent: 60, endIndent: 12),
                   if (canSetUpAnotherDevice &&
                       nodeId != null &&
                       nodeId.isNotEmpty) ...[
@@ -764,38 +899,43 @@ class _ConfiguredView extends ConsumerWidget {
                     },
                   ),
                 ],
-                if (syncHealth == SyncHealthState.healthy) ...[
-                  const Divider(height: 1, indent: 60, endIndent: 12),
-                  PrismSettingsRow(
-                    icon: AppIcons.passwordOutlined,
-                    title: context.l10n.syncChangePassword,
-                    subtitle: context.l10n.syncChangePasswordSubtitle,
-                    enabled: !isSyncActive,
-                    onTap: () => ChangePinSheet.show(context),
-                  ),
-                ],
               ],
             ),
           ),
         ),
 
-        // Recovery — verify saved backup
-        if (canSetUpAnotherDevice && nodeId != null && nodeId.isNotEmpty)
+        if (canChangePin || canVerifySavedBackup)
           PrismSection(
-            title: 'Recovery',
+            title: context.l10n.syncSecuritySectionTitle,
             child: PrismGroupedSectionCard(
-              child: PrismSettingsRow(
-                icon: AppIcons.shieldOutlined,
-                title: context.l10n.verifyBackupRowTitle,
-                subtitle: context.l10n.verifyBackupRowSubtitle,
-                onTap: () {
-                  showAdaptiveDetailSurface<void>(
-                    context: context,
-                    builder: (_) => const VerifyBackupScreen(),
-                    route: (context) =>
-                        context.push(AppRoutePaths.settingsSyncVerifyBackup),
-                  );
-                },
+              child: Column(
+                children: [
+                  if (canChangePin)
+                    PrismSettingsRow(
+                      icon: AppIcons.passwordOutlined,
+                      title: context.l10n.syncChangePassword,
+                      subtitle: context.l10n.syncChangePasswordSubtitle,
+                      enabled: !isSyncActive,
+                      onTap: () => ChangePinSheet.show(context),
+                    ),
+                  if (canChangePin && canVerifySavedBackup)
+                    const Divider(height: 1, indent: 60, endIndent: 12),
+                  if (canVerifySavedBackup)
+                    PrismSettingsRow(
+                      icon: AppIcons.shieldOutlined,
+                      title: context.l10n.verifyBackupRowTitle,
+                      subtitle: context.l10n.verifyBackupRowSubtitle,
+                      onTap: () {
+                        showAdaptiveDetailSurface<void>(
+                          context: context,
+                          builder: (_) => const VerifyBackupScreen(),
+                          route: (context) => context.push(
+                            AppRoutePaths.settingsSyncVerifyBackup,
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
             ),
           ),
@@ -803,7 +943,6 @@ class _ConfiguredView extends ConsumerWidget {
         // Sync preferences — centralises sync-behaviour toggles from other screens
         PrismSection(
           title: context.l10n.syncPreferencesSection,
-          description: context.l10n.syncPreferencesDescription,
           child: PrismGroupedSectionCard(
             child: Column(
               children: [
@@ -868,50 +1007,25 @@ class _ConfiguredView extends ConsumerWidget {
             ),
           ),
 
-        // Connection details — always visible, no toggle
-        PrismSection(
-          title: context.l10n.syncDetailsSection,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            PrismTokens.pageHorizontalPadding,
+            PrismTokens.sectionSpacing,
+            PrismTokens.pageHorizontalPadding,
+            PrismTokens.sectionSpacing,
+          ),
           child: PrismGroupedSectionCard(
-            child: Column(
-              children: [
-                _SyncEntityCountRows(),
-                const Divider(height: 1),
-                _DetailRow(label: context.l10n.syncRelayLabel, value: relayUrl),
-                const Divider(height: 1),
-                _DetailRow(label: context.l10n.syncIdLabel, value: syncId),
-                const Divider(height: 1),
-                _DetailRow(
-                  label: context.l10n.syncNodeIdLabel,
-                  value: nodeId ?? context.l10n.syncNodeIdNotInitialised,
-                ),
-                if (syncStatus.lastError != null) ...[
-                  const Divider(height: 1),
-                  PrismListRow(
-                    dense: true,
-                    leading: Icon(
-                      AppIcons.errorOutline,
-                      size: 20,
-                      color: theme.colorScheme.error,
-                    ),
-                    title: Text(syncStatus.lastError!),
-                    destructive: true,
-                  ),
-                ],
-                const Divider(height: 1),
-                PrismSettingsRow(
-                  icon: AppIcons.buildCircleOutlined,
-                  title: context.l10n.syncTroubleshootingLink,
-                  onTap: () {
-                    showAdaptiveDetailSurface<void>(
-                      context: context,
-                      builder: (_) => const SyncTroubleshootingScreen(),
-                      route: (context) => context.push(
-                        AppRoutePaths.settingsSyncTroubleshooting,
-                      ),
-                    );
-                  },
-                ),
-              ],
+            child: PrismSettingsRow(
+              icon: AppIcons.buildCircleOutlined,
+              title: context.l10n.syncTroubleshootingLink,
+              onTap: () {
+                showAdaptiveDetailSurface<void>(
+                  context: context,
+                  builder: (_) => const SyncTroubleshootingScreen(),
+                  route: (context) =>
+                      context.push(AppRoutePaths.settingsSyncTroubleshooting),
+                );
+              },
             ),
           ),
         ),
@@ -999,8 +1113,8 @@ class _ConfiguredView extends ConsumerWidget {
 }
 
 const _syncDatabaseNeedsRepairMessage =
-    'Sync database needs repair. Open Sync troubleshooting to reset sync '
-    'and re-pair this device.';
+    'Sync database needs repair. Open Advanced to reset sync and re-pair '
+    'this device.';
 
 bool _watchSyncDatabaseReadyForUi(WidgetRef ref) {
   try {
@@ -1026,8 +1140,8 @@ class _SyncAppearanceToggle extends ConsumerWidget {
     return PrismSwitchRow(
       icon: AppIcons.paletteOutlined,
       iconColor: Colors.deepPurple,
-      title: context.l10n.syncAppearanceToggleTitle,
-      subtitle: context.l10n.syncAppearanceToggleDescription,
+      title: context.l10n.syncPreferenceAppearanceTitle,
+      subtitle: context.l10n.syncPreferenceAppearanceSubtitle,
       value: value,
       onChanged: (v) =>
           ref.read(settingsNotifierProvider.notifier).updateSyncThemeEnabled(v),
@@ -1044,8 +1158,8 @@ class _IgnoreSyncedAppearanceToggle extends ConsumerWidget {
     return PrismSwitchRow(
       icon: AppIcons.devicesOther,
       iconColor: Colors.blueGrey,
-      title: context.l10n.syncIgnoreAppearanceTitle,
-      subtitle: context.l10n.syncIgnoreAppearanceDescription,
+      title: context.l10n.syncPreferenceLocalAppearanceTitle,
+      subtitle: context.l10n.syncPreferenceLocalAppearanceSubtitle,
       value: value,
       onChanged: (v) =>
           ref.read(ignoreSyncedAppearanceProvider.notifier).set(v),
@@ -1061,8 +1175,8 @@ class _SyncNavigationToggle extends ConsumerWidget {
     return PrismSwitchRow(
       icon: AppIcons.tabOutlined,
       iconColor: Colors.teal,
-      title: context.l10n.syncNavigationLayoutTitle,
-      subtitle: context.l10n.syncNavigationLayoutSubtitle,
+      title: context.l10n.syncPreferenceNavigationTitle,
+      subtitle: context.l10n.syncPreferenceNavigationSubtitle,
       value: value,
       onChanged: (v) => ref
           .read(settingsNotifierProvider.notifier)
@@ -1071,9 +1185,7 @@ class _SyncNavigationToggle extends ConsumerWidget {
   }
 }
 
-/// Top-of-screen banner shown when local push batches were quarantined for
-/// exceeding the relay body cap (e.g. an oversized avatar). Taps through to the
-/// Troubleshooting screen, where the count, explanation, and Repair action live.
+/// Banner shown when local push batches were quarantined.
 class _QuarantineMainBanner extends StatelessWidget {
   const _QuarantineMainBanner({required this.count});
 
@@ -1144,67 +1256,139 @@ class _QuarantineItemTile extends StatelessWidget {
   }
 }
 
-/// Shows synced entity counts (total and last 24h) in the Details section.
-class _SyncEntityCountRows extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final countsAsync = ref.watch(syncEntityCountsProvider);
+class _SyncSummaryPanel extends StatefulWidget {
+  const _SyncSummaryPanel({
+    required this.syncStatus,
+    required this.hasActiveHandle,
+    required this.handleIsLoading,
+    required this.canAttemptReconnect,
+    required this.wsConnected,
+    required this.syncDatabaseReady,
+    required this.canSyncNow,
+    required this.onSyncNow,
+  });
 
-    return countsAsync.when(
-      data: (counts) => Column(
-        children: [
-          _DetailRow(
-            label: context.l10n.syncLast24h,
-            value: context.l10n.syncEntitiesCount(counts.last24h),
-          ),
-          const Divider(height: 1),
-          _DetailRow(
-            label: context.l10n.syncTotal,
-            value: context.l10n.syncEntitiesCount(counts.total),
-          ),
-        ],
-      ),
-      loading: () => Column(
-        children: [
-          _DetailRow(label: context.l10n.syncLast24h, value: '...'),
-          const Divider(height: 1),
-          _DetailRow(label: context.l10n.syncTotal, value: '...'),
-        ],
-      ),
-      error: (_, _) => const SizedBox.shrink(),
-    );
-  }
+  final SyncStatus syncStatus;
+  final bool hasActiveHandle;
+  final bool handleIsLoading;
+  final bool canAttemptReconnect;
+  final bool wsConnected;
+  final bool syncDatabaseReady;
+  final bool canSyncNow;
+  final VoidCallback onSyncNow;
+
+  @override
+  State<_SyncSummaryPanel> createState() => _SyncSummaryPanelState();
 }
 
-/// Compact detail row for the Details section — label on the left, value on the right.
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+class _SyncSummaryPanelState extends State<_SyncSummaryPanel> {
+  static const _syncingShowDelay = Duration(milliseconds: 350);
+  static const _syncingMinVisible = Duration(milliseconds: 800);
 
-  final String label;
-  final String value;
+  Timer? _syncingTimer;
+  bool _showSyncing = false;
+  DateTime? _syncingShownAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncPresentationState();
+  }
+
+  @override
+  void didUpdateWidget(_SyncSummaryPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.syncStatus.isSyncing != widget.syncStatus.isSyncing) {
+      _syncPresentationState();
+    }
+  }
+
+  @override
+  void dispose() {
+    _syncingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _syncPresentationState() {
+    _syncingTimer?.cancel();
+    _syncingTimer = null;
+
+    if (widget.syncStatus.isSyncing) {
+      if (_showSyncing) return;
+      _syncingTimer = Timer(_syncingShowDelay, () {
+        if (!mounted || !widget.syncStatus.isSyncing) return;
+        setState(() {
+          _showSyncing = true;
+          _syncingShownAt = DateTime.now();
+        });
+      });
+      return;
+    }
+
+    if (!_showSyncing) return;
+    final shownAt = _syncingShownAt;
+    final visibleFor = shownAt == null
+        ? _syncingMinVisible
+        : DateTime.now().difference(shownAt);
+    final remaining = _syncingMinVisible - visibleFor;
+    if (remaining <= Duration.zero) {
+      setState(() {
+        _showSyncing = false;
+        _syncingShownAt = null;
+      });
+      return;
+    }
+
+    _syncingTimer = Timer(remaining, () {
+      if (!mounted || widget.syncStatus.isSyncing) return;
+      setState(() {
+        _showSyncing = false;
+        _syncingShownAt = null;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: theme.textTheme.bodyMedium),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              value,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
+    final visibleStatus = _visibleSyncStatus(widget.syncStatus, _showSyncing);
+    final buttonIsBusy = _showSyncing || widget.handleIsLoading;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatusCard(
+          syncStatus: visibleStatus,
+          hasActiveHandle: widget.hasActiveHandle,
+          handleIsLoading: widget.handleIsLoading,
+          canAttemptReconnect: widget.canAttemptReconnect,
+          wsConnected: widget.wsConnected,
+          syncDatabaseReady: widget.syncDatabaseReady,
+        ),
+        const SizedBox(height: PrismTokens.sectionSpacing),
+        PrismButton(
+          label: _showSyncing
+              ? context.l10n.syncSummaryActivitySyncing
+              : context.l10n.syncNowTitle,
+          icon: AppIcons.sync,
+          tone: PrismButtonTone.outlined,
+          density: PrismControlDensity.regular,
+          expanded: true,
+          enabled: widget.canSyncNow && !buttonIsBusy,
+          isLoading: buttonIsBusy,
+          semanticLabel: context.l10n.syncNowTitle,
+          onPressed: widget.onSyncNow,
+        ),
+      ],
+    );
+  }
+
+  SyncStatus _visibleSyncStatus(SyncStatus status, bool isSyncing) {
+    return SyncStatus(
+      isSyncing: isSyncing,
+      lastSyncAt: status.lastSyncAt,
+      pendingOps: status.pendingOps,
+      lastError: status.lastError,
+      hasQuarantinedItems: status.hasQuarantinedItems,
+      quarantinedBatchCount: status.quarantinedBatchCount,
     );
   }
 }
@@ -1216,6 +1400,7 @@ class _StatusCard extends StatelessWidget {
     required this.handleIsLoading,
     required this.canAttemptReconnect,
     required this.wsConnected,
+    required this.syncDatabaseReady,
   });
 
   final SyncStatus syncStatus;
@@ -1223,107 +1408,121 @@ class _StatusCard extends StatelessWidget {
   final bool handleIsLoading;
   final bool canAttemptReconnect;
   final bool wsConnected;
+  final bool syncDatabaseReady;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shapes = PrismShapes.of(context);
+    final summary = buildSyncSummaryPresentation(
+      syncStatus: syncStatus,
+      hasActiveHandle: hasActiveHandle,
+      handleIsLoading: handleIsLoading,
+      canAttemptReconnect: canAttemptReconnect,
+      wsConnected: wsConnected,
+      syncDatabaseReady: syncDatabaseReady,
+    );
+    final statusColor = _summaryColor(theme, summary.tone);
+    final radius = BorderRadius.circular(
+      shapes.radius(PrismTokens.radiusLarge),
+    );
+    final headline = _summaryHeadlineText(context, summary.headline);
+    final detail = _summaryDetailText(context, summary);
+    final error = syncStatus.lastError;
+    final semanticParts = [headline, detail, ?error];
 
-    final Color statusColor;
-    final IconData statusIcon;
-    final String statusText;
-    final String statusDetail;
-
-    if (syncStatus.lastError != null) {
-      statusColor = theme.colorScheme.error;
-      statusIcon = AppIcons.syncProblem;
-      statusText = context.l10n.syncStatusError;
-      statusDetail = syncStatus.lastError!;
-    } else if (syncStatus.isSyncing) {
-      statusColor = theme.colorScheme.primary;
-      statusIcon = AppIcons.sync;
-      statusText = context.l10n.syncStatusSyncing;
-      statusDetail = context.l10n.syncStatusSyncInProgress;
-    } else if (syncStatus.lastSyncAt != null && syncStatus.hasSyncIssues) {
-      statusColor = Colors.amber.shade700;
-      statusIcon = AppIcons.cloudDone;
-      statusText = context.l10n.syncStatusSyncedWithIssues;
-      statusDetail = _formatTime(syncStatus.lastSyncAt!, context);
-    } else if (syncStatus.lastSyncAt != null) {
-      statusColor = Colors.green;
-      statusIcon = AppIcons.cloudDone;
-      statusText = context.l10n.syncStatusLastSynced;
-      statusDetail = _formatTime(syncStatus.lastSyncAt!, context);
-    } else if (hasActiveHandle || handleIsLoading) {
-      statusColor = theme.colorScheme.primary;
-      statusIcon = AppIcons.cloudQueue;
-      statusText = context.l10n.syncStatusReadyToSync;
-      statusDetail = context.l10n.syncStatusWaiting;
-    } else if (canAttemptReconnect) {
-      statusColor = theme.colorScheme.outline;
-      statusIcon = AppIcons.cloudOff;
-      statusText = context.l10n.syncStatusNeedsReconnect;
-      statusDetail = context.l10n.syncStatusTapToReconnect;
-    } else {
-      statusColor = theme.colorScheme.outline;
-      statusIcon = AppIcons.cloudOff;
-      statusText = context.l10n.syncStatusNeedsReconnect;
-      statusDetail = '';
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: PrismSectionCard(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+    return Semantics(
+      container: true,
+      label: semanticParts.join(', '),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: GlassSurface(
+          borderRadius: radius,
+          backgroundColor: _summaryCardFill(theme, statusColor),
+          borderColor: statusColor.withValues(alpha: 0.18),
+          padding: EdgeInsets.zero,
+          child: Stack(
             children: [
-              Icon(statusIcon, color: statusColor, size: 36),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      statusText,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: statusColor,
-                      ),
-                    ),
-                    if (statusDetail.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        statusDetail,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          wsConnected
-                              ? AppIcons.cellTower
-                              : AppIcons.signalWifiOff,
-                          size: 12,
-                          color: wsConnected
-                              ? Colors.green
-                              : theme.colorScheme.outlineVariant,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          wsConnected
-                              ? context.l10n.syncRealTimeConnected
-                              : context.l10n.syncRealTimeDisconnected,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: wsConnected
-                                ? Colors.green
-                                : theme.colorScheme.outlineVariant,
-                          ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.transparent,
+                        statusColor.withValues(
+                          alpha: theme.brightness == Brightness.dark
+                              ? 0.08
+                              : 0.06,
                         ),
                       ],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: statusColor.withValues(alpha: 0.16),
+                            blurRadius: 20,
+                          ),
+                        ],
+                      ),
+                      child: GlassSurface.circle(
+                        size: 56,
+                        tint: statusColor,
+                        backgroundColor: statusColor.withValues(alpha: 0.08),
+                        borderColor: statusColor.withValues(alpha: 0.22),
+                        child: PhosphorIcon(
+                          _summaryIcon(summary.headline),
+                          color: statusColor,
+                          size: 34,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            headline,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            detail,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.25,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (error != null && error != detail) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              error,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1341,5 +1540,83 @@ class _StatusCard extends StatelessWidget {
     if (diff.inMinutes < 60) return context.l10n.syncMinutesAgo(diff.inMinutes);
     if (diff.inHours < 24) return context.l10n.syncHoursAgo(diff.inHours);
     return context.l10n.syncDaysAgo(diff.inDays);
+  }
+
+  String _summaryHeadlineText(
+    BuildContext context,
+    SyncSummaryHeadline headline,
+  ) => switch (headline) {
+    SyncSummaryHeadline.connected => context.l10n.syncSummaryConnected,
+    SyncSummaryHeadline.reconnecting => context.l10n.syncSummaryReconnecting,
+    SyncSummaryHeadline.needsAttention =>
+      context.l10n.syncSummaryNeedsAttention,
+    SyncSummaryHeadline.offline => context.l10n.syncSummaryOffline,
+  };
+
+  String? _summaryActivityText(
+    BuildContext context,
+    SyncSummaryPresentation summary,
+  ) => switch (summary.activity) {
+    SyncSummaryActivity.checkingForChanges =>
+      context.l10n.syncSummaryActivityChecking,
+    SyncSummaryActivity.syncing => context.l10n.syncSummaryActivitySyncing,
+    SyncSummaryActivity.pendingUploads =>
+      context.l10n.syncSummaryPendingUploads(summary.pendingUploads),
+    SyncSummaryActivity.reconnecting =>
+      context.l10n.syncSummaryActivityReconnecting,
+    SyncSummaryActivity.needsRepair => context.l10n.syncSummaryNeedsRepair,
+    SyncSummaryActivity.none => null,
+  };
+
+  String _summaryDetailText(
+    BuildContext context,
+    SyncSummaryPresentation summary,
+  ) {
+    final synced = _summarySyncedText(context);
+    final activity = _summaryActivityText(context, summary);
+    if (activity == null ||
+        summary.activity == SyncSummaryActivity.checkingForChanges) {
+      return synced;
+    }
+    return '$activity · $synced';
+  }
+
+  String _summarySyncedText(BuildContext context) {
+    final lastSyncAt = syncStatus.lastSyncAt;
+    if (lastSyncAt == null) return context.l10n.syncSummaryNeverSynced;
+    final diff = DateTime.now().difference(lastSyncAt);
+    if (diff.inSeconds < 60) return context.l10n.syncSummarySyncedJustNow;
+    return context.l10n.syncSummarySyncedAt(_formatTime(lastSyncAt, context));
+  }
+
+  PhosphorIconData _summaryIcon(SyncSummaryHeadline headline) {
+    return switch (headline) {
+      SyncSummaryHeadline.connected => AppIcons.duotoneCloudCheck,
+      SyncSummaryHeadline.reconnecting => AppIcons.duotoneSync,
+      SyncSummaryHeadline.needsAttention => AppIcons.duotoneWarning,
+      SyncSummaryHeadline.offline => AppIcons.duotoneCloudOff,
+    };
+  }
+
+  Color _summaryColor(ThemeData theme, SyncSummaryTone tone) {
+    final isDark = theme.brightness == Brightness.dark;
+    return switch (tone) {
+      SyncSummaryTone.healthy =>
+        isDark ? const Color(0xFF78C99A) : const Color(0xFF287A52),
+      SyncSummaryTone.warning =>
+        isDark ? const Color(0xFFD6B65D) : const Color(0xFF8A6400),
+      SyncSummaryTone.error => theme.colorScheme.error,
+    };
+  }
+
+  Color _summaryCardFill(ThemeData theme, Color statusColor) {
+    final isDark = theme.brightness == Brightness.dark;
+    final surface = isDark
+        ? theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.34)
+        : theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.70);
+    return Color.alphaBlend(
+      statusColor.withValues(alpha: isDark ? 0.035 : 0.025),
+      surface,
+    );
   }
 }

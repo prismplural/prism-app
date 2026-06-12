@@ -49,6 +49,8 @@ abstract final class AppRoutePaths {
   static const settingsPluralkitSyncDebug = '/settings/pluralkit/sync-debug';
   static const settingsMigration = '/settings/migration';
   static const settingsSyncTroubleshooting = '/settings/sync-troubleshooting';
+  static const settingsSyncTroubleshootingTips =
+      '/settings/sync-troubleshooting/tips';
   static const settingsDevices = '/settings/devices';
   static const settingsSyncVerifyBackup = '/settings/sync/verify-backup';
   static const settingsDataBrowser = '/settings/data-browser';

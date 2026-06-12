@@ -715,7 +715,7 @@
   "@syncUnableToLoad": {
     "description": "Title shown when sync settings fail to load"
   },
-  "syncNotSetUp": "Sync is not set up",
+  "syncNotSetUp": "Enable Prism Sync",
   "@syncNotSetUp": {
     "description": "Title when sync has not been configured"
   },
@@ -743,7 +743,7 @@
   "@syncSetUpAnotherDevice": {
     "description": "Settings row title: set up another device"
   },
-  "syncSetUpAnotherDeviceSubtitle": "Generate a pairing QR code",
+  "syncSetUpAnotherDeviceSubtitle": "Scan a pairing code",
   "@syncSetUpAnotherDeviceSubtitle": {
     "description": "Settings row subtitle: set up another device"
   },
@@ -771,13 +771,37 @@
   "@syncViewSecretKeySubtitle": {
     "description": "Settings row subtitle: view secret key"
   },
-  "syncPreferencesSection": "Sync Preferences",
+  "syncPreferencesSection": "Preferences",
   "@syncPreferencesSection": {
     "description": "Section title for sync preferences"
   },
   "syncPreferencesDescription": "Control what settings are shared across your devices via sync.",
   "@syncPreferencesDescription": {
     "description": "Description for sync preferences section"
+  },
+  "syncPreferenceAppearanceTitle": "Appearance",
+  "@syncPreferenceAppearanceTitle": {
+    "description": "Toggle title in Prism Sync preferences for sharing appearance settings"
+  },
+  "syncPreferenceAppearanceSubtitle": "Share appearance settings across devices.",
+  "@syncPreferenceAppearanceSubtitle": {
+    "description": "Toggle subtitle in Prism Sync preferences for sharing appearance settings"
+  },
+  "syncPreferenceLocalAppearanceTitle": "Local appearance",
+  "@syncPreferenceLocalAppearanceTitle": {
+    "description": "Toggle title in Prism Sync preferences for ignoring incoming synced appearance settings"
+  },
+  "syncPreferenceLocalAppearanceSubtitle": "Do not apply appearance changes from other devices.",
+  "@syncPreferenceLocalAppearanceSubtitle": {
+    "description": "Toggle subtitle in Prism Sync preferences for ignoring incoming synced appearance settings"
+  },
+  "syncPreferenceNavigationTitle": "Navigation",
+  "@syncPreferenceNavigationTitle": {
+    "description": "Toggle title in Prism Sync preferences for sharing navigation layout"
+  },
+  "syncPreferenceNavigationSubtitle": "Share tab order across devices.",
+  "@syncPreferenceNavigationSubtitle": {
+    "description": "Toggle subtitle in Prism Sync preferences for sharing navigation layout"
   },
   "syncNavigationLayoutTitle": "Sync navigation layout",
   "@syncNavigationLayoutTitle": {
@@ -839,19 +863,19 @@
   "@syncNodeIdNotInitialised": {
     "description": "Value for node ID when not yet initialised"
   },
-  "syncTroubleshootingLink": "Troubleshooting",
+  "syncTroubleshootingLink": "Advanced",
   "@syncTroubleshootingLink": {
     "description": "Settings row title: troubleshooting link"
   },
-  "syncLast24h": "Synced last 24h",
+  "syncLast24h": "Last 24h",
   "@syncLast24h": {
     "description": "Label for synced last 24h count"
   },
-  "syncTotal": "Total synced",
+  "syncTotal": "Total",
   "@syncTotal": {
     "description": "Label for total synced count"
   },
-  "syncEntitiesCount": "{count} entities",
+  "syncEntitiesCount": "{count, plural, =1{1 entity} other{{count} entities}}",
   "@syncEntitiesCount": {
     "description": "Number of synced entities",
     "placeholders": {
@@ -872,6 +896,76 @@
         "type": "Object"
       }
     }
+  },
+  "syncSummarySectionTitle": "Prism Sync",
+  "@syncSummarySectionTitle": {
+    "description": "Settings sync summary section title"
+  },
+  "syncDevicesSectionTitle": "Devices",
+  "@syncDevicesSectionTitle": {
+    "description": "Settings sync device-management section title"
+  },
+  "syncSecuritySectionTitle": "Security",
+  "@syncSecuritySectionTitle": {
+    "description": "Settings sync security and recovery-actions section title"
+  },
+  "syncSummaryConnected": "Connected",
+  "@syncSummaryConnected": {
+    "description": "Sync summary headline: connected state"
+  },
+  "syncSummaryReconnecting": "Reconnecting",
+  "@syncSummaryReconnecting": {
+    "description": "Sync summary headline: reconnecting state"
+  },
+  "syncSummaryNeedsAttention": "Needs attention",
+  "@syncSummaryNeedsAttention": {
+    "description": "Sync summary headline: warning or error state"
+  },
+  "syncSummaryOffline": "Offline",
+  "@syncSummaryOffline": {
+    "description": "Sync summary headline: offline state"
+  },
+  "syncSummaryActivityChecking": "Checking for changes...",
+  "@syncSummaryActivityChecking": {
+    "description": "Sync summary activity chip: idle connected state"
+  },
+  "syncSummaryActivitySyncing": "Syncing...",
+  "@syncSummaryActivitySyncing": {
+    "description": "Sync summary activity chip: active sync state"
+  },
+  "syncSummaryActivityReconnecting": "Reconnecting...",
+  "@syncSummaryActivityReconnecting": {
+    "description": "Sync summary activity chip: reconnecting state"
+  },
+  "syncSummaryNeedsRepair": "Needs repair",
+  "@syncSummaryNeedsRepair": {
+    "description": "Sync summary activity chip: sync database repair needed"
+  },
+  "syncSummaryPendingUploads": "{count, plural, =1{1 pending upload} other{{count} pending uploads}}",
+  "@syncSummaryPendingUploads": {
+    "description": "Sync summary activity chip: local changes waiting to upload",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "syncSummarySyncedJustNow": "Synced just now",
+  "@syncSummarySyncedJustNow": {
+    "description": "Sync summary chip: last successful sync was moments ago"
+  },
+  "syncSummarySyncedAt": "Synced {timeAgo}",
+  "@syncSummarySyncedAt": {
+    "description": "Sync summary chip: last successful sync time",
+    "placeholders": {
+      "timeAgo": {
+        "type": "String"
+      }
+    }
+  },
+  "syncSummaryNeverSynced": "Never synced",
+  "@syncSummaryNeverSynced": {
+    "description": "Sync summary chip: no successful sync yet"
   },
   "syncStatusError": "Prism sync error",
   "@syncStatusError": {
@@ -2380,7 +2474,7 @@
   "@devicesIdCopied": {
     "description": "Toast when device ID is copied to clipboard"
   },
-  "syncTroubleshootingTitle": "Prism Sync Troubleshooting",
+  "syncTroubleshootingTitle": "Advanced",
   "@syncTroubleshootingTitle": {
     "description": "Title of the sync troubleshooting screen"
   },
@@ -2500,35 +2594,88 @@
   "@syncTroubleshootingRelayUrl": {
     "description": "Row title: relay URL"
   },
+  "syncTroubleshootingSupportInfo": "Support info",
+  "@syncTroubleshootingSupportInfo": {
+    "description": "Section header for copyable sync identifiers used in support requests"
+  },
+  "syncTroubleshootingNeedsAttention": "Needs attention",
+  "@syncTroubleshootingNeedsAttention": {
+    "description": "Section header for active sync errors or repairable sync issues"
+  },
+  "syncTroubleshootingActivity": "Activity",
+  "@syncTroubleshootingActivity": {
+    "description": "Section header for lower-priority sync activity and stats"
+  },
+  "syncTroubleshootingCopied": "{label} copied",
+  "@syncTroubleshootingCopied": {
+    "description": "Toast when a sync support identifier is copied to clipboard",
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
   "syncTroubleshootingActions": "Actions",
   "@syncTroubleshootingActions": {
     "description": "Section header: actions"
   },
-  "syncTroubleshootingForceSync": "Force Sync",
+  "syncTroubleshootingForceSync": "Sync now",
   "@syncTroubleshootingForceSync": {
     "description": "Button: force sync now"
+  },
+  "syncTroubleshootingForceSyncSubtitle": "Push and pull pending changes right away.",
+  "@syncTroubleshootingForceSyncSubtitle": {
+    "description": "Subtitle for the manual sync action row"
   },
   "syncTroubleshootingOpenEventLog": "Open Prism Sync Event Log",
   "@syncTroubleshootingOpenEventLog": {
     "description": "Button: open sync event log"
   },
-  "syncTroubleshootingResetSync": "Reset Sync System",
+  "syncTroubleshootingResetSync": "Reset sync",
   "@syncTroubleshootingResetSync": {
     "description": "Button: reset sync system"
   },
-  "syncTroubleshootingRepair": "Re-pair Device",
-  "@syncTroubleshootingRepair": {
-    "description": "Button: re-pair device"
+  "syncTroubleshootingResetSyncSubtitle": "Clear sync setup on this device; local data stays.",
+  "@syncTroubleshootingResetSyncSubtitle": {
+    "description": "Subtitle for the reset sync action row"
   },
-  "syncTroubleshootingCommonIssues": "Common Issues",
-  "@syncTroubleshootingCommonIssues": {
-    "description": "Section header: common issues"
+  "syncTroubleshootingTipsTitle": "Troubleshooting tips",
+  "@syncTroubleshootingTipsTitle": {
+    "description": "Title for sync troubleshooting tips row and detail screen"
+  },
+  "syncTroubleshootingTipsSubtitle": "Common fixes for connection, duplicate, and pairing issues.",
+  "@syncTroubleshootingTipsSubtitle": {
+    "description": "Subtitle for row linking to sync troubleshooting tips"
+  },
+  "syncTroubleshootingDiagnostics": "Diagnostics",
+  "@syncTroubleshootingDiagnostics": {
+    "description": "Section header for advanced sync diagnostic links"
+  },
+  "syncTroubleshootingDiagnosticsSubtitle": "Technical logs for support and deeper debugging; not usually needed for everyday fixes.",
+  "@syncTroubleshootingDiagnosticsSubtitle": {
+    "description": "Short description for the advanced sync diagnostics section"
+  },
+  "syncTroubleshootingEventLogTitle": "Sync event log",
+  "@syncTroubleshootingEventLogTitle": {
+    "description": "Row title for the sync event log diagnostics screen"
+  },
+  "syncTroubleshootingEventLogSubtitle": "Stream of sync events from this session",
+  "@syncTroubleshootingEventLogSubtitle": {
+    "description": "Row subtitle for the sync event log diagnostics screen"
+  },
+  "syncTroubleshootingCryptoStorageTitle": "Crypto storage",
+  "@syncTroubleshootingCryptoStorageTitle": {
+    "description": "Row title for the sync crypto storage diagnostics screen"
+  },
+  "syncTroubleshootingCryptoStorageSubtitle": "Keychain inventory and per-boot snapshot history",
+  "@syncTroubleshootingCryptoStorageSubtitle": {
+    "description": "Row subtitle for the sync crypto storage diagnostics screen"
   },
   "syncTroubleshootingIssue1Title": "Sync not working?",
   "@syncTroubleshootingIssue1Title": {
     "description": "Common issue 1 title"
   },
-  "syncTroubleshootingIssue1Description": "Check that your relay URL and sync ID are correctly configured in Sync settings. Both devices must use the same sync ID.",
+  "syncTroubleshootingIssue1Description": "Check that the relay URL and sync ID match on both devices.",
   "@syncTroubleshootingIssue1Description": {
     "description": "Common issue 1 description"
   },
@@ -2560,7 +2707,7 @@
   "@syncTroubleshootingIssue5Title": {
     "description": "Common issue 5 title"
   },
-  "syncTroubleshootingIssue5Description": "If pairing failed mid-way, your device identity may be inconsistent. Use \"Re-pair Device\" to generate a fresh identity and pair again.",
+  "syncTroubleshootingIssue5Description": "If pairing failed mid-way, your device identity may be inconsistent. Use Reset sync to clear this device's sync identity, then pair again.",
   "@syncTroubleshootingIssue5Description": {
     "description": "Common issue 5 description"
   },
@@ -2577,15 +2724,15 @@
       }
     }
   },
-  "syncTroubleshootingResetTitle": "Reset sync system?",
+  "syncTroubleshootingResetTitle": "Reset sync setup?",
   "@syncTroubleshootingResetTitle": {
     "description": "Dialog title for sync reset"
   },
-  "syncTroubleshootingResetMessage": "This keeps your local app data, but wipes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.",
+  "syncTroubleshootingResetMessage": "This clears sync credentials, relay settings, device identity, and sync history on this device. Your local Prism data stays here.\n\nAfter reset, Prism will return to the sync setup screen so you can pair again. Export first if you want an extra backup before changing sync setup.",
   "@syncTroubleshootingResetMessage": {
     "description": "Dialog message for sync reset"
   },
-  "syncTroubleshootingResetConfirm": "Reset",
+  "syncTroubleshootingResetConfirm": "Reset sync",
   "@syncTroubleshootingResetConfirm": {
     "description": "Button: confirm sync reset"
   },
@@ -2593,37 +2740,9 @@
   "@syncTroubleshootingResetSuccess": {
     "description": "Toast after sync reset"
   },
-  "syncTroubleshootingRepairTitle": "Re-pair Device?",
-  "@syncTroubleshootingRepairTitle": {
-    "description": "Dialog title for re-pair"
-  },
-  "syncTroubleshootingRepairMessage": "This will clear your sync credentials and require you to pair again. Any local changes not yet synced will be lost.\n\nWe recommend exporting your data first as a safety net.",
-  "@syncTroubleshootingRepairMessage": {
-    "description": "Dialog message for re-pair"
-  },
-  "syncTroubleshootingRepairNow": "Re-pair Now",
-  "@syncTroubleshootingRepairNow": {
-    "description": "Button: re-pair now"
-  },
-  "syncTroubleshootingExportFirst": "Export Data First",
-  "@syncTroubleshootingExportFirst": {
-    "description": "Button: export data first before re-pair"
-  },
-  "syncTroubleshootingCredentialsCleared": "Sync credentials cleared",
-  "@syncTroubleshootingCredentialsCleared": {
-    "description": "Toast after credentials cleared"
-  },
-  "syncTroubleshootingPluralKitSection": "PluralKit",
-  "@syncTroubleshootingPluralKitSection": {
-    "description": "Section header for PluralKit-related sync troubleshooting actions"
-  },
-  "syncTroubleshootingPkRepairTitle": "Open PluralKit group repair",
-  "@syncTroubleshootingPkRepairTitle": {
-    "description": "Row title linking to PluralKit group repair from sync troubleshooting"
-  },
-  "syncTroubleshootingPkRepairSubtitle": "Use the PluralKit setup screen to run group repair and check any suppressed PK group matches.",
-  "@syncTroubleshootingPkRepairSubtitle": {
-    "description": "Row subtitle linking to PluralKit group repair from sync troubleshooting"
+  "syncTroubleshootingBackupFirst": "Back up first",
+  "@syncTroubleshootingBackupFirst": {
+    "description": "Button: go to import/export before resetting sync"
   },
   "featureChatDescription": "Internal messaging between system {term}.",
   "@featureChatDescription": {
