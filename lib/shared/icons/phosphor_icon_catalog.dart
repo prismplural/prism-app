@@ -10,6 +10,18 @@ class PhosphorIconCatalogEntry {
   final String name;
   final IconData icon;
 
+  PhosphorIconCatalogEntry get fillVariant => PhosphorIconCatalogEntry(
+    '$name-fill',
+    IconData(
+      // ignore: non_const_argument_for_const_parameter
+      icon.codePoint,
+      fontFamily: 'PhosphorFill',
+      // ignore: non_const_argument_for_const_parameter
+      fontPackage: icon.fontPackage,
+      matchTextDirection: icon.matchTextDirection,
+    ),
+  );
+
   String get label => name
       .split('-')
       .map(
@@ -23,7 +35,11 @@ class PhosphorIconCatalogEntry {
 abstract final class PhosphorIconCatalog {
   static final RegExp _normalizationPattern = RegExp(r'[^a-z0-9]+');
 
-  static const entries = <PhosphorIconCatalogEntry>[
+  static final entries = <PhosphorIconCatalogEntry>[
+    for (final entry in _regularEntries) ...[entry, entry.fillVariant],
+  ];
+
+  static const _regularEntries = <PhosphorIconCatalogEntry>[
     PhosphorIconCatalogEntry('acorn', PhosphorIconsRegular.acorn),
     PhosphorIconCatalogEntry('address-book', PhosphorIconsRegular.addressBook),
     PhosphorIconCatalogEntry(

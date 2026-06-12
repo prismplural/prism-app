@@ -47,6 +47,29 @@ void main() {
     expect(find.byIcon(heart), findsOneWidget);
   });
 
+  testWidgets('renders a persisted filled phosphor header icon by name', (
+    tester,
+  ) async {
+    final heart = PhosphorIconCatalog.iconFor('heart-fill')!;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomFieldHeaderIconView(
+          field: field(
+            id: 'song',
+            type: CustomFieldType.text,
+            fieldTypeId: 'text',
+            typeConfig: const TextConfig(
+              headerIcon: CustomFieldHeaderIcon.phosphor('heart-fill'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(heart), findsOneWidget);
+  });
+
   testWidgets('renders emoji header icons without avatar centering transform', (
     tester,
   ) async {

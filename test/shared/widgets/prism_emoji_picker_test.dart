@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/emoji/prism_emoji_set.dart';
 import 'package:prism_plurality/shared/icons/phosphor_icon_catalog.dart';
@@ -156,12 +157,23 @@ void main() {
     );
   });
 
-  test('phosphor catalog exposes searchable regular icons by stable name', () {
-    expect(PhosphorIconCatalog.iconFor('heart'), isNotNull);
+  test('phosphor catalog exposes searchable regular and fill icons', () {
+    final regularHeart = PhosphorIconCatalog.iconFor('heart');
+    final fillHeart = PhosphorIconCatalog.iconFor('heart-fill');
+
+    expect(regularHeart, isNotNull);
+    expect(fillHeart, isNotNull);
+    expect(fillHeart, PhosphorIconsFill.heart);
+    expect(fillHeart!.codePoint, regularHeart!.codePoint);
+    expect(fillHeart.fontFamily, 'PhosphorFill');
     expect(PhosphorIconCatalog.iconFor('users-three'), isNotNull);
     expect(
       PhosphorIconCatalog.search('heart').map((entry) => entry.name),
       contains('heart'),
+    );
+    expect(
+      PhosphorIconCatalog.search('heart fill').map((entry) => entry.name),
+      contains('heart-fill'),
     );
   });
 
@@ -225,6 +237,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selected, const PrismIconSelection.phosphor('heart'));
+  });
+
+  testWidgets('combined picker searches and selects filled phosphor icons', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    PrismIconSelection? selected;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: PrismIconPicker(
+              mode: PrismIconPickerMode.both,
+              onSelected: (value) => selected = value,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(PrismIconPicker));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Icons'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.bySemanticsLabel('Search icons'), 'heart fill');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('phosphor-icon-heart-fill')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('phosphor-icon-heart-fill')));
+    await tester.pumpAndSettle();
+
+    expect(selected, const PrismIconSelection.phosphor('heart-fill'));
   });
 
   testWidgets('picker trigger opens from keyboard activation', (tester) async {
