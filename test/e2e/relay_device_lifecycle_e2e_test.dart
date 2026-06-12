@@ -67,6 +67,67 @@ String deviceStatus(String dbPath, String syncId, String deviceId) {
   }
 }
 
+/// Mirror of the Rust 90d auto-revoke cleanup pass: age a device
+/// `days` into the past, flip it to `revoked`, and flag the group `needs_rekey`
+/// — exactly the relay-side state that used to deadlock standalone rekey AND
+/// new-device pairing forever. The relay must be stopped before calling.
+void ageOfflineAndAutoRevoke(String dbPath, String syncId, String deviceId, {int days = 91}) {
+  final db = sqlite3.open(dbPath);
+  try {
+    final past = DateTime.now().millisecondsSinceEpoch ~/ 1000 - days * _secsPerDay;
+    db.execute(
+      "UPDATE devices SET last_seen_at = ?, status = 'revoked', revoked_at = ? "
+      'WHERE sync_id = ? AND device_id = ?',
+      [past, past, syncId, deviceId],
+    );
+    expect(db.updatedRows, 1, reason: 'should auto-revoke exactly one device row');
+    db.execute(
+      'UPDATE sync_groups SET needs_rekey = 1 WHERE sync_id = ?',
+      [syncId],
+    );
+    expect(db.updatedRows, 1, reason: 'should flag exactly one group needs_rekey');
+  } finally {
+    db.close();
+  }
+}
+
+/// Read a group's `needs_rekey` flag (0/1) from the relay sqlite.
+int groupNeedsRekey(String dbPath, String syncId) {
+  final db = sqlite3.open(dbPath);
+  try {
+    final rows = db.select('SELECT needs_rekey FROM sync_groups WHERE sync_id = ?', [syncId]);
+    return rows.isEmpty ? -1 : rows.first['needs_rekey'] as int;
+  } finally {
+    db.close();
+  }
+}
+
+/// Read a group's `current_epoch` from the relay sqlite.
+int groupEpoch(String dbPath, String syncId) {
+  final db = sqlite3.open(dbPath);
+  try {
+    final rows = db.select('SELECT current_epoch FROM sync_groups WHERE sync_id = ?', [syncId]);
+    return rows.isEmpty ? -1 : rows.first['current_epoch'] as int;
+  } finally {
+    db.close();
+  }
+}
+
+/// Count rekey artifacts stored for a target device at a given epoch.
+int rekeyArtifactCount(String dbPath, String syncId, int epoch, String deviceId) {
+  final db = sqlite3.open(dbPath);
+  try {
+    final rows = db.select(
+      'SELECT COUNT(*) AS n FROM rekey_artifacts '
+      'WHERE sync_id = ? AND epoch = ? AND target_device_id = ?',
+      [syncId, epoch, deviceId],
+    );
+    return rows.first['n'] as int;
+  } finally {
+    db.close();
+  }
+}
+
 void main() {
   setUpAll(() async {
     if (e2eSkip() != null) return;
@@ -144,6 +205,79 @@ void main() {
           reason: "B's stranded op must propagate to A after recovery",
         );
       } finally {
+        b?.dispose();
+        a?.dispose();
+        relay.stop();
+        try {
+          dbDir.deleteSync(recursive: true);
+        } catch (_) {}
+      }
+    },
+  );
+
+  test(
+    'F29: pairing a new device succeeds after a 90d auto-revoke left the group '
+    'needs_rekey (was a permanent deadlock)',
+    skip: e2eSkip(),
+    () async {
+      final port = await findFreePort();
+      final dbDir = Directory.systemTemp.createTempSync('e2e_relay_f29');
+      final dbPath = '${dbDir.path}/relay.db';
+
+      var relay = await spawnRelay(port: port, dbPath: dbPath);
+      E2EDevice? a;
+      E2EDevice? b;
+      E2EDevice? c;
+      try {
+        a = await createDevice(relay);
+        b = await pairNewDevice(relay, a);
+        final bCreds = await credsOf(b);
+
+        // B abandons the group: stop the relay, mirror the 90d auto-revoke
+        // (B -> revoked, group flagged needs_rekey, no epoch bump), restart.
+        relay.stop();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        final epochBefore = groupEpoch(dbPath, a.syncId);
+        ageOfflineAndAutoRevoke(dbPath, a.syncId, bCreds.deviceId);
+        expect(deviceStatus(dbPath, a.syncId, bCreds.deviceId), 'revoked');
+        expect(groupNeedsRekey(dbPath, a.syncId), 1, reason: 'group owes a forced rekey');
+
+        relay = await spawnRelay(port: port, dbPath: dbPath);
+
+        // Pair a NEW device C. complete_bootstrap_initiator runs the standalone
+        // post_prepared_rekey that the stuck needs_rekey flag used to 409
+        // forever. After the cleanup it must succeed.
+        c = await pairNewDevice(relay, a);
+        final cCreds = await credsOf(c);
+
+        // Stop the relay to read its sqlite consistently.
+        relay.stop();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        // The flag cleared and the epoch advanced past the pre-pairing value.
+        expect(
+          groupNeedsRekey(dbPath, a.syncId),
+          0,
+          reason: 'pairing rekey must clear needs_rekey',
+        );
+        final epochAfter = groupEpoch(dbPath, a.syncId);
+        expect(
+          epochAfter,
+          greaterThan(epochBefore),
+          reason: 'pairing rekey advanced the epoch',
+        );
+
+        // C is active; B stays revoked with NO artifact for the new epoch (the
+        // auto-revoked device never receives a post-revocation epoch key).
+        expect(deviceStatus(dbPath, a.syncId, cCreds.deviceId), 'active');
+        expect(deviceStatus(dbPath, a.syncId, bCreds.deviceId), 'revoked');
+        expect(
+          rekeyArtifactCount(dbPath, a.syncId, epochAfter, bCreds.deviceId),
+          0,
+          reason: 'revoked B must have no wrapped key at the post-pairing epoch',
+        );
+      } finally {
+        c?.dispose();
         b?.dispose();
         a?.dispose();
         relay.stop();
