@@ -161,6 +161,44 @@ void main() {
     );
 
     testWidgets(
+      'saving text field with a phosphor header icon writes TextConfig',
+      (tester) async {
+        _useTallViewport(tester);
+        final notifier = _FakeCustomFieldNotifier();
+        await tester.pumpWidget(_buildSheet(notifier: notifier));
+        await tester.pumpAndSettle();
+
+        final nameField = find.byType(TextField).first;
+        await tester.enterText(nameField, 'Favorite Song');
+        await tester.pump();
+
+        expect(find.text('Header icon'), findsOneWidget);
+        await tester.tap(find.byTooltip('Pick icon'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Icons'));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.bySemanticsLabel('Search icons'), 'heart');
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('phosphor-icon-heart')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('Save'));
+        await tester.pumpAndSettle();
+
+        expect(notifier.lastCreated, isNotNull);
+        final config = notifier.lastCreated!.typeConfig;
+        expect(config, isA<TextConfig>());
+        expect(
+          (config! as TextConfig).headerIcon,
+          const CustomFieldHeaderIcon.phosphor('heart'),
+        );
+      },
+    );
+
+    testWidgets(
       'flipping toggle OFF produces TextConfig(hideTitleOnProfile: true)',
       (tester) async {
         _useTallViewport(tester);
@@ -277,6 +315,38 @@ void main() {
         );
       },
     );
+
+    testWidgets('clearing the only text header icon clears the stored config', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final existingField = CustomField(
+        id: 'field-text-icon-clear',
+        name: 'Favorite Song',
+        fieldType: CustomFieldType.text,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026, 1, 1),
+        fieldTypeId: 'text',
+        typeConfig: const TextConfig(
+          headerIcon: CustomFieldHeaderIcon.phosphor('heart'),
+        ),
+      );
+      final notifier = _FakeCustomFieldNotifier();
+      await tester.pumpWidget(
+        _buildSheet(field: existingField, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Clear icon'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Save'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.clearTypedConfigCalled, isTrue);
+      expect(notifier.lastClearedConfigFieldId, 'field-text-icon-clear');
+      expect(notifier.lastWrittenConfig, isNull);
+    });
   });
 
   group('Create/Edit Field Sheet — Show title toggle: Member type', () {

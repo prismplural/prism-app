@@ -11575,6 +11575,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldDisplaySectionHeader => 'Display';
 
   @override
+  String get customFieldHeaderIconLabel => 'Icono del encabezado';
+
+  @override
+  String get customFieldHeaderIconSubtitle =>
+      'Se muestra junto al campo en ajustes y perfiles.';
+
+  @override
   String get customFieldGroupUntitledFallback => 'Untitled group';
 
   @override

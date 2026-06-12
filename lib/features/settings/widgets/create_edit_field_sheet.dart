@@ -16,6 +16,7 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/icons/prism_icon_selection.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -26,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_color_picker_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -122,6 +124,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   bool _sliderShowTicks = false;
 
   bool _hideTitleOnProfile = false;
+  CustomFieldHeaderIcon? _headerIcon;
   DisplayLayout? _memberDisplayLayout;
 
   bool _saving = false;
@@ -135,6 +138,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       _selectedPrecision != _initialPrecision ||
       _hideTitleOnProfile !=
           effectiveHideTitleOnProfile(widget.field?.typeConfig) ||
+      _headerIcon != effectiveHeaderIcon(widget.field?.typeConfig) ||
       (_selectedTypeId == 'choice' && _isChoiceDirty) ||
       (_selectedTypeId == 'scale' && _isScaleDirty) ||
       (_selectedTypeId == 'slider' && _isSliderDirty) ||
@@ -244,6 +248,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     _sliderMaxController = TextEditingController(text: '10');
     _sliderStepController = TextEditingController(text: '1');
     _sliderUnitController = TextEditingController();
+    _headerIcon = effectiveHeaderIcon(f?.typeConfig);
     if (f != null) {
       // Derive canonical type ID. Prefer fieldTypeId (registry-first); fall
       // back to looking up the legacy enum's int in the registry.
@@ -443,6 +448,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         options: synced,
         allowsMultiple: _choiceAllowsMultiple,
         allowsOther: _choiceAllowsOther,
+        headerIcon: _headerIcon,
         hideTitleOnProfile: _hideTitleOnProfile,
       );
     }
@@ -450,6 +456,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       options: synced,
       allowsMultiple: _choiceAllowsMultiple,
       allowsOther: _choiceAllowsOther,
+      headerIcon: _headerIcon,
       hideTitleOnProfile: _hideTitleOnProfile,
     );
   }
@@ -467,6 +474,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         emoji: _scaleEmoji,
         steps: _scaleSteps,
         displayLayout: _scaleDisplayLayout,
+        headerIcon: _headerIcon,
         hideTitleOnProfile: _hideTitleOnProfile,
       );
     }
@@ -474,6 +482,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       emoji: _scaleEmoji,
       steps: _scaleSteps,
       displayLayout: _scaleDisplayLayout,
+      headerIcon: _headerIcon,
       hideTitleOnProfile: _hideTitleOnProfile,
     );
   }
@@ -484,9 +493,15 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   GroupConfig _buildGroupConfig() {
     final existing = widget.field?.typeConfig;
     if (existing is GroupConfig) {
-      return existing.copyWith(hideTitleOnProfile: _hideTitleOnProfile);
+      return existing.copyWith(
+        headerIcon: _headerIcon,
+        hideTitleOnProfile: _hideTitleOnProfile,
+      );
     }
-    return GroupConfig(hideTitleOnProfile: _hideTitleOnProfile);
+    return GroupConfig(
+      headerIcon: _headerIcon,
+      hideTitleOnProfile: _hideTitleOnProfile,
+    );
   }
 
   // ── Slider helpers ──────────────────────────────────────────────────
@@ -549,6 +564,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           centerColorHex: colors.centerColorHex,
           gradientColorsHex: colors.gradientColorsHex,
           snapToPositions: _sliderSnapToPositions,
+          headerIcon: _headerIcon,
           hideTitleOnProfile: _hideTitleOnProfile,
         );
       }
@@ -563,6 +579,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         centerColorHex: colors.centerColorHex,
         gradientColorsHex: colors.gradientColorsHex,
         snapToPositions: _sliderSnapToPositions,
+        headerIcon: _headerIcon,
         hideTitleOnProfile: _hideTitleOnProfile,
       );
     } else {
@@ -573,6 +590,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           step: double.tryParse(_sliderStepController.text.trim()) ?? 1,
           unit: _sliderTextToNull(_sliderUnitController),
           showTicks: _sliderShowTicks,
+          headerIcon: _headerIcon,
           hideTitleOnProfile: _hideTitleOnProfile,
         );
       }
@@ -583,6 +601,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         step: double.tryParse(_sliderStepController.text.trim()) ?? 1,
         unit: _sliderTextToNull(_sliderUnitController),
         showTicks: _sliderShowTicks,
+        headerIcon: _headerIcon,
         hideTitleOnProfile: _hideTitleOnProfile,
       );
     }
@@ -597,8 +616,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final extra = existing is TextConfig
         ? existing.extra
         : const <String, dynamic>{};
-    if (!_hideTitleOnProfile && extra.isEmpty) return null;
-    return TextConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+    if (!_hideTitleOnProfile && _headerIcon == null && extra.isEmpty) {
+      return null;
+    }
+    return TextConfig(
+      headerIcon: _headerIcon,
+      hideTitleOnProfile: _hideTitleOnProfile,
+      extra: extra,
+    );
   }
 
   /// Returns null when at default — see [_buildTextConfig].
@@ -607,8 +632,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final extra = existing is ColorConfig
         ? existing.extra
         : const <String, dynamic>{};
-    if (!_hideTitleOnProfile && extra.isEmpty) return null;
-    return ColorConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+    if (!_hideTitleOnProfile && _headerIcon == null && extra.isEmpty) {
+      return null;
+    }
+    return ColorConfig(
+      headerIcon: _headerIcon,
+      hideTitleOnProfile: _hideTitleOnProfile,
+      extra: extra,
+    );
   }
 
   /// Returns null when at default — see [_buildTextConfig].
@@ -617,8 +648,14 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final extra = existing is DateConfig
         ? existing.extra
         : const <String, dynamic>{};
-    if (!_hideTitleOnProfile && extra.isEmpty) return null;
-    return DateConfig(hideTitleOnProfile: _hideTitleOnProfile, extra: extra);
+    if (!_hideTitleOnProfile && _headerIcon == null && extra.isEmpty) {
+      return null;
+    }
+    return DateConfig(
+      headerIcon: _headerIcon,
+      hideTitleOnProfile: _hideTitleOnProfile,
+      extra: extra,
+    );
   }
 
   /// Returns null when at default — see [_buildTextConfig].
@@ -627,8 +664,11 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final extra = existing is LongTextConfig
         ? existing.extra
         : const <String, dynamic>{};
-    if (!_hideTitleOnProfile && extra.isEmpty) return null;
+    if (!_hideTitleOnProfile && _headerIcon == null && extra.isEmpty) {
+      return null;
+    }
     return LongTextConfig(
+      headerIcon: _headerIcon,
       hideTitleOnProfile: _hideTitleOnProfile,
       extra: extra,
     );
@@ -640,11 +680,15 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     final extra = existing is MemberConfig
         ? existing.extra
         : const <String, dynamic>{};
-    if (!_hideTitleOnProfile && _memberDisplayLayout == null && extra.isEmpty) {
+    if (!_hideTitleOnProfile &&
+        _headerIcon == null &&
+        _memberDisplayLayout == null &&
+        extra.isEmpty) {
       return null;
     }
     return MemberConfig(
       displayLayout: _memberDisplayLayout,
+      headerIcon: _headerIcon,
       hideTitleOnProfile: _hideTitleOnProfile,
       extra: extra,
     );
@@ -1105,6 +1149,13 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
                     const SizedBox(height: 24),
                     const _DisplaySectionHeader(),
+                    _HeaderIconConfigSection(
+                      headerIcon: _headerIcon,
+                      onIconSelected: (selection) => setState(
+                        () => _headerIcon = _headerIconFromSelection(selection),
+                      ),
+                      onIconCleared: () => setState(() => _headerIcon = null),
+                    ),
                     _ShowTitleConfigSection(
                       hideTitleOnProfile: _hideTitleOnProfile,
                       onHideTitleChanged: (v) =>
@@ -2559,6 +2610,75 @@ class _DisplaySectionHeader extends StatelessWidget {
       ],
     );
   }
+}
+
+// ── Shared header icon picker (all field types) ─────────────────────────────
+
+class _HeaderIconConfigSection extends StatelessWidget {
+  const _HeaderIconConfigSection({
+    required this.headerIcon,
+    required this.onIconSelected,
+    required this.onIconCleared,
+  });
+
+  final CustomFieldHeaderIcon? headerIcon;
+  final ValueChanged<PrismIconSelection> onIconSelected;
+  final VoidCallback onIconCleared;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          PrismIconPicker(
+            selection: _selectionFromHeaderIcon(headerIcon),
+            mode: PrismIconPickerMode.both,
+            size: 48,
+            onSelected: onIconSelected,
+            onCleared: headerIcon == null ? null : onIconCleared,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.customFieldHeaderIconLabel,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.customFieldHeaderIconSubtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+PrismIconSelection? _selectionFromHeaderIcon(CustomFieldHeaderIcon? icon) {
+  if (icon == null) return null;
+  final emoji = icon.emoji;
+  if (emoji != null) return PrismIconSelection.emoji(emoji);
+  final phosphorName = icon.phosphorName;
+  if (phosphorName != null) return PrismIconSelection.phosphor(phosphorName);
+  return null;
+}
+
+CustomFieldHeaderIcon _headerIconFromSelection(PrismIconSelection selection) {
+  final emoji = selection.emoji;
+  if (emoji != null) return CustomFieldHeaderIcon.emoji(emoji);
+  return CustomFieldHeaderIcon.phosphor(selection.phosphorName!);
 }
 
 // ── Shared show-title toggle (all field types) ──────────────────────────────

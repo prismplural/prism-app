@@ -18268,6 +18268,18 @@ abstract class AppLocalizations {
   /// **'Display'**
   String get customFieldDisplaySectionHeader;
 
+  /// Label for the custom field header icon picker in the field editor sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Header icon'**
+  String get customFieldHeaderIconLabel;
+
+  /// Subtitle explaining where a custom field header icon appears
+  ///
+  /// In en, this message translates to:
+  /// **'Shown beside the field in settings and profiles.'**
+  String get customFieldHeaderIconSubtitle;
+
   /// Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it
   ///
   /// In en, this message translates to:

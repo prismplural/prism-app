@@ -11378,6 +11378,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldDisplaySectionHeader => 'Display';
 
   @override
+  String get customFieldHeaderIconLabel => 'Header icon';
+
+  @override
+  String get customFieldHeaderIconSubtitle =>
+      'Shown beside the field in settings and profiles.';
+
+  @override
   String get customFieldGroupUntitledFallback => 'Untitled group';
 
   @override

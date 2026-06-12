@@ -3999,6 +3999,14 @@
   "@customFieldDisplaySectionHeader": {
     "description": "Small section header in the field editor sheet above presentation options like the show-title toggle"
   },
+  "customFieldHeaderIconLabel": "Icono del encabezado",
+  "@customFieldHeaderIconLabel": {
+    "description": "Label for the custom field header icon picker in the field editor sheet"
+  },
+  "customFieldHeaderIconSubtitle": "Se muestra junto al campo en ajustes y perfiles.",
+  "@customFieldHeaderIconSubtitle": {
+    "description": "Subtitle explaining where a custom field header icon appears"
+  },
   "customFieldGroupUntitledFallback": "Untitled group",
   "@customFieldGroupUntitledFallback": {
     "description": "Fallback label for a group whose name is empty; shown in the settings list and on the detail screen so users can still find/edit it"
