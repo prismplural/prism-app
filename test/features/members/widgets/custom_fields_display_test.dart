@@ -137,6 +137,30 @@ void main() {
     expect(find.text('🌸'), findsOneWidget);
   });
 
+  testWidgets('compact field row renders a custom header icon', (tester) async {
+    final nicknameField = CustomField(
+      id: 'nickname',
+      name: 'Nickname',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'text',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const TextConfig(
+        headerIcon: CustomFieldHeaderIcon.emoji('🧭'),
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [nicknameField],
+        values: [value(nicknameField.id, 'North')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Nickname'), findsOneWidget);
+    expect(find.text('🧭'), findsOneWidget);
+  });
+
   testWidgets(
     'member field display resolves selected ids as member chips without raw JSON',
     (tester) async {
@@ -403,6 +427,73 @@ void main() {
 
     expect(find.text('Vitals'), findsOneWidget);
     expect(find.text('🌈'), findsOneWidget);
+  });
+
+  testWidgets('compact group child renders a custom header icon', (
+    tester,
+  ) async {
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final childField = field('nickname', CustomFieldType.text, name: 'Nickname')
+        .copyWith(
+          parentFieldId: groupField.id,
+          typeConfig: const TextConfig(
+            headerIcon: CustomFieldHeaderIcon.emoji('🪪'),
+          ),
+        );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, 'A')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Nickname'), findsOneWidget);
+    expect(find.text('🪪'), findsOneWidget);
+  });
+
+  testWidgets('stacked group child renders a custom header icon', (
+    tester,
+  ) async {
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final childField = CustomField(
+      id: 'energy',
+      name: 'Energy',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      parentFieldId: groupField.id,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        headerIcon: CustomFieldHeaderIcon.emoji('🎚️'),
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, '64')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Energy'), findsOneWidget);
+    expect(find.text('🎚️'), findsOneWidget);
   });
 
   testWidgets('read-only slider semantics does not duplicate visible label', (

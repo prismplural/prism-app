@@ -349,6 +349,16 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                       context.push(AppRoutePaths.settingsComponentGallery),
                 ),
                 PrismListRow(
+                  leading: Icon(AppIcons.textFields),
+                  title: const Text('Custom field icon debug'),
+                  subtitle: const Text(
+                    'Compare emoji and icon title rendering',
+                  ),
+                  trailing: Icon(AppIcons.chevronRight),
+                  onTap: () =>
+                      context.push(AppRoutePaths.settingsCustomFieldIconDebug),
+                ),
+                PrismListRow(
                   leading: Icon(AppIcons.lock),
                   title: const Text('Crypto storage'),
                   subtitle: const Text(

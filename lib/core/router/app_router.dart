@@ -40,6 +40,7 @@ import '../../features/settings/views/palette_settings_screen.dart';
 import '../../features/settings/views/statistics_screen.dart';
 import '../../features/settings/views/database_diagnostics_screen.dart';
 import '../../features/settings/views/component_gallery_screen.dart';
+import '../../features/settings/views/custom_field_icon_debug_screen.dart';
 import '../../features/settings/views/debug_screen.dart';
 import '../../features/settings/views/error_history_screen.dart';
 import '../../features/settings/views/sync_debug_screen.dart';
@@ -546,6 +547,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                     redirect: (context, state) =>
                         !kReleaseMode ? null : AppRoutePaths.settings,
                     builder: (context, state) => const ComponentGalleryScreen(),
+                  ),
+                  GoRoute(
+                    path: 'custom-field-icon-debug',
+                    redirect: (context, state) =>
+                        !kReleaseMode ? null : AppRoutePaths.settings,
+                    builder: (context, state) =>
+                        const CustomFieldIconDebugScreen(),
                   ),
                   GoRoute(
                     path: 'sync-debug',

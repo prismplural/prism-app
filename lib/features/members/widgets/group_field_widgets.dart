@@ -284,8 +284,10 @@ class _GroupChildDisplay extends StatelessWidget {
             Flexible(
               flex: 2,
               fit: FlexFit.tight,
-              child: Text(
-                entry.child.name,
+              child: CustomFieldHeaderLabel(
+                field: entry.child,
+                iconSize: 16,
+                iconColor: theme.colorScheme.primary,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.35,
@@ -314,8 +316,10 @@ class _GroupChildDisplay extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          entry.child.name,
+        CustomFieldHeaderLabel(
+          field: entry.child,
+          iconSize: 16,
+          iconColor: theme.colorScheme.primary,
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w700,
             height: 1.25,

@@ -289,8 +289,10 @@ class _FieldValueRow extends StatelessWidget {
           Flexible(
             flex: 2,
             fit: FlexFit.tight,
-            child: Text(
-              entry.field.name,
+            child: CustomFieldHeaderLabel(
+              field: entry.field,
+              iconSize: 16,
+              iconColor: theme.colorScheme.primary,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 height: 1.35,
@@ -412,7 +414,6 @@ class _FieldValueStacked extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasHeaderIcon = effectiveHeaderIcon(entry.field.typeConfig) != null;
     final card = SizedBox(
       width: double.infinity,
       child: PrismSectionCard(
@@ -421,34 +422,15 @@ class _FieldValueStacked extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!hideTitle) ...[
-              if (hasHeaderIcon)
-                Row(
-                  children: [
-                    CustomFieldHeaderIconView(
-                      field: entry.field,
-                      size: 16,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        entry.field.name,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Text(
-                  entry.field.name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
+              CustomFieldHeaderLabel(
+                field: entry.field,
+                iconSize: 16,
+                iconColor: theme.colorScheme.primary,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
                 ),
+              ),
               const SizedBox(height: 8),
             ],
             _FieldValueBody(entry: entry),

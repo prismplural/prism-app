@@ -5,7 +5,7 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/shared/icons/phosphor_icon_catalog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/utils/text_presentation.dart';
 
 class CustomFieldHeaderIconView extends StatelessWidget {
   const CustomFieldHeaderIconView({
@@ -23,11 +23,19 @@ class CustomFieldHeaderIconView extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = effectiveHeaderIcon(field.typeConfig);
     final emoji = icon?.emoji;
-    if (emoji != null) {
+    if (emoji != null && emoji.trim().isNotEmpty) {
       return SizedBox.square(
         dimension: size,
-        child: Center(
-          child: MemberAvatar.centeredEmoji(emoji, fontSize: size * 0.88),
+        child: FittedBox(
+          fit: BoxFit.contain,
+          child: Text(
+            emoji,
+            textAlign: TextAlign.center,
+            style: textStyleForTextPresentation(
+              const TextStyle(fontSize: 64),
+              emoji,
+            ),
+          ),
         ),
       );
     }
@@ -40,6 +48,61 @@ class CustomFieldHeaderIconView extends StatelessWidget {
                 fallbackCustomFieldIcon(field),
       size: size,
       color: color,
+    );
+  }
+}
+
+class CustomFieldHeaderLabel extends StatelessWidget {
+  const CustomFieldHeaderLabel({
+    super.key,
+    required this.field,
+    this.style,
+    this.iconSize = 16,
+    this.iconColor,
+    this.spacing = 8,
+    this.showFallbackIcon = false,
+    this.maxLines,
+    this.overflow,
+  });
+
+  final CustomField field;
+  final TextStyle? style;
+  final double iconSize;
+  final Color? iconColor;
+  final double spacing;
+  final bool showFallbackIcon;
+  final int? maxLines;
+  final TextOverflow? overflow;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasExplicitIcon = effectiveHeaderIcon(field.typeConfig) != null;
+    if (!hasExplicitIcon && !showFallbackIcon) {
+      return Text(
+        field.name,
+        style: style,
+        maxLines: maxLines,
+        overflow: overflow,
+      );
+    }
+
+    return Row(
+      children: [
+        CustomFieldHeaderIconView(
+          field: field,
+          size: iconSize,
+          color: iconColor,
+        ),
+        SizedBox(width: spacing),
+        Expanded(
+          child: Text(
+            field.name,
+            style: style,
+            maxLines: maxLines,
+            overflow: overflow,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,6 +46,45 @@ void main() {
     );
 
     expect(find.byIcon(heart), findsOneWidget);
+  });
+
+  testWidgets('renders emoji header icons without avatar centering transform', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CustomFieldHeaderIconView(
+            size: 16,
+            field: field(
+              id: 'direction',
+              type: CustomFieldType.text,
+              fieldTypeId: 'text',
+              typeConfig: const TextConfig(
+                headerIcon: CustomFieldHeaderIcon.emoji('🧭'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('🧭'), findsOneWidget);
+      final iconRect = tester.getRect(find.byType(CustomFieldHeaderIconView));
+      final emojiRect = tester.getRect(find.text('🧭'));
+      expect(emojiRect.top, greaterThanOrEqualTo(iconRect.top));
+      expect(emojiRect.bottom, lessThanOrEqualTo(iconRect.bottom));
+      expect(
+        find.descendant(
+          of: find.byType(CustomFieldHeaderIconView),
+          matching: find.byType(Transform),
+        ),
+        findsNothing,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
   });
 
   testWidgets('falls back to the registry or legacy field type icon', (
