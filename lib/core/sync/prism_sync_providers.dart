@@ -4723,6 +4723,14 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           _queryQuarantinedBatchCount().then((count) {
             state = state.copyWith(quarantinedBatchCount: count);
           });
+        } else if (event.isSessionTokenRotated) {
+          // The relay minted a fresh device-session token via the signed
+          // /session/refresh recovery path (the transport + Rust secure store
+          // were already updated in-process). Persist it to the platform
+          // keychain so the next launch starts authenticated; the drain reads
+          // the now-updated Rust store, so it carries the new token. Skip if
+          // credentials were revoked so we never resurrect a wiped session.
+          _scheduleDrain();
         }
       });
     });

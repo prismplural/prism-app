@@ -31,6 +31,17 @@ class SyncEvent {
   bool get remoteWipe => data['remote_wipe'] as bool? ?? false;
   bool get isWebSocketStateChanged => type == 'WebSocketStateChanged';
 
+  /// The relay minted a fresh device-session token via the signed
+  /// `/session/refresh` recovery path. The app re-persists
+  /// [rotatedSessionToken] to the keychain so the next launch starts with a
+  /// valid credential; refresh-on-401 at launch is the fallback if missed.
+  bool get isSessionTokenRotated => type == 'SessionTokenRotated';
+
+  /// The new session token carried by a `SessionTokenRotated` event, or `null`
+  /// for any other event type / a malformed payload.
+  String? get rotatedSessionToken =>
+      isSessionTokenRotated ? data['token'] as String? : null;
+
   /// A local push batch was quarantined because its serialized envelope
   /// exceeded the relay's 1 MB body cap. Listeners refresh the
   /// quarantined-batch count so the sync troubleshooting screen can

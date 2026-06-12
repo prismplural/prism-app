@@ -202,6 +202,32 @@ void main() {
     expect(ctx.drainCount(), 1);
   });
 
+  test('drain fires on SessionTokenRotated event (F09 re-persist)', () async {
+    final ctx = bindContainer();
+    addTearDown(() async {
+      ctx.subscription.close();
+      ctx.eventSubscription.close();
+      ctx.container.dispose();
+      await ctx.controller.close();
+    });
+
+    final event = SyncEvent('SessionTokenRotated', {
+      'type': 'SessionTokenRotated',
+      'token': 'fresh-token',
+    });
+    // The decoder exposes the rotated token without an exhaustive match.
+    expect(event.isSessionTokenRotated, isTrue);
+    expect(event.rotatedSessionToken, 'fresh-token');
+
+    ctx.controller.add(event);
+    await Future<void>.delayed(settleAfterDebounce);
+    expect(
+      ctx.drainCount(),
+      1,
+      reason: 'a refreshed session token must be persisted via a drain',
+    );
+  });
+
   test('drain is SKIPPED on Auth error SyncCompleted', () async {
     final ctx = bindContainer();
     addTearDown(() async {
