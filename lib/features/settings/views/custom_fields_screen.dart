@@ -606,10 +606,12 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         : field.name;
 
     final Widget rowContent = PrismListRow(
-      leading: CustomFieldHeaderIconView(
-        field: field,
-        color: theme.colorScheme.primary,
-      ),
+      leading: hasRenderableCustomFieldHeaderIcon(field)
+          ? CustomFieldHeaderIconView(
+              field: field,
+              color: theme.colorScheme.primary,
+            )
+          : null,
       title: Text(
         displayName,
         style: isPlaceholderName

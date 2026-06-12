@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/shared/icons/phosphor_icon_catalog.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 
 void main() {
@@ -87,7 +86,7 @@ void main() {
     }
   });
 
-  testWidgets('falls back to the registry or legacy field type icon', (
+  testWidgets('renders nothing when no custom header icon is configured', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -98,6 +97,29 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(AppIcons.calendarToday), findsOneWidget);
+    expect(find.byType(CustomFieldHeaderIconView), findsOneWidget);
+    expect(find.byType(Icon), findsNothing);
+  });
+
+  testWidgets('does not reserve label icon space for unknown phosphor names', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomFieldHeaderLabel(
+          field: field(
+            id: 'birthday',
+            type: CustomFieldType.date,
+            typeConfig: const DateConfig(
+              headerIcon: CustomFieldHeaderIcon.phosphor('not-a-real-icon'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('birthday'), findsOneWidget);
+    expect(find.byType(CustomFieldHeaderIconView), findsNothing);
+    expect(find.byType(Icon), findsNothing);
   });
 }

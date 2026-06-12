@@ -429,6 +429,60 @@ void main() {
     expect(find.text('🌈'), findsOneWidget);
   });
 
+  testWidgets(
+    'group profile header without a custom icon does not add fallback icon',
+    (tester) async {
+      final groupField = CustomField(
+        id: 'group',
+        name: 'Vitals',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const GroupConfig(),
+      );
+      final childField = field(
+        'nickname',
+        CustomFieldType.text,
+        name: 'Nickname',
+      ).copyWith(parentFieldId: groupField.id);
+
+      await tester.pumpWidget(
+        subject(
+          fields: [groupField, childField],
+          values: [value(childField.id, 'A')],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Vitals'), findsOneWidget);
+      expect(find.byType(CustomFieldHeaderIconView), findsNothing);
+
+      final headerFinder = find.ancestor(
+        of: find.text('Vitals'),
+        matching: find.byWidgetPredicate((widget) {
+          if (widget is! DecoratedBox) return false;
+          final decoration = widget.decoration;
+          if (decoration is! BoxDecoration) return false;
+          final border = decoration.border;
+          if (border is! Border) return false;
+          return border.top == BorderSide.none &&
+              border.left == BorderSide.none &&
+              border.right == BorderSide.none &&
+              border.bottom != BorderSide.none;
+        }),
+      );
+      final cardFinder = find.ancestor(
+        of: find.text('Vitals'),
+        matching: find.byType(PrismSurface),
+      );
+      expect(headerFinder, findsOneWidget);
+      expect(cardFinder, findsOneWidget);
+      final headerWidth = tester.getRect(headerFinder).width;
+      final cardWidth = tester.getRect(cardFinder).width;
+      expect(headerWidth, greaterThan(cardWidth * 0.95));
+    },
+  );
+
   testWidgets('compact group child renders a custom header icon', (
     tester,
   ) async {

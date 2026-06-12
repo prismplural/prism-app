@@ -123,6 +123,7 @@ class _CustomFieldDetailBodyState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasHeaderIcon = hasRenderableCustomFieldHeaderIcon(field);
     final allFieldsAsync = ref.watch(topLevelCustomFieldsProvider);
     final allFields = allFieldsAsync.value ?? <CustomField>[];
     final isGroup = field.fieldTypeId == 'group';
@@ -216,12 +217,14 @@ class _CustomFieldDetailBodyState
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CustomFieldHeaderIconView(
-                      field: field,
-                      color: theme.colorScheme.primary,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
+                    if (hasHeaderIcon) ...[
+                      CustomFieldHeaderIconView(
+                        field: field,
+                        color: theme.colorScheme.primary,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/shared/icons/phosphor_icon_catalog.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/text_presentation.dart';
 
 class CustomFieldHeaderIconView extends StatelessWidget {
@@ -41,15 +39,21 @@ class CustomFieldHeaderIconView extends StatelessWidget {
     }
 
     final phosphorName = icon?.phosphorName;
-    return Icon(
-      phosphorName == null
-          ? fallbackCustomFieldIcon(field)
-          : PhosphorIconCatalog.iconFor(phosphorName) ??
-                fallbackCustomFieldIcon(field),
-      size: size,
-      color: color,
-    );
+    if (phosphorName == null) return const SizedBox.shrink();
+    final phosphorIcon = PhosphorIconCatalog.iconFor(phosphorName);
+    if (phosphorIcon == null) return const SizedBox.shrink();
+
+    return Icon(phosphorIcon, size: size, color: color);
   }
+}
+
+bool hasRenderableCustomFieldHeaderIcon(CustomField field) {
+  final icon = effectiveHeaderIcon(field.typeConfig);
+  final emoji = icon?.emoji;
+  if (emoji != null) return emoji.trim().isNotEmpty;
+  final phosphorName = icon?.phosphorName;
+  return phosphorName != null &&
+      PhosphorIconCatalog.iconFor(phosphorName) != null;
 }
 
 class CustomFieldHeaderLabel extends StatelessWidget {
@@ -60,7 +64,6 @@ class CustomFieldHeaderLabel extends StatelessWidget {
     this.iconSize = 16,
     this.iconColor,
     this.spacing = 8,
-    this.showFallbackIcon = false,
     this.maxLines,
     this.overflow,
   });
@@ -70,14 +73,12 @@ class CustomFieldHeaderLabel extends StatelessWidget {
   final double iconSize;
   final Color? iconColor;
   final double spacing;
-  final bool showFallbackIcon;
   final int? maxLines;
   final TextOverflow? overflow;
 
   @override
   Widget build(BuildContext context) {
-    final hasExplicitIcon = effectiveHeaderIcon(field.typeConfig) != null;
-    if (!hasExplicitIcon && !showFallbackIcon) {
+    if (!hasRenderableCustomFieldHeaderIcon(field)) {
       return Text(
         field.name,
         style: style,
@@ -105,17 +106,4 @@ class CustomFieldHeaderLabel extends StatelessWidget {
       ],
     );
   }
-}
-
-IconData fallbackCustomFieldIcon(CustomField field) {
-  final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
-  if (def != null) return def.icon;
-
-  return switch (field.fieldType) {
-    CustomFieldType.text => AppIcons.textFields,
-    CustomFieldType.longText => AppIcons.notes,
-    CustomFieldType.color => AppIcons.palette,
-    CustomFieldType.date => AppIcons.calendarToday,
-    CustomFieldType.choice => AppIcons.checkBoxOutlined,
-  };
 }

@@ -345,36 +345,29 @@ class _FieldValueCard extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: headerBgColor,
-                    border: Border(
-                      bottom: BorderSide(color: dividerColor, width: 1),
+                SizedBox(
+                  width: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: headerBgColor,
+                      border: Border(
+                        bottom: BorderSide(color: dividerColor, width: 1),
+                      ),
                     ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    child: Row(
-                      children: [
-                        CustomFieldHeaderIconView(
-                          field: entry.field,
-                          size: 16,
-                          color: theme.colorScheme.primary,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      child: CustomFieldHeaderLabel(
+                        field: entry.field,
+                        iconSize: 16,
+                        iconColor: theme.colorScheme.primary,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            entry.field.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              height: 1.25,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

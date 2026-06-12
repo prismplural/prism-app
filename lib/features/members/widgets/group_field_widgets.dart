@@ -347,20 +347,6 @@ Widget buildGroupCompact(
 
 // ─── Shared containers ────────────────────────────────────────────────────────
 
-/// Small map from string icon identifiers (stored in [GroupConfig.icon]) to
-/// [IconData] values. Extend as new group icon options are added.
-///
-/// Falls back to [AppIcons.folderOutlined] for unrecognised / null entries.
-IconData _iconForGroupConfig(String? iconName) {
-  return switch (iconName) {
-    'folderOutlined' => AppIcons.folderOutlined,
-    'notes' => AppIcons.notes,
-    'tuneOutlined' => AppIcons.tuneOutlined,
-    'accountTreeOutlined' => AppIcons.accountTreeOutlined,
-    _ => AppIcons.folderOutlined, // default + forward-compat
-  };
-}
-
 /// Header is rendered only when the group has a non-empty name and
 /// [GroupConfig.hideTitleOnProfile] is false. The Semantics label always
 /// carries something so screen readers announce the boundary either way.
@@ -382,8 +368,6 @@ class _GroupCard extends StatelessWidget {
     final groupConfig = field.typeConfig as GroupConfig?;
     final hideTitle = groupConfig?.hideTitleOnProfile ?? false;
     final showHeader = hasName && !hideTitle;
-    final hasCustomHeaderIcon = effectiveHeaderIcon(field.typeConfig) != null;
-    final fallbackHeaderIcon = _iconForGroupConfig(groupConfig?.icon);
     final semanticsLabel = hasName ? field.name : l10n.customFieldTypeGroup;
 
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
@@ -400,43 +384,29 @@ class _GroupCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showHeader)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: headerBgColor,
-                  border: Border(
-                    bottom: BorderSide(color: dividerColor, width: 1),
+              SizedBox(
+                width: double.infinity,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: headerBgColor,
+                    border: Border(
+                      bottom: BorderSide(color: dividerColor, width: 1),
+                    ),
                   ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      if (hasCustomHeaderIcon)
-                        CustomFieldHeaderIconView(
-                          field: field,
-                          size: 16,
-                          color: theme.colorScheme.primary,
-                        )
-                      else
-                        Icon(
-                          fallbackHeaderIcon,
-                          size: 16,
-                          color: theme.colorScheme.primary,
-                        ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          field.name,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            height: 1.25,
-                          ),
-                        ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    child: CustomFieldHeaderLabel(
+                      field: field,
+                      iconSize: 16,
+                      iconColor: theme.colorScheme.primary,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
