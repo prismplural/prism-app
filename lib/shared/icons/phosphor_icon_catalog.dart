@@ -21,6 +21,8 @@ class PhosphorIconCatalogEntry {
 }
 
 abstract final class PhosphorIconCatalog {
+  static final RegExp _normalizationPattern = RegExp(r'[^a-z0-9]+');
+
   static const entries = <PhosphorIconCatalogEntry>[
     PhosphorIconCatalogEntry('acorn', PhosphorIconsRegular.acorn),
     PhosphorIconCatalogEntry('address-book', PhosphorIconsRegular.addressBook),
@@ -3151,6 +3153,14 @@ abstract final class PhosphorIconCatalog {
     for (final entry in entries) entry.name: entry,
   };
 
+  static final Map<String, ({String name, String label})> _searchIndex = {
+    for (final entry in entries)
+      entry.name: (
+        name: _normalize(entry.name),
+        label: _normalize(entry.label),
+      ),
+  };
+
   static IconData? iconFor(String name) => _byName[name]?.icon;
 
   static Iterable<PhosphorIconCatalogEntry> search(String query) {
@@ -3158,12 +3168,12 @@ abstract final class PhosphorIconCatalog {
     if (normalized.isEmpty) return entries;
 
     return entries.where((entry) {
-      final name = _normalize(entry.name);
-      final label = _normalize(entry.label);
-      return name.contains(normalized) || label.contains(normalized);
+      final indexed = _searchIndex[entry.name]!;
+      return indexed.name.contains(normalized) ||
+          indexed.label.contains(normalized);
     });
   }
 
   static String _normalize(String value) =>
-      value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+      value.toLowerCase().replaceAll(_normalizationPattern, ' ').trim();
 }

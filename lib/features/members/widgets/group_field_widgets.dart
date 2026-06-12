@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/members/widgets/custom_field_renderers.
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -377,7 +378,8 @@ class _GroupCard extends StatelessWidget {
     final groupConfig = field.typeConfig as GroupConfig?;
     final hideTitle = groupConfig?.hideTitleOnProfile ?? false;
     final showHeader = hasName && !hideTitle;
-    final headerIcon = _iconForGroupConfig(groupConfig?.icon);
+    final hasCustomHeaderIcon = effectiveHeaderIcon(field.typeConfig) != null;
+    final fallbackHeaderIcon = _iconForGroupConfig(groupConfig?.icon);
     final semanticsLabel = hasName ? field.name : l10n.customFieldTypeGroup;
 
     final headerBgColor = theme.colorScheme.onSurface.withValues(alpha: 0.04);
@@ -408,11 +410,18 @@ class _GroupCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        headerIcon,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
+                      if (hasCustomHeaderIcon)
+                        CustomFieldHeaderIconView(
+                          field: field,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        )
+                      else
+                        Icon(
+                          fallbackHeaderIcon,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(

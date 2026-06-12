@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -349,6 +350,59 @@ void main() {
 
     expect(find.text('Energy'), findsOneWidget);
     expect(find.text('⚡'), findsOneWidget);
+  });
+
+  testWidgets(
+    'stacked field without a header icon does not add fallback icon',
+    (tester) async {
+      final sliderField = CustomField(
+        id: 'energy',
+        name: 'Energy',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'slider',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const SliderConfig(mode: SliderMode.labeled),
+      );
+
+      await tester.pumpWidget(
+        subject(fields: [sliderField], values: [value(sliderField.id, '64')]),
+      );
+      await tester.pump();
+
+      expect(find.text('Energy'), findsOneWidget);
+      expect(find.byType(CustomFieldHeaderIconView), findsNothing);
+    },
+  );
+
+  testWidgets('group profile header renders a custom header icon', (
+    tester,
+  ) async {
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(
+        headerIcon: CustomFieldHeaderIcon.emoji('🌈'),
+      ),
+    );
+    final childField = field(
+      'nickname',
+      CustomFieldType.text,
+      name: 'Nickname',
+    ).copyWith(parentFieldId: groupField.id);
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, 'A')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Vitals'), findsOneWidget);
+    expect(find.text('🌈'), findsOneWidget);
   });
 
   testWidgets('read-only slider semantics does not duplicate visible label', (
