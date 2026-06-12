@@ -14,6 +14,9 @@ ChoiceConfig _$ChoiceConfigFromJson(Map<String, dynamic> json) => ChoiceConfig(
       const <ChoiceOption>[],
   allowsMultiple: json['allowsMultiple'] as bool? ?? false,
   allowsOther: json['allowsOther'] as bool? ?? false,
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
@@ -23,12 +26,18 @@ Map<String, dynamic> _$ChoiceConfigToJson(ChoiceConfig instance) =>
       'options': instance.options,
       'allowsMultiple': instance.allowsMultiple,
       'allowsOther': instance.allowsOther,
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
 
 GroupConfig _$GroupConfigFromJson(Map<String, dynamic> json) => GroupConfig(
   icon: json['icon'] as String?,
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
@@ -36,6 +45,9 @@ GroupConfig _$GroupConfigFromJson(Map<String, dynamic> json) => GroupConfig(
 Map<String, dynamic> _$GroupConfigToJson(GroupConfig instance) =>
     <String, dynamic>{
       'icon': instance.icon,
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
@@ -50,6 +62,9 @@ ScaleConfig _$ScaleConfigFromJson(Map<String, dynamic> json) => ScaleConfig(
     _$DisplayLayoutEnumMap,
     json['displayLayout'],
   ),
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
@@ -60,6 +75,9 @@ Map<String, dynamic> _$ScaleConfigToJson(ScaleConfig instance) =>
       'steps': instance.steps,
       'stepLabels': instance.stepLabels,
       'displayLayout': _$DisplayLayoutEnumMap[instance.displayLayout],
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
@@ -87,6 +105,9 @@ SliderConfig _$SliderConfigFromJson(Map<String, dynamic> json) => SliderConfig(
   step: (json['step'] as num?)?.toDouble(),
   unit: json['unit'] as String?,
   showTicks: json['showTicks'] as bool? ?? false,
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
@@ -108,6 +129,9 @@ Map<String, dynamic> _$SliderConfigToJson(SliderConfig instance) =>
       'step': instance.step,
       'unit': instance.unit,
       'showTicks': instance.showTicks,
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
@@ -122,6 +146,9 @@ MemberConfig _$MemberConfigFromJson(Map<String, dynamic> json) => MemberConfig(
     _$DisplayLayoutEnumMap,
     json['displayLayout'],
   ),
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
@@ -129,51 +156,78 @@ MemberConfig _$MemberConfigFromJson(Map<String, dynamic> json) => MemberConfig(
 Map<String, dynamic> _$MemberConfigToJson(MemberConfig instance) =>
     <String, dynamic>{
       'displayLayout': _$DisplayLayoutEnumMap[instance.displayLayout],
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
 
 TextConfig _$TextConfigFromJson(Map<String, dynamic> json) => TextConfig(
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
 
 Map<String, dynamic> _$TextConfigToJson(TextConfig instance) =>
     <String, dynamic>{
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
 
 ColorConfig _$ColorConfigFromJson(Map<String, dynamic> json) => ColorConfig(
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
 
 Map<String, dynamic> _$ColorConfigToJson(ColorConfig instance) =>
     <String, dynamic>{
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
 
 DateConfig _$DateConfigFromJson(Map<String, dynamic> json) => DateConfig(
+  headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+    json['headerIcon'],
+  ),
   hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
   $type: json['runtimeType'] as String?,
 );
 
 Map<String, dynamic> _$DateConfigToJson(DateConfig instance) =>
     <String, dynamic>{
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
 
 LongTextConfig _$LongTextConfigFromJson(Map<String, dynamic> json) =>
     LongTextConfig(
+      headerIcon: const CustomFieldHeaderIconConverter().fromJson(
+        json['headerIcon'],
+      ),
       hideTitleOnProfile: json['hideTitleOnProfile'] as bool? ?? false,
       $type: json['runtimeType'] as String?,
     );
 
 Map<String, dynamic> _$LongTextConfigToJson(LongTextConfig instance) =>
     <String, dynamic>{
+      'headerIcon': const CustomFieldHeaderIconConverter().toJson(
+        instance.headerIcon,
+      ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };

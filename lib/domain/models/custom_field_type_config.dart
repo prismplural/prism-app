@@ -5,6 +5,91 @@ import 'package:prism_plurality/domain/models/choice_option.dart';
 part 'custom_field_type_config.freezed.dart';
 part 'custom_field_type_config.g.dart';
 
+enum CustomFieldHeaderIconKind { emoji, phosphor, unknown }
+
+/// User-selected icon rendered in custom field headers.
+///
+/// Stored inside `type_config_json` so custom field header icons do not require
+/// a database migration. Unknown future shapes are preserved verbatim so a
+/// current build does not wipe a newer peer's icon payload.
+class CustomFieldHeaderIcon {
+  static const _deepEquality = DeepCollectionEquality();
+
+  const CustomFieldHeaderIcon.emoji(String emoji)
+    : kind = CustomFieldHeaderIconKind.emoji,
+      value = emoji,
+      raw = null;
+
+  const CustomFieldHeaderIcon.phosphor(String name)
+    : kind = CustomFieldHeaderIconKind.phosphor,
+      value = name,
+      raw = null;
+
+  const CustomFieldHeaderIcon._unknown(this.raw)
+    : kind = CustomFieldHeaderIconKind.unknown,
+      value = null;
+
+  factory CustomFieldHeaderIcon.fromJson(Map<String, dynamic> json) {
+    final type = json['type'];
+    if (type == 'emoji') {
+      final emoji = json['emoji'];
+      if (emoji is String) return CustomFieldHeaderIcon.emoji(emoji);
+    }
+    if (type == 'phosphor') {
+      final name = json['name'];
+      if (name is String) return CustomFieldHeaderIcon.phosphor(name);
+    }
+    return CustomFieldHeaderIcon._unknown(Map<String, dynamic>.from(json));
+  }
+
+  final CustomFieldHeaderIconKind kind;
+  final String? value;
+  final Map<String, dynamic>? raw;
+
+  String? get emoji => kind == CustomFieldHeaderIconKind.emoji ? value : null;
+
+  String? get phosphorName =>
+      kind == CustomFieldHeaderIconKind.phosphor ? value : null;
+
+  Map<String, dynamic> toJson() {
+    return switch (kind) {
+      CustomFieldHeaderIconKind.emoji => {'type': 'emoji', 'emoji': value},
+      CustomFieldHeaderIconKind.phosphor => {'type': 'phosphor', 'name': value},
+      CustomFieldHeaderIconKind.unknown => <String, dynamic>{...?raw},
+    };
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! CustomFieldHeaderIcon) return false;
+    return kind == other.kind &&
+        value == other.value &&
+        _deepEquality.equals(raw, other.raw);
+  }
+
+  @override
+  int get hashCode => Object.hash(kind, value, _deepEquality.hash(raw));
+
+  @override
+  String toString() => 'CustomFieldHeaderIcon(${toJson()})';
+}
+
+class CustomFieldHeaderIconConverter
+    implements JsonConverter<CustomFieldHeaderIcon?, Object?> {
+  const CustomFieldHeaderIconConverter();
+
+  @override
+  CustomFieldHeaderIcon? fromJson(Object? json) {
+    if (json == null) return null;
+    if (json is! Map) return null;
+    return CustomFieldHeaderIcon.fromJson(Map<String, dynamic>.from(json));
+  }
+
+  @override
+  Object? toJson(CustomFieldHeaderIcon? object) => object?.toJson();
+}
+
 enum SliderMode { labeled, numeric }
 
 /// How a custom field's value renders on profile screens.
@@ -47,6 +132,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     @Default(<ChoiceOption>[]) List<ChoiceOption> options,
     @Default(false) bool allowsMultiple,
     @Default(false) bool allowsOther,
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -55,6 +141,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
 
   const factory CustomFieldTypeConfig.group({
     String? icon,
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -66,6 +153,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     @Default(5) int steps,
     List<String>? stepLabels,
     DisplayLayout? displayLayout,
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -88,6 +176,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     double? step,
     String? unit,
     @Default(false) bool showTicks,
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -96,6 +185,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
 
   const factory CustomFieldTypeConfig.member({
     DisplayLayout? displayLayout,
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -105,6 +195,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
   /// Minimal variant for text fields. Previously typeConfigJson was always NULL;
   /// now written when hideTitleOnProfile is set (or to preserve forward-compat extras).
   const factory CustomFieldTypeConfig.text({
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -113,6 +204,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
 
   /// Minimal variant for color fields. See [TextConfig] note above.
   const factory CustomFieldTypeConfig.color({
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -122,6 +214,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
   /// Minimal variant for date fields. See [TextConfig] note above.
   /// Note: date precision is stored in its own top-level column, unrelated to this.
   const factory CustomFieldTypeConfig.date({
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -130,6 +223,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
 
   /// Minimal variant for long_text fields. See [TextConfig] note above.
   const factory CustomFieldTypeConfig.longText({
+    @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
     @JsonKey(includeFromJson: false, includeToJson: false)
@@ -261,15 +355,22 @@ class CustomFieldTypeConfigCodec {
         'options',
         'allowsMultiple',
         'allowsOther',
+        'headerIcon',
         'hideTitleOnProfile',
       },
-      GroupConfig _ => const {'runtimeType', 'icon', 'hideTitleOnProfile'},
+      GroupConfig _ => const {
+        'runtimeType',
+        'icon',
+        'headerIcon',
+        'hideTitleOnProfile',
+      },
       ScaleConfig _ => const {
         'runtimeType',
         'emoji',
         'steps',
         'stepLabels',
         'displayLayout',
+        'headerIcon',
         'hideTitleOnProfile',
       },
       SliderConfig _ => const {
@@ -289,17 +390,27 @@ class CustomFieldTypeConfigCodec {
         'step',
         'unit',
         'showTicks',
+        'headerIcon',
         'hideTitleOnProfile',
       },
       MemberConfig _ => const {
         'runtimeType',
         'displayLayout',
+        'headerIcon',
         'hideTitleOnProfile',
       },
-      TextConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
-      ColorConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
-      DateConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
-      LongTextConfig _ => const {'runtimeType', 'hideTitleOnProfile'},
+      TextConfig _ => const {'runtimeType', 'headerIcon', 'hideTitleOnProfile'},
+      ColorConfig _ => const {
+        'runtimeType',
+        'headerIcon',
+        'hideTitleOnProfile',
+      },
+      DateConfig _ => const {'runtimeType', 'headerIcon', 'hideTitleOnProfile'},
+      LongTextConfig _ => const {
+        'runtimeType',
+        'headerIcon',
+        'hideTitleOnProfile',
+      },
     };
   }
 }
@@ -318,4 +429,18 @@ bool effectiveHideTitleOnProfile(CustomFieldTypeConfig? config) =>
       final ColorConfig c => c.hideTitleOnProfile,
       final DateConfig c => c.hideTitleOnProfile,
       final LongTextConfig c => c.hideTitleOnProfile,
+    };
+
+CustomFieldHeaderIcon? effectiveHeaderIcon(CustomFieldTypeConfig? config) =>
+    switch (config) {
+      null => null,
+      final ChoiceConfig c => c.headerIcon,
+      final GroupConfig c => c.headerIcon,
+      final ScaleConfig c => c.headerIcon,
+      final SliderConfig c => c.headerIcon,
+      final MemberConfig c => c.headerIcon,
+      final TextConfig c => c.headerIcon,
+      final ColorConfig c => c.headerIcon,
+      final DateConfig c => c.headerIcon,
+      final LongTextConfig c => c.headerIcon,
     };

@@ -6,6 +6,57 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 
 void main() {
   group('CustomFieldTypeConfig serialization', () {
+    test('header icon descriptor round-trips as emoji', () {
+      const c = TextConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙'));
+
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      expect(json['headerIcon'], {'type': 'emoji', 'emoji': '🌙'});
+
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as TextConfig;
+      expect(back.headerIcon, const CustomFieldHeaderIcon.emoji('🌙'));
+      expect(back.extra, isEmpty);
+    });
+
+    test('header icon descriptor round-trips as phosphor icon', () {
+      const c = MemberConfig(
+        headerIcon: CustomFieldHeaderIcon.phosphor('sparkle'),
+      );
+
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      expect(json['headerIcon'], {'type': 'phosphor', 'name': 'sparkle'});
+
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as MemberConfig;
+      expect(back.headerIcon, const CustomFieldHeaderIcon.phosphor('sparkle'));
+      expect(back.extra, isEmpty);
+    });
+
+    test('header icon is a known key for every config variant', () {
+      final variants = <CustomFieldTypeConfig>[
+        const ChoiceConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const GroupConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const ScaleConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const SliderConfig(
+          mode: SliderMode.labeled,
+          headerIcon: CustomFieldHeaderIcon.emoji('🌙'),
+        ),
+        const MemberConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const TextConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const ColorConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const DateConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+        const LongTextConfig(headerIcon: CustomFieldHeaderIcon.emoji('🌙')),
+      ];
+
+      for (final config in variants) {
+        final json = CustomFieldTypeConfigCodec.toJson(config);
+        final back = CustomFieldTypeConfigCodec.fromJson(json);
+        expect(back.extra, isEmpty, reason: '$config duplicated headerIcon');
+        expect(
+          effectiveHeaderIcon(back),
+          const CustomFieldHeaderIcon.emoji('🌙'),
+        );
+      }
+    });
+
     test('ChoiceConfig round-trips', () {
       const c = ChoiceConfig(
         options: [
