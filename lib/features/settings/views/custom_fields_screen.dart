@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -20,6 +19,7 @@ import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -150,11 +150,6 @@ class _FieldsListState extends ConsumerState<_FieldsList> {
     );
   }
 
-  IconData _iconForField(CustomField field) {
-    return customFieldTypeRegistry.lookupById(field.fieldTypeId)?.icon ??
-        AppIcons.textFields;
-  }
-
   String _subtitleForField(BuildContext context, CustomField field) {
     final l10n = context.l10n;
     final typeLabel = localizedFieldTypeLabel(
@@ -257,7 +252,6 @@ class _FieldsListState extends ConsumerState<_FieldsList> {
           children: children,
           allGroups: fieldIndex.topLevelGroups,
           index: index,
-          iconForField: _iconForField,
           subtitleForField: _subtitleForField,
           theme: theme,
           onReorderChildren: onReorderChildren,
@@ -326,7 +320,6 @@ class _TopLevelFieldItem extends StatelessWidget {
     required this.children,
     required this.allGroups,
     required this.index,
-    required this.iconForField,
     required this.subtitleForField,
     required this.theme,
     required this.onReorderChildren,
@@ -336,7 +329,6 @@ class _TopLevelFieldItem extends StatelessWidget {
   final List<CustomField> children;
   final List<CustomField> allGroups;
   final int index;
-  final IconData Function(CustomField) iconForField;
   final String Function(BuildContext, CustomField) subtitleForField;
   final ThemeData theme;
   final void Function(int oldIndex, int newIndex) onReorderChildren;
@@ -351,7 +343,6 @@ class _TopLevelFieldItem extends StatelessWidget {
           field: field,
           allGroups: allGroups,
           index: index,
-          iconForField: iconForField,
           subtitleForField: subtitleForField,
           theme: theme,
         ),
@@ -380,7 +371,6 @@ class _TopLevelFieldItem extends StatelessWidget {
                   field: child,
                   allGroups: allGroups,
                   index: childIndex,
-                  iconForField: iconForField,
                   subtitleForField: subtitleForField,
                   theme: theme,
                   isChild: true,
@@ -399,7 +389,6 @@ class _FieldRow extends ConsumerStatefulWidget {
     required this.field,
     required this.allGroups,
     required this.index,
-    required this.iconForField,
     required this.subtitleForField,
     required this.theme,
     this.isChild = false,
@@ -408,7 +397,6 @@ class _FieldRow extends ConsumerStatefulWidget {
   final CustomField field;
   final List<CustomField> allGroups;
   final int index;
-  final IconData Function(CustomField) iconForField;
   final String Function(BuildContext, CustomField) subtitleForField;
   final ThemeData theme;
 
@@ -618,8 +606,8 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         : field.name;
 
     final Widget rowContent = PrismListRow(
-      leading: Icon(
-        widget.iconForField(field),
+      leading: CustomFieldHeaderIconView(
+        field: field,
         color: theme.colorScheme.primary,
       ),
       title: Text(

@@ -30,6 +30,7 @@ import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_chip.dart';
@@ -215,8 +216,8 @@ class _CustomFieldDetailBodyState
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _iconForField(field),
+                    CustomFieldHeaderIconView(
+                      field: field,
                       color: theme.colorScheme.primary,
                       size: 28,
                     ),
@@ -492,21 +493,6 @@ class _CustomFieldDetailBodyState
       _isPlaceholderName(field)
       ? context.l10n.customFieldGroupUntitledFallback
       : field.name;
-
-  /// Registry-driven icon. Falls back to enum-based lookup for legacy types
-  /// if the registry entry has no entry (shouldn't happen in practice).
-  IconData _iconForField(CustomField field) {
-    final def = customFieldTypeRegistry.lookupById(field.fieldTypeId);
-    if (def != null) return def.icon;
-    // Legacy fallback for fields with no fieldTypeId (pre-registry rows).
-    return switch (field.fieldType) {
-      CustomFieldType.text => AppIcons.textFields,
-      CustomFieldType.longText => AppIcons.notes,
-      CustomFieldType.color => AppIcons.palette,
-      CustomFieldType.date => AppIcons.calendarToday,
-      CustomFieldType.choice => AppIcons.checkBoxOutlined,
-    };
-  }
 
   String _labelForField(BuildContext context, CustomField field) =>
       localizedFieldTypeLabel(

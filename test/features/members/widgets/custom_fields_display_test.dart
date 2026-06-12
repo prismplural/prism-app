@@ -110,6 +110,32 @@ void main() {
     expect(find.text('Field long'), findsOneWidget);
   });
 
+  testWidgets('field card header renders a custom emoji header icon', (
+    tester,
+  ) async {
+    final longField = CustomField(
+      id: 'favorite-song',
+      name: 'Favorite song',
+      fieldType: CustomFieldType.longText,
+      fieldTypeId: 'long_text',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const LongTextConfig(
+        headerIcon: CustomFieldHeaderIcon.emoji('🌸'),
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [longField],
+        values: [value(longField.id, 'Something soft')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Favorite song'), findsOneWidget);
+    expect(find.text('🌸'), findsOneWidget);
+  });
+
   testWidgets(
     'member field display resolves selected ids as member chips without raw JSON',
     (tester) async {
@@ -300,6 +326,30 @@ void main() {
       );
     },
   );
+
+  testWidgets('stacked field header renders a custom header icon', (
+    tester,
+  ) async {
+    final sliderField = CustomField(
+      id: 'energy',
+      name: 'Energy',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'slider',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const SliderConfig(
+        mode: SliderMode.labeled,
+        headerIcon: CustomFieldHeaderIcon.emoji('⚡'),
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(fields: [sliderField], values: [value(sliderField.id, '64')]),
+    );
+    await tester.pump();
+
+    expect(find.text('Energy'), findsOneWidget);
+    expect(find.text('⚡'), findsOneWidget);
+  });
 
   testWidgets('read-only slider semantics does not duplicate visible label', (
     tester,

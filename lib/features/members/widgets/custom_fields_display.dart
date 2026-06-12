@@ -11,7 +11,7 @@ import 'package:prism_plurality/features/members/widgets/custom_field_display_sc
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
@@ -357,8 +357,8 @@ class _FieldValueCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          _iconForField(entry.field),
+                        CustomFieldHeaderIconView(
+                          field: entry.field,
                           size: 16,
                           color: theme.colorScheme.primary,
                         ),
@@ -396,11 +396,6 @@ class _FieldValueCard extends StatelessWidget {
     }
     return sized;
   }
-
-  IconData _iconForField(CustomField field) {
-    return customFieldTypeRegistry.lookupById(field.fieldTypeId)?.icon ??
-        AppIcons.textFields;
-  }
 }
 
 /// Stacked layout: field name as a small bold header above the renderer's
@@ -425,12 +420,24 @@ class _FieldValueStacked extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!hideTitle) ...[
-              Text(
-                entry.field.name,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                ),
+              Row(
+                children: [
+                  CustomFieldHeaderIconView(
+                    field: entry.field,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      entry.field.name,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
             ],
