@@ -37,6 +37,18 @@ class PkBidirectionalService {
   /// [lastSyncDate] — the last time a sync completed (unused here, kept for API stability).
   /// [memberRepository] — for persisting pulled changes.
   /// [client] — PK API client.
+  /// [onPushSkipped] — optional hook invoked once per push-skip message (the
+  ///   same strings collected on [PkSyncSummary.pushSkippedMessages]), so the
+  ///   orchestrating sync service can merge them into its user-facing error
+  ///   channel the way `onStaleLink` callbacks already do.
+  ///
+  /// Per-member push isolation (2026-06 PK audit M10a — wave 4): a
+  /// [PluralKitApiError] from one member's push (400 validation, 5xx) no
+  /// longer aborts the whole sync — the member is counted + a classified
+  /// message collected, and the loop continues, so one oversized bio can't
+  /// brick the remaining members, the group push, the switch pull, and the
+  /// cursor advance forever. [PluralKitAuthError] still propagates: a revoked
+  /// token fails every member identically and is handled upstream (M3).
   ///
   /// Returns a summary of what was synced.
   Future<PkSyncSummary> syncMembers({
@@ -47,10 +59,16 @@ class PkBidirectionalService {
     required DateTime? lastSyncDate,
     required MemberRepository memberRepository,
     required PluralKitClient client,
+    void Function(String message)? onPushSkipped,
   }) async {
     int pulled = 0;
     int pushed = 0;
     int skipped = 0;
+    final pushSkippedMessages = <String>[];
+    void recordPushSkip(String message) {
+      pushSkippedMessages.add(message);
+      onPushSkipped?.call(message);
+    }
 
     // Build lookup maps.
     final localByPkUuid = <String, domain.Member>{};
@@ -107,6 +125,7 @@ class PkBidirectionalService {
         // populated). The push fires only when at least one field qualifies.
         final allowedFields = _pushableFields(local, pk, config, direction);
         if (allowedFields.isNotEmpty) {
+          final localName = local.name;
           try {
             await _pushService.pushMember(
               local,
@@ -114,6 +133,8 @@ class PkBidirectionalService {
               pkMember: pk,
               includeProxyTags: allowedFields.contains('proxy_tags'),
               allowedFields: allowedFields,
+              onFieldSkipped: (field, reason) =>
+                  recordPushSkip("'$localName': $field $reason."),
             );
             if (needsIdentityRepair) {
               await memberRepository.applyPluralKitLink(local.id, {
@@ -131,6 +152,21 @@ class PkBidirectionalService {
             await memberRepository.updateMember(
               local.copyWith(pluralkitId: null, pluralkitUuid: null),
             );
+            skipped++;
+            continue;
+          } on PluralKitAuthError {
+            // Auth failures abort meaningfully — every member would fail the
+            // same way and the upstream M3 handler owns the messaging.
+            rethrow;
+          } on PluralKitRateLimitError {
+            // A sustained 429 (past the queue's retry budget) is a global
+            // condition like auth — walking the remaining members would burn
+            // a fresh retry budget per member for the same answer. Abort and
+            // let the upstream M3 classifier schedule the backoff.
+            rethrow;
+          } on PluralKitApiError catch (e) {
+            // M10a: isolate this member's failure; keep syncing the rest.
+            recordPushSkip(_describePushFailure(localName, e));
             skipped++;
             continue;
           }
@@ -169,14 +205,32 @@ class PkBidirectionalService {
         // User picked Keep local via the push-on-create dialog or banner;
         // respect their durable preference.
         if (local.pluralkitSyncIgnored) continue;
-        // New local member — push to PK
-        final pkMember = await _pushService.pushMemberFull(local, client);
-        // Store both PK identifiers back on the local member.
-        await memberRepository.applyPluralKitLink(local.id, {
-          'pluralkit_uuid': pkMember.uuid,
-          'pluralkit_id': pkMember.id,
-        });
-        pushed++;
+        // New local member — push to PK. Same per-member isolation as the
+        // linked-member loop above (M10a): one rejected create must not
+        // abort the remaining creates or the rest of the sync.
+        final localName = local.name;
+        try {
+          final pkMember = await _pushService.pushMemberFull(
+            local,
+            client,
+            onFieldSkipped: (field, reason) =>
+                recordPushSkip("'$localName': $field $reason."),
+          );
+          // Store both PK identifiers back on the local member.
+          await memberRepository.applyPluralKitLink(local.id, {
+            'pluralkit_uuid': pkMember.uuid,
+            'pluralkit_id': pkMember.id,
+          });
+          pushed++;
+        } on PluralKitAuthError {
+          rethrow;
+        } on PluralKitRateLimitError {
+          // Global condition — see the linked-member loop above.
+          rethrow;
+        } on PluralKitApiError catch (e) {
+          recordPushSkip(_describePushFailure(localName, e));
+          skipped++;
+        }
       }
     }
 
@@ -184,7 +238,61 @@ class PkBidirectionalService {
       membersPulled: pulled,
       membersPushed: pushed,
       membersSkipped: skipped,
+      pushSkippedMessages: List.unmodifiable(pushSkippedMessages),
     );
+  }
+
+  /// Build a user-facing, classified reason for a per-member push failure
+  /// (2026-06 PK audit M10a). For PK validation rejections (400 code 40001)
+  /// the per-field `errors` map — `max_length` / `actual_length`, parsed
+  /// from the raw body that [PluralKitApiError.message] preserves — is
+  /// flattened into the message so the user can see exactly which field to
+  /// shorten.
+  String _describePushFailure(String memberName, PluralKitApiError e) {
+    if (e.code == 40001) {
+      return "PluralKit rejected '$memberName': "
+          '${_describeValidationErrors(e.message)} — skipped this sync.';
+    }
+    if (e.statusCode >= 500) {
+      return 'PluralKit server error (${e.statusCode}) while pushing '
+          "'$memberName' — skipped this sync.";
+    }
+    final code = e.code != null ? ', code ${e.code}' : '';
+    return "PluralKit rejected '$memberName' "
+        '(HTTP ${e.statusCode}$code) — skipped this sync.';
+  }
+
+  /// Flatten PK's 40001 `errors` map (`{field: [{message, max_length,
+  /// actual_length}]}`) into a short human-readable string. Falls back to a
+  /// generic phrase when the body isn't the expected JSON shape.
+  String _describeValidationErrors(String rawBody) {
+    try {
+      final decoded = jsonDecode(rawBody);
+      if (decoded is Map && decoded['errors'] is Map) {
+        final parts = <String>[];
+        (decoded['errors'] as Map).forEach((field, errs) {
+          final list = errs is List ? errs : [errs];
+          for (final err in list) {
+            if (err is Map &&
+                err['max_length'] != null &&
+                err['actual_length'] != null) {
+              parts.add(
+                '$field is ${err['actual_length']} characters '
+                '(max ${err['max_length']})',
+              );
+            } else if (err is Map && err['message'] is String) {
+              parts.add('$field: ${err['message']}');
+            } else {
+              parts.add('$field is invalid');
+            }
+          }
+        });
+        if (parts.isNotEmpty) return parts.join('; ');
+      }
+    } catch (_) {
+      // Non-JSON / unexpected body — fall through.
+    }
+    return 'validation failed (code 40001)';
   }
 
   /// Compute the exact set of PK payload keys that may be pushed for [local].

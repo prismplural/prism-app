@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
@@ -59,6 +60,62 @@ class PkDeletionForbiddenException implements Exception {
       'pkId=$pkId, cause=$cause)';
 }
 
+/// PluralKit API field caps, live-verified 2026-06-10 against
+/// api.pluralkit.me (2026-06 PK audit M10b — wave 4).
+///
+/// Server behavior on violation: 400 with body code `40001` and a per-field
+/// `errors` map carrying `max_length` / `actual_length`. Validating here
+/// keeps an over-cap local value from 400-ing every sync run (the M10
+/// "bricked sync" class) — the offending FIELD is dropped from the payload
+/// and surfaced instead.
+abstract final class PkFieldLimits {
+  /// `name`, `display_name`, and `pronouns` cap (characters).
+  static const int nameMaxLength = 100;
+  static const int displayNameMaxLength = 100;
+  static const int pronounsMaxLength = 100;
+
+  /// `description` cap (characters).
+  static const int descriptionMaxLength = 1000;
+
+  /// `color` must be exactly 6 hex digits with no leading `#`.
+  static final RegExp colorPattern = RegExp(r'^[0-9a-fA-F]{6}$');
+
+  /// Returns `null` when [value] is a valid wire value for [pkField], or a
+  /// short human-readable reason when PK would reject it with 40001.
+  ///
+  /// Only string-valued payload fields are validated; unknown fields pass.
+  static String? validate(String pkField, String value) {
+    switch (pkField) {
+      case 'name':
+        return _capReason(value, nameMaxLength);
+      case 'display_name':
+        return _capReason(value, displayNameMaxLength);
+      case 'pronouns':
+        return _capReason(value, pronounsMaxLength);
+      case 'description':
+        return _capReason(value, descriptionMaxLength);
+      case 'color':
+        // The payload builder has already stripped a leading '#'.
+        return colorPattern.hasMatch(value)
+            ? null
+            : "isn't a 6-digit hex color";
+      case 'birthday':
+        // Strict yyyy-MM-dd shape AND a real calendar date — the raw-string
+        // birthday column can carry legacy junk from old imports.
+        // [parseBirthday] enforces both (incl. the 02-30 overflow reject).
+        return parseBirthday(value) == null
+            ? "isn't a valid yyyy-MM-dd date"
+            : null;
+      default:
+        return null;
+    }
+  }
+
+  static String? _capReason(String value, int max) => value.length > max
+      ? 'is ${value.length} characters (PluralKit max $max)'
+      : null;
+}
+
 /// Pushes local Prism data to PluralKit.
 ///
 /// Rate limiting and 429 retry are handled inside [PluralKitClient] via its
@@ -81,18 +138,24 @@ class PkPushService {
   /// emits explicit nulls because there is no remote to clear against.
   ///
   /// Returns the PK 5-character member ID (existing or newly created).
+  ///
+  /// [onFieldSkipped] (2026-06 PK audit M10b) is invoked once per payload
+  /// field that client-side cap validation dropped (PATCH) or truncated
+  /// (POST `name`), with the PK field key and a human-readable reason.
   Future<String> pushMember(
     domain.Member member,
     PluralKitClient client, {
     PKMember? pkMember,
     bool includeProxyTags = true,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) async => (await pushMemberFull(
     member,
     client,
     pkMember: pkMember,
     includeProxyTags: includeProxyTags,
     allowedFields: allowedFields,
+    onFieldSkipped: onFieldSkipped,
   )).id;
 
   /// Same as [pushMember], but returns PluralKit's full member payload so
@@ -103,6 +166,7 @@ class PkPushService {
     PKMember? pkMember,
     bool includeProxyTags = true,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) async {
     final pkId = member.pluralkitId?.trim();
     if (pkId != null && pkId.isNotEmpty) {
@@ -113,6 +177,7 @@ class PkPushService {
         isPatch: true,
         includeProxyTags: includeProxyTags,
         allowedFields: allowedFields,
+        onFieldSkipped: onFieldSkipped,
       );
       // PK rejects an empty PATCH body with 400. With a PK snapshot in hand
       // an empty payload is a no-op by definition — skip the call instead of
@@ -140,6 +205,7 @@ class PkPushService {
         member,
         isPatch: false,
         includeProxyTags: includeProxyTags,
+        onFieldSkipped: onFieldSkipped,
       );
       final created = await client.createMember(data);
       return created;
@@ -198,12 +264,22 @@ class PkPushService {
   /// For POST ([isPatch] = false), nulls are always omitted (PK treats
   /// omit = clear on POST) and [allowedFields] is ignored — creates always
   /// send the member's full local non-null shape.
+  ///
+  /// Cap validation (2026-06 PK audit M10b): every string-valued payload
+  /// entry is checked against [PkFieldLimits] before the map is returned.
+  /// - PATCH: an invalid field is DROPPED from the payload (PK keeps its
+  ///   value) and surfaced via [onFieldSkipped] — never silently truncated.
+  /// - POST: same skip rule, EXCEPT the required `name`, which is truncated
+  ///   to [PkFieldLimits.nameMaxLength] (a create must not fail forever) and
+  ///   surfaced.
+  /// Explicit-null clears and the `proxy_tags` list are exempt (non-string).
   Map<String, dynamic> _memberToPayload(
     domain.Member member, {
     PKMember? pkMember,
     required bool isPatch,
     required bool includeProxyTags,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) {
     final data = <String, dynamic>{};
 
@@ -277,7 +353,47 @@ class PkPushService {
       data['color'] = _stripHash(member.customColorHex!);
     }
 
+    // 2026-06 PK audit M10b: validate the assembled payload against the
+    // live-verified PK caps so an over-cap/garbage local value can't 400
+    // (code 40001) every sync run. See the method doc for the skip-vs-
+    // truncate rules per method.
+    for (final key in data.keys.toList()) {
+      final value = data[key];
+      if (value is! String) continue; // explicit-null clears, proxy_tags list
+      final reason = PkFieldLimits.validate(key, value);
+      if (reason == null) continue;
+      if (key == 'name' && !isPatch) {
+        // `name` is required on POST — truncate instead of skipping so the
+        // create can succeed; surfaced so the user knows.
+        data[key] = _truncateUtf16(value, PkFieldLimits.nameMaxLength);
+        onFieldSkipped?.call(
+          key,
+          '$reason — truncated to ${PkFieldLimits.nameMaxLength} characters '
+          'for the PluralKit create',
+        );
+        continue;
+      }
+      data.remove(key);
+      onFieldSkipped?.call(
+        key,
+        '$reason — left unchanged on PluralKit this sync',
+      );
+    }
+
     return data;
+  }
+
+  /// Truncate [value] to at most [max] UTF-16 code units (PK's server is
+  /// .NET, whose string length counts the same units as Dart's). Backs off
+  /// one unit when the cut would split a surrogate pair.
+  String _truncateUtf16(String value, int max) {
+    if (value.length <= max) return value;
+    var cut = value.substring(0, max);
+    final last = cut.codeUnitAt(cut.length - 1);
+    if (last >= 0xD800 && last <= 0xDBFF) {
+      cut = cut.substring(0, cut.length - 1);
+    }
+    return cut;
   }
 
   /// Helper: write [key] to [data] using null-clearing semantics.

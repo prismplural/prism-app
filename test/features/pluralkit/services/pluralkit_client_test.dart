@@ -450,6 +450,94 @@ void main() {
     });
   });
 
+  // 2026-06 PK audit low (wave 4): downloadBytes is bounded by
+  // PluralKitClient.maxDownloadBytes via a STREAMED read — oversized bodies
+  // abort mid-transfer instead of being buffered and checked afterwards.
+  group('PluralKitClient — downloadBytes size cap', () {
+    test('rejects an oversized declared Content-Length up front', () async {
+      final oversized = List<int>.filled(
+        PluralKitClient.maxDownloadBytes + 1,
+        0,
+      );
+      final h = buildClient(
+        (_, _) async => http.Response.bytes(oversized, 200),
+        maxRetries: 0,
+      );
+
+      await expectLater(
+        h.client.downloadBytes('https://cdn.example/huge.png'),
+        throwsA(
+          isA<PkDownloadTooLargeException>()
+              .having(
+                (e) => e.limitBytes,
+                'limitBytes',
+                PluralKitClient.maxDownloadBytes,
+              )
+              .having(
+                (e) => e.observedBytes,
+                'observedBytes',
+                PluralKitClient.maxDownloadBytes + 1,
+              )
+              .having(
+                (e) => e.toString(),
+                'toString',
+                allOf(contains('exceeds'), contains('huge.png')),
+              ),
+        ),
+      );
+    });
+
+    test(
+      'aborts a chunked body past the cap without draining the stream',
+      () async {
+        // A server that never sends Content-Length and never stops sending.
+        // The cap must trip from received bytes and CANCEL the transfer —
+        // chunksServed proves the stream wasn't drained much past the cap.
+        const chunkSize = 1024 * 1024; // 1 MiB
+        var chunksServed = 0;
+        Stream<List<int>> endless() async* {
+          while (true) {
+            chunksServed++;
+            yield List<int>.filled(chunkSize, 0);
+          }
+        }
+
+        final mock = MockClient.streaming(
+          (request, bodyStream) async =>
+              http.StreamedResponse(endless(), 200),
+        );
+        final client = PluralKitClient(
+          token: 'test-token',
+          httpClient: mock,
+          queue: PkRequestQueue(minInterval: Duration.zero, maxRetries: 0),
+        );
+
+        await expectLater(
+          client.downloadBytes('https://cdn.example/endless.gif'),
+          throwsA(isA<PkDownloadTooLargeException>()),
+        );
+
+        const capChunks = PluralKitClient.maxDownloadBytes ~/ chunkSize;
+        expect(
+          chunksServed,
+          lessThanOrEqualTo(capChunks + 2),
+          reason: 'the read must stop right after crossing the cap',
+        );
+      },
+    );
+
+    test('a body exactly at the cap downloads fully', () async {
+      final exact = List<int>.filled(PluralKitClient.maxDownloadBytes, 7);
+      final h = buildClient(
+        (_, _) async => http.Response.bytes(exact, 200),
+        maxRetries: 0,
+      );
+
+      final out = await h.client.downloadBytes('https://cdn.example/max.png');
+      expect(out.length, PluralKitClient.maxDownloadBytes);
+    });
+  });
+
   group('PluralKitClient — rate limit handling', () {
     test(
       'retries on 429, honors Retry-After seconds, eventually succeeds',

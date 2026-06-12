@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -2024,6 +2025,337 @@ void main() {
       expect(fakeRepo.calls, isEmpty);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // 2026-06 PK audit M10a (wave 4): per-member push isolation. One member's
+  // PluralKitApiError (400 validation, 5xx) must not abort the remaining
+  // members — it is counted, classified into pushSkippedMessages, and the
+  // loop continues. PluralKitAuthError still aborts (M3 owns the messaging).
+  // ---------------------------------------------------------------------------
+
+  group('per-member push isolation (M10a)', () {
+    String validation40001Body({
+      String field = 'description',
+      int max = 1000,
+      int actual = 1200,
+    }) => jsonEncode({
+      'code': 40001,
+      'message': 'Validation failed',
+      'errors': {
+        field: [
+          {
+            'message': '$field too long.',
+            'max_length': max,
+            'actual_length': actual,
+          },
+        ],
+      },
+    });
+
+    domain.Member linked(String n, {String? pronouns}) => _localMember(
+      id: 'local-$n',
+      name: 'Member $n',
+      pluralkitId: 'pk00$n',
+      pluralkitUuid: 'uuid-pk00$n',
+      pronouns: pronouns ?? 'pn/$n',
+    );
+
+    PKMember pkFor(String n) =>
+        _pkMember(id: 'pk00$n', uuid: 'uuid-pk00$n', name: 'Member $n');
+
+    test('one PK 400 skips that member and the rest still push', () async {
+      final client = _UpdateFailureClient({
+        'pk002': PluralKitApiError(
+          400,
+          validation40001Body(),
+          code: 40001,
+        ),
+      });
+      final callbackMessages = <String>[];
+
+      final summary = await service.syncMembers(
+        localMembers: [linked('1'), linked('2'), linked('3')],
+        pkMembers: [pkFor('1'), pkFor('2'), pkFor('3')],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: client,
+        onPushSkipped: callbackMessages.add,
+      );
+
+      // All three members were attempted — the pk002 failure did not abort.
+      final attempted = client.calls
+          .where((c) => c.method == 'updateMember')
+          .map((c) => c.args[0])
+          .toList();
+      expect(attempted, ['pk001', 'pk002', 'pk003']);
+
+      expect(summary.membersPushed, 2);
+      expect(summary.membersSkipped, 1);
+      expect(summary.pushSkippedMessages, hasLength(1));
+      // The classified reason carries the member name AND the parsed 40001
+      // per-field errors map (max_length/actual_length).
+      final message = summary.pushSkippedMessages.single;
+      expect(message, contains("'Member 2'"));
+      expect(message, contains('description is 1200 characters (max 1000)'));
+      expect(callbackMessages, [message]);
+    });
+
+    test('5xx is classified as a server error and isolated', () async {
+      final client = _UpdateFailureClient({
+        'pk001': const PluralKitApiError(502, 'bad gateway'),
+      });
+
+      final summary = await service.syncMembers(
+        localMembers: [linked('1'), linked('2')],
+        pkMembers: [pkFor('1'), pkFor('2')],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: client,
+      );
+
+      expect(summary.membersPushed, 1);
+      expect(summary.membersSkipped, 1);
+      expect(
+        summary.pushSkippedMessages.single,
+        contains('server error (502)'),
+      );
+    });
+
+    test('auth error still aborts the whole sync (M3 upstream)', () async {
+      final client = _UpdateFailureClient({
+        'pk001': const PluralKitAuthError(),
+      });
+
+      await expectLater(
+        service.syncMembers(
+          localMembers: [linked('1'), linked('2')],
+          pkMembers: [pkFor('1'), pkFor('2')],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: client,
+        ),
+        throwsA(isA<PluralKitAuthError>()),
+      );
+
+      // The abort happened on the FIRST member — nothing else was attempted.
+      expect(
+        client.calls.where((c) => c.method == 'updateMember'),
+        hasLength(1),
+      );
+    });
+
+    test('sustained 429 aborts the whole sync like auth', () async {
+      // PluralKitRateLimitError extends PluralKitApiError — without the
+      // dedicated rethrow it would be swallowed as a per-member skip and the
+      // loop would walk every remaining member into the same rate limit.
+      final client = _UpdateFailureClient({
+        'pk001': const PluralKitRateLimitError(),
+      });
+
+      await expectLater(
+        service.syncMembers(
+          localMembers: [linked('1'), linked('2')],
+          pkMembers: [pkFor('1'), pkFor('2')],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: client,
+        ),
+        throwsA(isA<PluralKitRateLimitError>()),
+      );
+
+      expect(
+        client.calls.where((c) => c.method == 'updateMember'),
+        hasLength(1),
+      );
+    });
+
+    test('unlinked-local create loop isolates a 400 the same way', () async {
+      final client = _CreateFailureClient({
+        'Bad': PluralKitApiError(
+          400,
+          validation40001Body(field: 'name', max: 100, actual: 150),
+          code: 40001,
+        ),
+      });
+      // 'Bad' comes FIRST to prove the loop continues past the failure.
+      final bad = _localMember(id: 'local-bad', name: 'Bad');
+      final good = _localMember(id: 'local-good', name: 'Good');
+
+      final summary = await service.syncMembers(
+        localMembers: [bad, good],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: client,
+      );
+
+      expect(
+        client.calls.where((c) => c.method == 'createMember'),
+        hasLength(2),
+      );
+      expect(summary.membersPushed, 1);
+      expect(summary.membersSkipped, 1);
+      expect(summary.pushSkippedMessages.single, contains("'Bad'"));
+      expect(
+        summary.pushSkippedMessages.single,
+        contains('name is 150 characters (max 100)'),
+      );
+
+      // Only the successful create got its PK identifiers linked back.
+      final links = fakeRepo.calls
+          .where((c) => c.method == 'applyPluralKitLink')
+          .map((c) => c.args[0])
+          .toList();
+      expect(links, ['local-good']);
+    });
+
+    test('create loop still aborts on auth errors', () async {
+      final client = _CreateFailureClient({
+        'First': const PluralKitAuthError(),
+      });
+      final first = _localMember(id: 'local-1', name: 'First');
+      final second = _localMember(id: 'local-2', name: 'Second');
+
+      await expectLater(
+        service.syncMembers(
+          localMembers: [first, second],
+          pkMembers: [],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: client,
+        ),
+        throwsA(isA<PluralKitAuthError>()),
+      );
+
+      expect(
+        client.calls.where((c) => c.method == 'createMember'),
+        hasLength(1),
+      );
+    });
+
+    test('create loop aborts on a sustained 429 like auth', () async {
+      final client = _CreateFailureClient({
+        'First': const PluralKitRateLimitError(),
+      });
+      final first = _localMember(id: 'local-1', name: 'First');
+      final second = _localMember(id: 'local-2', name: 'Second');
+
+      await expectLater(
+        service.syncMembers(
+          localMembers: [first, second],
+          pkMembers: [],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: client,
+        ),
+        throwsA(isA<PluralKitRateLimitError>()),
+      );
+
+      expect(
+        client.calls.where((c) => c.method == 'createMember'),
+        hasLength(1),
+      );
+    });
+
+    test('client-side cap skip (M10b) surfaces without a network call', () async {
+      // Bio over the 1000-char cap: the push service drops the field, the
+      // payload empties to a no-op, and the skip reaches the summary. The
+      // member still counts as pushed (the call "succeeded" as a no-op).
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
+        bio: 'x' * 1001,
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        uuid: 'uuid-pk001',
+        name: 'Alice',
+        description: 'short',
+      );
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(fakeClient.calls, isEmpty);
+      expect(summary.membersPushed, 1);
+      final message = summary.pushSkippedMessages.single;
+      expect(message, contains("'Alice'"));
+      expect(message, contains('is 1001 characters (PluralKit max 1000)'));
+    });
+
+    test('pushSkippedMessages round-trips through PkSyncSummary JSON', () {
+      const summary = PkSyncSummary(
+        membersSkipped: 1,
+        pushSkippedMessages: ['problem'],
+      );
+      final decoded = PkSyncSummary.fromJson(summary.toJson());
+      expect(decoded.pushSkippedMessages, ['problem']);
+      expect(decoded.hasSummaryDetails, isTrue);
+    });
+  });
+}
+
+/// Fake client whose updateMember throws a scripted error for specific PK
+/// ids (recording the attempt first) and succeeds for everything else.
+/// Exercises the M10a per-member isolation paths.
+class _UpdateFailureClient extends FakePluralKitClient {
+  _UpdateFailureClient(this.failures);
+
+  /// PK short id → error thrown when that member is PATCHed.
+  final Map<String, Exception> failures;
+
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) {
+    final error = failures[id];
+    if (error != null) {
+      calls.add(Call('updateMember', [id, data]));
+      return Future.error(error);
+    }
+    return super.updateMember(id, data);
+  }
+}
+
+/// Fake client whose createMember throws a scripted error for specific
+/// member names (recording the attempt first). Exercises the M10a isolation
+/// in the unlinked-locals create loop.
+class _CreateFailureClient extends FakePluralKitClient {
+  _CreateFailureClient(this.failures);
+
+  /// Payload `name` → error thrown when that member is POSTed.
+  final Map<String, Exception> failures;
+
+  @override
+  Future<PKMember> createMember(Map<String, dynamic> data) {
+    final error = failures[data['name']];
+    if (error != null) {
+      calls.add(Call('createMember', [data]));
+      return Future.error(error);
+    }
+    return super.createMember(data);
+  }
 }
 
 /// Push service stub that immediately throws PkStaleLinkException — used to
@@ -2038,6 +2370,7 @@ class _StaleLinkOnPushService extends PkPushService {
     PKMember? pkMember,
     bool includeProxyTags = true,
     Set<String>? allowedFields,
+    void Function(String pkField, String reason)? onFieldSkipped,
   }) async {
     throw PkStaleLinkException(
       localId: member.id,

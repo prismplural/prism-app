@@ -6609,6 +6609,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pluralkitPasteTokenHint => 'Pega tu token aquí';
 
   @override
+  String pluralkitTokenLengthWarning(int actual, int expected) {
+    return 'Esto no parece un token de PluralKit ($actual caracteres — se esperaban $expected). Aún puedes intentar conectar.';
+  }
+
+  @override
   String get pluralkitConnect => 'Conectar';
 
   @override

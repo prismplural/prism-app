@@ -37,12 +37,18 @@ void main() {
       expect(isBirthdayYearHidden(dt), isFalse);
     });
 
-    test('accepts year 0001 (minimum 4-digit year)', () {
-      final dt = parseBirthday('0001-01-01');
-      expect(dt, isNotNull);
-      expect(dt!.year, 1);
-      expect(isBirthdayYearHidden(dt), isFalse);
-    });
+    test(
+      'treats LEGACY year 0001 as the hidden-year sentinel '
+      '(2026-06 PK audit low — wave 4)',
+      () {
+        // PK's server source (DateUtils.cs) treats 0001 like 0004; older
+        // data may still carry it on the wire.
+        final dt = parseBirthday('0001-01-01');
+        expect(dt, isNotNull);
+        expect(dt!.year, birthdayNoYearLegacySentinel);
+        expect(isBirthdayYearHidden(dt), isTrue);
+      },
+    );
 
     test('accepts far-future years', () {
       final dt = parseBirthday('9999-12-31');
@@ -50,6 +56,23 @@ void main() {
       expect(dt!.year, 9999);
       expect(isBirthdayYearHidden(dt), isFalse);
     });
+
+    test(
+      'rejects calendar-invalid dates instead of silently normalizing '
+      '(2026-06 PK audit low — wave 4)',
+      () {
+        // DateTime(2020, 2, 30) would silently become Mar 2 — parseBirthday
+        // must reject the overflow rather than invent a different date.
+        expect(parseBirthday('2020-02-30'), isNull);
+        expect(parseBirthday('2021-02-29'), isNull, reason: 'not a leap year');
+        expect(parseBirthday('2020-13-01'), isNull);
+        expect(parseBirthday('2020-00-15'), isNull);
+        expect(parseBirthday('2020-01-00'), isNull);
+        expect(parseBirthday('2020-01-32'), isNull);
+        // Leap-day on a real leap year still parses.
+        expect(parseBirthday('2020-02-29'), isNotNull);
+      },
+    );
   });
 
   group('formatBirthdayWire', () {
@@ -92,6 +115,22 @@ void main() {
         expect(formatBirthdayWire(parsed!), equals(wire));
       }
     });
+
+    test(
+      'legacy 0001 is read as hidden but NEVER written as the sentinel '
+      '(2026-06 PK audit low — wave 4)',
+      () {
+        final parsed = parseBirthday('0001-07-15')!;
+        expect(isBirthdayYearHidden(parsed), isTrue);
+        // An explicit hide-year WRITE always normalizes to the 0004 write
+        // sentinel (0004 is a leap year; 0001 is not).
+        expect(formatBirthdayWire(parsed, hideYear: true), '0004-07-15');
+        // Without the hide flag the raw components round-trip verbatim, so
+        // a stored legacy string is only rewritten when a user edit goes
+        // through the hide-year path — never by a passive re-format.
+        expect(formatBirthdayWire(parsed), '0001-07-15');
+      },
+    );
   });
 
   group('formatBirthdayDisplay', () {
@@ -108,5 +147,15 @@ void main() {
       expect(out, isNot(contains('0004')));
       expect(out, isNot(contains('1993')));
     });
+
+    test(
+      'legacy 0001 hidden year also displays month+day, not "year 1" '
+      '(2026-06 PK audit low — wave 4)',
+      () {
+        final dt = parseBirthday('0001-07-15')!;
+        final out = formatBirthdayDisplay(dt, 'en_US');
+        expect(out, 'Jul 15');
+      },
+    );
   });
 }

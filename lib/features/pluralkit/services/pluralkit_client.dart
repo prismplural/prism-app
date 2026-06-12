@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException, HandshakeException;
+import 'dart:typed_data' show BytesBuilder;
 
 import 'package:http/http.dart' as http;
 
@@ -50,6 +51,34 @@ class PluralKitRateLimitError extends PluralKitApiError {
     String message = 'Rate limited — please wait and try again',
     this.retryAfter,
   ]) : super(429, message);
+}
+
+/// Thrown by [PluralKitClient.downloadBytes] when a download exceeds
+/// [PluralKitClient.maxDownloadBytes] (2026-06 PK audit low — wave 4).
+///
+/// The read is streamed and aborted as soon as the cap is crossed, so an
+/// oversized (or hostile, e.g. an endless external avatar URL) response is
+/// never buffered whole. Callers treat any download failure as per-item
+/// non-fatal — the member simply syncs without that image.
+class PkDownloadTooLargeException implements Exception {
+  final String url;
+  final int limitBytes;
+
+  /// What we knew when we gave up: the declared `Content-Length` when the
+  /// server sent one upfront, otherwise the number of bytes received before
+  /// the cap tripped.
+  final int observedBytes;
+
+  const PkDownloadTooLargeException({
+    required this.url,
+    required this.limitBytes,
+    required this.observedBytes,
+  });
+
+  @override
+  String toString() =>
+      'PkDownloadTooLargeException: download exceeds '
+      '$limitBytes bytes (saw $observedBytes) — $url';
 }
 
 /// Returns true when [e] is a network-layer failure (DNS lookup, connection
@@ -480,19 +509,53 @@ class PluralKitClient {
     await _delete('$_baseUrl/members/$id');
   }
 
+  /// Hard cap for [downloadBytes] (2026-06 PK audit low — wave 4). Sized for
+  /// avatars/banners: PK's own CDN limit is 1 MiB, but members may carry
+  /// arbitrary external image URLs, so allow generous headroom while still
+  /// bounding memory and bandwidth.
+  static const int maxDownloadBytes = 8 * 1024 * 1024; // 8 MiB
+
   /// Download raw bytes from a URL (e.g. avatar images).
   ///
   /// Routed through the same rate-limit queue as API calls to prevent
   /// concurrent bursts during import. Avatar CDNs don't share the API's
   /// 3/s budget, but single-path pacing is a safe default.
+  ///
+  /// The body is read as a stream and capped at [maxDownloadBytes]: the
+  /// transfer is aborted (not buffered-then-checked) as soon as either the
+  /// declared `Content-Length` or the received byte count exceeds the cap,
+  /// throwing [PkDownloadTooLargeException]. [_httpTimeout] applies to the
+  /// initial response and then per received chunk, so a large-but-flowing
+  /// image is not killed by the old whole-body 15s budget.
   Future<List<int>> downloadBytes(String url) => _queue.enqueue(() async {
-    final response = await _http
-        .get(Uri.parse(url), headers: {'User-Agent': BuildInfo.userAgent})
-        .timeout(_httpTimeout);
+    final request = http.Request('GET', Uri.parse(url))
+      ..headers['User-Agent'] = BuildInfo.userAgent;
+    final response = await _http.send(request).timeout(_httpTimeout);
     if (response.statusCode != 200) {
       throw PluralKitApiError(response.statusCode, 'Failed to download $url');
     }
-    return response.bodyBytes;
+    final declared = response.contentLength;
+    if (declared != null && declared > maxDownloadBytes) {
+      throw PkDownloadTooLargeException(
+        url: url,
+        limitBytes: maxDownloadBytes,
+        observedBytes: declared,
+      );
+    }
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response.stream.timeout(_httpTimeout)) {
+      builder.add(chunk);
+      if (builder.length > maxDownloadBytes) {
+        // Throwing out of the await-for cancels the subscription, which
+        // aborts the underlying transfer.
+        throw PkDownloadTooLargeException(
+          url: url,
+          limitBytes: maxDownloadBytes,
+          observedBytes: builder.length,
+        );
+      }
+    }
+    return builder.takeBytes();
   }, idempotent: true);
 
   /// Dispose the underlying HTTP client.

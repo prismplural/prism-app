@@ -8515,6 +8515,14 @@
   "@pluralkitTokenLabel": { "description": "Label for the PluralKit token input field" },
   "pluralkitPasteTokenHint": "Paste your token here",
   "@pluralkitPasteTokenHint": { "description": "Hint text for the PluralKit token input field" },
+  "pluralkitTokenLengthWarning": "This doesn't look like a PluralKit token ({actual} characters \u2014 expected {expected}). You can still try connecting.",
+  "@pluralkitTokenLengthWarning": {
+    "description": "Soft inline warning under the token field when the pasted token (after stripping whitespace) is not the expected PluralKit token length; submitting stays allowed",
+    "placeholders": {
+      "actual": { "type": "int" },
+      "expected": { "type": "int" }
+    }
+  },
   "pluralkitConnect": "Connect",
   "@pluralkitConnect": { "description": "Button label to connect PluralKit" },
   "pluralkitTokenHelp": "To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.",

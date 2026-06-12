@@ -49,6 +49,30 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Timer? _cooldownTimer;
   int _cooldownSeconds = 0;
 
+  /// Expected length of a PluralKit token (`pk;token` emits a 64-character
+  /// base64-ish string). Soft signal only: a mismatch shows an inline
+  /// warning but never blocks submitting, since PK could change the format
+  /// (2026-06 PK audit low — wave 4).
+  static const int _pkTokenExpectedLength = 64;
+
+  /// The token as it would be submitted: ALL whitespace stripped, including
+  /// internal newlines that PDF viewers and email clients inject into
+  /// copied tokens (2026-06 PK audit low — wave 4).
+  String get _strippedToken =>
+      _tokenController.text.replaceAll(RegExp(r'\s+'), '');
+
+  @override
+  void initState() {
+    super.initState();
+    // Rebuild on every keystroke/paste so the token-length warning under the
+    // field tracks the current input.
+    _tokenController.addListener(_onTokenChanged);
+  }
+
+  void _onTokenChanged() {
+    if (mounted) setState(() {});
+  }
+
   /// True once the user has interacted with the direction picker, OR once a
   /// non-default preserved value has been loaded from a prior session.
   /// Gates the Continue button on the direction step — the wizard is meant
@@ -89,11 +113,21 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   Future<void> _connect() async {
-    final token = _tokenController.text;
-    if (token.trim().isEmpty) return;
+    final token = _strippedToken;
+    if (token.isEmpty) return;
 
     await ref.read(pluralKitSyncProvider.notifier).setToken(token);
-    _tokenController.clear();
+
+    // Clear the field only once the auth result is known to be GOOD. The old
+    // unconditional clear meant a 401 wiped the pasted token and forced a
+    // full re-paste (2026-06 PK audit low — wave 4). setToken sets syncError
+    // on every failure path and clears it on success, so a null syncError
+    // here means the token validated and was persisted.
+    if (!mounted) return;
+    final syncState = ref.read(pluralKitSyncProvider);
+    if (syncState.syncError == null) {
+      _tokenController.clear();
+    }
 
     // NOTE: profile disclosure no longer fires here. It moves to the mapping
     // screen's resolution path (T16) so the user picks a direction before any
@@ -720,6 +754,22 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             isDense: true,
             onSubmitted: (_) => _connect(),
           ),
+          // Soft warning when the (whitespace-stripped) input doesn't look
+          // like a PK token. Submitting stays allowed — see
+          // [_pkTokenExpectedLength].
+          if (_strippedToken.isNotEmpty &&
+              _strippedToken.length != _pkTokenExpectedLength) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.pluralkitTokenLengthWarning(
+                _strippedToken.length,
+                _pkTokenExpectedLength,
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.orange.shade700,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           PrismButton(
             onPressed: _connect,

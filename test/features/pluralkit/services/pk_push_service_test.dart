@@ -123,6 +123,7 @@ domain.Member _member({
   String? customColorHex,
   bool customColorEnabled = false,
   String? proxyTagsJson,
+  String? birthday,
 }) {
   return domain.Member(
     id: id,
@@ -135,6 +136,7 @@ domain.Member _member({
     customColorHex: customColorHex,
     customColorEnabled: customColorEnabled,
     proxyTagsJson: proxyTagsJson,
+    birthday: birthday,
     createdAt: DateTime(2026, 1, 1),
   );
 }
@@ -454,6 +456,274 @@ void main() {
       expect(data['pronouns'], 'she/her');
       // No remote snapshot → no explicit nulls to clear absent fields.
       expect(data.containsKey('birthday'), isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 2026-06 PK audit M10b (wave 4): client-side validation of PK caps before
+  // a push leaves the app. PATCH drops the offending field (PK keeps its
+  // value — never silent truncation); POST truncates only the required
+  // `name`; both surface via onFieldSkipped. Caps live-verified 2026-06-10:
+  // name/display_name/pronouns 100, description 1000, color exactly 6-hex
+  // with no '#', birthday strict yyyy-MM-dd.
+  // -------------------------------------------------------------------------
+
+  group('PkFieldLimits payload validation (M10b)', () {
+    const pkSnapshot = PKMember(
+      id: 'pk123',
+      uuid: 'uuid-pk123',
+      name: 'Alice',
+      description: 'old bio',
+      pronouns: 'they/them',
+      displayName: 'Old Display',
+    );
+
+    test('over-cap description is dropped from PATCH and surfaced', () async {
+      final skips = <(String, String)>[];
+      final member = _member(
+        pluralkitId: 'pk123',
+        bio: 'x' * 1001,
+        pronouns: 'she/her',
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'description', 'pronouns'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      expect(fakeClient.calls, hasLength(1));
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(
+        data.containsKey('description'),
+        isFalse,
+        reason: 'over-cap field must be skipped, not truncated, on PATCH',
+      );
+      expect(data['pronouns'], 'she/her');
+      expect(skips, hasLength(1));
+      expect(skips.single.$1, 'description');
+      expect(
+        skips.single.$2,
+        contains('is 1001 characters (PluralKit max 1000)'),
+      );
+    });
+
+    test('over-cap display_name dropped; empty payload becomes a no-op', () async {
+      final skips = <(String, String)>[];
+      final member = _member(
+        pluralkitId: 'pk123',
+        pluralkitDisplayName: 'd' * 101,
+      );
+
+      final result = await pushService.pushMemberFull(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'display_name'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      // The only allowed field was dropped → empty PATCH would 400, so the
+      // existing empty-payload guard returns the snapshot without a call.
+      expect(fakeClient.calls, isEmpty);
+      expect(result.id, 'pk123');
+      expect(skips.single.$1, 'display_name');
+      expect(
+        skips.single.$2,
+        contains('is 101 characters (PluralKit max 100)'),
+      );
+    });
+
+    test('over-cap pronouns dropped on PATCH', () async {
+      final skips = <(String, String)>[];
+      final member = _member(
+        pluralkitId: 'pk123',
+        pronouns: 'p' * 101,
+        bio: 'fine',
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'pronouns', 'description'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('pronouns'), isFalse);
+      expect(data['description'], 'fine');
+      expect(skips.single.$1, 'pronouns');
+    });
+
+    test('non-6-hex color remnant is skipped and surfaced', () async {
+      final skips = <(String, String)>[];
+      final member = _member(
+        pluralkitId: 'pk123',
+        bio: 'fine',
+        customColorHex: '#12 34', // strips to '12 34' — not 6 hex digits
+        customColorEnabled: true,
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'color', 'description'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('color'), isFalse);
+      expect(data['description'], 'fine');
+      expect(skips.single.$1, 'color');
+      expect(skips.single.$2, contains("isn't a 6-digit hex color"));
+    });
+
+    test('valid 6-hex color passes validation untouched', () async {
+      final skips = <(String, String)>[];
+      final member = _member(
+        pluralkitId: 'pk123',
+        customColorHex: '#7C3AED',
+        customColorEnabled: true,
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'color'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['color'], '7C3AED');
+      expect(skips, isEmpty);
+    });
+
+    test('junk birthday strings are skipped (legacy import garbage)', () async {
+      final skips = <(String, String)>[];
+      // Legacy PATCH shape (no allowedFields / pkMember): every local
+      // non-null field is included — including a raw-column birthday that
+      // predates wire validation.
+      final member = _member(
+        pluralkitId: 'pk123',
+        pronouns: 'she/her',
+        birthday: 'July 15th, 1993',
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('birthday'), isFalse);
+      expect(data['pronouns'], 'she/her');
+      expect(skips.single.$1, 'birthday');
+      expect(skips.single.$2, contains("isn't a valid yyyy-MM-dd date"));
+    });
+
+    test('calendar-invalid birthday (02-30) is skipped', () async {
+      final skips = <(String, String)>[];
+      final member = _member(pluralkitId: 'pk123', birthday: '1990-02-30');
+
+      final result = await pushService.pushMemberFull(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'birthday'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      expect(fakeClient.calls, isEmpty);
+      expect(result.id, 'pk123');
+      expect(skips.single.$1, 'birthday');
+    });
+
+    test('sentinel birthday 0004-02-29 passes validation', () async {
+      final skips = <(String, String)>[];
+      final member = _member(pluralkitId: 'pk123', birthday: '0004-02-29');
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        allowedFields: {'birthday'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['birthday'], '0004-02-29');
+      expect(skips, isEmpty);
+    });
+
+    test('create truncates the required name instead of failing', () async {
+      final skips = <(String, String)>[];
+      final member = _member(name: 'n' * 150); // no pluralkitId → POST
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      expect(fakeClient.calls.first.method, 'createMember');
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect((data['name'] as String).length, 100);
+      expect(data['name'], 'n' * 100);
+      expect(skips.single.$1, 'name');
+      expect(skips.single.$2, contains('truncated to 100 characters'));
+    });
+
+    test('create-name truncation never splits a surrogate pair', () async {
+      final member = _member(name: '${'a' * 99}\u{1F600}'); // 99 + 2 units
+
+      await pushService.pushMember(member, fakeClient);
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      // Cutting at 100 would leave a lone high surrogate — back off to 99.
+      expect((data['name'] as String).length, 99);
+      expect(data['name'], 'a' * 99);
+    });
+
+    test('create drops over-cap optional fields like PATCH does', () async {
+      final skips = <(String, String)>[];
+      final member = _member(name: 'Ada', bio: 'x' * 1001);
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      expect(fakeClient.calls.first.method, 'createMember');
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data['name'], 'Ada');
+      expect(data.containsKey('description'), isFalse);
+      expect(skips.single.$1, 'description');
+    });
+
+    test('explicit-null clears are exempt from validation', () async {
+      // Legacy ungated PATCH with a remote snapshot: local null + remote set
+      // emits an explicit null clear, which must pass through untouched.
+      final skips = <(String, String)>[];
+      final member = _member(pluralkitId: 'pk123', bio: null, pronouns: 'x/y');
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: pkSnapshot,
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('description'), isTrue);
+      expect(data['description'], isNull);
+      expect(skips, isEmpty);
     });
   });
 

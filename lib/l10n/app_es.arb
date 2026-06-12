@@ -2068,6 +2068,7 @@
   "pluralkitTokenHelp": "Para obtener tu token, envía un mensaje directo al bot de PluralKit en Discord con \"pk;token\" y pega el resultado aquí.",
   "pluralkitFileImportHelp": "Recupera el historial anterior de fronts de PluralKit con un archivo pk;export y un token. El archivo aporta el historial de cambios; el token permite que Prism lo vincule de forma segura.",
   "pluralkitTokenLabel": "Token de PluralKit",
+  "pluralkitTokenLengthWarning": "Esto no parece un token de PluralKit ({actual} caracteres \u2014 se esperaban {expected}). A\u00fan puedes intentar conectar.",
   "pluralkitUpToDate": "Todo está actualizado.",
   "sharingAccept": "Aceptar",
   "sharingAddedDate": "Añadido el {date}",

@@ -10980,6 +10980,12 @@ abstract class AppLocalizations {
   /// **'Paste your token here'**
   String get pluralkitPasteTokenHint;
 
+  /// Soft inline warning under the token field when the pasted token (after stripping whitespace) is not the expected PluralKit token length; submitting stays allowed
+  ///
+  /// In en, this message translates to:
+  /// **'This doesn\'t look like a PluralKit token ({actual} characters — expected {expected}). You can still try connecting.'**
+  String pluralkitTokenLengthWarning(int actual, int expected);
+
   /// Button label to connect PluralKit
   ///
   /// In en, this message translates to:
