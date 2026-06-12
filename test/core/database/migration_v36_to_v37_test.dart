@@ -8,11 +8,11 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 import 'package:prism_plurality/core/database/app_database.dart';
 
 /// Seeds a database at the current schema, inserts one PK-backed group + entry,
-/// then stamps `user_version = 36` (optionally dropping the new column) so
-/// reopening runs the v36 → v37 migration chain. Mirrors
+/// then stamps `user_version = 32` (the released floor; optionally dropping the
+/// new column) so reopening runs the collapsed v32 → v37 migration. Mirrors
 /// migration_v31_to_v32_test. The new column is the local-only
 /// `member_group_entries.created_at` recency stamp (H6b).
-Future<File> _seedV36Db(String name, {required bool dropColumn}) async {
+Future<File> _seedV32Db(String name, {required bool dropColumn}) async {
   final tempDir = Directory.systemTemp.createTempSync(name);
   addTearDown(() {
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
@@ -39,7 +39,7 @@ Future<File> _seedV36Db(String name, {required bool dropColumn}) async {
         'ALTER TABLE member_group_entries DROP COLUMN created_at',
       );
     }
-    rawDb.execute('PRAGMA user_version = 36');
+    rawDb.execute('PRAGMA user_version = 32');
   } finally {
     rawDb.close();
   }
@@ -48,10 +48,10 @@ Future<File> _seedV36Db(String name, {required bool dropColumn}) async {
 }
 
 void main() {
-  group('schema v36 -> v37: member_group_entries.created_at', () {
+  group('schema v32 -> v37: member_group_entries.created_at', () {
     test('adds created_at and backfills existing rows to non-null', () async {
-      final dbFile = await _seedV36Db(
-        'prism_migration_v36_to_v37_add_',
+      final dbFile = await _seedV32Db(
+        'prism_migration_v32_to_v37_add_',
         dropColumn: true,
       );
 
@@ -83,9 +83,9 @@ void main() {
 
     test('idempotent: skips cleanly when the column already exists', () async {
       // dropColumn:false leaves the v37-shaped column in place while the
-      // user_version says 36 — exercises the migration's PRAGMA guard.
-      final dbFile = await _seedV36Db(
-        'prism_migration_v36_to_v37_skip_',
+      // user_version says 32 — exercises the migration's PRAGMA guard.
+      final dbFile = await _seedV32Db(
+        'prism_migration_v32_to_v37_skip_',
         dropColumn: false,
       );
 

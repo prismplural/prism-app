@@ -867,75 +867,65 @@ class AppDatabase extends _$AppDatabase {
         }
         current = 32;
       }
-      if (current == 32 && to >= 33) {
-        // durable media upload queue: durable, resumable media upload queue. Idempotent
-        // — dev/test DBs created at the current schema may already have it.
+      if (current == 32 && to >= 37) {
+        // 0.12.x production flatten: all schema additions since the v32 floor
+        // ship as one v32→v37 migration because no public build used the
+        // intermediate dev-only versions. Each step keeps its idempotent guard
+        // so dev/test DBs materialised at the current schema re-run cleanly.
+
+        // durable media upload queue: durable, resumable media upload queue.
         final tables = (await customSelect(
           "SELECT name FROM sqlite_master WHERE type = 'table'",
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!tables.contains('upload_queue_entries')) {
           await migrator.createTable(uploadQueueEntries);
         }
-        current = 33;
-      }
-      if (current == 33 && to >= 34) {
+
         // media heal: the demand-driven heal's missing-media set.
-        // Idempotent — dev/test DBs created at the current schema may already
-        // have it.
-        final tables = (await customSelect(
-          "SELECT name FROM sqlite_master WHERE type = 'table'",
-        ).get()).map((r) => r.read<String>('name')).toSet();
         if (!tables.contains('missing_media')) {
           await migrator.createTable(missingMediaEntries);
         }
-        current = 34;
-      }
-      if (current == 34 && to >= 35) {
+
         // media thumbnails: thumbnail crypto material so a peer can fetch +
         // integrity-verify the (already-uploaded) thumbnail blob. Reuses the
         // main blob's encryption key, so only the two hashes are new.
-        // Idempotent — a dev/test DB materialised at the current schema may
-        // already carry the columns.
-        final cols = (await customSelect(
+        final mediaCols = (await customSelect(
           'PRAGMA table_info(media_attachments)',
         ).get()).map((r) => r.read<String>('name')).toSet();
-        if (!cols.contains('thumbnail_content_hash')) {
+        if (!mediaCols.contains('thumbnail_content_hash')) {
           await migrator.addColumn(
             mediaAttachments,
             mediaAttachments.thumbnailContentHash,
           );
         }
-        if (!cols.contains('thumbnail_plaintext_hash')) {
+        if (!mediaCols.contains('thumbnail_plaintext_hash')) {
           await migrator.addColumn(
             mediaAttachments,
             mediaAttachments.thumbnailPlaintextHash,
           );
         }
-        current = 35;
-      }
-      if (current == 35 && to >= 36) {
-        final cols = (await customSelect(
+
+        // nav bar label display controls.
+        final settingsCols = (await customSelect(
           'PRAGMA table_info(system_settings)',
         ).get()).map((r) => r.read<String>('name')).toSet();
-        if (!cols.contains('nav_bar_label_display_mode')) {
+        if (!settingsCols.contains('nav_bar_label_display_mode')) {
           await migrator.addColumn(
             systemSettingsTable,
             systemSettingsTable.navBarLabelDisplayMode,
           );
         }
-        if (!cols.contains('nav_bar_reveal_labels_when_expanded')) {
+        if (!settingsCols.contains('nav_bar_reveal_labels_when_expanded')) {
           await migrator.addColumn(
             systemSettingsTable,
             systemSettingsTable.navBarRevealLabelsWhenExpanded,
           );
         }
-        current = 36;
-      }
-      if (current == 36 && to >= 37) {
+
         // member_group_entries.created_at — local-only recency stamp for the
-        // PK reconcile grace window (H6); NOT in prismSyncSchema. Idempotent
-        // for dev/test DBs. Existing rows backfill to "now" so an upgrading
-        // device doesn't reconcile-delete its pre-fix backlog as ancient.
+        // PK reconcile grace window (H6); NOT in prismSyncSchema. Existing rows
+        // backfill to "now" so an upgrading device doesn't reconcile-delete its
+        // pre-fix backlog as ancient.
         final entryCols = (await customSelect(
           'PRAGMA table_info(member_group_entries)',
         ).get()).map((r) => r.read<String>('name')).toSet();

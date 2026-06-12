@@ -6,7 +6,7 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 
-Future<void> _seedV35Db(File dbFile, {required bool dropColumns}) async {
+Future<void> _seedV32Db(File dbFile, {required bool dropColumns}) async {
   final seeded = AppDatabase(NativeDatabase(dbFile));
   await seeded.customSelect('SELECT 1').get();
   await seeded.close();
@@ -22,7 +22,7 @@ Future<void> _seedV35Db(File dbFile, {required bool dropColumns}) async {
         'DROP COLUMN nav_bar_reveal_labels_when_expanded',
       );
     }
-    rawDb.execute('PRAGMA user_version = 35;');
+    rawDb.execute('PRAGMA user_version = 32;');
   } finally {
     rawDb.close();
   }
@@ -63,12 +63,12 @@ Map<String, Object?> _settingsDefaults(String path) {
 }
 
 void main() {
-  test('v35→v36 migration adds nav display columns with defaults', () async {
+  test('v32→v37 migration adds nav display columns with defaults', () async {
     final dir = await Directory.systemTemp.createTemp('nav_display_migration');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
 
-    await _seedV35Db(dbFile, dropColumns: true);
+    await _seedV32Db(dbFile, dropColumns: true);
 
     final before = _systemSettingsColumns(dbFile.path);
     expect(before.contains('nav_bar_label_display_mode'), isFalse);
@@ -87,12 +87,12 @@ void main() {
     });
   });
 
-  test('v35→v36 migration skips columns that already exist', () async {
+  test('v32→v37 migration skips columns that already exist', () async {
     final dir = await Directory.systemTemp.createTemp('nav_display_current');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
 
-    await _seedV35Db(dbFile, dropColumns: false);
+    await _seedV32Db(dbFile, dropColumns: false);
 
     final upgraded = AppDatabase(NativeDatabase(dbFile));
     addTearDown(upgraded.close);

@@ -9,8 +9,8 @@ import 'package:prism_plurality/core/database/app_database.dart';
 
 /// Seeds a v32 database: open via [AppDatabase] to materialise the current
 /// schema, then drop the upload queue `upload_queue_entries` table and reset
-/// PRAGMA user_version = 32 so the v32→v33 migration is forced to run on the
-/// next open.
+/// PRAGMA user_version = 32 so the collapsed v32→v37 migration is forced to run
+/// on the next open.
 Future<void> _seedV32Db(File dbFile) async {
   final seeded = AppDatabase(NativeDatabase(dbFile));
   await seeded.customSelect('SELECT 1').get();
@@ -26,7 +26,7 @@ Future<void> _seedV32Db(File dbFile) async {
 }
 
 void main() {
-  test('v32→v33 migration creates the upload_queue_entries table', () async {
+  test('v32→v37 migration creates the upload_queue_entries table', () async {
     final dir = await Directory.systemTemp.createTemp('uq_migration');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
@@ -43,7 +43,7 @@ void main() {
     before.close();
     expect(missing, isTrue, reason: 'seed removed the table');
 
-    // Reopen → onUpgrade 32→33 runs.
+    // Reopen → onUpgrade 32→37 runs.
     final upgraded = AppDatabase(NativeDatabase(dbFile));
     addTearDown(upgraded.close);
     await upgraded.customSelect('SELECT 1').get();
@@ -61,7 +61,7 @@ void main() {
     expect(row.state, 'pending');
   });
 
-  test('v32→v33 migration is idempotent when the table already exists', () async {
+  test('v32→v37 migration is idempotent when the table already exists', () async {
     final dir = await Directory.systemTemp.createTemp('uq_migration2');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');

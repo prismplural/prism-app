@@ -7,11 +7,11 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/missing_media_dao.dart';
 
-/// Seeds a v33 database: open via [AppDatabase] to materialise the current
-/// schema, then drop the media heal `missing_media` table and reset
-/// PRAGMA user_version = 33 so the v33→v34 migration is forced to run on the
-/// next open.
-Future<void> _seedV33Db(File dbFile) async {
+/// Seeds a v32 (released floor) database: open via [AppDatabase] to materialise
+/// the current schema, then drop the media heal `missing_media` table and reset
+/// PRAGMA user_version = 32 so the collapsed v32→v37 migration is forced to run
+/// (and recreate it) on the next open.
+Future<void> _seedV32Db(File dbFile) async {
   final seeded = AppDatabase(NativeDatabase(dbFile));
   await seeded.customSelect('SELECT 1').get();
   await seeded.close();
@@ -19,19 +19,19 @@ Future<void> _seedV33Db(File dbFile) async {
   final rawDb = raw.sqlite3.open(dbFile.path);
   try {
     rawDb.execute('DROP TABLE IF EXISTS missing_media');
-    rawDb.execute('PRAGMA user_version = 33;');
+    rawDb.execute('PRAGMA user_version = 32;');
   } finally {
     rawDb.close();
   }
 }
 
 void main() {
-  test('v33→v34 migration creates the missing_media table', () async {
+  test('v32→v37 migration creates the missing_media table', () async {
     final dir = await Directory.systemTemp.createTemp('mm_migration');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
 
-    await _seedV33Db(dbFile);
+    await _seedV32Db(dbFile);
 
     // Confirm the table is gone pre-migration.
     final before = raw.sqlite3.open(dbFile.path);
@@ -43,7 +43,7 @@ void main() {
     before.close();
     expect(missing, isTrue, reason: 'seed removed the table');
 
-    // Reopen → onUpgrade 33→34 runs.
+    // Reopen → onUpgrade 32→37 runs.
     final upgraded = AppDatabase(NativeDatabase(dbFile));
     addTearDown(upgraded.close);
     await upgraded.customSelect('SELECT 1').get();
@@ -61,18 +61,18 @@ void main() {
     expect(row.priority, MissingMediaDao.priorityChat);
   });
 
-  test('v33→v34 migration is idempotent when the table already exists', () async {
+  test('v32→v37 migration is idempotent when the table already exists', () async {
     final dir = await Directory.systemTemp.createTemp('mm_migration2');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
 
     // Open at current schema (table present), then force user_version back to
-    // 33 WITHOUT dropping the table — the guarded createTable must not throw.
+    // 32 WITHOUT dropping the table — the guarded createTable must not throw.
     final seeded = AppDatabase(NativeDatabase(dbFile));
     await seeded.customSelect('SELECT 1').get();
     await seeded.close();
     final rawDb = raw.sqlite3.open(dbFile.path);
-    rawDb.execute('PRAGMA user_version = 33;');
+    rawDb.execute('PRAGMA user_version = 32;');
     rawDb.close();
 
     final upgraded = AppDatabase(NativeDatabase(dbFile));

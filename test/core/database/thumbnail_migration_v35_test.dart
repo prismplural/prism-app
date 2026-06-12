@@ -7,10 +7,11 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 
 import 'package:prism_plurality/core/database/app_database.dart';
 
-/// Seeds a v34 database: materialise the current schema via [AppDatabase], then
-/// drop the thumbnail thumbnail-hash columns and reset PRAGMA user_version = 34 so the
-/// v34→v35 migration is forced to run (and add them back) on the next open.
-Future<void> _seedV34Db(File dbFile) async {
+/// Seeds a v32 (released floor) database: materialise the current schema via
+/// [AppDatabase], then drop the thumbnail-hash columns and reset PRAGMA
+/// user_version = 32 so the collapsed v32→v37 migration is forced to run (and
+/// add them back) on the next open.
+Future<void> _seedV32Db(File dbFile) async {
   final seeded = AppDatabase(NativeDatabase(dbFile));
   await seeded.customSelect('SELECT 1').get();
   await seeded.close();
@@ -23,7 +24,7 @@ Future<void> _seedV34Db(File dbFile) async {
     rawDb.execute(
       'ALTER TABLE media_attachments DROP COLUMN thumbnail_plaintext_hash',
     );
-    rawDb.execute('PRAGMA user_version = 34;');
+    rawDb.execute('PRAGMA user_version = 32;');
   } finally {
     rawDb.close();
   }
@@ -42,19 +43,19 @@ Set<String> _columns(String path) {
 }
 
 void main() {
-  test('v34→v35 migration adds the thumbnail-hash columns', () async {
+  test('v32→v37 migration adds the thumbnail-hash columns', () async {
     final dir = await Directory.systemTemp.createTemp('thumb_migration');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
 
-    await _seedV34Db(dbFile);
+    await _seedV32Db(dbFile);
 
     // Pre-migration: the columns are gone.
     final before = _columns(dbFile.path);
     expect(before.contains('thumbnail_content_hash'), isFalse);
     expect(before.contains('thumbnail_plaintext_hash'), isFalse);
 
-    // Reopen → onUpgrade 34→35 runs.
+    // Reopen → onUpgrade 32→37 runs.
     final upgraded = AppDatabase(NativeDatabase(dbFile));
     addTearDown(upgraded.close);
     await upgraded.customSelect('SELECT 1').get();
@@ -82,18 +83,18 @@ void main() {
     expect(row.thumbnailPlaintextHash, 'tp-hash');
   });
 
-  test('opening a current-schema DB at v35 is a no-op (idempotent)', () async {
+  test('opening a current-schema DB at v32 is a no-op (idempotent)', () async {
     final dir = await Directory.systemTemp.createTemp('thumb_migration2');
     addTearDown(() => dir.delete(recursive: true));
     final dbFile = File('${dir.path}/app.db');
 
-    // Materialise current schema (columns present), force version back to 34
+    // Materialise current schema (columns present), force version back to 32
     // WITHOUT dropping them — the guarded addColumn must not throw.
     final seeded = AppDatabase(NativeDatabase(dbFile));
     await seeded.customSelect('SELECT 1').get();
     await seeded.close();
     final rawDb = raw.sqlite3.open(dbFile.path);
-    rawDb.execute('PRAGMA user_version = 34;');
+    rawDb.execute('PRAGMA user_version = 32;');
     rawDb.close();
 
     final upgraded = AppDatabase(NativeDatabase(dbFile));
