@@ -300,7 +300,7 @@ void main() {
       final listView = tester.widget<ReorderableListView>(
         find.byType(ReorderableListView).first,
       );
-      listView.onReorder(0, 2);
+      listView.onReorder!(0, 2);
       await tester.pump();
 
       // Save to capture the config.

@@ -562,7 +562,7 @@ void main() {
     final listView = tester.widget<ReorderableListView>(
       find.byType(ReorderableListView),
     );
-    listView.onReorder(1, 0);
+    listView.onReorder!(1, 0);
     await tester.pump();
 
     expect(membersNotifier.reorderedSequences, hasLength(1));
