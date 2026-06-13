@@ -969,6 +969,14 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       }
       BootTimings.mark('createHandle:_autoConfigureIfReady');
       ref.read(syncHealthProvider.notifier).setState(health);
+      // Drain the durable outbox while `syncAutoConfigureInProgress` is
+      // still true, so a listener that emits on the flag's true→false
+      // transition cannot interleave a fresh-HLC live emission between
+      // configure-success and the drain. Mirrors `_ensureConfiguredExclusive`,
+      // which already drains inside its try. A null/unconfigured engine is a
+      // safe deferral inside the drainer (the backoff timer keeps retrying), so
+      // this is correct on a disconnected boot too.
+      await triggerOutboxDrain(ref.read(databaseProvider), handle);
     } catch (e, st) {
       health = SyncHealthState.disconnected;
       ErrorReportingService.instance.report(
@@ -977,6 +985,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
         stackTrace: st,
       );
       ref.read(syncHealthProvider.notifier).setState(health);
+      // Drain before the flag clears here too: a failed configure must still
+      // flush deferred rows (or defer them safely) ahead of live emissions.
+      await triggerOutboxDrain(ref.read(databaseProvider), handle);
     } finally {
       if (configureFuture != null &&
           identical(_ensureConfiguredFuture, configureFuture)) {
@@ -1009,13 +1020,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
           .then(CryptoBootLog.instance.append),
     );
 
-    // F05: drain the durable outbox once a handle is published, REGARDLESS of
-    // the configure outcome. A null handle / unconfigured engine is a safe
-    // deferral inside the drainer, and the backoff timer keeps retrying — this
-    // closes the gap where a disconnected boot (the old healthy-only flush)
-    // skipped recovery forever, stranding rows enqueued by edits made while
-    // disconnected.
-    await triggerOutboxDrain(ref.read(databaseProvider), handle);
+    // The durable outbox drain now runs inside the configure try/catch
+    // above, before `syncAutoConfigureInProgress` flips false (the boot
+    // window). It stays a safe deferral on a disconnected boot, and the backoff
+    // timer keeps retrying stranded rows.
 
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).

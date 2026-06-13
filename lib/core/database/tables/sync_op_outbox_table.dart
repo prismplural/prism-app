@@ -22,15 +22,23 @@ class SyncOpOutbox extends Table {
   TextColumn get entityTable => text().named('table_name')();
   TextColumn get entityId => text()();
 
-  /// One of `create` / `update` / `delete` — the captured op type stored
-  /// faithfully (a reconcile/backfill is captured as `update`; never persist
-  /// a reconcile as anything else).
+  /// One of `create` / `update` / `delete`. This vocabulary CANNOT represent
+  /// the divergence-aware reconcile/backfill modes; a reconcile/backfill is
+  /// captured as `update` but is refused entry by the
+  /// `persistCapturedOpsToOutbox` guard, because a drained plain `update`
+  /// carries a fresh HLC and would reintroduce the reconcile/backfill clobber.
+  /// Reconcile/backfill ops dispatch directly, never through this table.
   TextColumn get opType => text()();
 
   /// `jsonEncode` of the captured op fields; empty (`{}`) for deletes.
   TextColumn get fieldsJson => text()();
 
-  /// Wall-clock enqueue time (ms since epoch).
+  /// Capture-time origin (ms since epoch), copied from
+  /// `CapturedSyncOp.capturedAtMs`. The drainer re-derives the op's origin HLC
+  /// from this so a deferred/replayed op is stamped via the `*_at` FFI at its
+  /// capture time and can never win LWW against an edit made after capture.
+  /// Falls back to enqueue time only for legacy ops with no capture
+  /// stamp.
   IntColumn get createdAt => integer()();
 
   IntColumn get attempts => integer().withDefault(const Constant(0))();

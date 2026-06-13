@@ -60,14 +60,54 @@ void main() {
       expect(rows.map((r) => r.quarantined), everyElement(false));
     });
 
-    test('a reconcile-shaped update op is persisted as a plain update', () async {
-      // The reconcile/backfill entry points capture as SyncRecordOpType.update;
-      // the outbox must store the real op_type (update), never a reconcile.
+    test('a plain (non-divergence-aware) update is persisted as update', () async {
+      // A normal repository update is captured as SyncRecordOpType.update and
+      // stored faithfully; only a divergence-aware reconcile/backfill is
+      // refused (see the guard test below).
       await SyncRecordMixin.persistCapturedOpsToOutbox(db, const [
         CapturedSyncOp('members', 'm1', SyncRecordOpType.update, {'name': 'R'}),
       ]);
       final rows = await db.syncOutboxDao.allInIdOrder();
       expect(rows.single.opType, 'update');
+    });
+
+    test('F32 guard: refuses a reconcile/backfill-origin op', () async {
+      // A reconcile/backfill is captured as SyncRecordOpType.update but flagged
+      // isDivergenceAware. The outbox vocabulary cannot represent it, and a
+      // drained plain update carries a fresh HLC that would reintroduce the
+      // full-row clobber — so persisting it must throw, not silently downgrade.
+      await expectLater(
+        SyncRecordMixin.persistCapturedOpsToOutbox(db, const [
+          CapturedSyncOp('member_groups', 'g1', SyncRecordOpType.update,
+              {'name': 'R'},
+              capturedAtMs: 1000, isDivergenceAware: true),
+        ]),
+        throwsA(isA<StateError>()),
+      );
+      // Nothing was written: the guard runs before any insert.
+      expect(await db.syncOutboxDao.count(), 0);
+    });
+
+    test('F32: createdAt carries capturedAtMs so the drainer re-derives origin',
+        () async {
+      await SyncRecordMixin.persistCapturedOpsToOutbox(db, const [
+        CapturedSyncOp('members', 'm1', SyncRecordOpType.update, {'name': 'B'},
+            capturedAtMs: 4242),
+      ]);
+      final row = (await db.syncOutboxDao.allInIdOrder()).single;
+      expect(row.createdAt, 4242);
+
+      // The drainer reconstructs the op with that origin and dispatches it
+      // through the *_at FFI entry point (verified via the captured op below).
+      CapturedSyncOp? dispatched;
+      final drainer = SyncOutboxDrainer(
+        db,
+        dispatchOp: (h, op) async {
+          dispatched = op;
+        },
+      );
+      await drainer.drain(handle);
+      expect(dispatched?.capturedAtMs, 4242);
     });
 
     test('empty list is a no-op', () async {

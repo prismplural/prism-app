@@ -189,6 +189,38 @@ void main() {
     );
 
     test(
+      'F32 boot window: a drain triggered during configure dispatches with '
+      'syncAutoConfigureInProgress still true',
+      () async {
+        // Mirrors `createHandle`, which now drains the outbox inside the
+        // configure try block — before the finally flips the flag false — so a
+        // listener firing on the flag transition cannot interleave a fresh-HLC
+        // live emission between configure-success and the drain.
+        await SyncRecordMixin.persistCapturedOpsToOutbox(db, const [
+          CapturedSyncOp('members', 'm1', SyncRecordOpType.update, {'k': 'v'},
+              capturedAtMs: 1234),
+        ]);
+
+        const handle = _FakePrismSyncHandle();
+        bool? flagDuringDispatch;
+        final drainer = SyncOutboxDrainer(
+          db,
+          dispatchOp: (h, op) async {
+            flagDuringDispatch = syncAutoConfigureInProgress.value;
+          },
+        );
+
+        // Simulate the configure window: flag true, drain, then clear.
+        syncAutoConfigureInProgress.value = true;
+        await drainer.drain(handle);
+        syncAutoConfigureInProgress.value = false;
+
+        expect(flagDuringDispatch, isTrue);
+        expect(await db.syncOutboxDao.count(), 0);
+      },
+    );
+
+    test(
       "FFI 'sync not configured' leaves attempts unchanged (deferral)",
       () async {
         await SyncRecordMixin.persistCapturedOpsToOutbox(db, const [
@@ -806,10 +838,54 @@ void main() {
       expect(captured[0].entityId, 'm1');
       expect(captured[0].fields, {'name': 'R'});
       expect(captured[0].capturedAtMs, isNotNull);
+      // Tagged so the outbox guard can refuse it (the outbox cannot represent
+      // divergence-aware emission).
+      expect(captured[0].isDivergenceAware, isTrue);
       expect(captured[1].opType, SyncRecordOpType.update);
       expect(captured[1].entityId, 'm2');
       expect(captured[1].fields, {'name': 'B'});
+      expect(captured[1].isDivergenceAware, isTrue);
     });
+
+    test(
+      'F32 guard: a captured reconcile op handed to the outbox throws',
+      () async {
+        final repo = _ProbeRepository();
+        final captured = <CapturedSyncOp>[];
+        await SyncRecordMixin.suppressAndCapture(() async {
+          await repo.syncRecordReconcile('member_groups', 'g1', {'name': 'R'});
+        }, captured.add);
+
+        await expectLater(
+          SyncRecordMixin.persistCapturedOpsToOutbox(db, captured),
+          throwsA(isA<StateError>()),
+        );
+        expect(await db.syncOutboxDao.count(), 0);
+      },
+    );
+
+    test(
+      'F32: replayCapturedOps re-emits at the op\'s original origin, not now',
+      () async {
+        // A plain update captured at an old origin replays through the live
+        // path; the re-dispatched op must carry the ORIGINAL capturedAtMs so
+        // `_dispatchCapturedOp` stamps the *_at FFI with that timestamp rather
+        // than a fresh replay-time HLC.
+        final repo = _ProbeRepository();
+        final replayed = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(replayed.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        const oldOrigin = 1577836801000; // just above the backfill floor
+        await repo.replayCapturedOps(const [
+          CapturedSyncOp('members', 'm1', SyncRecordOpType.update, {'name': 'X'},
+              capturedAtMs: oldOrigin),
+        ]);
+
+        expect(replayed, hasLength(1));
+        expect(replayed.single.capturedAtMs, oldOrigin);
+      },
+    );
   });
 }
 

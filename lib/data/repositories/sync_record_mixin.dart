@@ -29,6 +29,7 @@ class CapturedSyncOp {
     this.opType,
     this.fields, {
     this.capturedAtMs,
+    this.isDivergenceAware = false,
   });
 
   final String table;
@@ -41,11 +42,22 @@ class CapturedSyncOp {
 
   /// Wall-clock capture time (`DateTime.now().millisecondsSinceEpoch`) stamped
   /// when the live `syncRecord*` path builds the op. A replay that is dispatched
-  /// later must carry this as its origin HLC so chronologically-older data never
-  /// wins LWW against an edit made after capture (F32). `null` for ops built
-  /// outside the live path (the suppress/capture import seam), whose dispatch is
-  /// owned by a later step and does not yet origin-stamp.
+  /// later carries this as its origin HLC so chronologically-older data never
+  /// wins LWW against an edit made after capture. `null` for ops built by
+  /// legacy const-ctor sites; dispatch falls back to a fresh emit-time HLC for
+  /// those, while the live `syncRecord*` and outbox paths always populate it.
   final int? capturedAtMs;
+
+  /// True when this op originated from [SyncRecordMixin.syncRecordReconcile] or
+  /// [SyncRecordMixin.syncRecordBackfill]. Those carry merge-relevant divergence
+  /// semantics (per-field reconcile / floor-HLC backfill) that the plain
+  /// create/update/delete outbox vocabulary CANNOT represent — captured as
+  /// [SyncRecordOpType.update], they would drain as a fresh-HLC update and
+  /// reintroduce the exact reconcile/backfill clobber. The outbox
+  /// guard ([SyncRecordMixin.persistCapturedOpsToOutbox]) refuses any op with
+  /// this flag set. Reconcile/backfill ops dispatch directly today, so nothing
+  /// legitimately routes them through the outbox; the flag pins that invariant.
+  final bool isDivergenceAware;
 }
 
 /// Test-only callback type: invoked once per intercepted sync emission.
@@ -175,6 +187,32 @@ mixin SyncRecordMixin {
   /// suppression, not a process-wide flag. Exposed for tests that assert
   /// "suppression cleanly entered + exited."
   static bool get isSuppressed => _activeCaptureContext != null;
+
+  /// Zone key carrying a replay-origin timestamp. [replayCapturedOps]
+  /// sets it around each re-dispatch so `syncRecord*` stamps the re-emitted op
+  /// at the op's ORIGINAL capture time instead of `now`, without changing the
+  /// entry-point signatures (their test-double overrides must keep matching).
+  static const Object _replayOriginZoneKey = #prismSyncReplayOrigin;
+
+  /// The replay-origin timestamp for the current async context, or `null` when
+  /// not inside a [replayCapturedOps] re-dispatch.
+  static int? get _replayOriginMs =>
+      Zone.current[_replayOriginZoneKey] as int?;
+
+  /// Capture time to stamp a freshly-built op with: the replay origin when
+  /// re-emitting, else now.
+  static int get _opCaptureTimeMs =>
+      _replayOriginMs ?? DateTime.now().millisecondsSinceEpoch;
+
+  /// Run [body] with the replay-origin timestamp [originMs] in scope. A null
+  /// origin leaves the zone untouched (legacy capture ops fall back to now).
+  static Future<T> _withReplayOrigin<T>(
+    int? originMs,
+    Future<T> Function() body,
+  ) {
+    if (originMs == null) return body();
+    return runZoned(body, zoneValues: {_replayOriginZoneKey: originMs});
+  }
 
   /// Drift stamps the active executor into the zone under this key while a
   /// `db.transaction(...)` body runs (including nested transactions). A
@@ -345,6 +383,39 @@ mixin SyncRecordMixin {
     CapturedSyncOp op,
   ) {
     final payload = jsonEncode(op.fields);
+    // Origin stamping: when the op carries its capture time, dispatch
+    // through the `*_at` FFI so the engine mints the HLC at the origin
+    // timestamp (clamped to (floor, now]) instead of a fresh emit-time tick.
+    // The watermark is left untouched and the field_versions upsert is
+    // `wins_over`-guarded, so a late replay never regresses a newer local
+    // winner. Legacy const-ctor sites leave `capturedAtMs` null and keep the
+    // legacy fresh-HLC behavior; the live `syncRecord*` and outbox paths
+    // always populate it.
+    final originMs = op.capturedAtMs;
+    if (originMs != null) {
+      return switch (op.opType) {
+        SyncRecordOpType.create => ffi.recordCreateAt(
+          handle: handle,
+          table: op.table,
+          entityId: op.entityId,
+          fieldsJson: payload,
+          originTimestampMs: originMs,
+        ),
+        SyncRecordOpType.update => ffi.recordUpdateAt(
+          handle: handle,
+          table: op.table,
+          entityId: op.entityId,
+          changedFieldsJson: payload,
+          originTimestampMs: originMs,
+        ),
+        SyncRecordOpType.delete => ffi.recordDeleteAt(
+          handle: handle,
+          table: op.table,
+          entityId: op.entityId,
+          originTimestampMs: originMs,
+        ),
+      };
+    }
     return switch (op.opType) {
       SyncRecordOpType.create => ffi.recordCreate(
         handle: handle,
@@ -389,12 +460,14 @@ mixin SyncRecordMixin {
     entityIds: entityIds,
   );
 
-  /// The outbox `op_type` string for a captured op. Stored faithfully —
-  /// create/update/delete only. A reconcile/backfill is captured as an
-  /// `update` ([SyncRecordOpType.update]) and persisted as `update`; the outbox
-  /// never carries a reconcile/backfill distinction (the latent family-10
-  /// trap), and the drainer replays it through the fresh-HLC `recordUpdate`
-  /// path, which is a same-value LWW no-op when nothing diverged.
+  /// The outbox `op_type` string for a captured op. The vocabulary is
+  /// create/update/delete ONLY and cannot represent the divergence-aware
+  /// reconcile/backfill modes — those are captured as [SyncRecordOpType.update]
+  /// but MUST NOT reach the outbox (the [CapturedSyncOp.isDivergenceAware]
+  /// guard in [persistCapturedOpsToOutbox] refuses them), because a drained
+  /// plain `update` carries a fresh HLC and would reintroduce the
+  /// reconcile/backfill clobber. Reconcile/backfill ops dispatch directly, so
+  /// nothing legitimately routes a reconcile/backfill through here.
   static String outboxOpTypeName(SyncRecordOpType opType) => switch (opType) {
     SyncRecordOpType.create => 'create',
     SyncRecordOpType.update => 'update',
@@ -420,13 +493,32 @@ mixin SyncRecordMixin {
   /// dispatch happens here, so the emit-after-commit invariant holds even
   /// though the rows are written inside the transaction.
   ///
-  /// Stores each op's real `op_type` faithfully (create/update/delete) and the
-  /// `jsonEncode` of its fields (empty `{}` for deletes).
+  /// Stores each op's real `op_type` (create/update/delete) and the
+  /// `jsonEncode` of its fields (empty `{}` for deletes); `created_at` carries
+  /// the op's [CapturedSyncOp.capturedAtMs] so the drainer can re-derive the
+  /// origin HLC.
+  ///
+  /// GUARD: refuses a reconcile/backfill-origin op.
+  /// The outbox vocabulary cannot represent divergence-aware emission; such an
+  /// op is captured as an `update` and would drain as a fresh-HLC update,
+  /// reintroducing the reconcile/backfill clobber. Reconcile/backfill ops
+  /// dispatch directly today, so reaching here with one is a code-path bug —
+  /// fail loudly.
   static Future<void> persistCapturedOpsToOutbox(
     AppDatabase db,
     List<CapturedSyncOp> ops,
   ) async {
     if (ops.isEmpty) return;
+    for (final op in ops) {
+      if (op.isDivergenceAware) {
+        throw StateError(
+          'Refusing to persist a reconcile/backfill op to the sync outbox '
+          '(${op.table}/${op.entityId}): the outbox cannot represent '
+          'divergence-aware emission and would drain it as a fresh-HLC update, '
+          'reintroducing the F43/F44 clobber. Dispatch it directly instead.',
+        );
+      }
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     final rows = <SyncOpOutboxCompanion>[
       for (final op in ops)
@@ -624,7 +716,7 @@ mixin SyncRecordMixin {
       entityId,
       SyncRecordOpType.create,
       Map<String, dynamic>.of(fields),
-      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+      capturedAtMs: _opCaptureTimeMs,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -649,7 +741,7 @@ mixin SyncRecordMixin {
       entityId,
       SyncRecordOpType.update,
       Map<String, dynamic>.of(fields),
-      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+      capturedAtMs: _opCaptureTimeMs,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -670,7 +762,7 @@ mixin SyncRecordMixin {
       entityId,
       SyncRecordOpType.delete,
       const <String, dynamic>{},
-      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+      capturedAtMs: _opCaptureTimeMs,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -695,7 +787,7 @@ mixin SyncRecordMixin {
     if (entityIds.isEmpty) {
       return;
     }
-    final capturedAtMs = DateTime.now().millisecondsSinceEpoch;
+    final capturedAtMs = _opCaptureTimeMs;
     CapturedSyncOp opFor(String id) => CapturedSyncOp(
       table,
       id,
@@ -747,6 +839,7 @@ mixin SyncRecordMixin {
       SyncRecordOpType.update,
       Map<String, dynamic>.of(fields),
       capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+      isDivergenceAware: true,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -786,6 +879,7 @@ mixin SyncRecordMixin {
       SyncRecordOpType.update,
       Map<String, dynamic>.of(fields),
       capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+      isDivergenceAware: true,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -812,7 +906,10 @@ mixin SyncRecordMixin {
   /// half of the capture-then-replay pattern ([suppressAndCapture] captures
   /// inside a Drift transaction, this re-emits after it durably commits). Each
   /// op re-dispatches through the same `syncRecord*` entry point with its
-  /// original type and `fields`.
+  /// original type and `fields`, and is origin-stamped at its original
+  /// [CapturedSyncOp.capturedAtMs] via a zone-scoped replay-origin override so
+  /// the re-emit carries the capture-time HLC rather than a fresh replay-time
+  /// one.
   ///
   /// **Not durable — do not use for new production durability.** This is the
   /// in-memory leg of the capture-then-replay pattern: a crash between the
@@ -837,14 +934,21 @@ mixin SyncRecordMixin {
     final failures = <CapturedSyncOp>[];
     for (final op in ops) {
       try {
-        switch (op.opType) {
-          case SyncRecordOpType.create:
-            await syncRecordCreate(op.table, op.entityId, op.fields);
-          case SyncRecordOpType.update:
-            await syncRecordUpdate(op.table, op.entityId, op.fields);
-          case SyncRecordOpType.delete:
-            await syncRecordDelete(op.table, op.entityId);
-        }
+        // Re-emit at the op's ORIGINAL capture time, never a fresh replay
+        // -time HLC, so a post-commit replay can never beat an edit made after
+        // capture. The zone-scoped origin override is read by `syncRecord*`
+        // when it builds the op, leaving the entry-point signatures (and their
+        // test-double overrides) untouched.
+        await _withReplayOrigin(op.capturedAtMs, () async {
+          switch (op.opType) {
+            case SyncRecordOpType.create:
+              await syncRecordCreate(op.table, op.entityId, op.fields);
+            case SyncRecordOpType.update:
+              await syncRecordUpdate(op.table, op.entityId, op.fields);
+            case SyncRecordOpType.delete:
+              await syncRecordDelete(op.table, op.entityId);
+          }
+        });
       } catch (e, st) {
         failures.add(op);
         ErrorReportingService.instance.report(
