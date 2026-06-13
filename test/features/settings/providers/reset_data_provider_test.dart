@@ -52,6 +52,7 @@ const _allUserDataTables = [
   'member_group_entries',
   'pk_group_sync_aliases',
   'pk_group_entry_deferred_sync_ops',
+  'pk_identity_sync_aliases',
   'custom_fields',
   'custom_field_values',
   'notes',
@@ -152,6 +153,13 @@ const _memberRefAllowlist = <(String, String)>{
   ('pk_mapping_state', 'pk_member_id'),
   ('pk_mapping_state', 'pk_member_uuid'),
   ('member_group_entries', 'pk_member_uuid'),
+  // F23 identity-redirect record: member_id is an identity-key component
+  // (populated only on fronting_sessions aliases), recorded at apply-redirect
+  // (merge) time for delete-symmetric re-import resolution. It intentionally
+  // references a possibly-deleted member and must outlive it (the session target
+  // survives), so it is not an orphan to cascade-clean. NB: members-scoped
+  // aliases (entity_table='members') ARE cleared by _resetMembers.
+  ('pk_identity_sync_aliases', 'member_id'),
 };
 
 void main() {
@@ -3055,6 +3063,16 @@ class _ResetHarness {
             legacyEntityId: 'legacy-group-1',
             pkGroupUuid: 'pk-group-uuid-1',
             canonicalEntityId: 'pk-group:pk-group-uuid-1',
+            createdAt: now,
+          ),
+        );
+    await db
+        .into(db.pkIdentitySyncAliases)
+        .insert(
+          PkIdentitySyncAliasesCompanion.insert(
+            entityTable: 'members',
+            legacyEntityId: 'legacy-member-1',
+            targetRowId: 'member-1',
             createdAt: now,
           ),
         );

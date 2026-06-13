@@ -488,6 +488,13 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM habit_completions');
       await db.customStatement('DELETE FROM member_board_posts');
       await db.customStatement('DELETE FROM member_group_entries');
+      // Identity-redirect aliases whose holder is a member die with the members
+      // hard-deleted below. Drop the members-scoped aliases so a stale redirect
+      // can't re-resolve a later legacy-id delete onto a same-identity
+      // re-import. Fronting-session aliases survive (their targets do).
+      await db.customStatement(
+        "DELETE FROM pk_identity_sync_aliases WHERE entity_table = 'members'",
+      );
       await db.customStatement('DELETE FROM member_profile_preference_values');
       await db.customStatement('DELETE FROM notes');
       await db.customStatement('DELETE FROM poll_votes');
@@ -514,6 +521,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       'media_attachments',
       'member_board_posts',
       'member_group_entries',
+      'pk_identity_sync_aliases',
       'member_profile_preference_values',
       'members',
       'notes',
