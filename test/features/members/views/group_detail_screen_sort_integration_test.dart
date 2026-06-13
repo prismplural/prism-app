@@ -55,6 +55,7 @@ class _RecordingRepo extends DriftMemberGroupsRepository {
     : super(dao, null, memberRepository: memberRepository);
 
   final updates = <Map<String, dynamic>>[];
+  final reconciles = <Map<String, dynamic>>[];
 
   @override
   Future<void> syncRecordCreate(
@@ -70,6 +71,19 @@ class _RecordingRepo extends DriftMemberGroupsRepository {
     Map<String, dynamic> fields,
   ) async {
     updates.add({
+      'table': table,
+      'entityId': entityId,
+      'fields': Map<String, dynamic>.from(fields),
+    });
+  }
+
+  @override
+  Future<void> syncRecordReconcile(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    reconciles.add({
       'table': table,
       'entityId': entityId,
       'fields': Map<String, dynamic>.from(fields),
@@ -755,18 +769,18 @@ void main() {
     // "next legitimate write" the plan §scenario 8 calls out.
     final repo = _RecordingRepo(dao, _FakeMemberRepository());
     await repo.emitGroupSyncState('g');
-    // Pick the member_groups update specifically; entry updates also land
-    // in the recorder.
-    final groupUpdate = repo.updates.firstWhere(
+    // Pick the member_groups reconcile specifically; entry reconciles also
+    // land in the recorder.
+    final groupReconcile = repo.reconciles.firstWhere(
       (u) => u['table'] == 'member_groups',
       orElse: () => <String, dynamic>{},
     );
     expect(
-      groupUpdate.isNotEmpty,
+      groupReconcile.isNotEmpty,
       isTrue,
-      reason: 'emitGroupSyncState must emit a member_groups update',
+      reason: 'emitGroupSyncState must reconcile member_groups',
     );
-    final fields = groupUpdate['fields'] as Map<String, dynamic>;
+    final fields = groupReconcile['fields'] as Map<String, dynamic>;
     final emitted = tryDecodeSortState(fields['sort_state'] as String?);
     expect(emitted, newState);
   });
@@ -801,16 +815,16 @@ void main() {
     // Next local write path emits the pre-garbage valid state.
     final repo = _RecordingRepo(dao, _FakeMemberRepository());
     await repo.emitGroupSyncState('g');
-    final groupUpdate = repo.updates.firstWhere(
+    final groupReconcile = repo.reconciles.firstWhere(
       (u) => u['table'] == 'member_groups',
       orElse: () => <String, dynamic>{},
     );
     expect(
-      groupUpdate.isNotEmpty,
+      groupReconcile.isNotEmpty,
       isTrue,
-      reason: 'emitGroupSyncState must emit a member_groups update',
+      reason: 'emitGroupSyncState must reconcile member_groups',
     );
-    final fields = groupUpdate['fields'] as Map<String, dynamic>;
+    final fields = groupReconcile['fields'] as Map<String, dynamic>;
     final emitted = tryDecodeSortState(fields['sort_state'] as String?);
     expect(
       emitted,

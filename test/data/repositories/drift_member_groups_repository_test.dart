@@ -51,6 +51,20 @@ class _RecordingRepo extends DriftMemberGroupsRepository {
   final creates = <Map<String, Object?>>[];
   final updates = <Map<String, Object?>>[];
   final deletes = <Map<String, String>>[];
+  final reconciles = <Map<String, Object?>>[];
+
+  @override
+  Future<void> syncRecordReconcile(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    reconciles.add({
+      'table': table,
+      'entityId': entityId,
+      'fields': Map<String, dynamic>.from(fields),
+    });
+  }
 
   @override
   Future<void> syncRecordCreate(
@@ -222,6 +236,13 @@ int _groupUpdates(_RecordingRepo repo) =>
 Map<String, Object?>? _lastGroupUpdate(_RecordingRepo repo) {
   for (final update in repo.updates.reversed) {
     if (update['table'] == 'member_groups') return update;
+  }
+  return null;
+}
+
+Map<String, Object?>? _lastGroupReconcile(_RecordingRepo repo) {
+  for (final reconcile in repo.reconciles.reversed) {
+    if (reconcile['table'] == 'member_groups') return reconcile;
   }
   return null;
 }
@@ -710,8 +731,8 @@ void main() {
         final baseline = errorCountBaseline();
         await repo.emitGroupSyncState('g1');
 
-        final update = _lastGroupUpdate(repo)!;
-        final fields = update['fields']! as Map<String, dynamic>;
+        final reconcile = _lastGroupReconcile(repo)!;
+        final fields = reconcile['fields']! as Map<String, dynamic>;
         expect(
           fields['sort_state'],
           '{"mode":0,"order":[]}',

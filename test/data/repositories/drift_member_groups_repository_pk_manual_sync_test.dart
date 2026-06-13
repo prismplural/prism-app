@@ -132,6 +132,20 @@ class _RecordingMemberGroupsRepository extends DriftMemberGroupsRepository {
   final creates = <Map<String, Object?>>[];
   final updates = <Map<String, Object?>>[];
   final deletes = <Map<String, Object?>>[];
+  final reconciles = <Map<String, Object?>>[];
+
+  @override
+  Future<void> syncRecordReconcile(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    reconciles.add({
+      'table': table,
+      'entityId': entityId,
+      'fields': Map<String, dynamic>.from(fields),
+    });
+  }
 
   @override
   Future<void> syncRecordCreate(
@@ -725,21 +739,25 @@ void main() {
 
       await repo.emitGroupSyncState('local-group-1');
 
-      expect(repo.updates, hasLength(2));
-      expect(repo.updates.map((record) => record['table']).toList(), [
+      // emitGroupSyncState reconciles against field_versions rather than
+      // re-broadcasting full rows; the local-only entry is still skipped
+      // by the PK-backed emission guard.
+      expect(repo.updates, isEmpty);
+      expect(repo.reconciles, hasLength(2));
+      expect(repo.reconciles.map((record) => record['table']).toList(), [
         'member_groups',
         'member_group_entries',
       ]);
       expect(
-        repo.updates.first['entityId'],
+        repo.reconciles.first['entityId'],
         _canonicalPkGroupEntityId('pk-group-1'),
       );
-      final entryUpdate = repo.updates.last;
+      final entryReconcile = repo.reconciles.last;
       expect(
-        entryUpdate['entityId'],
+        entryReconcile['entityId'],
         _deterministicPkEntryId('pk-group-1', 'pk-member-1'),
       );
-      expect(entryUpdate['fields'], {
+      expect(entryReconcile['fields'], {
         'group_id': 'local-group-1',
         'member_id': 'linked-member',
         'pk_group_uuid': 'pk-group-1',
@@ -747,7 +765,9 @@ void main() {
         'is_deleted': false,
       });
       expect(
-        repo.updates.any((record) => record['entityId'] == 'local-only-entry'),
+        repo.reconciles.any(
+          (record) => record['entityId'] == 'local-only-entry',
+        ),
         isFalse,
       );
     },

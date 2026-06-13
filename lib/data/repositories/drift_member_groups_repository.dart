@@ -474,10 +474,15 @@ class DriftMemberGroupsRepository
     final group = await _dao.getGroupById(groupId);
     if (group == null) return;
     // Intentionally bypass `isGroupSyncSuppressed` — callers invoke this after
-    // clearing review flags, and the goal is precisely to re-broadcast the
-    // current state so accumulated local edits reach peers.
+    // clearing review flags, and the goal is precisely to push accumulated
+    // local edits made during the suppressed window to peers. Reconcile against
+    // field_versions rather than re-broadcasting the whole row at a fresh HLC:
+    // a field whose local value already matches the device's known winner emits
+    // nothing (so a byte-identical-but-stale value can never clobber a peer's
+    // un-pulled newer edit), a genuinely-diverged suppressed-window edit emits
+    // at a fresh HLC, and a never-synced field emits as floor-HLC backfill.
     if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    await syncRecordUpdate(
+    await syncRecordReconcile(
       _groupTable,
       _groupEntityId(group),
       _groupFields(group),
@@ -493,7 +498,7 @@ class DriftMemberGroupsRepository
       if (!_canEmitPkBackedEntry(entry, group: group, member: member)) {
         continue;
       }
-      await syncRecordUpdate(
+      await syncRecordReconcile(
         _entryTable,
         _entryEntityIdFromStoredEntry(entry, group: group, member: member),
         _entryFields(entry, group: group, member: member),
