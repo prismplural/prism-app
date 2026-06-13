@@ -303,6 +303,62 @@ void main() {
     },
   );
 
+  // Production wiring routes BOTH the group and entry callbacks through a
+  // single `recordBackfill` (write-if-absent) emitter, so catch-up can never
+  // clobber a genuine edit. The service stays callback-agnostic; this pins that
+  // runOnce drives group and entry emission through one shared backfill sink the
+  // same way the wiring hands it `recordBackfill` for both.
+  test('runOnce routes group and entry emissions through one backfill callback',
+      () async {
+    await db.systemSettingsDao.getSettings();
+    await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
+    await db.into(db.members).insert(
+          pkFixtureMember(
+            id: 'member-a',
+            name: 'Alice',
+            pluralkitUuid: 'pk-member-a',
+          ),
+        );
+    await db.into(db.memberGroups).insert(
+          pkFixtureGroup(
+            id: 'pk-group-local-1',
+            name: 'Cluster',
+            createdAt: DateTime.utc(2024, 1, 1),
+            pluralkitUuid: 'pk-group-1',
+          ),
+        );
+    await db.into(db.memberGroupEntries).insert(
+          pkFixtureEntry(
+            id: 'legacy-entry',
+            groupId: 'pk-group-local-1',
+            memberId: 'member-a',
+          ),
+        );
+
+    final backfilled = <_RecordedOp>[];
+    Future<void> backfill({
+      required String table,
+      required String entityId,
+      required Map<String, dynamic> fields,
+    }) async {
+      backfilled.add(_RecordedOp(table, entityId, fields));
+    }
+
+    final result = await PkGroupSyncV2CatchupService(
+      db: db,
+      recordGroupUpdate: backfill,
+      recordEntryCreate: backfill,
+    ).runOnce();
+
+    expect(result.groupsEmitted, 1);
+    expect(result.entriesEmitted, 1);
+    expect(
+      backfilled.map((op) => op.table),
+      containsAll(<String>['member_groups', 'member_group_entries']),
+      reason: 'both group and entry emissions go through the backfill sink',
+    );
+  });
+
   test(
     'runOnce substitutes manualEmpty when a corrupt sort_state column is '
     'emitted via the catch-up path',

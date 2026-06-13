@@ -2876,24 +2876,27 @@ Future<PkGroupSyncV2CatchupResult> catchUpPkBackedSyncOnceAfterCutover(
   ffi.PrismSyncHandle handle,
   AppDatabase db,
 ) {
+  // Catch-up is pure write-if-absent backfill at the floor HLC, never a
+  // fresh-HLC re-broadcast. Both callbacks route through recordBackfill so a
+  // later device's stale snapshot can only fill in fields no one has synced —
+  // it can never clobber a genuine post-cutover edit (first-device-wins).
+  Future<void> backfill({
+    required String table,
+    required String entityId,
+    required Map<String, dynamic> fields,
+  }) {
+    return ffi.recordBackfill(
+      handle: handle,
+      table: table,
+      entityId: entityId,
+      fieldsJson: jsonEncode(fields),
+    );
+  }
+
   final service = PkGroupSyncV2CatchupService(
     db: db,
-    recordGroupUpdate: ({required table, required entityId, required fields}) {
-      return ffi.recordUpdate(
-        handle: handle,
-        table: table,
-        entityId: entityId,
-        changedFieldsJson: jsonEncode(fields),
-      );
-    },
-    recordEntryCreate: ({required table, required entityId, required fields}) {
-      return ffi.recordCreate(
-        handle: handle,
-        table: table,
-        entityId: entityId,
-        fieldsJson: jsonEncode(fields),
-      );
-    },
+    recordGroupUpdate: backfill,
+    recordEntryCreate: backfill,
   );
   return service.runOnce();
 }
