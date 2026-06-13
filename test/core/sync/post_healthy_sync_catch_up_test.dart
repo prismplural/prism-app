@@ -5,6 +5,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
+import 'package:prism_plurality/features/migration/services/migration_sync_repair_service.dart';
 import 'package:prism_plurality/features/migration/services/oversized_inline_image_reemit_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 
@@ -45,6 +46,10 @@ void main() {
           return const OversizedInlineImageReemitResult();
         },
         repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+        drainMigrationSyncRepairs: (_, _) async {
+          calls.add('migrationRepairs');
+          return const MigrationSyncRepairResult();
+        },
         catchUpPk: (_, _) async {
           calls.add('pkCatchUp');
           return const PkGroupSyncV2CatchupResult();
@@ -53,7 +58,14 @@ void main() {
       );
 
       // Nothing was re-normalized, so the repair step is skipped.
-      expect(calls, ['onResume', 'groupVisibility', 'oversizedImages', 'pkCatchUp', 'drain']);
+      expect(calls, [
+        'onResume',
+        'groupVisibility',
+        'oversizedImages',
+        'migrationRepairs',
+        'pkCatchUp',
+        'drain',
+      ]);
     },
   );
 
@@ -76,6 +88,10 @@ void main() {
           return const OversizedInlineImageReemitResult(membersRepaired: 1, fieldsReemitted: 1);
         },
         repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+        drainMigrationSyncRepairs: (_, _) async {
+          calls.add('migrationRepairs');
+          return const MigrationSyncRepairResult();
+        },
         catchUpPk: (_, _) async {
           calls.add('pkCatchUp');
           return const PkGroupSyncV2CatchupResult();
@@ -88,6 +104,7 @@ void main() {
         'groupVisibility',
         'oversizedImages',
         'repairQuarantine',
+        'migrationRepairs',
         'pkCatchUp',
         'drain',
       ]);
@@ -113,6 +130,10 @@ void main() {
           return const OversizedInlineImageReemitResult();
         },
         repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+        drainMigrationSyncRepairs: (_, _) async {
+          calls.add('migrationRepairs');
+          return const MigrationSyncRepairResult();
+        },
         catchUpPk: (_, _) async {
           calls.add('pkCatchUp');
           return const PkGroupSyncV2CatchupResult();

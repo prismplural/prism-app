@@ -15191,15 +15191,23 @@ class SyncOpOutboxRow extends DataClass implements Insertable<SyncOpOutboxRow> {
   final String entityTable;
   final String entityId;
 
-  /// One of `create` / `update` / `delete` — the captured op type stored
-  /// faithfully (a reconcile/backfill is captured as `update`; never persist
-  /// a reconcile as anything else).
+  /// One of `create` / `update` / `delete`. This vocabulary CANNOT represent
+  /// the divergence-aware reconcile/backfill modes; a reconcile/backfill is
+  /// captured as `update` but is refused entry by the
+  /// `persistCapturedOpsToOutbox` guard, because a drained plain `update`
+  /// carries a fresh HLC and would reintroduce the reconcile/backfill clobber.
+  /// Reconcile/backfill ops dispatch directly, never through this table.
   final String opType;
 
   /// `jsonEncode` of the captured op fields; empty (`{}`) for deletes.
   final String fieldsJson;
 
-  /// Wall-clock enqueue time (ms since epoch).
+  /// Capture-time origin (ms since epoch), copied from
+  /// `CapturedSyncOp.capturedAtMs`. The drainer re-derives the op's origin HLC
+  /// from this so a deferred/replayed op is stamped via the `*_at` FFI at its
+  /// capture time and can never win LWW against an edit made after capture.
+  /// Falls back to enqueue time only for legacy ops with no capture
+  /// stamp.
   final int createdAt;
   final int attempts;
   final String? lastError;
@@ -15494,6 +15502,398 @@ class SyncOpOutboxCompanion extends UpdateCompanion<SyncOpOutboxRow> {
           ..write('attempts: $attempts, ')
           ..write('lastError: $lastError, ')
           ..write('quarantined: $quarantined')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncMigrationRepairsTable extends SyncMigrationRepairs
+    with TableInfo<$SyncMigrationRepairsTable, SyncMigrationRepairRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncMigrationRepairsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _entityTableMeta = const VerificationMeta(
+    'entityTable',
+  );
+  @override
+  late final GeneratedColumn<String> entityTable = GeneratedColumn<String>(
+    'table_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldNamesJsonMeta = const VerificationMeta(
+    'fieldNamesJson',
+  );
+  @override
+  late final GeneratedColumn<String> fieldNamesJson = GeneratedColumn<String>(
+    'field_names_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enqueuedAtMeta = const VerificationMeta(
+    'enqueuedAt',
+  );
+  @override
+  late final GeneratedColumn<int> enqueuedAt = GeneratedColumn<int>(
+    'enqueued_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    entityTable,
+    entityId,
+    fieldNamesJson,
+    reason,
+    enqueuedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_migration_repairs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncMigrationRepairRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('table_name')) {
+      context.handle(
+        _entityTableMeta,
+        entityTable.isAcceptableOrUnknown(
+          data['table_name']!,
+          _entityTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTableMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('field_names_json')) {
+      context.handle(
+        _fieldNamesJsonMeta,
+        fieldNamesJson.isAcceptableOrUnknown(
+          data['field_names_json']!,
+          _fieldNamesJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldNamesJsonMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reasonMeta);
+    }
+    if (data.containsKey('enqueued_at')) {
+      context.handle(
+        _enqueuedAtMeta,
+        enqueuedAt.isAcceptableOrUnknown(data['enqueued_at']!, _enqueuedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_enqueuedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {entityTable, entityId, reason};
+  @override
+  SyncMigrationRepairRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncMigrationRepairRow(
+      entityTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}table_name'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      fieldNamesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_names_json'],
+      )!,
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      )!,
+      enqueuedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}enqueued_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncMigrationRepairsTable createAlias(String alias) {
+    return $SyncMigrationRepairsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncMigrationRepairRow extends DataClass
+    implements Insertable<SyncMigrationRepairRow> {
+  /// Named explicitly so the SQL column stays `table_name` while the Dart
+  /// getter avoids shadowing Drift's reserved `tableName` override below.
+  final String entityTable;
+  final String entityId;
+
+  /// `jsonEncode` of the field names this repair must re-read and re-emit at
+  /// drain time. Values are NOT stored — the drain reads CURRENT row values so
+  /// a post-migration user edit is never clobbered with stale migration-time
+  /// data.
+  final String fieldNamesJson;
+
+  /// Why the repair was enqueued (e.g. `migration_v21_to_v25_sort_state`). Part
+  /// of the PK, so the same entity can carry independent repairs.
+  final String reason;
+
+  /// Wall-clock enqueue time (ms since epoch).
+  final int enqueuedAt;
+  const SyncMigrationRepairRow({
+    required this.entityTable,
+    required this.entityId,
+    required this.fieldNamesJson,
+    required this.reason,
+    required this.enqueuedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['table_name'] = Variable<String>(entityTable);
+    map['entity_id'] = Variable<String>(entityId);
+    map['field_names_json'] = Variable<String>(fieldNamesJson);
+    map['reason'] = Variable<String>(reason);
+    map['enqueued_at'] = Variable<int>(enqueuedAt);
+    return map;
+  }
+
+  SyncMigrationRepairsCompanion toCompanion(bool nullToAbsent) {
+    return SyncMigrationRepairsCompanion(
+      entityTable: Value(entityTable),
+      entityId: Value(entityId),
+      fieldNamesJson: Value(fieldNamesJson),
+      reason: Value(reason),
+      enqueuedAt: Value(enqueuedAt),
+    );
+  }
+
+  factory SyncMigrationRepairRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncMigrationRepairRow(
+      entityTable: serializer.fromJson<String>(json['entityTable']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      fieldNamesJson: serializer.fromJson<String>(json['fieldNamesJson']),
+      reason: serializer.fromJson<String>(json['reason']),
+      enqueuedAt: serializer.fromJson<int>(json['enqueuedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'entityTable': serializer.toJson<String>(entityTable),
+      'entityId': serializer.toJson<String>(entityId),
+      'fieldNamesJson': serializer.toJson<String>(fieldNamesJson),
+      'reason': serializer.toJson<String>(reason),
+      'enqueuedAt': serializer.toJson<int>(enqueuedAt),
+    };
+  }
+
+  SyncMigrationRepairRow copyWith({
+    String? entityTable,
+    String? entityId,
+    String? fieldNamesJson,
+    String? reason,
+    int? enqueuedAt,
+  }) => SyncMigrationRepairRow(
+    entityTable: entityTable ?? this.entityTable,
+    entityId: entityId ?? this.entityId,
+    fieldNamesJson: fieldNamesJson ?? this.fieldNamesJson,
+    reason: reason ?? this.reason,
+    enqueuedAt: enqueuedAt ?? this.enqueuedAt,
+  );
+  SyncMigrationRepairRow copyWithCompanion(SyncMigrationRepairsCompanion data) {
+    return SyncMigrationRepairRow(
+      entityTable: data.entityTable.present
+          ? data.entityTable.value
+          : this.entityTable,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      fieldNamesJson: data.fieldNamesJson.present
+          ? data.fieldNamesJson.value
+          : this.fieldNamesJson,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      enqueuedAt: data.enqueuedAt.present
+          ? data.enqueuedAt.value
+          : this.enqueuedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncMigrationRepairRow(')
+          ..write('entityTable: $entityTable, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldNamesJson: $fieldNamesJson, ')
+          ..write('reason: $reason, ')
+          ..write('enqueuedAt: $enqueuedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(entityTable, entityId, fieldNamesJson, reason, enqueuedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncMigrationRepairRow &&
+          other.entityTable == this.entityTable &&
+          other.entityId == this.entityId &&
+          other.fieldNamesJson == this.fieldNamesJson &&
+          other.reason == this.reason &&
+          other.enqueuedAt == this.enqueuedAt);
+}
+
+class SyncMigrationRepairsCompanion
+    extends UpdateCompanion<SyncMigrationRepairRow> {
+  final Value<String> entityTable;
+  final Value<String> entityId;
+  final Value<String> fieldNamesJson;
+  final Value<String> reason;
+  final Value<int> enqueuedAt;
+  final Value<int> rowid;
+  const SyncMigrationRepairsCompanion({
+    this.entityTable = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.fieldNamesJson = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.enqueuedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncMigrationRepairsCompanion.insert({
+    required String entityTable,
+    required String entityId,
+    required String fieldNamesJson,
+    required String reason,
+    required int enqueuedAt,
+    this.rowid = const Value.absent(),
+  }) : entityTable = Value(entityTable),
+       entityId = Value(entityId),
+       fieldNamesJson = Value(fieldNamesJson),
+       reason = Value(reason),
+       enqueuedAt = Value(enqueuedAt);
+  static Insertable<SyncMigrationRepairRow> custom({
+    Expression<String>? entityTable,
+    Expression<String>? entityId,
+    Expression<String>? fieldNamesJson,
+    Expression<String>? reason,
+    Expression<int>? enqueuedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (entityTable != null) 'table_name': entityTable,
+      if (entityId != null) 'entity_id': entityId,
+      if (fieldNamesJson != null) 'field_names_json': fieldNamesJson,
+      if (reason != null) 'reason': reason,
+      if (enqueuedAt != null) 'enqueued_at': enqueuedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncMigrationRepairsCompanion copyWith({
+    Value<String>? entityTable,
+    Value<String>? entityId,
+    Value<String>? fieldNamesJson,
+    Value<String>? reason,
+    Value<int>? enqueuedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncMigrationRepairsCompanion(
+      entityTable: entityTable ?? this.entityTable,
+      entityId: entityId ?? this.entityId,
+      fieldNamesJson: fieldNamesJson ?? this.fieldNamesJson,
+      reason: reason ?? this.reason,
+      enqueuedAt: enqueuedAt ?? this.enqueuedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (entityTable.present) {
+      map['table_name'] = Variable<String>(entityTable.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (fieldNamesJson.present) {
+      map['field_names_json'] = Variable<String>(fieldNamesJson.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (enqueuedAt.present) {
+      map['enqueued_at'] = Variable<int>(enqueuedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncMigrationRepairsCompanion(')
+          ..write('entityTable: $entityTable, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldNamesJson: $fieldNamesJson, ')
+          ..write('reason: $reason, ')
+          ..write('enqueuedAt: $enqueuedAt, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -16043,11 +16443,11 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   final String sortState;
 
   /// LOCAL-ONLY incarnation generation for the row's canonical PK-group sync
-  /// entity id (R1 absorbing-tombstone-revive). 0 = the legacy `pk-group:<uuid>`
-  /// id; N>=1 = the `pk-group-g<N>:<uuid>` incarnation minted after a tombstone
-  /// burned generation N-1. NOT in prismSyncSchema: each device tracks its own
-  /// live incarnation independently and the id itself (not this counter) crosses
-  /// the wire. See `lib/core/sync/pk_incarnation_ids.dart` + [TombstoneGate].
+  /// entity id. 0 = the legacy `pk-group:<uuid>` id; N>=1 = the
+  /// `pk-group-g<N>:<uuid>` incarnation minted after a tombstone burned
+  /// generation N-1. NOT in prismSyncSchema: each device tracks its own live
+  /// incarnation independently and the id itself (not this counter) crosses the
+  /// wire. See `lib/core/sync/pk_incarnation_ids.dart` + [TombstoneGate].
   final int syncGeneration;
   const MemberGroupRow({
     required this.id,
@@ -16915,13 +17315,12 @@ class MemberGroupEntryRow extends DataClass
   final DateTime? createdAt;
 
   /// LOCAL-ONLY incarnation generation for the row's canonical PK-backed entry
-  /// sync entity id (R1 absorbing-tombstone-revive). 0 = the legacy
-  /// `sha256('<g> <m>')[:16]` id (the separator is a NUL byte); N>=1 = the
-  /// salted `sha256('<g> <m> g<N>')[:16]` incarnation minted after a tombstone
-  /// burned generation N-1. NOT in prismSyncSchema: each device tracks its own
-  /// live incarnation independently and the id itself (not this counter)
-  /// crosses the wire. See `lib/core/sync/pk_incarnation_ids.dart` +
-  /// [TombstoneGate].
+  /// sync entity id. 0 = the legacy `sha256('<g> <m>')[:16]` id (the separator
+  /// is a NUL byte); N>=1 = the salted `sha256('<g> <m> g<N>')[:16]`
+  /// incarnation minted after a tombstone burned generation N-1. NOT in
+  /// prismSyncSchema: each device tracks its own live incarnation independently
+  /// and the id itself (not this counter) crosses the wire. See
+  /// `lib/core/sync/pk_incarnation_ids.dart` + [TombstoneGate].
   final int syncGeneration;
   const MemberGroupEntryRow({
     required this.id,
@@ -28358,6 +28757,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncQuarantineTableTable syncQuarantineTable =
       $SyncQuarantineTableTable(this);
   late final $SyncOpOutboxTable syncOpOutbox = $SyncOpOutboxTable(this);
+  late final $SyncMigrationRepairsTable syncMigrationRepairs =
+      $SyncMigrationRepairsTable(this);
   late final $MemberGroupsTable memberGroups = $MemberGroupsTable(this);
   late final $MemberGroupEntriesTable memberGroupEntries =
       $MemberGroupEntriesTable(this);
@@ -28485,6 +28886,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     habitCompletions,
     syncQuarantineTable,
     syncOpOutbox,
+    syncMigrationRepairs,
     memberGroups,
     memberGroupEntries,
     pkGroupSyncAliases,
@@ -35255,6 +35657,228 @@ typedef $$SyncOpOutboxTableProcessedTableManager =
       SyncOpOutboxRow,
       PrefetchHooks Function()
     >;
+typedef $$SyncMigrationRepairsTableCreateCompanionBuilder =
+    SyncMigrationRepairsCompanion Function({
+      required String entityTable,
+      required String entityId,
+      required String fieldNamesJson,
+      required String reason,
+      required int enqueuedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncMigrationRepairsTableUpdateCompanionBuilder =
+    SyncMigrationRepairsCompanion Function({
+      Value<String> entityTable,
+      Value<String> entityId,
+      Value<String> fieldNamesJson,
+      Value<String> reason,
+      Value<int> enqueuedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncMigrationRepairsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncMigrationRepairsTable> {
+  $$SyncMigrationRepairsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldNamesJson => $composableBuilder(
+    column: $table.fieldNamesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get enqueuedAt => $composableBuilder(
+    column: $table.enqueuedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncMigrationRepairsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncMigrationRepairsTable> {
+  $$SyncMigrationRepairsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldNamesJson => $composableBuilder(
+    column: $table.fieldNamesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get enqueuedAt => $composableBuilder(
+    column: $table.enqueuedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncMigrationRepairsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncMigrationRepairsTable> {
+  $$SyncMigrationRepairsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldNamesJson => $composableBuilder(
+    column: $table.fieldNamesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<int> get enqueuedAt => $composableBuilder(
+    column: $table.enqueuedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncMigrationRepairsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncMigrationRepairsTable,
+          SyncMigrationRepairRow,
+          $$SyncMigrationRepairsTableFilterComposer,
+          $$SyncMigrationRepairsTableOrderingComposer,
+          $$SyncMigrationRepairsTableAnnotationComposer,
+          $$SyncMigrationRepairsTableCreateCompanionBuilder,
+          $$SyncMigrationRepairsTableUpdateCompanionBuilder,
+          (
+            SyncMigrationRepairRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncMigrationRepairsTable,
+              SyncMigrationRepairRow
+            >,
+          ),
+          SyncMigrationRepairRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncMigrationRepairsTableTableManager(
+    _$AppDatabase db,
+    $SyncMigrationRepairsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncMigrationRepairsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncMigrationRepairsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$SyncMigrationRepairsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> entityTable = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> fieldNamesJson = const Value.absent(),
+                Value<String> reason = const Value.absent(),
+                Value<int> enqueuedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncMigrationRepairsCompanion(
+                entityTable: entityTable,
+                entityId: entityId,
+                fieldNamesJson: fieldNamesJson,
+                reason: reason,
+                enqueuedAt: enqueuedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String entityTable,
+                required String entityId,
+                required String fieldNamesJson,
+                required String reason,
+                required int enqueuedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncMigrationRepairsCompanion.insert(
+                entityTable: entityTable,
+                entityId: entityId,
+                fieldNamesJson: fieldNamesJson,
+                reason: reason,
+                enqueuedAt: enqueuedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncMigrationRepairsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncMigrationRepairsTable,
+      SyncMigrationRepairRow,
+      $$SyncMigrationRepairsTableFilterComposer,
+      $$SyncMigrationRepairsTableOrderingComposer,
+      $$SyncMigrationRepairsTableAnnotationComposer,
+      $$SyncMigrationRepairsTableCreateCompanionBuilder,
+      $$SyncMigrationRepairsTableUpdateCompanionBuilder,
+      (
+        SyncMigrationRepairRow,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncMigrationRepairsTable,
+          SyncMigrationRepairRow
+        >,
+      ),
+      SyncMigrationRepairRow,
+      PrefetchHooks Function()
+    >;
 typedef $$MemberGroupsTableCreateCompanionBuilder =
     MemberGroupsCompanion Function({
       required String id,
@@ -41707,6 +42331,8 @@ class $AppDatabaseManager {
       $$SyncQuarantineTableTableTableManager(_db, _db.syncQuarantineTable);
   $$SyncOpOutboxTableTableManager get syncOpOutbox =>
       $$SyncOpOutboxTableTableManager(_db, _db.syncOpOutbox);
+  $$SyncMigrationRepairsTableTableManager get syncMigrationRepairs =>
+      $$SyncMigrationRepairsTableTableManager(_db, _db.syncMigrationRepairs);
   $$MemberGroupsTableTableManager get memberGroups =>
       $$MemberGroupsTableTableManager(_db, _db.memberGroups);
   $$MemberGroupEntriesTableTableManager get memberGroupEntries =>

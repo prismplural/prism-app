@@ -55,6 +55,7 @@ part 'app_database.g.dart';
     HabitCompletions,
     SyncQuarantineTable,
     SyncOpOutbox,
+    SyncMigrationRepairs,
     MemberGroups,
     MemberGroupEntries,
     PkGroupSyncAliases,
@@ -131,6 +132,12 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
+      // Ensure the sync-repair queue exists before the runtime drain /
+      // blanket backfill needs it, regardless of which step the upgrade resumes
+      // from. The v37->v38 flatten step also creates it (and stamps it); this
+      // create-if-absent is belt-and-braces so a chain that errors mid-upgrade
+      // still leaves a valid target for MigrationSyncRepairService.
+      await _createTableIfAbsent(migrator, syncMigrationRepairs);
       await _runMigrationSteps(migrator, from, to);
     },
     onCreate: (migrator) async {
@@ -601,16 +608,11 @@ class AppDatabase extends _$AppDatabase {
         await _addColumnIfAbsent(migrator, members, members.profileHeaderImageData);
         await _addColumnIfAbsent(migrator, members, members.pkBannerImageData);
         await _addColumnIfAbsent(migrator, members, members.pkBannerCachedUrl);
-        // Flip the header source to PluralKit only when the banner has
-        // actually been resolved to local image bytes. A URL alone isn't a
-        // useful banner; the resolver may not have fetched it yet, and
-        // marking the source as PK would suppress the user's Prism-owned
-        // header without any pixels to show in its place.
-        await customStatement(
-          'UPDATE members SET profile_header_source = 0 '
-          "WHERE pk_banner_url IS NOT NULL AND TRIM(pk_banner_url) != '' "
-          'AND pk_banner_image_data IS NOT NULL',
-        );
+        // The historical `UPDATE members SET profile_header_source = 0 ...
+        // WHERE pk_banner_image_data IS NOT NULL` is removed as a provable
+        // no-op — `pk_banner_image_data` is added (all-NULL) in this same step,
+        // so the predicate never matches any pre-existing row. Dropping it
+        // avoids enqueuing a sync repair for a synced column that never changed.
       },
     ),
     _MigrationStep(
@@ -828,6 +830,10 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable,
           systemSettingsTable.bioMarkdownEnabled,
         );
+        // Rewrites a synced column, but this historical step is unreachable for
+        // real installs post-flatten (they jump v32->v38), so the
+        // in-migration repair enqueue is dead here; the one-time blanket
+        // backfill in MigrationSyncRepairService converges any diverged install.
         await customStatement(
           'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
         );
@@ -914,6 +920,12 @@ class AppDatabase extends _$AppDatabase {
             systemSettingsTable,
             systemSettingsTable.paletteContrast,
           );
+          // palette_source is synced, but no repair is enqueued — this is
+          // a deterministic projection of the already-synced theme_style, so
+          // paired devices converge by construction (each applies the same flip
+          // on the same incoming theme_style). Only a snapshot-joiner that never
+          // saw theme_style change is theoretically at risk; the snapshot import
+          // path owns that, not the migration chain.
           await customStatement(
             'UPDATE system_settings SET palette_source = 0 '
             'WHERE theme_style = 2',
@@ -983,6 +995,9 @@ class AppDatabase extends _$AppDatabase {
             ''',
             [unknownSentinelMemberId],
           );
+          // The everyone-group rewrites above touch synced columns, but this
+          // historical step is unreachable post-flatten; the runtime blanket
+          // backfill + GroupChatVisibilitySyncReemitService converge peers.
       },
     ),
     _MigrationStep(
@@ -1042,6 +1057,11 @@ class AppDatabase extends _$AppDatabase {
         // Backfill field_type_id from the existing int for back-compat.
         // Mapping mirrors custom_field_mapper.dart:12 (CustomFieldType enum order
         // text=0, color=1, date=2, longText=3) — keep in lockstep.
+        // field_type_id is synced, but no repair is enqueued — it is a
+        // deterministic projection of the already-synced field_type, so paired
+        // devices converge by construction (same CASE on the same incoming
+        // field_type). Only a snapshot-joiner is theoretically at risk; the
+        // snapshot import path owns that, not the migration chain.
         await customStatement('''
           UPDATE custom_fields
           SET field_type_id = CASE field_type
@@ -1275,9 +1295,8 @@ class AppDatabase extends _$AppDatabase {
         }
 
         // pk_identity_sync_aliases — the generic PK-identity redirect alias
-        // table for members + fronting_sessions (CRDT remediation wave 2,
-        // pk-identity-alias-coherence family / F23). Local-only Drift table; no
-        // wire/protocol change. Idempotent (C11): createTableIfAbsent guards a
+        // table for members + fronting_sessions. Local-only Drift table; no
+        // wire/protocol change. Idempotent: createTableIfAbsent guards a
         // partial-failure retry and dev/test DBs created at the current schema.
         final tables = (await customSelect(
           "SELECT name FROM sqlite_master WHERE type = 'table'",
@@ -1287,10 +1306,10 @@ class AppDatabase extends _$AppDatabase {
         }
         await _createPkIdentitySyncIndexes();
 
-        // sync_op_outbox — the durable transactional outbox for CRDT emissions
-        // (wave 4, emission-outbox-atomicity / F05/F08/F19/F33/F37). Local-only
-        // Drift table; no wire/protocol change. Folded into the v32->v38 flatten
-        // because no public build used the wave's intermediate dev versions.
+        // sync_op_outbox — the durable transactional outbox for CRDT emissions.
+        // Local-only Drift table; no wire/protocol change. Folded into the
+        // v32->v38 flatten because no public build used the intermediate dev
+        // versions.
         if (!tables.contains('sync_op_outbox')) {
           await migrator.createTable(syncOpOutbox);
         }
@@ -1308,6 +1327,13 @@ class AppDatabase extends _$AppDatabase {
           'DELETE FROM pk_group_sync_aliases '
           "WHERE legacy_entity_id = 'pk-group-' || pk_group_uuid",
         );
+
+        // sync_migration_repairs — the durable sync-repair queue for migration
+        // rewrites of synced fields. Local-only Drift table; no wire/protocol
+        // change. Folded into the v37->v38 flatten leg alongside sync_op_outbox.
+        // Idempotent: createTableIfAbsent guards a partial-failure retry
+        // and dev/test DBs created at the current schema.
+        await _createTableIfAbsent(migrator, syncMigrationRepairs);
       },
     ),
   ];
@@ -1338,6 +1364,7 @@ class AppDatabase extends _$AppDatabase {
     }
 
     await ensureTable('sync_op_outbox', syncOpOutbox);
+    await ensureTable('sync_migration_repairs', syncMigrationRepairs);
 
     await ensure('media_attachments', 'member_id', "TEXT NOT NULL DEFAULT ''");
     await ensure('media_attachments', 'tag', "TEXT NOT NULL DEFAULT ''");

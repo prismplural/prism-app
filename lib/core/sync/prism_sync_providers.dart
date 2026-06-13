@@ -45,6 +45,7 @@ import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_boards_backfill_service.dart';
 import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
+import 'package:prism_plurality/features/migration/services/migration_sync_repair_service.dart';
 import 'package:prism_plurality/features/migration/services/oversized_inline_image_reemit_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_reply_quote_backfill_service.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
@@ -3046,6 +3047,45 @@ reemitOversizedInlineImagesOnceAfterUpgrade(
   return service.runOnce();
 }
 
+/// Enqueue the one-time blanket backfill (once), then drain the
+/// `sync_migration_repairs` queue, emitting real ops for the migration rewrites
+/// of synced fields with the entity's CURRENT values at drain time.
+///
+/// Emits via `record_reconcile(DivergentMode::FreshHlc)` rather than a blind
+/// `recordUpdate`: the blanket backfill re-broadcasts mostly-unchanged
+/// values, so reconcile drops value-equal fields and only a genuinely-migrated
+/// value goes out at a fresh HLC — a stale-but-equal local value can never win
+/// LWW against a peer's un-pulled edit.
+Future<MigrationSyncRepairResult> drainMigrationSyncRepairsOnceAfterHealthy(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) async {
+  final service = MigrationSyncRepairService(
+    db: db,
+    recordReconcile: ({required table, required entityId, required fields}) {
+      return ffi.recordReconcile(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        fieldsJson: jsonEncode(fields),
+        divergentFreshHlc: true,
+      );
+    },
+  );
+  // One-time blanket backfill for installs that ran the pre-flatten migrations.
+  await service.enqueueBlanketBackfillOnce(
+    getFlag: () async {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(MigrationSyncRepairService.backfillFlagKey) == true;
+    },
+    setFlag: () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(MigrationSyncRepairService.backfillFlagKey, true);
+    },
+  );
+  return service.drain();
+}
+
 Future<void> runPostHealthySyncCatchUp({
   required ffi.PrismSyncHandle handle,
   required AppDatabase db,
@@ -3064,6 +3104,12 @@ Future<void> runPostHealthySyncCatchUp({
     AppDatabase db,
   )?
   reemitOversizedInlineImages,
+  @visibleForTesting
+  Future<MigrationSyncRepairResult> Function(
+    ffi.PrismSyncHandle handle,
+    AppDatabase db,
+  )?
+  drainMigrationSyncRepairs,
   @visibleForTesting
   Future<void> Function(ffi.PrismSyncHandle handle)?
   repairQuarantinedPushBatches,
@@ -3099,6 +3145,10 @@ Future<void> runPostHealthySyncCatchUp({
             await ffi.repairQuarantinedBatches(handle: h);
           }))(handle);
     }
+    // Drain migration repairs (rewrites of synced fields the raw-SQL
+    // onUpgrade chain made invisible to the Rust field_versions) as real ops.
+    await (drainMigrationSyncRepairs ??
+        drainMigrationSyncRepairsOnceAfterHealthy)(handle, db);
     await (catchUpPk ?? catchUpPkBackedSyncOnceAfterCutover)(handle, db);
     // Persist any state the sync cycle mutated (session_token refresh, epoch
     // advance, emitted migration ops, etc.) before a subsequent crash loses it.
