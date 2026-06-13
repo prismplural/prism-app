@@ -8,6 +8,8 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
@@ -53,10 +55,30 @@ class PkGroupsImportResult {
   final int entriesSkippedRecent;
 
   /// Groups the importer would otherwise have re-created from PK but skipped
-  /// because the deterministic row id is a user-deleted tombstone
-  /// (board-delete-resurrection class). Mirrors the session
-  /// tombstone-preserved counter pattern.
+  /// because the deterministic row id is a user-deleted tombstone (2026-06 PK
+  /// audit M13 — board-delete-resurrection class). Mirrors the session
+  /// tombstone-preserved counter pattern. This is the Drift-evidence subset of
+  /// [groupsSkippedTombstoned] (a soft-deleted local row was found).
   final int groupsPreservedAsDeletedTombstone;
+
+  /// Groups whose canonical sync entity id is tombstoned in the CRDT and which a
+  /// background pull therefore skips entirely — no metadata write, no membership
+  /// reconcile, no emit (F15, absorbing-tombstone-revive-holes). Counts BOTH the
+  /// Drift-evidence subset ([groupsPreservedAsDeletedTombstone]) AND the
+  /// FFI-only cases the M13 Drift lookups miss: a row hard-deleted by the drain
+  /// path, or one whose `pluralkit_uuid` was nulled by a pre-fix `deleteGroup`,
+  /// where `field_versions` are the only surviving tombstone evidence. An
+  /// explicit user re-import does NOT count here — it revives under a fresh
+  /// group incarnation id instead of skipping.
+  final int groupsSkippedTombstoned;
+
+  /// Membership entries PK's authoritative set lists but whose deterministic
+  /// entry id is tombstoned in the CRDT (a peer's cross-device removal). On a
+  /// background pull the importer skips the blind-revive entirely (F06,
+  /// absorbing-tombstone-revive-holes) and surfaces the count so the honored
+  /// removal is visible rather than a silently dropped create. An explicit
+  /// user re-import does NOT count here — it revives under a fresh incarnation.
+  final int entriesSkippedTombstoned;
 
   const PkGroupsImportResult({
     this.groupsInserted = 0,
@@ -68,6 +90,8 @@ class PkGroupsImportResult {
     this.groupsWithUnknownMembership = 0,
     this.entriesSkippedRecent = 0,
     this.groupsPreservedAsDeletedTombstone = 0,
+    this.groupsSkippedTombstoned = 0,
+    this.entriesSkippedTombstoned = 0,
   });
 
   PkGroupsImportResult copyWith({
@@ -80,6 +104,8 @@ class PkGroupsImportResult {
     int? groupsWithUnknownMembership,
     int? entriesSkippedRecent,
     int? groupsPreservedAsDeletedTombstone,
+    int? groupsSkippedTombstoned,
+    int? entriesSkippedTombstoned,
   }) => PkGroupsImportResult(
     groupsInserted: groupsInserted ?? this.groupsInserted,
     groupsUpdated: groupsUpdated ?? this.groupsUpdated,
@@ -93,6 +119,10 @@ class PkGroupsImportResult {
     groupsPreservedAsDeletedTombstone:
         groupsPreservedAsDeletedTombstone ??
         this.groupsPreservedAsDeletedTombstone,
+    groupsSkippedTombstoned:
+        groupsSkippedTombstoned ?? this.groupsSkippedTombstoned,
+    entriesSkippedTombstoned:
+        entriesSkippedTombstoned ?? this.entriesSkippedTombstoned,
   );
 
   bool get changedRepairInputs =>
@@ -130,6 +160,13 @@ class PkGroupsImporter with SyncRecordMixin {
   final PkGroupSyncCreateOverride? _recordCreateOverride;
   final PkGroupSyncUpdateOverride? _recordUpdateOverride;
   final PkGroupSyncDeleteOverride? _recordDeleteOverride;
+
+  /// The Dart-side view of the engine's absorbing-delete state (R1 shared
+  /// layer). Built once from [_syncHandle] (null pre-pairing / in unit tests
+  /// without a real engine → every id reads as live, byte-identical to the
+  /// pre-F06 path). Injectable so tests can drive the tombstone classification
+  /// without a live FFI handle.
+  final TombstoneGate? _tombstoneGate;
 
   /// Push-orchestrator mutex (step 6 of the membership push plan). Mirrors
   /// the cofronter pattern in pluralkit_sync_service: re-entrant calls await
@@ -172,13 +209,15 @@ class PkGroupsImporter with SyncRecordMixin {
     PkGroupSyncCreateOverride? recordCreateOverride,
     PkGroupSyncUpdateOverride? recordUpdateOverride,
     PkGroupSyncDeleteOverride? recordDeleteOverride,
+    @visibleForTesting TombstoneGate? tombstoneGate,
   }) : _db = db,
        _dao = db.memberGroupsDao,
        _memberRepository = memberRepository,
        _syncHandle = syncHandle,
        _recordCreateOverride = recordCreateOverride,
        _recordUpdateOverride = recordUpdateOverride,
-       _recordDeleteOverride = recordDeleteOverride;
+       _recordDeleteOverride = recordDeleteOverride,
+       _tombstoneGate = tombstoneGate ?? TombstoneGate.forHandle(syncHandle);
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
@@ -310,64 +349,177 @@ class PkGroupsImporter with SyncRecordMixin {
       result = result.copyWith(groupsObserved: result.groupsObserved + 1);
 
       final existing = await _dao.findByPluralkitUuid(pk.uuid);
-      final groupLocalId = existing?.id ?? deriveGroupId(pk.uuid);
+      var groupLocalId = existing?.id ?? deriveGroupId(pk.uuid);
 
       if (existing == null) {
-        // Resurrection guard (2026-06 PK audit M13): without it the upsert
-        // would revive a user-deleted group and re-create every entry on
-        // peers. Tombstones are found by the deterministic `pk-group-<uuid>`
-        // id (catches nulled-uuid tombstones) AND by uuid including deleted
-        // (groups adopted under their original row id). PK has no
-        // group-deletion push, so deleted locally stays deleted; skips are
-        // counted, not silent.
+        // F15 / M13 (absorbing-tombstone-revive-holes + 2026-06 PK audit):
+        // resurrection guard. Without this the upsert below would revive a
+        // user-deleted group's row (is_deleted=false@fresh-HLC) AND re-create
+        // every entry, emitting a create into the canonical `pk-group:<uuid>`
+        // entity id that every peer permanently tombstoned — the create is
+        // silently dropped fleet-wide while the row lives only here (a flap on
+        // the next prune). Classify the tombstone via three evidence sources,
+        // any of which is authoritative:
+        //   1. The deterministic `pk-group-<uuid>` row id (catches importer
+        //      groups even when the tombstone's `pluralkit_uuid` was nulled by
+        //      a pre-fix deleteGroup).
+        //   2. UUID including deleted (catches groups adopted under their
+        //      ORIGINAL row id — repair's linkGroupToPluralkitUuid — whose
+        //      tombstones the id lookup can't see; deleteGroup now KEEPS the
+        //      uuid on the tombstone, and the partial unique index only covers
+        //      active rows, so any hit here is by construction a tombstone).
+        //   3. The engine's `field_versions` via the TombstoneGate over the
+        //      canonical id and any recorded aliases — the FFI is the ONLY
+        //      surviving evidence when the drain path physically hard-deleted
+        //      the Drift row, so neither (1) nor (2) finds anything.
         var tombstone = await _dao.getGroupByIdIncludingDeleted(groupLocalId);
         if (tombstone == null || !tombstone.isDeleted) {
           // Id lookup yielded nothing deleted (no row, or an active unlinked
           // row squatting the deterministic id) — still consult the uuid.
           tombstone = await _dao.findByPluralkitUuidIncludingDeleted(pk.uuid);
         }
-        if (tombstone != null && tombstone.isDeleted) {
-          result = result.copyWith(
-            groupsPreservedAsDeletedTombstone:
-                result.groupsPreservedAsDeletedTombstone + 1,
-          );
-          debugPrint(
-            '[PK groups] M13 preserve: group ${pk.uuid} is a user-deleted '
-            'tombstone (${tombstone.id}); skipping re-create + entry revival.',
-          );
-          continue;
-        }
+        final driftTombstoned = tombstone != null && tombstone.isDeleted;
+        final gateTombstoned =
+            !driftTombstoned && await _isGroupCanonicalTombstoned(pk.uuid);
 
-        // Insert new row. Always writes metadata — there is nothing local to
-        // preserve. Local emoji stays null (R8): PK's `icon` is a URL, not an
-        // emoji.
-        final displayOrder = await _dao.nextDisplayOrder(null);
-        // Preserved across PK pulls — never overwrite avatar_image_data without an explicit migration plan.
-        await _dao.upsertGroup(
-          MemberGroupsCompanion.insert(
-            id: groupLocalId,
-            name: pk.displayName ?? pk.name,
-            description: Value(pk.description),
-            colorHex: Value(pk.color == null ? null : '#${pk.color}'),
-            emoji: const Value(null),
-            displayOrder: Value(displayOrder),
-            createdAt: now,
-            isDeleted: const Value(false),
-            pluralkitId: Value(pk.id),
-            pluralkitUuid: Value(pk.uuid),
-            lastSeenFromPkAt: Value(now),
-          ),
-        );
-        final createdRow = await _loadGroupRow(groupLocalId);
-        if (syncEnabled) {
-          await _emitCreate(
-            _groupTable,
-            deriveGroupSyncEntityId(pk.uuid),
-            groupCreateSyncFields(createdRow),
+        if (driftTombstoned || gateTombstoned) {
+          // Without a gate (pre-pairing / unit tests without a real engine) we
+          // cannot mint a non-burned incarnation, so an explicit re-import would
+          // have to emit into the possibly-burned canonical id — the exact bug
+          // this guards. Treat a gate-less explicit re-import as a skip too: the
+          // revive needs the engine's field_versions to pick a live id.
+          final canRevive = _tombstoneGate != null;
+          if (!overwriteMetadata || !canRevive) {
+            // Background pull (or no engine to mint with): honor the user's
+            // deletion. PK has no group-deletion push yet, so "deleted locally,
+            // stays deleted locally" is the honest behavior; surface a count so
+            // the skip is visible, not silent. (Strictly-explicit revival
+            // policy, F15.)
+            result = result.copyWith(
+              groupsSkippedTombstoned: result.groupsSkippedTombstoned + 1,
+              groupsPreservedAsDeletedTombstone: driftTombstoned
+                  ? result.groupsPreservedAsDeletedTombstone + 1
+                  : result.groupsPreservedAsDeletedTombstone,
+            );
+            debugPrint(
+              '[PK groups] F15 skip: group ${pk.uuid} is a tombstone '
+              '(${driftTombstoned ? tombstone.id : 'field_versions only'}); '
+              '${!canRevive ? 'no gate to mint a live incarnation' : 'background '
+                  'pull'} preserves the deletion.',
+            );
+            continue;
+          }
+
+          // Explicit user re-import over a tombstoned group: sanctioned revive
+          // under a freshly-minted group incarnation id (the new
+          // `pk-group-g<N>:<uuid>` prefix per R1; a fresh id no peer holds a
+          // tombstone for, which deployed peers apply as an ordinary new
+          // create). Mint reads run before any row write (emit-after-commit
+          // shape preserved). On exhaustion every incarnation is burned —
+          // emitting would be a guaranteed fleet-wide no-op, so honor the
+          // deletion instead of looping.
+          final MintedIncarnation minted;
+          try {
+            minted = await _mintGroupIncarnation(pk.uuid);
+          } on TombstoneGateExhausted catch (error) {
+            debugPrint(
+              '[PK groups] F15: re-import revive aborted for group ${pk.uuid} '
+              '— $error',
+            );
+            result = result.copyWith(
+              groupsSkippedTombstoned: result.groupsSkippedTombstoned + 1,
+              groupsPreservedAsDeletedTombstone: driftTombstoned
+                  ? result.groupsPreservedAsDeletedTombstone + 1
+                  : result.groupsPreservedAsDeletedTombstone,
+            );
+            continue;
+          }
+
+          // Revive the matched tombstone row in place when one exists (so the
+          // partial unique index never sees two active rows for the uuid),
+          // else materialize the deterministic `pk-group-<uuid>` row. Either
+          // way the row carries the bumped sync_generation so its own future
+          // emits and deletes target the live incarnation id (the adapter
+          // re-derives the entity id from sync_generation).
+          groupLocalId = driftTombstoned ? tombstone.id : groupLocalId;
+          final displayOrder = await _dao.nextDisplayOrder(null);
+          await _dao.upsertGroup(
+            MemberGroupsCompanion.insert(
+              id: groupLocalId,
+              name: pk.displayName ?? pk.name,
+              description: Value(pk.description),
+              colorHex: Value(pk.color == null ? null : '#${pk.color}'),
+              emoji: const Value(null),
+              displayOrder: Value(displayOrder),
+              createdAt: now,
+              isDeleted: const Value(false),
+              pluralkitId: Value(pk.id),
+              pluralkitUuid: Value(pk.uuid),
+              lastSeenFromPkAt: Value(now),
+              syncGeneration: Value(minted.generation),
+            ),
           );
-          await _emitLegacyAliasDeletesForPkGroup(pk.uuid);
+          final revivedRow = await _loadGroupRow(groupLocalId);
+          if (syncEnabled) {
+            // Emit the create under the MINTED incarnation id, not the burned
+            // canonical id. `groupCreateSyncFields` always carries
+            // `pluralkit_uuid` so the receiver resolves the real uuid from the
+            // field (never from the `g<N>:` id), per R1.
+            await _emitCreate(
+              _groupTable,
+              minted.entityId,
+              groupCreateSyncFields(revivedRow),
+            );
+            // Record the incarnation id as an alias for the canonical uuid so a
+            // later sparse patch addressed to it resolves back to this row, and
+            // so a peer that upgrades later can map its old tombstoned row.
+            await _recordGroupIncarnationAlias(pk.uuid, minted);
+          }
+          result = result.copyWith(groupsInserted: result.groupsInserted + 1);
+          debugPrint(
+            '[PK groups] F15: explicit re-import revives group ${pk.uuid} '
+            'under incarnation ${minted.entityId} (gen ${minted.generation}).',
+          );
+        } else {
+          // Insert new row. Always writes metadata — there is nothing local to
+          // preserve. Local emoji stays null (R8): PK's `icon` is a URL, not an
+          // emoji.
+          final displayOrder = await _dao.nextDisplayOrder(null);
+          // Preserved across PK pulls — never overwrite avatar_image_data without an explicit migration plan.
+          await _dao.upsertGroup(
+            MemberGroupsCompanion.insert(
+              id: groupLocalId,
+              name: pk.displayName ?? pk.name,
+              description: Value(pk.description),
+              colorHex: Value(pk.color == null ? null : '#${pk.color}'),
+              emoji: const Value(null),
+              displayOrder: Value(displayOrder),
+              createdAt: now,
+              isDeleted: const Value(false),
+              pluralkitId: Value(pk.id),
+              pluralkitUuid: Value(pk.uuid),
+              lastSeenFromPkAt: Value(now),
+            ),
+          );
+          final createdRow = await _loadGroupRow(groupLocalId);
+          if (syncEnabled) {
+            // Fresh row: gen 0, so the incarnation id equals the canonical id.
+            final currentIncarnationEntityId = deriveGroupIncarnationEntityId(
+              pk.uuid,
+              createdRow.syncGeneration,
+            );
+            await _emitCreate(
+              _groupTable,
+              currentIncarnationEntityId,
+              groupCreateSyncFields(createdRow),
+            );
+            await _emitLegacyAliasDeletesForPkGroup(
+              pk.uuid,
+              currentIncarnationEntityId: currentIncarnationEntityId,
+            );
+          }
+          result = result.copyWith(groupsInserted: result.groupsInserted + 1);
         }
-        result = result.copyWith(groupsInserted: result.groupsInserted + 1);
       } else {
         // Existing row. PK-link columns emit only when they actually change;
         // a pure last_seen_from_pk_at heartbeat emits at most once per
@@ -441,14 +593,29 @@ class PkGroupsImporter with SyncRecordMixin {
             },
           };
           if (changedFields.isNotEmpty) {
+            // F15 blocker: target the row's LIVE incarnation id, not the gen-0
+            // canonical id. After an explicit-re-import revive the row lives at
+            // sync_generation>=1 ('pk-group-g<N>:<uuid>'); emitting to the
+            // burned 'pk-group:<uuid>' would be dropped by every peer's
+            // absorbing merge (permanent one-device metadata divergence). Mirror
+            // the repository deriver (_groupEntityId) which is generation-aware.
+            final currentIncarnationEntityId = deriveGroupIncarnationEntityId(
+              pk.uuid,
+              updatedRow.syncGeneration,
+            );
             await _emitUpdate(
               _groupTable,
-              deriveGroupSyncEntityId(pk.uuid),
+              currentIncarnationEntityId,
               changedFields,
             );
             // Legacy alias deletes are emit-once-then-cleaned (M14b); only
-            // attempt them when we are already emitting a real change.
-            await _emitLegacyAliasDeletesForPkGroup(pk.uuid);
+            // attempt them when we are already emitting a real change. Pass the
+            // live incarnation id so the row's OWN incarnation is never a delete
+            // target (F15 blocker).
+            await _emitLegacyAliasDeletesForPkGroup(
+              pk.uuid,
+              currentIncarnationEntityId: currentIncarnationEntityId,
+            );
           }
         }
         if (overwriteMetadata) {
@@ -476,6 +643,12 @@ class PkGroupsImporter with SyncRecordMixin {
         allMembers: allMembers,
         pkUuidToLocalMemberId: pkUuidToLocalMemberId,
         insertOnly: false,
+        // F06: `overwriteMetadata` is the explicit-user-re-import signal (it is
+        // only true on a deliberate re-import, never a background pull). It
+        // gates the sanctioned-revive vs honor-peer-removal branch when a
+        // PK-listed member's deterministic entry id is tombstoned in the CRDT.
+        explicitReimport: overwriteMetadata,
+        syncEnabled: syncEnabled,
         now: now,
       );
       if (syncEnabled) {
@@ -487,6 +660,8 @@ class PkGroupsImporter with SyncRecordMixin {
         entriesDeferred: result.entriesDeferred + delta.entriesDeferred,
         entriesSkippedRecent:
             result.entriesSkippedRecent + delta.entriesSkippedRecent,
+        entriesSkippedTombstoned:
+            result.entriesSkippedTombstoned + delta.entriesSkippedTombstoned,
       );
     }
 
@@ -533,6 +708,10 @@ class PkGroupsImporter with SyncRecordMixin {
         allMembers: allMembers,
         pkUuidToLocalMemberId: pkUuidToLocalMemberId,
         insertOnly: true,
+        // Re-attribution is a background insert-only pass, never a user
+        // re-import: a tombstoned entry id is honored (skip), never revived.
+        explicitReimport: false,
+        syncEnabled: syncEnabled,
         now: DateTime.now(),
       );
       if (syncEnabled) {
@@ -541,6 +720,8 @@ class PkGroupsImporter with SyncRecordMixin {
       result = result.copyWith(
         groupsObserved: result.groupsObserved + 1,
         entriesInserted: result.entriesInserted + delta.entriesInserted,
+        entriesSkippedTombstoned:
+            result.entriesSkippedTombstoned + delta.entriesSkippedTombstoned,
       );
     }
     await _markRepairDirtyIfNeeded(result);
@@ -563,6 +744,8 @@ class PkGroupsImporter with SyncRecordMixin {
     required List<_PkReconcileMember> allMembers,
     required Map<String, String> pkUuidToLocalMemberId,
     required bool insertOnly,
+    required bool explicitReimport,
+    required bool syncEnabled,
     required DateTime now,
   }) async {
     final memberById = <String, _PkReconcileMember>{
@@ -570,11 +753,17 @@ class PkGroupsImporter with SyncRecordMixin {
     };
 
     final authoritativeSet = authoritativePkMemberUuids.toSet();
-    // Step 4 of docs/plans/pk-group-membership-push.md: read via the new DAO
-    // method so soft-deleted push_remove tombstones are visible. The vanilla
-    // entriesForGroup filters is_deleted=true out, which would let the insert
-    // branch revive a row the user explicitly removed (and queued for PK push).
-    final entries = await _dao.entriesForGroupForReconcile(groupLocalId);
+    // F06: read EVERY entry, including peer-originated tombstones. The
+    // `entriesForGroupForReconcile`/`entriesForGroup` filters hid a synced
+    // tombstone (is_deleted=1, pending_pk_op default 'none'), so the insert
+    // branch blind-revived the burned deterministic id and emitted a create
+    // every peer drops. Removal and insert classification are computed over
+    // this full list; the gate (below) decides skip-vs-revive for a tombstoned
+    // entry id.
+    final entries = await _dao.entriesForGroupIncludingDeleted(groupLocalId);
+    final entriesById = <String, MemberGroupEntryRow>{
+      for (final e in entries) e.id: e,
+    };
 
     // Member IDs whose entry is soft-deleted with push_remove pending. The
     // insert branch skips these to honor the user's intent: PK still has the
@@ -584,10 +773,131 @@ class PkGroupsImporter with SyncRecordMixin {
         if (e.isDeleted && e.pendingPkOp == 'push_remove') e.memberId,
     };
 
+    // F06 classification pass — runs BEFORE the transaction because the gate's
+    // tombstone reads and incarnation mint hit the Rust engine over FFI (the
+    // emit-after-commit shape: gate/mint reads first, row writes inside the
+    // txn, _emitMembershipSync after). For every PK-listed member that the
+    // insert branch would touch, decide: plain insert (gen-0 live), honor a
+    // peer's removal (skip — optionally flip the tombstone to push_remove), or
+    // revive under a freshly-minted incarnation (explicit user re-import only).
+    //
+    // TOCTOU: because the gate/mint reads run pre-txn (required for
+    // emit-after-commit), a peer delete that applies between this
+    // classification and the txn below can still let one blind gen-0 revive
+    // through (classified live here, tombstoned by commit time). That is
+    // self-healing — the next pull sees the now-locally-visible tombstone via
+    // the `entriesById`/gate check and routes the member to skip-or-revive — so
+    // we accept the single-cycle window rather than re-reading the gate inside
+    // the txn (which can't emit anyway).
+    final existingActiveMemberIds = <String>{
+      for (final e in entries)
+        if (!e.isDeleted) e.memberId,
+    };
+    final insertPlans = <_EntryInsertPlan>[];
+    final tombstoneSkips = <_EntryTombstoneSkip>[];
+    int deferred = 0;
+    for (final pkMemberUuid in authoritativePkMemberUuids) {
+      final localMemberId = pkUuidToLocalMemberId[pkMemberUuid];
+      if (localMemberId == null) {
+        deferred++;
+        continue;
+      }
+      if (existingActiveMemberIds.contains(localMemberId)) continue;
+      // Skip insert when there's a soft-deleted push_remove tombstone for this
+      // member — user wants them out of PK, the orchestrator will push the
+      // remove. Re-inserting locally would race with that.
+      if (pendingRemovalMemberIds.contains(localMemberId)) continue;
+
+      final gen0Id = deriveEntryId(groupPkUuid, pkMemberUuid);
+      // Tombstoned when the engine's field_versions say so (source of truth —
+      // covers rows the drain path physically deleted) OR a local soft-deleted
+      // row sits at the deterministic id. The local check matters when no gate
+      // is wired (unit tests / pre-pairing): a peer's synced tombstone is a
+      // soft-deleted row with pending_pk_op='none'.
+      final localTombstoneRow = entriesById[gen0Id];
+      final localTombstoned =
+          localTombstoneRow != null && localTombstoneRow.isDeleted;
+      final gateTombstoned =
+          await (_tombstoneGate?.isTombstoned(_entryTable, gen0Id) ??
+              Future.value(false));
+
+      if (!localTombstoned && !gateTombstoned) {
+        // Live id — ordinary gen-0 insert (unchanged pre-F06 path).
+        insertPlans.add(
+          _EntryInsertPlan(
+            entryId: gen0Id,
+            memberId: localMemberId,
+            pkMemberUuid: pkMemberUuid,
+            generation: 0,
+            existedBefore: entriesById.containsKey(gen0Id),
+          ),
+        );
+        continue;
+      }
+
+      if (!explicitReimport) {
+        // Background pull over a peer-honored removal: do NOT revive. Record
+        // the skip; if a local tombstone row exists, flip it to push_remove so
+        // the PK-token device converges PluralKit to the user's cross-device
+        // removal (adopted maintainer decision, behind the pkGroupSyncV2 gate).
+        tombstoneSkips.add(
+          _EntryTombstoneSkip(
+            entryId: gen0Id,
+            hasLocalTombstoneRow: localTombstoned,
+          ),
+        );
+        debugPrint(
+          '[PK groups] F06: honoring peer removal of entry $gen0Id '
+          '(group $groupPkUuid, member $pkMemberUuid); background pull skips '
+          'the blind-revive.',
+        );
+        continue;
+      }
+
+      // Explicit user re-import: sanctioned revive under a freshly-minted
+      // incarnation id (a fresh id no peer holds a tombstone for, which
+      // deployed peers apply as an ordinary new create). Mint reads run here,
+      // before the transaction.
+      final MintedIncarnation minted;
+      try {
+        minted = await _mintEntryIncarnation(groupPkUuid, pkMemberUuid, gen0Id);
+      } on TombstoneGateExhausted catch (error) {
+        // Every incarnation up to the cap is burned: emitting a create would be
+        // a guaranteed fleet-wide no-op. Honor the removal instead of looping.
+        debugPrint(
+          '[PK groups] F06: re-import revive aborted for $gen0Id — $error',
+        );
+        tombstoneSkips.add(
+          _EntryTombstoneSkip(
+            entryId: gen0Id,
+            hasLocalTombstoneRow: localTombstoned,
+          ),
+        );
+        continue;
+      }
+      insertPlans.add(
+        _EntryInsertPlan(
+          entryId: minted.entityId,
+          memberId: localMemberId,
+          pkMemberUuid: pkMemberUuid,
+          generation: minted.generation,
+          // A gen>=1 incarnation id is brand-new, so it never existed before →
+          // emit a CREATE (the existedBefore update-vs-create split only covers
+          // a non-tombstoned local revive at the gen-0 id).
+          existedBefore: entriesById.containsKey(minted.entityId),
+        ),
+      );
+      debugPrint(
+        '[PK groups] F06: explicit re-import revives entry for member '
+        '$pkMemberUuid in group $groupPkUuid under incarnation '
+        '${minted.entityId} (gen ${minted.generation}).',
+      );
+    }
+
     int inserted = 0;
     int removed = 0;
-    int deferred = 0;
     int skippedRecent = 0;
+    int skippedTombstoned = 0;
     final insertedEntries = <_SyncedEntry>[];
     final removedEntryIds = <String>[];
     final graceCutoff = now.subtract(removalRecencyGrace);
@@ -636,36 +946,34 @@ class PkGroupsImporter with SyncRecordMixin {
         }
       }
 
-      // Insert path — for every PK UUID in authoritative set, add an entry if
-      // we can resolve it locally. Unresolved UUIDs count as deferred (R3).
-      final existingActiveMemberIds = <String>{
-        for (final e in entries)
-          if (!e.isDeleted) e.memberId,
-      };
-
-      for (final pkMemberUuid in authoritativePkMemberUuids) {
-        final localMemberId = pkUuidToLocalMemberId[pkMemberUuid];
-        if (localMemberId == null) {
-          deferred++;
-          continue;
+      // F06 honor-removal skips (background pull). No upsert, no emit. When the
+      // device holds the local tombstone row AND is in the pkGroupSyncV2 cohort,
+      // flip it to push_remove so the PK-token device converges PluralKit to
+      // the user's cross-device removal instead of flapping. The DAO flip is
+      // guarded to a SYNCED tombstone (is_deleted=1, pending_pk_op='none') so
+      // an in-flight local intent is never clobbered.
+      for (final skip in tombstoneSkips) {
+        skippedTombstoned++;
+        if (syncEnabled && skip.hasLocalTombstoneRow) {
+          await _dao.markEntryPushRemoveGuarded(skip.entryId);
         }
-        if (existingActiveMemberIds.contains(localMemberId)) continue;
-        // Skip insert when there's a soft-deleted push_remove tombstone for
-        // this member — user wants them out of PK, the orchestrator will
-        // push the remove. Re-inserting locally would race with that.
-        if (pendingRemovalMemberIds.contains(localMemberId)) continue;
+      }
 
-        final entryId = deriveEntryId(groupPkUuid, pkMemberUuid);
-        final existedBefore = entries.any((e) => e.id == entryId);
+      // Insert path — apply the pre-computed plans (plain gen-0 inserts and
+      // explicit-re-import incarnation revives).
+      for (final plan in insertPlans) {
         try {
           await _dao.upsertEntry(
             MemberGroupEntriesCompanion.insert(
-              id: entryId,
+              id: plan.entryId,
               groupId: groupLocalId,
-              memberId: localMemberId,
+              memberId: plan.memberId,
               pkGroupUuid: Value(groupPkUuid),
-              pkMemberUuid: Value(pkMemberUuid),
+              pkMemberUuid: Value(plan.pkMemberUuid),
               isDeleted: const Value(false),
+              // Local-only incarnation marker so emit/delete sites target the
+              // live id (gen 0 for ordinary inserts).
+              syncGeneration: Value(plan.generation),
             ),
           );
         } catch (e) {
@@ -673,15 +981,28 @@ class PkGroupsImporter with SyncRecordMixin {
           // this entry. Treat as already-inserted.
           if (!isUniqueConstraintViolation(e)) rethrow;
         }
+        if (plan.generation > 0) {
+          // R1/H6c (composing with addMemberToGroup): minting a NEW incarnation
+          // wrote a fresh gen-N row, so the burned gen-(N-1) soft-deleted row is
+          // left in place. If it carried a stale push intent the orchestrator
+          // would push it out-of-order against the fresh revive. Hard-delete the
+          // superseded same-edge soft-deleted rows so the minted live row is the
+          // only pending intent for the edge.
+          await _dao.hardDeleteSupersededEntryRowsForEdge(
+            groupId: groupLocalId,
+            memberId: plan.memberId,
+            keepId: plan.entryId,
+          );
+        }
         inserted++;
         insertedEntries.add(
           _SyncedEntry(
-            id: entryId,
+            id: plan.entryId,
             groupId: groupLocalId,
-            memberId: localMemberId,
+            memberId: plan.memberId,
             pkGroupUuid: groupPkUuid,
-            pkMemberUuid: pkMemberUuid,
-            existedBefore: existedBefore,
+            pkMemberUuid: plan.pkMemberUuid,
+            existedBefore: plan.existedBefore,
           ),
         );
       }
@@ -692,8 +1013,93 @@ class PkGroupsImporter with SyncRecordMixin {
       entriesRemoved: removed,
       entriesDeferred: deferred,
       entriesSkippedRecent: skippedRecent,
+      entriesSkippedTombstoned: skippedTombstoned,
       insertedEntries: insertedEntries,
       removedEntryIds: removedEntryIds,
+    );
+  }
+
+  /// Mint the lowest live entry incarnation for the `(pkGroupUuid,
+  /// pkMemberUuid)` edge via [TombstoneGate] (F06 explicit-re-import revive).
+  /// Mirrors the repository's `addMemberToGroup` revive path. With no gate
+  /// wired the gen-0 id is returned unchanged. The classification pass only
+  /// reaches this when the edge IS PK-backed (both uuids present), so
+  /// `deriveEntryIncarnationEntityId` never returns null here; [gen0Id] is the
+  /// already-derived gen-0 fallback for total safety.
+  Future<MintedIncarnation> _mintEntryIncarnation(
+    String pkGroupUuid,
+    String pkMemberUuid,
+    String gen0Id,
+  ) async {
+    final gate = _tombstoneGate;
+    if (gate == null) {
+      return MintedIncarnation(generation: 0, entityId: gen0Id);
+    }
+    return gate.mintLiveEntityId(
+      _entryTable,
+      (gen) =>
+          deriveEntryIncarnationEntityId(pkGroupUuid, pkMemberUuid, gen) ??
+          gen0Id,
+    );
+  }
+
+  /// Whether the canonical PK-group sync entity for [pkGroupUuid] is tombstoned
+  /// in the engine's `field_versions` (F15). Checks the canonical
+  /// `pk-group:<uuid>` id AND every recorded alias's `legacy_entity_id` so a
+  /// group last seen under a legacy id is still recognized as burned. The FFI is
+  /// the only evidence when the Drift consumer row was hard-deleted by the drain
+  /// path or its `pluralkit_uuid` was nulled by a pre-fix `deleteGroup`. A null
+  /// gate (pre-pairing / unit tests without a real engine) reports nothing
+  /// tombstoned, byte-identical to the pre-F15 Drift-only path.
+  Future<bool> _isGroupCanonicalTombstoned(String pkGroupUuid) async {
+    final gate = _tombstoneGate;
+    if (gate == null) return false;
+    if (await gate.isTombstoned(_groupTable, deriveGroupSyncEntityId(pkGroupUuid))) {
+      return true;
+    }
+    final aliases = await _db.pkGroupSyncAliasesDao.getByPkGroupUuid(pkGroupUuid);
+    for (final alias in aliases) {
+      final legacyId = alias.legacyEntityId.trim();
+      if (legacyId.isEmpty) continue;
+      if (await gate.isTombstoned(_groupTable, legacyId)) return true;
+    }
+    return false;
+  }
+
+  /// Mint the lowest live group incarnation id for [pkGroupUuid] via
+  /// [TombstoneGate] (F15 explicit-re-import revive). Walks gen 0
+  /// (`pk-group:<uuid>`), 1, 2, ... (`pk-group-g<N>:<uuid>`) to the first id no
+  /// peer holds a tombstone for. With no gate wired the gen-0 canonical id is
+  /// returned unchanged (this branch is only reached on an explicit re-import
+  /// over a tombstone, so a gate is normally present).
+  Future<MintedIncarnation> _mintGroupIncarnation(String pkGroupUuid) async {
+    final gate = _tombstoneGate;
+    if (gate == null) {
+      return MintedIncarnation(
+        generation: 0,
+        entityId: deriveGroupSyncEntityId(pkGroupUuid),
+      );
+    }
+    return gate.mintLiveEntityId(
+      _groupTable,
+      (gen) => deriveGroupIncarnationEntityId(pkGroupUuid, gen),
+    );
+  }
+
+  /// Record the minted group incarnation id as an alias for [pkGroupUuid] (F15)
+  /// so a later sparse patch addressed to the incarnation id resolves back to
+  /// the canonical row, and a peer that upgrades later can map its old
+  /// tombstoned row. The gen-0 canonical id is never aliased (it points at
+  /// itself); only a genuine `pk-group-g<N>:<uuid>` incarnation is recorded.
+  Future<void> _recordGroupIncarnationAlias(
+    String pkGroupUuid,
+    MintedIncarnation minted,
+  ) async {
+    if (minted.generation <= 0) return;
+    await _db.pkGroupSyncAliasesDao.upsertAlias(
+      legacyEntityId: minted.entityId,
+      pkGroupUuid: pkGroupUuid,
+      canonicalEntityId: deriveGroupSyncEntityId(pkGroupUuid),
     );
   }
 
@@ -738,21 +1144,41 @@ class PkGroupsImporter with SyncRecordMixin {
     await syncRecordDelete(table, entityId);
   }
 
-  Future<void> _emitLegacyAliasDeletesForPkGroup(String pkGroupUuid) async {
+  /// Emit the one-shot legacy-alias deletes for [pkGroupUuid].
+  ///
+  /// [currentIncarnationEntityId] is the row's LIVE incarnation id
+  /// (`deriveGroupIncarnationEntityId(uuid, row.syncGeneration)`); it is excluded
+  /// from the delete set in addition to the gen-0 canonical id. After an F15
+  /// explicit-re-import revive the row lives at gen>=1 and its incarnation id is
+  /// recorded as an alias by `_recordGroupIncarnationAlias`; without this
+  /// exclusion the very next emit-worthy pull would tombstone the freshly minted
+  /// incarnation (fleet-wide deletion of the revived group + a permanently
+  /// burned generation). Mirrors the repository twin
+  /// `_syncLegacyPkGroupAliasDeletes`, which excludes `_groupEntityId(group)`.
+  Future<void> _emitLegacyAliasDeletesForPkGroup(
+    String pkGroupUuid, {
+    required String currentIncarnationEntityId,
+  }) async {
     final canonicalEntityId = deriveGroupSyncEntityId(pkGroupUuid);
     final aliases = await _db.pkGroupSyncAliasesDao.getByPkGroupUuid(
       pkGroupUuid,
     );
-    // Emit each legacy alias's delete ONCE, then drop the alias row (2026-06
-    // PK audit M14b); the pre-fix code re-emitted these tombstones on every
-    // pull forever. The canonical alias row is never a delete target, and
-    // repair re-creates aliases when a fresh duplicate is merged, so
-    // convergence is preserved without the churn.
+    // M14b (2026-06 PK audit): emit each legacy alias's delete ONCE, then drop
+    // the alias row. The pre-fix code re-emitted these tombstones on every pull
+    // forever (deleteByLegacyEntityId had zero callers). The canonical alias
+    // row (legacyEntityId == canonicalEntityId, or empty) and the row's current
+    // incarnation id (legacyEntityId == currentIncarnationEntityId) are never a
+    // delete target and are left untouched. The repair flow re-creates aliases
+    // when a fresh duplicate is merged, so a NEW alias still gets its one delete
+    // on the next pull before being cleaned — convergence is preserved, churn is
+    // not.
     final legacyEntityIdsToDelete = <String, String>{}; // legacyEntityId -> raw
     for (final alias in aliases) {
       final raw = alias.legacyEntityId;
       final legacyEntityId = raw.trim();
-      if (legacyEntityId.isEmpty || legacyEntityId == canonicalEntityId) {
+      if (legacyEntityId.isEmpty ||
+          legacyEntityId == canonicalEntityId ||
+          legacyEntityId == currentIncarnationEntityId) {
         continue;
       }
       legacyEntityIdsToDelete[legacyEntityId] = raw;
@@ -1533,6 +1959,7 @@ class _ReconcileDelta {
   final int entriesRemoved;
   final int entriesDeferred;
   final int entriesSkippedRecent;
+  final int entriesSkippedTombstoned;
   final List<_SyncedEntry> insertedEntries;
   final List<String> removedEntryIds;
   const _ReconcileDelta({
@@ -1540,8 +1967,42 @@ class _ReconcileDelta {
     required this.entriesRemoved,
     required this.entriesDeferred,
     required this.entriesSkippedRecent,
+    required this.entriesSkippedTombstoned,
     required this.insertedEntries,
     required this.removedEntryIds,
+  });
+}
+
+/// A resolved membership insert (F06 classification): the live entity id (gen 0
+/// for an ordinary insert, a minted incarnation for an explicit re-import
+/// revive), its generation, and whether a row already existed at that id.
+class _EntryInsertPlan {
+  final String entryId;
+  final String memberId;
+  final String pkMemberUuid;
+  final int generation;
+  final bool existedBefore;
+
+  const _EntryInsertPlan({
+    required this.entryId,
+    required this.memberId,
+    required this.pkMemberUuid,
+    required this.generation,
+    required this.existedBefore,
+  });
+}
+
+/// A PK-listed member whose deterministic entry id is tombstoned and a
+/// background pull is honoring the peer's removal (F06): no revive. When a
+/// local tombstone row backs it, the cohort-gated push_remove flip converges
+/// PluralKit to the user's cross-device removal.
+class _EntryTombstoneSkip {
+  final String entryId;
+  final bool hasLocalTombstoneRow;
+
+  const _EntryTombstoneSkip({
+    required this.entryId,
+    required this.hasLocalTombstoneRow,
   });
 }
 

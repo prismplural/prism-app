@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/sync/tombstone_revive_detector.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -48,6 +50,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   bool _isGenerating = false;
   bool _isClearing = false;
   bool _isRepairingFronting = false;
+  bool _isScanningDivergence = false;
+  TombstoneRevivedRowsReport? _divergenceReport;
 
   @override
   Widget build(BuildContext context) {
@@ -253,6 +257,67 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                         context.push(AppRoutePaths.settingsSyncDebug),
                   ),
                 ),
+                const Divider(height: 16),
+                Text(
+                  'Tombstone-revive divergence',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Counts deterministic-id rows (PK groups, PK group entries, '
+                  'the Unknown sentinel) that are live locally but tombstoned in '
+                  'the sync engine — edits to them are silently dropped by peers. '
+                  'Diagnostic only: no repair is performed here.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: 'Scan tombstone divergence',
+                    icon: AppIcons.buildCircleOutlined,
+                    tone: PrismButtonTone.outlined,
+                    expanded: true,
+                    isLoading: _isScanningDivergence,
+                    enabled: !_isScanningDivergence,
+                    onPressed: () => _scanTombstoneDivergence(context),
+                  ),
+                ),
+                if (_divergenceReport != null) ...[
+                  const SizedBox(height: 12),
+                  if (!_divergenceReport!.gateAvailable)
+                    Text(
+                      'Sync engine not available — pair a device first.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    )
+                  else ...[
+                    _DebugRow(
+                      label: 'Total diverged',
+                      value: '${_divergenceReport!.totalDiverged}',
+                    ),
+                    const Divider(height: 16),
+                    _DebugRow(
+                      label: 'PK groups',
+                      value: '${_divergenceReport!.groups.count}',
+                    ),
+                    const Divider(height: 16),
+                    _DebugRow(
+                      label: 'PK group entries',
+                      value: '${_divergenceReport!.entries.count}',
+                    ),
+                    const Divider(height: 16),
+                    _DebugRow(
+                      label: 'Unknown sentinel',
+                      value: '${_divergenceReport!.sentinelMember.count}',
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -462,6 +527,28 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       }
     } finally {
       if (mounted) setState(() => _isRepairingFronting = false);
+    }
+  }
+
+  Future<void> _scanTombstoneDivergence(BuildContext context) async {
+    setState(() => _isScanningDivergence = true);
+    try {
+      final report = await ref
+          .read(tombstoneRevivedRowsDetectorProvider)
+          .scan();
+      if (!mounted) return;
+      setState(() => _divergenceReport = report);
+      if (!context.mounted) return;
+      PrismToast.show(
+        context,
+        message: !report.gateAvailable
+            ? 'Sync engine not available.'
+            : report.hasDivergence
+            ? '${report.totalDiverged} diverged row(s) found.'
+            : 'No tombstone-revive divergence found.',
+      );
+    } finally {
+      if (mounted) setState(() => _isScanningDivergence = false);
     }
   }
 

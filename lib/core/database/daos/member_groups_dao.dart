@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/member_groups_table.dart';
 import 'package:prism_plurality/core/database/tables/member_group_entries_table.dart';
@@ -288,6 +289,34 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
 
+  /// Hard-delete soft-deleted rows for the `(groupId, memberId)` edge that are
+  /// being superseded by a freshly-minted incarnation row (R1 re-add). Excludes
+  /// [keepId] (the live incarnation row the caller is about to write/just wrote)
+  /// and only touches `is_deleted = 1` rows, so the active row is never removed.
+  ///
+  /// This closes the H6c regression introduced by the incarnation split: a
+  /// re-add that mints a NEW gen-N id leaves the old gen-0 row soft-deleted with
+  /// its `pending_pk_op = 'push_remove'` orphaned in place. The push orchestrator
+  /// iterates ALL pending rows and pushes adds before removes with no same-edge
+  /// cross-row dedup, so the stale remove would fire after the fresh add and
+  /// remove the member from the user's real PluralKit group despite the re-add
+  /// being the latest intent. Removing the orphaned tombstone row here makes the
+  /// minted live row the only pending intent for the edge. Returns the number of
+  /// rows removed.
+  Future<int> hardDeleteSupersededEntryRowsForEdge({
+    required String groupId,
+    required String memberId,
+    required String keepId,
+  }) =>
+      (delete(memberGroupEntries)..where(
+            (e) =>
+                e.groupId.equals(groupId) &
+                e.memberId.equals(memberId) &
+                e.isDeleted.equals(true) &
+                e.id.equals(keepId).not(),
+          ))
+          .go();
+
   /// Clear `pending_pk_op = 'none'` for every entry in [groupId] whose
   /// pending op is non-'none'. Used by the push orchestrator's terminal
   /// policy when a refetch returns 404 on the group (PK group is gone),
@@ -301,6 +330,42 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     variables: [Variable.withString(groupId)],
     updates: {memberGroupEntries},
   );
+
+  /// Flip a peer-originated entry tombstone's `pending_pk_op` to `push_remove`
+  /// so the PK-token device converges PluralKit to the user's cross-device
+  /// removal (F06, absorbing-tombstone-revive-holes). Guarded to
+  /// `is_deleted = 1 AND pending_pk_op = 'none'`: only a SYNCED tombstone (the
+  /// local-only `pending_pk_op` arrives as the default 'none' on a peer's
+  /// remove) is adopted, so this never clobbers an in-flight local intent
+  /// (`push_add`/`push_remove`) or revives an active row. Returns the number of
+  /// rows touched (0 or 1); a 0 means the row was active or already carried a
+  /// pending op, and the caller leaves it alone.
+  ///
+  /// Also refreshes the local-only `created_at` recency stamp, exactly as
+  /// [softDeleteEntryWithPendingOp] does (wave-3 verifier issue 1, 2026-06 PK
+  /// audit M15): this call SETS a new intent on a row that carried none, so the
+  /// push orchestrator's age-based retry cap must clock the intent from the
+  /// moment of adoption. The F06 sweep adopts tombstones whose apply-stamp is
+  /// commonly far older than `PkGroupsImporter.pushRetryMaxAge` (applied
+  /// pre-upgrade, or while PK pull was offline) — the precise already-diverged
+  /// install this fix exists to converge. Without the refresh that intent is
+  /// born expired, so the first non-environmental 4xx on the remove push routes
+  /// it through `_isPushCandidateExpired -> hardDeleteRemoveTombstoneGuarded`
+  /// and terminally drops the convergence intent with zero retry budget, and
+  /// PluralKit keeps the removed member forever.
+  Future<int> markEntryPushRemoveGuarded(String id) =>
+      (update(memberGroupEntries)..where(
+            (e) =>
+                e.id.equals(id) &
+                e.isDeleted.equals(true) &
+                e.pendingPkOp.equals('none'),
+          ))
+          .write(
+            MemberGroupEntriesCompanion(
+              pendingPkOp: const Value('push_remove'),
+              createdAt: Value(DateTime.now()),
+            ),
+          );
 
   Future<void> deleteEntriesForGroup(String groupId) =>
       (update(memberGroupEntries)..where((e) => e.groupId.equals(groupId)))
@@ -475,6 +540,13 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// next sync). The vanilla [entriesForGroup] filters `is_deleted = true`
   /// out, hiding `push_remove` rows from reconcile and letting the insert
   /// branch revive them when PK still reports the member.
+  ///
+  /// SUPERSEDED for reconcile by [entriesForGroupIncludingDeleted] (F06): this
+  /// filter still hides peer-originated tombstones (`is_deleted = 1` with the
+  /// local-only `pending_pk_op` at its synced default `'none'`), which the
+  /// insert branch then blind-revives. The reconcile pass reads the full list
+  /// instead — do NOT reintroduce this method on that path.
+  @visibleForTesting
   Future<List<MemberGroupEntryRow>> entriesForGroupForReconcile(
     String groupId,
   ) =>
@@ -485,6 +557,28 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
                     e.pendingPkOp.equals('none').not()),
           ))
           .get();
+
+  /// Read EVERY entry for [groupId], including peer-originated tombstones
+  /// ([entriesForGroupForReconcile] minus the `pending_pk_op` filter). F06
+  /// (absorbing-tombstone-revive-holes): a tombstone that arrived via CRDT sync
+  /// from a peer carries the local-only `pending_pk_op` default `'none'`, so
+  /// the reconcile filter hides it and the insert branch blind-revives the
+  /// burned deterministic id. The reconcile pass now classifies removals and
+  /// inserts over this full list so a peer's removal is honored (the gate
+  /// decides skip-vs-revive), never silently un-deleted.
+  Future<List<MemberGroupEntryRow>> entriesForGroupIncludingDeleted(
+    String groupId,
+  ) => (select(memberGroupEntries)
+        ..where((e) => e.groupId.equals(groupId)))
+      .get();
+
+  /// Read EVERY entry across all groups, including tombstones. The membership
+  /// joins of [getAllGroupEntries] would hide rows whose member is itself
+  /// deleted; the absorbing-tombstone-revive detector (R6) needs the raw rows so
+  /// it can re-derive each row's current incarnation id and compare it against
+  /// the engine's `field_versions`. Read-only; no membership filtering.
+  Future<List<MemberGroupEntryRow>> getAllEntriesIncludingDeleted() =>
+      select(memberGroupEntries).get();
 
   /// Read every entry with a non-`'none'` pending PK op queued, regardless
   /// of `is_deleted` state. The push orchestrator buckets these by

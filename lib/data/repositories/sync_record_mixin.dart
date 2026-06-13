@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 
 /// Operation type for a captured sync emission.
 ///
@@ -65,6 +66,36 @@ class _SyncCaptureContext {
 /// concurrent emissions from unrelated tasks.
 mixin SyncRecordMixin {
   ffi.PrismSyncHandle? get syncHandle;
+
+  /// The handle the emit path actually targets: the live runtime handle when
+  /// one is published, else the injected [syncHandle]. Resolved identically to
+  /// [_runWithConfiguredRetry] so a gate/read built from it sees the same
+  /// engine state the next `syncRecord*` would write to.
+  ffi.PrismSyncHandle? get resolvedSyncHandle =>
+      syncCurrentHandle.value ?? syncHandle;
+
+  /// Test-only override for [tombstoneGate]. Production builds never set this
+  /// (it is gated behind `assert`), so the getter falls through to a gate built
+  /// from the live handle. Tests inject a fake gate to exercise the burned-id
+  /// ingress path without a real engine.
+  TombstoneGate? _tombstoneGateOverride;
+
+  @visibleForTesting
+  set debugTombstoneGateForTesting(TombstoneGate? gate) {
+    assert(() {
+      _tombstoneGateOverride = gate;
+      return true;
+    }());
+  }
+
+  /// A [TombstoneGate] over the same engine the emit path targets, or `null`
+  /// when no handle is available. Ingress sites that reuse a deterministic
+  /// entity id (e.g. the Unknown-sentinel member) consult this BEFORE emitting
+  /// a create: an absorbing tombstone on that id makes the create a silent
+  /// fleet-wide no-op, so the caller must skip the emission instead. A null
+  /// gate means "no engine to consult" → behave exactly as before.
+  TombstoneGate? get tombstoneGate =>
+      _tombstoneGateOverride ?? TombstoneGate.forHandle(resolvedSyncHandle);
 
   static final List<CapturedSyncOp> _startupDeferredOps = <CapturedSyncOp>[];
   static bool _flushingStartupDeferredOps = false;

@@ -27,7 +27,9 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 
 void main() {
   group('Unknown sentinel member id determinism', () {
@@ -109,5 +111,104 @@ void main() {
         );
       },
     );
+  });
+
+  // R6/C12 ingress gate: the sentinel reuses a deterministic UUIDv5 id. If a
+  // previously-synced sentinel was deleted, the engine holds an absorbing
+  // tombstone for that id and a fresh create is a silent fleet-wide no-op that
+  // recreates the F21 divergence. `ensureUnknownSentinelMember` (the single
+  // chokepoint for every production caller — session lifecycle, fronting
+  // change/mutation executors, data import) must consult the gate and skip the
+  // EMISSION while keeping the local FK-target row.
+  group('ensureUnknownSentinelMember gates on the sync tombstone', () {
+    TombstoneGate gateTombstoning(Set<String> ids) {
+      return TombstoneGate((table, entityId, field) async {
+        if (field != 'is_deleted') return null;
+        return ids.contains(entityId) ? 'true' : null;
+      });
+    }
+
+    test('a tombstoned sentinel id => keeps the local row but emits NO create '
+        'into the burned id', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repo = DriftMemberRepository(db.membersDao, null)
+        ..debugTombstoneGateForTesting = gateTombstoning({
+          unknownSentinelMemberId,
+        });
+
+      final captured = <String>[];
+      SyncRecordMixin.installCaptureSinkForTesting(
+        (op) => captured.add('${op.table}/${op.entityId}/${op.opType.name}'),
+      );
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      final ensured = await repo.ensureUnknownSentinelMember();
+
+      // The caller still gets a usable sentinel member back, and the LOCAL row
+      // exists so fronting history keeps a resolvable "Unknown" attribution
+      // (there is no FK constraint binding it).
+      expect(ensured.wasCreated, isTrue);
+      expect(ensured.member.id, unknownSentinelMemberId);
+      expect(await repo.getMemberById(unknownSentinelMemberId), isNotNull);
+
+      // But NOTHING was emitted into the burned id — that is the whole point.
+      expect(
+        captured,
+        isEmpty,
+        reason:
+            'a tombstoned sentinel id must not receive a create op '
+            '(silent fleet-wide no-op that recreates the F21 divergence)',
+      );
+    });
+
+    test('a live (non-tombstoned) sentinel id => emits the create as usual',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repo = DriftMemberRepository(db.membersDao, null)
+        ..debugTombstoneGateForTesting = gateTombstoning({});
+
+      final captured = <String>[];
+      SyncRecordMixin.installCaptureSinkForTesting(
+        (op) => captured.add('${op.table}/${op.entityId}/${op.opType.name}'),
+      );
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      final ensured = await repo.ensureUnknownSentinelMember();
+
+      expect(ensured.wasCreated, isTrue);
+      expect(await repo.getMemberById(unknownSentinelMemberId), isNotNull);
+      expect(
+        captured,
+        ['members/$unknownSentinelMemberId/create'],
+        reason: 'a live sentinel id is created and emitted normally',
+      );
+    });
+
+    test('an already-present sentinel row => no-op regardless of the gate',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repo = DriftMemberRepository(db.membersDao, null);
+
+      // Seed the row first (emits a create).
+      await repo.ensureUnknownSentinelMember();
+
+      // Now flip the gate to tombstoned and ensure again — the existing-row
+      // early return wins, so no read, no write, no emission.
+      repo.debugTombstoneGateForTesting = gateTombstoning({
+        unknownSentinelMemberId,
+      });
+      final captured = <String>[];
+      SyncRecordMixin.installCaptureSinkForTesting(
+        (op) => captured.add('${op.table}/${op.entityId}/${op.opType.name}'),
+      );
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      final second = await repo.ensureUnknownSentinelMember();
+      expect(second.wasCreated, isFalse);
+      expect(captured, isEmpty);
+    });
   });
 }

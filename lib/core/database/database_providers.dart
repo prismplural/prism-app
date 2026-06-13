@@ -12,6 +12,8 @@ import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
+import 'package:prism_plurality/core/sync/tombstone_revive_detector.dart';
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
@@ -194,6 +196,28 @@ final memberGroupsRepositoryProvider = Provider<MemberGroupsRepository>(
     memberRepository: ref.watch(memberRepositoryProvider),
   ),
 );
+
+/// Diagnostic-only detector for the absorbing-tombstone-revive-holes divergence
+/// (CRDT remediation wave 2, R6). Read-only: it counts already-diverged rows so
+/// the release-gated diagnostics screen can surface them; it never repairs or
+/// emits. Repair is owned by the planned reconciliation layer.
+final tombstoneRevivedRowsDetectorProvider =
+    Provider<TombstoneRevivedRowsDetector>((ref) {
+      // The engine is only CONFIGURED (has a sync_id, so `read_field_value`
+      // returns real tombstone state) once health is past the un/disconnected
+      // states. A constructed-but-unconfigured handle reads `null` for every
+      // id, which would look like "no divergence" — gate that out so the
+      // diagnostic reports `gateAvailable=false` instead of a false all-clean.
+      final health = ref.watch(syncHealthProvider);
+      final engineConfigured =
+          health != SyncHealthState.unpaired &&
+          health != SyncHealthState.disconnected;
+      return TombstoneRevivedRowsDetector(
+        ref.watch(databaseProvider),
+        TombstoneGate.forHandle(_resolveSyncHandle(ref)),
+        engineConfigured: engineConfigured,
+      );
+    });
 
 final customFieldsDaoProvider = Provider<CustomFieldsDao>(
   (ref) => ref.watch(databaseProvider).customFieldsDao,

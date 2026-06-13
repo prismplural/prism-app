@@ -3,6 +3,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -105,6 +107,17 @@ domain.Member _member({required String id, String? pkUuid, String? pkId}) =>
       pluralkitUuid: pkUuid,
       pluralkitId: pkId,
     );
+
+/// A [TombstoneGate] reporting exactly [tombstonedIds] as is_deleted=true (the
+/// Rust field_versions source of truth); every other id reads as live. Used by
+/// the F06 tests to drive the drain-path-physical-delete case where no local
+/// soft-deleted row exists but the engine still holds the tombstone.
+TombstoneGate _gateTombstoning(Set<String> tombstonedIds) {
+  return TombstoneGate((table, entityId, field) async {
+    if (field != 'is_deleted') return null;
+    return tombstonedIds.contains(entityId) ? 'true' : null;
+  });
+}
 
 void main() {
   late AppDatabase db;
@@ -369,13 +382,22 @@ void main() {
   });
 
   test(
-    'M13/issue 3: a deleted tombstone that KEPT its UUID (non-deterministic '
-    'row id) blocks re-import — user deletion is preserved',
+    'M13/issue 3 + F15: a BACKGROUND pull over a deleted tombstone that KEPT '
+    'its UUID (non-deterministic row id) skips re-import — user deletion is '
+    'preserved',
     () async {
-      // CONTRACT INVERSION: this previously asserted the uuid-bearing
-      // tombstone was bypassed — the resurrection vector for groups adopted
-      // under their original row id. deleteGroup now keeps the uuid and the
-      // importer consults findByPluralkitUuidIncludingDeleted.
+      // CONTRACT INVERSION (2026-06 PK audit wave-3 verifier issue 3): this
+      // test previously asserted the opposite — that a uuid-bearing tombstone
+      // is happily bypassed and the group re-imported under the deterministic
+      // id. That bypass was the resurrection vector for groups adopted under
+      // their ORIGINAL row id (repair's linkGroupToPluralkitUuid, pre-
+      // deterministic imports), whose deletion the deterministic-id guard
+      // alone cannot see. deleteGroup now keeps the uuid on the tombstone,
+      // and the importer consults findByPluralkitUuidIncludingDeleted.
+      //
+      // F15 (absorbing-tombstone-revive-holes): a BACKGROUND pull
+      // (overwriteMetadata=false) honors the deletion and skips. An explicit
+      // re-import revives instead (separate test below).
       await db
           .into(db.memberGroups)
           .insert(
@@ -400,14 +422,278 @@ void main() {
           name: 'Core',
           memberIds: ['pk-mem-1'],
         ),
-      ], overwriteMetadata: true);
+      ]);
 
       expect(result.groupsInserted, 0);
       expect(result.groupsPreservedAsDeletedTombstone, 1);
+      expect(result.groupsSkippedTombstoned, 1);
       expect(await db.memberGroupsDao.findByPluralkitUuid('pk-g-1'), isNull);
       // No entries materialized for the preserved-deleted group.
       final entries = await (db.select(db.memberGroupEntries)).get();
       expect(entries, isEmpty);
+    },
+  );
+
+  test(
+    'F15: an EXPLICIT re-import over a Drift tombstone revives under a fresh '
+    'group incarnation id — one create under the new id, alias recorded',
+    () async {
+      await setPkGroupSyncV2Enabled(true);
+      // A user-deleted group tombstone under its deterministic row id. The gate
+      // reports the canonical gen-0 entity as burned (Rust field_versions),
+      // matching the absorbing-delete state of every peer.
+      const groupUuid = 'pk-g-1';
+      final localRowId = PkGroupsImporter.deriveGroupId(groupUuid);
+      final canonicalId = PkGroupsImporter.deriveGroupSyncEntityId(groupUuid);
+      final gen1Id = deriveGroupIncarnationEntityId(groupUuid, 1);
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: localRowId,
+              name: 'Deleted',
+              createdAt: DateTime.utc(2024, 1, 1),
+              isDeleted: const Value(true),
+              pluralkitUuid: const Value(groupUuid),
+            ),
+          );
+
+      final creates = <Map<String, Object?>>[];
+      final updates = <Map<String, Object?>>[];
+      final deletes = <Map<String, String>>[];
+      final repo = _FakeMemberRepo([
+        _member(id: 'local-1', pkUuid: 'pk-mem-1'),
+      ]);
+      final importer = PkGroupsImporter(
+        db: db,
+        memberRepository: repo,
+        tombstoneGate: _gateTombstoning({canonicalId}),
+        recordCreateOverride: (table, entityId, fields) async {
+          creates.add({'table': table, 'entityId': entityId});
+        },
+        recordUpdateOverride: (table, entityId, fields) async {
+          updates.add({'table': table, 'entityId': entityId});
+        },
+        recordDeleteOverride: (table, entityId) async {
+          deletes.add({'table': table, 'entityId': entityId});
+        },
+      );
+
+      final result = await importer.importGroups([
+        const PKGroup(
+          id: 'abcde',
+          uuid: groupUuid,
+          name: 'Core',
+          memberIds: ['pk-mem-1'],
+        ),
+      ], overwriteMetadata: true);
+
+      // Revived, not skipped.
+      expect(result.groupsInserted, 1);
+      expect(result.groupsSkippedTombstoned, 0);
+      expect(result.groupsPreservedAsDeletedTombstone, 0);
+
+      // Local row revived in place at the bumped incarnation generation.
+      final revived = await db.memberGroupsDao.findByPluralkitUuid(groupUuid);
+      expect(revived, isNotNull);
+      expect(revived!.id, localRowId);
+      expect(revived.isDeleted, isFalse);
+      expect(revived.syncGeneration, 1);
+
+      // Exactly one group create, under the gen-1 incarnation id — never the
+      // burned canonical id — and no delete/update for the group.
+      final groupCreates = creates
+          .where((c) => c['table'] == 'member_groups')
+          .toList();
+      expect(groupCreates, hasLength(1));
+      expect(groupCreates.single['entityId'], gen1Id);
+      expect(
+        deletes.where((d) => d['table'] == 'member_groups'),
+        isEmpty,
+      );
+      expect(
+        creates.any((c) => c['entityId'] == canonicalId),
+        isFalse,
+        reason: 'the burned canonical id must never be re-created',
+      );
+
+      // The incarnation id is recorded as an alias for the canonical uuid.
+      final alias = await db.pkGroupSyncAliasesDao.getByLegacyEntityId(gen1Id);
+      expect(alias, isNotNull);
+      expect(alias!.pkGroupUuid, groupUuid);
+      expect(alias.canonicalEntityId, canonicalId);
+
+      // Membership reconcile ran under the revived row. Only the GROUP entity
+      // was burned here (the entry's gen-0 sha is not in the gate's tombstone
+      // set), so the entry inserts live at gen 0 — exactly one entry create.
+      final entryCreates = creates
+          .where((c) => c['table'] == 'member_group_entries')
+          .toList();
+      expect(entryCreates, hasLength(1));
+      expect(
+        entryCreates.single['entityId'],
+        PkGroupsImporter.deriveEntryId(groupUuid, 'pk-mem-1'),
+      );
+    },
+  );
+
+  test(
+    'F15 remote-tombstone variant: a group tombstoned in the engine '
+    '(field_versions only, no Drift evidence) is skipped on a background pull',
+    () async {
+      await setPkGroupSyncV2Enabled(true);
+      // The drain path hard-deleted the local Drift row (or a pre-fix
+      // deleteGroup nulled its uuid), so neither the deterministic-id lookup
+      // nor the uuid lookup finds a tombstone — the engine's field_versions are
+      // the ONLY surviving evidence. The gate must still block the blind-revive.
+      const groupUuid = 'pk-g-1';
+      final canonicalId = PkGroupsImporter.deriveGroupSyncEntityId(groupUuid);
+
+      final creates = <Map<String, Object?>>[];
+      final repo = _FakeMemberRepo([
+        _member(id: 'local-1', pkUuid: 'pk-mem-1'),
+      ]);
+      final importer = PkGroupsImporter(
+        db: db,
+        memberRepository: repo,
+        tombstoneGate: _gateTombstoning({canonicalId}),
+        recordCreateOverride: (table, entityId, fields) async {
+          creates.add({'table': table, 'entityId': entityId});
+        },
+      );
+
+      final result = await importer.importGroups([
+        const PKGroup(
+          id: 'abcde',
+          uuid: groupUuid,
+          name: 'Core',
+          memberIds: ['pk-mem-1'],
+        ),
+      ]);
+
+      expect(result.groupsInserted, 0);
+      expect(result.groupsSkippedTombstoned, 1);
+      // FFI-only: no Drift soft-deleted row, so the Drift-evidence subcounter
+      // stays 0.
+      expect(result.groupsPreservedAsDeletedTombstone, 0);
+      expect(await db.memberGroupsDao.findByPluralkitUuid(groupUuid), isNull);
+      expect(creates, isEmpty);
+    },
+  );
+
+  test(
+    'F15 blocker: a pull AFTER an explicit revive never tombstones the minted '
+    'incarnation — the update targets the live gen-1 id and the alias survives',
+    () async {
+      await setPkGroupSyncV2Enabled(true);
+      // A user-deleted group tombstone; the gate burns the gen-0 canonical id,
+      // so the first explicit re-import revives the row at gen 1 and records the
+      // `pk-group-g1:<uuid>` incarnation as an alias. The bug: the very next
+      // emit-worthy pull (a second explicit re-import, or the 24h heartbeat /
+      // identity change on a background pull) took the update branch, emitted
+      // the alias-delete keyed only against the gen-0 canonical id, dropped the
+      // alias row, and so tombstoned the freshly minted incarnation fleet-wide.
+      const groupUuid = 'pk-g-1';
+      final localRowId = PkGroupsImporter.deriveGroupId(groupUuid);
+      final canonicalId = PkGroupsImporter.deriveGroupSyncEntityId(groupUuid);
+      final gen1Id = deriveGroupIncarnationEntityId(groupUuid, 1);
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: localRowId,
+              name: 'Deleted',
+              createdAt: DateTime.utc(2024, 1, 1),
+              isDeleted: const Value(true),
+              pluralkitUuid: const Value(groupUuid),
+            ),
+          );
+
+      final creates = <Map<String, Object?>>[];
+      final updates = <Map<String, Object?>>[];
+      final deletes = <Map<String, String>>[];
+      final repo = _FakeMemberRepo([
+        _member(id: 'local-1', pkUuid: 'pk-mem-1'),
+      ]);
+      final importer = PkGroupsImporter(
+        db: db,
+        memberRepository: repo,
+        tombstoneGate: _gateTombstoning({canonicalId}),
+        recordCreateOverride: (table, entityId, fields) async {
+          creates.add({'table': table, 'entityId': entityId});
+        },
+        recordUpdateOverride: (table, entityId, fields) async {
+          updates.add({'table': table, 'entityId': entityId});
+        },
+        recordDeleteOverride: (table, entityId) async {
+          deletes.add({'table': table, 'entityId': entityId});
+        },
+      );
+
+      const group = PKGroup(
+        id: 'abcde',
+        uuid: groupUuid,
+        name: 'Core',
+        memberIds: ['pk-mem-1'],
+      );
+
+      // Pass 1: explicit re-import revives under the gen-1 incarnation.
+      final first = await importer.importGroups([group], overwriteMetadata: true);
+      expect(first.groupsInserted, 1);
+      final aliasAfterRevive = await db.pkGroupSyncAliasesDao.getByLegacyEntityId(
+        gen1Id,
+      );
+      expect(aliasAfterRevive, isNotNull);
+
+      creates.clear();
+      updates.clear();
+      deletes.clear();
+
+      // Pass 2: a SUBSEQUENT pull. The row is now active at gen 1, so this hits
+      // the existing-row update branch (overwriteMetadata forces a metadata
+      // emit). It must NOT delete the gen-1 incarnation and must target the
+      // live id.
+      final second = await importer.importGroups(
+        [group],
+        overwriteMetadata: true,
+      );
+      expect(second.groupsInserted, 0);
+      expect(second.groupsUpdated, 1);
+
+      // The update is emitted under the LIVE incarnation id, never the burned
+      // canonical id.
+      final groupUpdates = updates
+          .where((u) => u['table'] == 'member_groups')
+          .toList();
+      expect(groupUpdates, hasLength(1));
+      expect(groupUpdates.single['entityId'], gen1Id);
+
+      // No delete is emitted for the group's live incarnation (or the canonical
+      // id) — the alias-delete bookkeeping must exclude the row's own
+      // incarnation.
+      expect(
+        deletes.where(
+          (d) =>
+              d['table'] == 'member_groups' &&
+              (d['entityId'] == gen1Id || d['entityId'] == canonicalId),
+        ),
+        isEmpty,
+        reason:
+            'the minted incarnation (and the canonical id) must never be a '
+            'legacy-alias delete target',
+      );
+
+      // The incarnation alias row survives the pull, so the row keeps resolving.
+      final aliasAfterPull = await db.pkGroupSyncAliasesDao.getByLegacyEntityId(
+        gen1Id,
+      );
+      expect(aliasAfterPull, isNotNull);
+
+      // The local row is still alive at gen 1 (no revive-then-delete flap).
+      final row = await db.memberGroupsDao.findByPluralkitUuid(groupUuid);
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isFalse);
+      expect(row.syncGeneration, 1);
     },
   );
 
@@ -1177,6 +1463,322 @@ void main() {
 
   // Step 4 tests live in a separate function so they can share the same
   // setUp/tearDown db lifecycle without duplicating fixture wiring.
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // F06 (absorbing-tombstone-revive-holes): PK membership reconcile is
+  // tombstone-aware. A peer's cross-device removal arrives as a soft-deleted
+  // entry with pending_pk_op='none' (the local-only column defaults to 'none'
+  // on a synced tombstone) and/or as a Rust is_deleted tombstone after the
+  // drain path physically deleted the local row. Blind-reviving the burned
+  // deterministic id emits a create every peer silently drops. The importer
+  // now: (background pull) honors the removal and skips, optionally flipping
+  // the local tombstone to push_remove under the cohort gate; (explicit user
+  // re-import) revives under a freshly-minted incarnation id.
+  group('F06: tombstone-aware membership reconcile', () {
+    const pkGroupUuid = 'pk-g-f06';
+    const pkMemberUuid = 'pk-mem-f06';
+    final groupLocalId = PkGroupsImporter.deriveGroupId(pkGroupUuid);
+    final gen0EntryId = PkGroupsImporter.deriveEntryId(
+      pkGroupUuid,
+      pkMemberUuid,
+    );
+    const pkGroup = PKGroup(
+      id: 'gf06',
+      uuid: pkGroupUuid,
+      name: 'F06',
+      memberIds: [pkMemberUuid],
+    );
+
+    test(
+      'background pull over a peer tombstone (gate-tombstoned) performs no '
+      'upsert/emit, reports entriesSkippedTombstoned=1, and flips the local '
+      'tombstone to push_remove under the cohort gate',
+      () async {
+        await setPkGroupSyncV2Enabled(true);
+        await insertGroup(id: groupLocalId, pkUuid: pkGroupUuid);
+        // Peer-originated tombstone: soft-deleted, pending_pk_op='none'.
+        await insertEntry(
+          id: gen0EntryId,
+          groupId: groupLocalId,
+          memberId: 'local-f06',
+          pkGroupUuid: pkGroupUuid,
+          pkMemberUuid: pkMemberUuid,
+          isDeleted: true,
+          pendingPkOp: 'none',
+        );
+
+        final creates = <Map<String, Object?>>[];
+        final updates = <Map<String, Object?>>[];
+        final deletes = <Map<String, Object?>>[];
+        final importer = PkGroupsImporter(
+          db: db,
+          memberRepository: _FakeMemberRepo([
+            _member(id: 'local-f06', pkUuid: pkMemberUuid),
+          ]),
+          // Gate reports the gen-0 id as tombstoned (Rust field_versions),
+          // covering the drain-physical-delete case too.
+          tombstoneGate: _gateTombstoning({gen0EntryId}),
+          recordCreateOverride: (table, entityId, fields) async =>
+              creates.add({'table': table, 'entityId': entityId}),
+          recordUpdateOverride: (table, entityId, fields) async =>
+              updates.add({'table': table, 'entityId': entityId}),
+          recordDeleteOverride: (table, entityId) async =>
+              deletes.add({'table': table, 'entityId': entityId}),
+        );
+
+        // Background pull (overwriteMetadata defaults to false).
+        final result = await importer.importGroups([pkGroup]);
+
+        expect(result.entriesSkippedTombstoned, 1);
+        expect(result.entriesInserted, 0);
+        // No entry op of any kind — the tombstone is honored.
+        expect(
+          creates.where((c) => c['table'] == 'member_group_entries'),
+          isEmpty,
+        );
+        expect(
+          updates.where((u) => u['table'] == 'member_group_entries'),
+          isEmpty,
+        );
+        expect(
+          deletes.where((d) => d['table'] == 'member_group_entries'),
+          isEmpty,
+        );
+        // Row stays soft-deleted; pending flipped to push_remove (cohort gate
+        // on) so the PK-token device converges PluralKit to the removal.
+        final row = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.id.equals(gen0EntryId))).getSingle();
+        expect(row.isDeleted, isTrue);
+        expect(row.pendingPkOp, 'push_remove');
+      },
+    );
+
+    test(
+      'background pull does NOT flip pending to push_remove when the cohort '
+      'gate (pkGroupSyncV2Enabled) is off',
+      () async {
+        await setPkGroupSyncV2Enabled(false);
+        await insertGroup(id: groupLocalId, pkUuid: pkGroupUuid);
+        await insertEntry(
+          id: gen0EntryId,
+          groupId: groupLocalId,
+          memberId: 'local-f06',
+          pkGroupUuid: pkGroupUuid,
+          pkMemberUuid: pkMemberUuid,
+          isDeleted: true,
+          pendingPkOp: 'none',
+        );
+
+        final importer = PkGroupsImporter(
+          db: db,
+          memberRepository: _FakeMemberRepo([
+            _member(id: 'local-f06', pkUuid: pkMemberUuid),
+          ]),
+          tombstoneGate: _gateTombstoning({gen0EntryId}),
+        );
+
+        final result = await importer.importGroups([pkGroup]);
+
+        expect(result.entriesSkippedTombstoned, 1);
+        final row = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.id.equals(gen0EntryId))).getSingle();
+        expect(row.isDeleted, isTrue);
+        expect(
+          row.pendingPkOp,
+          'none',
+          reason: 'push_remove adoption is behind the pkGroupSyncV2 gate',
+        );
+      },
+    );
+
+    test(
+      'explicit user re-import revives under a freshly-minted incarnation: '
+      'generation bumped, exactly one create under the gen1 sha id',
+      () async {
+        await setPkGroupSyncV2Enabled(true);
+        await insertGroup(id: groupLocalId, pkUuid: pkGroupUuid);
+        // Local tombstone at the gen-0 id AND the gate reports it burned.
+        await insertEntry(
+          id: gen0EntryId,
+          groupId: groupLocalId,
+          memberId: 'local-f06',
+          pkGroupUuid: pkGroupUuid,
+          pkMemberUuid: pkMemberUuid,
+          isDeleted: true,
+          pendingPkOp: 'none',
+        );
+
+        final creates = <Map<String, Object?>>[];
+        final updates = <Map<String, Object?>>[];
+        final importer = PkGroupsImporter(
+          db: db,
+          memberRepository: _FakeMemberRepo([
+            _member(id: 'local-f06', pkUuid: pkMemberUuid),
+          ]),
+          tombstoneGate: _gateTombstoning({gen0EntryId}),
+          recordCreateOverride: (table, entityId, fields) async => creates.add({
+            'table': table,
+            'entityId': entityId,
+            'fields': Map<String, dynamic>.from(fields),
+          }),
+          recordUpdateOverride: (table, entityId, fields) async =>
+              updates.add({'table': table, 'entityId': entityId}),
+        );
+
+        // Explicit re-import => overwriteMetadata: true.
+        final result = await importer.importGroups(
+          [pkGroup],
+          overwriteMetadata: true,
+        );
+
+        // Not counted as a skipped tombstone — it was revived.
+        expect(result.entriesSkippedTombstoned, 0);
+        expect(result.entriesInserted, 1);
+
+        final gen1Id = deriveEntryIncarnationEntityId(
+          pkGroupUuid,
+          pkMemberUuid,
+          1,
+        )!;
+        // Exactly one entry create, under the gen-1 incarnation id.
+        final entryCreates = creates
+            .where((c) => c['table'] == 'member_group_entries')
+            .toList();
+        expect(entryCreates, hasLength(1));
+        expect(entryCreates.single['entityId'], gen1Id);
+        // No entry UPDATE (revive under a fresh id is always a create).
+        expect(
+          updates.where((u) => u['table'] == 'member_group_entries'),
+          isEmpty,
+        );
+        // The revived row carries sync_generation=1 and is live.
+        final revived = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.id.equals(gen1Id))).getSingle();
+        expect(revived.syncGeneration, 1);
+        expect(revived.isDeleted, isFalse);
+        // The superseded gen-0 tombstone row is hard-deleted so no stale push
+        // intent races the fresh revive (R1/H6c composition).
+        final gen0Rows = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.id.equals(gen0EntryId))).get();
+        expect(gen0Rows, isEmpty);
+      },
+    );
+
+    test(
+      'locally-originated push_remove tombstone still skips insert '
+      '(regression — no revive, no skip-count, no push_remove churn)',
+      () async {
+        await setPkGroupSyncV2Enabled(true);
+        await insertGroup(id: groupLocalId, pkUuid: pkGroupUuid);
+        // A push_remove tombstone is the user's own queued removal — handled
+        // by the pendingRemovalMemberIds skip BEFORE the gate, so it is not an
+        // F06 tombstone-skip and its pending op is left untouched.
+        await insertEntry(
+          id: gen0EntryId,
+          groupId: groupLocalId,
+          memberId: 'local-f06',
+          pkGroupUuid: pkGroupUuid,
+          pkMemberUuid: pkMemberUuid,
+          isDeleted: true,
+          pendingPkOp: 'push_remove',
+        );
+
+        final creates = <Map<String, Object?>>[];
+        final importer = PkGroupsImporter(
+          db: db,
+          memberRepository: _FakeMemberRepo([
+            _member(id: 'local-f06', pkUuid: pkMemberUuid),
+          ]),
+          recordCreateOverride: (table, entityId, fields) async =>
+              creates.add({'table': table, 'entityId': entityId}),
+        );
+
+        final result = await importer.importGroups([pkGroup]);
+
+        expect(result.entriesInserted, 0);
+        expect(
+          result.entriesSkippedTombstoned,
+          0,
+          reason: 'the push_remove skip is the pre-existing pending-op skip, '
+              'not an F06 tombstone skip',
+        );
+        expect(
+          creates.where((c) => c['table'] == 'member_group_entries'),
+          isEmpty,
+        );
+        final row = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.id.equals(gen0EntryId))).getSingle();
+        expect(row.pendingPkOp, 'push_remove');
+      },
+    );
+
+    test(
+      'gen-0 revive of an existing (non-tombstoned) row emits an UPDATE that '
+      'OMITS is_deleted (94f5d950-shape per-field-LWW guard regression pin)',
+      () async {
+        // existedBefore=true update branch: an ACTIVE gen-0 row already sits at
+        // the id, keyed to a different local member, when PK re-maps the
+        // pkMemberUuid to local-f06. Classification routes this to a plain
+        // gen-0 insert plan with existedBefore=true (live row at gen0Id, member
+        // not yet active), so _emitMembershipSync takes the UPDATE branch — and
+        // that patch must keep stripping is_deleted so per-field LWW can't stamp
+        // is_deleted:false over a peer's concurrent delete.
+        await setPkGroupSyncV2Enabled(true);
+        await insertGroup(id: groupLocalId, pkUuid: pkGroupUuid);
+        await insertEntry(
+          id: gen0EntryId,
+          groupId: groupLocalId,
+          memberId: 'other-member',
+          pkGroupUuid: pkGroupUuid,
+          pkMemberUuid: pkMemberUuid,
+        );
+
+        final creates = <Map<String, Object?>>[];
+        final updates = <Map<String, Object?>>[];
+        final importer = PkGroupsImporter(
+          db: db,
+          memberRepository: _FakeMemberRepo([
+            _member(id: 'local-f06', pkUuid: pkMemberUuid),
+          ]),
+          recordCreateOverride: (table, entityId, fields) async => creates.add({
+            'table': table,
+            'entityId': entityId,
+            'fields': Map<String, dynamic>.from(fields),
+          }),
+          recordUpdateOverride: (table, entityId, fields) async => updates.add({
+            'table': table,
+            'entityId': entityId,
+            'fields': Map<String, dynamic>.from(fields),
+          }),
+        );
+
+        await importer.importGroups([pkGroup]);
+
+        final entryUpdate = updates.singleWhere(
+          (u) => u['table'] == 'member_group_entries',
+          orElse: () => throw StateError(
+            'expected a member_group_entries UPDATE on the existedBefore branch',
+          ),
+        );
+        expect(
+          (entryUpdate['fields'] as Map).containsKey('is_deleted'),
+          isFalse,
+          reason: 'the revive UPDATE patch must omit is_deleted so per-field '
+              'LWW cannot resurrect a peer-deleted row',
+        );
+        // The update path is a revive, not a create.
+        expect(
+          creates.where((c) => c['table'] == 'member_group_entries'),
+          isEmpty,
+        );
+      },
+    );
+  });
   _stepFourTests(getDb: () => db);
 }
 
@@ -1369,23 +1971,21 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
       },
     );
 
-    // Regression: per-field LWW stamped a fresh HLC on `is_deleted: false`
-    // in the membership-revive update emit, which could resurrect a row a
-    // peer had concurrently deleted. Same shape as commit 94f5d950 for
-    // member_groups, which missed member_group_entries. Uses the
-    // installCaptureSinkForTesting pattern (not the constructor-level
-    // recordUpdateOverride) so the emit goes through the real
-    // SyncRecordMixin pipeline — the override pattern would replace it
-    // wholesale and miss any regression in the dispatch layer itself.
+    // F06 (absorbing-tombstone-revive-holes): a soft-deleted entry at the
+    // deterministic id is a tombstone — reviving it in place can never
+    // propagate (the sender strips is_deleted=false; peers drop every op on
+    // the tombstoned entity). A background pull must NOT blind-revive it; the
+    // old behavior emitted a phantom revive that was silently dropped fleet-
+    // wide, leaving the member alive only on the PK-token device. The fix
+    // skips the insert/emit entirely on background pull. (Was previously a
+    // per-field-LWW-on-revive regression test; F06 supersedes it because the
+    // revive itself is now gone on background pull.) Uses the real
+    // SyncRecordMixin capture pipeline, not the constructor override.
     test(
-      'PK membership revive update does NOT carry is_deleted '
-      '(regression: per-field LWW resurrection of soft-deleted entries)',
+      'background pull does NOT revive a soft-deleted entry at the '
+      'deterministic id (F06 honors the tombstone, emits nothing)',
       () async {
         final db = getDb();
-        // Seed: PK-backed group + a soft-deleted entry for member-1. The
-        // tombstone's id MUST match the deterministic id the importer
-        // derives — that's how `existedBefore == true` triggers the revive
-        // (update) emit path.
         const pkGroupUuid = 'pk-g-revive';
         const pkMemberUuid = 'pk-mem-revive';
         final groupId = PkGroupsImporter.deriveGroupId(pkGroupUuid);
@@ -1404,12 +2004,8 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
                 pluralkitUuid: const Value(pkGroupUuid),
               ),
             );
-        // Seed as a soft-deleted push_add tombstone — that's the scenario
-        // where `entriesForGroupForReconcile` returns the row AND the
-        // reconcile path falls through to the revive (`existedBefore=true`)
-        // emit branch. (push_remove tombstones are filtered out by the
-        // pendingRemovalMemberIds skip; active rows are skipped by the
-        // existingActiveMemberIds check.)
+        // Soft-deleted entry at the deterministic id — a local tombstone the
+        // gate-less importer treats as burned.
         await db
             .into(db.memberGroupEntries)
             .insert(
@@ -1442,38 +2038,21 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
           ),
         ]);
 
-        // Filter to the entry's sync ops (the group emits its own).
+        // No membership op at all — the tombstone is honored.
         final entryOps = captured
-            .where(
-              (op) =>
-                  op.table == 'member_group_entries' &&
-                  op.entityId == entryId,
-            )
+            .where((op) => op.table == 'member_group_entries')
             .toList();
         expect(
           entryOps,
-          hasLength(1),
-          reason: 'Exactly one membership emit per reconciled entry.',
+          isEmpty,
+          reason: 'Background pull must not emit a revive of a tombstoned '
+              'entry id (F06).',
         );
-
-        final op = entryOps.single;
-        // The fix is satisfied by EITHER (a) emitting a create on the
-        // revive branch OR (b) emitting an update whose patch does not
-        // carry is_deleted. Accept both shapes; reject only the buggy
-        // "update with is_deleted: false" emit.
-        if (op.opType == SyncRecordOpType.update) {
-          expect(
-            op.fields.containsKey('is_deleted'),
-            isFalse,
-            reason:
-                'Update patch must not carry is_deleted on the revive '
-                'path — per-field LWW would stamp a fresh HLC and '
-                'resurrect a row a peer concurrently deleted (same bug '
-                'fixed for member_groups in commit 94f5d950).',
-          );
-        } else {
-          expect(op.opType, SyncRecordOpType.create);
-        }
+        // Row stays soft-deleted.
+        final row = await (db.select(
+          db.memberGroupEntries,
+        )..where((e) => e.id.equals(entryId))).getSingle();
+        expect(row.isDeleted, isTrue);
       },
     );
   });
@@ -1626,6 +2205,7 @@ void _stepFourTests({required AppDatabase Function() getDb}) {
           reason: 'excluded local must not be reattributed to the group');
     });
   });
+
 }
 
 /// Minimal PluralKitClient stub for reattribute tests — only getGroups is

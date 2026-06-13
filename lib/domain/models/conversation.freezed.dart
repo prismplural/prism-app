@@ -17,11 +17,8 @@ mixin _$Conversation {
 
  String get id; DateTime get createdAt; DateTime get lastActivityAt; String? get title; String? get emoji; bool get isDirectMessage; String? get creatorId; List<String> get participantIds;// When true, every active member is implicitly a participant — avoids
 // a sync op per member on toggle and on every membership change after.
- bool get includesAllMembers; List<String> get archivedByMemberIds;// Admin "archive for everyone" — convo-level archive flag (twin of
-// includesAllMembers). When true, the chat is hidden for every member
-// regardless of archivedByMemberIds, and stays hidden for members added
-// later. Independent field so it can't be clobbered by a per-member
-// archive under field-level LWW.
+ bool get includesAllMembers; List<String> get archivedByMemberIds;// Convo-level archive (vs the per-member archivedByMemberIds). Separate
+// field so a per-member archive can't clobber it under field-level LWW.
  bool get archivedForEveryone; List<String> get mutedByMemberIds; Map<String, DateTime> get lastReadTimestamps; String? get description; String? get categoryId; int get displayOrder;
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
@@ -258,11 +255,8 @@ class _Conversation implements Conversation {
   return EqualUnmodifiableListView(_archivedByMemberIds);
 }
 
-// Admin "archive for everyone" — convo-level archive flag (twin of
-// includesAllMembers). When true, the chat is hidden for every member
-// regardless of archivedByMemberIds, and stays hidden for members added
-// later. Independent field so it can't be clobbered by a per-member
-// archive under field-level LWW.
+// Convo-level archive (vs the per-member archivedByMemberIds). Separate
+// field so a per-member archive can't clobber it under field-level LWW.
 @override@JsonKey() final  bool archivedForEveryone;
  final  List<String> _mutedByMemberIds;
 @override@JsonKey() List<String> get mutedByMemberIds {

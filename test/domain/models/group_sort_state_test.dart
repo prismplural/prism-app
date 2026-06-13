@@ -17,6 +17,7 @@ void main() {
         isDeleted: false,
         syncSuppressed: false,
         sortState: sortStateJson,
+        syncGeneration: 0,
       );
 
   group('GroupSortState shape', () {

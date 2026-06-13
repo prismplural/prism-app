@@ -120,6 +120,7 @@ void main() {
       sortState: _emptyGroupSortState,
       isDeleted: false,
       syncSuppressed: false,
+      syncGeneration: 0,
     );
 
     test('non-PK group: omits pk_* keys', () {
@@ -129,6 +130,7 @@ void main() {
         memberId: 'mem-1',
         isDeleted: false,
         pendingPkOp: 'none',
+        syncGeneration: 0,
       );
       final fields = DriftMemberGroupsRepository.memberGroupEntryFields(
         entry,
@@ -153,6 +155,7 @@ void main() {
         isDeleted: false,
         pluralkitUuid: 'pk-grp-uuid',
         syncSuppressed: false,
+        syncGeneration: 0,
       );
       const entry = MemberGroupEntryRow(
         id: 'entry-2',
@@ -162,6 +165,7 @@ void main() {
         pkMemberUuid: 'pk-mem-uuid',
         isDeleted: false,
         pendingPkOp: 'push_add',
+        syncGeneration: 0,
       );
       final pkMember = Member(
         id: 'mem-2',

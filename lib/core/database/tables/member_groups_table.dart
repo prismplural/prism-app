@@ -45,6 +45,15 @@ class MemberGroups extends Table {
   TextColumn get sortState =>
       text().withDefault(const Constant('{"mode":0,"order":[]}'))();
 
+  /// LOCAL-ONLY incarnation generation for the row's canonical PK-group sync
+  /// entity id. 0 = the legacy `pk-group:<uuid>` id; N>=1 = the
+  /// `pk-group-g<N>:<uuid>` incarnation minted after a tombstone burned
+  /// generation N-1. NOT in prismSyncSchema: each device tracks its own live
+  /// incarnation independently and the id itself (not this counter) crosses the
+  /// wire. See `lib/core/sync/pk_incarnation_ids.dart` + [TombstoneGate].
+  IntColumn get syncGeneration =>
+      integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -424,6 +424,150 @@ void main() {
     });
   });
 
+  group('entriesForGroupIncludingDeleted (F06)', () {
+    test(
+      'returns a peer-originated tombstone (soft-deleted, pending=none) that '
+      'entriesForGroupForReconcile hides',
+      () async {
+        await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(id: 'live', groupId: 'g', memberId: 'm1'),
+            );
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(
+                id: 'peer-tomb',
+                groupId: 'g',
+                memberId: 'm2',
+                isDeleted: true,
+              ),
+            );
+
+        final reconcile =
+            await db.memberGroupsDao.entriesForGroupForReconcile('g');
+        expect(reconcile.map((r) => r.id), ['live']);
+
+        final full =
+            await db.memberGroupsDao.entriesForGroupIncludingDeleted('g');
+        expect(full.map((r) => r.id).toSet(), {'live', 'peer-tomb'});
+      },
+    );
+
+    test('scopes to the requested group', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g1'));
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g2'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'a',
+              groupId: 'g1',
+              memberId: 'm1',
+              isDeleted: true,
+            ),
+          );
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'b', groupId: 'g2', memberId: 'm1'),
+          );
+
+      final rows =
+          await db.memberGroupsDao.entriesForGroupIncludingDeleted('g1');
+      expect(rows.map((r) => r.id), ['a']);
+    });
+  });
+
+  group('markEntryPushRemoveGuarded (F06)', () {
+    test('flips a synced tombstone (deleted, pending=none) to push_remove',
+        () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'e1',
+              groupId: 'g',
+              memberId: 'm1',
+              isDeleted: true,
+            ),
+          );
+
+      final hits = await db.memberGroupsDao.markEntryPushRemoveGuarded('e1');
+      expect(hits, 1);
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((e) => e.id.equals('e1'))).getSingle();
+      expect(row.pendingPkOp, 'push_remove');
+    });
+
+    test('does NOT touch an active row (guard misses)', () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(id: 'e1', groupId: 'g', memberId: 'm1'),
+          );
+
+      final hits = await db.memberGroupsDao.markEntryPushRemoveGuarded('e1');
+      expect(hits, 0);
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((e) => e.id.equals('e1'))).getSingle();
+      expect(row.pendingPkOp, 'none');
+    });
+
+    test('does NOT clobber an in-flight local intent (push_add/push_remove)',
+        () async {
+      await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+      await db.into(db.memberGroupEntries).insert(
+            pkFixtureEntry(
+              id: 'add',
+              groupId: 'g',
+              memberId: 'm1',
+              isDeleted: true,
+              pendingPkOp: 'push_add',
+            ),
+          );
+
+      final hits = await db.memberGroupsDao.markEntryPushRemoveGuarded('add');
+      expect(hits, 0);
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((e) => e.id.equals('add'))).getSingle();
+      expect(row.pendingPkOp, 'push_add');
+    });
+
+    test(
+      'refreshes created_at so an old-stamp tombstone is not born expired '
+      '(M15 — the F06 sweep adopts pre-upgrade/offline tombstones)',
+      () async {
+        await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(
+                id: 'e1',
+                groupId: 'g',
+                memberId: 'm1',
+                isDeleted: true,
+              ),
+            );
+        // The precise F06 case: a peer tombstone applied long before the user
+        // upgraded / re-enabled PK pull, far older than pushRetryMaxAge.
+        await (db.update(db.memberGroupEntries)
+              ..where((e) => e.id.equals('e1')))
+            .write(
+          MemberGroupEntriesCompanion(
+            createdAt:
+                Value(DateTime.now().subtract(const Duration(days: 60))),
+          ),
+        );
+
+        final before = DateTime.now().subtract(const Duration(seconds: 5));
+        final hits = await db.memberGroupsDao.markEntryPushRemoveGuarded('e1');
+        expect(hits, 1);
+
+        final row = await (db.select(db.memberGroupEntries)
+              ..where((e) => e.id.equals('e1')))
+            .getSingle();
+        expect(row.pendingPkOp, 'push_remove');
+        expect(row.createdAt!.isAfter(before), isTrue,
+            reason: 'adopting the remove intent must reset the intent-age '
+                'clock so the cap gives it the full retry budget, not zero');
+      },
+    );
+  });
+
   group('entriesWithPendingPkOp', () {
     test('returns empty when no rows have pending intent', () async {
       await db.into(db.memberGroups).insert(pkFixtureGroup(id: 'g'));
@@ -575,20 +719,36 @@ void main() {
     });
 
     test(
-      'deleteGroup KEEPS pluralkit_uuid on the tombstone '
-      '(uuid findability for the M13 guard)',
+      'deleteGroup soft-deletes the group + its entries and KEEPS '
+      'pluralkit_uuid on the tombstone (wave-3 verifier issue 3 / F15 — uuid '
+      'findability for the tombstone-aware importer guard)',
       () async {
         await db.into(db.memberGroups).insert(
               pkFixtureGroup(id: 'g1', pluralkitUuid: 'pk-g1'),
             );
+        await db.into(db.memberGroupEntries).insert(
+              pkFixtureEntry(id: 'e1', groupId: 'g1', memberId: 'm1'),
+            );
+
         await db.memberGroupsDao.deleteGroup('g1');
 
         final tombstone =
             await db.memberGroupsDao.getGroupByIdIncludingDeleted('g1');
         expect(tombstone!.isDeleted, isTrue);
+        // F15: the uuid is PRESERVED on the soft-deleted row (the pre-fix
+        // deleteGroup nulled it, which erased the tombstone evidence the
+        // importer's resurrection guard relies on). The partial unique index
+        // only covers active rows, so a tombstone can and must keep its uuid.
         expect(tombstone.pluralkitUuid, 'pk-g1',
-            reason: 'the partial unique index only covers active rows, so '
-                'the tombstone can and must keep its uuid');
+            reason: 'the tombstone must keep its uuid for guard findability');
+
+        // The group's entries are soft-deleted, not left active.
+        final entry = await (db.select(db.memberGroupEntries)
+              ..where((e) => e.id.equals('e1')))
+            .getSingle();
+        expect(entry.isDeleted, isTrue,
+            reason: 'deleteGroup must soft-delete the group\'s entries too');
+
         // And the uuid-keyed tombstone lookup the importer guard uses sees it.
         final byUuid = await db.memberGroupsDao
             .findByPluralkitUuidIncludingDeleted('pk-g1');

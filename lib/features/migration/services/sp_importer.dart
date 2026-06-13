@@ -720,6 +720,9 @@ class SpImporter {
               pkMemberUuid: null,
               isDeleted: false,
               pendingPkOp: 'none',
+              // SP entries are never PK-linked: random v4 id, gen 0, no
+              // deterministic-id collision to gate against.
+              syncGeneration: 0,
             );
             entryEmissions.add(
               CapturedSyncOp(

@@ -638,6 +638,31 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       isActive: true,
       createdAt: DateTime.now().toUtc(),
     );
+
+    // R6/C12 ingress gate: the sentinel reuses a deterministic UUIDv5 id. If a
+    // previously-synced sentinel was ever deleted, the engine holds an
+    // absorbing tombstone for that id and any create emitted here is a silent
+    // fleet-wide no-op (the sender strips is_deleted=false, every peer drops
+    // the op) — re-creating exactly the F21 sentinel divergence the rescue gate
+    // defends against. When the id is burned we still persist the LOCAL row so
+    // fronting history keeps a resolvable "Unknown" attribution (no FK
+    // constraint binds it), but suppress the emission. The sentinel is NOT
+    // minted to a new incarnation (family-5 open question 6, not adopted). A
+    // null gate (no engine to consult) keeps the pre-R6 emit-normally path.
+    final gate = tombstoneGate;
+    if (gate != null &&
+        await gate.isTombstoned(_table, unknownSentinelMemberId)) {
+      try {
+        await SyncRecordMixin.suppress(() => createMember(sentinel));
+        return (member: sentinel, wasCreated: true);
+      } catch (e) {
+        if (!isUniqueOrPrimaryKeyConstraintViolation(e)) rethrow;
+        final raced = await getMemberById(unknownSentinelMemberId);
+        if (raced == null) rethrow;
+        return (member: raced, wasCreated: false);
+      }
+    }
+
     try {
       await createMember(sentinel);
       return (member: sentinel, wasCreated: true);

@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
 
@@ -146,7 +146,12 @@ class PkGroupSyncV2CatchupService {
   static String _groupEntityId(MemberGroupRow group) {
     final pkUuid = group.pluralkitUuid;
     if (pkUuid != null && pkUuid.isNotEmpty) {
-      return 'pk-group:$pkUuid';
+      // Generation-aware: emit catch-up state into the row's LIVE incarnation
+      // id, not the gen-0 canonical id, so a catch-up after a revive
+      // (sync_generation>=1) does not silently re-emit the full group into the
+      // burned 'pk-group:<uuid>' entity that every peer tombstoned. gen 0 is
+      // byte-identical to the legacy 'pk-group:<uuid>'.
+      return deriveGroupIncarnationEntityId(pkUuid, group.syncGeneration);
     }
     return group.id;
   }
@@ -174,10 +179,15 @@ class PkGroupSyncV2CatchupService {
         .trim();
     if (pkGroupUuid.isEmpty || pkMemberUuid.isEmpty) return entry.id;
 
-    final digest = sha256.convert(
-      utf8.encode('$pkGroupUuid\u0000$pkMemberUuid'),
-    );
-    return digest.toString().substring(0, 16);
+    // Generation-aware: target the entry's live incarnation id (gen 0 is
+    // byte-identical to the legacy NUL-separated sha) so catch-up after a
+    // membership revive never re-emits into a burned entry id.
+    return deriveEntryIncarnationEntityId(
+          pkGroupUuid,
+          pkMemberUuid,
+          entry.syncGeneration,
+        ) ??
+        entry.id;
   }
 
   /// Visible-for-testing: builds the group field map this service emits to the

@@ -688,7 +688,7 @@ as double?,
 
 class MemberFieldValue implements TypedFieldValue {
   const MemberFieldValue({final  Set<String> memberIds = const <String>{}, final  Map<String, dynamic> extra = const <String, dynamic>{}}): _memberIds = memberIds,_extra = extra;
-
+  
 
  final  Set<String> _memberIds;
 @JsonKey() Set<String> get memberIds {

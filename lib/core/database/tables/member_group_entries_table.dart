@@ -28,6 +28,16 @@ class MemberGroupEntries extends Table {
   DateTimeColumn get createdAt =>
       dateTime().nullable().clientDefault(DateTime.now)();
 
+  /// LOCAL-ONLY incarnation generation for the row's canonical PK-backed entry
+  /// sync entity id. 0 = the legacy `sha256('<g> <m>')[:16]` id (the separator
+  /// is a NUL byte); N>=1 = the salted `sha256('<g> <m> g<N>')[:16]`
+  /// incarnation minted after a tombstone burned generation N-1. NOT in
+  /// prismSyncSchema: each device tracks its own live incarnation independently
+  /// and the id itself (not this counter) crosses the wire. See
+  /// `lib/core/sync/pk_incarnation_ids.dart` + [TombstoneGate].
+  IntColumn get syncGeneration =>
+      integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

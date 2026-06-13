@@ -15137,6 +15137,18 @@ class $MemberGroupsTable extends MemberGroups
     requiredDuringInsert: false,
     defaultValue: const Constant('{"mode":0,"order":[]}'),
   );
+  static const VerificationMeta _syncGenerationMeta = const VerificationMeta(
+    'syncGeneration',
+  );
+  @override
+  late final GeneratedColumn<int> syncGeneration = GeneratedColumn<int>(
+    'sync_generation',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -15157,6 +15169,7 @@ class $MemberGroupsTable extends MemberGroups
     syncSuppressed,
     suspectedPkGroupUuid,
     sortState,
+    syncGeneration,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -15311,6 +15324,15 @@ class $MemberGroupsTable extends MemberGroups
         sortState.isAcceptableOrUnknown(data['sort_state']!, _sortStateMeta),
       );
     }
+    if (data.containsKey('sync_generation')) {
+      context.handle(
+        _syncGenerationMeta,
+        syncGeneration.isAcceptableOrUnknown(
+          data['sync_generation']!,
+          _syncGenerationMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -15392,6 +15414,10 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.string,
         data['${effectivePrefix}sort_state'],
       )!,
+      syncGeneration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sync_generation'],
+      )!,
     );
   }
 
@@ -15442,6 +15468,14 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   /// converges to one device's complete state under per-field LWW sync —
   /// see `docs/plans/2026-05-14-group-member-ordering.md` §"Design decision".
   final String sortState;
+
+  /// LOCAL-ONLY incarnation generation for the row's canonical PK-group sync
+  /// entity id (R1 absorbing-tombstone-revive). 0 = the legacy `pk-group:<uuid>`
+  /// id; N>=1 = the `pk-group-g<N>:<uuid>` incarnation minted after a tombstone
+  /// burned generation N-1. NOT in prismSyncSchema: each device tracks its own
+  /// live incarnation independently and the id itself (not this counter) crosses
+  /// the wire. See `lib/core/sync/pk_incarnation_ids.dart` + [TombstoneGate].
+  final int syncGeneration;
   const MemberGroupRow({
     required this.id,
     required this.name,
@@ -15461,6 +15495,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     required this.syncSuppressed,
     this.suspectedPkGroupUuid,
     required this.sortState,
+    required this.syncGeneration,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -15503,6 +15538,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       map['suspected_pk_group_uuid'] = Variable<String>(suspectedPkGroupUuid);
     }
     map['sort_state'] = Variable<String>(sortState);
+    map['sync_generation'] = Variable<int>(syncGeneration);
     return map;
   }
 
@@ -15546,6 +15582,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ? const Value.absent()
           : Value(suspectedPkGroupUuid),
       sortState: Value(sortState),
+      syncGeneration: Value(syncGeneration),
     );
   }
 
@@ -15577,6 +15614,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
         json['suspectedPkGroupUuid'],
       ),
       sortState: serializer.fromJson<String>(json['sortState']),
+      syncGeneration: serializer.fromJson<int>(json['syncGeneration']),
     );
   }
   @override
@@ -15601,6 +15639,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'syncSuppressed': serializer.toJson<bool>(syncSuppressed),
       'suspectedPkGroupUuid': serializer.toJson<String?>(suspectedPkGroupUuid),
       'sortState': serializer.toJson<String>(sortState),
+      'syncGeneration': serializer.toJson<int>(syncGeneration),
     };
   }
 
@@ -15623,6 +15662,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     bool? syncSuppressed,
     Value<String?> suspectedPkGroupUuid = const Value.absent(),
     String? sortState,
+    int? syncGeneration,
   }) => MemberGroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -15652,6 +15692,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
         ? suspectedPkGroupUuid.value
         : this.suspectedPkGroupUuid,
     sortState: sortState ?? this.sortState,
+    syncGeneration: syncGeneration ?? this.syncGeneration,
   );
   MemberGroupRow copyWithCompanion(MemberGroupsCompanion data) {
     return MemberGroupRow(
@@ -15693,6 +15734,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ? data.suspectedPkGroupUuid.value
           : this.suspectedPkGroupUuid,
       sortState: data.sortState.present ? data.sortState.value : this.sortState,
+      syncGeneration: data.syncGeneration.present
+          ? data.syncGeneration.value
+          : this.syncGeneration,
     );
   }
 
@@ -15716,7 +15760,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
           ..write('syncSuppressed: $syncSuppressed, ')
           ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid, ')
-          ..write('sortState: $sortState')
+          ..write('sortState: $sortState, ')
+          ..write('syncGeneration: $syncGeneration')
           ..write(')'))
         .toString();
   }
@@ -15741,6 +15786,7 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     syncSuppressed,
     suspectedPkGroupUuid,
     sortState,
+    syncGeneration,
   );
   @override
   bool operator ==(Object other) =>
@@ -15766,7 +15812,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.lastSeenFromPkAt == this.lastSeenFromPkAt &&
           other.syncSuppressed == this.syncSuppressed &&
           other.suspectedPkGroupUuid == this.suspectedPkGroupUuid &&
-          other.sortState == this.sortState);
+          other.sortState == this.sortState &&
+          other.syncGeneration == this.syncGeneration);
 }
 
 class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
@@ -15788,6 +15835,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<bool> syncSuppressed;
   final Value<String?> suspectedPkGroupUuid;
   final Value<String> sortState;
+  final Value<int> syncGeneration;
   final Value<int> rowid;
   const MemberGroupsCompanion({
     this.id = const Value.absent(),
@@ -15808,6 +15856,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.syncSuppressed = const Value.absent(),
     this.suspectedPkGroupUuid = const Value.absent(),
     this.sortState = const Value.absent(),
+    this.syncGeneration = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupsCompanion.insert({
@@ -15829,6 +15878,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.syncSuppressed = const Value.absent(),
     this.suspectedPkGroupUuid = const Value.absent(),
     this.sortState = const Value.absent(),
+    this.syncGeneration = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -15852,6 +15902,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<bool>? syncSuppressed,
     Expression<String>? suspectedPkGroupUuid,
     Expression<String>? sortState,
+    Expression<int>? syncGeneration,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -15874,6 +15925,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (suspectedPkGroupUuid != null)
         'suspected_pk_group_uuid': suspectedPkGroupUuid,
       if (sortState != null) 'sort_state': sortState,
+      if (syncGeneration != null) 'sync_generation': syncGeneration,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -15897,6 +15949,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<bool>? syncSuppressed,
     Value<String?>? suspectedPkGroupUuid,
     Value<String>? sortState,
+    Value<int>? syncGeneration,
     Value<int>? rowid,
   }) {
     return MemberGroupsCompanion(
@@ -15918,6 +15971,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       syncSuppressed: syncSuppressed ?? this.syncSuppressed,
       suspectedPkGroupUuid: suspectedPkGroupUuid ?? this.suspectedPkGroupUuid,
       sortState: sortState ?? this.sortState,
+      syncGeneration: syncGeneration ?? this.syncGeneration,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -15981,6 +16035,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     if (sortState.present) {
       map['sort_state'] = Variable<String>(sortState.value);
     }
+    if (syncGeneration.present) {
+      map['sync_generation'] = Variable<int>(syncGeneration.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16008,6 +16065,7 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('syncSuppressed: $syncSuppressed, ')
           ..write('suspectedPkGroupUuid: $suspectedPkGroupUuid, ')
           ..write('sortState: $sortState, ')
+          ..write('syncGeneration: $syncGeneration, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -16113,6 +16171,18 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     requiredDuringInsert: false,
     clientDefault: DateTime.now,
   );
+  static const VerificationMeta _syncGenerationMeta = const VerificationMeta(
+    'syncGeneration',
+  );
+  @override
+  late final GeneratedColumn<int> syncGeneration = GeneratedColumn<int>(
+    'sync_generation',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -16123,6 +16193,7 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
     isDeleted,
     pendingPkOp,
     createdAt,
+    syncGeneration,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -16196,6 +16267,15 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('sync_generation')) {
+      context.handle(
+        _syncGenerationMeta,
+        syncGeneration.isAcceptableOrUnknown(
+          data['sync_generation']!,
+          _syncGenerationMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -16237,6 +16317,10 @@ class $MemberGroupEntriesTable extends MemberGroupEntries
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       ),
+      syncGeneration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sync_generation'],
+      )!,
     );
   }
 
@@ -16256,6 +16340,16 @@ class MemberGroupEntryRow extends DataClass
   final bool isDeleted;
   final String pendingPkOp;
   final DateTime? createdAt;
+
+  /// LOCAL-ONLY incarnation generation for the row's canonical PK-backed entry
+  /// sync entity id (R1 absorbing-tombstone-revive). 0 = the legacy
+  /// `sha256('<g> <m>')[:16]` id (the separator is a NUL byte); N>=1 = the
+  /// salted `sha256('<g> <m> g<N>')[:16]` incarnation minted after a tombstone
+  /// burned generation N-1. NOT in prismSyncSchema: each device tracks its own
+  /// live incarnation independently and the id itself (not this counter)
+  /// crosses the wire. See `lib/core/sync/pk_incarnation_ids.dart` +
+  /// [TombstoneGate].
+  final int syncGeneration;
   const MemberGroupEntryRow({
     required this.id,
     required this.groupId,
@@ -16265,6 +16359,7 @@ class MemberGroupEntryRow extends DataClass
     required this.isDeleted,
     required this.pendingPkOp,
     this.createdAt,
+    required this.syncGeneration,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -16283,6 +16378,7 @@ class MemberGroupEntryRow extends DataClass
     if (!nullToAbsent || createdAt != null) {
       map['created_at'] = Variable<DateTime>(createdAt);
     }
+    map['sync_generation'] = Variable<int>(syncGeneration);
     return map;
   }
 
@@ -16302,6 +16398,7 @@ class MemberGroupEntryRow extends DataClass
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
           : Value(createdAt),
+      syncGeneration: Value(syncGeneration),
     );
   }
 
@@ -16319,6 +16416,7 @@ class MemberGroupEntryRow extends DataClass
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       pendingPkOp: serializer.fromJson<String>(json['pendingPkOp']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      syncGeneration: serializer.fromJson<int>(json['syncGeneration']),
     );
   }
   @override
@@ -16333,6 +16431,7 @@ class MemberGroupEntryRow extends DataClass
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'pendingPkOp': serializer.toJson<String>(pendingPkOp),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'syncGeneration': serializer.toJson<int>(syncGeneration),
     };
   }
 
@@ -16345,6 +16444,7 @@ class MemberGroupEntryRow extends DataClass
     bool? isDeleted,
     String? pendingPkOp,
     Value<DateTime?> createdAt = const Value.absent(),
+    int? syncGeneration,
   }) => MemberGroupEntryRow(
     id: id ?? this.id,
     groupId: groupId ?? this.groupId,
@@ -16354,6 +16454,7 @@ class MemberGroupEntryRow extends DataClass
     isDeleted: isDeleted ?? this.isDeleted,
     pendingPkOp: pendingPkOp ?? this.pendingPkOp,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
+    syncGeneration: syncGeneration ?? this.syncGeneration,
   );
   MemberGroupEntryRow copyWithCompanion(MemberGroupEntriesCompanion data) {
     return MemberGroupEntryRow(
@@ -16371,6 +16472,9 @@ class MemberGroupEntryRow extends DataClass
           ? data.pendingPkOp.value
           : this.pendingPkOp,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      syncGeneration: data.syncGeneration.present
+          ? data.syncGeneration.value
+          : this.syncGeneration,
     );
   }
 
@@ -16384,7 +16488,8 @@ class MemberGroupEntryRow extends DataClass
           ..write('pkMemberUuid: $pkMemberUuid, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('pendingPkOp: $pendingPkOp, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('syncGeneration: $syncGeneration')
           ..write(')'))
         .toString();
   }
@@ -16399,6 +16504,7 @@ class MemberGroupEntryRow extends DataClass
     isDeleted,
     pendingPkOp,
     createdAt,
+    syncGeneration,
   );
   @override
   bool operator ==(Object other) =>
@@ -16411,7 +16517,8 @@ class MemberGroupEntryRow extends DataClass
           other.pkMemberUuid == this.pkMemberUuid &&
           other.isDeleted == this.isDeleted &&
           other.pendingPkOp == this.pendingPkOp &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.syncGeneration == this.syncGeneration);
 }
 
 class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
@@ -16423,6 +16530,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
   final Value<bool> isDeleted;
   final Value<String> pendingPkOp;
   final Value<DateTime?> createdAt;
+  final Value<int> syncGeneration;
   final Value<int> rowid;
   const MemberGroupEntriesCompanion({
     this.id = const Value.absent(),
@@ -16433,6 +16541,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     this.isDeleted = const Value.absent(),
     this.pendingPkOp = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.syncGeneration = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupEntriesCompanion.insert({
@@ -16444,6 +16553,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     this.isDeleted = const Value.absent(),
     this.pendingPkOp = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.syncGeneration = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        groupId = Value(groupId),
@@ -16457,6 +16567,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Expression<bool>? isDeleted,
     Expression<String>? pendingPkOp,
     Expression<DateTime>? createdAt,
+    Expression<int>? syncGeneration,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -16468,6 +16579,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (pendingPkOp != null) 'pending_pk_op': pendingPkOp,
       if (createdAt != null) 'created_at': createdAt,
+      if (syncGeneration != null) 'sync_generation': syncGeneration,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -16481,6 +16593,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     Value<bool>? isDeleted,
     Value<String>? pendingPkOp,
     Value<DateTime?>? createdAt,
+    Value<int>? syncGeneration,
     Value<int>? rowid,
   }) {
     return MemberGroupEntriesCompanion(
@@ -16492,6 +16605,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
       isDeleted: isDeleted ?? this.isDeleted,
       pendingPkOp: pendingPkOp ?? this.pendingPkOp,
       createdAt: createdAt ?? this.createdAt,
+      syncGeneration: syncGeneration ?? this.syncGeneration,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -16523,6 +16637,9 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (syncGeneration.present) {
+      map['sync_generation'] = Variable<int>(syncGeneration.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -16540,6 +16657,7 @@ class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
           ..write('isDeleted: $isDeleted, ')
           ..write('pendingPkOp: $pendingPkOp, ')
           ..write('createdAt: $createdAt, ')
+          ..write('syncGeneration: $syncGeneration, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -33801,6 +33919,7 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<bool> syncSuppressed,
       Value<String?> suspectedPkGroupUuid,
       Value<String> sortState,
+      Value<int> syncGeneration,
       Value<int> rowid,
     });
 typedef $$MemberGroupsTableUpdateCompanionBuilder =
@@ -33823,6 +33942,7 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<bool> syncSuppressed,
       Value<String?> suspectedPkGroupUuid,
       Value<String> sortState,
+      Value<int> syncGeneration,
       Value<int> rowid,
     });
 
@@ -33922,6 +34042,11 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<String> get sortState => $composableBuilder(
     column: $table.sortState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncGeneration => $composableBuilder(
+    column: $table.syncGeneration,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -34024,6 +34149,11 @@ class $$MemberGroupsTableOrderingComposer
     column: $table.sortState,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncGeneration => $composableBuilder(
+    column: $table.syncGeneration,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupsTableAnnotationComposer
@@ -34108,6 +34238,11 @@ class $$MemberGroupsTableAnnotationComposer
 
   GeneratedColumn<String> get sortState =>
       $composableBuilder(column: $table.sortState, builder: (column) => column);
+
+  GeneratedColumn<int> get syncGeneration => $composableBuilder(
+    column: $table.syncGeneration,
+    builder: (column) => column,
+  );
 }
 
 class $$MemberGroupsTableTableManager
@@ -34159,6 +34294,7 @@ class $$MemberGroupsTableTableManager
                 Value<bool> syncSuppressed = const Value.absent(),
                 Value<String?> suspectedPkGroupUuid = const Value.absent(),
                 Value<String> sortState = const Value.absent(),
+                Value<int> syncGeneration = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion(
                 id: id,
@@ -34179,6 +34315,7 @@ class $$MemberGroupsTableTableManager
                 syncSuppressed: syncSuppressed,
                 suspectedPkGroupUuid: suspectedPkGroupUuid,
                 sortState: sortState,
+                syncGeneration: syncGeneration,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -34201,6 +34338,7 @@ class $$MemberGroupsTableTableManager
                 Value<bool> syncSuppressed = const Value.absent(),
                 Value<String?> suspectedPkGroupUuid = const Value.absent(),
                 Value<String> sortState = const Value.absent(),
+                Value<int> syncGeneration = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion.insert(
                 id: id,
@@ -34221,6 +34359,7 @@ class $$MemberGroupsTableTableManager
                 syncSuppressed: syncSuppressed,
                 suspectedPkGroupUuid: suspectedPkGroupUuid,
                 sortState: sortState,
+                syncGeneration: syncGeneration,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -34258,6 +34397,7 @@ typedef $$MemberGroupEntriesTableCreateCompanionBuilder =
       Value<bool> isDeleted,
       Value<String> pendingPkOp,
       Value<DateTime?> createdAt,
+      Value<int> syncGeneration,
       Value<int> rowid,
     });
 typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
@@ -34270,6 +34410,7 @@ typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
       Value<bool> isDeleted,
       Value<String> pendingPkOp,
       Value<DateTime?> createdAt,
+      Value<int> syncGeneration,
       Value<int> rowid,
     });
 
@@ -34319,6 +34460,11 @@ class $$MemberGroupEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncGeneration => $composableBuilder(
+    column: $table.syncGeneration,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -34371,6 +34517,11 @@ class $$MemberGroupEntriesTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get syncGeneration => $composableBuilder(
+    column: $table.syncGeneration,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupEntriesTableAnnotationComposer
@@ -34411,6 +34562,11 @@ class $$MemberGroupEntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get syncGeneration => $composableBuilder(
+    column: $table.syncGeneration,
+    builder: (column) => column,
+  );
 }
 
 class $$MemberGroupEntriesTableTableManager
@@ -34461,6 +34617,7 @@ class $$MemberGroupEntriesTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<String> pendingPkOp = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
+                Value<int> syncGeneration = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion(
                 id: id,
@@ -34471,6 +34628,7 @@ class $$MemberGroupEntriesTableTableManager
                 isDeleted: isDeleted,
                 pendingPkOp: pendingPkOp,
                 createdAt: createdAt,
+                syncGeneration: syncGeneration,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -34483,6 +34641,7 @@ class $$MemberGroupEntriesTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<String> pendingPkOp = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
+                Value<int> syncGeneration = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupEntriesCompanion.insert(
                 id: id,
@@ -34493,6 +34652,7 @@ class $$MemberGroupEntriesTableTableManager
                 isDeleted: isDeleted,
                 pendingPkOp: pendingPkOp,
                 createdAt: createdAt,
+                syncGeneration: syncGeneration,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

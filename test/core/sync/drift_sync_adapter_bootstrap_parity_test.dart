@@ -162,6 +162,7 @@ void main() {
                 pkGroupUuid: 'pk-group-1',
                 pkMemberUuid: 'pk-member-1',
                 pendingPkOp: 'none',
+                syncGeneration: 0,
               ),
             ),
       );

@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart'
     show sanitizeSortStateForEmission, tryDecodeSortState;
@@ -398,10 +399,14 @@ class _PreferredDeferredPkEntryOp {
 String _canonicalPkGroupEntityId(String pkGroupUuid) =>
     '$_pkGroupSyncEntityIdPrefix$pkGroupUuid';
 
-String? _pkGroupUuidFromEntityId(String entityId) =>
-    entityId.startsWith(_pkGroupSyncEntityIdPrefix)
-    ? entityId.substring(_pkGroupSyncEntityIdPrefix.length)
-    : null;
+/// Recover the pk group uuid from EITHER the bare canonical prefix
+/// (`pk-group:<uuid>`) or an R1 group incarnation id (`pk-group-g<N>:<uuid>`).
+/// [parseGroupIncarnationEntityId] handles both forms; the resolve-for-id and
+/// resolve-for-delete paths use this so a gen-N tombstone or sparse patch that
+/// arrives before its create/alias still resolves to the real row by pk uuid
+/// instead of inserting a stub keyed by the wire id.
+String? _pkGroupUuidFromAnyEntityId(String entityId) =>
+    parseGroupIncarnationEntityId(entityId)?.pkGroupUuid;
 
 _OptionalDynamicValue<String?> _readOptionalStringProperty(
   dynamic Function() getter,
@@ -895,13 +900,13 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncId(
 }) async {
   _PkGroupAliasResolution? alias;
   if (payloadPkGroupUuid == null &&
-      _pkGroupUuidFromEntityId(entityId) == null) {
+      _pkGroupUuidFromAnyEntityId(entityId) == null) {
     alias = await _pkGroupAliasForLegacyEntityId(db, entityId);
   }
 
   final pkGroupUuid =
       payloadPkGroupUuid ??
-      _pkGroupUuidFromEntityId(entityId) ??
+      _pkGroupUuidFromAnyEntityId(entityId) ??
       alias?.pkGroupUuid;
   if (pkGroupUuid != null) {
     final byPkUuid = await _memberGroupRowByPkGroupUuid(
@@ -928,7 +933,12 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncDelete(
   AppDatabase db,
   String entityId,
 ) async {
-  if (_pkGroupUuidFromEntityId(entityId) != null) {
+  // Incarnation-aware: a gen-N group tombstone (`pk-group-g<N>:<uuid>`) resolves
+  // to the live row by pk uuid even though the row is keyed by its own local id,
+  // so the hardDelete's generation guard can compare stored vs incoming gen and
+  // actually find the row to delete (blocker 3 group variant). The bare
+  // canonical id resolves the same way.
+  if (_pkGroupUuidFromAnyEntityId(entityId) != null) {
     return _resolveMemberGroupRowForSyncId(db, entityId);
   }
 
@@ -1042,6 +1052,102 @@ Future<_PkMemberGroupEntryLogicalEdge?> _memberGroupEntryPkEdgeById(
     pkGroupUuid: _asString(row.data['pk_group_uuid']),
     pkMemberUuid: _asString(row.data['pk_member_uuid']),
   );
+}
+
+/// Resolve the `(edge, incomingGeneration)` an incoming entry tombstone [id]
+/// addresses, even when NO row sits at that exact id. Entry incarnation ids are
+/// opaque shas, so the only way to recover the edge of a gen-N tombstone that
+/// has no local row is to reverse-derive: for every distinct PK edge currently
+/// in the table, walk its generations and see which one derives to [id]. Used by
+/// the entry hardDelete so a legitimate gen-N delete resolves the live row of
+/// that edge even when it collapsed onto an older-keyed Drift PK (the canonical
+/// gen-0 sha carrying sync_generation=N). Falls back to the exact-id row's edge
+/// (gen-0 self-match) when no reverse-derivation hits. Returns null for non-PK
+/// or unresolvable ids.
+Future<_PkEntryTombstoneTarget?> _resolveEntryTombstoneTarget(
+  AppDatabase db,
+  String id,
+) async {
+  if (!await _tableHasColumn(db, 'member_group_entries', 'pk_group_uuid') ||
+      !await _tableHasColumn(db, 'member_group_entries', 'pk_member_uuid')) {
+    return null;
+  }
+
+  // Exact-id row first: covers the common case (a tombstone keyed by the same
+  // id as a live or soft-deleted row) without a table scan.
+  final exact = await _memberGroupEntryPkEdgeById(db, id);
+  if (exact != null) {
+    final gen =
+        parseEntryIncarnationGeneration(
+          id,
+          pkGroupUuid: exact.pkGroupUuid,
+          pkMemberUuid: exact.pkMemberUuid,
+        ) ??
+        0;
+    return _PkEntryTombstoneTarget(edge: exact, incomingGeneration: gen);
+  }
+
+  // Collapse case: no row at this id. Reverse-derive across the table's edges.
+  final rows = await db
+      .customSelect(
+        'SELECT DISTINCT pk_group_uuid, pk_member_uuid '
+        'FROM member_group_entries '
+        'WHERE pk_group_uuid IS NOT NULL AND pk_group_uuid != \'\' '
+        'AND pk_member_uuid IS NOT NULL AND pk_member_uuid != \'\'',
+      )
+      .get();
+  for (final row in rows) {
+    final edge = _pkMemberGroupEntryLogicalEdge(
+      pkGroupUuid: _asString(row.data['pk_group_uuid']),
+      pkMemberUuid: _asString(row.data['pk_member_uuid']),
+    );
+    if (edge == null) continue;
+    final gen = parseEntryIncarnationGeneration(
+      id,
+      pkGroupUuid: edge.pkGroupUuid,
+      pkMemberUuid: edge.pkMemberUuid,
+    );
+    if (gen != null) {
+      return _PkEntryTombstoneTarget(edge: edge, incomingGeneration: gen);
+    }
+  }
+  return null;
+}
+
+class _PkEntryTombstoneTarget {
+  const _PkEntryTombstoneTarget({
+    required this.edge,
+    required this.incomingGeneration,
+  });
+
+  final _PkMemberGroupEntryLogicalEdge edge;
+  final int incomingGeneration;
+}
+
+/// The single row for a PK logical edge whose stored `sync_generation` equals
+/// [generation], live or soft-deleted (returns the live row if present). Used by
+/// the entry hardDelete to find the row the incoming gen-N tombstone actually
+/// targets — which may be keyed by a DIFFERENT Drift PK than the wire id after a
+/// canonical-collapse redirect (the live edge re-rooted onto the canonical sha
+/// while carrying sync_generation=N).
+Future<MemberGroupEntryRow?> _memberGroupEntryByPkRefsAndGeneration(
+  AppDatabase db, {
+  required String pkGroupUuid,
+  required String pkMemberUuid,
+  required int generation,
+}) async {
+  final rows =
+      await (db.select(db.memberGroupEntries)..where(
+            (t) =>
+                t.pkGroupUuid.equals(pkGroupUuid) &
+                t.pkMemberUuid.equals(pkMemberUuid) &
+                t.syncGeneration.equals(generation),
+          ))
+          .get();
+  if (rows.isEmpty) return null;
+  // Prefer the live row if the edge has both a live and a stale tombstone at
+  // this generation.
+  return rows.firstWhere((r) => !r.isDeleted, orElse: () => rows.first);
 }
 
 Future<Set<String>> _deleteDeferredPkBackedMemberGroupEntryOpsForLogicalEdge(
@@ -1239,6 +1345,23 @@ Future<MemberGroupEntryRow?> _activeMemberGroupEntryByResolvedRefs(
       .getSingleOrNull();
 }
 
+/// The active row for a PK logical edge `(pkGroupUuid, pkMemberUuid)`, keyed by
+/// the PK uuids rather than resolved local ids. Used by the R1 entry hardDelete
+/// generation guard, which only knows the wire id's pk refs.
+Future<MemberGroupEntryRow?> _activeMemberGroupEntryByPkRefs(
+  AppDatabase db, {
+  required String pkGroupUuid,
+  required String pkMemberUuid,
+}) {
+  return (db.select(db.memberGroupEntries)..where(
+        (t) =>
+            t.pkGroupUuid.equals(pkGroupUuid) &
+            t.pkMemberUuid.equals(pkMemberUuid) &
+            t.isDeleted.equals(false),
+      ))
+      .getSingleOrNull();
+}
+
 Future<bool> _deferPkBackedMemberGroupEntryOp(
   AppDatabase db, {
   required String entityId,
@@ -1366,6 +1489,27 @@ Future<bool> _applyMemberGroupEntryFields(
     pkMemberUuid: pkMemberUuid,
   );
   var targetId = id;
+  // R1: the row we are about to write may already carry a stored incarnation.
+  // Track its current generation so a strictly-newer incoming incarnation
+  // advances it (sanctioned revive) while a stale/equal one leaves it intact.
+  var targetRowGeneration = existingRow?.syncGeneration ?? 0;
+
+  // Parse the incoming incarnation generation off the wire id BEFORE the
+  // canonical-collapse redirect below: the redirect must never displace or
+  // soft-delete a row that lives at a strictly-NEWER incarnation than the
+  // incoming op carries (that is the F14 burned-id split-brain — collapsing a
+  // live gen-N edge onto a stale gen-(<N) op re-roots it at a fresh gen-0 row
+  // and lets the eventual gen-0 hardDelete kill the edge). Opaque sha, so
+  // re-derive-and-compare against this edge; a non-incarnation id parses null
+  // and is treated as gen 0 (legacy).
+  final incomingEntryGen = logicalEdge == null
+      ? 0
+      : (parseEntryIncarnationGeneration(
+              id,
+              pkGroupUuid: logicalEdge.pkGroupUuid,
+              pkMemberUuid: logicalEdge.pkMemberUuid,
+            ) ??
+            0);
 
   if (logicalEdge != null) {
     final canonicalId = _canonicalPkMemberGroupEntryEntityId(
@@ -1377,28 +1521,76 @@ Future<bool> _applyMemberGroupEntryFields(
       groupId: resolvedGroupId,
       memberId: resolvedMemberId,
     );
+    // Family invariant: an older-incarnation op never displaces a newer-
+    // incarnation row. When the live edge is strictly newer than the incoming
+    // id, redirect the write onto the live row (so a stale duplicate-keyed op
+    // doesn't fork the edge) but leave its generation, liveness, and id intact
+    // — the generation guards below keep is_deleted/sync_generation from
+    // regressing. Only when the incoming op is at-or-newer do we collapse onto
+    // the canonical id and retire the divergent active row.
+    final incomingIsNewerOrEqual =
+        activeLogicalRow == null ||
+        incomingEntryGen >= activeLogicalRow.syncGeneration;
     if (activeLogicalRow != null && activeLogicalRow.id != targetId) {
-      targetId = id == canonicalId || activeLogicalRow.id == canonicalId
-          ? canonicalId
-          : activeLogicalRow.id;
+      if (incomingIsNewerOrEqual) {
+        targetId = id == canonicalId || activeLogicalRow.id == canonicalId
+            ? canonicalId
+            : activeLogicalRow.id;
+      } else {
+        // Incoming is older: write onto the live row in place, never re-root to
+        // a burned older id.
+        targetId = activeLogicalRow.id;
+      }
     }
-    if (activeLogicalRow != null && activeLogicalRow.id != targetId) {
+    if (incomingIsNewerOrEqual &&
+        activeLogicalRow != null &&
+        activeLogicalRow.id != targetId) {
       await (db.update(db.memberGroupEntries)
             ..where((t) => t.id.equals(activeLogicalRow.id)))
           .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
     }
+    if (activeLogicalRow != null) {
+      targetRowGeneration = activeLogicalRow.syncGeneration;
+    }
   }
+
+  // Advance the local row only on a strictly-newer incarnation. Value.absent
+  // leaves sync_generation untouched (a stale/equal op never demotes it).
+  final entrySyncGenerationValue = incomingEntryGen > targetRowGeneration
+      ? Value(incomingEntryGen)
+      : const Value<int>.absent();
+
+  // Family invariant (per-entity absorbing, generation-aware): an older-
+  // incarnation op — including a fields-borne is_deleted=true — must never
+  // delete or mutate the live state of a strictly-newer incarnation row. When
+  // the row we are about to write already lives at a newer generation, leave
+  // is_deleted untouched (Value.absent) so a stale gen-(<N) tombstone or edit
+  // can't tombstone the gen-N edge. An at-or-newer op applies is_deleted as
+  // sent (sanctioned revive carries is_deleted=false; a same-or-newer delete
+  // tombstones normally).
+  final isDeletedValue = incomingEntryGen < targetRowGeneration
+      ? const Value<bool>.absent()
+      : f.boolField('is_deleted');
 
   final companion = MemberGroupEntriesCompanion(
     id: Value(targetId),
     groupId: Value(resolvedGroupId),
     memberId: Value(resolvedMemberId),
-    isDeleted: f.boolField('is_deleted'),
-    // LOCAL-ONLY recency stamp — not in prismSyncSchema, never on the wire.
-    // Stamped on EVERY apply: `clientDefault` only fires on a true INSERT,
-    // so a tombstone revive would keep the original stamp and a peer's fresh
-    // re-add would look "old" to the H6b removal grace, letting the next PK
-    // pull delete the just-revived entry. Fail-safe for H6b and the M15 cap.
+    isDeleted: isDeletedValue,
+    syncGeneration: entrySyncGenerationValue,
+    // LOCAL-ONLY recency stamp — never read from or written to wire field
+    // maps (it is not in prismSyncSchema and toSyncFields below omits it).
+    // Stamped on EVERY apply that touches this row (2026-06 PK audit wave-3
+    // verifier issue 2): drift's `clientDefault` fires only on a true
+    // INSERT, so an apply that revives an existing tombstone (the
+    // insertOnConflictUpdate DO-UPDATE / the UPDATE branch of
+    // _insertOrUpdateById) would otherwise keep the ORIGINAL stamp — and a
+    // peer's fresh re-add landing on an old local tombstone would look
+    // "old" to the importer's H6b removal-recency grace, letting the next
+    // PK pull reconcile-delete the just-revived entry and destroy the
+    // originating device's unpushed push_add. Refreshing here makes every
+    // inbound touch count as "recent" on THIS device — the fail-safe
+    // direction for both consumers of the stamp (H6b grace, M15 retry cap).
     createdAt: Value(DateTime.now()),
   );
   await _insertOrUpdateById(
@@ -3485,7 +3677,9 @@ DriftSyncEntity _memberGroupsEntity(
       final r = row as MemberGroupRow;
       final pkUuid = r.pluralkitUuid;
       if (pkUuid != null && pkUuid.isNotEmpty) {
-        return _canonicalPkGroupEntityId(pkUuid);
+        // Generation-aware (R1): a revived group (sync_generation>=1) is keyed
+        // by its `pk-group-g<N>:<uuid>` incarnation, not the burned legacy id.
+        return deriveGroupIncarnationEntityId(pkUuid, r.syncGeneration);
       }
       return r.id;
     },
@@ -3526,7 +3720,7 @@ DriftSyncEntity _memberGroupsEntity(
       );
       final resolvedPkGroupUuid =
           _asString(fields['pluralkit_uuid']) ??
-          _pkGroupUuidFromEntityId(id) ??
+          _pkGroupUuidFromAnyEntityId(id) ??
           (await _pkGroupAliasForLegacyEntityId(db, id))?.pkGroupUuid;
       final existingRow = await _resolveMemberGroupRowForSyncId(
         db,
@@ -3574,6 +3768,29 @@ DriftSyncEntity _memberGroupsEntity(
         }
         return;
       }
+      // R1 sanctioned revive: parse the incoming group incarnation generation
+      // and, when it is strictly newer than the matched local row's stored
+      // generation, advance the local row to that incarnation so its own
+      // future emits target the live id (and the now-explicit is_deleted=false
+      // payload revives it). A lower/equal incoming generation never demotes
+      // the row — Value.absent leaves sync_generation unchanged.
+      final incomingGroupGen =
+          parseGroupIncarnationEntityId(id)?.generation ?? 0;
+      final localGroupGen = existingRow?.syncGeneration ?? 0;
+      final syncGenerationValue = incomingGroupGen > localGroupGen
+          ? Value(incomingGroupGen)
+          : const Value<int>.absent();
+      // Family invariant (generation-aware, F15 substrate): an older-incarnation
+      // op — including a fields-borne is_deleted=true tombstone re-pushed by
+      // sync_bootstrap or replayed from quarantine — must never delete or mutate
+      // the live state of a strictly-newer incarnation row. When the matched
+      // local row already lives at a newer generation, leave is_deleted
+      // untouched so a stale gen-(<N) tombstone can't tombstone the gen-N group.
+      // An at-or-newer op applies is_deleted as sent (the sanctioned revive
+      // carries is_deleted=false; a same/newer delete tombstones normally).
+      final groupIsDeletedValue = incomingGroupGen < localGroupGen
+          ? const Value<bool>.absent()
+          : f.boolField('is_deleted');
       final companion = MemberGroupsCompanion(
         id: Value(localRowId),
         name: f.stringField('name'),
@@ -3596,7 +3813,8 @@ DriftSyncEntity _memberGroupsEntity(
             : const Value.absent(),
         lastSeenFromPkAt: f.dateTimeFieldNullable('last_seen_from_pk_at'),
         sortState: _validatedSortStateValue(id, fields),
-        isDeleted: f.boolField('is_deleted'),
+        isDeleted: groupIsDeletedValue,
+        syncGeneration: syncGenerationValue,
       );
       await _insertOrUpdateById(
         db,
@@ -3610,7 +3828,9 @@ DriftSyncEntity _memberGroupsEntity(
         // Do NOT auto-record an alias for the receiving device's own
         // local row id: both peers end up with `pk-group-<uuid>` after
         // import, and aliasing that id makes later alias-delete emits
-        // hard-delete the peer's active PK-group row.
+        // hard-delete the peer's active PK-group row. The helper also covers
+        // the R1 incarnation id (`pk-group-g<N>:<uuid>`): aliasing it so a
+        // later sparse patch under that id resolves back to this local row.
         await _recordPkGroupAliasIfNeeded(
           db,
           legacyEntityId: id,
@@ -3629,6 +3849,15 @@ DriftSyncEntity _memberGroupsEntity(
     hardDelete: (String id) async {
       final row = await _resolveMemberGroupRowForSyncDelete(db, id);
       if (row == null) return;
+      // R1 generation guard: a tombstone for an OLDER incarnation must not
+      // delete a row that already lives at a newer incarnation — that is the
+      // tombstone-then-revive flap (e.g. the burned gen-0 'pk-group:<uuid>'
+      // tombstone re-delivered after the row was revived to gen 1). Skip when
+      // the resolved row's stored generation is strictly newer than the
+      // incoming tombstone's. A non-incarnation id parses to gen 0, matching a
+      // gen-0 row, so legacy deletes are unaffected.
+      final incomingGen = parseGroupIncarnationEntityId(id)?.generation ?? 0;
+      if (row.syncGeneration > incomingGen) return;
       await (db.delete(
         db.memberGroups,
       )..where((t) => t.id.equals(row.id))).go();
@@ -3731,7 +3960,9 @@ DriftSyncEntity _memberGroupEntriesEntity(
       final g = r.pkGroupUuid?.trim() ?? '';
       final m = r.pkMemberUuid?.trim() ?? '';
       if (g.isEmpty || m.isEmpty) return r.id;
-      return _canonicalPkMemberGroupEntryEntityId(g, m);
+      // Generation-aware (R1): a revived entry (sync_generation>=1) is keyed by
+      // its salted incarnation sha, not the burned gen-0 sha.
+      return deriveEntryIncarnationEntityId(g, m, r.syncGeneration) ?? r.id;
     },
     toSyncFields: (dynamic row) {
       final dynamic r = row;
@@ -3787,9 +4018,48 @@ DriftSyncEntity _memberGroupEntriesEntity(
           );
         }
       }
+      // R1 generation-aware logical delete. Resolve the edge + generation the
+      // incoming tombstone addresses even when no row sits at the wire id (the
+      // canonical-collapse case: the live edge re-rooted onto the gen-0 sha
+      // while carrying sync_generation=N, so a legitimate gen-N tombstone keyed
+      // by the gen-N sha would otherwise find nothing and the edge would live
+      // forever on this device).
+      final target = await _resolveEntryTombstoneTarget(db, id);
+      if (target == null) {
+        // Non-PK / unresolvable id: legacy delete-by-exact-id (random v4 ids
+        // never collide, so this is exact and correct).
+        await (db.delete(
+          db.memberGroupEntries,
+        )..where((t) => t.id.equals(id))).go();
+        return;
+      }
+      // Generation guard: a tombstone for an OLDER incarnation must not delete a
+      // row living at a newer incarnation — the tombstone-then-revive flap (a
+      // burned gen-N entry tombstone re-delivered after the edge was revived to
+      // gen N+1). Skip when the live row for the edge is strictly newer.
+      final liveRow = await _activeMemberGroupEntryByPkRefs(
+        db,
+        pkGroupUuid: target.edge.pkGroupUuid,
+        pkMemberUuid: target.edge.pkMemberUuid,
+      );
+      if (liveRow != null &&
+          liveRow.syncGeneration > target.incomingGeneration) {
+        return;
+      }
+      // Delete the row that carries the tombstone's exact generation, resolved
+      // by logical edge regardless of its Drift PK. Fall back to delete-by-id
+      // when no edge row matches the generation (e.g. the row was keyed by the
+      // wire id directly).
+      final targetRow = await _memberGroupEntryByPkRefsAndGeneration(
+        db,
+        pkGroupUuid: target.edge.pkGroupUuid,
+        pkMemberUuid: target.edge.pkMemberUuid,
+        generation: target.incomingGeneration,
+      );
+      final deleteId = targetRow?.id ?? id;
       await (db.delete(
         db.memberGroupEntries,
-      )..where((t) => t.id.equals(id))).go();
+      )..where((t) => t.id.equals(deleteId))).go();
     },
     readRow: (String id) async {
       final row = await (db.select(

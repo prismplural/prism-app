@@ -54,6 +54,7 @@ void main() {
         syncSuppressed: false,
         createdAt: DateTime.utc(2024),
         sortState: '{"mode":0,"order":[]}',
+        syncGeneration: 0,
       );
       expect(entity.entityIdFor(row), 'abc');
     });
@@ -75,6 +76,7 @@ void main() {
           createdAt: DateTime.utc(2024),
           pluralkitUuid: 'deadbeef',
           sortState: '{"mode":0,"order":[]}',
+          syncGeneration: 0,
         );
 
         expect(entity.entityIdFor(row), 'pk-group:deadbeef');
@@ -97,6 +99,7 @@ void main() {
           syncSuppressed: false,
           createdAt: DateTime.utc(2024),
           sortState: '{"mode":0,"order":[]}',
+          syncGeneration: 0,
         );
 
         expect(entity.entityIdFor(row), 'random-uuid');
@@ -120,6 +123,7 @@ void main() {
           pkGroupUuid: pkGroupUuid,
           pkMemberUuid: pkMemberUuid,
           pendingPkOp: 'none',
+          syncGeneration: 0,
         );
 
         final expected = sha256
@@ -143,6 +147,7 @@ void main() {
           memberId: 'm',
           isDeleted: false,
           pendingPkOp: 'none',
+          syncGeneration: 0,
         );
 
         expect(entity.entityIdFor(row), 'random-uuid');

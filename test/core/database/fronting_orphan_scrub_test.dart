@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 
 /// Tests that the schema-rebuild helpers
 /// (`ensureFrontingMemberCheckConstraint`, `ensurePkFrontingIndexes`) scrub
@@ -223,6 +225,99 @@ void main() {
         unknownSentinelMemberId,
       );
       expect(sentinel, isNotNull);
+    });
+  });
+
+  // R6/C12: the Unknown sentinel uses a deterministic UUIDv5 id. If a previously
+  // synced sentinel was deleted, the engine holds an absorbing tombstone for it,
+  // and re-creating / re-homing onto it writes into a burned id (a silent
+  // fleet-wide no-op + local Rust/Dart divergence). With a TombstoneGate wired
+  // the rescue must SKIP — no member row, no emission.
+  group('Unknown-sentinel orphan rescue gates on the sync tombstone', () {
+    TombstoneGate gateTombstoning(Set<String> ids) {
+      return TombstoneGate((table, entityId, field) async {
+        if (field != 'is_deleted') return null;
+        return ids.contains(entityId) ? 'true' : null;
+      });
+    }
+
+    Future<void> seedActiveOrphan(AppDatabase db) async {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      await db.customStatement(
+        'INSERT INTO fronting_sessions '
+        '(id, session_type, start_time, end_time, member_id, '
+        ' co_fronter_ids, is_health_kit_import, is_deleted) '
+        "VALUES ('native-orphan', 0, $now, NULL, NULL, '[]', 0, 0)",
+      );
+    }
+
+    test('a tombstoned sentinel id => rescue does not create the row and '
+        'emits nothing into the burned id', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.customSelect('SELECT 1').get();
+      await db.disableFrontingMemberCheckConstraintForTesting();
+      await seedActiveOrphan(db);
+
+      // Engine holds an absorbing tombstone on the sentinel id.
+      db.tombstoneGate = gateTombstoning({unknownSentinelMemberId});
+
+      final captured = <String>[];
+      SyncRecordMixin.installCaptureSinkForTesting(
+        (op) => captured.add('${op.table}/${op.entityId}/${op.opType.name}'),
+      );
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      // ensurePkFrontingIndexes calls the rescue first. The CHECK is stripped,
+      // so the orphan staying NULL won't trip a constraint here; the index
+      // install tolerates a single NULL-member orphan.
+      await db.ensurePkFrontingIndexes();
+
+      // The sentinel member row was NOT created (burned id).
+      final sentinel = await db.membersDao.getMemberById(
+        unknownSentinelMemberId,
+      );
+      expect(sentinel, isNull, reason: 'sentinel id is burned — do not create');
+
+      // The orphan was NOT re-homed onto the burned id.
+      final orphan = await db
+          .customSelect(
+            "SELECT member_id FROM fronting_sessions WHERE id = 'native-orphan'",
+          )
+          .getSingle();
+      expect(orphan.read<String?>('member_id'), isNull);
+
+      // No sync op was emitted into the burned id.
+      expect(
+        captured.where((e) => e.contains(unknownSentinelMemberId)),
+        isEmpty,
+        reason: 'must not emit a create into the tombstoned sentinel id',
+      );
+    });
+
+    test('a live (non-tombstoned) sentinel id => rescue creates the row as '
+        'usual', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.customSelect('SELECT 1').get();
+      await db.disableFrontingMemberCheckConstraintForTesting();
+      await seedActiveOrphan(db);
+
+      // Gate wired but the sentinel id is live — rescue proceeds normally.
+      db.tombstoneGate = gateTombstoning({});
+
+      await db.ensurePkFrontingIndexes();
+
+      final sentinel = await db.membersDao.getMemberById(
+        unknownSentinelMemberId,
+      );
+      expect(sentinel, isNotNull);
+      final orphan = await db
+          .customSelect(
+            "SELECT member_id FROM fronting_sessions WHERE id = 'native-orphan'",
+          )
+          .getSingle();
+      expect(orphan.read<String?>('member_id'), unknownSentinelMemberId);
     });
   });
 }

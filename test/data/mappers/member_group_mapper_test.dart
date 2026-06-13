@@ -108,6 +108,7 @@ void main() {
         isDeleted: false,
         syncSuppressed: false,
         sortState: companion.sortState.value,
+        syncGeneration: 0,
       );
 
       final restored = MemberGroupMapper.toDomain(row);
@@ -133,6 +134,7 @@ void main() {
         memberId: 'member-1',
         isDeleted: false,
         pendingPkOp: 'none',
+        syncGeneration: 0,
       );
 
       final model = MemberGroupEntryMapper.toDomain(row);
@@ -168,6 +170,7 @@ void main() {
         memberId: companion.memberId.value,
         isDeleted: false,
         pendingPkOp: 'none',
+        syncGeneration: 0,
       );
 
       final restored = MemberGroupEntryMapper.toDomain(row);

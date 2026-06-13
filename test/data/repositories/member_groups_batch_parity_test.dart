@@ -261,6 +261,7 @@ void main() {
             pkMemberUuid: null,
             isDeleted: false,
             pendingPkOp: 'none',
+            syncGeneration: 0,
           );
           await _emitCaptured(
             batchDb,
@@ -440,6 +441,7 @@ void main() {
             pkMemberUuid: member.pluralkitUuid,
             isDeleted: false,
             pendingPkOp: 'push_add',
+            syncGeneration: 0,
           );
           await _emitCaptured(
             batchDb,
@@ -649,6 +651,7 @@ void main() {
             pkMemberUuid: member.pluralkitUuid,
             isDeleted: false,
             pendingPkOp: 'push_add',
+            syncGeneration: 0,
           );
           await _emitCaptured(
             batchDb,

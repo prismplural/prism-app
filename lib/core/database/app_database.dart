@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
@@ -108,6 +109,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   static const currentSchemaVersion = 37;
+
+  /// Optional view of the sync engine's absorbing-delete state (R1/C12). When
+  /// the sync layer has a live engine handle it sets this so the deterministic-
+  /// id rescue paths can refuse to (re)create a row whose canonical entity id is
+  /// already tombstoned — emitting into a burned id is a silent fleet-wide
+  /// no-op. `null` (the cold-migration default, before any engine exists) means
+  /// "nothing is tombstoned", byte-identical to the pre-R6 behavior. Settable so
+  /// the sync bootstrap and tests can inject a gate.
+  TombstoneGate? tombstoneGate;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -1209,6 +1219,16 @@ class AppDatabase extends _$AppDatabase {
     // CHECK. This keeps locally-visible session history intact for devices
     // that somehow reached mode=complete with active `(session_type=0,
     // member_id=NULL)` rows still on disk.
+    //
+    // Interaction with the R6/C12 sentinel gate: if `tombstoneGate` is set and
+    // the sentinel id is tombstoned, the rescue SKIPS — active orphans then
+    // keep `member_id IS NULL`, and the `TableMigration` copy below would throw
+    // on the new CHECK. This is shielded in practice: the cold-migration leg
+    // (v13→v14 onUpgrade) runs with `tombstoneGate == null` so the rescue never
+    // skips, and the migration service's step 7 re-homes orphans before any
+    // gated call reaches here. The `_purgeUnrecoverableFrontingOrphans` call
+    // below only removes is_deleted=1 debris, not live orphans, so it is not a
+    // backstop for this case — the shield is the gate-null cold path.
     await _rescueActiveFrontingOrphansToUnknownSentinel('CHECK install');
 
     // Hard-delete unrecoverable deleted leftovers BEFORE the CHECK install.
@@ -1259,6 +1279,24 @@ class AppDatabase extends _$AppDatabase {
   Future<int> _rescueActiveFrontingOrphansToUnknownSentinel(
     String reason,
   ) async {
+    // C12 / R6 ingress gate: the Unknown sentinel uses a deterministic UUIDv5
+    // id, so if a previously-synced sentinel was deleted, the engine holds an
+    // absorbing tombstone for that id. Re-homing orphans onto it and re-creating
+    // the member would write into a burned id — a silent fleet-wide no-op on
+    // peers and a Rust/Dart divergence locally. The sentinel is NOT minted to a
+    // new incarnation (family-5 open question 6, not adopted); when burned we
+    // simply skip the rescue. A null gate (cold migration with no engine) keeps
+    // the pre-gate behavior byte-for-byte.
+    final gate = tombstoneGate;
+    if (gate != null &&
+        await gate.isTombstoned('members', unknownSentinelMemberId)) {
+      debugPrint(
+        '[MIGRATION] skipping Unknown-sentinel orphan rescue before $reason — '
+        'sentinel id is tombstoned in the sync engine (burned id).',
+      );
+      return 0;
+    }
+
     final activeOrphans = await customUpdate(
       'UPDATE fronting_sessions '
       'SET member_id = ?, pluralkit_uuid = NULL '

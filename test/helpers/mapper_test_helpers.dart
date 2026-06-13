@@ -201,6 +201,7 @@ db.MemberGroupRow makeDbMemberGroup({
     syncSuppressed: syncSuppressed,
     suspectedPkGroupUuid: suspectedPkGroupUuid,
     sortState: sortState,
+    syncGeneration: 0,
   );
 }
 

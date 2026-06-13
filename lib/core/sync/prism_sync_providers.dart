@@ -32,6 +32,7 @@ import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
@@ -673,11 +674,18 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // releasing SQLite connections, WebSocket handles, and background tasks.
     // NOTE: We capture the handle in an instance field rather than reading
     // `state.value` inside onDispose — Riverpod forbids accessing state
-    // inside lifecycle callbacks.
+    // inside lifecycle callbacks. For the same reason we read the database
+    // here (during build) and capture it, instead of `ref.read` inside the
+    // callback.
+    final databaseForDispose = ref.read(databaseProvider);
     ref.onDispose(() {
       if (identical(syncCurrentHandle.value, _handle)) {
         syncCurrentHandle.value = null;
       }
+      // Clear the sentinel gate alongside the handle it wraps. The gate fails
+      // open against a disposed handle, so this is hygiene rather than a
+      // correctness fix, but it keeps the field from outliving its engine.
+      databaseForDispose.tombstoneGate = null;
       _handle?.dispose();
       _handle = null;
     });
@@ -755,6 +763,8 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
         if (identical(syncCurrentHandle.value, previousHandle)) {
           syncCurrentHandle.value = null;
         }
+        // Drop the sentinel gate with the handle it wrapped (hygiene).
+        ref.read(databaseProvider).tombstoneGate = null;
         state = const AsyncData(null);
       }
       discardedUnpairedDb = true;
@@ -835,6 +845,12 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     _handle = handle;
     syncCurrentHandle.value = handle;
     state = AsyncData(handle);
+
+    // Wire the absorbing-delete view onto the database so the deterministic-id
+    // rescue paths (Unknown-sentinel orphan rescue) can refuse to (re)create a
+    // burned id once an engine handle exists. Cold migrations run before this
+    // with `tombstoneGate == null`, keeping their pre-gate behavior.
+    ref.read(databaseProvider).tombstoneGate = TombstoneGate.forHandle(handle);
 
     // Auto-configure sync engine if credentials already exist (app restart).
     // Writes that land in this window can see `sync not configured` even
