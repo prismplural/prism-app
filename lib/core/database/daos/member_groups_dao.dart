@@ -290,13 +290,13 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           .go();
 
   /// Hard-delete soft-deleted rows for the `(groupId, memberId)` edge that are
-  /// being superseded by a freshly-minted incarnation row (R1 re-add). Excludes
+  /// being superseded by a freshly-minted incarnation row (re-add). Excludes
   /// [keepId] (the live incarnation row the caller is about to write/just wrote)
   /// and only touches `is_deleted = 1` rows, so the active row is never removed.
   ///
-  /// This closes the H6c regression introduced by the incarnation split: a
-  /// re-add that mints a NEW gen-N id leaves the old gen-0 row soft-deleted with
-  /// its `pending_pk_op = 'push_remove'` orphaned in place. The push orchestrator
+  /// Without this, a re-add that mints a NEW gen-N id leaves the old gen-0 row
+  /// soft-deleted with its `pending_pk_op = 'push_remove'` orphaned in place.
+  /// The push orchestrator
   /// iterates ALL pending rows and pushes adds before removes with no same-edge
   /// cross-row dedup, so the stale remove would fire after the fresh add and
   /// remove the member from the user's real PluralKit group despite the re-add
@@ -333,7 +333,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
 
   /// Flip a peer-originated entry tombstone's `pending_pk_op` to `push_remove`
   /// so the PK-token device converges PluralKit to the user's cross-device
-  /// removal (F06, absorbing-tombstone-revive-holes). Guarded to
+  /// removal. Guarded to
   /// `is_deleted = 1 AND pending_pk_op = 'none'`: only a SYNCED tombstone (the
   /// local-only `pending_pk_op` arrives as the default 'none' on a peer's
   /// remove) is adopted, so this never clobbers an in-flight local intent
@@ -342,10 +342,10 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// pending op, and the caller leaves it alone.
   ///
   /// Also refreshes the local-only `created_at` recency stamp, exactly as
-  /// [softDeleteEntryWithPendingOp] does (wave-3 verifier issue 1, 2026-06 PK
-  /// audit M15): this call SETS a new intent on a row that carried none, so the
-  /// push orchestrator's age-based retry cap must clock the intent from the
-  /// moment of adoption. The F06 sweep adopts tombstones whose apply-stamp is
+  /// [softDeleteEntryWithPendingOp] does: this call SETS a new intent on a row
+  /// that carried none, so the push orchestrator's age-based retry cap must
+  /// clock the intent from the moment of adoption. This sweep adopts tombstones
+  /// whose apply-stamp is
   /// commonly far older than `PkGroupsImporter.pushRetryMaxAge` (applied
   /// pre-upgrade, or while PK pull was offline) — the precise already-diverged
   /// install this fix exists to converge. Without the refresh that intent is
@@ -541,7 +541,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// out, hiding `push_remove` rows from reconcile and letting the insert
   /// branch revive them when PK still reports the member.
   ///
-  /// SUPERSEDED for reconcile by [entriesForGroupIncludingDeleted] (F06): this
+  /// SUPERSEDED for reconcile by [entriesForGroupIncludingDeleted]: this
   /// filter still hides peer-originated tombstones (`is_deleted = 1` with the
   /// local-only `pending_pk_op` at its synced default `'none'`), which the
   /// insert branch then blind-revives. The reconcile pass reads the full list
@@ -559,13 +559,13 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           .get();
 
   /// Read EVERY entry for [groupId], including peer-originated tombstones
-  /// ([entriesForGroupForReconcile] minus the `pending_pk_op` filter). F06
-  /// (absorbing-tombstone-revive-holes): a tombstone that arrived via CRDT sync
-  /// from a peer carries the local-only `pending_pk_op` default `'none'`, so
-  /// the reconcile filter hides it and the insert branch blind-revives the
-  /// burned deterministic id. The reconcile pass now classifies removals and
-  /// inserts over this full list so a peer's removal is honored (the gate
-  /// decides skip-vs-revive), never silently un-deleted.
+  /// ([entriesForGroupForReconcile] minus the `pending_pk_op` filter). A
+  /// tombstone that arrived via CRDT sync from a peer carries the local-only
+  /// `pending_pk_op` default `'none'`, so the reconcile filter hides it and the
+  /// insert branch blind-revives the burned deterministic id. The reconcile
+  /// pass now classifies removals and inserts over this full list so a peer's
+  /// removal is honored (the gate decides skip-vs-revive), never silently
+  /// un-deleted.
   Future<List<MemberGroupEntryRow>> entriesForGroupIncludingDeleted(
     String groupId,
   ) => (select(memberGroupEntries)
@@ -574,8 +574,8 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
 
   /// Read EVERY entry across all groups, including tombstones. The membership
   /// joins of [getAllGroupEntries] would hide rows whose member is itself
-  /// deleted; the absorbing-tombstone-revive detector (R6) needs the raw rows so
-  /// it can re-derive each row's current incarnation id and compare it against
+  /// deleted; the absorbing-tombstone-revive detector needs the raw rows so it
+  /// can re-derive each row's current incarnation id and compare it against
   /// the engine's `field_versions`. Read-only; no membership filtering.
   Future<List<MemberGroupEntryRow>> getAllEntriesIncludingDeleted() =>
       select(memberGroupEntries).get();
@@ -720,6 +720,20 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   ///
   /// Wrapped in a transaction so repair sees an atomic before/after state
   /// if any row fails mid-pass.
+  ///
+  /// HAZARD / decommission note: the PK group repair auto-run that was this
+  /// method's only production caller has been decommissioned (its
+  /// provider/service/run-gate were deleted), so today nothing in lib/ invokes
+  /// this — it survives only behind its own DAO regression tests. The
+  /// tombstone-revival branch below sets `is_deleted = false` on a CRDT-deleted
+  /// row. That flip is LOCAL-ONLY partial-unique-index hygiene (keeping
+  /// `(group_id, member_id) WHERE is_deleted = 0` clean) and must STAY local:
+  /// Rust tombstones are absorbing, so an emitted `is_deleted:false` op would be
+  /// dropped on every peer and the revival would silently exist only on the
+  /// running device. The single sanctioned revive path is the incarnation-gated
+  /// revive; if you ever re-wire this helper into a synced flow, route revivals
+  /// through that path instead of emitting this companion. This method emits
+  /// nothing and must never be wrapped in an emitting seam.
   Future<
     ({int rewritten, int revivedTombstones, int softDeletedLegacyConflicts})
   >
@@ -800,6 +814,11 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           // Soft-delete the legacy active row first so the partial unique
           // index on (group_id, member_id) WHERE is_deleted = 0 is clear,
           // then revive the tombstoned canonical row onto the logical edge.
+          //
+          // LOCAL-ONLY revive (see method doc): this `is_deleted: false` flip
+          // is index hygiene, not a synced un-delete. It must never be emitted
+          // — Rust tombstones are absorbing and would drop it. The sanctioned
+          // synced-revive path is the incarnation gate.
           legacySoftDeleteIds.add(entry.id);
           canonicalRevivals.add((
             id: canonical,

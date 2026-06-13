@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// One-time gate for the automatic open-session repair sweep.
 ///
-/// Mirrors [PkGroupRepairRunGate]: a persisted version key so the repair runs
+/// Uses a persisted version key so the repair runs
 /// once per device and re-runs only if a future [currentVersion] needs to sweep
 /// again (e.g. a new class of corruption is discovered). The on-demand debug
 /// button bypasses this gate entirely.

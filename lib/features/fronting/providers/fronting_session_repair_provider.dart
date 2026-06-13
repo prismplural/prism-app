@@ -11,7 +11,8 @@ import 'package:prism_plurality/features/fronting/services/fronting_session_repa
 /// One-shot, best-effort startup sweep that runs
 /// [FrontingMutationService.repairMemberSessionInvariants] once per device.
 ///
-/// Why a bootstrap provider (mirrors [pkGroupRepairBootstrapProvider]):
+/// Why a bootstrap provider (the now-removed PK group repair bootstrap used the
+/// same shape):
 ///   * The repair MUST run after the sync engine is configured + healthy, so
 ///     the closes/merges it performs emit CRDT ops that propagate to peers. A
 ///     repair run before sync-config would fix the local DB only and leave

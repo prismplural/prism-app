@@ -626,7 +626,8 @@ void main() {
   });
 
   // ── M14c ──────────────────────────────────────────────────────────────────
-  // (M14c dismissal memory lives in pk_group_repair_service_test additions.)
+  // (M14c dismissal memory lived in the PK group repair service, removed with
+  // the S3 decommission of the repair auto-run.)
 
   // ── M15a ──────────────────────────────────────────────────────────────────
   group('M15a 404 terminal cleanup gated on code 20004', () {

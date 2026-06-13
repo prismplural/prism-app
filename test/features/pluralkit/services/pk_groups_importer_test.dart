@@ -10,7 +10,6 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -215,8 +214,12 @@ void main() {
   });
 
   test(
-    'import marks automatic repair gate dirty after PK membership changes',
+    'import does not mark the decommissioned PK repair run gate (S3)',
     () async {
+      // S3 (pk-identity-alias-coherence): the PK group repair auto-run was
+      // decommissioned, so the importer no longer marks the now-deleted
+      // PkGroupRepairRunGate dirty. Assert the legacy prefs key stays unset
+      // after a membership-changing import.
       final repo = _FakeMemberRepo([
         _member(id: 'local-1', pkUuid: 'pk-mem-1'),
       ]);
@@ -232,7 +235,7 @@ void main() {
       ]);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(PkGroupRepairRunGate.dirtyKey), isTrue);
+      expect(prefs.getBool('pk_group_repair.dirty'), isNull);
     },
   );
 

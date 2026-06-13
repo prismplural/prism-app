@@ -18,7 +18,6 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 typedef PkGroupSyncCreateOverride =
@@ -46,39 +45,31 @@ class PkGroupsImportResult {
   final int entriesDeferred;
 
   /// Count of groups whose `memberIds` came back as null (privacy / partial
-  /// fetch). Surfaces flapping — a high number here means membership reconcile
-  /// was intentionally skipped for those groups.
+  /// fetch); their membership reconcile was intentionally skipped.
   final int groupsWithUnknownMembership;
 
-  /// Entries that PK's authoritative set omits but were preserved anyway
-  /// because they fall inside the H6b recency-grace window.
-  /// Surfaces the fail-safe so a high count is visible rather than silent.
+  /// Entries PK's authoritative set omits but preserved because they fall
+  /// inside the recency-grace window.
   final int entriesSkippedRecent;
 
-  /// Groups the importer would otherwise have re-created from PK but skipped
-  /// because the deterministic row id is a user-deleted tombstone (2026-06 PK
-  /// audit M13 — board-delete-resurrection class). Mirrors the session
-  /// tombstone-preserved counter pattern. This is the Drift-evidence subset of
+  /// Groups the importer skipped re-creating because the deterministic row id
+  /// is a user-deleted tombstone. The Drift-evidence subset of
   /// [groupsSkippedTombstoned] (a soft-deleted local row was found).
   final int groupsPreservedAsDeletedTombstone;
 
-  /// Groups whose canonical sync entity id is tombstoned in the CRDT and which a
-  /// background pull therefore skips entirely — no metadata write, no membership
-  /// reconcile, no emit (F15, absorbing-tombstone-revive-holes). Counts BOTH the
-  /// Drift-evidence subset ([groupsPreservedAsDeletedTombstone]) AND the
-  /// FFI-only cases the M13 Drift lookups miss: a row hard-deleted by the drain
-  /// path, or one whose `pluralkit_uuid` was nulled by a pre-fix `deleteGroup`,
-  /// where `field_versions` are the only surviving tombstone evidence. An
-  /// explicit user re-import does NOT count here — it revives under a fresh
-  /// group incarnation id instead of skipping.
+  /// Groups whose canonical sync entity id is tombstoned and which a background
+  /// pull therefore skips entirely — no metadata write, no membership reconcile,
+  /// no emit. Counts BOTH [groupsPreservedAsDeletedTombstone] AND the FFI-only
+  /// cases the Drift lookups miss (row hard-deleted by the drain path, or
+  /// `pluralkit_uuid` nulled by an old `deleteGroup`, where `field_versions`
+  /// are the only surviving evidence). An explicit re-import does NOT count —
+  /// it revives under a fresh group incarnation id.
   final int groupsSkippedTombstoned;
 
-  /// Membership entries PK's authoritative set lists but whose deterministic
-  /// entry id is tombstoned in the CRDT (a peer's cross-device removal). On a
-  /// background pull the importer skips the blind-revive entirely (F06,
-  /// absorbing-tombstone-revive-holes) and surfaces the count so the honored
-  /// removal is visible rather than a silently dropped create. An explicit
-  /// user re-import does NOT count here — it revives under a fresh incarnation.
+  /// Membership entries PK lists but whose deterministic entry id is tombstoned
+  /// (a peer's cross-device removal). A background pull skips the blind-revive
+  /// and surfaces the count so the honored removal is visible. An explicit
+  /// re-import does NOT count — it revives under a fresh incarnation.
   final int entriesSkippedTombstoned;
 
   const PkGroupsImportResult({
@@ -125,28 +116,19 @@ class PkGroupsImportResult {
     entriesSkippedTombstoned:
         entriesSkippedTombstoned ?? this.entriesSkippedTombstoned,
   );
-
-  bool get changedRepairInputs =>
-      groupsInserted > 0 ||
-      groupsUpdated > 0 ||
-      entriesInserted > 0 ||
-      entriesRemoved > 0;
 }
 
-/// Imports PluralKit groups and memberships into Prism.
+/// Imports PluralKit groups and memberships into Prism. Pull only.
 ///
-/// Phase 1 (pull only). Implements the revisions documented in
-/// `docs/plans/pk-sp-gaps/03-pk-groups.md`:
-///
+/// Rules referenced by inline comments throughout:
 /// - R1: Authoritative-set diff — membership removals are driven by the PK
 ///   member UUID set, not by locally-resolved IDs. Unresolved members are
 ///   deferred, never treated as "missing on PK".
 /// - R2: `memberIds == null` means "unknown" → skip removals entirely.
-/// - R3: `reattribute(...)` insert-only pass for members that weren't linked
-///   at first import.
+/// - R3: `reattribute(...)` insert-only pass for members not linked at first
+///   import.
 /// - R5: `overwriteMetadata` — background sync reconciles membership only;
-///   metadata (name/description/color/displayName) is only overwritten on
-///   explicit user action.
+///   metadata is only overwritten on explicit user action.
 /// - R6: Deterministic entry IDs `sha256(groupUuid\0memberPkUuid)[:16]`.
 /// - R7: Identity matching is UUID-only.
 /// - R8: Local emoji is never touched on PK pull.
@@ -162,45 +144,37 @@ class PkGroupsImporter with SyncRecordMixin {
   final PkGroupSyncUpdateOverride? _recordUpdateOverride;
   final PkGroupSyncDeleteOverride? _recordDeleteOverride;
 
-  /// The Dart-side view of the engine's absorbing-delete state (R1 shared
-  /// layer). Built once from [_syncHandle] (null pre-pairing / in unit tests
-  /// without a real engine → every id reads as live, byte-identical to the
-  /// pre-F06 path). Injectable so tests can drive the tombstone classification
-  /// without a live FFI handle.
+  /// Dart-side view of the engine's absorbing-delete state. Built once from
+  /// [_syncHandle] (null pre-pairing / in unit tests without a real engine →
+  /// every id reads as live). Injectable so tests can drive tombstone
+  /// classification without a live FFI handle.
   final TombstoneGate? _tombstoneGate;
 
-  /// Push-orchestrator mutex (step 6 of the membership push plan). Mirrors
-  /// the cofronter pattern in pluralkit_sync_service: re-entrant calls await
-  /// the in-flight push and return its result. Service-instance scope is
-  /// fine because the importer is constructed once per sync service via
-  /// pluralkit_providers, and providers give us a single instance per
-  /// app session.
+  /// Push-orchestrator mutex: re-entrant calls await the in-flight push and
+  /// return its result. Service-instance scope is fine — the importer is
+  /// constructed once per sync service.
   Future<PkGroupMembershipPushResult>? _pushInFlight;
 
   static const _groupTable = 'member_groups';
   static const _entryTable = 'member_group_entries';
 
-  /// Recency grace for destructive PK-removal reconcile (2026-06 PK audit
-  /// H6b): a `member_group_entries` row younger than this is never
-  /// reconcile-deleted. `pending_pk_op` is per-device, so a reconciling peer
-  /// would otherwise soft-delete a fresh entry whose add hasn't reached PK
-  /// yet, destroying the unpushed intent. `created_at` is local and set at
-  /// apply time, so a synced row is "recent" exactly during that race window.
-  /// Only gates the soft-delete pass.
+  /// Recency grace for destructive PK-removal reconcile: a row younger than
+  /// this is never reconcile-deleted. `pending_pk_op` is per-device, so a
+  /// reconciling peer would otherwise soft-delete a fresh entry whose add
+  /// hasn't reached PK yet, destroying the unpushed intent. `created_at` is
+  /// local and set at apply time, so a synced row is "recent" exactly during
+  /// that race window. Only gates the soft-delete pass.
   static const removalRecencyGrace = Duration(hours: 48);
 
   /// Minimum interval between pure `last_seen_from_pk_at` refresh emissions for
-  /// a single group (2026-06 PK audit M14a). Without this, every pull emits an
-  /// update op for every observed group even when nothing changed, churning the
-  /// op log / relay. Real metadata or PK-link changes still emit immediately;
-  /// only the lonely "I saw this group again" heartbeat is rate-limited.
+  /// a single group, so the lonely "I saw this group again" heartbeat doesn't
+  /// churn the op log. Real metadata or PK-link changes still emit immediately.
   static const lastSeenRefreshInterval = Duration(hours: 24);
 
-  /// Age cap for a permanently-failing group-membership push intent (2026-06
-  /// PK audit M15). Pending-op rows have no `retry_count` column, so cap by
-  /// INTENT age (`created_at` is refreshed whenever a pending op is set): a
-  /// candidate still 4xx-failing past this window is marked terminal and
-  /// counted, rather than retried forever every sync.
+  /// Age cap for a permanently-failing group-membership push intent. Pending-op
+  /// rows have no `retry_count` column, so cap by INTENT age (`created_at` is
+  /// refreshed whenever a pending op is set): a candidate still 4xx-failing past
+  /// this window is marked terminal, rather than retried forever.
   static const pushRetryMaxAge = Duration(days: 7);
 
   PkGroupsImporter({
@@ -287,32 +261,26 @@ class PkGroupsImporter with SyncRecordMixin {
   ///
   /// When [pushClient] is supplied AND [direction] includes push, pending
   /// `pending_pk_op` intents are drained to PluralKit BEFORE the membership
-  /// reconcile (2026-06 PK audit H6a), so the authoritative set already
-  /// reflects local adds/removes and the removal pass can't delete an add
-  /// that hadn't reached PK yet. Push failures are swallowed — a transient
-  /// PK outage never aborts the pull.
+  /// reconcile, so the authoritative set already reflects local adds/removes
+  /// and the removal pass can't delete an add that hadn't reached PK yet. Push
+  /// failures are swallowed — a transient PK outage never aborts the pull.
   Future<PkGroupsImportResult> importGroups(
     List<PKGroup> pkGroups, {
     bool overwriteMetadata = false,
-    // Default pullOnly preserves current behavior. Step 7 of the plan
-    // wires the user's actual sync direction at top-level call sites
-    // so push-disabled users skip the destructive reconcile entirely.
     PkSyncDirection direction = PkSyncDirection.pullOnly,
     PluralKitClient? pushClient,
   }) async {
     var result = const PkGroupsImportResult();
     if (pkGroups.isEmpty) return result;
-    // Step 4 of docs/plans/pk-group-membership-push.md: pull-side work is
-    // gated on direction.pullEnabled. push-side work is the orchestrator's
-    // job (step 6) — this function never pushes. On pushOnly/disabled, we
-    // skip the entire pull pass: no metadata writes, no last_seen_from_pk_at
-    // updates, no destructive reconcile, no inserts.
+    // Pull-side work only; pushes are the orchestrator's job. On
+    // pushOnly/disabled, skip the entire pull pass: no metadata writes, no
+    // last_seen_from_pk_at updates, no destructive reconcile, no inserts.
     if (!direction.pullEnabled) return result;
 
-    // Drain this device's pending intents to PK FIRST
-    // so the authoritative member set we reconcile against already reflects
-    // them. MUST be failure-isolated — a push failure must not abort the pull
-    // (which would block legitimate inbound PK changes whenever PK is flaky).
+    // Drain this device's pending intents to PK FIRST so the authoritative
+    // member set we reconcile against already reflects them. MUST be
+    // failure-isolated — a push failure must not abort the pull (which would
+    // block legitimate inbound PK changes whenever PK is flaky).
     if (pushClient != null && direction.pushEnabled) {
       try {
         await pushPendingGroupOps(pushClient, direction);
@@ -329,10 +297,9 @@ class PkGroupsImporter with SyncRecordMixin {
     // available *right now*. The authoritative set (R1) is the PK list, not
     // this map — the map only tells us which PK UUIDs map to a local row.
     //
-    // Filter excluded locals here once so EVERY downstream consumer
-    // (`pkUuidToLocalMemberId` build, `_processGroup`, remove path) only sees
+    // Filter excluded locals here once so EVERY downstream consumer only sees
     // non-excluded members. Otherwise a single missed call site could
-    // re-attribute, push, or remove an excluded local. M14d: the
+    // re-attribute, push, or remove an excluded local. The
     // `pluralkit_sync_ignored = 0` filter is pushed into the SQL projection,
     // which also skips loading avatar blobs.
     final allMembers = await _loadReconcileMembers();
@@ -353,26 +320,24 @@ class PkGroupsImporter with SyncRecordMixin {
       var groupLocalId = existing?.id ?? deriveGroupId(pk.uuid);
 
       if (existing == null) {
-        // F15 / M13 (absorbing-tombstone-revive-holes + 2026-06 PK audit):
-        // resurrection guard. Without this the upsert below would revive a
+        // Resurrection guard. Without this the upsert below would revive a
         // user-deleted group's row (is_deleted=false@fresh-HLC) AND re-create
         // every entry, emitting a create into the canonical `pk-group:<uuid>`
         // entity id that every peer permanently tombstoned — the create is
-        // silently dropped fleet-wide while the row lives only here (a flap on
-        // the next prune). Classify the tombstone via three evidence sources,
-        // any of which is authoritative:
+        // silently dropped fleet-wide while the row lives only here. Classify
+        // the tombstone via three evidence sources, any one authoritative:
         //   1. The deterministic `pk-group-<uuid>` row id (catches importer
         //      groups even when the tombstone's `pluralkit_uuid` was nulled by
-        //      a pre-fix deleteGroup).
+        //      an old deleteGroup).
         //   2. UUID including deleted (catches groups adopted under their
-        //      ORIGINAL row id — repair's linkGroupToPluralkitUuid — whose
-        //      tombstones the id lookup can't see; deleteGroup now KEEPS the
-        //      uuid on the tombstone, and the partial unique index only covers
-        //      active rows, so any hit here is by construction a tombstone).
+        //      ORIGINAL row id whose tombstones the id lookup can't see;
+        //      deleteGroup keeps the uuid on the tombstone, and the partial
+        //      unique index only covers active rows, so any hit here is by
+        //      construction a tombstone).
         //   3. The engine's `field_versions` via the TombstoneGate over the
-        //      canonical id and any recorded aliases — the FFI is the ONLY
-        //      surviving evidence when the drain path physically hard-deleted
-        //      the Drift row, so neither (1) nor (2) finds anything.
+        //      canonical id and any recorded aliases — the only surviving
+        //      evidence when the drain path physically hard-deleted the Drift
+        //      row, so neither (1) nor (2) finds anything.
         var tombstone = await _dao.getGroupByIdIncludingDeleted(groupLocalId);
         if (tombstone == null || !tombstone.isDeleted) {
           // Id lookup yielded nothing deleted (no row, or an active unlinked
@@ -386,16 +351,13 @@ class PkGroupsImporter with SyncRecordMixin {
         if (driftTombstoned || gateTombstoned) {
           // Without a gate (pre-pairing / unit tests without a real engine) we
           // cannot mint a non-burned incarnation, so an explicit re-import would
-          // have to emit into the possibly-burned canonical id — the exact bug
-          // this guards. Treat a gate-less explicit re-import as a skip too: the
-          // revive needs the engine's field_versions to pick a live id.
+          // have to emit into the possibly-burned canonical id — the bug this
+          // guards. Treat a gate-less explicit re-import as a skip too.
           final canRevive = _tombstoneGate != null;
           if (!overwriteMetadata || !canRevive) {
             // Background pull (or no engine to mint with): honor the user's
             // deletion. PK has no group-deletion push yet, so "deleted locally,
-            // stays deleted locally" is the honest behavior; surface a count so
-            // the skip is visible, not silent. (Strictly-explicit revival
-            // policy, F15.)
+            // stays deleted locally"; surface a count so the skip is visible.
             result = result.copyWith(
               groupsSkippedTombstoned: result.groupsSkippedTombstoned + 1,
               groupsPreservedAsDeletedTombstone: driftTombstoned
@@ -412,12 +374,11 @@ class PkGroupsImporter with SyncRecordMixin {
           }
 
           // Explicit user re-import over a tombstoned group: sanctioned revive
-          // under a freshly-minted group incarnation id (the new
-          // `pk-group-g<N>:<uuid>` prefix per R1; a fresh id no peer holds a
-          // tombstone for, which deployed peers apply as an ordinary new
-          // create). Mint reads run before any row write (emit-after-commit
-          // shape preserved). On exhaustion every incarnation is burned —
-          // emitting would be a guaranteed fleet-wide no-op, so honor the
+          // under a freshly-minted group incarnation id (`pk-group-g<N>:<uuid>`,
+          // a fresh id no peer holds a tombstone for, which deployed peers apply
+          // as an ordinary new create). Mint reads run before any row write
+          // (emit-after-commit shape preserved). On exhaustion every incarnation
+          // is burned — emitting would be a fleet-wide no-op, so honor the
           // deletion instead of looping.
           final MintedIncarnation minted;
           try {
@@ -465,7 +426,7 @@ class PkGroupsImporter with SyncRecordMixin {
             // Emit the create under the MINTED incarnation id, not the burned
             // canonical id. `groupCreateSyncFields` always carries
             // `pluralkit_uuid` so the receiver resolves the real uuid from the
-            // field (never from the `g<N>:` id), per R1.
+            // field, never from the `g<N>:` id.
             await _emitCreate(
               _groupTable,
               minted.entityId,
@@ -573,11 +534,9 @@ class PkGroupsImporter with SyncRecordMixin {
             : existing;
 
         if (syncEnabled) {
-          // Mirrors the columns the companion above writes — see
-          // `lib/data/sync/field_diff.dart` on why update patches stay narrow.
           // Build the patch from ONLY the fields that actually changed so an
-          // unchanged group emits nothing (M14a). A lone last_seen heartbeat is
-          // gated by the 24h interval above (writeLastSeen).
+          // unchanged group emits nothing. A lone last_seen heartbeat is gated
+          // by the refresh interval above (writeLastSeen).
           final changedFields = <String, dynamic>{
             if (writeLastSeen)
               'last_seen_from_pk_at': toSyncUtcOrNull(
@@ -594,12 +553,11 @@ class PkGroupsImporter with SyncRecordMixin {
             },
           };
           if (changedFields.isNotEmpty) {
-            // F15 blocker: target the row's LIVE incarnation id, not the gen-0
-            // canonical id. After an explicit-re-import revive the row lives at
+            // Target the row's LIVE incarnation id, not the gen-0 canonical id.
+            // After an explicit-re-import revive the row lives at
             // sync_generation>=1 ('pk-group-g<N>:<uuid>'); emitting to the
             // burned 'pk-group:<uuid>' would be dropped by every peer's
-            // absorbing merge (permanent one-device metadata divergence). Mirror
-            // the repository deriver (_groupEntityId) which is generation-aware.
+            // absorbing merge (permanent one-device metadata divergence).
             final currentIncarnationEntityId = deriveGroupIncarnationEntityId(
               pk.uuid,
               updatedRow.syncGeneration,
@@ -609,10 +567,10 @@ class PkGroupsImporter with SyncRecordMixin {
               currentIncarnationEntityId,
               changedFields,
             );
-            // Legacy alias deletes are emit-once-then-cleaned (M14b); only
-            // attempt them when we are already emitting a real change. Pass the
-            // live incarnation id so the row's OWN incarnation is never a delete
-            // target (F15 blocker).
+            // Legacy alias deletes are emit-once-then-cleaned; only attempt them
+            // when we are already emitting a real change. Pass the live
+            // incarnation id so the row's OWN incarnation is never a delete
+            // target.
             await _emitLegacyAliasDeletesForPkGroup(
               pk.uuid,
               currentIncarnationEntityId: currentIncarnationEntityId,
@@ -644,10 +602,10 @@ class PkGroupsImporter with SyncRecordMixin {
         allMembers: allMembers,
         pkUuidToLocalMemberId: pkUuidToLocalMemberId,
         insertOnly: false,
-        // F06: `overwriteMetadata` is the explicit-user-re-import signal (it is
-        // only true on a deliberate re-import, never a background pull). It
-        // gates the sanctioned-revive vs honor-peer-removal branch when a
-        // PK-listed member's deterministic entry id is tombstoned in the CRDT.
+        // `overwriteMetadata` is the explicit-user-re-import signal (only true
+        // on a deliberate re-import, never a background pull). It gates the
+        // sanctioned-revive vs honor-peer-removal branch when a PK-listed
+        // member's deterministic entry id is tombstoned.
         explicitReimport: overwriteMetadata,
         syncEnabled: syncEnabled,
         now: now,
@@ -666,7 +624,6 @@ class PkGroupsImporter with SyncRecordMixin {
       );
     }
 
-    await _markRepairDirtyIfNeeded(result);
     return result;
   }
 
@@ -674,8 +631,7 @@ class PkGroupsImporter with SyncRecordMixin {
   /// applied so PK UUIDs that were previously unknown can now be resolved.
   /// Never removes entries. Always pull-only by construction (insertOnly).
   /// The [direction] param is accepted for symmetry with [importGroups] but
-  /// must include pull (asserted); push is never invoked from here. Per
-  /// docs/plans/pk-group-membership-push.md step 4 / v3-patches-2 #6.
+  /// must include pull (asserted); push is never invoked from here.
   Future<PkGroupsImportResult> reattribute(
     PluralKitClient client, {
     PkSyncDirection direction = PkSyncDirection.pullOnly,
@@ -687,7 +643,7 @@ class PkGroupsImporter with SyncRecordMixin {
 
     // Filter excluded locals at the fetch site (mirrors importGroups). The
     // remove path inside `_reconcileMembership` must not see them either.
-    // M14d: light projection — no avatar blobs, filter pushed into SQL.
+    // Light projection — no avatar blobs, filter pushed into SQL.
     final allMembers = await _loadReconcileMembers();
     final pkUuidToLocalMemberId = <String, String>{};
     for (final m in allMembers) {
@@ -725,17 +681,7 @@ class PkGroupsImporter with SyncRecordMixin {
             result.entriesSkippedTombstoned + delta.entriesSkippedTombstoned,
       );
     }
-    await _markRepairDirtyIfNeeded(result);
     return result;
-  }
-
-  Future<void> _markRepairDirtyIfNeeded(PkGroupsImportResult result) async {
-    if (!result.changedRepairInputs) return;
-    try {
-      await PkGroupRepairRunGate.markDirtyInDefaultStore();
-    } catch (error) {
-      debugPrint('[PK groups] failed to mark repair dirty: $error');
-    }
   }
 
   Future<_ReconcileDelta> _reconcileMembership({
@@ -754,13 +700,11 @@ class PkGroupsImporter with SyncRecordMixin {
     };
 
     final authoritativeSet = authoritativePkMemberUuids.toSet();
-    // F06: read EVERY entry, including peer-originated tombstones. The
-    // `entriesForGroupForReconcile`/`entriesForGroup` filters hid a synced
-    // tombstone (is_deleted=1, pending_pk_op default 'none'), so the insert
-    // branch blind-revived the burned deterministic id and emitted a create
-    // every peer drops. Removal and insert classification are computed over
-    // this full list; the gate (below) decides skip-vs-revive for a tombstoned
-    // entry id.
+    // Read EVERY entry, including peer-originated tombstones. A filtered read
+    // would hide a synced tombstone (is_deleted=1, pending_pk_op 'none'), and
+    // the insert branch would blind-revive the burned deterministic id and emit
+    // a create every peer drops. The gate (below) decides skip-vs-revive for a
+    // tombstoned entry id.
     final entries = await _dao.entriesForGroupIncludingDeleted(groupLocalId);
     final entriesById = <String, MemberGroupEntryRow>{
       for (final e in entries) e.id: e,
@@ -774,22 +718,20 @@ class PkGroupsImporter with SyncRecordMixin {
         if (e.isDeleted && e.pendingPkOp == 'push_remove') e.memberId,
     };
 
-    // F06 classification pass — runs BEFORE the transaction because the gate's
+    // Classification pass — runs BEFORE the transaction because the gate's
     // tombstone reads and incarnation mint hit the Rust engine over FFI (the
     // emit-after-commit shape: gate/mint reads first, row writes inside the
-    // txn, _emitMembershipSync after). For every PK-listed member that the
-    // insert branch would touch, decide: plain insert (gen-0 live), honor a
-    // peer's removal (skip — optionally flip the tombstone to push_remove), or
-    // revive under a freshly-minted incarnation (explicit user re-import only).
+    // txn, _emitMembershipSync after). For every PK-listed member the insert
+    // branch would touch, decide: plain insert (gen-0 live), honor a peer's
+    // removal (skip — optionally flip the tombstone to push_remove), or revive
+    // under a freshly-minted incarnation (explicit user re-import only).
     //
-    // TOCTOU: because the gate/mint reads run pre-txn (required for
-    // emit-after-commit), a peer delete that applies between this
-    // classification and the txn below can still let one blind gen-0 revive
-    // through (classified live here, tombstoned by commit time). That is
-    // self-healing — the next pull sees the now-locally-visible tombstone via
-    // the `entriesById`/gate check and routes the member to skip-or-revive — so
-    // we accept the single-cycle window rather than re-reading the gate inside
-    // the txn (which can't emit anyway).
+    // TOCTOU: a peer delete that applies between this classification and the
+    // txn below can let one blind gen-0 revive through (classified live here,
+    // tombstoned by commit time). Self-healing — the next pull sees the now-
+    // locally-visible tombstone and routes the member to skip-or-revive — so we
+    // accept the single-cycle window rather than re-reading the gate inside the
+    // txn (which can't emit anyway).
     final existingActiveMemberIds = <String>{
       for (final e in entries)
         if (!e.isDeleted) e.memberId,
@@ -823,7 +765,7 @@ class PkGroupsImporter with SyncRecordMixin {
               Future.value(false));
 
       if (!localTombstoned && !gateTombstoned) {
-        // Live id — ordinary gen-0 insert (unchanged pre-F06 path).
+        // Live id — ordinary gen-0 insert.
         insertPlans.add(
           _EntryInsertPlan(
             entryId: gen0Id,
@@ -840,7 +782,7 @@ class PkGroupsImporter with SyncRecordMixin {
         // Background pull over a peer-honored removal: do NOT revive. Record
         // the skip; if a local tombstone row exists, flip it to push_remove so
         // the PK-token device converges PluralKit to the user's cross-device
-        // removal (adopted maintainer decision, behind the pkGroupSyncV2 gate).
+        // removal (behind the pkGroupSyncV2 gate).
         tombstoneSkips.add(
           _EntryTombstoneSkip(
             entryId: gen0Id,
@@ -924,11 +866,11 @@ class PkGroupsImporter with SyncRecordMixin {
             continue;
           }
           if (authoritativeSet.contains(pkUuid)) continue; // preserve.
-          // Recency grace (H6b): a row younger than `removalRecencyGrace` is
-          // never reconcile-deleted — see the constant's doc for the
-          // cross-device intent-loss race. A NULL stamp (rows predating the
-          // column) counts as NOT recent, so a missing stamp never
-          // permanently leaks a PK membership.
+          // Recency grace: a row younger than `removalRecencyGrace` is never
+          // reconcile-deleted — see the constant's doc for the cross-device
+          // intent-loss race. A NULL stamp (rows predating the column) counts
+          // as NOT recent, so a missing stamp never permanently leaks a PK
+          // membership.
           final createdAt = entry.createdAt;
           if (createdAt != null && createdAt.isAfter(graceCutoff)) {
             skippedRecent++;
@@ -947,7 +889,7 @@ class PkGroupsImporter with SyncRecordMixin {
         }
       }
 
-      // F06 honor-removal skips (background pull). No upsert, no emit. When the
+      // Honor-removal skips (background pull). No upsert, no emit. When the
       // device holds the local tombstone row AND is in the pkGroupSyncV2 cohort,
       // flip it to push_remove so the PK-token device converges PluralKit to
       // the user's cross-device removal instead of flapping. The DAO flip is
@@ -983,12 +925,11 @@ class PkGroupsImporter with SyncRecordMixin {
           if (!isUniqueConstraintViolation(e)) rethrow;
         }
         if (plan.generation > 0) {
-          // R1/H6c (composing with addMemberToGroup): minting a NEW incarnation
-          // wrote a fresh gen-N row, so the burned gen-(N-1) soft-deleted row is
-          // left in place. If it carried a stale push intent the orchestrator
-          // would push it out-of-order against the fresh revive. Hard-delete the
-          // superseded same-edge soft-deleted rows so the minted live row is the
-          // only pending intent for the edge.
+          // Minting a NEW incarnation wrote a fresh gen-N row, so the burned
+          // gen-(N-1) soft-deleted row is left in place. If it carried a stale
+          // push intent the orchestrator would push it out-of-order against the
+          // fresh revive. Hard-delete the superseded same-edge soft-deleted rows
+          // so the minted live row is the only pending intent for the edge.
           await _dao.hardDeleteSupersededEntryRowsForEdge(
             groupId: groupLocalId,
             memberId: plan.memberId,
@@ -1021,12 +962,11 @@ class PkGroupsImporter with SyncRecordMixin {
   }
 
   /// Mint the lowest live entry incarnation for the `(pkGroupUuid,
-  /// pkMemberUuid)` edge via [TombstoneGate] (F06 explicit-re-import revive).
-  /// Mirrors the repository's `addMemberToGroup` revive path. With no gate
-  /// wired the gen-0 id is returned unchanged. The classification pass only
-  /// reaches this when the edge IS PK-backed (both uuids present), so
+  /// pkMemberUuid)` edge via [TombstoneGate] (explicit-re-import revive). With
+  /// no gate wired the gen-0 id is returned unchanged. The classification pass
+  /// only reaches this when the edge IS PK-backed (both uuids present), so
   /// `deriveEntryIncarnationEntityId` never returns null here; [gen0Id] is the
-  /// already-derived gen-0 fallback for total safety.
+  /// already-derived gen-0 fallback.
   Future<MintedIncarnation> _mintEntryIncarnation(
     String pkGroupUuid,
     String pkMemberUuid,
@@ -1045,13 +985,12 @@ class PkGroupsImporter with SyncRecordMixin {
   }
 
   /// Whether the canonical PK-group sync entity for [pkGroupUuid] is tombstoned
-  /// in the engine's `field_versions` (F15). Checks the canonical
-  /// `pk-group:<uuid>` id AND every recorded alias's `legacy_entity_id` so a
-  /// group last seen under a legacy id is still recognized as burned. The FFI is
-  /// the only evidence when the Drift consumer row was hard-deleted by the drain
-  /// path or its `pluralkit_uuid` was nulled by a pre-fix `deleteGroup`. A null
-  /// gate (pre-pairing / unit tests without a real engine) reports nothing
-  /// tombstoned, byte-identical to the pre-F15 Drift-only path.
+  /// in the engine's `field_versions`. Checks the canonical `pk-group:<uuid>`
+  /// id AND every recorded alias's `legacy_entity_id` so a group last seen under
+  /// a legacy id is still recognized as burned. The FFI is the only evidence
+  /// when the Drift consumer row was hard-deleted by the drain path or its
+  /// `pluralkit_uuid` was nulled by an old `deleteGroup`. A null gate
+  /// (pre-pairing / unit tests without a real engine) reports nothing tombstoned.
   Future<bool> _isGroupCanonicalTombstoned(String pkGroupUuid) async {
     final gate = _tombstoneGate;
     if (gate == null) return false;
@@ -1068,11 +1007,9 @@ class PkGroupsImporter with SyncRecordMixin {
   }
 
   /// Mint the lowest live group incarnation id for [pkGroupUuid] via
-  /// [TombstoneGate] (F15 explicit-re-import revive). Walks gen 0
-  /// (`pk-group:<uuid>`), 1, 2, ... (`pk-group-g<N>:<uuid>`) to the first id no
-  /// peer holds a tombstone for. With no gate wired the gen-0 canonical id is
-  /// returned unchanged (this branch is only reached on an explicit re-import
-  /// over a tombstone, so a gate is normally present).
+  /// [TombstoneGate] (explicit-re-import revive). Walks gen 0 (`pk-group:<uuid>`),
+  /// 1, 2, ... (`pk-group-g<N>:<uuid>`) to the first id no peer holds a tombstone
+  /// for. With no gate wired the gen-0 canonical id is returned unchanged.
   Future<MintedIncarnation> _mintGroupIncarnation(String pkGroupUuid) async {
     final gate = _tombstoneGate;
     if (gate == null) {
@@ -1087,11 +1024,11 @@ class PkGroupsImporter with SyncRecordMixin {
     );
   }
 
-  /// Record the minted group incarnation id as an alias for [pkGroupUuid] (F15)
-  /// so a later sparse patch addressed to the incarnation id resolves back to
-  /// the canonical row, and a peer that upgrades later can map its old
-  /// tombstoned row. The gen-0 canonical id is never aliased (it points at
-  /// itself); only a genuine `pk-group-g<N>:<uuid>` incarnation is recorded.
+  /// Record the minted group incarnation id as an alias for [pkGroupUuid] so a
+  /// later sparse patch addressed to the incarnation id resolves back to the
+  /// canonical row, and a peer that upgrades later can map its old tombstoned
+  /// row. The gen-0 canonical id is never aliased (it points at itself); only a
+  /// genuine `pk-group-g<N>:<uuid>` incarnation is recorded.
   Future<void> _recordGroupIncarnationAlias(
     String pkGroupUuid,
     MintedIncarnation minted,
@@ -1147,15 +1084,12 @@ class PkGroupsImporter with SyncRecordMixin {
 
   /// Emit the one-shot legacy-alias deletes for [pkGroupUuid].
   ///
-  /// [currentIncarnationEntityId] is the row's LIVE incarnation id
-  /// (`deriveGroupIncarnationEntityId(uuid, row.syncGeneration)`); it is excluded
-  /// from the delete set in addition to the gen-0 canonical id. After an F15
-  /// explicit-re-import revive the row lives at gen>=1 and its incarnation id is
-  /// recorded as an alias by `_recordGroupIncarnationAlias`; without this
-  /// exclusion the very next emit-worthy pull would tombstone the freshly minted
-  /// incarnation (fleet-wide deletion of the revived group + a permanently
-  /// burned generation). Mirrors the repository twin
-  /// `_syncLegacyPkGroupAliasDeletes`, which excludes `_groupEntityId(group)`.
+  /// [currentIncarnationEntityId] is the row's LIVE incarnation id; it is
+  /// excluded from the delete set in addition to the gen-0 canonical id. After
+  /// an explicit-re-import revive the row lives at gen>=1 and its incarnation id
+  /// is recorded as an alias; without this exclusion the very next emit-worthy
+  /// pull would tombstone the freshly minted incarnation (fleet-wide deletion of
+  /// the revived group + a permanently burned generation).
   Future<void> _emitLegacyAliasDeletesForPkGroup(
     String pkGroupUuid, {
     required String currentIncarnationEntityId,
@@ -1164,15 +1098,11 @@ class PkGroupsImporter with SyncRecordMixin {
     final aliases = await _db.pkGroupSyncAliasesDao.getByPkGroupUuid(
       pkGroupUuid,
     );
-    // M14b (2026-06 PK audit): emit each legacy alias's delete ONCE, then drop
-    // the alias row. The pre-fix code re-emitted these tombstones on every pull
-    // forever (deleteByLegacyEntityId had zero callers). The canonical alias
-    // row (legacyEntityId == canonicalEntityId, or empty) and the row's current
-    // incarnation id (legacyEntityId == currentIncarnationEntityId) are never a
-    // delete target and are left untouched. The repair flow re-creates aliases
-    // when a fresh duplicate is merged, so a NEW alias still gets its one delete
-    // on the next pull before being cleaned — convergence is preserved, churn is
-    // not.
+    // Emit each legacy alias's delete ONCE, then drop the alias row. The
+    // canonical alias row (legacyEntityId == canonicalEntityId, or empty) and
+    // the row's current incarnation id are never a delete target and are left
+    // untouched. A NEW alias still gets its one delete on the next pull before
+    // being cleaned — convergence is preserved, churn is not.
     final legacyEntityIdsToDelete = <String, String>{}; // legacyEntityId -> raw
     for (final alias in aliases) {
       final raw = alias.legacyEntityId;
@@ -1182,12 +1112,12 @@ class PkGroupsImporter with SyncRecordMixin {
           legacyEntityId == currentIncarnationEntityId) {
         continue;
       }
-      // F25 emitter guard: never emit a delete for the deterministic hyphen-form
-      // self-id ('pk-group-<uuid>') or any id matching an active local
-      // member_groups row — that tombstone would hard-delete a peer's (or this
-      // device's own) live PK-group row, recurringly on every import. On a
-      // forbidden alias, PURGE the poisoned row (keyed on the RAW stored value)
-      // so the re-kill loop terminates. Composes with the F15 exclusions above.
+      // Never emit a delete for the deterministic hyphen-form self-id
+      // ('pk-group-<uuid>') or any id matching an active local member_groups
+      // row — that tombstone would hard-delete a peer's (or this device's own)
+      // live PK-group row, recurringly on every import. On a forbidden alias,
+      // PURGE the poisoned row (keyed on the RAW stored value) so the re-kill
+      // loop terminates.
       if (await isForbiddenAliasTarget(
         _db,
         _groupTable,
@@ -1221,9 +1151,7 @@ class PkGroupsImporter with SyncRecordMixin {
       if (entry.existedBefore) {
         // Revive of a locally soft-deleted entry: strip `is_deleted` from the
         // update patch so per-field LWW can't stamp a fresh HLC on
-        // `is_deleted: false` and resurrect a row a peer concurrently
-        // deleted. Mirrors the member_groups fix in commit 94f5d950 — see
-        // `lib/data/sync/field_diff.dart` for why update patches stay narrow.
+        // `is_deleted: false` and resurrect a row a peer concurrently deleted.
         await _emitUpdate(_entryTable, entry.id, {
           for (final entry in fields.entries)
             if (entry.key != 'is_deleted') entry.key: entry.value,
@@ -1243,11 +1171,10 @@ class PkGroupsImporter with SyncRecordMixin {
   }
 
   /// Light projection of active, non-excluded members for the PK group
-  /// reconcile (2026-06 PK audit M14d): the importer needs only id + PK UUID,
-  /// never the avatar/banner blobs, and excluded locals are dropped at the
-  /// source so no downstream site can re-attribute/push/remove them. Still
-  /// routes through `MemberRepository.getAllMembers()` so the member source
-  /// stays injectable; a repository-level light projection is out of scope.
+  /// reconcile: the importer needs only id + PK UUID, never the avatar/banner
+  /// blobs, and excluded locals are dropped at the source so no downstream site
+  /// can re-attribute/push/remove them. Still routes through
+  /// `MemberRepository.getAllMembers()` so the member source stays injectable.
   Future<List<_PkReconcileMember>> _loadReconcileMembers() async {
     final members = await _memberRepository.getAllMembers();
     return [
@@ -1265,12 +1192,11 @@ class PkGroupsImporter with SyncRecordMixin {
   /// hard-deleted (caller uses this for the `removed` counter).
   ///
   /// Called by both _refetchAndReconcileAddBucket AND
-  /// _refetchAndReconcileRemoveBucket on the 404 path. Order matters when
-  /// the same gone group appears in both buckets (2nd-pass review
-  /// [P3]): if the add path's clearAllPendingPkOpForGroup ran first, it
-  /// would wipe push_remove pending → the remove path's later DELETE
-  /// misses → zombie. The shared helper handles both ops atomically;
-  /// idempotent if called twice for the same group.
+  /// _refetchAndReconcileRemoveBucket on the 404 path. Order matters when the
+  /// same gone group appears in both buckets: if the add path's
+  /// clearAllPendingPkOpForGroup ran first, it would wipe push_remove pending →
+  /// the remove path's later DELETE misses → zombie. The shared helper handles
+  /// both ops atomically; idempotent if called twice for the same group.
   Future<int> _terminalCleanupForGoneGroup(String groupPkUuid) async {
     final group = await _dao.findByPluralkitUuid(groupPkUuid);
     if (group == null) return 0;
@@ -1297,7 +1223,7 @@ class PkGroupsImporter with SyncRecordMixin {
     return removed;
   }
 
-  // ── Step 6: push orchestrator ──────────────────────────────────────────
+  // ── Push orchestrator ──────────────────────────────────────────────────
 
   /// Push every pending group-membership op to PluralKit.
   ///
@@ -1314,9 +1240,6 @@ class PkGroupsImporter with SyncRecordMixin {
   /// Re-entrant via [_pushInFlight]: parallel callers await the same Future
   /// and get the same result. Bails immediately when [direction.pushEnabled]
   /// is false.
-  ///
-  /// See docs/plans/pk-group-membership-push.md (step 6 + v3-patches-2 #7
-  /// + v3-patches-2 #8 + cleanup-pass refinements) for the full algorithm.
   Future<PkGroupMembershipPushResult> pushPendingGroupOps(
     PluralKitClient client,
     PkSyncDirection direction,
@@ -1438,7 +1361,7 @@ class PkGroupsImporter with SyncRecordMixin {
       // between intent set and push would target the wrong PK identifier:
       // user adds member-with-uuid-A → entry.pkMemberUuid = A → user
       // relinks to B → push reads CURRENT member.pluralkitUuid (B) and
-      // pushes B, leaving A in the PK group permanently. Later review [P2].
+      // pushes B, leaving A in the PK group permanently.
       // Empty-string is treated as "not set" and falls back to current.
       final entryGroupPk = (entry.pkGroupUuid ?? '').trim();
       final entryMemberPk = (entry.pkMemberUuid ?? '').trim();
@@ -1449,11 +1372,10 @@ class PkGroupsImporter with SyncRecordMixin {
           ? entryMemberPk
           : member?.pluralkitUuid;
 
-      // Stale-link terminal policy (v3-patches #5): if either side lost
-      // its PK link, clear pending and move on. The row stays in its
-      // current is_deleted state; future syncs will not destructively
-      // touch it (the pull reconcile no-ops on rows with pending=none
-      // when the group has no PK UUID).
+      // Stale-link terminal policy: if either side lost its PK link, clear
+      // pending and move on. The row stays in its current is_deleted state;
+      // future syncs will not destructively touch it (the pull reconcile no-ops
+      // on rows with pending=none when the group has no PK UUID).
       if (groupPkUuid == null ||
           groupPkUuid.isEmpty ||
           memberPkUuid == null ||
@@ -1468,8 +1390,7 @@ class PkGroupsImporter with SyncRecordMixin {
         continue;
       }
 
-      // Pre-push CRDT-conflict compensation (v3-patches-2 #8): state
-      // disagrees with intent.
+      // Pre-push CRDT-conflict compensation: state disagrees with intent.
       final isAdd = entry.pendingPkOp == 'push_add';
       var isRemove = entry.pendingPkOp == 'push_remove';
       if (isAdd && entry.isDeleted) {
@@ -1486,7 +1407,7 @@ class PkGroupsImporter with SyncRecordMixin {
       }
       if (isRemove && !entry.isDeleted) {
         // An ACTIVE push_remove row can only be a CRDT revive from a peer —
-        // the local re-add path sets push_add itself (2026-06 PK audit H6c).
+        // the local re-add path sets push_add itself.
         // The user's remove wins: re-assert the tombstone, keep push_remove,
         // push the remove this round. Deliberately NO CRDT emit — that would
         // hard-delete a peer's possibly-legitimate racing re-add; peers
@@ -1572,12 +1493,12 @@ class PkGroupsImporter with SyncRecordMixin {
         );
         return result.copyWith(failed: result.failed + candidates.length);
       }
-      // A bulk add with one invalid ref fails ATOMIC (2026-06 PK audit M15c)
-      // with 404 code 20003, and the message NAMES the bad ref (live-verified).
-      // Without isolating it, the single bad ref poisons the whole bucket
-      // forever — every retry re-sends all refs, hits the same 20003, and no
-      // valid add ever lands. Drop just the named ref's intent as terminal,
-      // then retry the bucket with the survivors so the valid adds proceed.
+      // A bulk add with one invalid ref fails ATOMIC with 404 code 20003, and
+      // the message NAMES the bad ref. Without isolating it, the single bad ref
+      // poisons the whole bucket forever — every retry re-sends all refs, hits
+      // the same 20003, and no valid add ever lands. Drop just the named ref's
+      // intent as terminal, then retry the bucket with the survivors so the
+      // valid adds proceed.
       if (e.statusCode == 404 && e.code == 20003) {
         final reconciled = await _dropPoisonedAddRefAndRetry(
           client,
@@ -1612,11 +1533,11 @@ class PkGroupsImporter with SyncRecordMixin {
     }
   }
 
-  /// M15c: handle a bulk-add 404 code 20003 by dropping the single bad ref the
-  /// error names (terminal — it will never resolve) and retrying the bucket
-  /// with the remaining valid candidates. Returns the updated result, or null
-  /// when the bad ref couldn't be located in the error message (caller falls
-  /// back to the generic refetch path).
+  /// Handle a bulk-add 404 code 20003 by dropping the single bad ref the error
+  /// names (terminal — it will never resolve) and retrying the bucket with the
+  /// remaining valid candidates. Returns the updated result, or null when the
+  /// bad ref couldn't be located in the error message (caller falls back to the
+  /// generic refetch path).
   Future<PkGroupMembershipPushResult?> _dropPoisonedAddRefAndRetry(
     PluralKitClient client,
     String groupPkUuid,
@@ -1711,9 +1632,8 @@ class PkGroupsImporter with SyncRecordMixin {
     List<_PushCandidate> candidates,
     PkGroupMembershipPushResult result,
   ) async {
-    // 4xx + push_add: a v3-patches-2 cleanup pass narrowed the policy.
-    // Group-absence alone does NOT prove the member's UUID is stale on PK
-    // (could be auth, validation, transient). We refetch this group's
+    // 4xx + push_add: group-absence alone does NOT prove the member's UUID is
+    // stale on PK (could be auth, validation, transient). We refetch this group's
     // authoritative member list and per-entry compare:
     //   - member now in PK → desired state satisfied → guarded cleanup.
     //   - member not in PK → leave pending; record failure; retry next sync.
@@ -1724,7 +1644,7 @@ class PkGroupsImporter with SyncRecordMixin {
       authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
     } on PluralKitApiError catch (e) {
       if (_isGroupGone404(e)) {
-        // PK group is genuinely gone (404 + code 20004 — M15a). push_add AND
+        // PK group is genuinely gone (404 + code 20004). push_add AND
         // push_remove rows must be cleaned atomically, else a later
         // push_remove bucket sees pending=none tombstones and the guarded
         // DELETE misses (zombie). push_add candidates count as stranded.
@@ -1794,13 +1714,12 @@ class PkGroupsImporter with SyncRecordMixin {
       authoritative = (await client.getGroupMembers(groupPkUuid)).toSet();
     } on PluralKitApiError catch (e) {
       if (_isGroupGone404(e)) {
-        // PK group is genuinely gone (404 + code 20004 — M15a) → desired
-        // remove satisfied for every candidate. Use the shared terminal-
-        // cleanup helper which hard-deletes ALL push_remove tombstones in the
-        // group first (including any not in this bucket), then clears push_add
-        // to none. 2nd-pass review [P3]: a single bucket's local hard-delete
-        // is not enough when another bucket for the same gone group runs after
-        // this one.
+        // PK group is genuinely gone (404 + code 20004) → desired remove
+        // satisfied for every candidate. Use the shared terminal-cleanup helper
+        // which hard-deletes ALL push_remove tombstones in the group first
+        // (including any not in this bucket), then clears push_add to none: a
+        // single bucket's local hard-delete is not enough when another bucket
+        // for the same gone group runs after this one.
         final removed = await _terminalCleanupForGoneGroup(groupPkUuid);
         return result.copyWith(removed: result.removed + removed);
       }
@@ -1845,10 +1764,10 @@ class PkGroupsImporter with SyncRecordMixin {
     return _failOrCapRemoveCandidates(groupPkUuid, stillPending, result);
   }
 
-  /// True when [e] is a PK 404 whose parsed `code` is 20004 — the
-  /// "group not found" code (2026-06 PK audit M15a; live-verified that
-  /// `GET /groups/{deleted}/members` returns 404 code 20004). Any other 404
-  /// shape (auth proxy, transient) must NOT trigger terminal intent cleanup.
+  /// True when [e] is a PK 404 whose parsed `code` is 20004 — the "group not
+  /// found" code (`GET /groups/{deleted}/members` returns 404 code 20004). Any
+  /// other 404 shape (auth proxy, transient) must NOT trigger terminal intent
+  /// cleanup.
   static bool _isGroupGone404(PluralKitApiError e) =>
       e.statusCode == 404 && e.code == 20004;
 
@@ -1961,7 +1880,7 @@ class _PushCandidate {
   });
 }
 
-/// Light member projection for the PK group reconcile (M14d). Carries only the
+/// Light member projection for the PK group reconcile. Carries only the
 /// fields the reconcile reads — never avatar/banner blobs.
 class _PkReconcileMember {
   final String id;
@@ -1989,9 +1908,9 @@ class _ReconcileDelta {
   });
 }
 
-/// A resolved membership insert (F06 classification): the live entity id (gen 0
-/// for an ordinary insert, a minted incarnation for an explicit re-import
-/// revive), its generation, and whether a row already existed at that id.
+/// A resolved membership insert: the live entity id (gen 0 for an ordinary
+/// insert, a minted incarnation for an explicit re-import revive), its
+/// generation, and whether a row already existed at that id.
 class _EntryInsertPlan {
   final String entryId;
   final String memberId;
@@ -2009,8 +1928,8 @@ class _EntryInsertPlan {
 }
 
 /// A PK-listed member whose deterministic entry id is tombstoned and a
-/// background pull is honoring the peer's removal (F06): no revive. When a
-/// local tombstone row backs it, the cohort-gated push_remove flip converges
+/// background pull is honoring the peer's removal: no revive. When a local
+/// tombstone row backs it, the cohort-gated push_remove flip converges
 /// PluralKit to the user's cross-device removal.
 class _EntryTombstoneSkip {
   final String entryId;
@@ -2040,7 +1959,7 @@ class _SyncedEntry {
   });
 }
 
-/// Step 6 result type. Counts are best-effort; per-bucket failures may
+/// Push result type. Counts are best-effort; per-bucket failures may
 /// leave pending intents in the DB to retry on the next sync round.
 class PkGroupMembershipPushResult {
   /// Successful /members/add calls × member count → cleanup UPDATE landed.
@@ -2062,12 +1981,12 @@ class PkGroupMembershipPushResult {
   /// — the next round picks up the new intent.
   final int compensated;
 
-  /// Per-entry intents the orchestrator gave up on permanently (M15, 2026-06
-  /// PK audit): a poisoned bulk-add ref the server named bad (404 code 20003),
-  /// or a candidate that kept 4xx-failing past [
-  /// PkGroupsImporter.pushRetryMaxAge]. Distinct from [failed] (retry next
-  /// round) and [stranded] (PK link gone) so a UI/log surface can show
-  /// "permanently could not push N memberships" instead of silently looping.
+  /// Per-entry intents the orchestrator gave up on permanently: a poisoned
+  /// bulk-add ref the server named bad (404 code 20003), or a candidate that
+  /// kept 4xx-failing past [PkGroupsImporter.pushRetryMaxAge]. Distinct from
+  /// [failed] (retry next round) and [stranded] (PK link gone) so a UI/log
+  /// surface can show "permanently could not push N memberships" instead of
+  /// silently looping.
   final int terminallyFailed;
 
   const PkGroupMembershipPushResult({

@@ -24,7 +24,6 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_run_gate.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -1671,10 +1670,6 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'sync.enum_fields_reemit_v1': true,
         PkGroupSyncV2CatchupService.flagKey: true,
-        PkGroupRepairRunGate.checkedVersionKey:
-            PkGroupRepairRunGate.currentVersion,
-        PkGroupRepairRunGate.checkedAtKey: '2026-04-24T00:00:00.000',
-        PkGroupRepairRunGate.dirtyKey: true,
         'unrelated_flag': true,
       });
       final harness = await _ResetHarness.create();
@@ -1686,9 +1681,6 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('sync.enum_fields_reemit_v1'), isNull);
       expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isNull);
-      expect(prefs.getInt(PkGroupRepairRunGate.checkedVersionKey), isNull);
-      expect(prefs.getString(PkGroupRepairRunGate.checkedAtKey), isNull);
-      expect(prefs.getBool(PkGroupRepairRunGate.dirtyKey), isNull);
       expect(prefs.getBool('unrelated_flag'), isTrue);
     });
 
