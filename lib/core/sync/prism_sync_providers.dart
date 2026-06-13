@@ -138,6 +138,13 @@ Future<void> triggerOutboxDrain(
   return _OutboxDrainManager.instance.trigger(handle);
 }
 
+/// Reset the process-wide outbox drain manager between tests so a drainer wired
+/// to one test's [AppDatabase] does not leak into the next.
+@visibleForTesting
+void debugDisposeOutboxDrainForTesting() {
+  _OutboxDrainManager.instance.disposeForTesting();
+}
+
 class PrismSyncStructuredError {
   const PrismSyncStructuredError({
     required this.message,

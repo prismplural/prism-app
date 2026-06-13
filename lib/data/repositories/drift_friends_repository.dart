@@ -19,6 +19,9 @@ class DriftFriendsRepository with SyncRecordMixin implements FriendsRepository {
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'friends';
 
   DriftFriendsRepository(this._dao, this._syncHandle);
@@ -38,31 +41,43 @@ class DriftFriendsRepository with SyncRecordMixin implements FriendsRepository {
 
   @override
   Future<void> createFriend(domain.FriendRecord friend) async {
-    final companion = FriendMapper.toCompanion(friend);
-    await _dao.createFriend(companion);
-    await syncRecordCreate(_table, friend.id, _friendFields(friend));
+    // Insert + create-op intent commit atomically; dispatch post-commit
+    // (FFI outside the txn — reverted-revert invariant).
+    await runSyncedWrite(() async {
+      final companion = FriendMapper.toCompanion(friend);
+      await _dao.createFriend(companion);
+      await syncRecordCreate(_table, friend.id, _friendFields(friend));
+    });
   }
 
   @override
   Future<void> updateFriend(domain.FriendRecord friend) async {
-    final existingRow = await _dao.getById(friend.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    // Read-diff-write + update-op intent in one atomic txn (dispatch
+    // post-commit, FFI outside the txn).
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getById(friend.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _friendFieldsFromRow(existingRow),
-      _friendFields(friend),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _friendFieldsFromRow(existingRow),
+        _friendFields(friend),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialFriendCompanion(changedFields);
-    await _dao.updateFriend(friend.id, companion);
-    await syncRecordUpdate(_table, friend.id, changedFields);
+      final companion = _partialFriendCompanion(changedFields);
+      await _dao.updateFriend(friend.id, companion);
+      await syncRecordUpdate(_table, friend.id, changedFields);
+    });
   }
 
   @override
   Future<void> deleteFriend(String id) async {
-    await _dao.softDelete(id);
-    await syncRecordDelete(_table, id);
+    // Tombstone path (unrecoverable): soft-delete + delete-op intent
+    // commit atomically; dispatch post-commit (FFI outside the txn).
+    await runSyncedWrite(() async {
+      await _dao.softDelete(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   /// Visible-for-testing: builds the field map this repository hands to the

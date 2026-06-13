@@ -39,6 +39,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'members';
 
   DriftMemberRepository(
@@ -120,27 +123,36 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<void> createMember(domain.Member member) async {
+    // Insert + create-op intent commit atomically; the op dispatches
+    // post-commit. FFI dispatch stays outside the txn (reverted-revert
+    // invariant) — the create emits through the capture seam into an outbox row.
     final normalizedMember = _normalizeMember(member);
-    final companion = MemberMapper.toCompanion(normalizedMember);
-    await _dao.insertMember(companion);
-    await syncRecordCreate(
-      _table,
-      normalizedMember.id,
-      _memberFields(normalizedMember),
-    );
+    await runSyncedWrite(() async {
+      final companion = MemberMapper.toCompanion(normalizedMember);
+      await _dao.insertMember(companion);
+      await syncRecordCreate(
+        _table,
+        normalizedMember.id,
+        _memberFields(normalizedMember),
+      );
+    });
   }
 
   /// Creates a member at the end of the display order.
   Future<void> createMemberAtEnd(domain.Member member) async {
     final normalizedMember = _normalizeMember(member);
-    final companion = MemberMapper.toCompanion(normalizedMember);
-    final displayOrder = await _dao.insertMemberAtEnd(companion);
-    final createdMember = normalizedMember.copyWith(displayOrder: displayOrder);
-    await syncRecordCreate(
-      _table,
-      createdMember.id,
-      _memberFields(createdMember),
-    );
+    await runSyncedWrite(() async {
+      final companion = MemberMapper.toCompanion(normalizedMember);
+      final displayOrder = await _dao.insertMemberAtEnd(companion);
+      final createdMember = normalizedMember.copyWith(
+        displayOrder: displayOrder,
+      );
+      await syncRecordCreate(
+        _table,
+        createdMember.id,
+        _memberFields(createdMember),
+      );
+    });
   }
 
   @override
@@ -256,27 +268,34 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     required bool allowPluralKitLinkMutation,
     required bool allowResumeSyncIgnored,
   }) async {
-    final existingRow = await _dao.getMemberByIdRow(id);
-    if (existingRow == null || existingRow.isDeleted) return 0;
+    // The field write and its update-op intent commit atomically; the op
+    // dispatches post-commit. The diff/strip work runs inside the txn so a
+    // concurrent write can't slip between the read and the update. FFI dispatch
+    // stays outside the txn (reverted-revert invariant) — emission is captured
+    // into an outbox row.
+    return runSyncedWrite<int>(() async {
+      final existingRow = await _dao.getMemberByIdRow(id);
+      if (existingRow == null || existingRow.isDeleted) return 0;
 
-    final patch = diffSyncFields(
-      _memberFieldsFromRow(existingRow),
-      _knownMemberFields(changedFields),
-    );
+      final patch = diffSyncFields(
+        _memberFieldsFromRow(existingRow),
+        _knownMemberFields(changedFields),
+      );
 
-    if (existingRow.pluralkitSyncIgnored && !allowPluralKitLinkMutation) {
-      _stripPkLinkFields(patch, id);
-    }
-    if (existingRow.pluralkitSyncIgnored && !allowResumeSyncIgnored) {
-      _stripResumeSyncIgnored(patch, id);
-    }
+      if (existingRow.pluralkitSyncIgnored && !allowPluralKitLinkMutation) {
+        _stripPkLinkFields(patch, id);
+      }
+      if (existingRow.pluralkitSyncIgnored && !allowResumeSyncIgnored) {
+        _stripResumeSyncIgnored(patch, id);
+      }
 
-    if (patch.isEmpty) return 1; // no-op success
-    final companion = _partialMemberCompanion(patch);
-    final affected = await _dao.updateMemberById(id, companion);
-    if (affected != 1) return affected;
-    await syncRecordUpdate(_table, id, patch);
-    return affected;
+      if (patch.isEmpty) return 1; // no-op success
+      final companion = _partialMemberCompanion(patch);
+      final affected = await _dao.updateMemberById(id, companion);
+      if (affected != 1) return affected;
+      await syncRecordUpdate(_table, id, patch);
+      return affected;
+    });
   }
 
   void _stripPkLinkFields(Map<String, dynamic> patch, String id) {
@@ -443,32 +462,42 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       throw StateError('Unknown sentinel cannot be deleted');
     }
 
-    // Plan 02 R1: if this member has a PK link and a sync DAO is wired,
-    // stamp the current link epoch on the tombstone in the same transaction
-    // so the PK push path can distinguish "tombstoned under this link" from
-    // "tombstoned under a prior link / while disconnected." Members without
-    // a PK link skip the stamp — there's nothing to push anyway.
-    int? epoch;
-    final pkDao = _pkSyncDao;
-    final existing = await _dao.getMemberById(id);
-    final isLinked =
-        existing != null &&
-        ((existing.pluralkitId != null && existing.pluralkitId!.isNotEmpty) ||
-            (existing.pluralkitUuid != null &&
-                existing.pluralkitUuid!.isNotEmpty));
-    if (pkDao != null && isLinked) {
-      epoch = await pkDao.getLinkEpoch();
-    }
+    // The tombstone write and its sync-op intent commit atomically in one
+    // transaction; the delete is dispatched strictly after commit by the
+    // drainer. A tombstone is unrecoverable, so this is the highest-value path
+    // to make crash-safe — a crash between the old separate Drift commit and
+    // FFI call would have dropped the delete op, leaving the member alive (and
+    // resurrectable) on every peer. All FFI dispatch stays OUTSIDE the txn (the
+    // reverted-revert invariant): the cascade emissions and the alias fan-out
+    // emit through the suppress/capture seam and persist as outbox rows.
+    await runSyncedWrite(() async {
+      // If this member has a PK link and a sync DAO is wired,
+      // stamp the current link epoch on the tombstone in the same transaction
+      // so the PK push path can distinguish "tombstoned under this link" from
+      // "tombstoned under a prior link / while disconnected." Members without
+      // a PK link skip the stamp — there's nothing to push anyway.
+      int? epoch;
+      final pkDao = _pkSyncDao;
+      final existing = await _dao.getMemberById(id);
+      final isLinked =
+          existing != null &&
+          ((existing.pluralkitId != null && existing.pluralkitId!.isNotEmpty) ||
+              (existing.pluralkitUuid != null &&
+                  existing.pluralkitUuid!.isNotEmpty));
+      if (pkDao != null && isLinked) {
+        epoch = await pkDao.getLinkEpoch();
+      }
 
-    await _removeDeletedMemberFromGroups(id);
-    await _dao.softDeleteMember(id);
-    if (epoch != null) {
-      await _dao.stampDeleteIntent(id, epoch);
-    }
-    await _resetDeletedMemberProfilePreferences(id);
-    await _removeDeletedMemberFromConversations(id);
-    await syncRecordDelete(_table, id);
-    await _fanOutPkIdentityAliasDeletes(existing);
+      await _removeDeletedMemberFromGroups(id);
+      await _dao.softDeleteMember(id);
+      if (epoch != null) {
+        await _dao.stampDeleteIntent(id, epoch);
+      }
+      await _resetDeletedMemberProfilePreferences(id);
+      await _removeDeletedMemberFromConversations(id);
+      await syncRecordDelete(_table, id);
+      await _fanOutPkIdentityAliasDeletes(existing);
+    });
   }
 
   /// Delete-only fan-out: after tombstoning the local row, plant terminal

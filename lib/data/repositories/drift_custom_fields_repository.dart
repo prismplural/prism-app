@@ -25,6 +25,9 @@ class DriftCustomFieldsRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _fieldsTable = 'custom_fields';
   static const _valuesTable = 'custom_field_values';
 
@@ -365,53 +368,67 @@ class DriftCustomFieldsRepository
       );
     }
     final companion = CustomFieldValueMapper.toCompanion(value);
-    await _dao.upsertValue(companion);
-    await syncRecordCreate(_valuesTable, value.id, _valueFields(value));
+    // Upsert + create-op intent commit atomically (dispatch post-commit,
+    // FFI outside the txn — reverted-revert invariant).
+    await runSyncedWrite(() async {
+      await _dao.upsertValue(companion);
+      await syncRecordCreate(_valuesTable, value.id, _valueFields(value));
+    });
   }
 
   @override
   Future<void> deleteValue(String id) async {
-    await _dao.deleteValue(id);
-    await syncRecordDelete(_valuesTable, id);
+    // Tombstone path (unrecoverable): delete + delete-op intent commit
+    // atomically; dispatch post-commit (FFI outside the txn).
+    await runSyncedWrite(() async {
+      await _dao.deleteValue(id);
+      await syncRecordDelete(_valuesTable, id);
+    });
   }
 
   @override
   Future<void> deleteValuesForField(String fieldId) async {
-    final values = await _dao.watchValuesForField(fieldId).first;
-    await _dao.deleteValuesForField(fieldId);
-    for (final value in values) {
-      await syncRecordDelete(_valuesTable, value.id);
-    }
+    // Tombstone path: bulk delete + per-value delete-op intents commit
+    // atomically; dispatch post-commit (FFI outside the txn).
+    await runSyncedWrite(() async {
+      final values = await _dao.watchValuesForField(fieldId).first;
+      await _dao.deleteValuesForField(fieldId);
+      for (final value in values) {
+        await syncRecordDelete(_valuesTable, value.id);
+      }
+    });
   }
 
   @override
   Future<void> deleteValuesForMember(String memberId) async {
-    final values = await _dao.watchValuesForMember(memberId).first;
-    await _dao.deleteValuesForMember(memberId);
-    for (final value in values) {
-      await syncRecordDelete(_valuesTable, value.id);
-    }
+    // Tombstone path (unrecoverable): bulk delete + per-value delete-op
+    // intents commit atomically; dispatch post-commit (FFI outside the txn).
+    await runSyncedWrite(() async {
+      final values = await _dao.watchValuesForMember(memberId).first;
+      await _dao.deleteValuesForMember(memberId);
+      for (final value in values) {
+        await syncRecordDelete(_valuesTable, value.id);
+      }
+    });
   }
 
   @override
-  Future<T> commitValueBatch<T>(Future<T> Function() writes) async {
-    // One outer transaction so the per-field `upsertValue` transactions nest
-    // as savepoints (N fsyncs collapse to one), with emissions captured and
-    // replayed only after the durable commit — see the interface contract.
+  Future<T> commitValueBatch<T>(Future<T> Function() writes) {
+    // One outer transaction so the per-field `upsertValue` transactions nest as
+    // savepoints (N fsyncs collapse to one), with the emissions captured and
+    // persisted into the durable outbox INSIDE the same transaction so the
+    // value writes and their op intents commit atomically; the drainer
+    // dispatches them to the FFI strictly AFTER commit (`runSyncedWrite`).
     //
-    // KNOWN LIMITATION (liveness, not safety): [captured] is an in-memory
-    // outbox, so a crash between commit and replay leaves rows durable but
-    // their ops un-emitted (peers catch up on the next edit). Batching widens
-    // this from one row to N, but every commit-then-emit write shares the gap,
-    // so it's left to the planned sync-reconciliation layer rather than a
-    // durable outbox table here. The safety half (never emit for an
-    // uncommitted row) holds: a rolled-back batch captures nothing.
-    final captured = <CapturedSyncOp>[];
-    final result = await _dao.transaction(
-      () => SyncRecordMixin.suppressAndCapture(writes, captured.add),
-    );
-    await replayCapturedOps(captured, logLabel: 'Custom-field batch');
-    return result;
+    // This closes the documented commit-to-replay gap: the old code captured
+    // into an in-memory list and replayed via FFI post-commit, so a crash
+    // between commit and replay left the values durable but their ops un-emitted
+    // (worse for a batch, which dropped all N at once). Outbox rows make the
+    // intent as durable as the data; the safety half (never emit for an
+    // uncommitted row) still holds — a rolled-back batch rolls back both the
+    // value rows and the outbox rows. FFI dispatch stays OUTSIDE the txn (the
+    // reverted-revert invariant): persist inside, drain after.
+    return runSyncedWrite(writes);
   }
 
   // ── Sync field maps ────────────────────────────────────────────────

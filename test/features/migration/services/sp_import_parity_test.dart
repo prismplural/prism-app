@@ -19,6 +19,9 @@ import 'package:http/http.dart' as http;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show debugDisposeOutboxDrainForTesting;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
@@ -203,10 +206,21 @@ Future<void> _runParity({
   errors.install();
   streamCounter.start(db);
 
+  // The importer persists emissions into the durable outbox inside its
+  // transaction (gated on persisted sync credentials) instead of replaying them
+  // through the FFI sink post-commit. Flip the gate on for all fixtures so
+  // parity is observed against the outbox rows — matching the prior harness,
+  // which recorded the emission multiset regardless of pairing (the `unpaired`
+  // distinction is the zero-error-report assertion, not a different emission
+  // set).
+  syncCredentialsPersisted.value = true;
+
   addTearDown(() async {
     syncHandle.remove();
     errors.remove();
     await streamCounter.stop();
+    syncCredentialsPersisted.value = false;
+    debugDisposeOutboxDrainForTesting();
   });
 
   // All repositories wired to the real Drift DB with null sync handle —
@@ -328,7 +342,25 @@ Future<void> _runParity({
 
   // ---------- Observed outputs ----------
   final snapshot = await snapshotDb(db);
-  final emissions = List<RecordedEmission>.unmodifiable(syncHandle.recordings);
+  // The importer now persists its in-transaction emissions into the
+  // durable outbox (the drain trigger fires with a null handle in the harness,
+  // so the rows are deferred, not dispatched — they sit in the table for
+  // inspection). A rolled-back import leaves zero outbox rows, so the
+  // failing_tx golden's emission array stays `[]` and assertion 2 converges
+  // with assertion 4.
+  //
+  // A few emissions happen LIVE *after* the import transaction commits — the
+  // post-import "auto-enable boards + nav overflow" settings writes. In
+  // production those flow through the same outbox; in the harness the installed
+  // capture sink short-circuits the live `syncRecord*` path before the outbox
+  // enqueue, so they land in `syncHandle.recordings` instead. Merge both
+  // sources so the observed multiset is the full production emission set. Order
+  // is irrelevant — assertion 2 compares multisets.
+  final outboxRows = await db.syncOutboxDao.allInIdOrder();
+  final emissions = List<RecordedEmission>.unmodifiable([
+    ...outboxRows.map(RecordedEmission.fromOutboxRow),
+    ...syncHandle.recordings,
+  ]);
   final progressEvents = List<ProgressEvent>.unmodifiable(progress.events);
   final errorReports = List<RecordedError>.unmodifiable(errors.errors);
   final streamUpdates = Map<String, int>.unmodifiable(
@@ -592,10 +624,15 @@ Future<void> _runMidBatchFailureParity({
 
   syncHandle.install();
   errors.install();
+  // Emissions are persisted into the outbox inside the import transaction;
+  // a mid-batch rollback must roll BOTH the data and the outbox rows back.
+  syncCredentialsPersisted.value = true;
 
   addTearDown(() {
     syncHandle.remove();
     errors.remove();
+    syncCredentialsPersisted.value = false;
+    debugDisposeOutboxDrainForTesting();
   });
 
   final memberRepo = DriftMemberRepository(db.membersDao, null);
@@ -711,15 +748,15 @@ Future<void> _runMidBatchFailureParity({
     );
   }
 
-  // Assertion B: emissions empty — `suppressAndCapture`'s try/finally
-  // dropped the captured tuples on the throw; the post-commit replay
-  // loop never ran.
+  // Assertion B: emissions empty — the importer persists captured ops into the outbox
+  // inside the transaction, so a mid-batch rollback discards them atomically
+  // with the data rows. Zero outbox rows == zero emissions reached any peer.
   expect(
-    syncHandle.recordings,
+    await db.syncOutboxDao.allInIdOrder(),
     isEmpty,
     reason:
-        'mid-batch failure: replay loop must not have fired '
-        '(captured list discarded on throw)',
+        'mid-batch failure: outbox rows must roll back with the data '
+        '(no emission can survive an uncommitted import)',
   );
 }
 

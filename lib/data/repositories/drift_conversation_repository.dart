@@ -21,6 +21,9 @@ class DriftConversationRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'conversations';
 
   DriftConversationRepository(this._dao, this._syncHandle);
@@ -87,77 +90,90 @@ class DriftConversationRepository
         .toList();
   }
 
+  // Every mutation below wraps its DAO write and its sync-op emission in
+  // `runSyncedWrite`, so the data row and the durable outbox row(s) commit
+  // atomically and the FFI dispatch happens strictly post-commit (the
+  // reverted-revert invariant). Reached from the member-delete cascade these
+  // run under an active suppress/capture context, where `runSyncedWrite` defers
+  // to the outer seam (no nested transaction, emissions captured by the cascade).
   @override
   Future<void> createConversation(domain.Conversation conversation) async {
-    final companion = ConversationMapper.toCompanion(conversation);
-    await _dao.insertConversation(companion);
-    final fields = _conversationFields(conversation);
-    // Sparse-emit for pre-v25 peers — kept outside `_conversationFields`
-    // because diffSyncFields can't represent sparse semantics. Inline-emit
-    // only when true (matches the pre-migration `conversationFields`
-    // contract for new rows).
-    if (conversation.includesAllMembers) {
-      fields['includes_all_members'] = true;
-    }
-    if (conversation.archivedForEveryone) {
-      fields['archived_for_everyone'] = true;
-    }
-    await syncRecordCreate(_table, conversation.id, fields);
+    await runSyncedWrite(() async {
+      final companion = ConversationMapper.toCompanion(conversation);
+      await _dao.insertConversation(companion);
+      final fields = _conversationFields(conversation);
+      // Sparse-emit for pre-v25 peers — kept outside `_conversationFields`
+      // because diffSyncFields can't represent sparse semantics. Inline-emit
+      // only when true (matches the pre-migration `conversationFields`
+      // contract for new rows).
+      if (conversation.includesAllMembers) {
+        fields['includes_all_members'] = true;
+      }
+      if (conversation.archivedForEveryone) {
+        fields['archived_for_everyone'] = true;
+      }
+      await syncRecordCreate(_table, conversation.id, fields);
+    });
   }
 
   @override
   Future<void> updateConversation(domain.Conversation conversation) async {
-    final existingRow = await _dao.getConversationById(conversation.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getConversationById(conversation.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _conversationFieldsFromRow(existingRow),
-      _conversationFields(conversation),
-    );
+      final changedFields = diffSyncFields(
+        _conversationFieldsFromRow(existingRow),
+        _conversationFields(conversation),
+      );
 
-    // Sparse-emit for pre-schema peers — kept outside the diff helper because
-    // diffSyncFields can't represent sparse semantics. `_conversationFields`
-    // and `_conversationFieldsFromRow` both omit `includes_all_members` and
-    // `archived_for_everyone`, so the diff can never surface either transition;
-    // emit each inline whenever its boolean changes, mirroring the setters.
-    final previousIncludesAll = existingRow.includesAllMembers;
-    final nextIncludesAll = conversation.includesAllMembers;
-    if (previousIncludesAll != nextIncludesAll) {
-      changedFields['includes_all_members'] = nextIncludesAll;
-    }
-    final previousArchivedForEveryone = existingRow.archivedForEveryone;
-    final nextArchivedForEveryone = conversation.archivedForEveryone;
-    if (previousArchivedForEveryone != nextArchivedForEveryone) {
-      changedFields['archived_for_everyone'] = nextArchivedForEveryone;
-    }
+      // Sparse-emit for pre-schema peers — kept outside the diff helper because
+      // diffSyncFields can't represent sparse semantics. `_conversationFields`
+      // and `_conversationFieldsFromRow` both omit `includes_all_members` and
+      // `archived_for_everyone`, so the diff can never surface either
+      // transition; emit each inline whenever its boolean changes, mirroring
+      // the setters.
+      final previousIncludesAll = existingRow.includesAllMembers;
+      final nextIncludesAll = conversation.includesAllMembers;
+      if (previousIncludesAll != nextIncludesAll) {
+        changedFields['includes_all_members'] = nextIncludesAll;
+      }
+      final previousArchivedForEveryone = existingRow.archivedForEveryone;
+      final nextArchivedForEveryone = conversation.archivedForEveryone;
+      if (previousArchivedForEveryone != nextArchivedForEveryone) {
+        changedFields['archived_for_everyone'] = nextArchivedForEveryone;
+      }
 
-    if (changedFields.isEmpty) return;
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialConversationCompanion(
-      conversation.id,
-      changedFields,
-      includesAllMembers: previousIncludesAll != nextIncludesAll
-          ? nextIncludesAll
-          : null,
-      archivedForEveryone:
-          previousArchivedForEveryone != nextArchivedForEveryone
-          ? nextArchivedForEveryone
-          : null,
-    );
-    await _dao.updateConversation(companion);
-    await syncRecordUpdate(_table, conversation.id, changedFields);
+      final companion = _partialConversationCompanion(
+        conversation.id,
+        changedFields,
+        includesAllMembers: previousIncludesAll != nextIncludesAll
+            ? nextIncludesAll
+            : null,
+        archivedForEveryone:
+            previousArchivedForEveryone != nextArchivedForEveryone
+            ? nextArchivedForEveryone
+            : null,
+      );
+      await _dao.updateConversation(companion);
+      await syncRecordUpdate(_table, conversation.id, changedFields);
+    });
   }
 
   @override
   Future<void> addParticipantId(String conversationId, String memberId) async {
-    final row = await _dao.getConversationById(conversationId);
-    if (row == null) return;
-    final conv = ConversationMapper.toDomain(row);
-    if (conv.participantIds.contains(memberId)) return;
-    final updatedIds = [...conv.participantIds, memberId];
-    final json = jsonEncode(updatedIds);
-    await _dao.updateParticipantIds(conversationId, json);
-    await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+    await runSyncedWrite(() async {
+      final row = await _dao.getConversationById(conversationId);
+      if (row == null) return;
+      final conv = ConversationMapper.toDomain(row);
+      if (conv.participantIds.contains(memberId)) return;
+      final updatedIds = [...conv.participantIds, memberId];
+      final json = jsonEncode(updatedIds);
+      await _dao.updateParticipantIds(conversationId, json);
+      await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+    });
   }
 
   @override
@@ -166,16 +182,20 @@ class DriftConversationRepository
     List<String> memberIds,
   ) async {
     if (memberIds.isEmpty) return;
-    final row = await _dao.getConversationById(conversationId);
-    if (row == null) return;
-    final conv = ConversationMapper.toDomain(row);
-    final existingIds = conv.participantIds.toSet();
-    final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
-    if (newIds.isEmpty) return;
-    final updatedIds = [...conv.participantIds, ...newIds];
-    final json = jsonEncode(updatedIds);
-    await _dao.updateParticipantIds(conversationId, json);
-    await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+    await runSyncedWrite(() async {
+      final row = await _dao.getConversationById(conversationId);
+      if (row == null) return;
+      final conv = ConversationMapper.toDomain(row);
+      final existingIds = conv.participantIds.toSet();
+      final newIds = memberIds
+          .where((id) => !existingIds.contains(id))
+          .toList();
+      if (newIds.isEmpty) return;
+      final updatedIds = [...conv.participantIds, ...newIds];
+      final json = jsonEncode(updatedIds);
+      await _dao.updateParticipantIds(conversationId, json);
+      await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+    });
   }
 
   @override
@@ -183,31 +203,37 @@ class DriftConversationRepository
     String conversationId,
     String memberId,
   ) async {
-    final row = await _dao.getConversationById(conversationId);
-    if (row == null) return;
-    final conv = ConversationMapper.toDomain(row);
-    if (!conv.participantIds.contains(memberId)) return;
-    final updatedIds = conv.participantIds
-        .where((id) => id != memberId)
-        .toList();
-    final json = jsonEncode(updatedIds);
-    await _dao.updateParticipantIds(conversationId, json);
-    await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+    await runSyncedWrite(() async {
+      final row = await _dao.getConversationById(conversationId);
+      if (row == null) return;
+      final conv = ConversationMapper.toDomain(row);
+      if (!conv.participantIds.contains(memberId)) return;
+      final updatedIds = conv.participantIds
+          .where((id) => id != memberId)
+          .toList();
+      final json = jsonEncode(updatedIds);
+      await _dao.updateParticipantIds(conversationId, json);
+      await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+    });
   }
 
   @override
   Future<void> setIncludesAllMembers(String conversationId, bool value) async {
-    await _dao.updateIncludesAllMembers(conversationId, value);
-    await syncRecordUpdate(_table, conversationId, {
-      'includes_all_members': value,
+    await runSyncedWrite(() async {
+      await _dao.updateIncludesAllMembers(conversationId, value);
+      await syncRecordUpdate(_table, conversationId, {
+        'includes_all_members': value,
+      });
     });
   }
 
   @override
   Future<void> setArchivedForEveryone(String conversationId, bool value) async {
-    await _dao.updateArchivedForEveryone(conversationId, value);
-    await syncRecordUpdate(_table, conversationId, {
-      'archived_for_everyone': value,
+    await runSyncedWrite(() async {
+      await _dao.updateArchivedForEveryone(conversationId, value);
+      await syncRecordUpdate(_table, conversationId, {
+        'archived_for_everyone': value,
+      });
     });
   }
 
@@ -216,10 +242,12 @@ class DriftConversationRepository
     String conversationId,
     List<String> memberIds,
   ) async {
-    final json = jsonEncode(memberIds);
-    await _dao.updateArchivedByMemberIds(conversationId, json);
-    await syncRecordUpdate(_table, conversationId, {
-      'archived_by_member_ids': json,
+    await runSyncedWrite(() async {
+      final json = jsonEncode(memberIds);
+      await _dao.updateArchivedByMemberIds(conversationId, json);
+      await syncRecordUpdate(_table, conversationId, {
+        'archived_by_member_ids': json,
+      });
     });
   }
 
@@ -228,10 +256,12 @@ class DriftConversationRepository
     String conversationId,
     List<String> memberIds,
   ) async {
-    final json = jsonEncode(memberIds);
-    await _dao.updateMutedByMemberIds(conversationId, json);
-    await syncRecordUpdate(_table, conversationId, {
-      'muted_by_member_ids': json,
+    await runSyncedWrite(() async {
+      final json = jsonEncode(memberIds);
+      await _dao.updateMutedByMemberIds(conversationId, json);
+      await syncRecordUpdate(_table, conversationId, {
+        'muted_by_member_ids': json,
+      });
     });
   }
 
@@ -240,22 +270,28 @@ class DriftConversationRepository
     String conversationId,
     Map<String, DateTime> timestamps,
   ) async {
-    // Normalize to UTC before serializing — local DateTimes emit no offset/Z,
-    // so a peer in a different timezone would parse the value as local and
-    // shift the absolute moment by the timezone delta on every sync.
-    final json = jsonEncode(
-      timestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),
-    );
-    await _dao.updateLastReadTimestamps(conversationId, json);
-    await syncRecordUpdate(_table, conversationId, {
-      'last_read_timestamps': json,
+    await runSyncedWrite(() async {
+      // Normalize to UTC before serializing — local DateTimes emit no offset/Z,
+      // so a peer in a different timezone would parse the value as local and
+      // shift the absolute moment by the timezone delta on every sync.
+      final json = jsonEncode(
+        timestamps.map((k, v) => MapEntry(k, toSyncUtc(v))),
+      );
+      await _dao.updateLastReadTimestamps(conversationId, json);
+      await syncRecordUpdate(_table, conversationId, {
+        'last_read_timestamps': json,
+      });
     });
   }
 
   @override
   Future<void> deleteConversation(String id) async {
-    await _dao.softDeleteConversation(id);
-    await syncRecordDelete(_table, id);
+    // Tombstone path (unrecoverable): soft-delete + delete-op intent
+    // commit atomically; dispatch post-commit (FFI outside the txn).
+    await runSyncedWrite(() async {
+      await _dao.softDeleteConversation(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   @override
@@ -263,24 +299,26 @@ class DriftConversationRepository
 
   @override
   Future<void> updateLastActivity(String id) async {
-    // Read BEFORE the DAO write so the diff sees the pre-bump state.
-    // Refetching after the write would over-emit every column (see the
-    // read-after-write trap in the migration plan).
-    final existingRow = await _dao.getConversationById(id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      // Read BEFORE the DAO write so the diff sees the pre-bump state.
+      // Refetching after the write would over-emit every column (see the
+      // read-after-write trap in the migration plan).
+      final existingRow = await _dao.getConversationById(id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final bumped = ConversationMapper.toDomain(
-      existingRow,
-    ).copyWith(lastActivityAt: DateTime.now());
-    final changedFields = diffSyncFields(
-      _conversationFieldsFromRow(existingRow),
-      _conversationFields(bumped),
-    );
-    if (changedFields.isEmpty) return;
+      final bumped = ConversationMapper.toDomain(
+        existingRow,
+      ).copyWith(lastActivityAt: DateTime.now());
+      final changedFields = diffSyncFields(
+        _conversationFieldsFromRow(existingRow),
+        _conversationFields(bumped),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialConversationCompanion(id, changedFields);
-    await _dao.updateConversation(companion);
-    await syncRecordUpdate(_table, id, changedFields);
+      final companion = _partialConversationCompanion(id, changedFields);
+      await _dao.updateConversation(companion);
+      await syncRecordUpdate(_table, id, changedFields);
+    });
   }
 
   /// Visible-for-testing: builds the field map this repository hands to the

@@ -24,6 +24,9 @@ class DriftMemberBoardPostsRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'member_board_posts';
   static const _membersTable = 'members';
 
@@ -123,9 +126,13 @@ class DriftMemberBoardPostsRepository
       post.audience == 'public' || post.audience == 'private',
       'audience must be exactly "public" or "private", got "${post.audience}"',
     );
-    final companion = MemberBoardPostMapper.toCompanion(post);
-    await _dao.createPost(companion);
-    await syncRecordCreate(_table, post.id, _postFields(post));
+    // Insert + create-op intent commit atomically; dispatch is post-commit
+    // (FFI stays outside the txn — reverted-revert invariant).
+    await runSyncedWrite(() async {
+      final companion = MemberBoardPostMapper.toCompanion(post);
+      await _dao.createPost(companion);
+      await syncRecordCreate(_table, post.id, _postFields(post));
+    });
   }
 
   @override
@@ -140,26 +147,35 @@ class DriftMemberBoardPostsRepository
     // update path would silently strip `is_deleted` (owned by
     // `syncRecordDelete` / `syncRecordCreate`) and resurrect the post on
     // peers via a fresh-HLC write to the surviving fields.
-    final existingRow = await _dao.getPostById(post.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    // Read-diff-write + update-op intent in one atomic txn (dispatch
+    // post-commit, FFI outside the txn).
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getPostById(post.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _postFieldsFromRow(existingRow),
-      _postFields(post),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _postFieldsFromRow(existingRow),
+        _postFields(post),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialPostCompanion(changedFields);
-    await _dao.updatePost(post.id, companion);
-    await syncRecordUpdate(_table, post.id, changedFields);
+      final companion = _partialPostCompanion(changedFields);
+      await _dao.updatePost(post.id, companion);
+      await syncRecordUpdate(_table, post.id, changedFields);
+    });
   }
 
   @override
   Future<void> softDeletePost(String id) async {
-    await _dao.softDeletePost(id);
-    // Soft-delete emits a syncRecordUpdate (not syncRecordDelete) so the
-    // tombstone is a field-level LWW write, not an entity-level hard delete.
-    await syncRecordUpdate(_table, id, {'is_deleted': true});
+    // Tombstone path (unrecoverable): the soft-delete write and its op
+    // intent commit atomically; dispatch is post-commit (FFI outside the txn,
+    // reverted-revert invariant). The soft-delete emits a syncRecordUpdate (not
+    // syncRecordDelete) so the tombstone is a field-level LWW write, not an
+    // entity-level hard delete.
+    await runSyncedWrite(() async {
+      await _dao.softDeletePost(id);
+      await syncRecordUpdate(_table, id, {'is_deleted': true});
+    });
   }
 
   // ---------------------------------------------------------------------------

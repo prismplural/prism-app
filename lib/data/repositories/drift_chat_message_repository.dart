@@ -20,6 +20,9 @@ class DriftChatMessageRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'chat_messages';
 
   DriftChatMessageRepository(this._dao, this._syncHandle);
@@ -77,37 +80,50 @@ class DriftChatMessageRepository
 
   @override
   Future<void> createMessage(domain.ChatMessage message) async {
-    final companion = ChatMessageMapper.toCompanion(message);
-    await _dao.insertMessage(companion);
-    await syncRecordCreate(_table, message.id, _messageFields(message));
+    // Insert + create-op intent commit atomically; dispatch post-commit
+    // (FFI outside the txn — reverted-revert invariant).
+    await runSyncedWrite(() async {
+      final companion = ChatMessageMapper.toCompanion(message);
+      await _dao.insertMessage(companion);
+      await syncRecordCreate(_table, message.id, _messageFields(message));
+    });
   }
 
   @override
   Future<void> updateMessage(domain.ChatMessage message) async {
-    final existingRow = await _dao.getMessageById(message.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    // Read-diff-write + update-op intent in one atomic txn (dispatch
+    // post-commit, FFI outside the txn).
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getMessageById(message.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _messageFieldsFromRow(existingRow),
-      _messageFields(message),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _messageFieldsFromRow(existingRow),
+        _messageFields(message),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialMessageCompanion(message.id, changedFields);
-    await _dao.updateMessage(companion);
-    await syncRecordUpdate(_table, message.id, changedFields);
+      final companion = _partialMessageCompanion(message.id, changedFields);
+      await _dao.updateMessage(companion);
+      await syncRecordUpdate(_table, message.id, changedFields);
+    });
   }
 
   @override
   Future<void> deleteMessage(String id) async {
-    final result = await _dao.softDeleteMessageAndAttachments(id);
+    // Tombstone path (unrecoverable): the message + attachment tombstones
+    // and their delete-op intents commit atomically; dispatch post-commit (FFI
+    // outside the txn).
+    await runSyncedWrite(() async {
+      final result = await _dao.softDeleteMessageAndAttachments(id);
 
-    if (result.messageDeleted) {
-      await syncRecordDelete(_table, id);
-    }
-    for (final attachmentId in result.attachmentIds) {
-      await syncRecordDelete('media_attachments', attachmentId);
-    }
+      if (result.messageDeleted) {
+        await syncRecordDelete(_table, id);
+      }
+      for (final attachmentId in result.attachmentIds) {
+        await syncRecordDelete('media_attachments', attachmentId);
+      }
+    });
   }
 
   @override

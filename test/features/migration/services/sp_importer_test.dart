@@ -844,7 +844,8 @@ void main() {
     );
 
     test(
-      'non-sync member repository surfaces skipped replay warning',
+      'non-sync member repository no longer surfaces a replay-skip warning '
+      '(F08: emissions persist to the outbox, not via the member repo)',
       () async {
         final repos = _makeFakeRepos();
         final importer = SpImporter(httpClient: _FakeHttpClient());
@@ -860,9 +861,16 @@ void main() {
           downloadAvatars: false,
         );
 
+        // The importer removed the in-memory post-commit replay (and its no-emitter /
+        // replay-failure warnings): captured emissions are persisted into the
+        // durable outbox inside the import transaction and dispatched by the
+        // drainer, independent of whether the member repo mixes in
+        // SyncRecordMixin. No replay-skip warning should remain.
         expect(
-          result.warnings,
-          contains(contains('sync emissions could not be replayed')),
+          result.warnings.where(
+            (w) => w.contains('sync emissions could not be replayed'),
+          ),
+          isEmpty,
         );
       },
     );

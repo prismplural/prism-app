@@ -151,6 +151,15 @@ mixin SyncRecordMixin {
     OutboxDrainTrigger? drainTrigger,
   }) => installOutboxRuntime(db: db, drainTrigger: drainTrigger);
 
+  /// The database [runSyncedWrite] opens its transaction on. Defaults to the
+  /// wired runtime db ([_outboxDb]); a repository that mixes this in overrides
+  /// it to return its own `_dao.attachedDatabase` so the data write, the outbox
+  /// rows, and the transaction all live on the one database the repository
+  /// actually writes to (in production every repo shares the singleton
+  /// AppDatabase, so they coincide). Never `null` for an overriding repository,
+  /// which is why [runSyncedWrite] can always wrap the data write atomically.
+  AppDatabase? get syncOutboxDatabase => _outboxDb;
+
   /// Zone key for the active [_SyncCaptureContext]. As a zone value it follows
   /// the suppressed `body`'s async chain — including nested Drift transactions,
   /// whose executors fork child zones that inherit it — while a concurrent
@@ -393,6 +402,82 @@ mixin SyncRecordMixin {
         ),
     ];
     await db.syncOutboxDao.insertAll(rows);
+  }
+
+  /// Run [body]'s data write and its sync-op intent in ONE Drift transaction,
+  /// then dispatch the ops strictly AFTER the commit.
+  ///
+  /// This closes the per-mutation dual-write crash window: a repository
+  /// mutation used to commit its Drift rows and then make a SEPARATE
+  /// best-effort FFI call, so a crash between the two committed the data but
+  /// lost (or — inside a rollback-able transaction — leaked) the emission.
+  /// Here the writes [body] performs and the durable outbox rows for the ops it
+  /// emits commit or roll back together: a thrown [body] leaves zero data rows
+  /// AND zero outbox rows, and a committed [body] leaves the data plus an outbox
+  /// row per op in capture order.
+  ///
+  /// **Emit-after-commit (absolute invariant).** No FFI dispatch happens inside
+  /// the transaction — the body emits through the Zone-scoped
+  /// [suppressAndCapture] seam, the captured ops are persisted as outbox rows
+  /// (a Drift write, not an FFI call), and the drainer is triggered only after
+  /// the transaction returns. This is the durable form of the approved
+  /// capture-ops + replay-after-commit shape; the reverted add-member txn-wrap
+  /// failed precisely because it emitted to the engine INSIDE the transaction,
+  /// so a rollback left a phantom Rust pending_op. Routing every dispatch
+  /// outside the commit is what keeps that revert from re-tripping.
+  ///
+  /// Gated on persisted sync-group credentials ([syncCredentialsPersisted]):
+  /// a never-paired device runs [body]'s write transaction but persists no
+  /// outbox rows (and so triggers no drain), keeping the historical local-only
+  /// behavior — `bootstrapExistingData` seeds the whole store into
+  /// `field_versions` at sync setup, so a pre-pairing outbox would be redundant.
+  Future<T> runSyncedWrite<T>(Future<T> Function() body) async {
+    if (isSuppressed) {
+      // An outer suppress/capture seam already owns this body's emissions (e.g.
+      // the burned-id sentinel create runs under [suppress], and the importers
+      // run under [suppressAndCapture]). Installing our own capture context here
+      // would shadow theirs — dropping a suppression or stealing the importer's
+      // capture into a second outbox batch. Defer entirely to the outer context:
+      // run the body so its emissions route there, with no nested transaction or
+      // outbox persist of our own.
+      return body();
+    }
+    final db = syncOutboxDatabase;
+    if (db == null) {
+      // No database to open a transaction on (degenerate test config with no
+      // runtime wired and no override). Run the body so the data write still
+      // happens; there is nothing to enqueue against. Production repositories
+      // override [syncOutboxDatabase], so this branch is test-only.
+      return body();
+    }
+    final captured = <CapturedSyncOp>[];
+    // The test-only capture sink (null in every shipped build — assert-gated)
+    // observes emissions at the `syncRecord*` boundary. Because we install our
+    // own capture context for the body, that boundary's normal sink dispatch is
+    // shadowed; forward to it here so the sink still sees each op exactly once,
+    // preserving the emission-observation contract repository tests rely on.
+    void capture(CapturedSyncOp op) {
+      captured.add(op);
+      _captureSink?.call(op);
+    }
+
+    final result = await db.transaction(() async {
+      final r = await suppressAndCapture(body, capture);
+      if (syncCredentialsPersisted.value) {
+        await persistCapturedOpsToOutbox(db, captured);
+      }
+      return r;
+    });
+    // Strictly post-commit: the rows are durable, so dispatching now (or on the
+    // next boot/resume/catch-up/backoff trigger if this one defers) can never
+    // run an FFI call before the data write committed.
+    if (syncCredentialsPersisted.value && captured.isNotEmpty) {
+      final trigger = _outboxDrainTrigger;
+      if (trigger != null) {
+        unawaited(trigger(syncCurrentHandle.value ?? syncHandle));
+      }
+    }
+    return result;
   }
 
   /// Live emit (no active suppression / capture sink): enqueue [ops] into the
@@ -676,6 +761,16 @@ mixin SyncRecordMixin {
   /// inside a Drift transaction, this re-emits after it durably commits). Each
   /// op re-dispatches through the same `syncRecord*` entry point with its
   /// original type and `fields`.
+  ///
+  /// **Not durable — do not use for new production durability.** This is the
+  /// in-memory leg of the capture-then-replay pattern: a crash between the
+  /// transaction commit and the replay loses the ops (the documented
+  /// commit-to-replay gap). Durable callers must persist captured ops with
+  /// [persistCapturedOpsToOutbox] inside the transaction (or wrap the whole
+  /// mutation in [runSyncedWrite]) and let the drainer dispatch them — the
+  /// outbox row commits atomically with the data write, so the gap is closed.
+  /// This function survives only for the remaining suppress/capture seam users
+  /// (the PK importers' in-memory replay) until those are migrated.
   ///
   /// Caught per-op so one bad row can't abort the rest: `syncRecord*` swallows
   /// FFI errors internally, but a few edge cases still throw (e.g. `jsonEncode`

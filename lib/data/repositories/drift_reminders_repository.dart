@@ -21,6 +21,9 @@ class DriftRemindersRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'reminders';
 
   DriftRemindersRepository(this._dao, this._syncHandle);
@@ -47,31 +50,43 @@ class DriftRemindersRepository
 
   @override
   Future<void> create(domain.Reminder reminder) async {
-    final companion = ReminderMapper.toCompanion(reminder);
-    await _dao.create(companion);
-    await syncRecordCreate(_table, reminder.id, _fields(reminder));
+    // Insert + create-op intent commit atomically; dispatch post-commit
+    // (FFI outside the txn — reverted-revert invariant).
+    await runSyncedWrite(() async {
+      final companion = ReminderMapper.toCompanion(reminder);
+      await _dao.create(companion);
+      await syncRecordCreate(_table, reminder.id, _fields(reminder));
+    });
   }
 
   @override
   Future<void> update(domain.Reminder reminder) async {
-    final existingRow = await _dao.getById(reminder.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    // Read-diff-write + update-op intent in one atomic txn (dispatch
+    // post-commit, FFI outside the txn).
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getById(reminder.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _reminderFieldsFromRow(existingRow),
-      _fields(reminder),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _reminderFieldsFromRow(existingRow),
+        _fields(reminder),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialReminderCompanion(changedFields);
-    await _dao.updateReminder(reminder.id, companion);
-    await syncRecordUpdate(_table, reminder.id, changedFields);
+      final companion = _partialReminderCompanion(changedFields);
+      await _dao.updateReminder(reminder.id, companion);
+      await syncRecordUpdate(_table, reminder.id, changedFields);
+    });
   }
 
   @override
   Future<void> delete(String id) async {
-    await _dao.softDelete(id);
-    await syncRecordDelete(_table, id);
+    // Tombstone path (unrecoverable): soft-delete + delete-op intent
+    // commit atomically; dispatch post-commit (FFI outside the txn).
+    await runSyncedWrite(() async {
+      await _dao.softDelete(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   /// Visible-for-testing: the field map this repository hands to the Rust

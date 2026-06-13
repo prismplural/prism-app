@@ -32,8 +32,10 @@ import 'package:prism_plurality/core/database/app_database.dart'
         SpIdMapTableCompanion,
         SpSyncStateTableCompanion;
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
-import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/media/media_service.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show triggerOutboxDrain;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/mappers/chat_message_mapper.dart';
 import 'package:prism_plurality/data/mappers/conversation_category_mapper.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
@@ -1116,51 +1118,32 @@ class SpImporter {
             );
           }
         }
+
+        // Persist the captured emissions into the durable outbox INSIDE
+        // this transaction so the imported data rows and their sync-op intents
+        // commit atomically. The drainer dispatches them to the FFI strictly
+        // AFTER commit (triggered below), replacing the old in-memory
+        // post-commit replay and closing its commit-to-replay gap — a crash
+        // after this commit can no longer lose the import's emissions. A
+        // rolled-back import rolls back both the data and the outbox rows (zero
+        // emissions, the existing parity-test guarantee). Gated on persisted
+        // credentials: a never-paired device persists nothing
+        // (`bootstrapExistingData` seeds field_versions at pairing).
+        if (syncCredentialsPersisted.value) {
+          await SyncRecordMixin.persistCapturedOpsToOutbox(db, captured);
+        }
       });
     }, captured.add);
 
-    // Phase 5 post-commit replay. The transaction has committed; every
-    // tuple `captured` saw inside the `suppress` block is now re-emitted
-    // via the same FFI entry point the repository would have called, with
-    // the same op type and the same `fields` payload. Ordering matches the
-    // capture order — and therefore matches the order ops would have been
-    // emitted by today's mid-transaction code path. On unpaired devices
-    // every call short-circuits at `sync_record_mixin.dart:70` (null
-    // `syncHandle`), so this loop is effectively zero-cost. We replay
-    // through `memberRepo` because every DriftXxxRepository shares the
-    // same app-singleton `syncHandle`; any repo with the mixin works.
-    //
-    // Codex cross-phase review (Option A — defense-in-depth visibility):
-    // `syncRecord*` no longer dispatches the FFI inline — it enqueues a durable
-    // outbox row and the drainer handles dispatch/failures (F05). A normal emit
-    // failure therefore won't propagate here. BUT a handful of edge cases
-    // can still throw out of `syncRecord*` (e.g. `jsonEncode` on a
-    // non-serializable payload before the FFI call is reached). Without this
-    // try/catch, one bad row aborts every remaining replay emission. We catch
-    // it locally, count failures, and surface a single import warning so the
-    // user knows their local data is correct but some peer sync emissions
-    // didn't go out. Broader visibility (making `syncRecord*` itself signal
-    // failure) is tracked as a known limitation in the plan.
-    final replayFailures = <CapturedSyncOp>[];
-    var replaySkippedBecauseNoEmitter = false;
-    if (captured.isNotEmpty && memberRepo is SyncRecordMixin) {
-      // Shared capture-replay loop (see SyncRecordMixin.replayCapturedOps).
-      // Per-op try/catch + warning telemetry + failure collection live there;
-      // we keep the no-emitter gate here because memberRepo is an interface
-      // type that may not mix in SyncRecordMixin.
-      replayFailures.addAll(
-        await (memberRepo as SyncRecordMixin).replayCapturedOps(
-          captured,
-          logLabel: 'SP import',
-        ),
-      );
-    } else if (captured.isNotEmpty) {
-      replaySkippedBecauseNoEmitter = true;
-      ErrorReportingService.instance.report(
-        'SP import sync replay skipped: MemberRepository does not implement '
-        'SyncRecordMixin (${captured.length} emission(s) captured).',
-        severity: ErrorSeverity.warning,
-      );
+    // Post-commit drain. The transaction committed atomically with the
+    // outbox rows persisted above (no in-memory replay leg anymore — the old
+    // capture-then-replay path could lose the import's emissions on a crash
+    // between commit and replay). Trigger the durable drainer to dispatch the
+    // rows to the FFI strictly after commit; it owns failure/retry/quarantine,
+    // so a transient engine-unconfigured state defers rather than drops, and
+    // there is no longer a no-emitter / replay-failure warning to surface.
+    if (syncCredentialsPersisted.value && captured.isNotEmpty) {
+      await triggerOutboxDrain(db, syncCurrentHandle.value);
     }
 
     // Persist SP→Prism ID mappings so subsequent imports reuse the same UUIDs.
@@ -1203,25 +1186,6 @@ class SpImporter {
     var avatarsImportedFromZip = 0;
     var systemAvatarImportedFromZip = false;
     final warnings = List<String>.of(mapped.warnings);
-
-    // Surface replay-loop failures (Option A visibility — see comment at the
-    // replay site). Local DB state is correct; only the post-commit FFI
-    // emissions for these rows didn't go out.
-    if (replayFailures.isNotEmpty) {
-      warnings.add(
-        '${replayFailures.length} of ${captured.length} sync emissions failed '
-        'after import. Local data is correct, but peers may be missing these '
-        'entries until you edit them or re-run sync.',
-      );
-    }
-    if (replaySkippedBecauseNoEmitter) {
-      warnings.add(
-        '${captured.length} sync emissions could not be replayed because the '
-        'member repository is not sync-enabled. Local data is correct, but '
-        'peers may be missing imported entries until you edit them or re-run '
-        'sync.',
-      );
-    }
 
     // 6a. System-level avatar. SP stores this on users[0] (separate from
     //     member avatars); mirror the member flow — fetch+store best-effort

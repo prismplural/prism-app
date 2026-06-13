@@ -547,6 +547,171 @@ void main() {
     });
   });
 
+  group('SyncRecordMixin.runSyncedWrite (F08)', () {
+    test(
+      'success: data row + outbox rows commit together, in capture order, '
+      'before any FFI dispatch',
+      () async {
+        final repo = _ProbeRepository();
+        final dispatched = <String>[];
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          // No-op drain: assert the persisted rows BEFORE any dispatch.
+          drainTrigger: (_) async {},
+        );
+
+        await repo.runSyncedWrite(() async {
+          await db
+              .into(db.members)
+              .insert(
+                MembersCompanion(
+                  id: const Value('m1'),
+                  name: const Value('A'),
+                  emoji: const Value('A'),
+                  createdAt: Value(DateTime.now().toUtc()),
+                ),
+              );
+          await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+          await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
+        });
+
+        // Data row committed.
+        expect((await db.select(db.members).get()).single.id, 'm1');
+        // Outbox rows present in capture order; nothing dispatched yet.
+        final rows = await db.syncOutboxDao.allInIdOrder();
+        expect(rows.map((r) => r.entityId), ['m1', 'm1']);
+        expect(rows.map((r) => r.opType), ['create', 'update']);
+        expect(dispatched, isEmpty);
+      },
+    );
+
+    test(
+      'body throw: data rows AND outbox rows both absent (atomic rollback)',
+      () async {
+        final repo = _ProbeRepository();
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          drainTrigger: (_) async {},
+        );
+
+        Object? caught;
+        try {
+          await repo.runSyncedWrite(() async {
+            await db
+                .into(db.members)
+                .insert(
+                  MembersCompanion(
+                    id: const Value('m1'),
+                    name: const Value('Phantom'),
+                    emoji: const Value('P'),
+                    createdAt: Value(DateTime.now().toUtc()),
+                  ),
+                );
+            await repo.syncRecordCreate('members', 'm1', {'name': 'Phantom'});
+            throw StateError('mutation failed mid-write');
+          });
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isA<StateError>());
+        expect(
+          await db.select(db.members).get(),
+          isEmpty,
+          reason: 'data row must roll back',
+        );
+        expect(
+          await db.syncOutboxDao.count(),
+          0,
+          reason: 'outbox row must roll back atomically with the data',
+        );
+      },
+    );
+
+    test(
+      'never-paired device: body still writes data, but persists no outbox row',
+      () async {
+        syncCredentialsPersisted.value = false;
+        final repo = _ProbeRepository();
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          drainTrigger: (_) async {},
+        );
+
+        await repo.runSyncedWrite(() async {
+          await db
+              .into(db.members)
+              .insert(
+                MembersCompanion(
+                  id: const Value('m1'),
+                  name: const Value('A'),
+                  emoji: const Value('A'),
+                  createdAt: Value(DateTime.now().toUtc()),
+                ),
+              );
+          await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+        });
+
+        expect((await db.select(db.members).get()).single.id, 'm1');
+        expect(await db.syncOutboxDao.count(), 0);
+      },
+    );
+
+    test(
+      'crash-sim: a fresh drainer over the same DB recovers the persisted op '
+      'after a "relaunch" with the drainer disabled at write time',
+      () async {
+        final repo = _ProbeRepository();
+        // Write time: drainer "disabled" (no-op trigger), simulating a process
+        // that committed the outbox row then died before dispatch.
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          drainTrigger: (_) async {},
+        );
+        await repo.runSyncedWrite(() async {
+          await repo.syncRecordDelete('members', 'gone');
+        });
+        expect(await db.syncOutboxDao.count(), 1);
+
+        // "Relaunch": a fresh drainer constructed over the same DB drains it.
+        final dispatched = <String>[];
+        final drainer = SyncOutboxDrainer(
+          db,
+          dispatchOp: (h, op) async =>
+              dispatched.add('${op.opType.name}:${op.entityId}'),
+          dispatchDeleteMulti: (h, table, ids) async {
+            for (final id in ids) {
+              dispatched.add('delete:$id');
+            }
+          },
+        );
+        await drainer.drain(const _FakePrismSyncHandle());
+
+        expect(dispatched, ['delete:gone']);
+        expect(await db.syncOutboxDao.count(), 0);
+      },
+    );
+
+    test('an outer suppression wins: runSyncedWrite defers to it', () async {
+      final repo = _ProbeRepository();
+      SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+        db: db,
+        drainTrigger: (_) async {},
+      );
+
+      // Under suppress, the body's emission must be dropped (not enqueued) —
+      // runSyncedWrite must not install its own capture context and shadow the
+      // outer suppression (the burned-id sentinel path relies on this).
+      await SyncRecordMixin.suppress(() async {
+        await repo.runSyncedWrite(() async {
+          await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+        });
+      });
+
+      expect(await db.syncOutboxDao.count(), 0);
+    });
+  });
+
   group('CapturedSyncOp.capturedAtMs + reconcile/backfill entry points', () {
     test('live syncRecord* stamp capturedAtMs at construction', () async {
       final repo = _ProbeRepository();

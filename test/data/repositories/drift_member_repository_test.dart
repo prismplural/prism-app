@@ -7,9 +7,12 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
+import 'package:prism_plurality/core/sync/sync_outbox_drainer.dart';
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
@@ -47,6 +50,13 @@ class _RacingDao implements MembersDao {
     if (_getCalls == 1) return null;
     return _delegate.getMemberById(id);
   }
+
+  // `createMember` opens its transaction on the repo's
+  // `syncOutboxDatabase` (== `_dao.attachedDatabase`), so the double must
+  // forward this getter to the real delegate rather than letting it fall into
+  // `noSuchMethod` (a real getter never triggers the delegate's noSuchMethod).
+  @override
+  AppDatabase get attachedDatabase => _delegate.attachedDatabase;
 
   @override
   noSuchMethod(Invocation invocation) =>
@@ -1628,4 +1638,72 @@ void main() {
       );
     });
   });
+
+  group('deleteMember durable-outbox crash-sim (F08)', () {
+    tearDown(() {
+      syncCredentialsPersisted.value = false;
+    });
+
+    test(
+      'a delete persisted but not dispatched is recovered by a fresh drainer '
+      'over the same DB (no resurrection on relaunch)',
+      () async {
+        await dao.insertMember(
+          MembersCompanion.insert(
+            id: 'm1',
+            name: 'Doomed',
+            createdAt: DateTime(2024),
+          ),
+        );
+        // Paired device; drainer "disabled" at delete time (no-op trigger),
+        // simulating a crash after the tombstone + outbox row committed but
+        // before the FFI delete dispatched.
+        syncCredentialsPersisted.value = true;
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          drainTrigger: (_) async {},
+        );
+        addTearDown(SyncRecordMixin.debugInstallOutboxRuntimeForTesting);
+
+        await repo.deleteMember('m1');
+
+        // Local tombstone is durable; the delete op is durably queued.
+        expect((await dao.getMemberById('m1'))?.isDeleted, isTrue);
+        final pending = await db.syncOutboxDao.allInIdOrder();
+        expect(
+          pending.where((r) => r.entityTable == 'members').single.entityId,
+          'm1',
+        );
+
+        // "Relaunch": a fresh drainer over the same DB dispatches the delete —
+        // the tombstone reaches peers without the user re-deleting.
+        final dispatched = <String>[];
+        final drainer = SyncOutboxDrainer(
+          db,
+          dispatchOp: (h, op) async =>
+              dispatched.add('${op.opType.name}:${op.table}/${op.entityId}'),
+          dispatchDeleteMulti: (h, table, ids) async {
+            for (final id in ids) {
+              dispatched.add('delete:$table/$id');
+            }
+          },
+        );
+        await drainer.drain(const _CrashSimHandle());
+
+        expect(dispatched, contains('delete:members/m1'));
+        expect(
+          (await db.syncOutboxDao.allInIdOrder())
+              .where((r) => r.entityTable == 'members'),
+          isEmpty,
+        );
+      },
+    );
+  });
+}
+
+class _CrashSimHandle implements ffi.PrismSyncHandle {
+  const _CrashSimHandle();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

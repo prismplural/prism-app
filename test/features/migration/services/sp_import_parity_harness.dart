@@ -77,6 +77,23 @@ class RecordedEmission {
     );
   }
 
+  /// Build from a durable `sync_op_outbox` row. The importer now persists
+  /// captured emissions into the outbox inside its transaction rather than
+  /// replaying them through the FFI sink, so parity is observed against the
+  /// rows. `fields_json` is re-parsed and re-canonicalized so a row compares
+  /// byte-equal to a [fromCapturedOp]-derived golden regardless of key order.
+  factory RecordedEmission.fromOutboxRow(SyncOpOutboxRow row) {
+    final decoded = row.fieldsJson.isEmpty
+        ? const <String, dynamic>{}
+        : jsonDecode(row.fieldsJson);
+    return RecordedEmission(
+      table: row.entityTable,
+      entityId: row.entityId,
+      opType: SyncRecordMixin.outboxOpTypeFromName(row.opType),
+      fieldsJsonNormalized: _canonicalJson(decoded),
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
