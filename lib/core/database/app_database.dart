@@ -111,15 +111,15 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 37;
+  static const currentSchemaVersion = 38;
 
-  /// Optional view of the sync engine's absorbing-delete state (R1/C12). When
-  /// the sync layer has a live engine handle it sets this so the deterministic-
-  /// id rescue paths can refuse to (re)create a row whose canonical entity id is
-  /// already tombstoned — emitting into a burned id is a silent fleet-wide
-  /// no-op. `null` (the cold-migration default, before any engine exists) means
-  /// "nothing is tombstoned", byte-identical to the pre-R6 behavior. Settable so
-  /// the sync bootstrap and tests can inject a gate.
+  /// Optional view of the sync engine's absorbing-delete state. When the sync
+  /// layer has a live engine handle it sets this so the deterministic-id rescue
+  /// paths can refuse to (re)create a row whose canonical entity id is already
+  /// tombstoned — emitting into a burned id is a silent fleet-wide no-op.
+  /// `null` (the cold-migration default, before any engine exists) means
+  /// "nothing is tombstoned", byte-identical to the pre-gate behavior. Settable
+  /// so the sync bootstrap and tests can inject a gate.
   TombstoneGate? tombstoneGate;
 
   @override
@@ -936,7 +936,7 @@ class AppDatabase extends _$AppDatabase {
         }
 
         // member_group_entries.created_at — local-only recency stamp for the
-        // PK reconcile grace window (H6); NOT in prismSyncSchema. Existing rows
+        // PK reconcile grace window; NOT in prismSyncSchema. Existing rows
         // backfill to "now" so an upgrading device doesn't reconcile-delete its
         // pre-fix backlog as ancient.
         final entryCols = (await customSelect(
@@ -956,6 +956,78 @@ class AppDatabase extends _$AppDatabase {
           );
         }
         current = 37;
+      }
+      if (current == 37 && to >= 38) {
+        // Folded into ONE leg. Each part is independently idempotent:
+        // re-running on a DB that already created at v38, or retrying after a
+        // partial failure, is safe.
+
+        // Clear EVERY pending PluralKit switch-deletion stamp. The
+        // canonicalization-destruction bug shipped on deployed 0.12.x installs
+        // stamped delete_intent_epoch on PK-linked fronting-session tombstones
+        // it created as "local cleanup". Those stamps are indistinguishable
+        // from genuine user delete intents (getDeletedLinkedSessions selects
+        // exactly is_deleted=1 AND pluralkit_uuid IS NOT NULL AND
+        // delete_intent_epoch IS NOT NULL), so on upgrade they would fire real
+        // PluralKit switch DELETEs against the user's external account. Drop the
+        // intent epoch and any in-flight push stamp on every such row; users
+        // must re-delete explicitly. At most queued intentional deletions are
+        // lost, the fail-safe direction.
+        await customStatement(
+          'UPDATE fronting_sessions '
+          'SET delete_intent_epoch = NULL, delete_push_started_at = NULL '
+          'WHERE is_deleted = 1 '
+          '  AND pluralkit_uuid IS NOT NULL '
+          '  AND delete_intent_epoch IS NOT NULL',
+        );
+
+        // member_groups.sync_generation + member_group_entries.sync_generation:
+        // LOCAL-ONLY incarnation counters for the absorbing-tombstone-revive
+        // layer. NOT in prismSyncSchema; each device tracks its own live
+        // incarnation. Existing rows default to 0 (the legacy id), correct
+        // since nothing has been re-incarnated yet.
+        final groupCols = (await customSelect(
+          'PRAGMA table_info(member_groups)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!groupCols.contains('sync_generation')) {
+          await migrator.addColumn(memberGroups, memberGroups.syncGeneration);
+        }
+        final genEntryCols = (await customSelect(
+          'PRAGMA table_info(member_group_entries)',
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!genEntryCols.contains('sync_generation')) {
+          await migrator.addColumn(
+            memberGroupEntries,
+            memberGroupEntries.syncGeneration,
+          );
+        }
+
+        // pk_identity_sync_aliases: the generic PK-identity redirect alias table
+        // for members + fronting_sessions. Local-only Drift table; no
+        // wire/protocol change. sqlite_master-guarded create + the lookup index
+        // (the index is also created in onCreate).
+        final tables = (await customSelect(
+          "SELECT name FROM sqlite_master WHERE type = 'table'",
+        ).get()).map((r) => r.read<String>('name')).toSet();
+        if (!tables.contains('pk_identity_sync_aliases')) {
+          await migrator.createTable(pkIdentitySyncAliases);
+        }
+        await _createPkIdentitySyncIndexes();
+
+        // Stale-self-alias purge. The v3->v4 cleanup only deleted self-aliases
+        // whose member_groups row was active (is_deleted = 0) AND
+        // whose pluralkit_uuid still matched, so it missed rows soft-deleted at
+        // upgrade time and rows whose uuid was NULLed by deleteGroup. Those
+        // surviving self-aliases make the emitters tombstone peers' ACTIVE
+        // 'pk-group-<uuid>' rows on every group update. By construction every
+        // importing device's own local row id is exactly 'pk-group-' ||
+        // pk_group_uuid, so a self-alias is never a legitimate loser alias:
+        // delete unconditionally on row state. Idempotent (no-op once purged).
+        await customStatement(
+          'DELETE FROM pk_group_sync_aliases '
+          "WHERE legacy_entity_id = 'pk-group-' || pk_group_uuid",
+        );
+        current = 38;
       }
       if (current != to) {
         throw UnsupportedError(
@@ -1224,7 +1296,7 @@ class AppDatabase extends _$AppDatabase {
     // that somehow reached mode=complete with active `(session_type=0,
     // member_id=NULL)` rows still on disk.
     //
-    // Interaction with the R6/C12 sentinel gate: if `tombstoneGate` is set and
+    // Interaction with the sentinel gate: if `tombstoneGate` is set and
     // the sentinel id is tombstoned, the rescue SKIPS — active orphans then
     // keep `member_id IS NULL`, and the `TableMigration` copy below would throw
     // on the new CHECK. This is shielded in practice: the cold-migration leg
@@ -1283,14 +1355,13 @@ class AppDatabase extends _$AppDatabase {
   Future<int> _rescueActiveFrontingOrphansToUnknownSentinel(
     String reason,
   ) async {
-    // C12 / R6 ingress gate: the Unknown sentinel uses a deterministic UUIDv5
-    // id, so if a previously-synced sentinel was deleted, the engine holds an
-    // absorbing tombstone for that id. Re-homing orphans onto it and re-creating
-    // the member would write into a burned id — a silent fleet-wide no-op on
-    // peers and a Rust/Dart divergence locally. The sentinel is NOT minted to a
-    // new incarnation (family-5 open question 6, not adopted); when burned we
-    // simply skip the rescue. A null gate (cold migration with no engine) keeps
-    // the pre-gate behavior byte-for-byte.
+    // Ingress gate: the Unknown sentinel uses a deterministic UUIDv5 id, so if
+    // a previously-synced sentinel was deleted, the engine holds an absorbing
+    // tombstone for that id. Re-homing orphans onto it and re-creating the
+    // member would write into a burned id — a silent fleet-wide no-op on peers
+    // and a Rust/Dart divergence locally. The sentinel is NOT minted to a new
+    // incarnation; when burned we simply skip the rescue. A null gate (cold
+    // migration with no engine) keeps the pre-gate behavior byte-for-byte.
     final gate = tombstoneGate;
     if (gate != null &&
         await gate.isTombstoned('members', unknownSentinelMemberId)) {
