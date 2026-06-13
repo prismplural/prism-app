@@ -302,6 +302,7 @@ Future<String> snapshotDb(AppDatabase db) async {
     'custom_field_values',
     'member_groups',
     'member_group_entries',
+    'pk_identity_sync_aliases',
     'reminders',
     'member_board_posts',
     'system_settings',
@@ -314,6 +315,14 @@ Future<String> snapshotDb(AppDatabase db) async {
     final rows = await db.customSelect('SELECT * FROM $t').get();
     final normalized = rows.map((r) => _canonicalizeRow(r.data)).toList()
       ..sort(_rowComparator);
+    // member_group_entries.created_at is a local-only recency stamp defaulted to
+    // DateTime.now() (not in prismSyncSchema, never routed through FixedClock) —
+    // mask it so the baseline stays deterministic across regen wall-clocks.
+    if (t == 'member_group_entries') {
+      for (final row in normalized) {
+        if (row.containsKey('created_at')) row['created_at'] = '<masked>';
+      }
+    }
     dump[t] = normalized;
   }
 

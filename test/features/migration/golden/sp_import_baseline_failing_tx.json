@@ -1,5 +1,5 @@
 {
-  "snapshot": "{\"tables\":{\"chat_messages\":[],\"conversation_categories\":[],\"conversations\":[],\"custom_field_values\":[],\"custom_fields\":[],\"front_session_comments\":[],\"fronting_sessions\":[],\"member_board_posts\":[],\"member_group_entries\":[],\"member_groups\":[],\"members\":[],\"notes\":[],\"poll_options\":[],\"poll_votes\":[],\"polls\":[],\"reminders\":[],\"sp_id_map\":[],\"sp_sync_state\":[],\"system_settings\":[]}}",
+  "snapshot": "{\"tables\":{\"chat_messages\":[],\"conversation_categories\":[],\"conversations\":[],\"custom_field_values\":[],\"custom_fields\":[],\"front_session_comments\":[],\"fronting_sessions\":[],\"member_board_posts\":[],\"member_group_entries\":[],\"member_groups\":[],\"members\":[],\"notes\":[],\"pk_identity_sync_aliases\":[],\"poll_options\":[],\"poll_votes\":[],\"polls\":[],\"reminders\":[],\"sp_id_map\":[],\"sp_sync_state\":[],\"system_settings\":[]}}",
   "emissions": [],
   "progress": [],
   "errorReports": [],
