@@ -262,6 +262,78 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Enqueue a sync-repair for a rewrite of synced fields.
+  ///
+  /// The in-migration enqueue is dead post-flatten (the historical steps that
+  /// rewrote synced columns are unreachable for real installs), so this is now
+  /// driven by the LIVE apply-path orphan coercion via
+  /// [enqueueFrontingOrphanRescueRepair] and the runtime blanket backfill.
+  /// After boot, [MigrationSyncRepairService] re-reads CURRENT values and emits
+  /// real ops.
+  ///
+  /// `INSERT OR REPLACE` on the `(table_name, entity_id, reason)` PK makes the
+  /// enqueue idempotent: a re-entry coalesces onto the same row rather than
+  /// duplicating. [fields] stores only the field NAMES — values are re-read at
+  /// drain time so a later user edit is never clobbered with stale data.
+  Future<void> _enqueueSyncRepair(
+    String table,
+    Iterable<String> entityIds,
+    List<String> fields,
+    String reason,
+  ) async {
+    // The queue is created at the top of onUpgrade and via createAll, so it is
+    // present on every path that rewrites a synced column. Guard the renumbered
+    // dev/test-DB edge (stamped at the current version, onUpgrade never ran) so
+    // a rescue enqueue never aborts the surrounding migration or apply.
+    if (!await _tableExists('sync_migration_repairs')) return;
+    final fieldsJson = jsonEncode(fields);
+    final enqueuedAt = DateTime.now().millisecondsSinceEpoch;
+    for (final entityId in entityIds) {
+      await customStatement(
+        'INSERT OR REPLACE INTO sync_migration_repairs '
+        '(table_name, entity_id, field_names_json, reason, enqueued_at) '
+        'VALUES (?, ?, ?, ?, ?)',
+        [table, entityId, fieldsJson, reason, enqueuedAt],
+      );
+    }
+  }
+
+  /// Enqueue the sync-repairs for an orphan fronting session that the
+  /// remote-apply path coerced onto the Unknown sentinel. Public so
+  /// [DriftSyncAdapter] can durably record the coercion inside the apply
+  /// transaction; the drain re-reads the row, consults the TombstoneGate,
+  /// and emits the member_id/pluralkit_uuid update plus the sentinel create as
+  /// real ops once the engine is healthy. Coalesces with the migration rescue
+  /// via the shared `(table, entity, reason)` PK.
+  Future<void> enqueueFrontingOrphanRescueRepair(String sessionId) async {
+    await _enqueueSyncRepair(
+      'fronting_sessions',
+      [sessionId],
+      const ['member_id', 'pluralkit_uuid'],
+      kFrontingOrphanRescueRepairReason,
+    );
+    await _enqueueSyncRepair(
+      'members',
+      [unknownSentinelMemberId],
+      const ['__create__'],
+      kFrontingOrphanRescueRepairReason,
+    );
+  }
+
+  /// Whether the per-member fronting CHECK (`session_type != 0 OR member_id IS
+  /// NOT NULL`) is installed — i.e. the DB is at v14+ shape. The remote-apply
+  /// normalization gates the orphan coercion on this, so a pre-v14 DB (CHECK
+  /// not yet installed) still applies a null-member session unchanged.
+  Future<bool> isFrontingMemberCheckInstalled() async {
+    final res = await customSelect('''
+      SELECT sql FROM sqlite_master
+      WHERE type = 'table' AND name = 'fronting_sessions'
+    ''').get();
+    if (res.isEmpty) return false;
+    final sql = res.first.read<String?>('sql') ?? '';
+    return RegExp(_frontingMemberCheckClausePattern).hasMatch(sql);
+  }
+
   /// Test-only view of the `(from, to)` boundaries of every migration step, so
   /// the idempotency sweep can parameterize over the chain without reaching
   /// into the private step list.
@@ -1647,6 +1719,17 @@ class AppDatabase extends _$AppDatabase {
       return 0;
     }
 
+    // Capture the orphan ids BEFORE the rewrite so we can enqueue a
+    // sync-repair for each. The rewrite mutates synced columns (member_id,
+    // pluralkit_uuid) in raw SQL, which emits no CRDT op — so without a repair
+    // these rescued sessions would render a missing member on peers and a
+    // later remote member_id=NULL write would trip the new CHECK.
+    final orphanRows = await customSelect(
+      'SELECT id FROM fronting_sessions '
+      'WHERE session_type = 0 AND member_id IS NULL AND is_deleted = 0',
+    ).get();
+    final orphanIds = [for (final r in orphanRows) r.read<String>('id')];
+
     final activeOrphans = await customUpdate(
       'UPDATE fronting_sessions '
       'SET member_id = ?, pluralkit_uuid = NULL '
@@ -1666,6 +1749,25 @@ class AppDatabase extends _$AppDatabase {
         emoji: const Value('❔'),
         isActive: const Value(true),
       ),
+    );
+
+    // Enqueue the rescued sessions' member_id/pluralkit_uuid rewrites and a
+    // whole-entity create for the sentinel member. The drain re-reads current
+    // values and emits real ops once the engine is healthy; it consults the
+    // TombstoneGate before emitting the sentinel create, so a burned
+    // sentinel id is never written into. INSERT OR REPLACE keeps re-entry
+    // idempotent.
+    await _enqueueSyncRepair(
+      'fronting_sessions',
+      orphanIds,
+      const ['member_id', 'pluralkit_uuid'],
+      kFrontingOrphanRescueRepairReason,
+    );
+    await _enqueueSyncRepair(
+      'members',
+      [unknownSentinelMemberId],
+      const ['__create__'],
+      kFrontingOrphanRescueRepairReason,
     );
 
     debugPrint(

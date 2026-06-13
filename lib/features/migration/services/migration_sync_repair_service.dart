@@ -4,7 +4,10 @@ import 'package:drift/drift.dart' show Variable;
 import 'package:flutter/foundation.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
+import 'package:prism_plurality/data/mappers/member_mapper.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 
 /// Reconciles [fields] for a single repaired entity against this device's
 /// `field_versions`. Wired by the caller to `ffi.recordReconcile`
@@ -63,11 +66,20 @@ class MigrationSyncRepairService {
   const MigrationSyncRepairService({
     required AppDatabase db,
     required MigrationRepairRecordReconcile recordReconcile,
+    TombstoneGate? tombstoneGate,
   }) : _db = db,
-       _recordReconcile = recordReconcile;
+       _recordReconcile = recordReconcile,
+       _tombstoneGate = tombstoneGate;
 
   final AppDatabase _db;
   final MigrationRepairRecordReconcile _recordReconcile;
+
+  /// TombstoneGate consulted before emitting the Unknown-sentinel member
+  /// create: a tombstoned sentinel id is a burned id under absorbing-delete
+  /// semantics, so the create is skipped rather than written into it. Null when
+  /// no engine is available (tests without a live handle) → treated as "not
+  /// tombstoned", matching the legacy emit path.
+  final TombstoneGate? _tombstoneGate;
 
   /// One-time blanket-backfill flag (APPROVED: member_groups.sort_state for all
   /// non-deleted groups, members.markdown_enabled for markdown_enabled=true
@@ -178,6 +190,8 @@ class MigrationSyncRepairService {
         return _resolveMemberGroups(entityId, fieldNames);
       case 'conversations':
         return _resolveConversations(entityId, fieldNames);
+      case 'fronting_sessions':
+        return _resolveFrontingSessions(entityId, fieldNames);
       default:
         // Unknown table — drop rather than wedge the drain forever.
         return const _Disposition.drop();
@@ -188,6 +202,30 @@ class MigrationSyncRepairService {
     String entityId,
     List<String> fieldNames,
   ) async {
+    // Whole-entity create: the orphan rescue enqueues the sentinel member
+    // with the `__create__` marker. Re-read the whole row and reconcile every
+    // field (DriftMemberRepository.memberFields), so a peer missing the
+    // sentinel gets it (absent fields backfill) without clobbering any field a
+    // peer already converged on. A tombstoned sentinel id is burned — skip
+    // rather than emit into it (a no-op on peers, a local divergence).
+    if (fieldNames.contains('__create__')) {
+      final member = await _db.membersDao.getMemberById(entityId);
+      // Missing or locally-deleted: tombstone propagation owns that — never
+      // revive the sentinel via a create.
+      if (member == null || member.isDeleted) return const _Disposition.drop();
+      final gate = _tombstoneGate;
+      if (gate != null && await gate.isTombstoned('members', entityId)) {
+        debugPrint(
+          '[MIGRATION_SYNC_REPAIR] skipping sentinel member create for '
+          '$entityId — tombstoned in the engine (burned id).',
+        );
+        return const _Disposition.drop();
+      }
+      return _Disposition.emit(
+        DriftMemberRepository.memberFields(MemberMapper.toDomain(member)),
+      );
+    }
+
     final rows = await _db
         .customSelect(
           'SELECT markdown_enabled, is_deleted FROM members WHERE id = ?',
@@ -281,6 +319,40 @@ class MigrationSyncRepairService {
           fields['participant_ids'] = row.read<String>('participant_ids');
         case 'creator_id':
           fields['creator_id'] = row.readNullable<String>('creator_id');
+        default:
+          break;
+      }
+    }
+    if (fields.isEmpty) return const _Disposition.drop();
+    return _Disposition.emit(fields);
+  }
+
+  /// The orphan rescue rewrote `member_id`/`pluralkit_uuid` of a rescued
+  /// session in raw SQL. Re-read the current values and reconcile them so the
+  /// re-home to the Unknown sentinel propagates as a real op. Matches the
+  /// `_frontingSessionsEntity.toSyncFields` encoding (passthrough strings).
+  Future<_Disposition> _resolveFrontingSessions(
+    String entityId,
+    List<String> fieldNames,
+  ) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT member_id, pluralkit_uuid, is_deleted '
+          'FROM fronting_sessions WHERE id = ?',
+          variables: [Variable.withString(entityId)],
+        )
+        .get();
+    if (rows.isEmpty) return const _Disposition.drop();
+    final row = rows.single;
+    if (row.read<bool>('is_deleted')) return const _Disposition.drop();
+
+    final fields = <String, dynamic>{};
+    for (final field in fieldNames) {
+      switch (field) {
+        case 'member_id':
+          fields['member_id'] = row.readNullable<String>('member_id');
+        case 'pluralkit_uuid':
+          fields['pluralkit_uuid'] = row.readNullable<String>('pluralkit_uuid');
         default:
           break;
       }

@@ -3062,6 +3062,9 @@ Future<MigrationSyncRepairResult> drainMigrationSyncRepairsOnceAfterHealthy(
 ) async {
   final service = MigrationSyncRepairService(
     db: db,
+    // Consult the engine's absorbing-delete state before emitting the
+    // Unknown-sentinel member create so a burned sentinel id is skipped.
+    tombstoneGate: TombstoneGate.forHandle(handle),
     recordReconcile: ({required table, required entityId, required fields}) {
       return ffi.recordReconcile(
         handle: handle,

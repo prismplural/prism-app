@@ -320,4 +320,95 @@ void main() {
       expect(orphan.read<String?>('member_id'), unknownSentinelMemberId);
     });
   });
+
+  // The rescue rewrites synced columns (member_id, pluralkit_uuid) in raw
+  // SQL, which emits no CRDT op — so it must enqueue a sync-repair for each
+  // rescued session and for the sentinel member create. The drain re-reads the
+  // current values and emits real ops once the engine is healthy.
+  group('orphan rescue enqueues sync-repair rows', () {
+    Future<List<Map<String, String>>> repairRows(AppDatabase db) async {
+      final rows = await db
+          .customSelect(
+            'SELECT table_name, entity_id, field_names_json, reason '
+            'FROM sync_migration_repairs ORDER BY table_name, entity_id',
+          )
+          .get();
+      return [
+        for (final r in rows)
+          {
+            'table': r.read<String>('table_name'),
+            'entity': r.read<String>('entity_id'),
+            'fields': r.read<String>('field_names_json'),
+            'reason': r.read<String>('reason'),
+          },
+      ];
+    }
+
+    Future<void> seedNullMemberOrphans(AppDatabase db, List<String> ids) async {
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      for (final id in ids) {
+        await db.customStatement(
+          'INSERT OR REPLACE INTO fronting_sessions '
+          '(id, session_type, start_time, end_time, member_id, '
+          ' co_fronter_ids, is_health_kit_import, is_deleted) '
+          "VALUES ('$id', 0, $now, NULL, NULL, '[]', 0, 0)",
+        );
+      }
+    }
+
+    test('enqueues a repair for each rescued session plus the sentinel '
+        'member', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.customSelect('SELECT 1').get();
+      await db.disableFrontingMemberCheckConstraintForTesting();
+      await seedNullMemberOrphans(db, ['orph-a', 'orph-b']);
+
+      await db.ensureFrontingMemberCheckConstraint();
+
+      expect(
+        await repairRows(db),
+        unorderedEquals([
+          {
+            'table': 'fronting_sessions',
+            'entity': 'orph-a',
+            'fields': '["member_id","pluralkit_uuid"]',
+            'reason': 'fronting_orphan_rescue',
+          },
+          {
+            'table': 'fronting_sessions',
+            'entity': 'orph-b',
+            'fields': '["member_id","pluralkit_uuid"]',
+            'reason': 'fronting_orphan_rescue',
+          },
+          {
+            'table': 'members',
+            'entity': unknownSentinelMemberId,
+            'fields': '["__create__"]',
+            'reason': 'fronting_orphan_rescue',
+          },
+        ]),
+      );
+    });
+
+    test('re-running the rescue coalesces onto the same queue rows '
+        '(idempotent)', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.customSelect('SELECT 1').get();
+      // Strip CHECK so the rescue (via ensurePkFrontingIndexes) runs every call
+      // rather than short-circuiting on the CHECK sniff.
+      await db.disableFrontingMemberCheckConstraintForTesting();
+      await seedNullMemberOrphans(db, ['orph-a']);
+
+      await db.ensurePkFrontingIndexes();
+      expect(await repairRows(db), hasLength(2)); // session + sentinel
+
+      // Re-introduce the same orphan id and re-run: INSERT OR REPLACE on the
+      // (table, entity, reason) PK coalesces rather than duplicating.
+      await seedNullMemberOrphans(db, ['orph-a']);
+      await db.ensurePkFrontingIndexes();
+      expect(await repairRows(db), hasLength(2));
+    });
+  });
 }

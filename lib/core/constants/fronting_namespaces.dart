@@ -102,6 +102,14 @@ String deriveMigrationFanoutSessionId(String legacySessionId, String memberId) =
 final String unknownSentinelMemberId =
     const Uuid().v5(spFrontingNamespace, 'unknown-member-sentinel');
 
+/// Reason tag for sync-repairs enqueued when an orphan fronting row is
+/// re-homed to the Unknown sentinel. Shared by the migration rescue (which
+/// enqueues at the time of the raw-SQL rewrite) and the remote-apply
+/// normalization (which coerces a session_type=0/member_id=NULL apply onto the
+/// sentinel) so both paths coalesce onto the same `(table, entity, reason)`
+/// queue rows.
+const String kFrontingOrphanRescueRepairReason = 'fronting_orphan_rescue';
+
 /// Namespace for split-operation rows.
 ///
 /// Key format: `"${original_id}:${P_end_isoformat}"`

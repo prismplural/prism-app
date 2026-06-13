@@ -2596,6 +2596,50 @@ DriftSyncEntity _membersEntity(
 // fronting_sessions
 // ---------------------------------------------------------------------------
 
+/// Coerce an apply that would leave a `session_type = 0` fronting row with
+/// a NULL `member_id` onto the Unknown sentinel, and enqueue a sync-repair so
+/// the coercion is re-emitted as a real op (current values, fresh HLC) and wins
+/// LWW fleet-wide. Returns [companion] unchanged outside the orphan case.
+///
+/// The effective post-write values combine the incoming payload with the
+/// target row's current state: an absent field keeps the existing value on an
+/// update, or the column default on an insert (`session_type` defaults to 0,
+/// `member_id` to NULL). Only acts on a v14+ DB whose CHECK would otherwise
+/// throw — a pre-v14 DB applies the null-member row unchanged.
+Future<FrontingSessionsCompanion> _normalizeFrontingOrphanForApply(
+  AppDatabase db, {
+  required String targetId,
+  required FrontingSessionsCompanion companion,
+}) async {
+  // Cheap pre-check: only sessions that could end up as `session_type = 0` with
+  // a null member_id matter. If the payload sets a non-zero session_type or a
+  // concrete member_id, the row is fine and we skip the row read entirely.
+  final memberIdPresent =
+      companion.memberId.present && companion.memberId.value != null;
+  final sessionTypeNonZero =
+      companion.sessionType.present && companion.sessionType.value != 0;
+  if (memberIdPresent || sessionTypeNonZero) return companion;
+
+  final existing = await (db.select(
+    db.frontingSessions,
+  )..where((t) => t.id.equals(targetId))).getSingleOrNull();
+
+  final effectiveSessionType = companion.sessionType.present
+      ? companion.sessionType.value
+      : (existing?.sessionType ?? 0);
+  final effectiveMemberId = companion.memberId.present
+      ? companion.memberId.value
+      : existing?.memberId;
+  if (effectiveSessionType != 0 || effectiveMemberId != null) {
+    return companion;
+  }
+
+  if (!await db.isFrontingMemberCheckInstalled()) return companion;
+
+  await db.enqueueFrontingOrphanRescueRepair(targetId);
+  return companion.copyWith(memberId: Value(unknownSentinelMemberId));
+}
+
 DriftSyncEntity _frontingSessionsEntity(
   AppDatabase db,
   SyncQuarantineService? quarantine,
@@ -2743,7 +2787,7 @@ DriftSyncEntity _frontingSessionsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
-      final companion = FrontingSessionsCompanion(
+      var companion = FrontingSessionsCompanion(
         id: Value(targetId),
         startTime: f.dateTimeField('start_time'),
         endTime: f.dateTimeFieldNullable('end_time'),
@@ -2763,6 +2807,19 @@ DriftSyncEntity _frontingSessionsEntity(
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
+      // Normalize an orphan-producing apply onto the Unknown sentinel
+      // instead of letting the v14 CHECK (session_type != 0 OR member_id IS NOT
+      // NULL) throw and the row get quarantined-and-swallowed. A pre-v14 sparse
+      // apply can create/leave a session_type=0 row with member_id NULL; on a
+      // v14+ DB that write trips the CHECK. Coerce member_id to the sentinel and
+      // enqueue a repair so the coercion re-emits and wins LWW fleet-wide.
+      if (!remoteTombstone) {
+        companion = await _normalizeFrontingOrphanForApply(
+          db,
+          targetId: targetId,
+          companion: companion,
+        );
+      }
       await _insertOrUpdateById(
         db,
         db.frontingSessions,

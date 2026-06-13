@@ -5,10 +5,20 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/features/migration/services/migration_sync_repair_service.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
+
+/// A gate that reports the given ids as tombstoned (`is_deleted` winner != false).
+TombstoneGate _gateTombstoning(Set<String> ids) {
+  return TombstoneGate((table, entityId, field) async {
+    if (field != 'is_deleted') return null;
+    return ids.contains(entityId) ? 'true' : null;
+  });
+}
 
 Future<void> _enqueue(
   AppDatabase db,
@@ -112,19 +122,24 @@ void main() {
       required String entityId,
       required Map<String, dynamic> fields,
     })
-    recordReconcile,
-  ) {
-    return MigrationSyncRepairService(db: db, recordReconcile: recordReconcile);
+    recordReconcile, {
+    TombstoneGate? tombstoneGate,
+  }) {
+    return MigrationSyncRepairService(
+      db: db,
+      recordReconcile: recordReconcile,
+      tombstoneGate: tombstoneGate,
+    );
   }
 
-  MigrationSyncRepairService service() {
+  MigrationSyncRepairService service({TombstoneGate? tombstoneGate}) {
     return serviceWith(({
       required table,
       required entityId,
       required fields,
     }) async {
       emits.add(_Emit(table, entityId, fields));
-    });
+    }, tombstoneGate: tombstoneGate);
   }
 
   test('re-reads CURRENT values with correct encodings and deletes on success',
@@ -288,6 +303,176 @@ void main() {
     expect(emits.single.table, 'member_groups');
     expect(emits.single.entityId, 'gpk');
     expect(await _queueCount(db), 0);
+  });
+
+  group('S2 fronting orphan rescue', () {
+    Future<void> insertSentinelMember(AppDatabase db) async {
+      await db.customStatement(
+        'INSERT INTO members '
+        '(id, name, emoji, created_at, is_admin, display_order, is_active, '
+        ' is_deleted, markdown_enabled) '
+        'VALUES (?, ?, ?, 0, 0, 0, 1, 0, 0)',
+        [unknownSentinelMemberId, 'Unknown', '❔'],
+      );
+    }
+
+    Future<void> insertSession(
+      AppDatabase db,
+      String id, {
+      required String? memberId,
+      String? pluralkitUuid,
+      int sessionType = 0,
+      bool isDeleted = false,
+    }) async {
+      await db.customStatement(
+        'INSERT INTO fronting_sessions '
+        '(id, session_type, start_time, end_time, member_id, co_fronter_ids, '
+        ' is_health_kit_import, is_deleted, pluralkit_uuid) '
+        'VALUES (?, ?, 0, NULL, ?, ?, 0, ?, ?)',
+        [
+          id,
+          sessionType,
+          memberId,
+          '[]',
+          isDeleted ? 1 : 0,
+          pluralkitUuid,
+        ],
+      );
+    }
+
+    test('emits the rescued session member_id/pluralkit_uuid reconcile and the '
+        'sentinel member create', () async {
+      // Post-rescue state: the session points at the sentinel with a cleared
+      // pluralkit_uuid, and the sentinel member row exists.
+      await insertSentinelMember(db);
+      await insertSession(
+        db,
+        's1',
+        memberId: unknownSentinelMemberId,
+        pluralkitUuid: null,
+      );
+      await _enqueue(
+        db,
+        'fronting_sessions',
+        's1',
+        const ['member_id', 'pluralkit_uuid'],
+        'fronting_orphan_rescue',
+      );
+      await _enqueue(
+        db,
+        'members',
+        unknownSentinelMemberId,
+        const ['__create__'],
+        'fronting_orphan_rescue',
+      );
+
+      final result = await service().drain();
+
+      expect(result.error, isNull);
+      expect(result.repaired, 2);
+
+      final sessionEmit = emits.singleWhere(
+        (e) => e.table == 'fronting_sessions',
+      );
+      expect(sessionEmit.entityId, 's1');
+      expect(sessionEmit.fields, {
+        'member_id': unknownSentinelMemberId,
+        'pluralkit_uuid': null,
+      });
+
+      final memberEmit = emits.singleWhere((e) => e.table == 'members');
+      expect(memberEmit.entityId, unknownSentinelMemberId);
+      // Whole-entity create encoded via DriftMemberRepository.memberFields.
+      expect(memberEmit.fields['name'], 'Unknown');
+      expect(memberEmit.fields['emoji'], '❔');
+      expect(memberEmit.fields['is_deleted'], false);
+
+      expect(await _queueCount(db), 0);
+    });
+
+    test('C12: a tombstoned sentinel id drops the create without emitting into '
+        'the burned id', () async {
+      await insertSentinelMember(db);
+      await _enqueue(
+        db,
+        'members',
+        unknownSentinelMemberId,
+        const ['__create__'],
+        'fronting_orphan_rescue',
+      );
+
+      final result = await service(
+        tombstoneGate: _gateTombstoning({unknownSentinelMemberId}),
+      ).drain();
+
+      expect(result.error, isNull);
+      expect(result.repaired, 0);
+      expect(result.dropped, 1);
+      expect(emits, isEmpty);
+      expect(await _queueCount(db), 0);
+    });
+
+    test('a live (non-tombstoned) sentinel id emits the create', () async {
+      await insertSentinelMember(db);
+      await _enqueue(
+        db,
+        'members',
+        unknownSentinelMemberId,
+        const ['__create__'],
+        'fronting_orphan_rescue',
+      );
+
+      final result = await service(tombstoneGate: _gateTombstoning({})).drain();
+
+      expect(result.repaired, 1);
+      expect(emits.single.table, 'members');
+      expect(emits.single.entityId, unknownSentinelMemberId);
+    });
+
+    test('a rescue repair for a purged/missing session is dropped (no-op)',
+        () async {
+      // The rescued session was later hard-deleted (purged); the re-delivered
+      // repair finds no row and must drop rather than wedge the drain.
+      await _enqueue(
+        db,
+        'fronting_sessions',
+        'purged',
+        const ['member_id', 'pluralkit_uuid'],
+        'fronting_orphan_rescue',
+      );
+
+      final result = await service().drain();
+
+      expect(result.repaired, 0);
+      expect(result.dropped, 1);
+      expect(emits, isEmpty);
+      expect(await _queueCount(db), 0);
+    });
+
+    test('a __create__ repair for a deleted sentinel member is dropped',
+        () async {
+      await insertSession(db, 's1', memberId: unknownSentinelMemberId);
+      // Sentinel member row was soft-deleted locally.
+      await db.customStatement(
+        'INSERT INTO members '
+        '(id, name, emoji, created_at, is_admin, display_order, is_active, '
+        ' is_deleted, markdown_enabled) '
+        'VALUES (?, ?, ?, 0, 0, 0, 1, 1, 0)',
+        [unknownSentinelMemberId, 'Unknown', '❔'],
+      );
+      await _enqueue(
+        db,
+        'members',
+        unknownSentinelMemberId,
+        const ['__create__'],
+        'fronting_orphan_rescue',
+      );
+
+      final result = await service().drain();
+
+      expect(result.dropped, 1);
+      expect(emits, isEmpty);
+    });
   });
 
   group('one-time blanket backfill', () {
