@@ -12198,14 +12198,15 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get mediaFetchNotAnImage =>
-      'That link is a web page, not an image. Open the image itself and copy its direct link (it should end in .jpg, .png, .gif, etc.).';
+      'Ese enlace es una página web, no una imagen. Abre la imagen directamente y copia su enlace directo (debería terminar en .jpg, .png, .gif, etc.).';
 
   @override
   String get mediaFetchUnreachable =>
-      'Couldn\'t reach that image. Check the link and your connection, then try again.';
+      'No se pudo acceder a esa imagen. Verifica el enlace y tu conexión, y vuelve a intentarlo.';
 
   @override
-  String get mediaFetchTooLarge => 'That image is too large to add.';
+  String get mediaFetchTooLarge =>
+      'Esa imagen es demasiado grande para agregarla.';
 
   @override
   String get mediaTagNoUsableCharacters => 'Tag has no usable characters';

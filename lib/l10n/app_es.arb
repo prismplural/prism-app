@@ -4610,6 +4610,18 @@
   "@mediaFetchImageFailed": {
     "description": "Error toast when an image cannot be fetched from the entered URL (markdown editor)"
   },
+  "mediaFetchNotAnImage": "Ese enlace es una página web, no una imagen. Abre la imagen directamente y copia su enlace directo (debería terminar en .jpg, .png, .gif, etc.).",
+  "@mediaFetchNotAnImage": {
+    "description": "Error toast when a fetched URL returns a web page or other non-image content instead of a direct image"
+  },
+  "mediaFetchUnreachable": "No se pudo acceder a esa imagen. Verifica el enlace y tu conexión, y vuelve a intentarlo.",
+  "@mediaFetchUnreachable": {
+    "description": "Error toast when an image URL can't be reached (DNS/connection/timeout/HTTP error)"
+  },
+  "mediaFetchTooLarge": "Esa imagen es demasiado grande para agregarla.",
+  "@mediaFetchTooLarge": {
+    "description": "Error toast when a fetched image exceeds the size cap"
+  },
   "mediaTagNoUsableCharacters": "Tag has no usable characters",
   "@mediaTagNoUsableCharacters": {
     "description": "Error toast when a typed image tag normalizes to an empty string (all characters were stripped as invalid)"
