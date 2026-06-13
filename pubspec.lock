@@ -1179,8 +1179,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync"
-      ref: "1fd371b5247acad093538de05c88dd5a6d00a723"
-      resolved-ref: "1fd371b5247acad093538de05c88dd5a6d00a723"
+      ref: d471f3a9aaf482d742aea832663351f906b11346
+      resolved-ref: d471f3a9aaf482d742aea832663351f906b11346
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1188,8 +1188,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_drift"
-      ref: "1fd371b5247acad093538de05c88dd5a6d00a723"
-      resolved-ref: "1fd371b5247acad093538de05c88dd5a6d00a723"
+      ref: d471f3a9aaf482d742aea832663351f906b11346
+      resolved-ref: d471f3a9aaf482d742aea832663351f906b11346
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1197,8 +1197,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_flutter"
-      ref: "1fd371b5247acad093538de05c88dd5a6d00a723"
-      resolved-ref: "1fd371b5247acad093538de05c88dd5a6d00a723"
+      ref: d471f3a9aaf482d742aea832663351f906b11346
+      resolved-ref: d471f3a9aaf482d742aea832663351f906b11346
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"

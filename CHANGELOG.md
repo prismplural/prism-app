@@ -4,6 +4,64 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-06-13
+
+Feature release. PluralKit sync is substantially more reliable, sync correctness
+was hardened across a multi-wave CRDT review, custom fields gain header icons and
+member layouts, markdown supports member mentions, and media sync moves toward
+self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`d471f3a`).
+
+### Added
+- Custom fields can display profile header icons, with a combined icon picker,
+  filled icon variants, and inline icon editing.
+- A new member custom-field type and per-member field layout options.
+- Markdown supports @member mentions that open the member in a sheet.
+- Navigation settings gain label display modes (full, truncated, icons-only), and
+  the home navigation item can be reordered.
+- The sync settings screen was redesigned.
+- Context menus support secondary-tap (long-press) and right-click overflow menus.
+- Sleep gains a recovery banner and sheet, and accidentally deleted sleep sessions
+  can be recreated.
+- Fronting sessions can start at an earlier time, and notes can now be cleared
+  from a session.
+- The notes list gains search and per-member filtering.
+- Media heals on demand and via pairing push, with thumbnails, a persisted upload
+  queue, and eager hydration of referenced media on newly paired devices.
+
+### Changed
+- PluralKit sync was hardened end-to-end: per-member push isolation, per-field
+  PATCH payloads, client-side field caps, a stable service identity, token
+  rotation, a mass-deletion breaker, and corrective imports that preserve data.
+- Sync apply is now atomic and recovers from interrupted pulls, and a device
+  revoke only wipes after a cryptographically verified self-revocation.
+- prism_sync is built as a native asset, so a Rust toolchain is required at app
+  build time.
+- phosphor_flutter now tracks a maintained fork that compiles on Flutter 3.44+.
+
+### Fixed
+- Switches and fronting sessions no longer resurrect through import, re-import, or
+  stale snapshots, and primary-key tombstone collisions on import are handled.
+- iOS recovers and diagnoses unreadable secure storage during sync setup instead
+  of dead-ending recovery-phrase entry.
+- iOS no longer links SDWebImage through both CocoaPods and Swift Package
+  Manager.
+- Spam-tapping archive actions no longer pops past the app shell.
+- GIF API hosts are allowlisted, secure-storage writes and at-rest app data were
+  hardened, and the post-capture screenshot warning was removed.
+- Backup export now carries the navigation label mode and media thumbnail hashes.
+- Camera media compression applies EXIF orientation before storing dimensions.
+- Spanish strings were added for image-fetch errors, alongside fixes across
+  fronting date display, sleep recovery, navigation pill centering, chat
+  speaking-as, and custom-field slider display.
+
+### Internal
+- Folded in CRDT correctness remediation waves 1 and 2 (all three critical
+  findings closed) and the full PluralKit sync audit.
+- Squashed the unreleased v33–v37 database migrations into the v32 floor, and
+  added an identity-alias table with sync-generation columns.
+- Member-add performance work (single-transaction custom-field commit, a
+  lightweight member-name map) plus benchmarks and save-timing diagnostics.
+
 ## [0.12.2] - 2026-06-06
 
 Patch release: desktop build reliability, sync and pairing hardening, safer chat
