@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_group_entry_deferred_sync_ops_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_group_sync_aliases_dao.dart';
+import 'package:prism_plurality/core/database/daos/pk_identity_sync_aliases_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_options_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_votes_dao.dart';
 import 'package:prism_plurality/core/database/daos/polls_dao.dart';
@@ -55,6 +56,7 @@ part 'app_database.g.dart';
     MemberGroups,
     MemberGroupEntries,
     PkGroupSyncAliases,
+    PkIdentitySyncAliases,
     PkGroupEntryDeferredSyncOps,
     CustomFields,
     CustomFieldValues,
@@ -88,6 +90,7 @@ part 'app_database.g.dart';
     SyncQuarantineDao,
     MemberGroupsDao,
     PkGroupSyncAliasesDao,
+    PkIdentitySyncAliasesDao,
     PkGroupEntryDeferredSyncOpsDao,
     CustomFieldsDao,
     NotesDao,
@@ -972,6 +975,7 @@ class AppDatabase extends _$AppDatabase {
       await _createPkFrontingCompositeIndex();
       await _createPkFrontingOrphanIndex();
       await _createPkGroupSyncIndexes();
+      await _createPkIdentitySyncIndexes();
       await _createPreferenceValueIndexes();
       await _createChatMessagesFtsArtifacts();
     },
@@ -1654,6 +1658,16 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Lookup index for the generic PK-identity alias fan-out: the delete
+  /// emitters query by (entity_table, identity) to plant tombstones under every
+  /// legacy id of a merged logical entity.
+  Future<void> _createPkIdentitySyncIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_pk_identity_sync_aliases_identity '
+      'ON pk_identity_sync_aliases (entity_table, pk_uuid, pk_id, member_id)',
+    );
+  }
+
   Future<void> _createChatMessagesFtsArtifacts() async {
     // prefix='2 3 4' indexes 2-, 3-, and 4-char prefix terms so that
     // `"abc"*` queries — every chat search uses the prefix-match form —
@@ -1727,6 +1741,9 @@ class AppDatabase extends _$AppDatabase {
   @override
   PkGroupSyncAliasesDao get pkGroupSyncAliasesDao =>
       PkGroupSyncAliasesDao(this);
+  @override
+  PkIdentitySyncAliasesDao get pkIdentitySyncAliasesDao =>
+      PkIdentitySyncAliasesDao(this);
   @override
   PkGroupEntryDeferredSyncOpsDao get pkGroupEntryDeferredSyncOpsDao =>
       PkGroupEntryDeferredSyncOpsDao(this);

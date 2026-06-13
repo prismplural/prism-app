@@ -559,6 +559,72 @@ void main() {
     });
   });
 
+  // ── F25 ─────────────────────────────────────────────────────────────────
+  group('F25 self/active alias-delete emission is guarded and purged', () {
+    test(
+        'a planted self-alias for the deterministic pk-group-<uuid> id emits NO '
+        'delete and the alias row is purged; a genuine loser alias still emits',
+        () async {
+      final deletes = <String>[];
+      final repo = _FakeMemberRepo([]);
+      final importer = PkGroupsImporter(
+        db: db,
+        memberRepository: repo,
+        recordCreateOverride: (t, e, f) async {},
+        recordUpdateOverride: (t, e, f) async {},
+        recordDeleteOverride: (table, entityId) async {
+          deletes.add('$table:$entityId');
+        },
+      );
+
+      // The active local group row lives under the importer's deterministic
+      // hyphen-form id `pk-group-<uuid>` — the same id is every importing
+      // device's own active row across the fleet.
+      final selfId = PkGroupsImporter.deriveGroupId('pk-g1');
+      await _seedGroup(
+        db,
+        id: selfId,
+        pkUuid: 'pk-g1',
+        pkId: 'gid',
+        lastSeen: DateTime.now().subtract(const Duration(hours: 25)),
+      );
+      // Poison: a stale self-alias pointing the deterministic id at this uuid.
+      await db.pkGroupSyncAliasesDao.upsertAlias(
+        legacyEntityId: selfId,
+        pkGroupUuid: 'pk-g1',
+        canonicalEntityId: 'pk-group:pk-g1',
+      );
+      // A genuine loser alias: a random id that is NOT an active local row.
+      await db.pkGroupSyncAliasesDao.upsertAlias(
+        legacyEntityId: 'loser-entity-1',
+        pkGroupUuid: 'pk-g1',
+        canonicalEntityId: 'pk-group:pk-g1',
+      );
+
+      // Due update (last_seen 25h old) drives the alias-delete emitter.
+      await importer.importGroups([
+        const PKGroup(id: 'gid', uuid: 'pk-g1', name: 'g', memberIds: []),
+      ], overwriteMetadata: false);
+
+      // The self-id delete must NOT be emitted (it would tombstone peers' and
+      // this device's own active row), and the poisoned alias is purged so the
+      // emitter loop terminates.
+      expect(
+        deletes.where((d) => d.contains(selfId)),
+        isEmpty,
+        reason: 'F25: never emit a delete for the deterministic self-id',
+      );
+      expect(
+        await db.pkGroupSyncAliasesDao.getByLegacyEntityId(selfId),
+        isNull,
+        reason: 'F25: a forbidden self-alias is purged on sight',
+      );
+
+      // The genuine loser alias still gets its one delete (convergence).
+      expect(deletes, contains('member_groups:loser-entity-1'));
+    });
+  });
+
   // ── M14c ──────────────────────────────────────────────────────────────────
   // (M14c dismissal memory lives in pk_group_repair_service_test additions.)
 

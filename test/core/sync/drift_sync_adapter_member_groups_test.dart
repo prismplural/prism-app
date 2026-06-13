@@ -2296,6 +2296,158 @@ void main() {
       },
     );
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // F25 — guard the alias machinery against self/active member_groups rows
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('member_groups: F25 self/active alias guards', () {
+    test(
+      'applyFields does NOT record a self-alias for the deterministic '
+      'pk-group-<uuid> id even when the device own row is soft-deleted',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final groupsEntity = _entityFor(db, 'member_groups');
+        const pkUuid = 'pk-g-uuid-selfdel';
+        const selfId = 'pk-group-$pkUuid';
+        final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+        // The device's own deterministic-id row, currently SOFT-DELETED — the
+        // exact state the active-row guard (is_deleted=0) misses, which is how
+        // the tombstone-apply branch re-recorded poisoning self-aliases post-C1.
+        await db
+            .into(db.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: selfId,
+                name: 'Local Deleted',
+                createdAt: createdAt,
+                pluralkitUuid: const Value(pkUuid),
+                isDeleted: const Value(true),
+              ),
+            );
+
+        // A legacy-id tombstone arrives addressed to that same self-id while the
+        // row is absent/tombstoned locally — the adapter tombstone-apply path
+        // would call _recordPkGroupAliasIfNeeded(selfId).
+        await groupsEntity.applyFields(selfId, {
+          'name': 'Local Deleted',
+          'created_at': createdAt.toIso8601String(),
+          'pluralkit_uuid': pkUuid,
+          'is_deleted': true,
+        });
+
+        final aliases = await db
+            .customSelect(
+              "SELECT legacy_entity_id FROM pk_group_sync_aliases "
+              "WHERE legacy_entity_id = ?",
+              variables: [Variable<String>(selfId)],
+            )
+            .get();
+        expect(
+          aliases,
+          isEmpty,
+          reason: 'F25: the deterministic self-id is never aliased',
+        );
+      },
+    );
+
+    test(
+      'a received hardDelete for the deterministic pk-group-<uuid> id is '
+      'SKIPPED against an active PK-linked row',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+
+        final groupsEntity = _entityFor(db, 'member_groups');
+        const pkUuid = 'pk-g-uuid-active';
+        const selfId = 'pk-group-$pkUuid';
+        final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+        // The device's ACTIVE PK-linked group under the deterministic id.
+        await db
+            .into(db.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: selfId,
+                name: 'Live Group',
+                createdAt: createdAt,
+                pluralkitUuid: const Value(pkUuid),
+              ),
+            );
+
+        // A stale-alias kill arriving from a poisoned/un-upgraded peer.
+        await groupsEntity.hardDelete(selfId);
+
+        final row = await (db.select(
+          db.memberGroups,
+        )..where((t) => t.id.equals(selfId))).getSingleOrNull();
+        expect(row, isNotNull, reason: 'F25: active PK-linked row survives');
+        expect(row!.isDeleted, isFalse);
+      },
+    );
+
+    test(
+      'a received hardDelete for the deterministic pk-group-<uuid> id still '
+      'deletes a soft-deleted row or a non-PK active row',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        // Two distinct uuids would normally collide on the unique index; this
+        // test seeds them sequentially so no two active PK rows coexist.
+
+        final groupsEntity = _entityFor(db, 'member_groups');
+        final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+        // (a) soft-deleted PK-linked row — narrowing does not apply, delete it.
+        const softUuid = 'pk-g-uuid-soft';
+        const softId = 'pk-group-$softUuid';
+        await db
+            .into(db.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: softId,
+                name: 'Soft Deleted',
+                createdAt: createdAt,
+                pluralkitUuid: const Value(softUuid),
+                isDeleted: const Value(true),
+              ),
+            );
+        await groupsEntity.hardDelete(softId);
+        expect(
+          await (db.select(
+            db.memberGroups,
+          )..where((t) => t.id.equals(softId))).getSingleOrNull(),
+          isNull,
+          reason: 'F25: a soft-deleted PK row is still hard-deleted',
+        );
+
+        // (b) active NON-PK row (pluralkit_uuid null) under a hyphen-form id —
+        // narrowing requires a PK link, so this delete still lands.
+        const nonPkId = 'pk-group-not-really-pk';
+        await db
+            .into(db.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: nonPkId,
+                name: 'Non-PK',
+                createdAt: createdAt,
+                pluralkitUuid: const Value(null),
+              ),
+            );
+        await groupsEntity.hardDelete(nonPkId);
+        expect(
+          await (db.select(
+            db.memberGroups,
+          )..where((t) => t.id.equals(nonPkId))).getSingleOrNull(),
+          isNull,
+          reason: 'F25: an active non-PK row is still hard-deleted',
+        );
+      },
+    );
+  });
 }
 
 DriftSyncEntity _entityFor(AppDatabase db, String tableName) {

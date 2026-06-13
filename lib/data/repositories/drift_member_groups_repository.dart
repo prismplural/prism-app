@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
 import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
 import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
@@ -30,10 +31,10 @@ class DriftMemberGroupsRepository
   final MemberRepository _memberRepository;
   final ffi.PrismSyncHandle? _syncHandle;
 
-  /// Engine-backed view of absorbing-tombstone state for R1 sanctioned revive.
+  /// Engine-backed view of absorbing-tombstone state for sanctioned revive.
   /// Built from [_syncHandle]; `null` when no handle is wired (pre-pairing /
   /// most unit tests), in which case the re-add path keeps the legacy gen-0 id.
-  /// Overridable so [tombstone_gate_test]-style fakes can drive the mint loop.
+  /// Overridable so fakes can drive the mint loop in tests.
   final TombstoneGate? _tombstoneGate;
 
   @override
@@ -340,16 +341,15 @@ class DriftMemberGroupsRepository
         (member?.pluralkitUuid ?? '').isNotEmpty;
     final pendingPkOp = isPkLinked ? 'push_add' : 'none';
 
-    // R1/F14 sanctioned revive: for a PK-linked re-add, the deterministic
-    // gen-0 sha id may be a peer tombstone burned in the CRDT — reviving it in
-    // place can never propagate (the sender strips is_deleted=false, peers drop
-    // every op on the tombstoned entity). Consult the engine's tombstone state
-    // (the gate's read_field_value is the source of truth even when a prior
-    // local row was hard-deleted by the pruner) and mint the lowest live
-    // incarnation id. A fresh add with no tombstone resolves to gen 0 (legacy
-    // id, unchanged). Non-PK entries use the random fallback id and never
-    // collide, so they skip the gate entirely. Gate/mint reads run BEFORE the
-    // transaction; the create is emitted after commit (emit-after-commit).
+    // Sanctioned revive: for a PK-linked re-add, the deterministic gen-0 sha id
+    // may be a peer tombstone burned in the CRDT — reviving it in place can
+    // never propagate (sender strips is_deleted=false, peers drop every op on
+    // the tombstoned entity). Consult the engine's tombstone state (the gate's
+    // read is source of truth even when the pruner hard-deleted the local row)
+    // and mint the lowest live incarnation id. A fresh add with no tombstone
+    // resolves to gen 0 (legacy id, unchanged). Non-PK entries use the random
+    // fallback id and skip the gate. Gate/mint reads run BEFORE the
+    // transaction; the create is emitted after commit.
     final minted = isPkLinked
         ? await _mintEntryIncarnation(
             pkGroupUuid: group.pluralkitUuid,
@@ -367,13 +367,12 @@ class DriftMemberGroupsRepository
       isDeleted: const Value(false),
       pendingPkOp: Value(pendingPkOp),
       syncGeneration: Value(minted.generation),
-      // Local-only recency stamp (wave-3 verifier issue 1, 2026-06 PK audit
-      // H6b/M15): "row creation or latest local membership mutation". Must be
-      // EXPLICIT here — the upsertEntry revive path below is an
-      // insertOnConflictUpdate whose DO UPDATE writes only the companion, so
+      // Local-only recency stamp: "row creation or latest local membership
+      // mutation". Must be EXPLICIT here — the upsertEntry revive path below is
+      // an insertOnConflictUpdate whose DO UPDATE writes only the companion, so
       // `clientDefault` would NOT fire and a revived tombstone would keep its
       // stale stamp, instantly "expiring" the fresh push_add under the
-      // age-based retry cap (and dropping it from the H6b removal grace).
+      // age-based retry cap (and dropping it from the removal grace).
       createdAt: Value(DateTime.now()),
     );
 
@@ -386,26 +385,23 @@ class DriftMemberGroupsRepository
     await _dao.transaction(() async {
       if (isPkLinked) {
         // upsertEntry on the resolved incarnation id either inserts the fresh
-        // gen-N row or revives a prior soft-deleted row at this exact id (e.g.
-        // a tombstone with pending_pk_op=push_remove that is NOT burned in the
+        // gen-N row or revives a prior soft-deleted row at this exact id (a
+        // tombstone with pending_pk_op=push_remove that is NOT burned in the
         // CRDT). The companion's push_add intent overwrites whatever pending
         // was queued — the user's revival intent wins, and the next push round
         // restores the member to PK regardless of whether the prior remove
         // already shipped.
         await _dao.upsertEntry(companion);
         if (minted.generation > 0) {
-          // R1/H6c: minting a NEW incarnation id (gen>0) leaves the burned
-          // gen-(N-1) row soft-deleted with its `pending_pk_op='push_remove'`
-          // orphaned — the upsert above wrote the NEW id, so it never reached
-          // that stale row. The push orchestrator pushes all add buckets before
-          // all remove buckets with no same-edge cross-row dedup, so the stale
-          // remove would fire AFTER this fresh add and remove the member from
-          // the user's real PluralKit group despite the re-add being the latest
-          // intent (then the next pulls reconcile-delete the gen-N row fleet-
-          // wide once the grace expires). Hard-delete the superseded same-edge
-          // soft-deleted rows so the minted live row is the only pending intent.
-          // (Also cleans up the stale tombstone the gen-0 hardDelete guard now
-          // skips — see drift_sync_adapter's entry hardDelete generation guard.)
+          // Minting a NEW incarnation id (gen>0) leaves the burned gen-(N-1)
+          // row soft-deleted with its `pending_pk_op='push_remove'` orphaned —
+          // the upsert above wrote the NEW id, so it never reached that stale
+          // row. The push orchestrator pushes all add buckets before all remove
+          // buckets with no same-edge cross-row dedup, so the stale remove would
+          // fire AFTER this fresh add and remove the member from the user's real
+          // PluralKit group despite the re-add being the latest intent.
+          // Hard-delete the superseded same-edge soft-deleted rows so the minted
+          // live row is the only pending intent.
           await _dao.hardDeleteSupersededEntryRowsForEdge(
             groupId: groupId,
             memberId: memberId,
@@ -717,13 +713,29 @@ class DriftMemberGroupsRepository
   Future<void> _syncLegacyPkGroupAliasDeletes(MemberGroupRow? group) async {
     final pkGroupUuid = (group?.pluralkitUuid ?? '').trim();
     if (group == null || pkGroupUuid.isEmpty) return;
+    final db = _dao.attachedDatabase;
     final canonicalEntityId = _groupEntityId(group);
-    final aliases = await _dao.attachedDatabase.pkGroupSyncAliasesDao
-        .getByPkGroupUuid(pkGroupUuid);
+    final aliases = await db.pkGroupSyncAliasesDao.getByPkGroupUuid(pkGroupUuid);
     final legacyEntityIds = <String>{};
     for (final alias in aliases) {
       final legacyEntityId = alias.legacyEntityId.trim();
       if (legacyEntityId.isEmpty || legacyEntityId == canonicalEntityId) {
+        continue;
+      }
+      // Emitter guard: never emit a delete for an id that is the deterministic
+      // hyphen-form self-id ('pk-group-<uuid>') or that matches any active local
+      // member_groups row — emitting it would hard-delete a peer's (or this
+      // device's own) live PK-group row. On a forbidden alias, PURGE the
+      // poisoned row so the recurring re-kill loop terminates.
+      if (await isForbiddenAliasTarget(
+        db,
+        _groupTable,
+        legacyEntityId,
+        pkGroupUuid,
+      )) {
+        await db.pkGroupSyncAliasesDao.deleteByLegacyEntityId(
+          alias.legacyEntityId,
+        );
         continue;
       }
       legacyEntityIds.add(legacyEntityId);
@@ -752,10 +764,9 @@ class DriftMemberGroupsRepository
   String _groupEntityId(MemberGroupRow? group, {String? fallbackId}) {
     final pkUuid = group?.pluralkitUuid;
     if (pkUuid != null && pkUuid.isNotEmpty) {
-      // Generation-aware: emit/delete against the row's live incarnation id so
-      // a revived group (sync_generation>=1) never targets the burned legacy
-      // 'pk-group:<uuid>' entity that peers tombstoned. gen0 is byte-identical
-      // to the legacy id.
+      // Emit/delete against the row's live incarnation id so a revived group
+      // (sync_generation>=1) never targets the burned legacy 'pk-group:<uuid>'
+      // entity that peers tombstoned. gen0 is byte-identical to the legacy id.
       return deriveGroupIncarnationEntityId(pkUuid, group?.syncGeneration ?? 0);
     }
     if (group != null) return group.id;
@@ -775,7 +786,7 @@ class DriftMemberGroupsRepository
     final gate = _tombstoneGate;
     final gen0Id = deriveEntryIncarnationEntityId(pkGroupUuid, pkMemberUuid, 0);
     // Non-PK edge (no deterministic id) or no engine to consult: keep the
-    // legacy gen-0 behavior byte-for-byte.
+    // legacy gen-0 behavior.
     if (gate == null || gen0Id == null) {
       return MintedIncarnation(generation: 0, entityId: gen0Id ?? fallbackId);
     }
@@ -796,8 +807,8 @@ class DriftMemberGroupsRepository
       pkGroupUuid: entry.pkGroupUuid ?? group.pluralkitUuid,
       pkMemberUuid: entry.pkMemberUuid ?? member?.pluralkitUuid,
       fallbackId: entry.id,
-      // The row's stored incarnation: emit/delete target its live id, not
-      // the burned gen0 sha.
+      // The row's stored incarnation: emit/delete target its live id, not the
+      // burned gen0 sha.
       generation: entry.syncGeneration,
     );
   }

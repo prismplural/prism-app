@@ -12,6 +12,7 @@ import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_profile_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
@@ -467,6 +468,61 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     await _resetDeletedMemberProfilePreferences(id);
     await _removeDeletedMemberFromConversations(id);
     await syncRecordDelete(_table, id);
+    await _fanOutPkIdentityAliasDeletes(existing);
+  }
+
+  /// Delete-only fan-out: after tombstoning the local row, plant terminal
+  /// tombstones under every legacy entity id this member was redirected onto on
+  /// some device (ids in `pk_identity_sync_aliases` for this member's identity).
+  /// A peer whose row lives under one would otherwise never see the delete (it
+  /// landed under a different id), staying alive and able to resurrect the
+  /// member via a later full-row emission. Skips any alias id that is an active
+  /// local row ([isForbiddenAliasTarget]). Never on updates: every-update
+  /// re-emission turns a guard bug into a recurring active-row kill loop; a
+  /// missed delete batch is recoverable by deleting again. Pre-fix redirects
+  /// recorded no alias, so an already-diverged fleet isn't auto-repaired —
+  /// delete again on the surviving device.
+  Future<void> _fanOutPkIdentityAliasDeletes(
+    db.Member? deletedRow,
+  ) async {
+    if (deletedRow == null) return;
+    final pkUuid = deletedRow.pluralkitUuid?.trim();
+    final pkId = deletedRow.pluralkitId?.trim();
+    if ((pkUuid == null || pkUuid.isEmpty) && (pkId == null || pkId.isEmpty)) {
+      return;
+    }
+    final database = _dao.attachedDatabase;
+    final aliases = await database.pkIdentitySyncAliasesDao.getByIdentity(
+      _table,
+      pkUuid: pkUuid,
+      pkId: pkId,
+    );
+    final seen = <String>{};
+    for (final alias in aliases) {
+      final legacyEntityId = alias.legacyEntityId.trim();
+      if (legacyEntityId.isEmpty || legacyEntityId == deletedRow.id) {
+        // Still purge a self-referential / empty alias below.
+        if (legacyEntityId.isNotEmpty) {
+          await database.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+            _table,
+            alias.legacyEntityId,
+          );
+        }
+        continue;
+      }
+      if (!seen.add(legacyEntityId)) continue;
+      if (!await isForbiddenAliasTarget(database, _table, legacyEntityId, pkUuid)) {
+        await syncRecordDelete(_table, legacyEntityId);
+      }
+      // The logical entity is gone, so this alias is dead weight. Purge it
+      // (emitted or skipped) so they don't accumulate across delete/re-import
+      // cycles and a later same-identity delete can't re-fan-out tombstones for
+      // long-dead legacy ids.
+      await database.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+        _table,
+        alias.legacyEntityId,
+      );
+    }
   }
 
   Future<void> _resetDeletedMemberProfilePreferences(String memberId) async {
@@ -639,16 +695,14 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       createdAt: DateTime.now().toUtc(),
     );
 
-    // R6/C12 ingress gate: the sentinel reuses a deterministic UUIDv5 id. If a
+    // Ingress gate: the sentinel reuses a deterministic UUIDv5 id. If a
     // previously-synced sentinel was ever deleted, the engine holds an
     // absorbing tombstone for that id and any create emitted here is a silent
-    // fleet-wide no-op (the sender strips is_deleted=false, every peer drops
-    // the op) — re-creating exactly the F21 sentinel divergence the rescue gate
-    // defends against. When the id is burned we still persist the LOCAL row so
-    // fronting history keeps a resolvable "Unknown" attribution (no FK
-    // constraint binds it), but suppress the emission. The sentinel is NOT
-    // minted to a new incarnation (family-5 open question 6, not adopted). A
-    // null gate (no engine to consult) keeps the pre-R6 emit-normally path.
+    // fleet-wide no-op (sender strips is_deleted=false, every peer drops the
+    // op). When the id is burned we still persist the LOCAL row so fronting
+    // history keeps a resolvable "Unknown" attribution (no FK binds it), but
+    // suppress the emission. A null gate (no engine to consult) keeps the
+    // emit-normally path.
     final gate = tombstoneGate;
     if (gate != null &&
         await gate.isTombstoned(_table, unknownSentinelMemberId)) {

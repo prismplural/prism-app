@@ -484,6 +484,69 @@ void main() {
     },
   );
 
+  test(
+    'F25: updateGroup never emits a delete for the deterministic self-id, '
+    'purges the poisoned alias, and still emits a genuine loser alias',
+    () async {
+      final createdAt = DateTime.utc(2026, 1, 1, 12, 30);
+      const pkGroupUuid = 'pk-group-1';
+      final canonicalEntityId = _canonicalPkGroupEntityId(pkGroupUuid);
+      // The importer mints every device's local group row under this id, so it
+      // is by construction someone's active row across the fleet — the self-id
+      // leg of the guard fires regardless of whether it is active here.
+      const selfId = 'pk-group-$pkGroupUuid';
+
+      await _insertPkBackedGroup(
+        db,
+        id: 'local-group-1',
+        name: 'Original name',
+        pluralkitId: 'abcde',
+        pluralkitUuid: pkGroupUuid,
+        createdAt: createdAt,
+        lastSeenFromPkAt: DateTime.utc(2026, 2, 2, 8, 15),
+      );
+      // Poison: a stale self-alias for the deterministic id.
+      await _insertPkGroupSyncAlias(
+        db,
+        legacyEntityId: selfId,
+        pkGroupUuid: pkGroupUuid,
+        canonicalEntityId: canonicalEntityId,
+      );
+      // A genuine loser alias: a random id that is NOT an active local row.
+      await _insertPkGroupSyncAlias(
+        db,
+        legacyEntityId: 'legacy-group-1',
+        pkGroupUuid: pkGroupUuid,
+        canonicalEntityId: canonicalEntityId,
+      );
+
+      await repo.updateGroup(
+        _groupModel(
+          id: 'local-group-1',
+          name: 'Renamed locally',
+          createdAt: createdAt,
+        ),
+      );
+
+      // The genuine loser delete is emitted; the self-id delete is not.
+      expect(repo.deletes, hasLength(1));
+      expect(repo.deletes.single, {
+        'table': 'member_groups',
+        'entityId': 'legacy-group-1',
+      });
+      // The poisoned self-alias is purged on sight so the recurring re-kill
+      // loop terminates; the legit loser alias is left for its one delete.
+      expect(
+        await db.pkGroupSyncAliasesDao.getByLegacyEntityId(selfId),
+        isNull,
+      );
+      expect(
+        await db.pkGroupSyncAliasesDao.getByLegacyEntityId('legacy-group-1'),
+        isNotNull,
+      );
+    },
+  );
+
   test('addMemberToGroup emits PK UUID fields and deterministic entry ids for '
       'PK-backed groups', () async {
     final createdAt = DateTime.utc(2026, 1, 1);

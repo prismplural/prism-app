@@ -8,6 +8,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
 import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
 import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart';
@@ -1179,6 +1180,21 @@ class PkGroupsImporter with SyncRecordMixin {
       if (legacyEntityId.isEmpty ||
           legacyEntityId == canonicalEntityId ||
           legacyEntityId == currentIncarnationEntityId) {
+        continue;
+      }
+      // F25 emitter guard: never emit a delete for the deterministic hyphen-form
+      // self-id ('pk-group-<uuid>') or any id matching an active local
+      // member_groups row — that tombstone would hard-delete a peer's (or this
+      // device's own) live PK-group row, recurringly on every import. On a
+      // forbidden alias, PURGE the poisoned row (keyed on the RAW stored value)
+      // so the re-kill loop terminates. Composes with the F15 exclusions above.
+      if (await isForbiddenAliasTarget(
+        _db,
+        _groupTable,
+        legacyEntityId,
+        pkGroupUuid,
+      )) {
+        await _db.pkGroupSyncAliasesDao.deleteByLegacyEntityId(raw);
         continue;
       }
       legacyEntityIdsToDelete[legacyEntityId] = raw;

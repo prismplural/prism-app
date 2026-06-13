@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
 import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart'
@@ -400,7 +401,7 @@ String _canonicalPkGroupEntityId(String pkGroupUuid) =>
     '$_pkGroupSyncEntityIdPrefix$pkGroupUuid';
 
 /// Recover the pk group uuid from EITHER the bare canonical prefix
-/// (`pk-group:<uuid>`) or an R1 group incarnation id (`pk-group-g<N>:<uuid>`).
+/// (`pk-group:<uuid>`) or a group incarnation id (`pk-group-g<N>:<uuid>`).
 /// [parseGroupIncarnationEntityId] handles both forms; the resolve-for-id and
 /// resolve-for-delete paths use this so a gen-N tombstone or sparse patch that
 /// arrives before its create/alias still resolves to the real row by pk uuid
@@ -936,18 +937,28 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncDelete(
   // Incarnation-aware: a gen-N group tombstone (`pk-group-g<N>:<uuid>`) resolves
   // to the live row by pk uuid even though the row is keyed by its own local id,
   // so the hardDelete's generation guard can compare stored vs incoming gen and
-  // actually find the row to delete (blocker 3 group variant). The bare
-  // canonical id resolves the same way.
+  // find the row to delete. The bare canonical id resolves the same way.
   if (_pkGroupUuidFromAnyEntityId(entityId) != null) {
     return _resolveMemberGroupRowForSyncId(db, entityId);
   }
 
-  final alias = await _pkGroupAliasForLegacyEntityId(db, entityId);
-  if (alias != null) {
-    return _memberGroupRowById(db, entityId);
+  // Non-canonical (legacy-form) entity id. Resolve to the exact-id row only.
+  final row = await _memberGroupRowById(db, entityId);
+  if (row == null) return null;
+
+  // Receive-side hardening: a legacy-id delete arriving at an ACTIVE PK-linked
+  // row is always a stale-alias kill, never a genuine delete. Genuine deletes of
+  // PK-linked groups always travel under the canonical 'pk-group:<uuid>' id
+  // (handled above) — deleteGroup captures the uuid and computes the
+  // canonical/incarnation entity id BEFORE the DAO NULLs pluralkit_uuid. So skip
+  // the delete here, including poison from un-upgraded peers (the Rust store
+  // still records the legacy-id tombstone, harmless: logical PK-group state lives
+  // under the canonical id).
+  if (!row.isDeleted && (row.pluralkitUuid?.isNotEmpty ?? false)) {
+    return null;
   }
 
-  return _memberGroupRowById(db, entityId);
+  return row;
 }
 
 Future<String?> _resolveLocalMemberIdByPkUuid(
@@ -1346,7 +1357,7 @@ Future<MemberGroupEntryRow?> _activeMemberGroupEntryByResolvedRefs(
 }
 
 /// The active row for a PK logical edge `(pkGroupUuid, pkMemberUuid)`, keyed by
-/// the PK uuids rather than resolved local ids. Used by the R1 entry hardDelete
+/// the PK uuids rather than resolved local ids. Used by the entry hardDelete
 /// generation guard, which only knows the wire id's pk refs.
 Future<MemberGroupEntryRow?> _activeMemberGroupEntryByPkRefs(
   AppDatabase db, {
@@ -1489,19 +1500,18 @@ Future<bool> _applyMemberGroupEntryFields(
     pkMemberUuid: pkMemberUuid,
   );
   var targetId = id;
-  // R1: the row we are about to write may already carry a stored incarnation.
-  // Track its current generation so a strictly-newer incoming incarnation
-  // advances it (sanctioned revive) while a stale/equal one leaves it intact.
+  // The row we are about to write may already carry a stored incarnation. Track
+  // its current generation so a strictly-newer incoming incarnation advances it
+  // (sanctioned revive) while a stale/equal one leaves it intact.
   var targetRowGeneration = existingRow?.syncGeneration ?? 0;
 
   // Parse the incoming incarnation generation off the wire id BEFORE the
   // canonical-collapse redirect below: the redirect must never displace or
   // soft-delete a row that lives at a strictly-NEWER incarnation than the
-  // incoming op carries (that is the F14 burned-id split-brain — collapsing a
-  // live gen-N edge onto a stale gen-(<N) op re-roots it at a fresh gen-0 row
-  // and lets the eventual gen-0 hardDelete kill the edge). Opaque sha, so
-  // re-derive-and-compare against this edge; a non-incarnation id parses null
-  // and is treated as gen 0 (legacy).
+  // incoming op carries, else collapsing a live gen-N edge onto a stale
+  // gen-(<N) op re-roots it at a fresh gen-0 row and lets the eventual gen-0
+  // hardDelete kill the edge. Opaque sha, so re-derive-and-compare against this
+  // edge; a non-incarnation id parses null and is treated as gen 0 (legacy).
   final incomingEntryGen = logicalEdge == null
       ? 0
       : (parseEntryIncarnationGeneration(
@@ -1578,19 +1588,15 @@ Future<bool> _applyMemberGroupEntryFields(
     memberId: Value(resolvedMemberId),
     isDeleted: isDeletedValue,
     syncGeneration: entrySyncGenerationValue,
-    // LOCAL-ONLY recency stamp — never read from or written to wire field
-    // maps (it is not in prismSyncSchema and toSyncFields below omits it).
-    // Stamped on EVERY apply that touches this row (2026-06 PK audit wave-3
-    // verifier issue 2): drift's `clientDefault` fires only on a true
-    // INSERT, so an apply that revives an existing tombstone (the
-    // insertOnConflictUpdate DO-UPDATE / the UPDATE branch of
-    // _insertOrUpdateById) would otherwise keep the ORIGINAL stamp — and a
-    // peer's fresh re-add landing on an old local tombstone would look
-    // "old" to the importer's H6b removal-recency grace, letting the next
-    // PK pull reconcile-delete the just-revived entry and destroy the
-    // originating device's unpushed push_add. Refreshing here makes every
-    // inbound touch count as "recent" on THIS device — the fail-safe
-    // direction for both consumers of the stamp (H6b grace, M15 retry cap).
+    // LOCAL-ONLY recency stamp — never read from or written to wire field maps
+    // (not in prismSyncSchema; toSyncFields below omits it). Stamped on EVERY
+    // apply that touches this row: drift's `clientDefault` fires only on a true
+    // INSERT, so an apply that revives an existing tombstone would otherwise keep
+    // the ORIGINAL stamp — and a peer's fresh re-add landing on an old local
+    // tombstone would look "old" to the importer's removal-recency grace, letting
+    // the next PK pull reconcile-delete the just-revived entry and destroy the
+    // originating device's unpushed push_add. Refreshing here makes every inbound
+    // touch count as "recent" on THIS device — the fail-safe direction.
     createdAt: Value(DateTime.now()),
   );
   await _insertOrUpdateById(
@@ -1770,6 +1776,17 @@ Future<void> _recordPkGroupAliasIfNeeded(
       legacyEntityId == _canonicalPkGroupEntityId(pkGroupUuid)) {
     return;
   }
+  // Record-time guard: never alias the deterministic hyphen-form self-id
+  // ('pk-group-<uuid>'). The importer mints every device's local group row
+  // under this id, so it is by construction someone's active row across the
+  // fleet. The _isActiveMemberGroupIdForPkUuid check below requires
+  // is_deleted=0 and therefore MISSES the device's own TOMBSTONED self row —
+  // exactly the state the tombstone-apply branch re-creates the row in, which
+  // is how stale self-aliases get re-recorded and poison the alias-delete
+  // emitters into re-killing peers' active rows.
+  if (legacyEntityId == 'pk-group-$pkGroupUuid') {
+    return;
+  }
   if (await _isActiveMemberGroupIdForPkUuid(db, legacyEntityId, pkGroupUuid)) {
     return;
   }
@@ -1785,6 +1802,140 @@ Future<void> _recordPkGroupAliasIfNeeded(
     pkGroupUuid: pkGroupUuid,
     canonicalEntityId: _canonicalPkGroupEntityId(pkGroupUuid),
   );
+}
+
+/// Persist a PK-identity redirect alias for `members`/`fronting_sessions`.
+///
+/// When applyFields redirects an incoming op for [legacyEntityId] onto the
+/// different local winner row [targetRowId] (same PK identity), the legacy id is
+/// never materialized locally, so a later delete for it would no-op. Recording
+/// the mapping here lets the delete paths resolve the redirect and the
+/// repository delete emitters fan tombstones out to every legacy id the fleet
+/// knows the entity by. Guarded by [isForbiddenAliasTarget] so an id that is
+/// itself an active local row is never aliased. Local-only write inside the
+/// existing apply transaction; no emission.
+Future<void> _recordPkIdentityAliasIfNeeded(
+  AppDatabase db, {
+  required String entityTable,
+  required String legacyEntityId,
+  required String? pkUuid,
+  String? pkId,
+  String? memberId,
+  required String targetRowId,
+}) async {
+  if (legacyEntityId.isEmpty || legacyEntityId == targetRowId) return;
+  // members/fronting_sessions have no deterministic self-id form, so this
+  // reduces to the active-local-row check; pkUuid is passed through for the
+  // shared predicate's signature.
+  if (await isForbiddenAliasTarget(db, entityTable, legacyEntityId, pkUuid)) {
+    return;
+  }
+  await db.pkIdentitySyncAliasesDao.upsertAlias(
+    entityTable: entityTable,
+    legacyEntityId: legacyEntityId,
+    pkUuid: pkUuid,
+    pkId: pkId,
+    memberId: memberId,
+    targetRowId: targetRowId,
+  );
+}
+
+/// Resolve a recorded `members` redirect alias for [legacyEntityId] to the
+/// id of the CURRENT active holder row. Re-resolves by stored PK identity
+/// (uuid/id) so a holder that has itself since been re-keyed is still found;
+/// falls back to the recorded `target_row_id` when it still names an active row.
+/// Returns null when no alias is recorded or no active holder resolves.
+///
+/// What closes the dominant post-delete PK re-import vector is the alias being
+/// GONE by the time a delayed legacy-id delete reaches this resolver, NOT the
+/// temporal bound below. Every terminal resolution path purges the inbound
+/// aliases of the dying holder, so once the recorded holder is deleted/
+/// tombstoned this resolver returns null and the delayed delete no-ops — a
+/// fresh re-import of the same PK identity is never selected. Two purge shapes,
+/// because a holder can die by its OWN id or as a re-resolved identity:
+///   - holder dies by its own id (exact-id hardDelete, existing-row fields-
+///     tombstone): purge aliases whose recorded `target_row_id` is that row
+///     (`deleteByTargetRowId`).
+///   - holder is found by re-resolving the identity (this resolver, on the
+///     resolved-holder hardDelete path): purge aliases by IDENTITY
+///     (`deleteByIdentity`), since a sibling alias may record a different
+///     already-dead row as its target while still naming the same identity.
+/// This matters because a re-import sets `created_at = pk.created` (written
+/// through verbatim), so it shares the ORIGINAL incarnation's historical
+/// timestamp and the temporal bound below cannot discriminate it.
+///
+/// The temporal bound (`createdAt <= alias.createdAt`) is the remaining
+/// belt-and-suspenders for the pre-purge race window: it excludes a same-
+/// identity row materialized AFTER the alias was recorded with a LATER local
+/// timestamp (the merge-time/now() shape), so an older op never displaces a
+/// strictly-newer-timestamped same-identity row. It does NOT — and is not
+/// relied on to — exclude a historical-timestamp re-import; that case is owned
+/// entirely by the target-row purge. The `target_row_id` fallback covers
+/// identity-drift onto a still-active recorded target (loser-nulling merge
+/// winner, manual relink — rows that predate the alias).
+Future<String?> _resolveMemberIdentityAliasHolder(
+  AppDatabase db,
+  String legacyEntityId,
+) async {
+  final alias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+    'members',
+    legacyEntityId,
+  );
+  if (alias == null) return null;
+  final holders = await _activeMemberRowsByPkIdentityForApply(
+    db,
+    pkUuid: alias.pkUuid,
+    pkId: alias.pkId,
+  );
+  for (final holder in holders) {
+    if (!holder.createdAt.isAfter(alias.createdAt)) return holder.id;
+  }
+  final fallback = await (db.select(db.members)
+        ..where((t) => t.id.equals(alias.targetRowId) & t.isDeleted.equals(false)))
+      .getSingleOrNull();
+  return fallback?.id;
+}
+
+/// `fronting_sessions` analogue of [_resolveMemberIdentityAliasHolder],
+/// keyed on (pluralkit_uuid, member_id). The dominant post-delete re-import
+/// vector is closed by the same mechanism: every terminal resolution path
+/// purges the dying holder's inbound aliases — by recorded `target_row_id` when
+/// the holder dies by its own id (`deleteByTargetRowId`), by IDENTITY when the
+/// holder is found via this resolver on the resolved-holder hardDelete path
+/// (`deleteByIdentity`, so a sibling alias recording a different already-dead
+/// session is not left behind). Once the recorded holder is gone this resolver
+/// returns null and a delayed legacy-id delete no-ops — a re-imported session
+/// of the same identity is never selected. This is necessary because a switch
+/// re-import sets `start_time = switchEntry.timestamp`, identical across
+/// incarnations, so the temporal bound below cannot tell a re-import apart.
+///
+/// The temporal bound (`startTime <= alias.createdAt`) is the belt-and-
+/// suspenders for the pre-purge race window only: `fronting_sessions` has no
+/// row-creation timestamp, so it compares the session's `startTime` and
+/// excludes a session that STARTED after the alias was recorded with a later
+/// time. The `target_row_id` fallback covers identity-drift onto a still-active
+/// recorded target (a re-import gets a fresh id, never the recorded target).
+Future<String?> _resolveFrontingIdentityAliasHolder(
+  AppDatabase db,
+  String legacyEntityId,
+) async {
+  final alias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+    'fronting_sessions',
+    legacyEntityId,
+  );
+  if (alias == null) return null;
+  final holders = await _activeFrontingSessionRowsByPkIdentityForApply(
+    db,
+    pkUuid: alias.pkUuid,
+    memberId: alias.memberId,
+  );
+  for (final holder in holders) {
+    if (!holder.startTime.isAfter(alias.createdAt)) return holder.id;
+  }
+  final fallback = await (db.select(db.frontingSessions)
+        ..where((t) => t.id.equals(alias.targetRowId) & t.isDeleted.equals(false)))
+      .getSingleOrNull();
+  return fallback?.id;
 }
 
 Future<bool> _isActiveMemberGroupIdForPkUuid(
@@ -2055,43 +2206,82 @@ DriftSyncEntity _membersEntity(
         trackQuarantineWrite: trackQuarantineWrite,
       );
       final tombstonePkMemberUuid = nextPkUuid ?? existing?.pluralkitUuid;
-      if (existing == null && remoteTombstone) {
-        final createdAt = f.dateTimeField('created_at');
-        final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
-          0,
-          isUtc: true,
-        );
-        await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
-          db,
-          pkMemberUuid: tombstonePkMemberUuid,
-        );
-        final hasPkIdentityConflict = await _memberPkIdentityHeldByOtherRow(
-          db,
-          incomingId: id,
-          pkUuid: nextPkUuid,
-          pkId: nextPkId,
-        );
-        await _insertOrUpdateById(
-          db,
-          db.members,
-          MembersCompanion(
-            id: Value(id),
-            name: fields.containsKey('name')
-                ? f.stringField('name')
-                : const Value(''),
-            createdAt: createdAt.present ? createdAt : Value(fallbackTimestamp),
-            pluralkitUuid: fields.containsKey('pluralkit_uuid')
-                ? hasPkIdentityConflict
-                      ? const Value(null)
-                      : f.stringFieldNullable('pluralkit_uuid')
-                : const Value.absent(),
-            isDeleted: const Value(true),
-          ),
-          (t) => t.id.equals(id),
-        );
-        return;
-      }
       var targetId = id;
+      // The alias recorded for this legacy id, read up front so the
+      // resolved-holder tombstone purge below keys on the RECORDED identity
+      // rather than the incoming fields' identity (a sparse tombstone payload
+      // can omit the pk identity fields → nextPkUuid/nextPkId null → the
+      // identity purge would silently no-op). Null when no redirect was
+      // recorded.
+      PkIdentitySyncAliasRow? tombstoneAlias;
+      if (existing == null && remoteTombstone) {
+        // Resolve-on-fields-tombstone: a fields-borne is_deleted=true for an id
+        // we never materialized may be a delete of an entity whose ops we
+        // redirected onto a different local row. Resolve the recorded alias to
+        // the CURRENT active holder and tombstone it (fall through to the normal
+        // companion write below) instead of inserting a dead stub under the
+        // original id. NO alias -> keep the test-pinned stale-bootstrap stub
+        // insert exactly. Redirects that predate this machinery recorded no
+        // alias, so a delete already lost stays lost — delete again on the
+        // surviving device.
+        tombstoneAlias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+          'members',
+          id,
+        );
+        final holderId = await _resolveMemberIdentityAliasHolder(db, id);
+        if (holderId != null && holderId != id) {
+          targetId = holderId;
+          // Fall through to the shared companion write with the holder as the
+          // target so its is_deleted flips to true, then purge the alias below
+          // (after the write) so a redelivered tombstone for this legacy id —
+          // re-pair snapshot, quarantine replay, full-row re-emission of the
+          // soft-deleted row — does not re-resolve onto whatever row currently
+          // holds the identity and kill it again. Accepted field-clobber: the
+          // tombstone payload (name/created_at/avatar) is written onto the
+          // holder; since soft-deleted members are user-recoverable a later
+          // restore carries the dup-twin's field values. This matches
+          // member_groups' resolve-and-tombstone shape and is preferred over a
+          // narrower is_deleted-only write, which would diverge from the
+          // test-pinned companion semantics.
+        } else {
+          final createdAt = f.dateTimeField('created_at');
+          final fallbackTimestamp = DateTime.fromMillisecondsSinceEpoch(
+            0,
+            isUtc: true,
+          );
+          await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
+            db,
+            pkMemberUuid: tombstonePkMemberUuid,
+          );
+          final hasPkIdentityConflict = await _memberPkIdentityHeldByOtherRow(
+            db,
+            incomingId: id,
+            pkUuid: nextPkUuid,
+            pkId: nextPkId,
+          );
+          await _insertOrUpdateById(
+            db,
+            db.members,
+            MembersCompanion(
+              id: Value(id),
+              name: fields.containsKey('name')
+                  ? f.stringField('name')
+                  : const Value(''),
+              createdAt: createdAt.present
+                  ? createdAt
+                  : Value(fallbackTimestamp),
+              pluralkitUuid: fields.containsKey('pluralkit_uuid')
+                  ? hasPkIdentityConflict
+                        ? const Value(null)
+                        : f.stringFieldNullable('pluralkit_uuid')
+                  : const Value.absent(),
+              isDeleted: const Value(true),
+            ),
+            (t) => t.id.equals(id),
+          );
+          return;
+        }
+      }
       if (!remoteTombstone) {
         await _releaseDeletedPkIdentityHoldersForMemberApply(
           db,
@@ -2128,6 +2318,23 @@ DriftSyncEntity _membersEntity(
                 pluralkitUuid: Value(null),
                 pluralkitId: Value(null),
               ),
+            );
+          }
+          // Record: the incoming entity id was redirected onto a different local
+          // winner row and is never materialized locally, so a later delete for
+          // it would no-op. Persist (members, id -> targetId) so the
+          // delete paths resolve the redirect and the repository delete emitter
+          // can fan tombstones out to every legacy id the fleet knows the
+          // entity by. Local-only write inside the apply transaction; no
+          // emission.
+          if (targetId != id) {
+            await _recordPkIdentityAliasIfNeeded(
+              db,
+              entityTable: 'members',
+              legacyEntityId: id,
+              pkUuid: nextPkUuid,
+              pkId: nextPkId,
+              targetRowId: targetId,
             );
           }
         }
@@ -2182,6 +2389,55 @@ DriftSyncEntity _membersEntity(
         (t) => t.id.equals(targetId),
       );
       if (remoteTombstone) {
+        if (targetId != id) {
+          // The tombstone for this legacy id resolved a redirect alias onto
+          // the holder. Purge the alias now that the holder is tombstoned so a
+          // later redelivery of this same legacy-id op finds no alias and cannot
+          // re-resolve onto a NEWER same-identity row (post-delete re-import).
+          await db.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+            'members',
+            id,
+          );
+          // The holder here was found by re-resolving the identity
+          // (resolve-on-fields-tombstone), so — like the resolved-holder
+          // hardDelete branch — purge by IDENTITY, not just target == targetId. A
+          // sibling alias recording a different already-dead row of the same
+          // identity would otherwise survive and let a delayed legacy-id delete
+          // re-resolve onto a fresh re-import.
+          //
+          // Key on the RECORDED alias's identity, not the incoming fields'
+          // (nextPkUuid/nextPkId): a sparse tombstone payload can omit the pk
+          // identity fields, which would null both and silently no-op this purge.
+          // The resolver already matched on the recorded alias, so its stored
+          // identity is the authoritative discriminator. Fall back to the
+          // incoming fields only when the alias somehow lacks them.
+          await db.pkIdentitySyncAliasesDao.deleteByIdentity(
+            'members',
+            pkUuid: tombstoneAlias?.pkUuid ?? nextPkUuid,
+            pkId: tombstoneAlias?.pkId ?? nextPkId,
+          );
+        }
+        // Row [targetId] is now tombstoned, so it is a dead holder. Purge
+        // every alias that REDIRECTS onto it (legacyX -> targetId). Owns the
+        // existing-row-by-own-id case (targetId == id); the resolved-holder case
+        // (targetId != id) is additionally covered by the identity purge above.
+        // This closes the dominant post-delete re-import vector: a delayed
+        // legacy-id delete arriving after the holder is gone finds no alias and
+        // no-ops, instead of re-resolving the stale PK identity onto a fresh
+        // re-import that shares the same historical pk.created timestamp the
+        // temporal bound cannot distinguish.
+        //
+        // Conservative-direction tradeoff (documented, accepted): this fires on
+        // a REMOTE soft-delete tombstone, which is user-recoverable. If such a
+        // member is later restored, its inbound aliases are already gone, so a
+        // subsequent legacy-id-only delete will no-op on this device and the
+        // entity survives until re-deleted. This is the codebase's stated
+        // direction — "a missed delete is recoverable by deleting again" — and
+        // is preferred over keeping aliases that could re-kill a re-import.
+        await db.pkIdentitySyncAliasesDao.deleteByTargetRowId(
+          'members',
+          targetId,
+        );
         await _deleteDeferredPkBackedMemberGroupEntryOpsForPkRefs(
           db,
           pkMemberUuid: tombstonePkMemberUuid,
@@ -2206,7 +2462,74 @@ DriftSyncEntity _membersEntity(
         );
         return;
       }
-      await (db.delete(db.members)..where((t) => t.id.equals(id))).go();
+      // Resolve-on-hard-delete: if the exact-id row exists, delete it. Otherwise
+      // this id may have been redirected onto a different local winner row at
+      // apply time — resolve the recorded alias to the CURRENT active holder and
+      // delete THAT row, then purge the alias. Without this, a delete for a
+      // redirected id no-ops and the entity stays alive, permanent split-brain.
+      // Redirects that predate this machinery recorded no alias, so an
+      // already-lost delete stays lost — delete again on the surviving device.
+      final exact = await (db.select(
+        db.members,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (exact != null) {
+        await (db.delete(db.members)..where((t) => t.id.equals(id))).go();
+        // Purge any alias recorded for this legacy id: the legacy id has now
+        // materialized as a real row and been deleted, so a stale alias would
+        // otherwise let a redelivered delete re-resolve onto a NEWER same-
+        // identity row (post-delete re-import) and kill it. Terminal path.
+        await db.pkIdentitySyncAliasesDao.deleteByLegacyEntityId('members', id);
+        // AND purge every alias whose TARGET is this now-dead row: when this id
+        // was the recorded holder of a redirect (alias legacyX -> id), a later
+        // delete for legacyX must NOT re-resolve the still-recorded identity
+        // onto a fresh re-import of the same PK identity. The temporal bound
+        // can't discriminate that case — a post-delete PK re-import keeps the
+        // identical historical pk.created timestamp — so the holder dying is
+        // what kills the alias; the delayed legacyX delete then no-ops.
+        await db.pkIdentitySyncAliasesDao.deleteByTargetRowId('members', id);
+        return;
+      }
+      // No exact-id row: this legacy id may have been redirected onto a holder
+      // at apply time. Read the recorded alias FIRST so we keep its PK identity
+      // for the purge below, then resolve it to the current active holder.
+      final alias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+        'members',
+        id,
+      );
+      final holderId = await _resolveMemberIdentityAliasHolder(db, id);
+      if (holderId != null &&
+          holderId != id &&
+          holderId != unknownSentinelMemberId) {
+        await (db.delete(
+          db.members,
+        )..where((t) => t.id.equals(holderId))).go();
+        // The holder was found by re-resolving the alias identity, not
+        // necessarily by its recorded target_row_id. Purge EVERY alias of this
+        // identity (not just target == holderId): a sibling alias
+        // whose recorded target is a DIFFERENT already-dead row of the same
+        // identity would otherwise survive the holder's death and let a delayed
+        // legacy-id delete re-resolve the stale identity onto a fresh re-import
+        // (the historical pk.created shape the temporal bound can't exclude).
+        // Identity-keyed purge mirrors the emitter's GC: the logical entity is
+        // gone, so every alias of it is dead weight.
+        if (alias != null) {
+          await db.pkIdentitySyncAliasesDao.deleteByIdentity(
+            'members',
+            pkUuid: alias.pkUuid,
+            pkId: alias.pkId,
+          );
+        }
+        // GC the recorded-target aliases too: an alias recorded under an OLDER
+        // identity (e.g. its uuid/pk_id since cleared by a loser-nulling merge)
+        // that still targets this killed holder is dead weight by the same "the
+        // logical entity is gone" argument, and the identity purge above would
+        // miss it (no identity fields to match on).
+        await db.pkIdentitySyncAliasesDao.deleteByTargetRowId(
+          'members',
+          holderId,
+        );
+      }
+      await db.pkIdentitySyncAliasesDao.deleteByLegacyEntityId('members', id);
     },
     readRow: (String id) async {
       final row = await (db.select(
@@ -2333,8 +2656,30 @@ DriftSyncEntity _frontingSessionsEntity(
               db.frontingSessions,
             )..where((t) => t.id.equals(id))).getSingleOrNull()
           : null;
+      var targetId = id;
+      // The alias recorded for this legacy id, read up front so the
+      // resolved-holder tombstone purge below keys on the RECORDED identity
+      // rather than the incoming fields' identity (a sparse tombstone payload
+      // can omit pluralkit_uuid → nextPkUuid null → the identity purge would
+      // silently no-op). Null when no redirect was recorded.
+      PkIdentitySyncAliasRow? tombstoneAlias;
       if (remoteTombstone) {
-        if (existing == null) return;
+        if (existing == null) {
+          // Resolve-on-fields-tombstone: a tombstone for an id we never
+          // materialized may delete a session whose ops we redirected onto a
+          // different local holder row. Resolve the recorded alias to the
+          // CURRENT active holder keyed on (pluralkit_uuid, member_id) and
+          // tombstone it (fall through to the companion write). NO alias ->
+          // keep the existing early-return exactly. Redirects that predate this
+          // machinery recorded no alias — delete again on the surviving device.
+          tombstoneAlias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+            'fronting_sessions',
+            id,
+          );
+          final holderId = await _resolveFrontingIdentityAliasHolder(db, id);
+          if (holderId == null || holderId == id) return;
+          targetId = holderId;
+        }
       }
       final nextPkUuid = fields.containsKey('pluralkit_uuid')
           ? _asString(fields['pluralkit_uuid'])
@@ -2342,7 +2687,6 @@ DriftSyncEntity _frontingSessionsEntity(
       final nextMemberId = fields.containsKey('member_id')
           ? _asString(fields['member_id'])
           : existing?.memberId;
-      var targetId = id;
       if (!remoteTombstone) {
         await _releaseDeletedPkIdentityHoldersForFrontingSessionApply(
           db,
@@ -2374,6 +2718,20 @@ DriftSyncEntity _frontingSessionsEntity(
               db.frontingSessions,
             )..where((t) => t.id.equals(row.id))).write(
               const FrontingSessionsCompanion(pluralkitUuid: Value(null)),
+            );
+          }
+          // Record: persist the redirect (fronting_sessions, id ->
+          // targetId) keyed on (pluralkit_uuid, member_id) so deletes resolve it
+          // and the repository delete emitter fans tombstones out. Local-only;
+          // no emission.
+          if (targetId != id) {
+            await _recordPkIdentityAliasIfNeeded(
+              db,
+              entityTable: 'fronting_sessions',
+              legacyEntityId: id,
+              pkUuid: nextPkUuid,
+              memberId: nextMemberId,
+              targetRowId: targetId,
             );
           }
         }
@@ -2411,11 +2769,143 @@ DriftSyncEntity _frontingSessionsEntity(
         companion,
         (t) => t.id.equals(targetId),
       );
+      if (remoteTombstone) {
+        if (targetId != id) {
+          // This tombstone resolved a redirect alias onto the holder. Purge
+          // the alias now that the holder is tombstoned so a redelivery of this
+          // legacy-id op (re-pair snapshot, quarantine replay, full-row re-
+          // emission) finds no alias and cannot re-resolve onto a NEWER same-
+          // identity session (post-delete re-import) and kill it.
+          await db.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+            'fronting_sessions',
+            id,
+          );
+          // The holder was found by re-resolving the (uuid, member_id) identity,
+          // so — like the resolved-holder hardDelete branch — purge by IDENTITY,
+          // not just target == targetId. A sibling
+          // alias recording a different already-dead session of the same
+          // identity would otherwise survive and re-kill a re-import.
+          //
+          // Purge by pk_uuid ONLY, NOT (uuid, member_id): deleteByIdentity ORs
+          // its predicates, so an extra member_id arm would sweep the redirect
+          // aliases of EVERY OTHER switch sharing this member (a different
+          // pluralkit_uuid) — over-purging sibling switches' aliases and dropping
+          // their later legitimate resolved-holder deletes. pk_uuid alone is
+          // exactly scoped: fronting aliases always carry a non-empty pk_uuid
+          // (redirect recording is uuid-gated) and the resolver requires a uuid
+          // match (`_activeFrontingSessionRowsByPkIdentityForApply` returns []
+          // for a null uuid), so any sibling alias resolvable onto the killed
+          // holder necessarily shares its uuid. Mirrors the emitter's fan-out,
+          // which keys on pk_uuid only for the same reason
+          // (drift_fronting_session_repository.dart:276-279).
+          //
+          // Key on the RECORDED alias's pk_uuid, not the incoming fields'
+          // (nextPkUuid): a sparse tombstone payload can omit pluralkit_uuid,
+          // which would null it and silently no-op this purge. The resolver
+          // already matched on the recorded alias, so its stored uuid is the
+          // authoritative discriminator. Fall back to the incoming fields only
+          // when the alias somehow lacks it.
+          await db.pkIdentitySyncAliasesDao.deleteByIdentity(
+            'fronting_sessions',
+            pkUuid: tombstoneAlias?.pkUuid ?? nextPkUuid,
+          );
+        }
+        // Session [targetId] is now tombstoned, a dead holder. Purge every
+        // alias redirecting onto it (legacyX -> targetId). Owns the existing-
+        // row-by-own-id case (targetId == id); the resolved-holder case is
+        // additionally covered by the identity purge above. A delayed legacyX
+        // delete then finds no alias and no-ops instead of re-resolving onto a
+        // fresh re-imported session of the same identity (whose historical
+        // switch start time the temporal bound can't exclude). Same conservative
+        // tradeoff as the members path: fires on a remote (recoverable) soft-
+        // delete, so a restore-then-legacy-delete no-ops until re-deleted.
+        await db.pkIdentitySyncAliasesDao.deleteByTargetRowId(
+          'fronting_sessions',
+          targetId,
+        );
+      }
     },
     hardDelete: (String id) async {
-      await (db.delete(
+      // Resolve-on-hard-delete: delete the exact-id row when present; otherwise
+      // resolve the recorded redirect alias to the current active holder keyed on
+      // (pluralkit_uuid, member_id) and delete THAT row, then purge the alias.
+      // Redirects that predate this machinery recorded no alias — delete again on
+      // the surviving device.
+      final exact = await (db.select(
         db.frontingSessions,
-      )..where((t) => t.id.equals(id))).go();
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (exact != null) {
+        await (db.delete(
+          db.frontingSessions,
+        )..where((t) => t.id.equals(id))).go();
+        // Purge any alias recorded for this legacy id: it has materialized as a
+        // real row and been deleted, so a stale alias would let a redelivered
+        // delete re-resolve onto a NEWER same-identity session and kill it.
+        await db.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+          'fronting_sessions',
+          id,
+        );
+        // AND purge every alias whose TARGET is this now-dead row (legacyX ->
+        // id): once the recorded holder session is gone, a delayed legacyX
+        // delete must no-op rather than re-resolve the stale (uuid, member_id)
+        // identity onto a fresh re-imported session sharing the same historical
+        // switch start time the temporal bound cannot tell apart.
+        await db.pkIdentitySyncAliasesDao.deleteByTargetRowId(
+          'fronting_sessions',
+          id,
+        );
+        return;
+      }
+      // No exact-id row: read the recorded alias FIRST (we need its identity for
+      // the purge below), then resolve it to the current active holder.
+      final alias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+        'fronting_sessions',
+        id,
+      );
+      final holderId = await _resolveFrontingIdentityAliasHolder(db, id);
+      if (holderId != null && holderId != id) {
+        await (db.delete(
+          db.frontingSessions,
+        )..where((t) => t.id.equals(holderId))).go();
+        // Identity-keyed purge on the resolved-holder path. The holder was found
+        // by re-resolving the (uuid, member_id) identity, so a sibling alias
+        // whose recorded target is a different
+        // already-dead session of the same identity would survive killing the
+        // holder and let a delayed legacy-id delete re-resolve onto a fresh
+        // re-imported session (the historical switch-start shape the temporal
+        // bound can't exclude). Purge every alias of this identity, mirroring
+        // the emitter's GC.
+        //
+        // Purge by pk_uuid ONLY, NOT (uuid, member_id): deleteByIdentity ORs its
+        // predicates, so an extra member_id arm would sweep the redirect aliases
+        // of EVERY OTHER switch sharing this member (a different pluralkit_uuid).
+        // That regresses this very machinery — killing one switch's holder would
+        // drop a SIBLING switch's alias, so that switch's later legitimate
+        // resolved-holder delete permanently no-ops and its holder survives.
+        // pk_uuid alone is exactly scoped: fronting aliases always carry a
+        // non-empty pk_uuid (redirect recording is uuid-gated) and the resolver
+        // requires a uuid match, so any sibling alias resolvable onto the killed
+        // holder shares its uuid. Mirrors the emitter's pk_uuid-only fan-out
+        // (drift_fronting_session_repository.dart:276-279).
+        if (alias != null) {
+          await db.pkIdentitySyncAliasesDao.deleteByIdentity(
+            'fronting_sessions',
+            pkUuid: alias.pkUuid,
+          );
+        }
+        // GC the recorded-target aliases too: an alias recorded under an OLDER
+        // identity (e.g. its uuid since cleared) that still targets this killed
+        // holder is dead weight by the same "the logical entity is gone"
+        // argument, and the identity purge above (uuid-only) would miss it.
+        await db.pkIdentitySyncAliasesDao.deleteByTargetRowId(
+          'fronting_sessions',
+          holderId,
+        );
+      }
+      await db.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+        'fronting_sessions',
+        id,
+      );
     },
     readRow: (String id) async {
       final row = await (db.select(
@@ -3677,8 +4167,8 @@ DriftSyncEntity _memberGroupsEntity(
       final r = row as MemberGroupRow;
       final pkUuid = r.pluralkitUuid;
       if (pkUuid != null && pkUuid.isNotEmpty) {
-        // Generation-aware (R1): a revived group (sync_generation>=1) is keyed
-        // by its `pk-group-g<N>:<uuid>` incarnation, not the burned legacy id.
+        // Generation-aware: a revived group (sync_generation>=1) is keyed by
+        // its `pk-group-g<N>:<uuid>` incarnation, not the burned legacy id.
         return deriveGroupIncarnationEntityId(pkUuid, r.syncGeneration);
       }
       return r.id;
@@ -3768,7 +4258,7 @@ DriftSyncEntity _memberGroupsEntity(
         }
         return;
       }
-      // R1 sanctioned revive: parse the incoming group incarnation generation
+      // Sanctioned revive: parse the incoming group incarnation generation
       // and, when it is strictly newer than the matched local row's stored
       // generation, advance the local row to that incarnation so its own
       // future emits target the live id (and the now-explicit is_deleted=false
@@ -3780,8 +4270,8 @@ DriftSyncEntity _memberGroupsEntity(
       final syncGenerationValue = incomingGroupGen > localGroupGen
           ? Value(incomingGroupGen)
           : const Value<int>.absent();
-      // Family invariant (generation-aware, F15 substrate): an older-incarnation
-      // op — including a fields-borne is_deleted=true tombstone re-pushed by
+      // Family invariant (generation-aware): an older-incarnation op —
+      // including a fields-borne is_deleted=true tombstone re-pushed by
       // sync_bootstrap or replayed from quarantine — must never delete or mutate
       // the live state of a strictly-newer incarnation row. When the matched
       // local row already lives at a newer generation, leave is_deleted
@@ -3823,14 +4313,14 @@ DriftSyncEntity _memberGroupsEntity(
         (t) => t.id.equals(localRowId),
       );
       if (resolvedPkGroupUuid != null && resolvedPkGroupUuid.isNotEmpty) {
-        // C1: only record an alias for the *incoming* entity id when it
-        // is a genuinely-legacy id (the helper filters out canonical).
-        // Do NOT auto-record an alias for the receiving device's own
-        // local row id: both peers end up with `pk-group-<uuid>` after
-        // import, and aliasing that id makes later alias-delete emits
-        // hard-delete the peer's active PK-group row. The helper also covers
-        // the R1 incarnation id (`pk-group-g<N>:<uuid>`): aliasing it so a
-        // later sparse patch under that id resolves back to this local row.
+        // Only record an alias for the *incoming* entity id when it is a
+        // genuinely-legacy id (the helper filters out canonical). Do NOT
+        // auto-record an alias for the receiving device's own local row id:
+        // both peers end up with `pk-group-<uuid>` after import, and aliasing
+        // that id makes later alias-delete emits hard-delete the peer's active
+        // PK-group row. The helper also covers the incarnation id
+        // (`pk-group-g<N>:<uuid>`): aliasing it so a later sparse patch under
+        // that id resolves back to this local row.
         await _recordPkGroupAliasIfNeeded(
           db,
           legacyEntityId: id,
@@ -3849,8 +4339,8 @@ DriftSyncEntity _memberGroupsEntity(
     hardDelete: (String id) async {
       final row = await _resolveMemberGroupRowForSyncDelete(db, id);
       if (row == null) return;
-      // R1 generation guard: a tombstone for an OLDER incarnation must not
-      // delete a row that already lives at a newer incarnation — that is the
+      // Generation guard: a tombstone for an OLDER incarnation must not delete
+      // a row that already lives at a newer incarnation — that is the
       // tombstone-then-revive flap (e.g. the burned gen-0 'pk-group:<uuid>'
       // tombstone re-delivered after the row was revived to gen 1). Skip when
       // the resolved row's stored generation is strictly newer than the
@@ -3960,7 +4450,7 @@ DriftSyncEntity _memberGroupEntriesEntity(
       final g = r.pkGroupUuid?.trim() ?? '';
       final m = r.pkMemberUuid?.trim() ?? '';
       if (g.isEmpty || m.isEmpty) return r.id;
-      // Generation-aware (R1): a revived entry (sync_generation>=1) is keyed by
+      // Generation-aware: a revived entry (sync_generation>=1) is keyed by
       // its salted incarnation sha, not the burned gen-0 sha.
       return deriveEntryIncarnationEntityId(g, m, r.syncGeneration) ?? r.id;
     },
@@ -4018,7 +4508,7 @@ DriftSyncEntity _memberGroupEntriesEntity(
           );
         }
       }
-      // R1 generation-aware logical delete. Resolve the edge + generation the
+      // Generation-aware logical delete. Resolve the edge + generation the
       // incoming tombstone addresses even when no row sits at the wire id (the
       // canonical-collapse case: the live edge re-rooted onto the gen-0 sha
       // while carrying sync_generation=N, so a legitimate gen-N tombstone keyed

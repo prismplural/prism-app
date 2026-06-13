@@ -17007,6 +17007,505 @@ class PkGroupSyncAliasesCompanion extends UpdateCompanion<PkGroupSyncAliasRow> {
   }
 }
 
+class $PkIdentitySyncAliasesTable extends PkIdentitySyncAliases
+    with TableInfo<$PkIdentitySyncAliasesTable, PkIdentitySyncAliasRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PkIdentitySyncAliasesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _entityTableMeta = const VerificationMeta(
+    'entityTable',
+  );
+  @override
+  late final GeneratedColumn<String> entityTable = GeneratedColumn<String>(
+    'entity_table',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _legacyEntityIdMeta = const VerificationMeta(
+    'legacyEntityId',
+  );
+  @override
+  late final GeneratedColumn<String> legacyEntityId = GeneratedColumn<String>(
+    'legacy_entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pkUuidMeta = const VerificationMeta('pkUuid');
+  @override
+  late final GeneratedColumn<String> pkUuid = GeneratedColumn<String>(
+    'pk_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pkIdMeta = const VerificationMeta('pkId');
+  @override
+  late final GeneratedColumn<String> pkId = GeneratedColumn<String>(
+    'pk_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetRowIdMeta = const VerificationMeta(
+    'targetRowId',
+  );
+  @override
+  late final GeneratedColumn<String> targetRowId = GeneratedColumn<String>(
+    'target_row_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    entityTable,
+    legacyEntityId,
+    pkUuid,
+    pkId,
+    memberId,
+    targetRowId,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pk_identity_sync_aliases';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PkIdentitySyncAliasRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('entity_table')) {
+      context.handle(
+        _entityTableMeta,
+        entityTable.isAcceptableOrUnknown(
+          data['entity_table']!,
+          _entityTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTableMeta);
+    }
+    if (data.containsKey('legacy_entity_id')) {
+      context.handle(
+        _legacyEntityIdMeta,
+        legacyEntityId.isAcceptableOrUnknown(
+          data['legacy_entity_id']!,
+          _legacyEntityIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_legacyEntityIdMeta);
+    }
+    if (data.containsKey('pk_uuid')) {
+      context.handle(
+        _pkUuidMeta,
+        pkUuid.isAcceptableOrUnknown(data['pk_uuid']!, _pkUuidMeta),
+      );
+    }
+    if (data.containsKey('pk_id')) {
+      context.handle(
+        _pkIdMeta,
+        pkId.isAcceptableOrUnknown(data['pk_id']!, _pkIdMeta),
+      );
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    }
+    if (data.containsKey('target_row_id')) {
+      context.handle(
+        _targetRowIdMeta,
+        targetRowId.isAcceptableOrUnknown(
+          data['target_row_id']!,
+          _targetRowIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_targetRowIdMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {entityTable, legacyEntityId};
+  @override
+  PkIdentitySyncAliasRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PkIdentitySyncAliasRow(
+      entityTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_table'],
+      )!,
+      legacyEntityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}legacy_entity_id'],
+      )!,
+      pkUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_uuid'],
+      ),
+      pkId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_id'],
+      ),
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      ),
+      targetRowId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_row_id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PkIdentitySyncAliasesTable createAlias(String alias) {
+    return $PkIdentitySyncAliasesTable(attachedDatabase, alias);
+  }
+}
+
+class PkIdentitySyncAliasRow extends DataClass
+    implements Insertable<PkIdentitySyncAliasRow> {
+  /// Entity table this alias belongs to: 'members' or 'fronting_sessions'.
+  final String entityTable;
+
+  /// Legacy sync entity id that was redirected onto another local row.
+  final String legacyEntityId;
+
+  /// PluralKit uuid of the redirected identity (used to re-resolve the current
+  /// active holder on delete). Null when the redirect carried no uuid.
+  final String? pkUuid;
+
+  /// PluralKit id (members only) of the redirected identity. Null otherwise.
+  final String? pkId;
+
+  /// Owning member id (fronting_sessions only) of the redirected identity.
+  /// Null otherwise.
+  final String? memberId;
+
+  /// The local winner row id the legacy id was redirected onto at record time
+  /// (fallback resolution target if the identity re-resolves to nothing).
+  final String targetRowId;
+  final DateTime createdAt;
+  const PkIdentitySyncAliasRow({
+    required this.entityTable,
+    required this.legacyEntityId,
+    this.pkUuid,
+    this.pkId,
+    this.memberId,
+    required this.targetRowId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['entity_table'] = Variable<String>(entityTable);
+    map['legacy_entity_id'] = Variable<String>(legacyEntityId);
+    if (!nullToAbsent || pkUuid != null) {
+      map['pk_uuid'] = Variable<String>(pkUuid);
+    }
+    if (!nullToAbsent || pkId != null) {
+      map['pk_id'] = Variable<String>(pkId);
+    }
+    if (!nullToAbsent || memberId != null) {
+      map['member_id'] = Variable<String>(memberId);
+    }
+    map['target_row_id'] = Variable<String>(targetRowId);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  PkIdentitySyncAliasesCompanion toCompanion(bool nullToAbsent) {
+    return PkIdentitySyncAliasesCompanion(
+      entityTable: Value(entityTable),
+      legacyEntityId: Value(legacyEntityId),
+      pkUuid: pkUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkUuid),
+      pkId: pkId == null && nullToAbsent ? const Value.absent() : Value(pkId),
+      memberId: memberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(memberId),
+      targetRowId: Value(targetRowId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory PkIdentitySyncAliasRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PkIdentitySyncAliasRow(
+      entityTable: serializer.fromJson<String>(json['entityTable']),
+      legacyEntityId: serializer.fromJson<String>(json['legacyEntityId']),
+      pkUuid: serializer.fromJson<String?>(json['pkUuid']),
+      pkId: serializer.fromJson<String?>(json['pkId']),
+      memberId: serializer.fromJson<String?>(json['memberId']),
+      targetRowId: serializer.fromJson<String>(json['targetRowId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'entityTable': serializer.toJson<String>(entityTable),
+      'legacyEntityId': serializer.toJson<String>(legacyEntityId),
+      'pkUuid': serializer.toJson<String?>(pkUuid),
+      'pkId': serializer.toJson<String?>(pkId),
+      'memberId': serializer.toJson<String?>(memberId),
+      'targetRowId': serializer.toJson<String>(targetRowId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  PkIdentitySyncAliasRow copyWith({
+    String? entityTable,
+    String? legacyEntityId,
+    Value<String?> pkUuid = const Value.absent(),
+    Value<String?> pkId = const Value.absent(),
+    Value<String?> memberId = const Value.absent(),
+    String? targetRowId,
+    DateTime? createdAt,
+  }) => PkIdentitySyncAliasRow(
+    entityTable: entityTable ?? this.entityTable,
+    legacyEntityId: legacyEntityId ?? this.legacyEntityId,
+    pkUuid: pkUuid.present ? pkUuid.value : this.pkUuid,
+    pkId: pkId.present ? pkId.value : this.pkId,
+    memberId: memberId.present ? memberId.value : this.memberId,
+    targetRowId: targetRowId ?? this.targetRowId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  PkIdentitySyncAliasRow copyWithCompanion(
+    PkIdentitySyncAliasesCompanion data,
+  ) {
+    return PkIdentitySyncAliasRow(
+      entityTable: data.entityTable.present
+          ? data.entityTable.value
+          : this.entityTable,
+      legacyEntityId: data.legacyEntityId.present
+          ? data.legacyEntityId.value
+          : this.legacyEntityId,
+      pkUuid: data.pkUuid.present ? data.pkUuid.value : this.pkUuid,
+      pkId: data.pkId.present ? data.pkId.value : this.pkId,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      targetRowId: data.targetRowId.present
+          ? data.targetRowId.value
+          : this.targetRowId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkIdentitySyncAliasRow(')
+          ..write('entityTable: $entityTable, ')
+          ..write('legacyEntityId: $legacyEntityId, ')
+          ..write('pkUuid: $pkUuid, ')
+          ..write('pkId: $pkId, ')
+          ..write('memberId: $memberId, ')
+          ..write('targetRowId: $targetRowId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    entityTable,
+    legacyEntityId,
+    pkUuid,
+    pkId,
+    memberId,
+    targetRowId,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PkIdentitySyncAliasRow &&
+          other.entityTable == this.entityTable &&
+          other.legacyEntityId == this.legacyEntityId &&
+          other.pkUuid == this.pkUuid &&
+          other.pkId == this.pkId &&
+          other.memberId == this.memberId &&
+          other.targetRowId == this.targetRowId &&
+          other.createdAt == this.createdAt);
+}
+
+class PkIdentitySyncAliasesCompanion
+    extends UpdateCompanion<PkIdentitySyncAliasRow> {
+  final Value<String> entityTable;
+  final Value<String> legacyEntityId;
+  final Value<String?> pkUuid;
+  final Value<String?> pkId;
+  final Value<String?> memberId;
+  final Value<String> targetRowId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const PkIdentitySyncAliasesCompanion({
+    this.entityTable = const Value.absent(),
+    this.legacyEntityId = const Value.absent(),
+    this.pkUuid = const Value.absent(),
+    this.pkId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.targetRowId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PkIdentitySyncAliasesCompanion.insert({
+    required String entityTable,
+    required String legacyEntityId,
+    this.pkUuid = const Value.absent(),
+    this.pkId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    required String targetRowId,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : entityTable = Value(entityTable),
+       legacyEntityId = Value(legacyEntityId),
+       targetRowId = Value(targetRowId),
+       createdAt = Value(createdAt);
+  static Insertable<PkIdentitySyncAliasRow> custom({
+    Expression<String>? entityTable,
+    Expression<String>? legacyEntityId,
+    Expression<String>? pkUuid,
+    Expression<String>? pkId,
+    Expression<String>? memberId,
+    Expression<String>? targetRowId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (entityTable != null) 'entity_table': entityTable,
+      if (legacyEntityId != null) 'legacy_entity_id': legacyEntityId,
+      if (pkUuid != null) 'pk_uuid': pkUuid,
+      if (pkId != null) 'pk_id': pkId,
+      if (memberId != null) 'member_id': memberId,
+      if (targetRowId != null) 'target_row_id': targetRowId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PkIdentitySyncAliasesCompanion copyWith({
+    Value<String>? entityTable,
+    Value<String>? legacyEntityId,
+    Value<String?>? pkUuid,
+    Value<String?>? pkId,
+    Value<String?>? memberId,
+    Value<String>? targetRowId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return PkIdentitySyncAliasesCompanion(
+      entityTable: entityTable ?? this.entityTable,
+      legacyEntityId: legacyEntityId ?? this.legacyEntityId,
+      pkUuid: pkUuid ?? this.pkUuid,
+      pkId: pkId ?? this.pkId,
+      memberId: memberId ?? this.memberId,
+      targetRowId: targetRowId ?? this.targetRowId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (entityTable.present) {
+      map['entity_table'] = Variable<String>(entityTable.value);
+    }
+    if (legacyEntityId.present) {
+      map['legacy_entity_id'] = Variable<String>(legacyEntityId.value);
+    }
+    if (pkUuid.present) {
+      map['pk_uuid'] = Variable<String>(pkUuid.value);
+    }
+    if (pkId.present) {
+      map['pk_id'] = Variable<String>(pkId.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (targetRowId.present) {
+      map['target_row_id'] = Variable<String>(targetRowId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkIdentitySyncAliasesCompanion(')
+          ..write('entityTable: $entityTable, ')
+          ..write('legacyEntityId: $legacyEntityId, ')
+          ..write('pkUuid: $pkUuid, ')
+          ..write('pkId: $pkId, ')
+          ..write('memberId: $memberId, ')
+          ..write('targetRowId: $targetRowId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PkGroupEntryDeferredSyncOpsTable extends PkGroupEntryDeferredSyncOps
     with
         TableInfo<
@@ -27290,6 +27789,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $MemberGroupEntriesTable(this);
   late final $PkGroupSyncAliasesTable pkGroupSyncAliases =
       $PkGroupSyncAliasesTable(this);
+  late final $PkIdentitySyncAliasesTable pkIdentitySyncAliases =
+      $PkIdentitySyncAliasesTable(this);
   late final $PkGroupEntryDeferredSyncOpsTable pkGroupEntryDeferredSyncOps =
       $PkGroupEntryDeferredSyncOpsTable(this);
   late final $CustomFieldsTable customFields = $CustomFieldsTable(this);
@@ -27354,6 +27855,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final PkGroupSyncAliasesDao pkGroupSyncAliasesDao =
       PkGroupSyncAliasesDao(this as AppDatabase);
+  late final PkIdentitySyncAliasesDao pkIdentitySyncAliasesDao =
+      PkIdentitySyncAliasesDao(this as AppDatabase);
   late final PkGroupEntryDeferredSyncOpsDao pkGroupEntryDeferredSyncOpsDao =
       PkGroupEntryDeferredSyncOpsDao(this as AppDatabase);
   late final CustomFieldsDao customFieldsDao = CustomFieldsDao(
@@ -27409,6 +27912,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     memberGroups,
     memberGroupEntries,
     pkGroupSyncAliases,
+    pkIdentitySyncAliases,
     pkGroupEntryDeferredSyncOps,
     customFields,
     customFieldValues,
@@ -34884,6 +35388,269 @@ typedef $$PkGroupSyncAliasesTableProcessedTableManager =
       PkGroupSyncAliasRow,
       PrefetchHooks Function()
     >;
+typedef $$PkIdentitySyncAliasesTableCreateCompanionBuilder =
+    PkIdentitySyncAliasesCompanion Function({
+      required String entityTable,
+      required String legacyEntityId,
+      Value<String?> pkUuid,
+      Value<String?> pkId,
+      Value<String?> memberId,
+      required String targetRowId,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$PkIdentitySyncAliasesTableUpdateCompanionBuilder =
+    PkIdentitySyncAliasesCompanion Function({
+      Value<String> entityTable,
+      Value<String> legacyEntityId,
+      Value<String?> pkUuid,
+      Value<String?> pkId,
+      Value<String?> memberId,
+      Value<String> targetRowId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$PkIdentitySyncAliasesTableFilterComposer
+    extends Composer<_$AppDatabase, $PkIdentitySyncAliasesTable> {
+  $$PkIdentitySyncAliasesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get legacyEntityId => $composableBuilder(
+    column: $table.legacyEntityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkUuid => $composableBuilder(
+    column: $table.pkUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkId => $composableBuilder(
+    column: $table.pkId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetRowId => $composableBuilder(
+    column: $table.targetRowId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PkIdentitySyncAliasesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PkIdentitySyncAliasesTable> {
+  $$PkIdentitySyncAliasesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get legacyEntityId => $composableBuilder(
+    column: $table.legacyEntityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkUuid => $composableBuilder(
+    column: $table.pkUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkId => $composableBuilder(
+    column: $table.pkId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetRowId => $composableBuilder(
+    column: $table.targetRowId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PkIdentitySyncAliasesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PkIdentitySyncAliasesTable> {
+  $$PkIdentitySyncAliasesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get legacyEntityId => $composableBuilder(
+    column: $table.legacyEntityId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkUuid =>
+      $composableBuilder(column: $table.pkUuid, builder: (column) => column);
+
+  GeneratedColumn<String> get pkId =>
+      $composableBuilder(column: $table.pkId, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get targetRowId => $composableBuilder(
+    column: $table.targetRowId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PkIdentitySyncAliasesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PkIdentitySyncAliasesTable,
+          PkIdentitySyncAliasRow,
+          $$PkIdentitySyncAliasesTableFilterComposer,
+          $$PkIdentitySyncAliasesTableOrderingComposer,
+          $$PkIdentitySyncAliasesTableAnnotationComposer,
+          $$PkIdentitySyncAliasesTableCreateCompanionBuilder,
+          $$PkIdentitySyncAliasesTableUpdateCompanionBuilder,
+          (
+            PkIdentitySyncAliasRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PkIdentitySyncAliasesTable,
+              PkIdentitySyncAliasRow
+            >,
+          ),
+          PkIdentitySyncAliasRow,
+          PrefetchHooks Function()
+        > {
+  $$PkIdentitySyncAliasesTableTableManager(
+    _$AppDatabase db,
+    $PkIdentitySyncAliasesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PkIdentitySyncAliasesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PkIdentitySyncAliasesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PkIdentitySyncAliasesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> entityTable = const Value.absent(),
+                Value<String> legacyEntityId = const Value.absent(),
+                Value<String?> pkUuid = const Value.absent(),
+                Value<String?> pkId = const Value.absent(),
+                Value<String?> memberId = const Value.absent(),
+                Value<String> targetRowId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PkIdentitySyncAliasesCompanion(
+                entityTable: entityTable,
+                legacyEntityId: legacyEntityId,
+                pkUuid: pkUuid,
+                pkId: pkId,
+                memberId: memberId,
+                targetRowId: targetRowId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String entityTable,
+                required String legacyEntityId,
+                Value<String?> pkUuid = const Value.absent(),
+                Value<String?> pkId = const Value.absent(),
+                Value<String?> memberId = const Value.absent(),
+                required String targetRowId,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PkIdentitySyncAliasesCompanion.insert(
+                entityTable: entityTable,
+                legacyEntityId: legacyEntityId,
+                pkUuid: pkUuid,
+                pkId: pkId,
+                memberId: memberId,
+                targetRowId: targetRowId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PkIdentitySyncAliasesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PkIdentitySyncAliasesTable,
+      PkIdentitySyncAliasRow,
+      $$PkIdentitySyncAliasesTableFilterComposer,
+      $$PkIdentitySyncAliasesTableOrderingComposer,
+      $$PkIdentitySyncAliasesTableAnnotationComposer,
+      $$PkIdentitySyncAliasesTableCreateCompanionBuilder,
+      $$PkIdentitySyncAliasesTableUpdateCompanionBuilder,
+      (
+        PkIdentitySyncAliasRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PkIdentitySyncAliasesTable,
+          PkIdentitySyncAliasRow
+        >,
+      ),
+      PkIdentitySyncAliasRow,
+      PrefetchHooks Function()
+    >;
 typedef $$PkGroupEntryDeferredSyncOpsTableCreateCompanionBuilder =
     PkGroupEntryDeferredSyncOpsCompanion Function({
       required String id,
@@ -40092,6 +40859,8 @@ class $AppDatabaseManager {
       $$MemberGroupEntriesTableTableManager(_db, _db.memberGroupEntries);
   $$PkGroupSyncAliasesTableTableManager get pkGroupSyncAliases =>
       $$PkGroupSyncAliasesTableTableManager(_db, _db.pkGroupSyncAliases);
+  $$PkIdentitySyncAliasesTableTableManager get pkIdentitySyncAliases =>
+      $$PkIdentitySyncAliasesTableTableManager(_db, _db.pkIdentitySyncAliases);
   $$PkGroupEntryDeferredSyncOpsTableTableManager
   get pkGroupEntryDeferredSyncOps =>
       $$PkGroupEntryDeferredSyncOpsTableTableManager(

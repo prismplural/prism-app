@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/front_session_comments_dao.dart';
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
+import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/sync/field_diff.dart';
@@ -176,27 +177,12 @@ class DriftFrontingSessionRepository
   Future<void> updateSession(domain.FrontingSession session) async {
     final existingRow = await _dao.getSessionById(session.id);
     if (existingRow == null) return;
-    // F10: a tombstone is TERMINAL here — updateSession never flips
-    // is_deleted back to false on an existing row, whatever the row's
-    // deleteIntentEpoch or PK-link state.
-    //
-    // In-place revival is unsyncable by construction. is_deleted is absorbing
-    // in the CRDT merge layer deployed on every 0.12.x device: prism-sync
-    // strips is_deleted=false from outbound ops (client.rs record_update /
-    // record_create phantom-undelete strip) and the receiver drops every
-    // non-delete op targeting a tombstoned entity (merge.rs tombstone gate).
-    // So a local un-delete written here can never propagate — it would leave
-    // this device with a live Drift row while every peer's field_versions
-    // (and this device's own engine state) still say deleted, until the
-    // tombstone pruner eventually hard-deletes the row out from under the UI.
-    //
-    // The earlier "revive importer/migration CLEANUP tombstones" carve-out
-    // (PK audit H5 discriminator) is removed: it tried to distinguish user
-    // deletes from importer cleanup and rebuild the latter in place, but that
-    // rebuild is exactly the unsyncable write above. Post-migration / corrective
-    // "re-import from PluralKit" recovery must re-create rows under FRESH ids
-    // instead (deferred to the reconciliation layer), never resurrect a burned
-    // entity id. Do NOT reintroduce a revive branch here.
+    // A tombstone is terminal: never flip is_deleted back to false on an
+    // existing row. In-place revival is unsyncable — is_deleted is absorbing
+    // in the merge layer (sender strips is_deleted=false, peers drop every
+    // non-delete op on a tombstoned entity), so a local un-delete leaves this
+    // device with a live row while every peer stays deleted. Recovery must
+    // re-create under a FRESH id, never resurrect a burned entity id.
     if (existingRow.isDeleted) return;
 
     final changedFields = diffSyncFields(
@@ -251,6 +237,58 @@ class DriftFrontingSessionRepository
       await _dao.stampDeleteIntent(id, epoch);
     }
     await syncRecordDelete(_table, id);
+    await _fanOutPkIdentityAliasDeletes(existing);
+  }
+
+  /// Delete-only fan-out: plant terminal tombstones under every legacy entity
+  /// id this session was redirected onto on some device (ids in
+  /// `pk_identity_sync_aliases` for this session's identity), so a peer whose
+  /// row lives under one never misses the delete. Keyed strictly on a non-empty
+  /// pluralkit_uuid, so an importer-artifact tombstone (link cleared before
+  /// deleteSession) fans out nothing. Skips any alias id that is an active local
+  /// row ([isForbiddenAliasTarget]). Never on updates: every-update re-emission
+  /// turns a guard bug into a recurring active-row kill loop; a missed delete
+  /// batch is recoverable by deleting again. Pre-fix redirects recorded no
+  /// alias, so an already-diverged fleet isn't auto-repaired — delete again on
+  /// the surviving device.
+  Future<void> _fanOutPkIdentityAliasDeletes(
+    db.FrontingSession? deletedRow,
+  ) async {
+    if (deletedRow == null) return;
+    final pkUuid = deletedRow.pluralkitUuid?.trim();
+    if (pkUuid == null || pkUuid.isEmpty) return;
+    final database = _dao.attachedDatabase;
+    // Match strictly on the canonical PK uuid — `getByIdentity` ORs its
+    // predicates, so adding member_id would over-match unrelated sessions
+    // that share a member.
+    final aliases = await database.pkIdentitySyncAliasesDao.getByIdentity(
+      _table,
+      pkUuid: pkUuid,
+    );
+    final seen = <String>{};
+    for (final alias in aliases) {
+      final legacyEntityId = alias.legacyEntityId.trim();
+      if (legacyEntityId.isEmpty || legacyEntityId == deletedRow.id) {
+        if (legacyEntityId.isNotEmpty) {
+          await database.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+            _table,
+            alias.legacyEntityId,
+          );
+        }
+        continue;
+      }
+      if (!seen.add(legacyEntityId)) continue;
+      if (!await isForbiddenAliasTarget(database, _table, legacyEntityId, pkUuid)) {
+        await syncRecordDelete(_table, legacyEntityId);
+      }
+      // Purge the now-dead alias (emitted or skipped) so they don't accumulate
+      // across delete/re-import cycles and a later same-identity delete can't
+      // re-fan-out tombstones for long-dead legacy ids.
+      await database.pkIdentitySyncAliasesDao.deleteByLegacyEntityId(
+        _table,
+        alias.legacyEntityId,
+      );
+    }
   }
 
   @override

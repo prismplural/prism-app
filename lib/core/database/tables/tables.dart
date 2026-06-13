@@ -14,6 +14,7 @@ export 'sync_quarantine_table.dart';
 export 'member_groups_table.dart';
 export 'member_group_entries_table.dart';
 export 'pk_group_sync_aliases_table.dart';
+export 'pk_identity_sync_aliases_table.dart';
 export 'pk_group_entry_deferred_sync_ops_table.dart';
 export 'custom_fields_table.dart';
 export 'custom_field_values_table.dart';
