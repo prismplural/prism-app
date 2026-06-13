@@ -603,9 +603,11 @@ packages:
   flutter_soloud:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/flutter_soloud"
-      relative: false
-    source: path
+      path: "."
+      ref: "32a5a1f1c408735c788593e415cf182558a5064f"
+      resolved-ref: "32a5a1f1c408735c788593e415cf182558a5064f"
+      url: "https://github.com/skylartaylor/flutter_soloud.git"
+    source: git
     version: "4.0.7"
   flutter_staggered_grid_view:
     dependency: "direct main"
@@ -1022,9 +1024,11 @@ packages:
   ogg_caf_converter:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/ogg_caf_converter"
-      relative: false
-    source: path
+      path: "."
+      ref: "899b9692ea048b90ffa114c25b471b06d495ef7b"
+      resolved-ref: "899b9692ea048b90ffa114c25b471b06d495ef7b"
+      url: "https://github.com/skylartaylor/ogg_caf_converter.git"
+    source: git
     version: "0.1.4"
   package_config:
     dependency: transitive
@@ -1165,10 +1169,11 @@ packages:
   phosphor_flutter:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/phosphor_flutter"
-      relative: false
-    source: path
-    version: "2.1.0+prism.1"
+      name: phosphor_flutter
+      sha256: "8a14f238f28a0b54842c5a4dc20676598dd4811fcba284ed828bd5a262c11fde"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.0"
   platform:
     dependency: transitive
     description:
@@ -1220,23 +1225,29 @@ packages:
   prism_sync:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/.prism-worktrees/crdt-fold/prism-sync/dart/packages/prism_sync"
-      relative: false
-    source: path
+      path: "dart/packages/prism_sync"
+      ref: 3a45ed3265263f002f8e36de357434657caae71a
+      resolved-ref: 3a45ed3265263f002f8e36de357434657caae71a
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
     version: "0.1.1"
   prism_sync_drift:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/.prism-worktrees/crdt-fold/prism-sync/dart/packages/prism_sync_drift"
-      relative: false
-    source: path
+      path: "dart/packages/prism_sync_drift"
+      ref: 3a45ed3265263f002f8e36de357434657caae71a
+      resolved-ref: 3a45ed3265263f002f8e36de357434657caae71a
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
     version: "0.1.1"
   prism_sync_flutter:
     dependency: "direct main"
     description:
-      path: "/Users/sky/code/.prism-worktrees/crdt-fold/prism-sync/dart/packages/prism_sync_flutter"
-      relative: false
-    source: path
+      path: "dart/packages/prism_sync_flutter"
+      ref: 3a45ed3265263f002f8e36de357434657caae71a
+      resolved-ref: 3a45ed3265263f002f8e36de357434657caae71a
+      url: "https://github.com/prismplural/prism-sync.git"
+    source: git
     version: "0.1.1"
   process:
     dependency: transitive
