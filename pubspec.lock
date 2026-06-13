@@ -1169,11 +1169,12 @@ packages:
   phosphor_flutter:
     dependency: "direct main"
     description:
-      name: phosphor_flutter
-      sha256: "8a14f238f28a0b54842c5a4dc20676598dd4811fcba284ed828bd5a262c11fde"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.0"
+      path: "."
+      ref: "02a9fec8462c375c7b54f9e7658a9737225d376a"
+      resolved-ref: "02a9fec8462c375c7b54f9e7658a9737225d376a"
+      url: "https://github.com/prismplural/phosphor_flutter.git"
+    source: git
+    version: "2.1.0+prism.1"
   platform:
     dependency: transitive
     description:
@@ -1936,4 +1937,4 @@ packages:
     version: "1.1.4"
 sdks:
   dart: ">=3.11.1 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.41.0"
