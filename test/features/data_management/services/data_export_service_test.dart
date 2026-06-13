@@ -613,6 +613,8 @@ void main() {
         blurhash: 'blurhash',
         waveformB64: 'waveform',
         thumbnailMediaId: 'thumb-id',
+        thumbnailContentHash: 'thumb-content-hash',
+        thumbnailPlaintextHash: 'thumb-plain-hash',
         sourceUrl: 'https://cdn.example/source.png',
         previewUrl: 'https://cdn.example/preview.png',
       );

@@ -1662,6 +1662,13 @@ class DataImportService {
               displayFontInAppBar: s.displayFontInAppBar,
               navBarItems: s.navBarItems,
               navBarOverflowItems: s.navBarOverflowItems,
+              navBarLabelDisplayMode:
+                  s.navBarLabelDisplayMode >= 0 &&
+                      s.navBarLabelDisplayMode <
+                          NavBarLabelDisplayMode.values.length
+                  ? NavBarLabelDisplayMode.values[s.navBarLabelDisplayMode]
+                  : NavBarLabelDisplayMode.fullLabels,
+              navBarRevealLabelsWhenExpanded: s.navBarRevealLabelsWhenExpanded,
               syncNavigationEnabled: s.syncNavigationEnabled,
               chatBadgePreferences: s.chatBadgePreferences,
               defaultSleepQuality:
@@ -2159,6 +2166,8 @@ class DataImportService {
               blurhash: Value(a.blurhash),
               waveformB64: Value(a.waveformB64),
               thumbnailMediaId: Value(a.thumbnailMediaId),
+              thumbnailContentHash: Value(a.thumbnailContentHash),
+              thumbnailPlaintextHash: Value(a.thumbnailPlaintextHash),
               sourceUrl: Value(a.sourceUrl),
               previewUrl: Value(a.previewUrl),
               isDeleted: Value(a.isDeleted),

@@ -1204,6 +1204,8 @@ class V1SystemSettings {
     this.displayFontInAppBar = true,
     this.navBarItems = const [],
     this.navBarOverflowItems = const [],
+    this.navBarLabelDisplayMode = 0,
+    this.navBarRevealLabelsWhenExpanded = true,
     this.syncNavigationEnabled = true,
     this.chatBadgePreferences = const {},
     this.defaultSleepQuality,
@@ -1283,6 +1285,8 @@ class V1SystemSettings {
   final bool displayFontInAppBar;
   final List<String> navBarItems;
   final List<String> navBarOverflowItems;
+  final int navBarLabelDisplayMode; // NavBarLabelDisplayMode enum index
+  final bool navBarRevealLabelsWhenExpanded;
   final bool syncNavigationEnabled;
   final Map<String, String> chatBadgePreferences;
   final int? defaultSleepQuality; // SleepQuality enum index
@@ -1365,6 +1369,8 @@ class V1SystemSettings {
     if (navBarItems.isNotEmpty) 'navBarItems': navBarItems,
     if (navBarOverflowItems.isNotEmpty)
       'navBarOverflowItems': navBarOverflowItems,
+    'navBarLabelDisplayMode': navBarLabelDisplayMode,
+    'navBarRevealLabelsWhenExpanded': navBarRevealLabelsWhenExpanded,
     'syncNavigationEnabled': syncNavigationEnabled,
     if (chatBadgePreferences.isNotEmpty)
       'chatBadgePreferences': chatBadgePreferences,
@@ -1453,6 +1459,9 @@ class V1SystemSettings {
     navBarItems: (json['navBarItems'] as List<dynamic>?)?.cast<String>() ?? [],
     navBarOverflowItems:
         (json['navBarOverflowItems'] as List<dynamic>?)?.cast<String>() ?? [],
+    navBarLabelDisplayMode: json['navBarLabelDisplayMode'] as int? ?? 0,
+    navBarRevealLabelsWhenExpanded:
+        json['navBarRevealLabelsWhenExpanded'] as bool? ?? true,
     syncNavigationEnabled: json['syncNavigationEnabled'] as bool? ?? true,
     chatBadgePreferences:
         (json['chatBadgePreferences'] as Map<String, dynamic>?)?.map(
@@ -2206,6 +2215,8 @@ class V1MediaAttachment {
     this.blurhash = '',
     this.waveformB64 = '',
     this.thumbnailMediaId = '',
+    this.thumbnailContentHash = '',
+    this.thumbnailPlaintextHash = '',
     this.sourceUrl = '',
     this.previewUrl = '',
     this.isDeleted = false,
@@ -2228,6 +2239,8 @@ class V1MediaAttachment {
   final String blurhash;
   final String waveformB64;
   final String thumbnailMediaId;
+  final String thumbnailContentHash;
+  final String thumbnailPlaintextHash;
   final String sourceUrl;
   final String previewUrl;
   final bool isDeleted;
@@ -2250,6 +2263,10 @@ class V1MediaAttachment {
     if (blurhash.isNotEmpty) 'blurhash': blurhash,
     if (waveformB64.isNotEmpty) 'waveformB64': waveformB64,
     if (thumbnailMediaId.isNotEmpty) 'thumbnailMediaId': thumbnailMediaId,
+    if (thumbnailContentHash.isNotEmpty)
+      'thumbnailContentHash': thumbnailContentHash,
+    if (thumbnailPlaintextHash.isNotEmpty)
+      'thumbnailPlaintextHash': thumbnailPlaintextHash,
     if (sourceUrl.isNotEmpty) 'sourceUrl': sourceUrl,
     if (previewUrl.isNotEmpty) 'previewUrl': previewUrl,
     'isDeleted': isDeleted,
@@ -2274,6 +2291,8 @@ class V1MediaAttachment {
         blurhash: json['blurhash'] as String? ?? '',
         waveformB64: json['waveformB64'] as String? ?? '',
         thumbnailMediaId: json['thumbnailMediaId'] as String? ?? '',
+        thumbnailContentHash: json['thumbnailContentHash'] as String? ?? '',
+        thumbnailPlaintextHash: json['thumbnailPlaintextHash'] as String? ?? '',
         sourceUrl: json['sourceUrl'] as String? ?? '',
         previewUrl: json['previewUrl'] as String? ?? '',
         isDeleted: json['isDeleted'] as bool? ?? false,
