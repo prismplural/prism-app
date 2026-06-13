@@ -185,6 +185,8 @@ class _EditFrontSessionScreenState
       // coFronterIds omitted — each session is one member's continuous
       // presence; co-fronting is emergent overlap, not a field.
       notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
+      clearNotes:
+          trimmedNotes.isEmpty && (original.notes?.isNotEmpty ?? false),
       confidenceIndex: _confidence?.index,
     );
 

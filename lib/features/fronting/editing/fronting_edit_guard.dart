@@ -280,7 +280,7 @@ class FrontingEditGuard {
           : (patch.memberId ?? original.memberId),
       start: patch.start ?? original.start,
       end: patch.clearEnd ? null : (patch.end ?? original.end),
-      notes: patch.notes ?? original.notes,
+      notes: patch.clearNotes ? null : (patch.notes ?? original.notes),
       confidenceIndex: patch.confidenceIndex ?? original.confidenceIndex,
       sessionType: original.sessionType,
       quality: original.quality,

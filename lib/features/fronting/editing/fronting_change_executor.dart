@@ -261,7 +261,7 @@ class FrontingChangeExecutor {
         memberId: patch.clearMemberId
             ? null
             : (patch.memberId ?? session.memberId),
-        notes: patch.notes ?? session.notes,
+        notes: patch.clearNotes ? null : (patch.notes ?? session.notes),
         confidence: patch.confidenceIndex != null
             ? FrontConfidence.values[patch.confidenceIndex!]
             : session.confidence,
@@ -276,7 +276,7 @@ class FrontingChangeExecutor {
       startTime: patch.start ?? session.startTime,
       endTime: patch.end ?? session.endTime,
       memberId: patch.memberId ?? session.memberId,
-      notes: patch.notes ?? session.notes,
+      notes: patch.clearNotes ? null : (patch.notes ?? session.notes),
       confidence: patch.confidenceIndex != null
           ? FrontConfidence.values[patch.confidenceIndex!]
           : session.confidence,

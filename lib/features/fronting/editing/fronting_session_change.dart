@@ -52,6 +52,7 @@ class FrontingSessionPatch {
   final String? memberId;
   final bool clearMemberId; // explicitly set to null (make unknown)
   final String? notes;
+  final bool clearNotes; // explicitly set notes to null (remove note)
   final int? confidenceIndex;
 
   /// After the patch applies, delete comments on this session whose
@@ -77,6 +78,7 @@ class FrontingSessionPatch {
     this.memberId,
     this.clearMemberId = false,
     this.notes,
+    this.clearNotes = false,
     this.confidenceIndex,
     this.dropOrphanedComments = false,
     this.reparentOrphansToSessionId,
@@ -89,6 +91,7 @@ class FrontingSessionPatch {
       memberId == null &&
       !clearMemberId &&
       notes == null &&
+      !clearNotes &&
       confidenceIndex == null &&
       !dropOrphanedComments &&
       reparentOrphansToSessionId == null;
