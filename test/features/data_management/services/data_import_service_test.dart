@@ -26,6 +26,9 @@ import 'package:prism_plurality/domain/models/poll.dart';
 import 'package:prism_plurality/domain/models/poll_option.dart';
 import 'package:prism_plurality/domain/models/poll_vote.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show debugDisposeOutboxDrainForTesting;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
@@ -789,6 +792,165 @@ void main() {
         expect(await pollRepo.getAllVotes(), isEmpty);
       },
     );
+  });
+
+  // importData wraps its whole restore in a fenced emission transaction.
+  // Emissions are captured + persisted as durable outbox rows inside the txn
+  // and dispatched only after commit, so a rollback discards data AND outbox
+  // rows together (no phantom op leaks to peers) while a successful import
+  // leaves one outbox row per imported entity.
+  group('DataImportService durable-outbox emission (F19)', () {
+    late AppDatabase db;
+    late DataImportService importService;
+
+    setUp(() {
+      db = _makeDb();
+      importService = _makeImport(db);
+      // "paired" device so the import persists outbox rows.
+      syncCredentialsPersisted.value = true;
+    });
+
+    tearDown(() async {
+      syncCredentialsPersisted.value = false;
+      syncCurrentHandle.value = null;
+      debugDisposeOutboxDrainForTesting();
+      await db.close();
+    });
+
+    test(
+      'import failing mid-step rolls back data AND outbox rows (no phantom op)',
+      () async {
+        // A valid member (step 1 — emits a create op into the capture) followed
+        // by a conversation whose createdAt is unparseable (a later step that
+        // throws). The whole transaction must roll back: zero members, and —
+        // critically — zero outbox rows, so no FFI dispatch can ever happen.
+        final now = DateTime(2026, 1, 15, 10).toUtc().toIso8601String();
+        final badJson = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now,
+          'totalRecords': 1,
+          'headmates': [
+            {
+              'id': 'm-rollback',
+              'name': 'Will Roll Back',
+              'isActive': true,
+              'createdAt': now,
+              'displayOrder': 0,
+              'isAdmin': false,
+              'customColorEnabled': false,
+            },
+          ],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [
+            {
+              'id': 'conv-bad',
+              // Unparseable timestamp → DateTime.parse throws inside the txn,
+              // AFTER the member create above was already captured.
+              'createdAt': 'not-a-date',
+              'lastActivityAt': now,
+              'title': 'Bad',
+              'type': 'group',
+              'isDirectMessage': false,
+              'participantIds': <String>[],
+              'lastReadTimestamps': <String, dynamic>{},
+            },
+          ],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        await expectLater(
+          importService.importData(badJson),
+          throwsA(isA<FormatException>()),
+        );
+
+        // Data rolled back: the member that emitted before the failure is gone.
+        expect(await importService.memberRepository.getAllMembers(), isEmpty);
+        // The emission intent rolled back with it — no durable outbox row, so
+        // the drainer has nothing to dispatch to any peer.
+        expect(await db.syncOutboxDao.count(), 0);
+      },
+    );
+
+    test(
+      'successful import persists one outbox row per imported entity, '
+      'drained only after commit',
+      () async {
+        final now = DateTime(2026, 1, 15, 10).toUtc().toIso8601String();
+        final json = jsonEncode({
+          'formatVersion': '1.0',
+          'version': '1.0',
+          'appName': 'Prism Plurality',
+          'exportDate': now,
+          'totalRecords': 1,
+          'headmates': [
+            {
+              'id': 'm-ok',
+              'name': 'Imported',
+              'isActive': true,
+              'createdAt': now,
+              'displayOrder': 0,
+              'isAdmin': false,
+              'customColorEnabled': false,
+            },
+          ],
+          'frontSessions': [],
+          'sleepSessions': [],
+          'conversations': [
+            {
+              'id': 'conv-ok',
+              'createdAt': now,
+              'lastActivityAt': now,
+              'title': 'Chat',
+              'type': 'group',
+              'isDirectMessage': false,
+              'participantIds': <String>[],
+              'lastReadTimestamps': <String, dynamic>{},
+            },
+          ],
+          'messages': [],
+          'polls': [],
+          'pollOptions': [],
+          'systemSettings': [],
+          'habits': [],
+          'habitCompletions': [],
+        });
+
+        // No handle published, so the post-commit drain is a no-op deferral and
+        // the rows stay in the outbox for inspection — proving they are durable
+        // and were committed (not dispatched mid-transaction).
+        final result = await importService.importData(json);
+        expect(result.membersCreated, 1);
+        expect(result.conversationsCreated, 1);
+
+        final rows = await db.syncOutboxDao.allInIdOrder();
+        // One create op per imported entity (member + conversation), in import
+        // order (members are step 1, conversations follow).
+        expect(
+          rows.map((r) => '${r.opType}:${r.entityTable}/${r.entityId}'),
+          containsAllInOrder([
+            'create:members/m-ok',
+            'create:conversations/conv-ok',
+          ]),
+        );
+      },
+    );
+
+    test('never-paired device persists no outbox rows on import', () async {
+      syncCredentialsPersisted.value = false;
+      final json = _validExportJson(memberId: 'm-np', memberName: 'NP');
+
+      final result = await importService.importData(json);
+      expect(result.membersCreated, 1);
+      expect(await db.syncOutboxDao.count(), 0);
+    });
   });
 
   group('DataImportService.resolveBytes — Prism JSON rejection', () {

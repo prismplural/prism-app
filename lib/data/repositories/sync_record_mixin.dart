@@ -191,6 +191,45 @@ mixin SyncRecordMixin {
   static bool get _inDriftTransaction =>
       Zone.current[_driftTxnZoneKey] != null;
 
+  /// Zone key set by [runFencedEmissionTransaction] (and [runSyncedWrite]) to
+  /// mark "this Drift transaction routes all CRDT emissions through the
+  /// suppress/capture seam — no live FFI dispatch is allowed inside it." The
+  /// emit-after-commit fences ([runSyncedWrite], `importData`, the PK
+  /// `PkMappingApplier` transaction) set it so the defense-in-depth assert below
+  /// can catch a future code path that emits live inside one of them (i.e. the
+  /// phantom-op bug class re-tripping).
+  static const Object _fencedEmissionTxnZoneKey = #prismSyncFencedEmissionTxn;
+
+  /// Whether the current async context is inside a fenced emission transaction.
+  static bool get _inFencedEmissionTransaction =>
+      Zone.current[_fencedEmissionTxnZoneKey] == true;
+
+  /// Run [body] inside a Drift transaction on [db] that captures every CRDT
+  /// emission into [capture] and is marked as a fenced emission transaction.
+  ///
+  /// The fence flag arms the defense-in-depth assert in the live emit path:
+  /// inside this transaction every `syncRecord*` MUST route through the active
+  /// suppress/capture context, so reaching the live FFI/outbox-enqueue path
+  /// here means a code path escaped the seam — the exact phantom-op
+  /// bug class. In debug/test builds that assert-fails loudly; in release the
+  /// row is still persisted durably (and dispatched only post-commit), so the
+  /// emit-after-commit invariant holds even if the assert is stripped.
+  ///
+  /// Used by the importers ([runSyncedWrite], `importData`, the PK applier)
+  /// that wrap a whole rollback-able restore/apply: they collect the captured
+  /// ops, [persistCapturedOpsToOutbox] inside the same transaction, and drain
+  /// strictly after commit.
+  static Future<T> runFencedEmissionTransaction<T>(
+    AppDatabase db,
+    Future<T> Function() body,
+    void Function(CapturedSyncOp op) capture,
+  ) {
+    return runZoned(
+      () => db.transaction(() => suppressAndCapture(body, capture)),
+      zoneValues: {_fencedEmissionTxnZoneKey: true},
+    );
+  }
+
   /// Test-only sink that intercepts every sync emission before the FFI
   /// dispatch. Production code MUST NOT set this — the field is `null` in
   /// every shipped configuration. The Phase 0 SP-import parity harness sets
@@ -461,13 +500,13 @@ mixin SyncRecordMixin {
       _captureSink?.call(op);
     }
 
-    final result = await db.transaction(() async {
-      final r = await suppressAndCapture(body, capture);
+    final result = await runFencedEmissionTransaction(db, () async {
+      final r = await body();
       if (syncCredentialsPersisted.value) {
         await persistCapturedOpsToOutbox(db, captured);
       }
       return r;
-    });
+    }, capture);
     // Strictly post-commit: the rows are durable, so dispatching now (or on the
     // next boot/resume/catch-up/backoff trigger if this one defers) can never
     // run an FFI call before the data write committed.
@@ -503,6 +542,19 @@ mixin SyncRecordMixin {
   /// whole store into `field_versions` at sync setup, so a pre-pairing outbox
   /// would be redundant (and is cleared there).
   Future<void> _enqueueAndDrain(List<CapturedSyncOp> ops) async {
+    // Defense in depth: the live path runs only when NO suppress/
+    // capture context is active. Reaching it inside a fenced emission
+    // transaction ([runFencedEmissionTransaction] / [runSyncedWrite]) means an
+    // emission escaped the seam — the phantom-op-on-rollback bug class. Fail
+    // loudly in debug/test so a regression can't ship silently. Release keeps
+    // going: the row below is still persisted atomically and dispatched only
+    // post-commit, so emit-after-commit holds even with the assert stripped.
+    assert(
+      !_inFencedEmissionTransaction,
+      'syncRecord* reached the live emit path inside a fenced emission '
+      'transaction — an emission escaped the suppress/capture seam and would '
+      'leak a phantom op on rollback (F19/F37).',
+    );
     if (ops.isEmpty || !syncCredentialsPersisted.value) {
       return;
     }

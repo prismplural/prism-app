@@ -2,7 +2,11 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show triggerOutboxDrain;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -742,15 +746,40 @@ class PkMappingApplier {
     return null;
   }
 
+  /// Run the release-loop + [action] inside one Drift transaction whose CRDT
+  /// emissions are captured and persisted as durable outbox rows BEFORE commit,
+  /// then dispatched strictly AFTER it.
+  ///
+  /// `clearPluralKitLink` (in the release loop) and the [action]'s repository
+  /// writes (`createMember` / `applyPluralKitLink`) used to dispatch live to the
+  /// FFI inside this open transaction, so a thrown [action] (or a process kill
+  /// before the Drift commit) left the released-holder unlink or the
+  /// ghost-member create durable in the Rust engine while the local row rolled
+  /// back — a phantom op on every peer, plus the kill-window duplicate-uuid
+  /// re-import. Now the emissions are captured through the suppress/capture seam
+  /// (the inner `runSyncedWrite` in `createMember`/`applyPluralKitLink` sees the
+  /// active capture context and defers to it rather than opening its own fence),
+  /// persisted atomically with the data write, and drained only after commit, so
+  /// a rollback leaves zero op residue and zero local change.
   Future<T> _withReleasedDeletedPkIdentityHolders<T>(
     PKMember pk, {
     String? exceptLocalId,
     required Future<T> Function() action,
-  }) {
-    return _state.attachedDatabase.transaction(() async {
+  }) async {
+    final db = _state.attachedDatabase;
+    final captured = <CapturedSyncOp>[];
+    final result = await SyncRecordMixin.runFencedEmissionTransaction(db, () async {
       await _releaseDeletedPkIdentityHolders(pk, exceptLocalId: exceptLocalId);
-      return action();
-    });
+      final r = await action();
+      if (syncCredentialsPersisted.value) {
+        await SyncRecordMixin.persistCapturedOpsToOutbox(db, captured);
+      }
+      return r;
+    }, captured.add);
+    if (syncCredentialsPersisted.value && captured.isNotEmpty) {
+      await triggerOutboxDrain(db, syncCurrentHandle.value);
+    }
+    return result;
   }
 
   Future<void> _releaseDeletedPkIdentityHolders(

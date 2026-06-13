@@ -9,6 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show debugDisposeOutboxDrainForTesting;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -320,6 +323,12 @@ void main() {
   });
 
   tearDown(() async {
+    // Dispose the process-wide outbox drain manager BEFORE closing the db so a
+    // backoff timer armed by an applier test's post-commit drain can't fire
+    // against a closed database.
+    debugDisposeOutboxDrainForTesting();
+    syncCredentialsPersisted.value = false;
+    syncCurrentHandle.value = null;
     await db.close();
   });
 
@@ -1937,6 +1946,98 @@ void main() {
         expect(row.pkMemberId, 'fresh-id');
       },
     );
+  });
+
+  // _withReleasedDeletedPkIdentityHolders wraps the release-loop + action
+  // in a fenced emission transaction whose CRDT ops are captured + persisted as
+  // durable outbox rows inside the txn and dispatched only after commit. These
+  // tests use a REAL DriftMemberRepository (so the writes actually emit through
+  // the suppress/capture seam) rather than the FakeMemberRepo above.
+  group('F37: durable-outbox emission across the applier transaction', () {
+    late DriftMemberRepository realRepo;
+
+    setUp(() {
+      realRepo = DriftMemberRepository(db.membersDao, null);
+    });
+
+    tearDown(() {
+      syncCredentialsPersisted.value = false;
+      syncCurrentHandle.value = null;
+    });
+
+    test(
+      'action() throw after a release leaves no outbox rows and unchanged links',
+      () async {
+        // A soft-deleted local member holds PK uuid u-x. Seed it (and a live
+        // collision target) while unpaired so seeding emits nothing.
+        const holderId = 'deleted-holder';
+        await realRepo.createMember(
+          _local(id: holderId, name: 'Old', pluralkitUuid: 'u-x'),
+        );
+        await realRepo.deleteMember(holderId);
+        // A LIVE member already occupies the id the import's createMember will
+        // mint, so the create collides on the PRIMARY KEY and throws — AFTER
+        // the release loop has emitted clearPluralKitLink for the holder.
+        const collisionId = 'fixed-uuid';
+        await realRepo.createMember(_local(id: collisionId, name: 'Occupies'));
+
+        syncCredentialsPersisted.value = true;
+        final applier = buildApplier(
+          repo: realRepo,
+          client: FakePluralKitClient(),
+          uuid: const _FixedUuid(collisionId),
+        );
+
+        const pk = PKMember(id: 'pk-x', uuid: 'u-x', name: 'Imported');
+        final results = await applier.apply([
+          const PkImportDecision(pkMember: pk),
+        ]);
+        // The collision is recorded as a failed apply (not rethrown).
+        expect(results.single.outcome, PkApplyOutcome.failed);
+
+        // The release rolled back with the failed action: the soft-deleted
+        // holder STILL carries its PK link locally.
+        final holder = (await db.membersDao.getAllMembersIncludingDeleted())
+            .firstWhere((m) => m.id == holderId);
+        expect(holder.pluralkitUuid, 'u-x');
+        // And no durable op intent survived — nothing pushes to peers.
+        expect(await db.syncOutboxDao.count(), 0);
+      },
+    );
+
+    test('successful import emits release + create outbox rows in order', () async {
+      // Soft-deleted holder of u-y, so the release loop clears its link
+      // (emit #1, an update) before the import creates the fresh member
+      // (emit #2, a create) — both captured into the outbox in that order.
+      const holderId = 'deleted-holder-2';
+      await realRepo.createMember(
+        _local(id: holderId, name: 'Old', pluralkitUuid: 'u-y'),
+      );
+      await realRepo.deleteMember(holderId);
+
+      syncCredentialsPersisted.value = true;
+      const newId = 'fresh-member-id';
+      final applier = buildApplier(
+        repo: realRepo,
+        client: FakePluralKitClient(),
+        uuid: const _FixedUuid(newId),
+      );
+
+      const pk = PKMember(id: 'pk-y', uuid: 'u-y', name: 'Imported');
+      final results = await applier.apply([
+        const PkImportDecision(pkMember: pk),
+      ]);
+      expect(results.single.outcome, PkApplyOutcome.applied);
+
+      final rows = await db.syncOutboxDao.allInIdOrder();
+      expect(
+        rows.map((r) => '${r.opType}:${r.entityTable}/${r.entityId}'),
+        containsAllInOrder([
+          'update:members/$holderId', // clearPluralKitLink (release loop)
+          'create:members/$newId', // createMember (action)
+        ]),
+      );
+    });
   });
 }
 

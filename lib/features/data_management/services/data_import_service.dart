@@ -14,6 +14,9 @@ import 'package:prism_plurality/core/database/app_database.dart'
         PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show triggerOutboxDrain;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
@@ -486,9 +489,19 @@ class DataImportService {
     // step 1).
     final rescueTouchedSessionIds = <String>{};
 
+    // Capture every CRDT emission the restore makes and persist it as a
+    // durable outbox row INSIDE the same transaction, then dispatch strictly
+    // AFTER commit (the drain below). A failed import rolls back the data rows
+    // AND the outbox rows together — no FFI call ever fires while the
+    // transaction is open, so a rollback can no longer leak a phantom op to
+    // peers. The nested fronting-session pass keeps its own `suppress` (the
+    // inner context shadows this outer capture by zone semantics), and its
+    // post-commit `emitFinalStateCreateIfSurviving` pass still emits live below
+    // — both unchanged.
+    final captured = <CapturedSyncOp>[];
     final ImportResult result;
     try {
-      result = await db.transaction(() async {
+      result = await SyncRecordMixin.runFencedEmissionTransaction(db, () async {
         // 1. Import members (first pass: create)
         //
         // Dedup against ALL local members, including soft-deleted tombstones.
@@ -2202,6 +2215,16 @@ class DataImportService {
           existingBoardPostIds.add(p.id);
         }
 
+        // Persist the captured emissions into the durable outbox INSIDE
+        // this transaction so the imported data rows and their sync-op intents
+        // commit atomically; the drainer dispatches them to the FFI strictly
+        // after commit (triggered below). Gated on persisted credentials — a
+        // never-paired device persists nothing (`bootstrapExistingData` seeds
+        // field_versions at pairing).
+        if (syncCredentialsPersisted.value) {
+          await SyncRecordMixin.persistCapturedOpsToOutbox(db, captured);
+        }
+
         return ImportResult(
           membersCreated: membersCreated,
           frontSessionsCreated: frontSessionsCreated,
@@ -2234,7 +2257,7 @@ class DataImportService {
           timestampOnlyFrontSessionCommentsDropped:
               timestampOnlyFrontSessionCommentsDropped,
         );
-      });
+      }, captured.add);
     } catch (e) {
       // Transaction failed — delete temp media files to avoid orphans
       if (mediaDir != null) await _cleanupTempMedia(mediaBlobs, mediaDir);
@@ -2277,6 +2300,16 @@ class DataImportService {
       for (final id in rescueTouchedSessionIds) {
         await concrete.emitFinalStateCreateIfSurviving(id);
       }
+    }
+
+    // Post-commit drain: the transaction committed atomically with the
+    // outbox rows persisted above, so dispatching now (or on any later
+    // boot/resume/catch-up/backoff trigger if the engine is momentarily
+    // unconfigured) can never run an FFI call before the data committed. Fired
+    // after the media finalize and the fronting emit pass so the restore lands
+    // as one coherent burst. The drainer owns failure/retry/quarantine.
+    if (syncCredentialsPersisted.value && captured.isNotEmpty) {
+      await triggerOutboxDrain(db, syncCurrentHandle.value);
     }
 
     return result;

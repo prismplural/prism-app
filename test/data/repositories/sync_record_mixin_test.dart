@@ -20,6 +20,8 @@
 ///    stamps `capturedAtMs`.
 library;
 
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -710,6 +712,64 @@ void main() {
 
       expect(await db.syncOutboxDao.count(), 0);
     });
+  });
+
+  group('F19/F37 fenced-emission defense in depth', () {
+    test(
+      'a live emit that escapes the capture seam inside a fenced transaction '
+      'asserts in debug/test',
+      () async {
+        final repo = _ProbeRepository();
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          drainTrigger: (_) async {},
+        );
+
+        // Simulate the regression the assert guards: inside a fenced emission
+        // transaction, an inner operation reaches the LIVE emit path because it
+        // ran outside the suppress/capture seam. We reproduce "outside the
+        // seam, still inside the fence" by clearing only the capture-context
+        // zone value while the fence flag stays set.
+        final captured = <CapturedSyncOp>[];
+        await expectLater(
+          SyncRecordMixin.runFencedEmissionTransaction<void>(db, () async {
+            await runZoned(
+              () => repo.syncRecordCreate('members', 'escaped', {'k': 'v'}),
+              // #prismSyncCaptureContext is the mixin's private capture key;
+              // nulling it drops the capture context inherited from the fence's
+              // suppressAndCapture, leaving the fence flag in place.
+              zoneValues: {#prismSyncCaptureContext: null},
+            );
+          }, captured.add),
+          throwsA(isA<AssertionError>()),
+        );
+      },
+    );
+
+    test(
+      'runFencedEmissionTransaction captures emissions and persists them '
+      'inside the transaction (no live dispatch)',
+      () async {
+        final repo = _ProbeRepository();
+        var triggered = 0;
+        SyncRecordMixin.debugInstallOutboxRuntimeForTesting(
+          db: db,
+          drainTrigger: (_) async => triggered++,
+        );
+
+        final captured = <CapturedSyncOp>[];
+        await SyncRecordMixin.runFencedEmissionTransaction<void>(db, () async {
+          await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+          await SyncRecordMixin.persistCapturedOpsToOutbox(db, captured);
+        }, captured.add);
+
+        // The emission was captured (not dispatched live) and persisted.
+        expect(captured, hasLength(1));
+        expect(triggered, 0, reason: 'no live drain trigger fired in the fence');
+        final rows = await db.syncOutboxDao.allInIdOrder();
+        expect(rows.single.entityId, 'm1');
+      },
+    );
   });
 
   group('CapturedSyncOp.capturedAtMs + reconcile/backfill entry points', () {
