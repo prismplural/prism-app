@@ -131,23 +131,169 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
-      var current = from;
-      if (current == 1 && to >= 2) {
-        await migrator.addColumn(
+      await _runMigrationSteps(migrator, from, to);
+    },
+    onCreate: (migrator) async {
+      await migrator.createAll();
+      await _createCurrentIndexes();
+      await _createMemberBoardPostIndexes();
+      await _createPkUniqueIndexes();
+      // Fresh v7 install: jump straight to composite + orphan fronting indexes.
+      // Empty table, so no detect-and-refuse needed.
+      await _createPkFrontingCompositeIndex();
+      await _createPkFrontingOrphanIndex();
+      await _createPkGroupSyncIndexes();
+      await _createPkIdentitySyncIndexes();
+      await _createPreferenceValueIndexes();
+      await _createChatMessagesFtsArtifacts();
+    },
+    beforeOpen: (details) async {
+      // Downgrade guard. SQLite itself will happily open a file whose
+      // user_version is newer than the running app's schemaVersion —
+      // queries then fail at runtime with confusing "no such column"
+      // errors because the DAOs expect columns the older build never
+      // learned to add. Fail fast with an actionable message so a user
+      // who rolled back from TestFlight / beta knows to upgrade or
+      // export-reimport rather than hitting a corrupted-looking app.
+      final before = details.versionBefore;
+      if (before != null && before > schemaVersion) {
+        throw StateError(
+          'Database schema v$before is newer than this app (v$schemaVersion). '
+          'You have downgraded to an older build. Upgrade the app, or export '
+          'your data from the newer version and re-import into a fresh install.',
+        );
+      }
+
+      // Idempotent column reconcile. Heals databases that reached the current
+      // schemaVersion under a *different* migration numbering — e.g. a dev DB
+      // migrated by an earlier unshipped branch that stamped v31 before these
+      // columns were renumbered. The version counter won't re-run migrations
+      // (from == to), so verify the expected columns exist and add any that
+      // are missing. No-op for correctly-migrated and fresh databases.
+      await _reconcileExpectedColumns();
+      await _createFirstRenderIndexes();
+    },
+  );
+
+  /// Executes the applicable [_migrationSteps] in order, making the upgrade
+  /// chain atomic, idempotent, and resumable.
+  ///
+  /// Drift does NOT wrap onUpgrade in a transaction and only stamps the final
+  /// schema version after the whole callback returns, so a process death
+  /// mid-chain would otherwise leave a partially-applied schema stamped at the
+  /// old version — every relaunch then re-runs the already-applied DDL and
+  /// throws "duplicate column name", wedging boot forever. Here each step runs
+  /// inside its own transaction that also writes `PRAGMA user_version` to the
+  /// step target, so the stamp and the step's DDL commit together: a kill
+  /// either rolls the whole step back (resume at `step.from`) or persists the
+  /// stamp (resume at `step.to`). Drift's terminal `setSchemaVersion(to)` is a
+  /// harmless overwrite of the last stamp on a clean run.
+  ///
+  /// Steps flagged [usesTableMigration] run their `alterTable`/`TableMigration`
+  /// body OUTSIDE the outer transaction — drift toggles `PRAGMA foreign_keys`,
+  /// which is a no-op inside a transaction — and stamp immediately after. Those
+  /// bodies are already crash-idempotent (drift's copy-and-rename rebuild plus
+  /// the table-shape sniff in `ensureFrontingMemberCheckConstraint`).
+  /// Test-only fault injection: when set, [_runMigrationSteps] throws just
+  /// before applying the step whose target equals this version, simulating a
+  /// process death mid-chain. Earlier steps stay committed and stamped, so the
+  /// test can assert the resumable user_version and re-open to finish.
+  @visibleForTesting
+  int? debugFailMigrationStepTo;
+
+  Future<void> _runMigrationSteps(Migrator migrator, int from, int to) async {
+    var current = from;
+    for (final step in _migrationSteps) {
+      if (current != step.from || to < step.to) continue;
+      if (debugFailMigrationStepTo == step.to) {
+        throw StateError('injected migration failure before step ${step.to}');
+      }
+      if (step.usesTableMigration) {
+        await step.apply(migrator, to);
+        await customStatement('PRAGMA user_version = ${step.to}');
+      } else {
+        await transaction(() async {
+          await step.apply(migrator, to);
+          await customStatement('PRAGMA user_version = ${step.to}');
+        });
+      }
+      current = step.to;
+    }
+    if (current != to) {
+      throw UnsupportedError(
+        'Schema baseline was reset to v1 for the private beta. '
+        'Databases from earlier builds (schema v$from) cannot be upgraded. '
+        'Use the in-app export, reinstall, then import to migrate data.',
+      );
+    }
+  }
+
+  /// Adds [column] to [table] only when the column is absent, generalizing the
+  /// per-step `PRAGMA table_info` guards that v25+/v27+ grew by hand. Lets the
+  /// historical migration chain re-run safely against a DB that already carries
+  /// the column (a wedged install stamped at a stale version, or a dev/test DB
+  /// created at the current schema before its `user_version` was reset).
+  Future<void> _addColumnIfAbsent(
+    Migrator migrator,
+    TableInfo table,
+    GeneratedColumn column,
+  ) async {
+    final cols = await customSelect(
+      'PRAGMA table_info(${table.actualTableName})',
+    ).get();
+    final names = cols.map((r) => r.read<String>('name')).toSet();
+    if (!names.contains(column.name)) {
+      await migrator.addColumn(table, column);
+    }
+  }
+
+  /// Creates [table] only when it does not already exist (reusing
+  /// [_tableExists]), so the historical chain re-runs safely.
+  Future<void> _createTableIfAbsent(Migrator migrator, TableInfo table) async {
+    if (!await _tableExists(table.actualTableName)) {
+      await migrator.createTable(table);
+    }
+  }
+
+  /// Test-only view of the `(from, to)` boundaries of every migration step, so
+  /// the idempotency sweep can parameterize over the chain without reaching
+  /// into the private step list.
+  @visibleForTesting
+  List<(int, int)> get debugMigrationStepBounds =>
+      _migrationSteps.map((s) => (s.from, s.to)).toList(growable: false);
+
+  /// Ordered, data-driven migration chain. Each step is wrapped in its own
+  /// transaction by [_runMigrationSteps], which stamps `PRAGMA user_version`
+  /// to the step target inside that transaction — so an interrupted upgrade
+  /// either fully rolls a step back (resume at `from`) or durably persists the
+  /// stamp (resume at `to`). Drift does NOT wrap onUpgrade in a transaction, so
+  /// this is the only thing that makes the chain crash-safe. Every step body
+  /// is idempotent (`_addColumnIfAbsent` / `_createTableIfAbsent` / `IF NOT
+  /// EXISTS` / re-runnable DML) so an already-stamped or already-applied step
+  /// is a no-op on re-entry.
+  List<_MigrationStep> get _migrationSteps => [
+    _MigrationStep(
+      from: 1,
+      to: 2,
+      apply: (migrator, to) async {
+        await _addColumnIfAbsent(
+          migrator,
           memberGroupEntries,
           memberGroupEntries.pkGroupUuid,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           memberGroupEntries,
           memberGroupEntries.pkMemberUuid,
         );
-        await migrator.addColumn(memberGroups, memberGroups.syncSuppressed);
-        await migrator.addColumn(
+        await _addColumnIfAbsent(migrator, memberGroups, memberGroups.syncSuppressed);
+        await _addColumnIfAbsent(
+          migrator,
           memberGroups,
           memberGroups.suspectedPkGroupUuid,
         );
-        await migrator.createTable(pkGroupSyncAliases);
-        await migrator.createTable(pkGroupEntryDeferredSyncOps);
+        await _createTableIfAbsent(migrator, pkGroupSyncAliases);
+        await _createTableIfAbsent(migrator, pkGroupEntryDeferredSyncOps);
         await _createCurrentIndexes();
         await _createPkUniqueIndexes();
         // Only create the v2-era single-column fronting index if we're stopping
@@ -160,16 +306,23 @@ class AppDatabase extends _$AppDatabase {
         }
         await _createPkGroupSyncIndexes();
         await _createChatMessagesFtsArtifacts();
-        current = 2;
-      }
-      if (current == 2 && to >= 3) {
-        await migrator.addColumn(
+      },
+    ),
+    _MigrationStep(
+      from: 2,
+      to: 3,
+      apply: (migrator, to) async {
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.pkGroupSyncV2Enabled,
         );
-        current = 3;
-      }
-      if (current == 3 && to >= 4) {
+      },
+    ),
+    _MigrationStep(
+      from: 3,
+      to: 4,
+      apply: (migrator, to) async {
         // Three raw-SQL sites wrote ms-since-epoch into DateTimeColumn
         // fields that Drift decodes as seconds. Any value > 1e11 (year
         // 5138 AD in seconds) is almost certainly an ms value that should
@@ -210,30 +363,36 @@ class AppDatabase extends _$AppDatabase {
           'WHERE is_deleted = 0 AND pk_group_uuid IS NOT NULL '
           'AND pk_member_uuid IS NOT NULL',
         );
-        current = 4;
-      }
-      if (current == 4 && to >= 5) {
+      },
+    ),
+    _MigrationStep(
+      from: 4,
+      to: 5,
+      apply: (migrator, to) async {
         await _recreateMemberGroupPkUniqueIndex();
-        current = 5;
-      }
-      if (current == 5 && to >= 6) {
-        await migrator.addColumn(members, members.pkBannerUrl);
-        current = 6;
-      }
-      if (current == 6 && to >= 7) {
+      },
+    ),
+    _MigrationStep(
+      from: 5,
+      to: 6,
+      apply: (migrator, to) async {
+        await _addColumnIfAbsent(migrator, members, members.pkBannerUrl);
+      },
+    ),
+    _MigrationStep(
+      from: 6,
+      to: 7,
+      apply: (migrator, to) async {
         // Phase 1: per-member fronting refactor — additive schema only.
         // Old columns (co_fronter_ids, pk_member_ids_json, comments.session_id)
         // stay in place; they are dropped in v8 cleanup.
         //
-        // The entire v6→v7 block is wrapped in a transaction. Drift does
-        // NOT auto-wrap onUpgrade; without an explicit transaction a
-        // failure mid-migration leaves user_version=6 with partial v7
-        // schema. The user_version bump is applied by Drift after this
-        // callback returns successfully, so the transaction here covers
-        // all DDL + DML.
-        await transaction(() async {
+        // _runMigrationSteps wraps this whole body plus its user_version stamp
+        // in one transaction, so a failure mid-step rolls the partial v7 schema
+        // back to v6 — the inline transaction this block used to open is folded
+        // into the runner.
           // New column: members.is_always_fronting (§2.3)
-          await migrator.addColumn(members, members.isAlwaysFronting);
+          await _addColumnIfAbsent(migrator, members, members.isAlwaysFronting);
 
           // New column: system_settings.pending_fronting_migration_mode (§4.1)
           // Column default is 'complete' (fresh-install semantics); immediately
@@ -244,7 +403,8 @@ class AppDatabase extends _$AppDatabase {
           // because a test (or a very early-lifecycle production DB) might open
           // without ever calling getSettings() first, leaving the table empty.
           // The upsert creates the row when absent and updates it when present.
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.pendingFrontingMigrationMode,
           );
@@ -255,7 +415,8 @@ class AppDatabase extends _$AppDatabase {
           // between the Rust reset and the remaining post-tx steps so
           // resumeCleanup() can distinguish "must run reset" from "reset
           // already succeeded — skip it."
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.pendingFrontingMigrationCleanupSubstate,
           );
@@ -370,61 +531,76 @@ class AppDatabase extends _$AppDatabase {
           // Folded into v7 (was briefly a standalone v8 bump before any
           // production data existed at v8).  Additive-only — two nullable
           // columns; no data migration required.
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             pluralKitSyncState,
             pluralKitSyncState.switchCursorTimestamp,
           );
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             pluralKitSyncState,
             pluralKitSyncState.switchCursorId,
           );
-        });
 
-        current = 7;
-      }
-      if (current == 7 && to >= 8) {
+      },
+    ),
+    _MigrationStep(
+      from: 7,
+      to: 8,
+      apply: (migrator, to) async {
         // Phase 1B: fronting preferences (docs/plans/fronting-preferences-1B.md).
         // Three new synced settings on `system_settings`. Purely additive;
         // no row-level data migration — Drift's column defaults supply
         // `combinedPeriods` (0) / `additive` (0) / `additive` (0) for any
         // pre-existing row.
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.frontingListViewMode,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.addFrontDefaultBehavior,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.quickFrontDefaultBehavior,
         );
-        current = 8;
-      }
-      if (current == 8 && to >= 9) {
+      },
+    ),
+    _MigrationStep(
+      from: 8,
+      to: 9,
+      apply: (migrator, to) async {
         // PluralKit file-origin fronting metadata. Additive nullable columns:
         // existing API/native/SP rows keep nulls, while future file-origin
         // imports can store a deterministic source switch key without
         // overloading `pluralkit_uuid`.
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           frontingSessions,
           frontingSessions.pkImportSource,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           frontingSessions,
           frontingSessions.pkFileSwitchId,
         );
-        current = 9;
-      }
-      if (current == 9 && to >= 10) {
+      },
+    ),
+    _MigrationStep(
+      from: 9,
+      to: 10,
+      apply: (migrator, to) async {
         // Member profile headers. Prism-owned headers and cached PluralKit
         // banners are stored as encrypted synced member blobs.
-        await migrator.addColumn(members, members.profileHeaderSource);
-        await migrator.addColumn(members, members.profileHeaderLayout);
-        await migrator.addColumn(members, members.profileHeaderImageData);
-        await migrator.addColumn(members, members.pkBannerImageData);
-        await migrator.addColumn(members, members.pkBannerCachedUrl);
+        await _addColumnIfAbsent(migrator, members, members.profileHeaderSource);
+        await _addColumnIfAbsent(migrator, members, members.profileHeaderLayout);
+        await _addColumnIfAbsent(migrator, members, members.profileHeaderImageData);
+        await _addColumnIfAbsent(migrator, members, members.pkBannerImageData);
+        await _addColumnIfAbsent(migrator, members, members.pkBannerCachedUrl);
         // Flip the header source to PluralKit only when the banner has
         // actually been resolved to local image bytes. A URL alone isn't a
         // useful banner; the resolver may not have fetched it yet, and
@@ -435,30 +611,43 @@ class AppDatabase extends _$AppDatabase {
           "WHERE pk_banner_url IS NOT NULL AND TRIM(pk_banner_url) != '' "
           'AND pk_banner_image_data IS NOT NULL',
         );
-        current = 10;
-      }
-      if (current == 10 && to >= 11) {
+      },
+    ),
+    _MigrationStep(
+      from: 10,
+      to: 11,
+      apply: (migrator, to) async {
         // Per-profile banner visibility. Source/layout stay configured while
         // hidden so users can temporarily suppress a banner without losing it.
-        await migrator.addColumn(members, members.profileHeaderVisible);
-        current = 11;
-      }
-      if (current == 11 && to >= 12) {
-        await migrator.addColumn(members, members.nameStyleFont);
-        await migrator.addColumn(members, members.nameStyleBold);
-        await migrator.addColumn(members, members.nameStyleItalic);
-        await migrator.addColumn(members, members.nameStyleColorMode);
-        await migrator.addColumn(members, members.nameStyleColorHex);
-        current = 12;
-      }
-      if (current == 12 && to >= 13) {
+        await _addColumnIfAbsent(migrator, members, members.profileHeaderVisible);
+      },
+    ),
+    _MigrationStep(
+      from: 11,
+      to: 12,
+      apply: (migrator, to) async {
+        await _addColumnIfAbsent(migrator, members, members.nameStyleFont);
+        await _addColumnIfAbsent(migrator, members, members.nameStyleBold);
+        await _addColumnIfAbsent(migrator, members, members.nameStyleItalic);
+        await _addColumnIfAbsent(migrator, members, members.nameStyleColorMode);
+        await _addColumnIfAbsent(migrator, members, members.nameStyleColorHex);
+      },
+    ),
+    _MigrationStep(
+      from: 12,
+      to: 13,
+      apply: (migrator, to) async {
         // v13 briefly introduced a target_time range index for the abandoned
         // timestamp-anchored comment model. The restored v16 schema keeps
         // comments attached to session_id, so there is no v13 DDL left to
         // apply for fresh step-through upgrades.
-        current = 13;
-      }
-      if (current == 13 && to >= 14) {
+      },
+    ),
+    _MigrationStep(
+      from: 13,
+      to: 14,
+      usesTableMigration: true,
+      apply: (migrator, to) async {
         // Per-member fronting CHECK constraint (docs/plans/
         // fronting-per-member-sessions.md §2.1, §4.1). Adds
         //   CHECK (session_type != 0 OR member_id IS NOT NULL)
@@ -493,9 +682,12 @@ class AppDatabase extends _$AppDatabase {
         if (mode == 'complete') {
           await ensureFrontingMemberCheckConstraint();
         }
-        current = 14;
-      }
-      if (current == 14 && to >= 15) {
+      },
+    ),
+    _MigrationStep(
+      from: 14,
+      to: 15,
+      apply: (migrator, to) async {
         // Member Boards schema introduction.
         //
         // 1. New entity table: member_board_posts.
@@ -504,74 +696,94 @@ class AppDatabase extends _$AppDatabase {
         // 4–6. Three indexes covering the Inbox, Public, and author queries.
         //
         // Purely additive — no row-level data migration. All new columns have
-        // safe defaults (null / false). Do NOT wrap in an extra transaction:
-        // Drift's migration framework handles the outer transaction and the
-        // v13→v14 block's fragile CHECK logic is untouched.
-        await migrator.createTable(memberBoardPosts);
-        await migrator.addColumn(members, members.boardLastReadAt);
-        await migrator.addColumn(
+        // safe defaults (null / false). _runMigrationSteps provides the outer
+        // transaction + user_version stamp; this step adds no DDL of its own
+        // that needs a nested one.
+        await _createTableIfAbsent(migrator, memberBoardPosts);
+        await _addColumnIfAbsent(migrator, members, members.boardLastReadAt);
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.boardsEnabled,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.spBoardsBackfilledAt,
         );
         await _createMemberBoardPostIndexes();
-        current = 15;
-      }
-      if (current == 15 && to >= 16) {
+      },
+    ),
+    _MigrationStep(
+      from: 15,
+      to: 16,
+      apply: (migrator, to) async {
         await _rebuildFrontSessionCommentsSessionAttached();
-        current = 16;
-      }
-      if (current == 16 && to >= 17) {
-        await migrator.addColumn(
+      },
+    ),
+    _MigrationStep(
+      from: 16,
+      to: 17,
+      apply: (migrator, to) async {
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.autoPromoteLongFrontingSessions,
         );
-        current = 17;
-      }
-      if (current == 17 && to >= 18) {
+      },
+    ),
+    _MigrationStep(
+      from: 17,
+      to: 18,
+      apply: (migrator, to) async {
         // Members tab display preferences. Collapsed before the 0.8.0 release:
         // these were briefly developed as v18-v20, but no public build shipped
         // with those intermediate schema versions.
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.membersListViewMode,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.membersGroupedDefaultState,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.membersFolderMemberVisibility,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.membersShowFrontButtons,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.membersFrontButtonBehavior,
         );
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.membersShowPronouns,
         );
-        current = 18;
-      }
-      if (current == 18 && to >= 19) {
+      },
+    ),
+    _MigrationStep(
+      from: 18,
+      to: 19,
+      apply: (migrator, to) async {
         // 0.8.1 production flatten: all schema additions since 0.8.0 ship as
         // one v18→v19 migration because no public build used the intermediate
         // dev-only versions.
         //
         // Rebuild chat_messages_fts with prefix='2 3 4' so prefix-match
         // queries (every chat search) resolve in a single seek per term
-        // instead of a dictionary range scan. Wrap in a transaction:
-        // dropping the FTS table mid-migration without recovery would
-        // leave search broken until the next rebuild.
-        await transaction(() async {
+        // instead of a dictionary range scan. The runner's per-step
+        // transaction covers the drop+rebuild atomically, so a kill mid-step
+        // never leaves search broken between the DROP and the next rebuild.
           await customStatement(
             'DROP TRIGGER IF EXISTS chat_messages_fts_insert',
           );
@@ -594,37 +806,45 @@ class AppDatabase extends _$AppDatabase {
           // 'none' means existing rows are treated as already-synced — correct
           // semantic since the column tracks fresh local intent. See
           // docs/plans/pk-group-membership-push.md.
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             memberGroupEntries,
             memberGroupEntries.pendingPkOp,
           );
-          await migrator.addColumn(members, members.pluralkitDisplayName);
-        });
-        current = 19;
-      }
-      if (current == 19 && to >= 20) {
+          await _addColumnIfAbsent(migrator, members, members.pluralkitDisplayName);
+      },
+    ),
+    _MigrationStep(
+      from: 19,
+      to: 20,
+      apply: (migrator, to) async {
         // Bio markdown defaults: flip column default to true and bring any
         // existing `false` per-member rows along so the new "markdown on by
         // default" behavior is consistent across the whole DB.  Users who
         // want it off get the new global `bio_markdown_enabled` switch (or
         // can flip the per-member toggle back per bio).
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           systemSettingsTable,
           systemSettingsTable.bioMarkdownEnabled,
         );
         await customStatement(
           'UPDATE members SET markdown_enabled = 1 WHERE markdown_enabled = 0',
         );
-        current = 20;
-      }
-      if (current == 20 && to >= 21) {
+      },
+    ),
+    _MigrationStep(
+      from: 20,
+      to: 21,
+      apply: (migrator, to) async {
         // Direction-first setup: add direction_confirmed to track whether the
         // user has picked a sync direction before the first sync runs.
         // Default false so fresh installs and mid-setup users see the wizard.
         // Backfill: existing fully-set-up users (mapping_acknowledged=1) have
         // already implicitly accepted a direction, so flip them to true so
         // they land on the steady-state screen after upgrading.
-        await migrator.addColumn(
+        await _addColumnIfAbsent(
+          migrator,
           pluralKitSyncState,
           pluralKitSyncState.directionConfirmed,
         );
@@ -633,19 +853,21 @@ class AppDatabase extends _$AppDatabase {
           'SET direction_confirmed = 1 '
           'WHERE mapping_acknowledged = 1',
         );
-        current = 21;
-      }
-      if (current == 21 && to >= 25) {
+      },
+    ),
+    _MigrationStep(
+      from: 21,
+      to: 25,
+      apply: (migrator, to) async {
         // 0.9.0 production flatten: all schema additions since 0.8.4 ship as
         // one v21→v25 migration because no public build used the intermediate
         // dev-only versions.
-        await transaction(() async {
           // Group sort state. Backfill orders entries by SQLite `rowid` as a
           // best-effort proxy for insertion order — no user has ever relied on
           // a persistent within-group order before this migration. Dart loop
           // instead of `ROW_NUMBER()` because non-INTEGER-PK rowids "might
           // change" (https://www.sqlite.org/rowidtable.html).
-          await migrator.addColumn(memberGroups, memberGroups.sortState);
+          await _addColumnIfAbsent(migrator, memberGroups, memberGroups.sortState);
 
           final groupRows = await customSelect(
             'SELECT id FROM member_groups WHERE is_deleted = 0',
@@ -672,19 +894,23 @@ class AppDatabase extends _$AppDatabase {
           }
 
           // Palette theme controls.
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.paletteSource,
           );
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.paletteSeedColorHex,
           );
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.paletteMood,
           );
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.paletteContrast,
           );
@@ -701,7 +927,8 @@ class AppDatabase extends _$AppDatabase {
           );
 
           // Everyone-group conversations.
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             conversations,
             conversations.includesAllMembers,
           );
@@ -756,10 +983,12 @@ class AppDatabase extends _$AppDatabase {
             ''',
             [unknownSentinelMemberId],
           );
-        });
-        current = 25;
-      }
-      if (current == 25 && to >= 26) {
+      },
+    ),
+    _MigrationStep(
+      from: 25,
+      to: 26,
+      apply: (migrator, to) async {
         // Idempotent: test seeders and dev DBs may already carry this column
         // because AppDatabase.open() creates tables at the current schema
         // before the seeder resets PRAGMA user_version back to 25.
@@ -770,39 +999,45 @@ class AppDatabase extends _$AppDatabase {
           (row) => row.read<String>('name') == 'avatar_image_data',
         );
         if (!hasAvatar) {
-          await migrator.addColumn(memberGroups, memberGroups.avatarImageData);
+          await _addColumnIfAbsent(migrator, memberGroups, memberGroups.avatarImageData);
         }
-        current = 26;
-      }
-      if (current == 26 && to >= 27) {
+      },
+    ),
+    _MigrationStep(
+      from: 26,
+      to: 27,
+      apply: (migrator, to) async {
         // Timestamp storage moves from seconds to milliseconds.
         await customStatement(
           'UPDATE chat_messages SET timestamp = timestamp * 1000 '
           'WHERE timestamp < 100000000000',
         );
         if (!await _tableExists('app_preference_values')) {
-          await migrator.createTable(appPreferenceValues);
+          await _createTableIfAbsent(migrator, appPreferenceValues);
         }
         if (!await _tableExists('member_profile_preference_values')) {
-          await migrator.createTable(memberProfilePreferenceValues);
+          await _createTableIfAbsent(migrator, memberProfilePreferenceValues);
         }
         await _createPreferenceValueIndexes();
-        current = 27;
-      }
-      if (current == 27 && to >= 28) {
+      },
+    ),
+    _MigrationStep(
+      from: 27,
+      to: 28,
+      apply: (migrator, to) async {
         // Idempotent — dev/test seeders may already have the columns.
         final cols = await customSelect(
           'PRAGMA table_info(custom_fields)',
         ).get();
         final names = cols.map((r) => r.read<String>('name')).toSet();
         if (!names.contains('field_type_id')) {
-          await migrator.addColumn(customFields, customFields.fieldTypeId);
+          await _addColumnIfAbsent(migrator, customFields, customFields.fieldTypeId);
         }
         if (!names.contains('parent_field_id')) {
-          await migrator.addColumn(customFields, customFields.parentFieldId);
+          await _addColumnIfAbsent(migrator, customFields, customFields.parentFieldId);
         }
         if (!names.contains('type_config_json')) {
-          await migrator.addColumn(customFields, customFields.typeConfigJson);
+          await _addColumnIfAbsent(migrator, customFields, customFields.typeConfigJson);
         }
         // Backfill field_type_id from the existing int for back-compat.
         // Mapping mirrors custom_field_mapper.dart:12 (CustomFieldType enum order
@@ -822,17 +1057,23 @@ class AppDatabase extends _$AppDatabase {
           'CREATE INDEX IF NOT EXISTS idx_custom_fields_parent '
           'ON custom_fields(parent_field_id) WHERE parent_field_id IS NOT NULL',
         );
-        current = 28;
-      }
-      if (current == 28 && to >= 29) {
+      },
+    ),
+    _MigrationStep(
+      from: 28,
+      to: 29,
+      apply: (migrator, to) async {
         final cols = await customSelect('PRAGMA table_info(members)').get();
         final names = cols.map((r) => r.read<String>('name')).toSet();
         if (!names.contains('pk_avatar_cached_url')) {
-          await migrator.addColumn(members, members.pkAvatarCachedUrl);
+          await _addColumnIfAbsent(migrator, members, members.pkAvatarCachedUrl);
         }
-        current = 29;
-      }
-      if (current == 29 && to >= 30) {
+      },
+    ),
+    _MigrationStep(
+      from: 29,
+      to: 30,
+      apply: (migrator, to) async {
         // Collapsed migration: the show/hide-groups toggle
         // (system_settings.members_show_groups) and the bio-image library
         // columns (media_attachments.member_id + tag) ship as one v29→v30 step
@@ -843,7 +1084,8 @@ class AppDatabase extends _$AppDatabase {
           'PRAGMA table_info(system_settings)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!settingsNames.contains('members_show_groups')) {
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             systemSettingsTable,
             systemSettingsTable.membersShowGroups,
           );
@@ -853,37 +1095,48 @@ class AppDatabase extends _$AppDatabase {
           'PRAGMA table_info(media_attachments)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!mediaNames.contains('member_id')) {
-          await migrator.addColumn(mediaAttachments, mediaAttachments.memberId);
+          await _addColumnIfAbsent(migrator, mediaAttachments, mediaAttachments.memberId);
         }
         if (!mediaNames.contains('tag')) {
-          await migrator.addColumn(mediaAttachments, mediaAttachments.tag);
+          await _addColumnIfAbsent(migrator, mediaAttachments, mediaAttachments.tag);
         }
-        current = 30;
-      }
-      if (current == 30 && to >= 31) {
+      },
+    ),
+    _MigrationStep(
+      from: 30,
+      to: 31,
+      usesTableMigration: true,
+      apply: (migrator, to) async {
         await migrator.alterTable(
           TableMigration(
             members,
             columnTransformer: {members.age: members.age.cast<String>()},
           ),
         );
-        current = 31;
-      }
-      if (current == 31 && to >= 32) {
+      },
+    ),
+    _MigrationStep(
+      from: 31,
+      to: 32,
+      apply: (migrator, to) async {
         // archived_for_everyone — convo-level archive flag. Idempotent:
         // dev/test DBs created at the current schema may already have it.
         final convoNames = (await customSelect(
           'PRAGMA table_info(conversations)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!convoNames.contains('archived_for_everyone')) {
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             conversations,
             conversations.archivedForEveryone,
           );
         }
-        current = 32;
-      }
-      if (current == 32 && to >= 37) {
+      },
+    ),
+    _MigrationStep(
+      from: 32,
+      to: 37,
+      apply: (migrator, to) async {
         // 0.12.x production flatten: all schema additions since the v32 floor
         // ship as one v32→v37 migration because no public build used the
         // intermediate dev-only versions. Each step keeps its idempotent guard
@@ -938,15 +1191,20 @@ class AppDatabase extends _$AppDatabase {
           );
         }
 
-        // member_group_entries.created_at — local-only recency stamp for the
-        // PK reconcile grace window; NOT in prismSyncSchema. Existing rows
-        // backfill to "now" so an upgrading device doesn't reconcile-delete its
-        // pre-fix backlog as ancient.
+        // member_group_entries.created_at — local-only creation stamp for the
+        // PK reconcile recency-grace window (2026-06 PK audit). NOT in
+        // prismSyncSchema. Idempotent: dev/test DBs created at the current
+        // schema may already carry it. Existing rows backfill to "now" so a
+        // device that upgrades mid-flight does not treat its entire pre-fix
+        // backlog as ancient and reconcile-delete it on the first pull; the
+        // grace window simply protects everything for one window post-upgrade,
+        // which is the fail-safe direction.
         final entryCols = (await customSelect(
           'PRAGMA table_info(member_group_entries)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!entryCols.contains('created_at')) {
-          await migrator.addColumn(
+          await _addColumnIfAbsent(
+          migrator,
             memberGroupEntries,
             memberGroupEntries.createdAt,
           );
@@ -958,24 +1216,33 @@ class AppDatabase extends _$AppDatabase {
             [DateTime.now().millisecondsSinceEpoch ~/ 1000],
           );
         }
-        current = 37;
-      }
-      if (current == 37 && to >= 38) {
-        // Folded into ONE leg. Each part is independently idempotent:
+      },
+    ),
+    _MigrationStep(
+      from: 37,
+      to: 38,
+      apply: (migrator, to) async {
+        // 0.12.x -> 0.13.0 production flatten: all schema additions since v37
+        // ship as one v37->v38 migration because no public build used the
+        // intermediate dev-only versions. Each part is independently idempotent:
         // re-running on a DB that already created at v38, or retrying after a
         // partial failure, is safe.
 
-        // Clear EVERY pending PluralKit switch-deletion stamp. The
-        // canonicalization-destruction bug shipped on deployed 0.12.x installs
-        // stamped delete_intent_epoch on PK-linked fronting-session tombstones
-        // it created as "local cleanup". Those stamps are indistinguishable
-        // from genuine user delete intents (getDeletedLinkedSessions selects
-        // exactly is_deleted=1 AND pluralkit_uuid IS NOT NULL AND
-        // delete_intent_epoch IS NOT NULL), so on upgrade they would fire real
-        // PluralKit switch DELETEs against the user's external account. Drop the
-        // intent epoch and any in-flight push stamp on every such row; users
-        // must re-delete explicitly. At most queued intentional deletions are
-        // lost, the fail-safe direction.
+        // Legacy repair (maintainer decision
+        // 2026-06-11): clear EVERY pending PluralKit switch-deletion stamp.
+        //
+        // The canonicalization-destruction bug shipped on deployed 0.12.x
+        // installs stamped delete_intent_epoch on PK-linked fronting-session
+        // tombstones it created as "local cleanup". Those stamps are
+        // indistinguishable from genuine user delete intents, and the new
+        // cascade guard cannot protect leaver-only switches — so on upgrade
+        // they would fire real PluralKit switch DELETEs against the user's
+        // external account (getDeletedLinkedSessions selects exactly
+        // is_deleted=1 AND pluralkit_uuid IS NOT NULL AND
+        // delete_intent_epoch IS NOT NULL). One-time, idempotent
+        // (re-runnable): drop the intent epoch and any in-flight push stamp
+        // on every such row. Users must re-delete explicitly; at most queued
+        // intentional deletions are lost, which is the fail-safe direction.
         await customStatement(
           'UPDATE fronting_sessions '
           'SET delete_intent_epoch = NULL, delete_push_started_at = NULL '
@@ -984,16 +1251,18 @@ class AppDatabase extends _$AppDatabase {
           '  AND delete_intent_epoch IS NOT NULL',
         );
 
-        // member_groups.sync_generation + member_group_entries.sync_generation:
-        // LOCAL-ONLY incarnation counters for the absorbing-tombstone-revive
-        // layer. NOT in prismSyncSchema; each device tracks its own live
-        // incarnation. Existing rows default to 0 (the legacy id), correct
-        // since nothing has been re-incarnated yet.
+        // member_groups.sync_generation + member_group_entries.sync_generation
+        // — LOCAL-ONLY incarnation counters for the absorbing-tombstone-
+        // revive layer. NOT in prismSyncSchema; each
+        // device tracks its own live incarnation. Idempotent: dev/test
+        // DBs created at the current schema may already carry the columns, and
+        // a partial-failure retry must be safe. Existing rows default to 0 (the
+        // legacy id), which is correct — nothing has been re-incarnated yet.
         final groupCols = (await customSelect(
           'PRAGMA table_info(member_groups)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!groupCols.contains('sync_generation')) {
-          await migrator.addColumn(memberGroups, memberGroups.syncGeneration);
+          await _addColumnIfAbsent(migrator, memberGroups, memberGroups.syncGeneration);
         }
         final genEntryCols = (await customSelect(
           'PRAGMA table_info(member_group_entries)',
@@ -1006,14 +1275,15 @@ class AppDatabase extends _$AppDatabase {
         }
 
         // pk_identity_sync_aliases — the generic PK-identity redirect alias
-        // table for members + fronting_sessions. Local-only Drift table; no
-        // wire/protocol change. Idempotent: createTableIfAbsent guards a
+        // table for members + fronting_sessions (CRDT remediation wave 2,
+        // pk-identity-alias-coherence family / F23). Local-only Drift table; no
+        // wire/protocol change. Idempotent (C11): createTableIfAbsent guards a
         // partial-failure retry and dev/test DBs created at the current schema.
         final tables = (await customSelect(
           "SELECT name FROM sqlite_master WHERE type = 'table'",
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!tables.contains('pk_identity_sync_aliases')) {
-          await migrator.createTable(pkIdentitySyncAliases);
+          await _createTableIfAbsent(migrator, pkIdentitySyncAliases);
         }
         await _createPkIdentitySyncIndexes();
 
@@ -1038,57 +1308,10 @@ class AppDatabase extends _$AppDatabase {
           'DELETE FROM pk_group_sync_aliases '
           "WHERE legacy_entity_id = 'pk-group-' || pk_group_uuid",
         );
-        current = 38;
-      }
-      if (current != to) {
-        throw UnsupportedError(
-          'Schema baseline was reset to v1 for the private beta. '
-          'Databases from earlier builds (schema v$from) cannot be upgraded. '
-          'Use the in-app export, reinstall, then import to migrate data.',
-        );
-      }
-    },
-    onCreate: (migrator) async {
-      await migrator.createAll();
-      await _createCurrentIndexes();
-      await _createMemberBoardPostIndexes();
-      await _createPkUniqueIndexes();
-      // Fresh v7 install: jump straight to composite + orphan fronting indexes.
-      // Empty table, so no detect-and-refuse needed.
-      await _createPkFrontingCompositeIndex();
-      await _createPkFrontingOrphanIndex();
-      await _createPkGroupSyncIndexes();
-      await _createPkIdentitySyncIndexes();
-      await _createPreferenceValueIndexes();
-      await _createChatMessagesFtsArtifacts();
-    },
-    beforeOpen: (details) async {
-      // Downgrade guard. SQLite itself will happily open a file whose
-      // user_version is newer than the running app's schemaVersion —
-      // queries then fail at runtime with confusing "no such column"
-      // errors because the DAOs expect columns the older build never
-      // learned to add. Fail fast with an actionable message so a user
-      // who rolled back from TestFlight / beta knows to upgrade or
-      // export-reimport rather than hitting a corrupted-looking app.
-      final before = details.versionBefore;
-      if (before != null && before > schemaVersion) {
-        throw StateError(
-          'Database schema v$before is newer than this app (v$schemaVersion). '
-          'You have downgraded to an older build. Upgrade the app, or export '
-          'your data from the newer version and re-import into a fresh install.',
-        );
-      }
+      },
+    ),
+  ];
 
-      // Idempotent column reconcile. Heals databases that reached the current
-      // schemaVersion under a *different* migration numbering — e.g. a dev DB
-      // migrated by an earlier unshipped branch that stamped v31 before these
-      // columns were renumbered. The version counter won't re-run migrations
-      // (from == to), so verify the expected columns exist and add any that
-      // are missing. No-op for correctly-migrated and fresh databases.
-      await _reconcileExpectedColumns();
-      await _createFirstRenderIndexes();
-    },
-  );
 
   /// Best-effort idempotent column reconcile run in [beforeOpen]. Adds columns
   /// that should exist at the current schema but may be absent on databases
@@ -1863,4 +2086,23 @@ class AppDatabase extends _$AppDatabase {
   SpImportDao get spImportDao => SpImportDao(this);
   @override
   PkMappingStateDao get pkMappingStateDao => PkMappingStateDao(this);
+}
+
+/// One ordered upgrade leg in [AppDatabase]'s migration chain. [apply] runs the
+/// step's DDL/DML; [_runMigrationSteps] owns the transaction and the
+/// per-step `PRAGMA user_version` stamp. Set [usesTableMigration] for steps
+/// whose body calls `alterTable`/`TableMigration` (drift opens its own
+/// connection-level work there that cannot run inside an outer transaction).
+class _MigrationStep {
+  const _MigrationStep({
+    required this.from,
+    required this.to,
+    required this.apply,
+    this.usesTableMigration = false,
+  });
+
+  final int from;
+  final int to;
+  final bool usesTableMigration;
+  final Future<void> Function(Migrator migrator, int to) apply;
 }
