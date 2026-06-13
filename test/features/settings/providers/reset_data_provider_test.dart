@@ -69,6 +69,13 @@ const _allUserDataTables = [
   'sp_sync_state',
   'sp_id_map',
   'pk_mapping_state',
+  // Durable sync-op outbox. Wiped by the
+  // full DB delete; cleared on unpair via syncOutboxDao.clearAll().
+  'sync_op_outbox',
+  // Durable sync-migration repair queue. Local
+  // -only; wiped by the full DB delete and drained/cleared at runtime by
+  // MigrationSyncRepairService.
+  'sync_migration_repairs',
 ];
 
 // ── Member-ID orphan-reference manifest ────────────────────────────────────
@@ -3295,6 +3302,32 @@ class _ResetHarness {
             contentHash: 'hash',
             ciphertext: Uint8List.fromList(const [1, 2, 3]),
             createdAt: 0,
+          ),
+        );
+
+    // ── Durable sync-op outbox ────────────────────────────────────────
+    await db
+        .into(db.syncOpOutbox)
+        .insert(
+          SyncOpOutboxCompanion.insert(
+            entityTable: 'members',
+            entityId: 'member-1',
+            opType: 'update',
+            fieldsJson: '{"name":"seed"}',
+            createdAt: now.millisecondsSinceEpoch,
+          ),
+        );
+
+    // ── Durable sync-migration repair queue ───────────────────────────
+    await db
+        .into(db.syncMigrationRepairs)
+        .insert(
+          SyncMigrationRepairsCompanion.insert(
+            entityTable: 'members',
+            entityId: 'member-1',
+            fieldNamesJson: '["markdown_enabled"]',
+            reason: 'seed',
+            enqueuedAt: now.millisecondsSinceEpoch,
           ),
         );
 

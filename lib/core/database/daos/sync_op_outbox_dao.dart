@@ -20,16 +20,6 @@ class SyncOutboxDao extends DatabaseAccessor<AppDatabase>
     await batch((b) => b.insertAll(syncOpOutbox, rows));
   }
 
-  /// All non-quarantined rows in drain (`id`) order. Quarantined rows are still
-  /// needed to enforce per-entity lane blocking, so the drainer reads them
-  /// separately via [allInIdOrder] when it needs the full picture.
-  Future<List<SyncOpOutboxRow>> pendingInIdOrder() {
-    return (select(syncOpOutbox)
-          ..where((t) => t.quarantined.equals(false))
-          ..orderBy([(t) => OrderingTerm.asc(t.id)]))
-        .get();
-  }
-
   /// Every row (including quarantined) in drain order. The drainer needs the
   /// quarantined rows to block later ops for the same entity.
   Future<List<SyncOpOutboxRow>> allInIdOrder() {

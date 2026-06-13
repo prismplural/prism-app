@@ -51,6 +51,11 @@ class CapturedSyncOp {
 /// Test-only callback type: invoked once per intercepted sync emission.
 typedef SyncRecordCaptureSink = void Function(CapturedSyncOp op);
 
+/// Drain trigger wired by the app at start ([SyncRecordMixin.installOutboxRuntime]).
+/// Invoked after a live emit enqueues an outbox row, carrying the handle the
+/// drainer should dispatch against (`null` is a safe no-op deferral).
+typedef OutboxDrainTrigger = Future<void> Function(ffi.PrismSyncHandle? handle);
+
 /// Active suppression context, carried as a [Zone] value. `null` [capture]
 /// drops emissions ([SyncRecordMixin.suppress]); a non-null [capture] receives
 /// them instead of the FFI ([SyncRecordMixin.suppressAndCapture]).
@@ -61,16 +66,22 @@ class _SyncCaptureContext {
 
 /// Mixin for repositories that record mutations to the Rust sync engine.
 ///
-/// The handle may exist (Rust side constructed) but the engine may not be
-/// configured yet. This can happen briefly during startup because the app
-/// publishes the raw handle before `configureEngine()` finishes so event
-/// listeners can subscribe before auto-sync emits any early events. During
-/// that window the FFI returns `engine error: sync not configured`.
+/// **Durable outbox.** A live `syncRecord*` call no longer dispatches to
+/// the FFI directly. It persists a row into the durable `sync_op_outbox` Drift
+/// table (gated on persisted sync-group credentials) and then triggers the
+/// [SyncOutboxDrainer]. The drainer owns ALL engine-availability handling: a
+/// null handle or an engine-unconfigured error leaves the row untouched
+/// (deferral), so "unconfigured" is a deferral state and never a drop. The
+/// engine may exist (Rust side constructed) but be unconfigured (the brief
+/// startup window before `configureEngine()`, or the documented
+/// "Relay not configured" disconnect episodes); in every such case the row
+/// survives and the next drain trigger re-dispatches it. The only remaining
+/// local failure mode on the emit path is the Drift insert itself, which is
+/// reported (the data row is already committed).
 ///
-/// A write dropped in that gap is user-visible: the local row exists, but no
-/// `pending_op` is created until a later edit re-emits the entity. To close
-/// that race, writes retry only while startup auto-config is actively in
-/// progress, then fall back to the historical "skip quietly" behavior.
+/// Never-paired devices (no persisted credentials) keep the historical local
+/// -only behavior: nothing is enqueued, because `bootstrapExistingData` seeds
+/// everything into `field_versions` at sync setup.
 ///
 /// **Suppression mode** ([suppress] / [suppressAndCapture]). Destructive
 /// bulk-rewrite paths (e.g. the fronting migration) write through repository
@@ -84,8 +95,8 @@ mixin SyncRecordMixin {
 
   /// The handle the emit path actually targets: the live runtime handle when
   /// one is published, else the injected [syncHandle]. Resolved identically to
-  /// [_runWithConfiguredRetry] so a gate/read built from it sees the same
-  /// engine state the next `syncRecord*` would write to.
+  /// the outbox drain trigger so a gate/read built from it sees the same engine
+  /// state the next drain would write to.
   ffi.PrismSyncHandle? get resolvedSyncHandle =>
       syncCurrentHandle.value ?? syncHandle;
 
@@ -112,8 +123,33 @@ mixin SyncRecordMixin {
   TombstoneGate? get tombstoneGate =>
       _tombstoneGateOverride ?? TombstoneGate.forHandle(resolvedSyncHandle);
 
-  static final List<CapturedSyncOp> _startupDeferredOps = <CapturedSyncOp>[];
-  static bool _flushingStartupDeferredOps = false;
+  /// App database used by the live emit path to persist outbox rows, plus the
+  /// drain trigger fired right after an enqueue. Both are wired once at app
+  /// start ([installOutboxRuntime]); they are `null` in unit tests that don't
+  /// exercise the live path (those use suppress/capture or the capture sink),
+  /// so a live emit with no runtime simply no-ops (the data row is still
+  /// committed; the missing runtime only suppresses sync emission in that
+  /// degenerate test configuration).
+  static AppDatabase? _outboxDb;
+  static OutboxDrainTrigger? _outboxDrainTrigger;
+
+  /// Wire the durable-outbox runtime: [db] receives the enqueued rows and
+  /// [drainTrigger] is invoked after each enqueue to dispatch them. Called once
+  /// the AppDatabase and the SyncOutboxDrainer are constructed at app start.
+  /// Passing `null` for either clears the wiring (used by tests / teardown).
+  static void installOutboxRuntime({
+    AppDatabase? db,
+    OutboxDrainTrigger? drainTrigger,
+  }) {
+    _outboxDb = db;
+    _outboxDrainTrigger = drainTrigger;
+  }
+
+  @visibleForTesting
+  static void debugInstallOutboxRuntimeForTesting({
+    AppDatabase? db,
+    OutboxDrainTrigger? drainTrigger,
+  }) => installOutboxRuntime(db: db, drainTrigger: drainTrigger);
 
   /// Zone key for the active [_SyncCaptureContext]. As a zone value it follows
   /// the suppressed `body`'s async chain — including nested Drift transactions,
@@ -130,6 +166,21 @@ mixin SyncRecordMixin {
   /// suppression, not a process-wide flag. Exposed for tests that assert
   /// "suppression cleanly entered + exited."
   static bool get isSuppressed => _activeCaptureContext != null;
+
+  /// Drift stamps the active executor into the zone under this key while a
+  /// `db.transaction(...)` body runs (including nested transactions). A
+  /// non-null value means the current async context is inside an OPEN Drift
+  /// transaction, so any FFI dispatch fired now would run BEFORE the outermost
+  /// commit and survive a rollback. See [_inDriftTransaction].
+  static const Object _driftTxnZoneKey = #DatabaseConnectionUser;
+
+  /// Whether the current async context is inside an open Drift transaction.
+  /// The live emit path uses this to defer the drain trigger: persisting the
+  /// outbox row inside the txn is safe (it commits/rolls back atomically with
+  /// the data write), but DISPATCHING it must wait until after commit, or the
+  /// emit-after-commit invariant breaks and a rollback leaks a phantom op.
+  static bool get _inDriftTransaction =>
+      Zone.current[_driftTxnZoneKey] != null;
 
   /// Test-only sink that intercepts every sync emission before the FFI
   /// dispatch. Production code MUST NOT set this — the field is `null` in
@@ -156,15 +207,6 @@ mixin SyncRecordMixin {
   /// this to assert clean install/remove pairing.
   @visibleForTesting
   static bool get hasCaptureSink => _captureSink != null;
-
-  @visibleForTesting
-  static int get debugStartupDeferredOpCount => _startupDeferredOps.length;
-
-  @visibleForTesting
-  static void debugClearStartupDeferredOpsForTesting() {
-    _startupDeferredOps.clear();
-    _flushingStartupDeferredOps = false;
-  }
 
   /// Install a [SyncRecordCaptureSink]. Always returns `null` (the previous
   /// sink slot must be empty — see below).
@@ -249,34 +291,6 @@ mixin SyncRecordMixin {
   /// detection to LEAVE rows untouched (deferral, not drop) rather than
   /// forking the string check.
   static bool isNotConfiguredError(Object error) => _isNotConfigured(error);
-
-  static void _deferStartupOp(CapturedSyncOp op) {
-    _startupDeferredOps.add(op);
-  }
-
-  /// Replay sync emissions captured while startup configuration was in flight.
-  static Future<void> flushStartupDeferredOps(
-    ffi.PrismSyncHandle handle,
-  ) async {
-    if (_flushingStartupDeferredOps || _startupDeferredOps.isEmpty) return;
-    _flushingStartupDeferredOps = true;
-    try {
-      while (_startupDeferredOps.isNotEmpty) {
-        final op = _startupDeferredOps.removeAt(0);
-        try {
-          await _dispatchCapturedOp(handle, op);
-        } catch (e, st) {
-          ErrorReportingService.instance.report(
-            'Deferred sync ${op.opType.name} failed: $e',
-            severity: ErrorSeverity.error,
-            stackTrace: st,
-          );
-        }
-      }
-    } finally {
-      _flushingStartupDeferredOps = false;
-    }
-  }
 
   static Future<void> _dispatchCapturedOp(
     ffi.PrismSyncHandle handle,
@@ -381,67 +395,86 @@ mixin SyncRecordMixin {
     await db.syncOutboxDao.insertAll(rows);
   }
 
-  Future<void> _runWithConfiguredRetry(
-    CapturedSyncOp op,
-    Future<void> Function(ffi.PrismSyncHandle handle) attempt,
-  ) async {
-    final handle = syncCurrentHandle.value ?? syncHandle;
-    if (handle == null) {
-      if (syncAutoConfigureInProgress.value) {
-        _deferStartupOp(op);
-      }
+  /// Live emit (no active suppression / capture sink): enqueue [ops] into the
+  /// durable outbox, then trigger the drainer. The drainer dispatches the rows
+  /// to the FFI and owns all engine-availability handling — a null handle or an
+  /// unconfigured engine leaves the rows for the next trigger (deferral, never
+  /// drop). The only failure surfaced here is the Drift insert itself (the data
+  /// row is already committed, so this is reported and swallowed).
+  ///
+  /// **Emit-after-commit (absolute invariant).** When this runs inside an open
+  /// Drift transaction (a live `syncRecord*` reached from an unsuppressed
+  /// importer — `importData`, the PK importers — whose in-txn fencing is
+  /// deferred work), the outbox row is persisted atomically with
+  /// the data write but the drain trigger is SKIPPED: dispatching now would run
+  /// the FFI before the outermost commit and leak a phantom op on rollback. The
+  /// row stays durable and a post-commit drain (boot/resume/catch-up, the
+  /// backoff timer armed by any later live emit, or the importer's own
+  /// post-commit trigger) picks it up. Outside a transaction (the live
+  /// single-statement path) the trigger fires immediately as before.
+  ///
+  /// Gated on persisted sync-group credentials ([syncCredentialsPersisted]):
+  /// never-paired devices enqueue nothing — `bootstrapExistingData` seeds the
+  /// whole store into `field_versions` at sync setup, so a pre-pairing outbox
+  /// would be redundant (and is cleared there).
+  Future<void> _enqueueAndDrain(List<CapturedSyncOp> ops) async {
+    if (ops.isEmpty || !syncCredentialsPersisted.value) {
+      return;
+    }
+    final db = _outboxDb;
+    if (db == null) {
+      // No runtime wired (degenerate test config). The data row is committed;
+      // nothing to enqueue against. Production always installs the runtime.
       return;
     }
     try {
-      await attempt(handle);
-    } catch (e) {
-      if (!_isNotConfigured(e)) {
-        rethrow;
-      }
-      if (syncAutoConfigureInProgress.value) {
-        _deferStartupOp(op);
-      }
+      await persistCapturedOpsToOutbox(db, ops);
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync outbox enqueue failed (${ops.length} op(s)): $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      return;
+    }
+    if (_inDriftTransaction) {
+      // Defer the dispatch to a post-commit drain (see doc above): the row is
+      // durable and atomic with the data write; firing now would violate
+      // emit-after-commit and leak on rollback.
+      return;
+    }
+    final trigger = _outboxDrainTrigger;
+    if (trigger != null) {
+      // Fire-and-forget: a failed drain leaves the rows durable for the next
+      // trigger. We do not await it on the write's critical path.
+      unawaited(trigger(syncCurrentHandle.value ?? syncHandle));
     }
   }
 
-  /// Bulk variant of [_runWithConfiguredRetry]: runs one coalesced [attempt]
-  /// when a handle is available, but defers EVERY op in [ops] (not just one) if
-  /// the handle is missing mid-auto-configure. Each deferred op replays as an
-  /// individual record on startup — correctness over coalescing on that rare
-  /// path. Passing a single representative op here would silently drop the rest.
-  Future<void> _runWithConfiguredRetryMulti(
-    List<CapturedSyncOp> ops,
+  /// Direct live FFI dispatch for the divergence-aware reconcile/backfill paths
+  /// ([syncRecordReconcile] / [syncRecordBackfill]). These carry merge-relevant
+  /// semantics (per-field divergence / floor-HLC backfill) that the plain
+  /// create/update/delete outbox does not model, so they are NOT routed through
+  /// it. They are one-shot catch-up/migration emissions invoked post-healthy
+  /// (the migration repair drain), so an unconfigured engine is a
+  /// no-op deferral the next catch-up trigger re-runs; any other error is
+  /// reported and swallowed (the local data is already correct).
+  Future<void> _dispatchLiveFfi(
+    String logLabel,
     Future<void> Function(ffi.PrismSyncHandle handle) attempt,
   ) async {
     final handle = syncCurrentHandle.value ?? syncHandle;
-    if (handle == null) {
-      if (syncAutoConfigureInProgress.value) {
-        for (final op in ops) {
-          _deferStartupOp(op);
-        }
-      }
-      return;
-    }
+    if (handle == null) return;
     try {
       await attempt(handle);
-    } catch (e) {
-      if (!_isNotConfigured(e)) {
-        rethrow;
-      }
-      if (syncAutoConfigureInProgress.value) {
-        for (final op in ops) {
-          _deferStartupOp(op);
-        }
-      }
+    } catch (e, st) {
+      if (_isNotConfigured(e)) return;
+      ErrorReportingService.instance.report(
+        '$logLabel failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
     }
-  }
-
-  @visibleForTesting
-  Future<void> debugRunWithConfiguredRetryForTesting(
-    CapturedSyncOp op,
-    Future<void> Function(ffi.PrismSyncHandle handle) attempt,
-  ) {
-    return _runWithConfiguredRetry(op, attempt);
   }
 
   Future<void> syncRecordCreate(
@@ -466,29 +499,7 @@ mixin SyncRecordMixin {
       sink(op);
       return;
     }
-    final payload = jsonEncode(fields);
-    try {
-      await _runWithConfiguredRetry(op, (handle) {
-        return ffi.recordCreate(
-          handle: handle,
-          table: table,
-          entityId: entityId,
-          fieldsJson: payload,
-        );
-      });
-    } catch (e, st) {
-      // Sync-log emission is best-effort; user data has already been
-      // persisted to Drift. Failure here must not surface to the UI.
-      // Report once so the failure reaches `ErrorReportingService` (the
-      // visibility motivation that originally introduced the rethrow),
-      // then swallow — repository call sites do not catch and the user
-      // shouldn't see "save failed" toasts for sync emission errors.
-      ErrorReportingService.instance.report(
-        'Sync recordCreate failed: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
-      );
-    }
+    await _enqueueAndDrain([op]);
   }
 
   Future<void> syncRecordUpdate(
@@ -513,25 +524,7 @@ mixin SyncRecordMixin {
       sink(op);
       return;
     }
-    final payload = jsonEncode(fields);
-    try {
-      await _runWithConfiguredRetry(op, (handle) {
-        return ffi.recordUpdate(
-          handle: handle,
-          table: table,
-          entityId: entityId,
-          changedFieldsJson: payload,
-        );
-      });
-    } catch (e, st) {
-      // Sync-log emission is best-effort; user data has already been
-      // persisted to Drift. Failure here must not surface to the UI.
-      ErrorReportingService.instance.report(
-        'Sync recordUpdate failed: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
-      );
-    }
+    await _enqueueAndDrain([op]);
   }
 
   Future<void> syncRecordDelete(String table, String entityId) async {
@@ -552,23 +545,7 @@ mixin SyncRecordMixin {
       sink(op);
       return;
     }
-    try {
-      await _runWithConfiguredRetry(op, (handle) {
-        return ffi.recordDelete(
-          handle: handle,
-          table: table,
-          entityId: entityId,
-        );
-      });
-    } catch (e, st) {
-      // Sync-log emission is best-effort; user data has already been
-      // persisted to Drift. Failure here must not surface to the UI.
-      ErrorReportingService.instance.report(
-        'Sync recordDelete failed: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
-      );
-    }
+    await _enqueueAndDrain([op]);
   }
 
   /// Delete many entities of one [table] in a single coalesced FFI call, so the
@@ -607,25 +584,10 @@ mixin SyncRecordMixin {
       }
       return;
     }
-    try {
-      await _runWithConfiguredRetryMulti([
-        for (final id in entityIds) opFor(id),
-      ], (handle) {
-        return ffi.recordDeleteMulti(
-          handle: handle,
-          table: table,
-          entityIds: entityIds,
-        );
-      });
-    } catch (e, st) {
-      // Sync-log emission is best-effort; user data has already been
-      // persisted to Drift. Failure here must not surface to the UI.
-      ErrorReportingService.instance.report(
-        'Sync recordDeleteMulti failed: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
-      );
-    }
+    // Enqueue one delete row per id; the drainer coalesces a consecutive run of
+    // same-table deletes into one recordDeleteMulti, preserving the bulk-delete
+    // coalescing fix while keeping each id durable in its own lane.
+    await _enqueueAndDrain([for (final id in entityIds) opFor(id)]);
   }
 
   /// Reconcile [fields] for an entity against this device's `field_versions`,
@@ -660,23 +622,15 @@ mixin SyncRecordMixin {
       return;
     }
     final payload = jsonEncode(fields);
-    try {
-      await _runWithConfiguredRetry(op, (handle) {
-        return ffi.recordReconcile(
-          handle: handle,
-          table: table,
-          entityId: entityId,
-          fieldsJson: payload,
-          divergentFreshHlc: true,
-        );
-      });
-    } catch (e, st) {
-      ErrorReportingService.instance.report(
-        'Sync recordReconcile failed: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
+    await _dispatchLiveFfi('Sync recordReconcile', (handle) {
+      return ffi.recordReconcile(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        fieldsJson: payload,
+        divergentFreshHlc: true,
       );
-    }
+    });
   }
 
   /// Pure write-if-absent backfill: emit only fields with no `field_versions`
@@ -707,22 +661,14 @@ mixin SyncRecordMixin {
       return;
     }
     final payload = jsonEncode(fields);
-    try {
-      await _runWithConfiguredRetry(op, (handle) {
-        return ffi.recordBackfill(
-          handle: handle,
-          table: table,
-          entityId: entityId,
-          fieldsJson: payload,
-        );
-      });
-    } catch (e, st) {
-      ErrorReportingService.instance.report(
-        'Sync recordBackfill failed: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
+    await _dispatchLiveFfi('Sync recordBackfill', (handle) {
+      return ffi.recordBackfill(
+        handle: handle,
+        table: table,
+        entityId: entityId,
+        fieldsJson: payload,
       );
-    }
+    });
   }
 
   /// Replay [ops] through the live FFI path, in capture order — the post-commit

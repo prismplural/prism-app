@@ -1130,10 +1130,10 @@ class SpImporter {
     // through `memberRepo` because every DriftXxxRepository shares the
     // same app-singleton `syncHandle`; any repo with the mixin works.
     //
-    // Defense-in-depth visibility:
-    // `syncRecord*` swallows FFI failures internally via `_runWithConfiguredRetry`
-    // + the outer try/catch in `sync_record_mixin.dart`. That means a normal
-    // FFI dispatch failure won't propagate here. BUT a handful of edge cases
+    // Codex cross-phase review (Option A — defense-in-depth visibility):
+    // `syncRecord*` no longer dispatches the FFI inline — it enqueues a durable
+    // outbox row and the drainer handles dispatch/failures (F05). A normal emit
+    // failure therefore won't propagate here. BUT a handful of edge cases
     // can still throw out of `syncRecord*` (e.g. `jsonEncode` on a
     // non-serializable payload before the FFI call is reached). Without this
     // try/catch, one bad row aborts every remaining replay emission. We catch

@@ -39,6 +39,7 @@ import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/sync/sync_database_probe.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
+import 'package:prism_plurality/core/sync/sync_outbox_drainer.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
@@ -63,6 +64,79 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 // healthy vs needsPassword vs disconnected.
 
 const _prismSyncStructuredErrorPrefix = 'PRISM_SYNC_ERROR_JSON:';
+
+/// Process-global manager for the durable sync-op outbox drainer. A
+/// single [SyncOutboxDrainer] over the app DB is wired into [SyncRecordMixin]
+/// so a live emit enqueues a row and fires a drain; the same drainer is driven
+/// from the boot/resume/catch-up/pre-snapshot triggers below and a backoff
+/// timer that keeps re-draining while rows remain (so an emit that lands while
+/// the engine is unconfigured is never stranded).
+class _OutboxDrainManager {
+  _OutboxDrainManager._();
+  static final _OutboxDrainManager instance = _OutboxDrainManager._();
+
+  SyncOutboxDrainer? _drainer;
+  AppDatabase? _db;
+  Timer? _backoffTimer;
+
+  static const _backoffInterval = Duration(seconds: 30);
+
+  /// Ensure a drainer is wired against [db] and installed into the mixin so the
+  /// live emit path can enqueue + trigger. Idempotent for a given [db].
+  SyncOutboxDrainer ensureWired(AppDatabase db) {
+    final existing = _drainer;
+    if (existing != null && identical(_db, db)) return existing;
+    final drainer = SyncOutboxDrainer(db);
+    _drainer = drainer;
+    _db = db;
+    SyncRecordMixin.installOutboxRuntime(db: db, drainTrigger: trigger);
+    return drainer;
+  }
+
+  /// Trigger a drain pass against [handle] (a null handle is a safe no-op
+  /// deferral handled inside the drainer). Arms the backoff timer afterward if
+  /// rows remain, so a deferred row keeps getting retried without a fresh emit.
+  Future<void> trigger(ffi.PrismSyncHandle? handle) async {
+    final drainer = _drainer;
+    if (drainer == null) return;
+    await drainer.drain(handle);
+    await _armBackoffIfRowsRemain(handle);
+  }
+
+  Future<void> _armBackoffIfRowsRemain(ffi.PrismSyncHandle? handle) async {
+    if (_backoffTimer != null) return;
+    final db = _db;
+    if (db == null) return;
+    final remaining = await db.syncOutboxDao.count();
+    if (remaining == 0) return;
+    _backoffTimer = Timer(_backoffInterval, () {
+      _backoffTimer = null;
+      // Re-resolve the handle at fire time: the engine may have been configured
+      // since this timer was armed.
+      unawaited(trigger(syncCurrentHandle.value ?? handle));
+    });
+  }
+
+  @visibleForTesting
+  void disposeForTesting() {
+    _backoffTimer?.cancel();
+    _backoffTimer = null;
+    _drainer = null;
+    _db = null;
+    SyncRecordMixin.installOutboxRuntime();
+  }
+}
+
+/// Wire (if needed) and trigger the durable outbox drainer against [handle].
+/// Used at the boot/resume/catch-up/pre-pairing-snapshot triggers; carries the
+/// app [db] so the drainer is constructed lazily the first time it is needed.
+Future<void> triggerOutboxDrain(
+  AppDatabase db,
+  ffi.PrismSyncHandle? handle,
+) {
+  _OutboxDrainManager.instance.ensureWired(db);
+  return _OutboxDrainManager.instance.trigger(handle);
+}
 
 class PrismSyncStructuredError {
   const PrismSyncStructuredError({
@@ -831,6 +905,15 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       ref.read(syncHealthProvider.notifier).setState(SyncHealthState.unpaired);
     }
 
+    // Persisted sync-group credentials gate the durable-outbox enqueue.
+    // `classifyHealthFromKeychain` returns null only when all three slots are
+    // present, so a non-`unpaired` result means this device is paired. Wire the
+    // outbox runtime (so live emits enqueue + drain) before publishing the
+    // handle, regardless of how the configure attempt below resolves — a
+    // disconnected boot must still capture edits durably.
+    syncCredentialsPersisted.value = preconfigureHealth == null;
+    _OutboxDrainManager.instance.ensureWired(ref.read(databaseProvider));
+
     // Mark startup auto-config as in-progress before publishing the handle so
     // startup-sensitive listeners never observe a provisional "ready" window
     // between handle publication and configureEngine.
@@ -919,11 +1002,17 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
           .then(CryptoBootLog.instance.append),
     );
 
+    // F05: drain the durable outbox once a handle is published, REGARDLESS of
+    // the configure outcome. A null handle / unconfigured engine is a safe
+    // deferral inside the drainer, and the backoff timer keeps retrying — this
+    // closes the gap where a disconnected boot (the old healthy-only flush)
+    // skipped recovery forever, stranding rows enqueued by edits made while
+    // disconnected.
+    await triggerOutboxDrain(ref.read(databaseProvider), handle);
+
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).
     if (health == SyncHealthState.healthy) {
-      await SyncRecordMixin.flushStartupDeferredOps(handle);
-
       // Refresh the runtime cache and app DB key now that runtime keys are
       // restored.
       try {
@@ -1000,8 +1089,11 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     try {
       final health = await _autoConfigureIfReady(handle);
       ref.read(syncHealthProvider.notifier).setState(health);
+      // Drain the durable outbox regardless of the configure outcome (a
+      // null/unconfigured engine defers safely inside the drainer); a manual
+      // reconnect that ends disconnected must not strand enqueued rows.
+      await triggerOutboxDrain(ref.read(databaseProvider), handle);
       if (health == SyncHealthState.healthy) {
-        await SyncRecordMixin.flushStartupDeferredOps(handle);
         await runPostHealthySyncCatchUp(
           handle: handle,
           db: ref.read(databaseProvider),
@@ -2967,7 +3059,15 @@ Future<void> runPostHealthySyncCatchUp({
   )?
   catchUpPk,
   @visibleForTesting Future<void> Function(ffi.PrismSyncHandle handle)? drain,
+  @visibleForTesting
+  Future<void> Function(AppDatabase db, ffi.PrismSyncHandle handle)?
+  drainOutbox,
 }) async {
+  // Drain the durable outbox so a resume / reconnect picks up rows
+  // enqueued while the engine was unconfigured. Runs before the catch-up work
+  // so deferred edits go out in this cycle. Outside the try below because a
+  // catch-up failure must not skip it.
+  await (drainOutbox ?? triggerOutboxDrain)(db, handle);
   try {
     await (onResume ?? ((h) => ffi.onResume(handle: h)))(handle);
     await (reemitGroupChatVisibility ??

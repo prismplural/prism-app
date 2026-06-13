@@ -19,6 +19,7 @@ import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -1513,6 +1514,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
             write.message ?? 'Failed to write snapshot apply complete marker',
       );
     }
+
+    // This joiner now has persisted sync-group credentials, so subsequent
+    // live edits enqueue durably into the outbox. (Boot's `createHandle` also
+    // sets this from the keychain; setting it here closes the window between
+    // ceremony completion and the next handle creation.)
+    syncCredentialsPersisted.value = true;
   }
 
   @visibleForTesting

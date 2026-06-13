@@ -14,6 +14,7 @@ import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -519,6 +520,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     Future<void> Function()? postHealthyCatchUp,
   }) async {
     ref.read(syncHealthProvider.notifier).setState(SyncHealthState.healthy);
+    // Credentials are now persisted, so subsequent live edits enqueue
+    // durably into the outbox instead of taking the never-paired no-op path.
+    syncCredentialsPersisted.value = true;
     await (postHealthyCatchUp ??
         () => runPostHealthySyncCatchUp(
           handle: handle,
@@ -694,6 +698,13 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   /// no relay traffic. Bulk data only moves across the network at pair time.
   Future<void> _bootstrapExistingData(ffi.PrismSyncHandle handle) async {
     final db = ref.read(databaseProvider);
+
+    // First-device setup seeds the entire Drift store directly into
+    // field_versions, so any rows enqueued into the durable outbox before
+    // pairing are redundant. Clear them so they don't replay as duplicate
+    // (same-value LWW) ops after setup completes.
+    await db.syncOutboxDao.clearAll();
+
     final adapter = ref.read(driftSyncAdapterProvider).adapter;
     final fetchers = bootstrapFetchersFor(adapter, db);
 

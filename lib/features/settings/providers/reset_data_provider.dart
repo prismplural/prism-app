@@ -22,6 +22,7 @@ import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
@@ -830,6 +831,12 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // 7. Clear sync diagnostics that live in the main app database.
     await ref.read(syncQuarantineServiceProvider).clearAll();
     ref.invalidate(quarantinedItemsProvider);
+
+    // Credentials are gone after unpair — stop the durable-outbox enqueue
+    // and drop any rows that haven't drained, so this now-unpaired device falls
+    // back to the never-paired local-only behavior.
+    syncCredentialsPersisted.value = false;
+    await ref.read(databaseProvider).syncOutboxDao.clearAll();
 
     // 8. Reset sync-group-scoped one-time flags so a fresh pairing can run the
     // catch-up/migration passes for the new group.

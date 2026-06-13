@@ -440,6 +440,14 @@ class SetupDeviceSheetContentState
         // The snapshot is encrypted with the current (pre-rekey) epoch key,
         // which matches what the credential bundle will ship to the joiner.
         //
+        // Drain any enqueued-but-undrained outbox rows into the Rust
+        // engine BEFORE the snapshot is cut. The snapshot is built from
+        // field_versions, so an op still sitting in the outbox would be
+        // invisible to the joiner. The drain defers safely if the engine is
+        // unconfigured (it won't be here — we just paired), so this never
+        // blocks the ceremony.
+        await triggerOutboxDrain(ref.read(databaseProvider), widget.handle);
+
         // Fatal on failure: if the snapshot doesn't land on the relay we must
         // NOT release credentials. Otherwise the joiner registers, finds no
         // snapshot, falls through to an empty syncNow (first-device data is
