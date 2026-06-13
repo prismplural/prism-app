@@ -16,6 +16,7 @@ import 'package:prism_plurality/core/database/daos/poll_votes_dao.dart';
 import 'package:prism_plurality/core/database/daos/polls_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
+import 'package:prism_plurality/core/database/daos/sync_op_outbox_dao.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/core/database/daos/habits_dao.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
@@ -53,6 +54,7 @@ part 'app_database.g.dart';
     Habits,
     HabitCompletions,
     SyncQuarantineTable,
+    SyncOpOutbox,
     MemberGroups,
     MemberGroupEntries,
     PkGroupSyncAliases,
@@ -88,6 +90,7 @@ part 'app_database.g.dart';
     PluralKitSyncDao,
     HabitsDao,
     SyncQuarantineDao,
+    SyncOutboxDao,
     MemberGroupsDao,
     PkGroupSyncAliasesDao,
     PkIdentitySyncAliasesDao,
@@ -1002,10 +1005,10 @@ class AppDatabase extends _$AppDatabase {
           );
         }
 
-        // pk_identity_sync_aliases: the generic PK-identity redirect alias table
-        // for members + fronting_sessions. Local-only Drift table; no
-        // wire/protocol change. sqlite_master-guarded create + the lookup index
-        // (the index is also created in onCreate).
+        // pk_identity_sync_aliases — the generic PK-identity redirect alias
+        // table for members + fronting_sessions. Local-only Drift table; no
+        // wire/protocol change. Idempotent: createTableIfAbsent guards a
+        // partial-failure retry and dev/test DBs created at the current schema.
         final tables = (await customSelect(
           "SELECT name FROM sqlite_master WHERE type = 'table'",
         ).get()).map((r) => r.read<String>('name')).toSet();
@@ -1013,6 +1016,14 @@ class AppDatabase extends _$AppDatabase {
           await migrator.createTable(pkIdentitySyncAliases);
         }
         await _createPkIdentitySyncIndexes();
+
+        // sync_op_outbox — the durable transactional outbox for CRDT emissions
+        // (wave 4, emission-outbox-atomicity / F05/F08/F19/F33/F37). Local-only
+        // Drift table; no wire/protocol change. Folded into the v32->v38 flatten
+        // because no public build used the wave's intermediate dev versions.
+        if (!tables.contains('sync_op_outbox')) {
+          await migrator.createTable(syncOpOutbox);
+        }
 
         // Stale-self-alias purge. The v3->v4 cleanup only deleted self-aliases
         // whose member_groups row was active (is_deleted = 0) AND
@@ -1090,6 +1101,20 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('ALTER TABLE $table ADD COLUMN $column $ddlType');
       }
     }
+
+    // Local-only Drift tables added inside the v32->v38 flatten. A dev DB that
+    // already reached v38 through an earlier numbering won't re-run that step
+    // (from == to), so create them here if absent. No-op once present.
+    final existingTables = (await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table'",
+    ).get()).map((r) => r.read<String>('name')).toSet();
+    Future<void> ensureTable(String name, TableInfo table) async {
+      if (!existingTables.contains(name)) {
+        await Migrator(this).createTable(table);
+      }
+    }
+
+    await ensureTable('sync_op_outbox', syncOpOutbox);
 
     await ensure('media_attachments', 'member_id', "TEXT NOT NULL DEFAULT ''");
     await ensure('media_attachments', 'tag', "TEXT NOT NULL DEFAULT ''");
@@ -1807,6 +1832,8 @@ class AppDatabase extends _$AppDatabase {
   HabitsDao get habitsDao => HabitsDao(this);
   @override
   SyncQuarantineDao get syncQuarantineDao => SyncQuarantineDao(this);
+  @override
+  SyncOutboxDao get syncOutboxDao => SyncOutboxDao(this);
   @override
   MemberGroupsDao get memberGroupsDao => MemberGroupsDao(this);
   @override

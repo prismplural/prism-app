@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/core/sync/tombstone_gate.dart';
@@ -243,6 +244,12 @@ mixin SyncRecordMixin {
   static bool _isNotConfigured(Object error) =>
       error.toString().contains('sync not configured');
 
+  /// Whether [error] is the engine-unconfigured signal (pre-pairing /
+  /// disconnected boot). Exposed so [SyncOutboxDrainer] uses the same
+  /// detection to LEAVE rows untouched (deferral, not drop) rather than
+  /// forking the string check.
+  static bool isNotConfiguredError(Object error) => _isNotConfigured(error);
+
   static void _deferStartupOp(CapturedSyncOp op) {
     _startupDeferredOps.add(op);
   }
@@ -295,6 +302,83 @@ mixin SyncRecordMixin {
         entityId: op.entityId,
       ),
     };
+  }
+
+  /// Dispatch a single captured op to the FFI via the canonical
+  /// [_dispatchCapturedOp] switch. Exposed so [SyncOutboxDrainer] reuses the
+  /// one dispatch mapping instead of forking it. The outbox owns its own
+  /// delete-coalescing, so it never routes a delete here when more than one
+  /// consecutive delete is pending — it calls [dispatchDeleteMultiForDrain].
+  static Future<void> dispatchCapturedOpForDrain(
+    ffi.PrismSyncHandle handle,
+    CapturedSyncOp op,
+  ) => _dispatchCapturedOp(handle, op);
+
+  /// Coalesced delete dispatch for the drainer: packs a run of consecutive
+  /// same-table deletes into one [ffi.recordDeleteMulti] call (preserving the
+  /// bulk-delete coalescing fix).
+  static Future<void> dispatchDeleteMultiForDrain(
+    ffi.PrismSyncHandle handle,
+    String table,
+    List<String> entityIds,
+  ) => ffi.recordDeleteMulti(
+    handle: handle,
+    table: table,
+    entityIds: entityIds,
+  );
+
+  /// The outbox `op_type` string for a captured op. Stored faithfully —
+  /// create/update/delete only. A reconcile/backfill is captured as an
+  /// `update` ([SyncRecordOpType.update]) and persisted as `update`; the outbox
+  /// never carries a reconcile/backfill distinction (the latent family-10
+  /// trap), and the drainer replays it through the fresh-HLC `recordUpdate`
+  /// path, which is a same-value LWW no-op when nothing diverged.
+  static String outboxOpTypeName(SyncRecordOpType opType) => switch (opType) {
+    SyncRecordOpType.create => 'create',
+    SyncRecordOpType.update => 'update',
+    SyncRecordOpType.delete => 'delete',
+  };
+
+  /// Parse an outbox `op_type` string back into a [SyncRecordOpType]. Throws on
+  /// an unrecognized value so a corrupt row surfaces rather than silently
+  /// dispatching the wrong FFI entry point.
+  static SyncRecordOpType outboxOpTypeFromName(String name) => switch (name) {
+    'create' => SyncRecordOpType.create,
+    'update' => SyncRecordOpType.update,
+    'delete' => SyncRecordOpType.delete,
+    _ => throw ArgumentError('Unknown outbox op_type: $name'),
+  };
+
+  /// Persist [ops] as durable outbox rows inside the CURRENT Drift transaction.
+  ///
+  /// For in-transaction callers (`runSyncedWrite`, the wrapped importers): the
+  /// data write and the emission intent commit atomically, then the drainer
+  /// dispatches the rows to the FFI strictly AFTER commit. This is the durable
+  /// form of the approved capture-ops + replay-after-commit shape — NO FFI
+  /// dispatch happens here, so the emit-after-commit invariant holds even
+  /// though the rows are written inside the transaction.
+  ///
+  /// Stores each op's real `op_type` faithfully (create/update/delete) and the
+  /// `jsonEncode` of its fields (empty `{}` for deletes).
+  static Future<void> persistCapturedOpsToOutbox(
+    AppDatabase db,
+    List<CapturedSyncOp> ops,
+  ) async {
+    if (ops.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final rows = <SyncOpOutboxCompanion>[
+      for (final op in ops)
+        SyncOpOutboxCompanion.insert(
+          entityTable: op.table,
+          entityId: op.entityId,
+          opType: outboxOpTypeName(op.opType),
+          fieldsJson: op.opType == SyncRecordOpType.delete
+              ? '{}'
+              : jsonEncode(op.fields),
+          createdAt: op.capturedAtMs ?? now,
+        ),
+    ];
+    await db.syncOutboxDao.insertAll(rows);
   }
 
   Future<void> _runWithConfiguredRetry(

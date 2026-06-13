@@ -11,6 +11,7 @@ export 'pluralkit_sync_state_table.dart';
 export 'habits_table.dart';
 export 'habit_completions_table.dart';
 export 'sync_quarantine_table.dart';
+export 'sync_op_outbox_table.dart';
 export 'member_groups_table.dart';
 export 'member_group_entries_table.dart';
 export 'pk_group_sync_aliases_table.dart';

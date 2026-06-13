@@ -14926,6 +14926,579 @@ class SyncQuarantineTableCompanion extends UpdateCompanion<SyncQuarantineData> {
   }
 }
 
+class $SyncOpOutboxTable extends SyncOpOutbox
+    with TableInfo<$SyncOpOutboxTable, SyncOpOutboxRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncOpOutboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _entityTableMeta = const VerificationMeta(
+    'entityTable',
+  );
+  @override
+  late final GeneratedColumn<String> entityTable = GeneratedColumn<String>(
+    'table_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _opTypeMeta = const VerificationMeta('opType');
+  @override
+  late final GeneratedColumn<String> opType = GeneratedColumn<String>(
+    'op_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldsJsonMeta = const VerificationMeta(
+    'fieldsJson',
+  );
+  @override
+  late final GeneratedColumn<String> fieldsJson = GeneratedColumn<String>(
+    'fields_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _quarantinedMeta = const VerificationMeta(
+    'quarantined',
+  );
+  @override
+  late final GeneratedColumn<bool> quarantined = GeneratedColumn<bool>(
+    'quarantined',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("quarantined" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entityTable,
+    entityId,
+    opType,
+    fieldsJson,
+    createdAt,
+    attempts,
+    lastError,
+    quarantined,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_op_outbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncOpOutboxRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('table_name')) {
+      context.handle(
+        _entityTableMeta,
+        entityTable.isAcceptableOrUnknown(
+          data['table_name']!,
+          _entityTableMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTableMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('op_type')) {
+      context.handle(
+        _opTypeMeta,
+        opType.isAcceptableOrUnknown(data['op_type']!, _opTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_opTypeMeta);
+    }
+    if (data.containsKey('fields_json')) {
+      context.handle(
+        _fieldsJsonMeta,
+        fieldsJson.isAcceptableOrUnknown(data['fields_json']!, _fieldsJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldsJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    if (data.containsKey('quarantined')) {
+      context.handle(
+        _quarantinedMeta,
+        quarantined.isAcceptableOrUnknown(
+          data['quarantined']!,
+          _quarantinedMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncOpOutboxRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncOpOutboxRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      entityTable: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}table_name'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      opType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}op_type'],
+      )!,
+      fieldsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fields_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+      quarantined: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}quarantined'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncOpOutboxTable createAlias(String alias) {
+    return $SyncOpOutboxTable(attachedDatabase, alias);
+  }
+}
+
+class SyncOpOutboxRow extends DataClass implements Insertable<SyncOpOutboxRow> {
+  /// Autoincrement so `id` order is the durable drain order.
+  final int id;
+
+  /// Named explicitly so the SQL column stays `table_name` while the Dart
+  /// getter avoids shadowing Drift's reserved `tableName` (physical-table-name)
+  /// override below.
+  final String entityTable;
+  final String entityId;
+
+  /// One of `create` / `update` / `delete` — the captured op type stored
+  /// faithfully (a reconcile/backfill is captured as `update`; never persist
+  /// a reconcile as anything else).
+  final String opType;
+
+  /// `jsonEncode` of the captured op fields; empty (`{}`) for deletes.
+  final String fieldsJson;
+
+  /// Wall-clock enqueue time (ms since epoch).
+  final int createdAt;
+  final int attempts;
+  final String? lastError;
+  final bool quarantined;
+  const SyncOpOutboxRow({
+    required this.id,
+    required this.entityTable,
+    required this.entityId,
+    required this.opType,
+    required this.fieldsJson,
+    required this.createdAt,
+    required this.attempts,
+    this.lastError,
+    required this.quarantined,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['table_name'] = Variable<String>(entityTable);
+    map['entity_id'] = Variable<String>(entityId);
+    map['op_type'] = Variable<String>(opType);
+    map['fields_json'] = Variable<String>(fieldsJson);
+    map['created_at'] = Variable<int>(createdAt);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    map['quarantined'] = Variable<bool>(quarantined);
+    return map;
+  }
+
+  SyncOpOutboxCompanion toCompanion(bool nullToAbsent) {
+    return SyncOpOutboxCompanion(
+      id: Value(id),
+      entityTable: Value(entityTable),
+      entityId: Value(entityId),
+      opType: Value(opType),
+      fieldsJson: Value(fieldsJson),
+      createdAt: Value(createdAt),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+      quarantined: Value(quarantined),
+    );
+  }
+
+  factory SyncOpOutboxRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncOpOutboxRow(
+      id: serializer.fromJson<int>(json['id']),
+      entityTable: serializer.fromJson<String>(json['entityTable']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      opType: serializer.fromJson<String>(json['opType']),
+      fieldsJson: serializer.fromJson<String>(json['fieldsJson']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+      quarantined: serializer.fromJson<bool>(json['quarantined']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'entityTable': serializer.toJson<String>(entityTable),
+      'entityId': serializer.toJson<String>(entityId),
+      'opType': serializer.toJson<String>(opType),
+      'fieldsJson': serializer.toJson<String>(fieldsJson),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+      'quarantined': serializer.toJson<bool>(quarantined),
+    };
+  }
+
+  SyncOpOutboxRow copyWith({
+    int? id,
+    String? entityTable,
+    String? entityId,
+    String? opType,
+    String? fieldsJson,
+    int? createdAt,
+    int? attempts,
+    Value<String?> lastError = const Value.absent(),
+    bool? quarantined,
+  }) => SyncOpOutboxRow(
+    id: id ?? this.id,
+    entityTable: entityTable ?? this.entityTable,
+    entityId: entityId ?? this.entityId,
+    opType: opType ?? this.opType,
+    fieldsJson: fieldsJson ?? this.fieldsJson,
+    createdAt: createdAt ?? this.createdAt,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError.present ? lastError.value : this.lastError,
+    quarantined: quarantined ?? this.quarantined,
+  );
+  SyncOpOutboxRow copyWithCompanion(SyncOpOutboxCompanion data) {
+    return SyncOpOutboxRow(
+      id: data.id.present ? data.id.value : this.id,
+      entityTable: data.entityTable.present
+          ? data.entityTable.value
+          : this.entityTable,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      opType: data.opType.present ? data.opType.value : this.opType,
+      fieldsJson: data.fieldsJson.present
+          ? data.fieldsJson.value
+          : this.fieldsJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+      quarantined: data.quarantined.present
+          ? data.quarantined.value
+          : this.quarantined,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncOpOutboxRow(')
+          ..write('id: $id, ')
+          ..write('entityTable: $entityTable, ')
+          ..write('entityId: $entityId, ')
+          ..write('opType: $opType, ')
+          ..write('fieldsJson: $fieldsJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('quarantined: $quarantined')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    entityTable,
+    entityId,
+    opType,
+    fieldsJson,
+    createdAt,
+    attempts,
+    lastError,
+    quarantined,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncOpOutboxRow &&
+          other.id == this.id &&
+          other.entityTable == this.entityTable &&
+          other.entityId == this.entityId &&
+          other.opType == this.opType &&
+          other.fieldsJson == this.fieldsJson &&
+          other.createdAt == this.createdAt &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError &&
+          other.quarantined == this.quarantined);
+}
+
+class SyncOpOutboxCompanion extends UpdateCompanion<SyncOpOutboxRow> {
+  final Value<int> id;
+  final Value<String> entityTable;
+  final Value<String> entityId;
+  final Value<String> opType;
+  final Value<String> fieldsJson;
+  final Value<int> createdAt;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<bool> quarantined;
+  const SyncOpOutboxCompanion({
+    this.id = const Value.absent(),
+    this.entityTable = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.opType = const Value.absent(),
+    this.fieldsJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.quarantined = const Value.absent(),
+  });
+  SyncOpOutboxCompanion.insert({
+    this.id = const Value.absent(),
+    required String entityTable,
+    required String entityId,
+    required String opType,
+    required String fieldsJson,
+    required int createdAt,
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.quarantined = const Value.absent(),
+  }) : entityTable = Value(entityTable),
+       entityId = Value(entityId),
+       opType = Value(opType),
+       fieldsJson = Value(fieldsJson),
+       createdAt = Value(createdAt);
+  static Insertable<SyncOpOutboxRow> custom({
+    Expression<int>? id,
+    Expression<String>? entityTable,
+    Expression<String>? entityId,
+    Expression<String>? opType,
+    Expression<String>? fieldsJson,
+    Expression<int>? createdAt,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<bool>? quarantined,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityTable != null) 'table_name': entityTable,
+      if (entityId != null) 'entity_id': entityId,
+      if (opType != null) 'op_type': opType,
+      if (fieldsJson != null) 'fields_json': fieldsJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (quarantined != null) 'quarantined': quarantined,
+    });
+  }
+
+  SyncOpOutboxCompanion copyWith({
+    Value<int>? id,
+    Value<String>? entityTable,
+    Value<String>? entityId,
+    Value<String>? opType,
+    Value<String>? fieldsJson,
+    Value<int>? createdAt,
+    Value<int>? attempts,
+    Value<String?>? lastError,
+    Value<bool>? quarantined,
+  }) {
+    return SyncOpOutboxCompanion(
+      id: id ?? this.id,
+      entityTable: entityTable ?? this.entityTable,
+      entityId: entityId ?? this.entityId,
+      opType: opType ?? this.opType,
+      fieldsJson: fieldsJson ?? this.fieldsJson,
+      createdAt: createdAt ?? this.createdAt,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      quarantined: quarantined ?? this.quarantined,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (entityTable.present) {
+      map['table_name'] = Variable<String>(entityTable.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (opType.present) {
+      map['op_type'] = Variable<String>(opType.value);
+    }
+    if (fieldsJson.present) {
+      map['fields_json'] = Variable<String>(fieldsJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (quarantined.present) {
+      map['quarantined'] = Variable<bool>(quarantined.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncOpOutboxCompanion(')
+          ..write('id: $id, ')
+          ..write('entityTable: $entityTable, ')
+          ..write('entityId: $entityId, ')
+          ..write('opType: $opType, ')
+          ..write('fieldsJson: $fieldsJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('quarantined: $quarantined')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $MemberGroupsTable extends MemberGroups
     with TableInfo<$MemberGroupsTable, MemberGroupRow> {
   @override
@@ -27784,6 +28357,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $SyncQuarantineTableTable syncQuarantineTable =
       $SyncQuarantineTableTable(this);
+  late final $SyncOpOutboxTable syncOpOutbox = $SyncOpOutboxTable(this);
   late final $MemberGroupsTable memberGroups = $MemberGroupsTable(this);
   late final $MemberGroupEntriesTable memberGroupEntries =
       $MemberGroupEntriesTable(this);
@@ -27850,6 +28424,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final SyncQuarantineDao syncQuarantineDao = SyncQuarantineDao(
     this as AppDatabase,
   );
+  late final SyncOutboxDao syncOutboxDao = SyncOutboxDao(this as AppDatabase);
   late final MemberGroupsDao memberGroupsDao = MemberGroupsDao(
     this as AppDatabase,
   );
@@ -27909,6 +28484,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     habits,
     habitCompletions,
     syncQuarantineTable,
+    syncOpOutbox,
     memberGroups,
     memberGroupEntries,
     pkGroupSyncAliases,
@@ -34403,6 +34979,282 @@ typedef $$SyncQuarantineTableTableProcessedTableManager =
       SyncQuarantineData,
       PrefetchHooks Function()
     >;
+typedef $$SyncOpOutboxTableCreateCompanionBuilder =
+    SyncOpOutboxCompanion Function({
+      Value<int> id,
+      required String entityTable,
+      required String entityId,
+      required String opType,
+      required String fieldsJson,
+      required int createdAt,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<bool> quarantined,
+    });
+typedef $$SyncOpOutboxTableUpdateCompanionBuilder =
+    SyncOpOutboxCompanion Function({
+      Value<int> id,
+      Value<String> entityTable,
+      Value<String> entityId,
+      Value<String> opType,
+      Value<String> fieldsJson,
+      Value<int> createdAt,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<bool> quarantined,
+    });
+
+class $$SyncOpOutboxTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncOpOutboxTable> {
+  $$SyncOpOutboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get opType => $composableBuilder(
+    column: $table.opType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get quarantined => $composableBuilder(
+    column: $table.quarantined,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncOpOutboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncOpOutboxTable> {
+  $$SyncOpOutboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get opType => $composableBuilder(
+    column: $table.opType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get quarantined => $composableBuilder(
+    column: $table.quarantined,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncOpOutboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncOpOutboxTable> {
+  $$SyncOpOutboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityTable => $composableBuilder(
+    column: $table.entityTable,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get opType =>
+      $composableBuilder(column: $table.opType, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldsJson => $composableBuilder(
+    column: $table.fieldsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+
+  GeneratedColumn<bool> get quarantined => $composableBuilder(
+    column: $table.quarantined,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncOpOutboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncOpOutboxTable,
+          SyncOpOutboxRow,
+          $$SyncOpOutboxTableFilterComposer,
+          $$SyncOpOutboxTableOrderingComposer,
+          $$SyncOpOutboxTableAnnotationComposer,
+          $$SyncOpOutboxTableCreateCompanionBuilder,
+          $$SyncOpOutboxTableUpdateCompanionBuilder,
+          (
+            SyncOpOutboxRow,
+            BaseReferences<_$AppDatabase, $SyncOpOutboxTable, SyncOpOutboxRow>,
+          ),
+          SyncOpOutboxRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncOpOutboxTableTableManager(_$AppDatabase db, $SyncOpOutboxTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncOpOutboxTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncOpOutboxTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncOpOutboxTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> entityTable = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String> opType = const Value.absent(),
+                Value<String> fieldsJson = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<bool> quarantined = const Value.absent(),
+              }) => SyncOpOutboxCompanion(
+                id: id,
+                entityTable: entityTable,
+                entityId: entityId,
+                opType: opType,
+                fieldsJson: fieldsJson,
+                createdAt: createdAt,
+                attempts: attempts,
+                lastError: lastError,
+                quarantined: quarantined,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String entityTable,
+                required String entityId,
+                required String opType,
+                required String fieldsJson,
+                required int createdAt,
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<bool> quarantined = const Value.absent(),
+              }) => SyncOpOutboxCompanion.insert(
+                id: id,
+                entityTable: entityTable,
+                entityId: entityId,
+                opType: opType,
+                fieldsJson: fieldsJson,
+                createdAt: createdAt,
+                attempts: attempts,
+                lastError: lastError,
+                quarantined: quarantined,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncOpOutboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncOpOutboxTable,
+      SyncOpOutboxRow,
+      $$SyncOpOutboxTableFilterComposer,
+      $$SyncOpOutboxTableOrderingComposer,
+      $$SyncOpOutboxTableAnnotationComposer,
+      $$SyncOpOutboxTableCreateCompanionBuilder,
+      $$SyncOpOutboxTableUpdateCompanionBuilder,
+      (
+        SyncOpOutboxRow,
+        BaseReferences<_$AppDatabase, $SyncOpOutboxTable, SyncOpOutboxRow>,
+      ),
+      SyncOpOutboxRow,
+      PrefetchHooks Function()
+    >;
 typedef $$MemberGroupsTableCreateCompanionBuilder =
     MemberGroupsCompanion Function({
       required String id,
@@ -40853,6 +41705,8 @@ class $AppDatabaseManager {
       $$HabitCompletionsTableTableManager(_db, _db.habitCompletions);
   $$SyncQuarantineTableTableTableManager get syncQuarantineTable =>
       $$SyncQuarantineTableTableTableManager(_db, _db.syncQuarantineTable);
+  $$SyncOpOutboxTableTableManager get syncOpOutbox =>
+      $$SyncOpOutboxTableTableManager(_db, _db.syncOpOutbox);
   $$MemberGroupsTableTableManager get memberGroups =>
       $$MemberGroupsTableTableManager(_db, _db.memberGroups);
   $$MemberGroupEntriesTableTableManager get memberGroupEntries =>
