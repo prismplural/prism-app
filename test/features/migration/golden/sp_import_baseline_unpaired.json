@@ -477,6 +477,7 @@
     "conversations": 1,
     "chat_messages": 1,
     "system_settings": 2,
+    "sync_op_outbox": 1,
     "sp_id_map": 1,
     "sp_sync_state": 1
   }

@@ -330,7 +330,10 @@ Future<String> snapshotDb(AppDatabase db) async {
   final dump = <String, List<Map<String, Object?>>>{};
   for (final t in tableNames) {
     final rows = await db.customSelect('SELECT * FROM $t').get();
-    final normalized = rows.map((r) => _canonicalizeRow(r.data)).toList()
+    final exclude = _localOnlyColumns[t] ?? const <String>{};
+    final normalized = rows
+        .map((r) => _canonicalizeRow(r.data, exclude: exclude))
+        .toList()
       ..sort(_rowComparator);
     // member_group_entries.created_at is a local-only recency stamp defaulted to
     // DateTime.now() (not in prismSyncSchema, never routed through FixedClock) —
@@ -346,8 +349,21 @@ Future<String> snapshotDb(AppDatabase db) async {
   return _canonicalJson({'tables': dump});
 }
 
-Map<String, Object?> _canonicalizeRow(Map<String, Object?> data) {
-  final sortedKeys = data.keys.toList()..sort();
+// Local-only bookkeeping columns that are not SP-import data and so must not
+// participate in import parity. member_group_entries.created_at is stamped at
+// import time (now()), which would make the golden non-deterministic; the
+// sync_generation columns are local incarnation tracking, not synced state.
+const _localOnlyColumns = <String, Set<String>>{
+  'member_group_entries': {'created_at', 'sync_generation'},
+  'member_groups': {'sync_generation'},
+};
+
+Map<String, Object?> _canonicalizeRow(
+  Map<String, Object?> data, {
+  Set<String> exclude = const <String>{},
+}) {
+  final sortedKeys = data.keys.where((k) => !exclude.contains(k)).toList()
+    ..sort();
   final out = <String, Object?>{};
   for (final k in sortedKeys) {
     out[k] = _canonicalizeValue(data[k]);

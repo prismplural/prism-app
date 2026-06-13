@@ -153433,6 +153433,7 @@
     "reminders": 1,
     "member_board_posts": 1,
     "system_settings": 4,
+    "sync_op_outbox": 1,
     "sp_id_map": 1,
     "sp_sync_state": 1
   }
