@@ -22,7 +22,13 @@ enum SyncRecordOpType { create, update, delete }
 /// The Phase 0 parity-test harness also uses these tuples via a test-only
 /// install sink ([SyncRecordMixin.installCaptureSinkForTesting]).
 class CapturedSyncOp {
-  const CapturedSyncOp(this.table, this.entityId, this.opType, this.fields);
+  const CapturedSyncOp(
+    this.table,
+    this.entityId,
+    this.opType,
+    this.fields, {
+    this.capturedAtMs,
+  });
 
   final String table;
   final String entityId;
@@ -31,6 +37,14 @@ class CapturedSyncOp {
   /// Empty map for [SyncRecordOpType.delete] (the FFI does not carry fields
   /// for deletes).
   final Map<String, dynamic> fields;
+
+  /// Wall-clock capture time (`DateTime.now().millisecondsSinceEpoch`) stamped
+  /// when the live `syncRecord*` path builds the op. A replay that is dispatched
+  /// later must carry this as its origin HLC so chronologically-older data never
+  /// wins LWW against an edit made after capture (F32). `null` for ops built
+  /// outside the live path (the suppress/capture import seam), whose dispatch is
+  /// owned by a later step and does not yet origin-stamp.
+  final int? capturedAtMs;
 }
 
 /// Test-only callback type: invoked once per intercepted sync emission.
@@ -356,6 +370,7 @@ mixin SyncRecordMixin {
       entityId,
       SyncRecordOpType.create,
       Map<String, dynamic>.of(fields),
+      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -402,6 +417,7 @@ mixin SyncRecordMixin {
       entityId,
       SyncRecordOpType.update,
       Map<String, dynamic>.of(fields),
+      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -440,6 +456,7 @@ mixin SyncRecordMixin {
       entityId,
       SyncRecordOpType.delete,
       const <String, dynamic>{},
+      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -480,8 +497,14 @@ mixin SyncRecordMixin {
     if (entityIds.isEmpty) {
       return;
     }
-    CapturedSyncOp opFor(String id) =>
-        CapturedSyncOp(table, id, SyncRecordOpType.delete, const <String, dynamic>{});
+    final capturedAtMs = DateTime.now().millisecondsSinceEpoch;
+    CapturedSyncOp opFor(String id) => CapturedSyncOp(
+      table,
+      id,
+      SyncRecordOpType.delete,
+      const <String, dynamic>{},
+      capturedAtMs: capturedAtMs,
+    );
 
     final ctx = _activeCaptureContext;
     if (ctx != null) {
@@ -515,6 +538,103 @@ mixin SyncRecordMixin {
       // persisted to Drift. Failure here must not surface to the UI.
       ErrorReportingService.instance.report(
         'Sync recordDeleteMulti failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Reconcile [fields] for an entity against this device's `field_versions`,
+  /// emitting only fields whose local value diverges from the known winner (at
+  /// a fresh HLC) or that have never been synced (at the floor backfill HLC).
+  ///
+  /// The clobber-free replacement for full-row fresh-HLC re-broadcasts: a
+  /// value-unchanged field produces zero ops, so a re-broadcast can never beat
+  /// a peer's un-pulled newer edit on an unchanged field. Honors the same
+  /// suppress/capture seam as [syncRecordUpdate] (captured as an update op so
+  /// replay stays row-granular and the parity sink still sees it).
+  Future<void> syncRecordReconcile(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    final op = CapturedSyncOp(
+      table,
+      entityId,
+      SyncRecordOpType.update,
+      Map<String, dynamic>.of(fields),
+      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    final ctx = _activeCaptureContext;
+    if (ctx != null) {
+      ctx.capture?.call(op);
+      return;
+    }
+    final sink = _captureSink;
+    if (sink != null) {
+      sink(op);
+      return;
+    }
+    final payload = jsonEncode(fields);
+    try {
+      await _runWithConfiguredRetry(op, (handle) {
+        return ffi.recordReconcile(
+          handle: handle,
+          table: table,
+          entityId: entityId,
+          fieldsJson: payload,
+          divergentFreshHlc: true,
+        );
+      });
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync recordReconcile failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Pure write-if-absent backfill: emit only fields with no `field_versions`
+  /// row, at the floor backfill HLC, so they establish an entity group-wide
+  /// while losing to every genuine edit. Divergent local values are left alone
+  /// (first-device-wins). Honors the same suppress/capture seam as
+  /// [syncRecordReconcile].
+  Future<void> syncRecordBackfill(
+    String table,
+    String entityId,
+    Map<String, dynamic> fields,
+  ) async {
+    final op = CapturedSyncOp(
+      table,
+      entityId,
+      SyncRecordOpType.update,
+      Map<String, dynamic>.of(fields),
+      capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    final ctx = _activeCaptureContext;
+    if (ctx != null) {
+      ctx.capture?.call(op);
+      return;
+    }
+    final sink = _captureSink;
+    if (sink != null) {
+      sink(op);
+      return;
+    }
+    final payload = jsonEncode(fields);
+    try {
+      await _runWithConfiguredRetry(op, (handle) {
+        return ffi.recordBackfill(
+          handle: handle,
+          table: table,
+          entityId: entityId,
+          fieldsJson: payload,
+        );
+      });
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Sync recordBackfill failed: $e',
         severity: ErrorSeverity.error,
         stackTrace: st,
       );

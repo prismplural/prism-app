@@ -400,6 +400,71 @@ void main() {
       SyncRecordMixin.removeCaptureSinkForTesting();
     });
   });
+
+  group('CapturedSyncOp.capturedAtMs + reconcile/backfill entry points', () {
+    test('live syncRecord* stamp capturedAtMs at construction', () async {
+      final repo = _ProbeRepository();
+      final captured = <CapturedSyncOp>[];
+      final before = DateTime.now().millisecondsSinceEpoch;
+
+      await SyncRecordMixin.suppressAndCapture(() async {
+        await repo.syncRecordCreate('members', 'm1', {'name': 'A'});
+        await repo.syncRecordUpdate('members', 'm1', {'name': 'B'});
+        await repo.syncRecordDelete('members', 'm1');
+      }, captured.add);
+
+      final after = DateTime.now().millisecondsSinceEpoch;
+      expect(captured, hasLength(3));
+      for (final op in captured) {
+        expect(op.capturedAtMs, isNotNull);
+        expect(op.capturedAtMs! >= before && op.capturedAtMs! <= after, isTrue);
+      }
+    });
+
+    test('syncRecordReconcile / syncRecordBackfill capture as update ops', () async {
+      final repo = _ProbeRepository();
+      final captured = <CapturedSyncOp>[];
+
+      await SyncRecordMixin.suppressAndCapture(() async {
+        await repo.syncRecordReconcile('members', 'm1', {'name': 'R'});
+        await repo.syncRecordBackfill('members', 'm2', {'name': 'B'});
+      }, captured.add);
+
+      // Both route through the suppress/capture seam (no FFI), captured as
+      // row-granular update ops with their fields and a capture timestamp.
+      expect(repo.handleAccessCount, 0);
+      expect(captured, hasLength(2));
+      expect(captured[0].opType, SyncRecordOpType.update);
+      expect(captured[0].entityId, 'm1');
+      expect(captured[0].fields, {'name': 'R'});
+      expect(captured[0].capturedAtMs, isNotNull);
+      expect(captured[1].opType, SyncRecordOpType.update);
+      expect(captured[1].entityId, 'm2');
+      expect(captured[1].fields, {'name': 'B'});
+    });
+
+    test('a reconcile-shaped captured op defers while auto-configuring', () async {
+      final repo = _FixedHandleRepository(const _FakePrismSyncHandle());
+      syncAutoConfigureInProgress.value = true;
+
+      // The reconcile/backfill entry points build an update-shaped CapturedSyncOp
+      // with a capture timestamp and run it through the same retry/defer gate as
+      // the other live paths — a not-configured failure mid-auto-configure
+      // defers instead of dropping.
+      await repo.debugRunWithConfiguredRetryForTesting(
+        CapturedSyncOp(
+          'members',
+          'm1',
+          SyncRecordOpType.update,
+          const {'name': 'R'},
+          capturedAtMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+        (_) async => throw StateError('sync not configured'),
+      );
+
+      expect(SyncRecordMixin.debugStartupDeferredOpCount, 1);
+    });
+  });
 }
 
 /// Test double that exposes a counter on the syncHandle getter so we
