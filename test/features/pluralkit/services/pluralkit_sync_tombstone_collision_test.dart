@@ -1,10 +1,30 @@
 /// Integration test: PluralKit corrective re-import tombstone semantics.
 ///
-/// H5 widened the corrective preserve branch to ANY still-linked tombstone:
-/// `is_deleted` syncs but `delete_intent_epoch` is device-local, so a peer's
-/// delete arrives intent-less and the old rule resurrected it (undoing the
-/// delete everywhere). Rescue/migration tombstones still rebuild because
-/// cleanup clears the PK link BEFORE tombstoning (C1).
+/// PR E2 (WS3 step 4 / review #3) originally preserved only tombstones whose
+/// `deleteIntentEpoch` was non-null (user explicitly deleted on THIS device,
+/// push queued) and kept the resurrection behavior for intent-less ones.
+///
+/// 2026-06 PK audit H5 then widened the preserve branch to ANY still-linked
+/// tombstone while still REBUILDING link-cleared, intent-less ones.
+///
+/// F10 collapses all of that to a single rule: a tombstone is TERMINAL on the
+/// corrective path, full stop. `is_deleted` is absorbing in the deployed CRDT
+/// merge layer — prism-sync strips `is_deleted=false` on send and the receiver
+/// drops non-delete ops on a tombstoned entity — so reviving a tombstone IN
+/// PLACE is unsyncable by construction: the live local row would diverge from
+/// every peer's "deleted" field_versions until the pruner hard-deletes it.
+/// Corrective mode therefore preserves on `existing.isDeleted` alone,
+/// regardless of `deleteIntentEpoch` or link state, and every case counts into
+/// `tombstonePreservedCount` for the import-result UI. The documented
+/// "re-import from PluralKit" recovery must re-create rows under FRESH ids
+/// (deferred to the reconciliation layer), never resurrect a burned id.
+///
+/// A link-cleared tombstone at a RANDOM (non-deterministic) row id is invisible
+/// to both entrant lookups (`getSessionById(canonical id)` and
+/// `_findSessionByPkSwitchAndMember`), so the sweep creates a fresh row instead
+/// of colliding — that is the sanctioned fresh-id recovery, covered by the
+/// last test below. A link-cleared tombstone AT the deterministic id is found
+/// and preserved (the inverted test below).
 ///
 /// The composite partial unique index on `(pluralkit_uuid, member_id)`
 /// from schema v7 still protects against duplicate live rows when member
@@ -419,13 +439,20 @@ void main() {
     );
   });
 
-  test('corrective re-import REBUILDS a link-cleared, intent-less tombstone '
-      'at the deterministic id (importer/migration cleanup — 2026-06 PK '
-      'audit H5 discriminator)', () async {
-    // C1-idiom cleanup (e.g. migration step 6) leaves a link-cleared,
-    // intent-less tombstone AT the deterministic row id, so the sweep still
-    // finds it by id. Post-migration re-import is a documented recovery
-    // flow: this shape must REBUILD, not preserve.
+  test('corrective re-import PRESERVES a link-cleared, intent-less tombstone '
+      'at the deterministic id — never revives in place (F10)', () async {
+    // HISTORY: the 2026-06 PK audit H5 discriminator REBUILT this shape in
+    // place (link-cleared, intent-less importer/migration cleanup AT the
+    // deterministic det(switch, member) id). F10 inverts that: is_deleted is
+    // absorbing in the deployed merge layer (prism-sync strips is_deleted=false
+    // on send; the receiver drops non-delete ops on a tombstoned entity), so
+    // flipping is_deleted back to false in place is unsyncable by
+    // construction — the live local row would diverge from every peer's
+    // "deleted" field_versions until the pruner hard-deletes it. The
+    // documented "re-import from PluralKit" recovery must therefore re-create
+    // under a FRESH id, never resurrect the burned deterministic id. So the
+    // corrective sweep finds this tombstone via getSessionById and PRESERVES
+    // it, counting it into tombstonePreservedCount.
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -479,16 +506,25 @@ void main() {
 
     final row = await db.frontingSessionsDao.getSessionById(deterministicId);
     expect(row, isNotNull);
-    expect(row!.isDeleted, isFalse,
-        reason: 'importer-cleanup tombstones rebuild from the API');
-    expect(row.pluralkitUuid, switchId, reason: 'link restored to the switch');
+    expect(row!.isDeleted, isTrue,
+        reason: 'F10: a tombstone is terminal — never revived in place');
     expect(
       row.startTime.millisecondsSinceEpoch,
-      DateTime.utc(2026, 4, 2, 9).millisecondsSinceEpoch,
-      reason: 'API truth rewrites the rebuilt row',
+      DateTime(2026, 4, 1, 12).millisecondsSinceEpoch,
+      reason: 'the preserved row is untouched (startTime not rewritten)',
     );
-    expect(result.tombstonePreservedCount, 0,
-        reason: 'a rebuild is not a preservation');
+    expect(result.tombstonePreservedCount, 1,
+        reason: 'F10: the corrective sweep counts the preserved tombstone');
+
+    // No live row was created at the deterministic id, and no parallel live
+    // row collides on (pluralkit_uuid, member_id) either — the burned id is
+    // never written to again.
+    final liveRows = await (db.select(db.frontingSessions)
+          ..where((s) => s.isDeleted.equals(false)))
+        .get();
+    expect(liveRows, isEmpty,
+        reason: 'F10: in-place revival is forbidden; recovery needs a fresh '
+            'id, deferred to the reconciliation layer');
   });
 
   test('link-cleared tombstone (canonicalization / zero-length-close '

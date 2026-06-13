@@ -458,7 +458,7 @@ void main() {
       expect(syncNotifier.syncRecentDataCallCount, 1);
     });
 
-    testWidgets('push-only full sync previews deletes before first sync', (
+    testWidgets('push-only full sync confirms a single switch deletion', (
       tester,
     ) async {
       await tester.binding.setSurfaceSize(const Size(600, 2400));
@@ -471,6 +471,9 @@ void main() {
           directionConfirmed: true,
           mappingAcknowledged: true,
         ),
+        // Binding maintainer decision (2026-06-11): a single pending switch
+        // DELETE now requires explicit confirmation — the >= 10 threshold is
+        // gone, so this push is gated on the dialog.
         deleteRiskPreview: const PkDeleteRiskPreview(switchesToDelete: 1),
       );
 
@@ -486,7 +489,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(syncNotifier.previewPendingDestructivePushCallCount, 1);
-      expect(find.text('Sync may delete PluralKit data'), findsNothing);
+      expect(find.text('Sync may delete PluralKit data'), findsOneWidget);
+
+      await tester.tap(find.text('Sync Anyway'));
+      await tester.pumpAndSettle();
+
       expect(syncNotifier.syncRecentDataCallCount, 1);
       expect(syncNotifier.lastSyncDirection, PkSyncDirection.pushOnly);
     });

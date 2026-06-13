@@ -2217,9 +2217,15 @@ void main() {
       final db = _makeDb();
       addTearDown(db.close);
       final memberRepo = DriftMemberRepository(db.membersDao, null);
+      // F03: wire `pkSyncDao` so `deleteSession`'s delete-intent stamping is
+      // LIVE in this test — the prior `null` made the structurally-blind hole
+      // that hid the canonicalization-stamps-intent regression (any stale row
+      // tombstoned WITHOUT the link-clear would now surface as a non-null
+      // `deleteIntentEpoch` and a non-empty `getDeletedLinkedSessions()`).
       final sessionRepo = DriftFrontingSessionRepository(
         db.frontingSessionsDao,
         null,
+        pkSyncDao: db.pluralKitSyncDao,
       );
       final importService = _makeImport(db);
 
@@ -2396,6 +2402,47 @@ void main() {
       expect(ezraRow.pluralkitUuid, sw2Id);
       expect(ezraRow.startTime.toUtc(), t2);
       expect(ezraRow.endTime?.toUtc(), t3);
+
+      // F03: the two stale fan-out rows det(sw2,A)/det(sw3,A) were tombstoned
+      // by the canonicalization pass. With `pkSyncDao` wired, a regression that
+      // tombstoned them WITHOUT clearing the PK link first would have stamped a
+      // `deleteIntentEpoch` and queued a REAL `DELETE /switches/{uuid}` against
+      // the user's PluralKit account. Assert the link was cleared FIRST and no
+      // delete intent exists anywhere.
+      final raw = await db.frontingSessionsDao.getAllSessionsIncludingDeleted();
+      final staleRows = raw.where(
+        (s) => s.id == staleAlexAtSw2 || s.id == staleAlexAtSw3,
+      );
+      expect(
+        staleRows,
+        hasLength(2),
+        reason: 'both stale rows persist as rows',
+      );
+      for (final stale in staleRows) {
+        expect(stale.isDeleted, isTrue, reason: 'stale fan-out is tombstoned');
+        expect(
+          stale.pluralkitUuid,
+          anyOf(isNull, ''),
+          reason: 'F03: PK link cleared BEFORE the tombstone',
+        );
+        expect(
+          stale.deleteIntentEpoch,
+          isNull,
+          reason: 'F03: canonicalization must never queue a PK API deletion',
+        );
+      }
+      expect(
+        raw.where((s) => s.deleteIntentEpoch != null),
+        isEmpty,
+        reason:
+            'F03: NO row anywhere may carry a delete intent after a '
+            'corrective re-import',
+      );
+      expect(
+        await sessionRepo.getDeletedLinkedSessions(),
+        isEmpty,
+        reason: 'F03: no PK switch deletion is queued by canonicalization',
+      );
     });
   });
 }
@@ -2443,8 +2490,7 @@ class _SecureStorageStub {
 /// Minimal fake PluralKit client returning preconfigured switch pages.
 class _FakePkClient implements PluralKitClient {
   @override
-  Future<PKSwitch> getSwitch(String switchRef) =>
-      throw UnimplementedError();
+  Future<PKSwitch> getSwitch(String switchRef) => throw UnimplementedError();
   final List<List<PKSwitch>> switchPages;
 
   _FakePkClient(this.switchPages);

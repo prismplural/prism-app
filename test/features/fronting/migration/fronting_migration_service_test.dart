@@ -951,8 +951,9 @@ void main() {
       expect(comment.isDeleted, isFalse);
     }, timeout: const Timeout(Duration(minutes: 2)));
 
-    test('phase 2 harness: PK full import rows are rebuilt after '
-        'upgradeAndKeep clears them', () async {
+    test('phase 2 harness: PK full import after upgradeAndKeep PRESERVES the '
+        'cleared deterministic-id tombstones (F10 — no in-place rebuild)',
+        () async {
       const pkAliceShortId = 'aaaaa';
       const pkBobShortId = 'bbbbb';
       const pkAliceUuid = '11111111-1111-4111-8111-111111111111';
@@ -1046,40 +1047,62 @@ void main() {
         isEmpty,
       );
 
+      // F10: a corrective re-import after migration NO LONGER rebuilds the
+      // cleared PK rows IN PLACE. The migration left a tombstone at each
+      // deterministic det(switch, member) id (link cleared first, per the C1
+      // idiom), and is_deleted is absorbing in the deployed CRDT merge layer:
+      // flipping it back to false would diverge this device from every peer
+      // until the pruner hard-deletes the row. So the second import finds those
+      // tombstones via getSessionById and PRESERVES them. The diff sweep then
+      // re-derives the surviving presence under DIFFERENT (un-burned)
+      // det(switch, member) ids — the sanctioned "re-create under a fresh id"
+      // recovery — rather than touching the burned ids.
       final secondClient = _PkMigrationFakeClient(
         members: pkMembers,
         switchesNewestFirst: pkSwitchesNewestFirst,
       );
       await _makePkImportService(db, secondClient).performOneTimeFullImport();
 
-      final rebuiltRows = await db.frontingSessionsDao.getAllSessions();
-      final rebuiltById = {for (final row in rebuiltRows) row.id: row};
-      expect(rebuiltById[nativeSession]?.memberId, nativeMember);
-      expect(rebuiltById[aliceRowId]?.memberId, aliceLocalId);
-      expect(rebuiltById[aliceRowId]?.isDeleted, isFalse);
-      expect(rebuiltById[aliceRowId]?.startTime.toUtc(), sw1Time);
-      expect(rebuiltById[aliceRowId]?.endTime?.toUtc(), sw3Time);
-      expect(rebuiltById[bobRowId]?.memberId, bobLocalId);
-      expect(rebuiltById[bobRowId]?.isDeleted, isFalse);
-      expect(rebuiltById[bobRowId]?.startTime.toUtc(), sw2Time);
-      expect(rebuiltById[bobRowId]?.endTime?.toUtc(), sw4Time);
-      expect(rebuiltById, isNot(contains(nonEntrantAliceAtSw2)));
-
-      final rebuiltPkRows = rebuiltRows
-          .where((row) => row.pluralkitUuid != null)
-          .toList();
-      expect(rebuiltPkRows, hasLength(2));
-      final activeRowsWithNullMember = rebuiltRows.where(
-        (row) => row.sessionType == 0 && row.memberId == null,
-      );
-      expect(activeRowsWithNullMember, isEmpty);
-
+      // The two burned deterministic ids stay tombstoned forever — they are
+      // never revived in place and never written to again.
       final allRows = await db.frontingSessionsDao
           .getAllSessionsIncludingDeleted();
+      final allById = {for (final row in allRows) row.id: row};
+      expect(allById[aliceRowId]?.isDeleted, isTrue,
+          reason: 'F10: burned det(sw1, alice) id stays a terminal tombstone');
+      expect(allById[bobRowId]?.isDeleted, isTrue,
+          reason: 'F10: burned det(sw2, bob) id stays a terminal tombstone');
       final allIds = allRows.map((row) => row.id).toList();
       expect(allIds.toSet(), hasLength(allIds.length));
       expect(allRows.where((row) => row.id == aliceRowId), hasLength(1));
       expect(allRows.where((row) => row.id == bobRowId), hasLength(1));
+
+      // The native session is untouched.
+      final liveRows = await db.frontingSessionsDao.getAllSessions();
+      final liveById = {for (final row in liveRows) row.id: row};
+      expect(liveById[nativeSession]?.memberId, nativeMember);
+
+      // F10 fresh-id recovery: because det(sw1, alice) and det(sw2, bob) are
+      // burned, the re-import re-anchors each member's surviving presence at
+      // the NEXT switch they front — fresh, un-burned det(switch, member) ids.
+      // Alice (sw1→sw3) re-anchors at det(sw2, alice); Bob (sw2→sw4) at
+      // det(sw3, bob). The burned ids are never touched.
+      final aliceFreshId = derivePkSessionId(sw2Id, pkAliceUuid); // == nonEntrantAliceAtSw2
+      final bobFreshId = derivePkSessionId(sw3Id, pkBobUuid);
+      expect(nonEntrantAliceAtSw2, aliceFreshId);
+      expect(liveById[aliceFreshId]?.memberId, aliceLocalId);
+      expect(liveById[aliceFreshId]?.isDeleted, isFalse);
+      expect(liveById[bobFreshId]?.memberId, bobLocalId);
+      expect(liveById[bobFreshId]?.isDeleted, isFalse);
+
+      final livePkRowIds = liveRows
+          .where((row) => row.pluralkitUuid != null)
+          .map((row) => row.id)
+          .toSet();
+      expect(livePkRowIds, isNot(contains(aliceRowId)),
+          reason: 'F10: no live row at the burned det(sw1, alice) id');
+      expect(livePkRowIds, isNot(contains(bobRowId)),
+          reason: 'F10: no live row at the burned det(sw2, bob) id');
     }, timeout: const Timeout(Duration(minutes: 2)));
 
     // -------------------------------------------------------------------

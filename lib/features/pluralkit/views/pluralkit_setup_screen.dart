@@ -406,11 +406,15 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   }
 
   String _formatDeleteRiskItems(PkDeleteRiskPreview preview) {
+    // F03: switch-level removals (full DELETEs + live-referenced member-removal
+    // PATCHes) share the "switches" line — both remove PluralKit switch data.
+    final switchRemovals =
+        preview.switchesToDelete + preview.switchMemberRemovals;
     final items = <String>[
       if (preview.membersToDelete > 0)
         context.l10n.pluralkitDeleteRiskMembers(preview.membersToDelete),
-      if (preview.switchesToDelete > 0)
-        context.l10n.pluralkitDeleteRiskSwitches(preview.switchesToDelete),
+      if (switchRemovals > 0)
+        context.l10n.pluralkitDeleteRiskSwitches(switchRemovals),
       if (preview.groupMembershipsToRemove > 0)
         context.l10n.pluralkitDeleteRiskGroupMemberships(
           preview.groupMembershipsToRemove,

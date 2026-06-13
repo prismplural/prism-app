@@ -10,8 +10,10 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart'
     as storage_config;
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -351,13 +353,13 @@ class PkTokenImportResult {
   final int switchesImported;
   final int unmappedMemberReferences;
 
-  /// Number of pre-existing tombstoned PK rows whose `deleteIntentEpoch`
-  /// was non-null at the moment a corrective re-import would otherwise
-  /// have resurrected them. These rows are *kept* tombstoned — the user
-  /// explicitly deleted them locally and the corrective path now honours
-  /// that intent rather than silently undoing it. Surfaced in the
-  /// post-import UI summary so the user understands why expected history
-  /// did not reappear.
+  /// Number of pre-existing tombstoned PK rows a corrective re-import found
+  /// and left tombstoned (F10). is_deleted is absorbing, so a tombstone is
+  /// terminal: corrective import never flips it back. This covers deletes the
+  /// user made on this device AND deletes that arrived from a peer via CRDT
+  /// merge (an intent-less synced tombstone), as well as pre-fix
+  /// importer/migration cleanup rows. Surfaced in the post-import UI summary
+  /// so the user understands why expected history did not reappear.
   final int tombstonePreservedCount;
 
   /// Number of leaver closes that matched the row's start timestamp
@@ -395,10 +397,10 @@ class PkTokenImportResult {
 ///   user-initiated delete during routine sync must stick); the diff
 ///   sweep still records the member as fronting via the `_PkActivePresence`
 ///   `isTombstonedCollision` flag so leavers don't get out of sync.
-/// - [tombstonePreserved]: WS3 step 4 / review #3 — the entrant id pointed
-///   at a tombstoned row in *corrective* mode whose `deleteIntentEpoch`
-///   was non-null (user explicitly deleted it and the delete is queued to
-///   push). We honour the user intent and skip the resurrection. The
+/// - [tombstonePreserved]: F10 — the entrant id pointed at a tombstoned row
+///   in *corrective* mode. is_deleted is absorbing, so a tombstone is terminal
+///   regardless of its `deleteIntentEpoch` or PK-link state: in-place revival
+///   is unsyncable by construction, so corrective import never flips it. The
 ///   diff sweep increments `tombstonePreservedCount` so the UI surfaces it.
 class _PkUpsertOutcome {
   const _PkUpsertOutcome._(this.kind, this.rowId);
@@ -1485,10 +1487,11 @@ class PluralKitSyncService {
   ///      rather than half-applied (WS3 step 8 / review #34).
   ///   4. Runs the diff sweep from oldest switch to newest.
   ///
-  /// User tombstones (`deleteIntentEpoch != null`) are *preserved* on the
-  /// corrective path: a row the user explicitly deleted will not be
-  /// resurrected by re-import (WS3 step 4 / review #3). The count of
-  /// preserved tombstones is reported in the import result UI.
+  /// Tombstones are *preserved* on the corrective path (F10): is_deleted is
+  /// absorbing, so any deleted row — whether the user deleted it here, a peer
+  /// delete arrived via CRDT merge, or it is pre-fix importer cleanup — stays
+  /// deleted and is never resurrected by re-import. The count of preserved
+  /// tombstones is reported in the import result UI.
   ///
   /// Deterministic IDs: rows created by a previous import keep the same id
   /// when the sweep re-derives them (v5 UUIDs from entry-switch + member uuid).
@@ -1578,7 +1581,8 @@ class PluralKitSyncService {
         if (run.unmappedMemberReferences > 0)
           '${run.unmappedMemberReferences} switches had unmapped members.',
         if (run.tombstonePreservedCount > 0)
-          '${run.tombstonePreservedCount} deleted rows were left tombstoned.',
+          '${run.tombstonePreservedCount} previously deleted rows stayed '
+              'deleted (deletions are permanent and were not undone).',
         if (run.zeroLengthCloseSkipped > 0)
           '${run.zeroLengthCloseSkipped} zero-length closes skipped.',
       ];
@@ -3558,44 +3562,53 @@ class PluralKitSyncService {
     var tombstonedStale = 0;
     var adoptedCanonicalPair = 0;
     var skippedUnresolvableMember = 0;
-    await _syncDao.attachedDatabase.transaction(() async {
-      final allSessions = await _frontingSessionRepository.getAllSessions();
-      for (final s in allSessions) {
-        if (!isPluralKitSwitchUuid(s.pluralkitUuid) || s.isDeleted) continue;
-        // Already canonical by id — the sweep will adopt it; nothing to do.
-        if (canonicalIds.contains(s.id)) continue;
+    // F03: capture CRDT emissions inside the canonicalization transaction and
+    // replay them only AFTER it durably commits. Each `_tombstoneImporterArtifact`
+    // emits a `pluralkit_uuid=null` update then a delete; emitting those to the
+    // engine mid-transaction would leak absorbing tombstones to peers if the
+    // transaction later rolled back (the engine commits to its own store, which
+    // a Drift rollback can't undo). The wrapper guarantees zero ops reach the
+    // FFI path on rollback and replays the exact multiset on commit.
+    await _captureImportEmissions<void>(() async {
+      await _syncDao.attachedDatabase.transaction(() async {
+        final allSessions = await _frontingSessionRepository.getAllSessions();
+        for (final s in allSessions) {
+          if (!isPluralKitSwitchUuid(s.pluralkitUuid) || s.isDeleted) continue;
+          // Already canonical by id — the sweep will adopt it; nothing to do.
+          if (canonicalIds.contains(s.id)) continue;
 
-        final memberId = s.memberId;
-        // H4: member this row belongs to isn't currently resolvable —
-        // never destroy its history here.
-        if (memberId == null || !resolvableMemberIds.contains(memberId)) {
-          skippedUnresolvableMember++;
-          continue;
+          final memberId = s.memberId;
+          // H4: member this row belongs to isn't currently resolvable —
+          // never destroy its history here.
+          if (memberId == null || !resolvableMemberIds.contains(memberId)) {
+            skippedUnresolvableMember++;
+            continue;
+          }
+
+          // C1: the row's (switch, member) pair IS canonical even though its
+          // id is non-canonical (a locally-pushed front under a random v4 id,
+          // or a legacy/pre-derivation row id). Leave it live — the sweep's
+          // `_findSessionByPkSwitchAndMember` fallback adopts and updates it
+          // in place under its existing id.
+          if (canonicalPairs.contains(
+            _canonicalPairKey(s.pluralkitUuid!, memberId),
+          )) {
+            adoptedCanonicalPair++;
+            continue;
+          }
+
+          // Survivor: resolvable member, pair NOT canonical (a genuine rescue
+          // fan-out artifact, or a switch the API no longer reports). Tombstone
+          // it via the importer-artifact helper, which clears the PK link FIRST
+          // so `_pushPendingSwitchDeletions` does not mistake importer cleanup
+          // for a user-requested PluralKit deletion (F03/C1; mirrors the
+          // zero-length-close idiom). Skipping the link-clear here is exactly
+          // what queued real `DELETE /switches/{uuid}` calls against live PK
+          // history.
+          await _tombstoneImporterArtifact(s.id);
+          tombstonedStale++;
         }
-
-        // C1: the row's (switch, member) pair IS canonical even though its
-        // id is non-canonical (a locally-pushed front under a random v4 id,
-        // or a legacy/pre-derivation row id). Leave it live — the sweep's
-        // `_findSessionByPkSwitchAndMember` fallback adopts and updates it
-        // in place under its existing id.
-        if (canonicalPairs.contains(
-          _canonicalPairKey(s.pluralkitUuid!, memberId),
-        )) {
-          adoptedCanonicalPair++;
-          continue;
-        }
-
-        // Survivor: resolvable member, pair NOT canonical (a genuine rescue
-        // fan-out artifact, or a switch the API no longer reports). Tombstone
-        // it — but clear the PK link FIRST so `_pushPendingSwitchDeletions`
-        // does not mistake importer cleanup for a user-requested PluralKit
-        // deletion (C1; mirrors the zero-length-close idiom). Skipping the
-        // `clearPluralKitLink` here is exactly what queued real
-        // `DELETE /switches/{uuid}` calls against live PK history.
-        await _frontingSessionRepository.clearPluralKitLink(s.id);
-        await _frontingSessionRepository.deleteSession(s.id);
-        tombstonedStale++;
-      }
+      });
     });
     if (tombstonedStale > 0 ||
         adoptedCanonicalPair > 0 ||
@@ -3619,9 +3632,9 @@ class PluralKitSyncService {
     // Diff sweep in corrective mode. `prevActive` is reconstituted from
     // open PK-linked DB rows inside [_runDiffSweep] (WS3 step 5 / review
     // #29); the previous behavior of starting blind made existing-but-no-
-    // longer-fronting rows uncloseable. Tombstones with a non-null
-    // `deleteIntentEpoch` are preserved (WS3 step 4 / review #3) and
-    // surfaced via `tombstonePreservedCount`. Reuse the precomputed
+    // longer-fronting rows uncloseable. Tombstones are preserved (F10) —
+    // is_deleted is absorbing, so a deleted row is never revived in place —
+    // and surfaced via `tombstonePreservedCount`. Reuse the precomputed
     // member maps so we don't re-scan the members table.
     final sweepResult = await _runDiffSweep(
       switches: allSwitches,
@@ -3756,8 +3769,17 @@ class PluralKitSyncService {
   ///   incremented when a leaver fires on a tombstoned-collision presence
   ///   that has no row to close (review #33).
   /// - `tombstonePreservedCount`: corrective re-import found a tombstoned
-  ///   row whose `deleteIntentEpoch` was non-null and refused to resurrect
-  ///   it (WS3 step 4 / review #3). Surfaced in the import-result UI.
+  ///   row and left it tombstoned (F10) — is_deleted is absorbing, so a
+  ///   tombstone is terminal regardless of `deleteIntentEpoch` or link state.
+  ///   Surfaced in the import-result UI. NB: preserving the burned id does NOT
+  ///   mean the member's presence stays gone on a corrective "rebuild from API
+  ///   truth": the member is not added to the active set at the burned id, so
+  ///   it re-creates as a pseudo-entrant under a FRESH det(switch, member) id
+  ///   from the next switch onward — that fresh row DOES sync (it is a new,
+  ///   un-burned entity). So a corrective re-import partially re-materializes a
+  ///   cross-device USER delete. This is pre-existing, plan-sanctioned behavior
+  ///   (the user explicitly asked to rebuild from PK — "clobber is the point"),
+  ///   not a tombstone leak; the old tombstone for the burned id is untouched.
   /// - `zeroLengthCloseSkipped`: leavers whose timestamp matched the row's
   ///   start exactly (zero-duration presence). The row is discarded to avoid
   ///   leaving a phantom open fronter (WS3 step 6 / review #30). Throws
@@ -3772,8 +3794,9 @@ class PluralKitSyncService {
   ///   `end_time` to `null` on entrant collisions so currently-active API
   ///   rows actually surface as open after the rescue→re-import recovery
   ///   flow. The user has explicitly asked to rebuild PK history from API,
-  ///   so clobber is the point. Tombstones with a non-null
-  ///   `deleteIntentEpoch` are preserved either way.
+  ///   so clobber is the point. Tombstones are preserved either way (F10):
+  ///   is_deleted is absorbing, so a deleted row is never revived in place on
+  ///   any path.
   Future<_PkDiffSweepResult> _runDiffSweep({
     required List<PKSwitch> switches,
     required Map<String, String> shortIdToUuid,
@@ -3922,178 +3945,198 @@ class PluralKitSyncService {
       final leavers = prevActiveKeys.difference(newActive);
 
       // Atomic transaction: opens + closes for this switch.
-      await _syncDao.attachedDatabase.transaction(() async {
-        // Open rows for entrants.
-        //
-        // We branch on existing-row presence rather than catching a
-        // unique-constraint violation because the existing row may be
-        // a PRISM1 rescue import with lossy boundaries (one row per
-        // old switch covering its full duration). We MUST overwrite
-        // start_time + member_id + pluralkit_uuid with the API truth
-        // so a future sync's field-LWW carries the corrected boundary
-        // to paired devices. The previous `createSession`-then-catch
-        // pattern recorded the row id but never wrote the API values,
-        // leaving rescue-derived boundaries on disk forever.
-        for (final localId in entrants) {
-          // Derive the row id via the shared helper so this site and the
-          // canonicalization pass agree on the id (WS3 step 9 / #8).
-          final rowId = deriveCanonicalPkSessionId(
-            switchId: sw.id,
-            localMemberId: localId,
-            pkUuidByLocalId: pkUuidByLocalId,
-          );
-          // Debug-only invariant: the derived id is stable for a given
-          // (switchId, localMemberId) regardless of map state, so long as
-          // pkUuidByLocalId either contains the same mapping or is missing
-          // the local id. Re-deriving against an empty map must equal
-          // re-deriving against the full map IFF the local id is absent
-          // from the full map; otherwise the two derivations differ on
-          // purpose (the fallback only applies to unmapped ids). We assert
-          // the more useful invariant: re-derivation against the SAME map
-          // is idempotent.
-          assert(
-            deriveCanonicalPkSessionId(
-                  switchId: sw.id,
+      //
+      // F03: same capture-replay discipline as the canonicalization pass — the
+      // entrant upserts, leaver closes, and zero-length-close tombstones all
+      // emit CRDT ops; emitting them to the engine inside the Drift transaction
+      // would leak ops (in particular absorbing delete tombstones) to peers if
+      // the transaction rolled back (e.g. a `PkSwitchOrderingError` thrown
+      // mid-close). The wrapper drops every captured op on throw and replays
+      // the exact multiset only after the transaction commits.
+      await _captureImportEmissions<void>(() async {
+        await _syncDao.attachedDatabase.transaction(() async {
+          // Open rows for entrants.
+          //
+          // We branch on existing-row presence rather than catching a
+          // unique-constraint violation because the existing row may be
+          // a PRISM1 rescue import with lossy boundaries (one row per
+          // old switch covering its full duration). We MUST overwrite
+          // start_time + member_id + pluralkit_uuid with the API truth
+          // so a future sync's field-LWW carries the corrected boundary
+          // to paired devices. The previous `createSession`-then-catch
+          // pattern recorded the row id but never wrote the API values,
+          // leaving rescue-derived boundaries on disk forever.
+          for (final localId in entrants) {
+            // Derive the row id via the shared helper so this site and the
+            // canonicalization pass agree on the id (WS3 step 9 / #8).
+            final rowId = deriveCanonicalPkSessionId(
+              switchId: sw.id,
+              localMemberId: localId,
+              pkUuidByLocalId: pkUuidByLocalId,
+            );
+            // Debug-only invariant: the derived id is stable for a given
+            // (switchId, localMemberId) regardless of map state, so long as
+            // pkUuidByLocalId either contains the same mapping or is missing
+            // the local id. Re-deriving against an empty map must equal
+            // re-deriving against the full map IFF the local id is absent
+            // from the full map; otherwise the two derivations differ on
+            // purpose (the fallback only applies to unmapped ids). We assert
+            // the more useful invariant: re-derivation against the SAME map
+            // is idempotent.
+            assert(
+              deriveCanonicalPkSessionId(
+                    switchId: sw.id,
+                    localMemberId: localId,
+                    pkUuidByLocalId: pkUuidByLocalId,
+                  ) ==
+                  rowId,
+              'deriveCanonicalPkSessionId is non-deterministic for '
+              '(${sw.id}, $localId) — id derivation contract broken.',
+            );
+            final switchImportSource =
+                pkImportSourceByApiSwitchId[sw.id] ?? pkImportSource;
+            final pkFileSwitchId = pkFileSwitchIdsByApiSwitchId[sw.id];
+            final outcome = await _upsertEntrantSession(
+              rowId: rowId,
+              switchEntry: sw,
+              localId: localId,
+              corrective: corrective,
+              switchImportSource: switchImportSource,
+              pkFileSwitchId: pkFileSwitchId,
+            );
+            switch (outcome.kind) {
+              case _PkUpsertOutcomeKind.row:
+                active[localId] = _PkActivePresence(
                   localMemberId: localId,
-                  pkUuidByLocalId: pkUuidByLocalId,
-                ) ==
-                rowId,
-            'deriveCanonicalPkSessionId is non-deterministic for '
-            '(${sw.id}, $localId) — id derivation contract broken.',
-          );
-          final switchImportSource =
-              pkImportSourceByApiSwitchId[sw.id] ?? pkImportSource;
-          final pkFileSwitchId = pkFileSwitchIdsByApiSwitchId[sw.id];
-          final outcome = await _upsertEntrantSession(
-            rowId: rowId,
-            switchEntry: sw,
-            localId: localId,
-            corrective: corrective,
-            switchImportSource: switchImportSource,
-            pkFileSwitchId: pkFileSwitchId,
-          );
-          switch (outcome.kind) {
-            case _PkUpsertOutcomeKind.row:
-              active[localId] = _PkActivePresence(
-                localMemberId: localId,
-                pkMemberUuid: pkUuidByLocalId[localId],
-                // M6: track the truncated instant — identical to the value the
-                // row persisted, so a presence built here compares the same as
-                // one reconstituted from the DB on a crash-resume pass.
-                startedAt: swRowTime,
-                rowId: outcome.rowId,
-              );
-            case _PkUpsertOutcomeKind.tombstoneCollision:
-              // Incremental sync: entrant id pointed at a soft-deleted row.
-              // We deliberately did not resurrect it (a user-initiated
-              // delete during routine sync must stick). Record the
-              // presence with `rowId == null` and `isTombstonedCollision`
-              // so a future leaver event has a peg to match against and
-              // so the prev-active key set stays in sync with the loop's
-              // view of who is fronting (review #33). The leaver path
-              // below skips the no-op close.
-              active[localId] = _PkActivePresence(
-                localMemberId: localId,
-                pkMemberUuid: pkUuidByLocalId[localId],
-                startedAt: swRowTime, // M6 — see the `row` case above.
-                isTombstonedCollision: true,
-              );
-            case _PkUpsertOutcomeKind.tombstonePreserved:
-              // Corrective re-import did NOT resurrect a still-linked
-              // tombstone (local intent or peer-synced). Count it for the
-              // import-result UI and keep the member out of `active` so the
-              // next leaver is a no-op.
-              tombstonePreservedCount++;
+                  pkMemberUuid: pkUuidByLocalId[localId],
+                  // M6: track the truncated instant — identical to the value
+                  // the row persisted, so a presence built here compares the
+                  // same as one reconstituted from the DB on a crash-resume
+                  // pass.
+                  startedAt: swRowTime,
+                  rowId: outcome.rowId,
+                );
+              case _PkUpsertOutcomeKind.tombstoneCollision:
+                // Incremental sync: entrant id pointed at a soft-deleted row.
+                // We deliberately did not resurrect it (a user-initiated
+                // delete during routine sync must stick). Record the
+                // presence with `rowId == null` and `isTombstonedCollision`
+                // so a future leaver event has a peg to match against and
+                // so the prev-active key set stays in sync with the loop's
+                // view of who is fronting (review #33). The leaver path
+                // below skips the no-op close.
+                active[localId] = _PkActivePresence(
+                  localMemberId: localId,
+                  pkMemberUuid: pkUuidByLocalId[localId],
+                  startedAt: swRowTime, // M6 — see the `row` case above.
+                  isTombstonedCollision: true,
+                );
+              case _PkUpsertOutcomeKind.tombstonePreserved:
+                // F10: corrective re-import did NOT resurrect a tombstone —
+                // is_deleted is absorbing, so a tombstone is terminal no matter
+                // how it reached this device (local delete intent, an
+                // intent-less synced peer delete, or a pre-fix
+                // importer/migration cleanup row). In-place revival can never
+                // propagate, so we leave it gone. Track the count for the
+                // import-result UI and DO NOT add the member to `active` — we
+                // want the next leaver to be a no-op (the row is gone from the
+                // user's perspective). The cost: the diff sweep won't auto-close
+                // anything, but corrective imports always start by re-deriving
+                // boundaries from API truth so this is fine.
+                tombstonePreservedCount++;
+            }
           }
-        }
 
-        // Close rows for leavers.
-        for (final localId in leavers) {
-          final presence = active[localId];
-          final rowId = presence?.rowId;
-          if (rowId != null) {
-            // WS3 step 6 / review #30: guard the close on the row's start
-            // timestamp before invoking endSession. Three cases:
-            //
-            // 1. `end > start` (the common case): close normally.
-            // 2. `end == start`: zero-length presence — the API listed an
-            //    entrant and a leave at the same moment. Discard the local
-            //    row so it cannot pollute later history as an open phantom.
-            //    Clear the PK link before tombstoning so importer cleanup is
-            //    not mistaken for a user-requested PluralKit deletion.
-            //    Bump `zeroLengthCloseSkipped` for the import-result UI.
-            // 3. `end < start`: input data is corrupt (a leave whose
-            //    timestamp predates the entrant's start). Bail with a
-            //    typed error so the UI surfaces this rather than silently
-            //    writing a negative-duration row that re-exports as
-            //    garbage.
-            //
-            // M6: all three comparisons (and the close write) use the
-            // TRUNCATED switch time; `presence.startedAt` is already
-            // truncated from either source, so the zero-length decision is
-            // identical between the in-memory and DB-seeded passes.
-            if (swRowTime.isBefore(presence!.startedAt)) {
-              throw PkSwitchOrderingError(
-                rowId: rowId,
-                startTime: presence.startedAt,
-                endTime: swRowTime,
-                switchId: sw.id,
-              );
-            }
-            if (swRowTime.isAtSameMomentAs(presence.startedAt)) {
-              zeroLengthCloseSkipped++;
-              await _frontingSessionRepository.clearPluralKitLink(rowId);
-              await _frontingSessionRepository.deleteSession(rowId);
+          // Close rows for leavers.
+          for (final localId in leavers) {
+            final presence = active[localId];
+            final rowId = presence?.rowId;
+            if (rowId != null) {
+              // WS3 step 6 / review #30: guard the close on the row's start
+              // timestamp before invoking endSession. Three cases:
+              //
+              // 1. `end > start` (the common case): close normally.
+              // 2. `end == start`: zero-length presence — the API listed an
+              //    entrant and a leave at the same moment. Discard the local
+              //    row so it cannot pollute later history as an open phantom.
+              //    Clear the PK link before tombstoning so importer cleanup is
+              //    not mistaken for a user-requested PluralKit deletion.
+              //    Bump `zeroLengthCloseSkipped` for the import-result UI.
+              // 3. `end < start`: input data is corrupt (a leave whose
+              //    timestamp predates the entrant's start). Bail with a
+              //    typed error so the UI surfaces this rather than silently
+              //    writing a negative-duration row that re-exports as
+              //    garbage.
+              //
+              // M6: all three comparisons (and the close write) use the
+              // TRUNCATED switch time; `presence.startedAt` is already
+              // truncated from either source, so the zero-length decision is
+              // identical between the in-memory and DB-seeded passes.
+              if (swRowTime.isBefore(presence!.startedAt)) {
+                throw PkSwitchOrderingError(
+                  rowId: rowId,
+                  startTime: presence.startedAt,
+                  endTime: swRowTime,
+                  switchId: sw.id,
+                );
+              }
+              if (swRowTime.isAtSameMomentAs(presence.startedAt)) {
+                zeroLengthCloseSkipped++;
+                // F03: route the importer-cleanup tombstone through the shared
+                // helper (clear-link-before-delete) so it is captured + replayed
+                // by the wrapper and never queues a real PluralKit delete push.
+                await _tombstoneImporterArtifact(rowId);
+                debugPrint(
+                  '[PK_SWEEP] zero-length presence discarded on row $rowId '
+                  '(start == end == ${swRowTime.toIso8601String()}); '
+                  'cleared PK link before tombstoning to avoid delete push.',
+                );
+              } else {
+                await _frontingSessionRepository.endSession(rowId, swRowTime);
+              }
+            } else if (presence != null && presence.isTombstonedCollision) {
+              // Step 6 + review #33: a tombstoned-collision presence was
+              // skipped at entrant time (no row written). The leaver has
+              // nothing to close. Surface the member in
+              // `unmappedMemberReferences` so the UI flags the gap rather
+              // than silently dropping the member from the timeline.
+              unmappedCount++;
               debugPrint(
-                '[PK_SWEEP] zero-length presence discarded on row $rowId '
-                '(start == end == ${swRowTime.toIso8601String()}); '
-                'cleared PK link before tombstoning to avoid delete push.',
+                '[PK_SWEEP] leaver on tombstoned-collision presence for '
+                'member $localId at ${sw.timestamp.toIso8601String()}: no '
+                'row to close (review #33).',
               );
-            } else {
-              await _frontingSessionRepository.endSession(rowId, swRowTime);
             }
-          } else if (presence != null && presence.isTombstonedCollision) {
-            // Step 6 + review #33: a tombstoned-collision presence was
-            // skipped at entrant time (no row written). The leaver has
-            // nothing to close. Surface the member in
-            // `unmappedMemberReferences` so the UI flags the gap rather
-            // than silently dropping the member from the timeline.
-            unmappedCount++;
+            // Always drop the presence: with no rowId there's nothing to
+            // close, but the member is no longer active either way. This
+            // matches the prior behavior where leavers were unconditionally
+            // removed from `prevActive` via `prevActive = newActive`.
+            active.remove(localId);
+          }
+
+          // Merge live-poll duplicates for CONTINUING members (2026-06 PK audit
+          // M2): an open seed-excluded row keyed (this switch, member) is a poll
+          // artifact when the member neither enters nor leaves here — tombstone
+          // it via clear-link-before-delete (never a PK deletion push, C1). A
+          // re-entering member's duplicate is instead adopted by the entrant
+          // path, so only a CONTINUING member proves the row redundant.
+          for (final localId in newActive.intersection(prevActiveKeys)) {
+            final pairKey = _canonicalPairKey(sw.id, localId);
+            final duplicate = seedExcludedOpenRowsByPair[pairKey];
+            if (duplicate == null) continue;
+            final presence = active[localId];
+            if (presence == null || duplicate.id == presence.rowId) continue;
+            // F03: same capture-then-replay tombstone seam as the leaver path.
+            await _tombstoneImporterArtifact(duplicate.id);
+            seedExcludedOpenRowsByPair.remove(pairKey);
             debugPrint(
-              '[PK_SWEEP] leaver on tombstoned-collision presence for '
-              'member $localId at ${sw.timestamp.toIso8601String()}: no '
-              'row to close (review #33).',
+              '[PK_SWEEP] merged live-poll duplicate ${duplicate.id} for '
+              'member $localId at switch ${sw.id}: presence already tracked '
+              'by ${presence.rowId ?? '<tombstoned collision>'} from an '
+              'earlier covered switch (2026-06 PK audit M2).',
             );
           }
-          // Always drop the presence: with no rowId there's nothing to
-          // close, but the member is no longer active either way. This
-          // matches the prior behavior where leavers were unconditionally
-          // removed from `prevActive` via `prevActive = newActive`.
-          active.remove(localId);
-        }
-
-        // Merge live-poll duplicates for CONTINUING members (2026-06 PK audit
-        // M2): an open seed-excluded row keyed (this switch, member) is a poll
-        // artifact when the member neither enters nor leaves here — tombstone
-        // it via clear-link-before-delete (never a PK deletion push, C1). A
-        // re-entering member's duplicate is instead adopted by the entrant
-        // path, so only a CONTINUING member proves the row redundant.
-        for (final localId in newActive.intersection(prevActiveKeys)) {
-          final pairKey = _canonicalPairKey(sw.id, localId);
-          final duplicate = seedExcludedOpenRowsByPair[pairKey];
-          if (duplicate == null) continue;
-          final presence = active[localId];
-          if (presence == null || duplicate.id == presence.rowId) continue;
-          await _frontingSessionRepository.clearPluralKitLink(duplicate.id);
-          await _frontingSessionRepository.deleteSession(duplicate.id);
-          seedExcludedOpenRowsByPair.remove(pairKey);
-          debugPrint(
-            '[PK_SWEEP] merged live-poll duplicate ${duplicate.id} for '
-            'member $localId at switch ${sw.id}: presence already tracked '
-            'by ${presence.rowId ?? '<tombstoned collision>'} from an '
-            'earlier covered switch (2026-06 PK audit M2).',
-          );
-        }
+        });
       });
 
       // Track newest (timestamp, id) we've seen for the batch-end cursor
@@ -4199,39 +4242,43 @@ class PluralKitSyncService {
     // deterministic id, or it may be an older PK-imported row whose id
     // predates the per-member derivation. Correct by the DB uniqueness key
     // `(pluralkit_uuid, member_id)` so re-import is idempotent in both cases.
-    if (existing.isDeleted && !corrective) {
+    // F10 (composing with PK audit H5): a tombstone is TERMINAL on every
+    // path. is_deleted is absorbing in the deployed CRDT merge layer
+    // (prism-sync strips is_deleted=false on send — client.rs record_update /
+    // record_create phantom-undelete strip — and merge.rs drops non-delete ops
+    // on a tombstoned entity), so reviving a tombstone IN PLACE here can never
+    // propagate: it would diverge this device's live Drift row from every
+    // peer's "deleted" field_versions until the pruner hard-deletes it.
+    //
+    // - incremental: collision on a soft-deleted row → tombstoneCollision (a
+    //   user delete during routine sync must stick; the leaver path peg-matches
+    //   the presence so closes stay in sync).
+    // - corrective: tombstonePreserved. A tombstone that reached this device —
+    //   whether by local intent or by CRDT merge of a peer's delete — stays a
+    //   tombstone, surfaced via `tombstonePreservedCount`. This intentionally
+    //   ABSORBS the H5 discriminator's old "rebuild link-cleared, intent-less
+    //   importer/migration cleanup tombstones" branch: that rebuild flipped
+    //   is_deleted back to false in place, the unsyncable write F10 forbids.
+    //   Post-migration "re-import from PluralKit" recovery must re-create rows
+    //   under FRESH ids (deferred to the reconciliation layer), never resurrect
+    //   a burned entity id. Do NOT reintroduce a deleteIntentEpoch/link-state
+    //   revive heuristic — deleteIntentEpoch is device-local and never syncs,
+    //   so any in-place revival keyed on it diverges by construction.
+    if (existing.isDeleted) {
+      if (!corrective) {
+        debugPrint(
+          '[PK_SWEEP] entrant collision on deleted row ${existing.id}: '
+          'preserved tombstone during incremental sync.',
+        );
+        return const _PkUpsertOutcome.tombstoneCollision();
+      }
       debugPrint(
-        '[PK_SWEEP] entrant collision on deleted row ${existing.id}: '
-        'preserved tombstone during incremental sync.',
-      );
-      return const _PkUpsertOutcome.tombstoneCollision();
-    }
-
-    // Preserve any USER-INTENT tombstone on the corrective path (2026-06 PK
-    // audit H5): `is_deleted` syncs but `delete_intent_epoch` is device-local,
-    // so peer deletions arrive intent-less — resurrecting them here undid the
-    // originating device's pending PK deletion. Importer cleanups clear the
-    // link before deleting (C1), so preserve on `isDeleted && (intent stamped
-    // || link intact)`; link-cleared rows must rebuild (re-import recovery).
-    final isUserIntentTombstone =
-        existing.deleteIntentEpoch != null ||
-        _hasText(existing.pluralkitUuid);
-    if (corrective && existing.isDeleted && isUserIntentTombstone) {
-      debugPrint(
-        '[PK_SWEEP] corrective entrant on tombstoned row ${existing.id} '
-        '(deleteIntentEpoch=${existing.deleteIntentEpoch}, '
-        'linkIntact=${_hasText(existing.pluralkitUuid)}): preserving '
-        'tombstone — a deletion that reached this device by intent or by '
-        'CRDT merge must not be resurrected (2026-06 PK audit H5).',
+        '[PK_SWEEP] corrective entrant on tombstoned row ${existing.id}: '
+        'preserving tombstone — is_deleted is absorbing, so in-place revival '
+        'is unsyncable; re-creation under a fresh id is the only sync-safe '
+        'recovery (F10).',
       );
       return const _PkUpsertOutcome.tombstonePreserved();
-    }
-    if (corrective && existing.isDeleted) {
-      debugPrint(
-        '[PK_SWEEP] corrective entrant on link-cleared, intent-less '
-        'tombstone ${existing.id}: importer/migration cleanup — rebuilding '
-        'from the API (2026-06 PK audit H5 discriminator).',
-      );
     }
 
     if (!corrective && existing.endTime != null) {
@@ -4242,13 +4289,12 @@ class PluralKitSyncService {
       );
     }
 
-    // end_time policy depends on [corrective]:
+    // The row is LIVE here — every tombstone returned above (F10). So there is
+    // no is_deleted flip and no delete-push bookkeeping to clear: those fields
+    // are left untouched. end_time policy depends on [corrective]:
     // - incremental (default): preserve a non-null existing end_time.
     // - corrective: API is authoritative. Clear end_time so active API rows
     //   surface as open; a later leaver in the same sweep will close it.
-    //
-    // Corrective import also clears delete-push bookkeeping because a
-    // resurrected PK row is no longer a pending local deletion.
     //
     // M6: `startTime` is the drift-truncated value — this corrective update is
     // THE audit-cited churn site: re-importing an unchanged row used to write
@@ -4256,8 +4302,10 @@ class PluralKitSyncService {
     // (correctly) reported as a change, emitting a sync op per row per run.
     // With both sides at whole-second precision, an unchanged row diffs empty
     // and `updateSession` no-ops.
+    //
+    // No `isDeleted` flip: F10 makes tombstones terminal, so we never resurrect
+    // a deleted row in place here — the deleted branch returned above.
     final corrected = existing.copyWith(
-      isDeleted: corrective ? false : existing.isDeleted,
       startTime: rowStartTime,
       memberId: localId,
       pluralkitUuid: switchEntry.id,
@@ -4266,8 +4314,6 @@ class PluralKitSyncService {
           ? existing.pkFileSwitchId
           : pkFileSwitchId,
       endTime: corrective ? null : existing.endTime,
-      deleteIntentEpoch: corrective ? null : existing.deleteIntentEpoch,
-      deletePushStartedAt: corrective ? null : existing.deletePushStartedAt,
     );
     await _frontingSessionRepository.updateSession(corrected);
     return _PkUpsertOutcome.row(existing.id);
@@ -4445,11 +4491,17 @@ class PluralKitSyncService {
   bool _hasPkMemberId(domain.Member member) =>
       (member.pluralkitId ?? '').trim().isNotEmpty;
 
-  /// Count of switch-deletion candidates that would actually reach a PK
-  /// mutation this pass — i.e. epoch-current, lease-free, with a valid PK
-  /// switch uuid. Mirrors `previewPendingDestructivePush`'s switch filter so
-  /// the mass-deletion breaker counts the same population the user sees
-  /// in the destructive-push confirmation dialog.
+  /// Count of switch-deletion candidates that could reach a PK mutation this
+  /// pass — i.e. epoch-current, lease-free, with a valid PK switch uuid. This
+  /// feeds the wave-3 mass-deletion breaker for unattended syncs.
+  ///
+  /// Note: unlike `previewPendingDestructivePush`, this does NOT subtract the
+  /// F03 live-referenced set. That is deliberate — a live-referenced candidate
+  /// can still reach the H2 members-PATCH (a real PK mutation), so counting it
+  /// errs toward TRIPPING the breaker on an unattended sync, the safe direction
+  /// for a guard. The preview splits those candidates into `switchMemberRemovals`
+  /// for the user-facing confirmation count; the breaker over-counts them on
+  /// purpose.
   int _eligibleSwitchDeletionCount(
     List<domain.FrontingSession> candidates,
     int currentEpoch,
@@ -4509,6 +4561,86 @@ class PluralKitSyncService {
       if (memberId != null) memberIds.add(memberId);
     }
     return memberIds;
+  }
+
+  /// The set of `pluralkit_uuid` switch refs carried by LIVE local rows, used
+  /// by the switch-level cascade guard so a switch DELETE is never pushed to
+  /// PluralKit while any live local row still references that switch uuid.
+  /// Mirrors [_memberIdsWithLiveLinkedSessions] at the switch granularity —
+  /// `_pushPendingSwitchDeletions` (and `previewPendingDestructivePush`) skip
+  /// any queued deletion whose fresh switch uuid is in this set, the switch
+  /// analogue of the member R5 cascade guard.
+  ///
+  /// Refs are stored lowercased (trimmed) because `isPluralKitSwitchUuid`
+  /// accepts mixed-case hex and the H2 member matching deliberately lowercases
+  /// PK refs; callers must lowercase the queued uuid before `contains` so a
+  /// case-variant live ref cannot slip past the guard.
+  Set<String> _liveLinkedSwitchUuids(List<domain.FrontingSession> rows) {
+    final switchUuids = <String>{};
+    for (final session in rows) {
+      if (session.isDeleted) continue;
+      if (!isPluralKitSwitchUuid(session.pluralkitUuid)) continue;
+      switchUuids.add(session.pluralkitUuid!.trim().toLowerCase());
+    }
+    return switchUuids;
+  }
+
+  /// Tombstone an importer-origin fronting row WITHOUT marking it a
+  /// user-requested PluralKit deletion: clear the PK link FIRST, then soft
+  /// delete. The link-clear makes `deleteSession`'s `isLinked` check false
+  /// (drift_fronting_session_repository.dart), so no `deleteIntentEpoch` is
+  /// ever stamped and `getDeletedLinkedSessions` never selects the row — the
+  /// proven zero-length-close idiom (mirrors the `clearPluralKitLink` ->
+  /// `deleteSession` ordering in the diff sweep's zero-length path).
+  ///
+  /// This guarantees that an importer cleanup tombstone never carries a PK
+  /// link or a delete-intent stamp; only an explicit user `deleteSession` on a
+  /// still-linked row may ever enqueue a PluralKit API deletion.
+  Future<void> _tombstoneImporterArtifact(String rowId) async {
+    await _frontingSessionRepository.clearPluralKitLink(rowId);
+    await _frontingSessionRepository.deleteSession(rowId);
+  }
+
+  /// Run a PK-import Drift transaction [body] with every repository sync
+  /// emission captured instead of dispatched, then replay the captured ops
+  /// through the live FFI path only AFTER the transaction durably commits.
+  ///
+  /// This is the maintainer-blessed capture-then-replay seam
+  /// ([SyncRecordMixin.suppressAndCapture] + [SyncRecordMixin.replayCapturedOps],
+  /// production-proven in the SP importer): it keeps the FFI off the
+  /// transaction's critical path and — load-bearing for the canonicalization
+  /// fix — guarantees ZERO ops reach the engine if [body] throws. The
+  /// exception propagates out of `suppressAndCapture` (whose suppression zone
+  /// exits) before the replay loop is reached, so the captured list is dropped
+  /// and the Drift rollback leaves no leaked tombstones on peers.
+  ///
+  /// Replay is row-granular through the shared [SyncRecordMixin.replayCapturedOps]
+  /// (no hand-rolled dispatch, no delete coalescing — the wave-4 outbox drainer
+  /// owns coalescing later, per cross-family resolution C10). Gated on the
+  /// repository implementing [SyncRecordMixin]; if it does not (e.g. a test
+  /// double), the captured ops are reported and dropped rather than silently
+  /// lost.
+  Future<T> _captureImportEmissions<T>(Future<T> Function() body) async {
+    final captured = <CapturedSyncOp>[];
+    final result = await SyncRecordMixin.suppressAndCapture<T>(
+      body,
+      captured.add,
+    );
+    if (captured.isEmpty) return result;
+    final repo = _frontingSessionRepository;
+    if (repo is SyncRecordMixin) {
+      await (repo as SyncRecordMixin).replayCapturedOps(
+        captured,
+        logLabel: 'PK import',
+      );
+    } else {
+      ErrorReportingService.instance.report(
+        'PK import sync replay skipped: FrontingSessionRepository does not '
+        'implement SyncRecordMixin (${captured.length} emission(s) captured).',
+        severity: ErrorSeverity.warning,
+      );
+    }
+    return result;
   }
 
   int _previewPendingMemberProxyTagRemovals({
@@ -4588,7 +4720,15 @@ class PluralKitSyncService {
     final deletedMembers = await _memberRepository.getDeletedLinkedMembers();
     final now = DateTime.now();
 
+    // F03: fetch live sessions once and derive BOTH the switch-level cascade
+    // set and the member R5 set from it, so the preview's switch/member counts
+    // match what `_pushPendingSwitchDeletions` / `_pushPendingMemberDeletions`
+    // will actually do.
+    final liveSessions = await _frontingSessionRepository.getAllSessions();
+    final liveSwitchUuids = _liveLinkedSwitchUuids(liveSessions);
+
     var switchesToDelete = 0;
+    var switchMemberRemovals = 0;
     var switchesSkipped = 0;
     for (final session in deletedSessions) {
       final pkUuid = session.pluralkitUuid?.trim();
@@ -4600,7 +4740,20 @@ class PluralKitSyncService {
           pkUuid == null ||
           pkUuid.isEmpty ||
           !isPluralKitSwitchUuid(pkUuid)) {
+        // The push cannot mutate PK for this candidate at all (stale epoch,
+        // active lease, missing/non-API uuid) — genuinely skipped.
         switchesSkipped++;
+        continue;
+      }
+      // F03: a live local row still references this switch, so the push will NOT
+      // fully DELETE it — but it MAY still PATCH the departing member off the PK
+      // switch (the H2 members-removal path is reached BEFORE the sole-fronter
+      // cascade guard). That is a real, destructive PK mutation, so the preview
+      // must count it as a removal that requires confirmation, NOT as a skip.
+      // (Case-normalized to match the H2 member-ref lowercasing — a case-variant
+      // live ref must not slip past this classification.)
+      if (liveSwitchUuids.contains(pkUuid.toLowerCase())) {
+        switchMemberRemovals++;
         continue;
       }
       switchesToDelete++;
@@ -4608,9 +4761,7 @@ class PluralKitSyncService {
 
     final membersWithLiveLinkedSessions = deletedMembers.isEmpty
         ? <String>{}
-        : _memberIdsWithLiveLinkedSessions(
-            await _frontingSessionRepository.getAllSessions(),
-          );
+        : _memberIdsWithLiveLinkedSessions(liveSessions);
 
     var membersToDelete = 0;
     var membersSkipped = 0;
@@ -4660,6 +4811,7 @@ class PluralKitSyncService {
     return PkDeleteRiskPreview(
       membersToDelete: membersToDelete,
       switchesToDelete: switchesToDelete,
+      switchMemberRemovals: switchMemberRemovals,
       groupMembershipsToRemove: groupMembershipsToRemove,
       memberProxyTagsToRemove: memberProxyTagsToRemove,
       membersSkipped: membersSkipped,
@@ -4709,6 +4861,19 @@ class PluralKitSyncService {
         return 0;
       }
     }
+
+    // F03 cascade guard input: the set of switch uuids still referenced by a
+    // LIVE local row, computed once before the loop (the switch analogue of the
+    // member R5 guard's `_memberIdsWithLiveLinkedSessions`). Consumed in the
+    // sole-fronter DELETE branch below.
+    final liveSwitchUuids = _liveLinkedSwitchUuids(
+      await _frontingSessionRepository.getAllSessions(),
+    );
+    // The cascade-guard message is surfaced at most ONCE per push pass — a
+    // guarded candidate is retried every cycle until the user resolves the
+    // divergence (or the v34 legacy-gate migration clears the stamp), so
+    // re-firing it per candidate per pass would spam the stale-link channel.
+    var cascadeGuardMessageSent = false;
 
     final push = pushServiceOverride ?? const PkPushService();
     int deleted = 0;
@@ -4915,9 +5080,35 @@ class PluralKitSyncService {
         continue;
       }
 
-      // The departing member was the snapshot's SOLE fronter — full-snapshot
-      // semantics mean no continuing member exists on this switch, so the
-      // historical DELETE path below is safe.
+      // The departing member was the snapshot's SOLE fronter on PK — under
+      // full-snapshot semantics no continuing member exists on PK for this
+      // switch, so the historical `DELETE /switches/{uuid}` is reachable.
+      //
+      // F03 cascade guard: but a LIVE local row may still reference this switch
+      // uuid (a fan-out sibling, or a canonical entrant PK and the device now
+      // disagree about). `DELETE` erases EVERY member's entry at the switch, so
+      // it would destroy that live row's PK history too — exactly F03's cascade
+      // (the switch vanishes, its canonical row becomes non-canonical on the
+      // next import, gets tombstoned + intent-stamped, and queues yet more
+      // deletions). The H2 members-PATCH above already handles the case where
+      // PK ITSELF still lists co-fronters; this guards the divergent case where
+      // only the LOCAL view does. The departure stays queued — a later explicit
+      // delete of the live row legitimately re-enables the push.
+      if (liveSwitchUuids.contains(pkUuid.toLowerCase())) {
+        debugPrint(
+          '[PK] Cascade guard: refusing DELETE of switch $pkUuid for session '
+          '${session.id} — a live local row still references it (F03).',
+        );
+        if (!cascadeGuardMessageSent) {
+          cascadeGuardMessageSent = true;
+          onStaleLink?.call(
+            'Skipped deleting a PluralKit switch — it is still referenced by a '
+            'live fronting record on this device. Delete that record first if '
+            'you really want the switch removed from PluralKit.',
+          );
+        }
+        continue;
+      }
       try {
         await push.pushSwitchDeletion(session.id, pkUuid.trim(), client);
         await _frontingSessionRepository.clearPluralKitLink(session.id);
@@ -4968,6 +5159,23 @@ class PluralKitSyncService {
     pushServiceOverride: pushServiceOverride,
     allowMassDeletion: allowMassDeletion,
   );
+
+  /// Test-only seam onto the family's shared switch-level cascade-guard input.
+  @visibleForTesting
+  Set<String> debugLiveLinkedSwitchUuids(
+    List<domain.FrontingSession> rows,
+  ) => _liveLinkedSwitchUuids(rows);
+
+  /// Test-only seam onto the importer-artifact tombstone helper
+  /// (clear PK link, then soft delete — no delete-intent stamp).
+  @visibleForTesting
+  Future<void> debugTombstoneImporterArtifact(String rowId) =>
+      _tombstoneImporterArtifact(rowId);
+
+  /// Test-only seam onto the capture-replay PK-import transaction wrapper.
+  @visibleForTesting
+  Future<T> debugCaptureImportEmissions<T>(Future<T> Function() body) =>
+      _captureImportEmissions<T>(body);
 
   /// Push pending member deletions. Runs AFTER switch deletions (caller
   /// orders). R5 cascade guard included: skip any member that still has

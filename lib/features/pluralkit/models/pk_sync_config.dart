@@ -88,6 +88,18 @@ enum PkSleepSyncBehavior {
 class PkDeleteRiskPreview {
   final int membersToDelete;
   final int switchesToDelete;
+
+  /// F03: switch-deletion candidates whose switch uuid is also carried by a
+  /// LIVE local row, so the push will not fully `DELETE` the switch — it either
+  /// removes only the departing member via the H2 members-PATCH (a real PK
+  /// mutation) or, on a local/PK divergence, the cascade guard skips it. The
+  /// preview cannot tell which without a per-switch GET, so these are counted
+  /// separately from full deletions but ARE pushable, hence they must surface
+  /// in the confirmation gate (folded into [hasRemovals] / [isSignificant])
+  /// rather than being silently bucketed with the can't-touch [switchesSkipped]
+  /// set — otherwise the confirm dialog would show zero while the push PATCHes
+  /// the user's real PluralKit account.
+  final int switchMemberRemovals;
   final int groupMembershipsToRemove;
   final int memberProxyTagsToRemove;
   final int membersSkipped;
@@ -97,6 +109,7 @@ class PkDeleteRiskPreview {
   const PkDeleteRiskPreview({
     this.membersToDelete = 0,
     this.switchesToDelete = 0,
+    this.switchMemberRemovals = 0,
     this.groupMembershipsToRemove = 0,
     this.memberProxyTagsToRemove = 0,
     this.membersSkipped = 0,
@@ -107,6 +120,7 @@ class PkDeleteRiskPreview {
   int get totalToRemove =>
       membersToDelete +
       switchesToDelete +
+      switchMemberRemovals +
       groupMembershipsToRemove +
       memberProxyTagsToRemove;
 
@@ -115,13 +129,15 @@ class PkDeleteRiskPreview {
 
   bool get hasRemovals => totalToRemove > 0;
 
-  bool get isSignificant {
-    if (membersToDelete > 0) return true;
-    if (memberProxyTagsToRemove > 0) return true;
-    if (switchesToDelete >= 10) return true;
-    if (groupMembershipsToRemove >= 10) return true;
-    return switchesToDelete + groupMembershipsToRemove >= 10;
-  }
+  /// Whether any pending destructive push warrants explicit confirmation.
+  ///
+  /// Binding maintainer decision (2026-06-11, F10 family): ANY pending
+  /// PluralKit switch deletion (or group-membership removal) requires explicit
+  /// user confirmation — the old `>= 10` threshold is dropped. Importer-origin
+  /// `delete_intent_epoch` stamps existed in the wild (the canonicalization
+  /// destruction bug), so even a single unconfirmed full switch DELETE against
+  /// the user's real PluralKit account is unacceptable.
+  bool get isSignificant => totalToRemove > 0;
 }
 
 /// Read-only preview of pending group-membership removals.

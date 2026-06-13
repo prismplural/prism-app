@@ -130,39 +130,43 @@ void main() {
       );
     });
 
-    test('isSignificant applies switch and group membership thresholds', () {
+    test('isSignificant treats any switch deletion as significant', () {
+      // Binding maintainer decision (2026-06-11): the >= 10 threshold is
+      // dropped — a single full switch DELETE against the user's real
+      // PluralKit account must be confirmed.
       expect(
-        const PkDeleteRiskPreview(switchesToDelete: 9).isSignificant,
-        isFalse,
-      );
-      expect(
-        const PkDeleteRiskPreview(switchesToDelete: 10).isSignificant,
+        const PkDeleteRiskPreview(switchesToDelete: 1).isSignificant,
         isTrue,
       );
       expect(
-        const PkDeleteRiskPreview(groupMembershipsToRemove: 9).isSignificant,
-        isFalse,
-      );
-      expect(
-        const PkDeleteRiskPreview(groupMembershipsToRemove: 10).isSignificant,
+        const PkDeleteRiskPreview(switchesToDelete: 9).isSignificant,
         isTrue,
       );
     });
 
-    test('isSignificant applies combined switch plus group threshold', () {
+    test(
+      'isSignificant treats any group-membership removal as significant',
+      () {
+        expect(
+          const PkDeleteRiskPreview(groupMembershipsToRemove: 1).isSignificant,
+          isTrue,
+        );
+        expect(
+          const PkDeleteRiskPreview(groupMembershipsToRemove: 9).isSignificant,
+          isTrue,
+        );
+      },
+    );
+
+    test('isSignificant is false only when nothing is removed', () {
+      expect(const PkDeleteRiskPreview().isSignificant, isFalse);
       expect(
         const PkDeleteRiskPreview(
-          switchesToDelete: 4,
-          groupMembershipsToRemove: 5,
+          membersSkipped: 5,
+          switchesSkipped: 5,
+          groupMembershipsSkipped: 5,
         ).isSignificant,
         isFalse,
-      );
-      expect(
-        const PkDeleteRiskPreview(
-          switchesToDelete: 4,
-          groupMembershipsToRemove: 6,
-        ).isSignificant,
-        isTrue,
       );
     });
   });

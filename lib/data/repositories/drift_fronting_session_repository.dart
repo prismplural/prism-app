@@ -176,31 +176,33 @@ class DriftFrontingSessionRepository
   Future<void> updateSession(domain.FrontingSession session) async {
     final existingRow = await _dao.getSessionById(session.id);
     if (existingRow == null) return;
-    // H5 discriminator: a tombstone is revivable only when this write
-    // restores a PK identity onto importer/migration CLEANUP — link-cleared
-    // (the C1 idiom), no local delete intent, and the incoming session
-    // carries a PK link. A tombstone with the link INTACT is user intent
-    // (local delete awaiting push, or a peer's synced delete — is_deleted
-    // syncs, delete_intent_epoch is device-local) and must stay deleted.
-    final canReviveImporterCleanupTombstone =
-        existingRow.isDeleted &&
-        !session.isDeleted &&
-        (existingRow.pluralkitUuid == null ||
-            existingRow.pluralkitUuid!.isEmpty) &&
-        existingRow.deleteIntentEpoch == null &&
-        (session.pluralkitUuid?.isNotEmpty ?? false);
-    if (existingRow.isDeleted && !canReviveImporterCleanupTombstone) return;
+    // F10: a tombstone is TERMINAL here — updateSession never flips
+    // is_deleted back to false on an existing row, whatever the row's
+    // deleteIntentEpoch or PK-link state.
+    //
+    // In-place revival is unsyncable by construction. is_deleted is absorbing
+    // in the CRDT merge layer deployed on every 0.12.x device: prism-sync
+    // strips is_deleted=false from outbound ops (client.rs record_update /
+    // record_create phantom-undelete strip) and the receiver drops every
+    // non-delete op targeting a tombstoned entity (merge.rs tombstone gate).
+    // So a local un-delete written here can never propagate — it would leave
+    // this device with a live Drift row while every peer's field_versions
+    // (and this device's own engine state) still say deleted, until the
+    // tombstone pruner eventually hard-deletes the row out from under the UI.
+    //
+    // The earlier "revive importer/migration CLEANUP tombstones" carve-out
+    // (PK audit H5 discriminator) is removed: it tried to distinguish user
+    // deletes from importer cleanup and rebuild the latter in place, but that
+    // rebuild is exactly the unsyncable write above. Post-migration / corrective
+    // "re-import from PluralKit" recovery must re-create rows under FRESH ids
+    // instead (deferred to the reconciliation layer), never resurrect a burned
+    // entity id. Do NOT reintroduce a revive branch here.
+    if (existingRow.isDeleted) return;
 
     final changedFields = diffSyncFields(
       _sessionFieldsFromRow(existingRow),
       _sessionFields(session),
     );
-    if (canReviveImporterCleanupTombstone) {
-      changedFields['is_deleted'] = false;
-      if (existingRow.deletePushStartedAt != null) {
-        changedFields['delete_push_started_at'] = null;
-      }
-    }
     if (changedFields.isEmpty) return;
 
     final companion = _partialSessionCompanion(changedFields);
