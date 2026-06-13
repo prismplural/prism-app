@@ -18,9 +18,12 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
     show triggerOutboxDrain;
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/group_sort_state.dart';
+import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -2186,6 +2189,47 @@ class DataImportService {
               isDeleted: Value(a.isDeleted),
             ),
           );
+          // The raw DAO insert bypasses DriftMediaAttachmentRepository's
+          // paired syncRecordCreate, so without this emission peers receive the
+          // imported message but never the attachment row carrying
+          // mediaId/encryptionKeyB64/contentHash. Capture a create op built from
+          // the shared field-map builder (byte-identical to a repository-created
+          // row); the outer fence persists it to the outbox in-txn and drains it
+          // post-commit. `isDeleted` carries the row's real state so an imported
+          // tombstoned attachment propagates as a tombstone and can't resurrect
+          // on a peer (mirroring the board-post path below).
+          captured.add(
+            CapturedSyncOp(
+              'media_attachments',
+              a.id,
+              SyncRecordOpType.create,
+              DriftMediaAttachmentRepository.attachmentFields(
+                MediaAttachment(
+                  id: a.id,
+                  messageId: a.messageId,
+                  memberId: a.memberId,
+                  tag: a.tag,
+                  mediaId: a.mediaId,
+                  mediaType: a.mediaType,
+                  encryptionKeyB64: a.encryptionKeyB64,
+                  contentHash: a.contentHash,
+                  plaintextHash: a.plaintextHash,
+                  mimeType: a.mimeType,
+                  sizeBytes: a.sizeBytes,
+                  width: a.width,
+                  height: a.height,
+                  durationMs: a.durationMs,
+                  blurhash: a.blurhash,
+                  waveformB64: a.waveformB64,
+                  thumbnailMediaId: a.thumbnailMediaId,
+                  sourceUrl: a.sourceUrl,
+                  previewUrl: a.previewUrl,
+                  isDeleted: a.isDeleted,
+                ),
+                isDeleted: a.isDeleted,
+              ),
+            ),
+          );
           mediaAttachmentsCreated++;
         }
 
@@ -2209,6 +2253,33 @@ class DataImportService {
                 p.editedAt != null ? DateTime.parse(p.editedAt!) : null,
               ),
               isDeleted: Value(p.isDeleted),
+            ),
+          );
+          // Same missing-emission gap as media above — the raw DAO insert
+          // bypasses DriftMemberBoardPostsRepository's syncRecordCreate. Emit a
+          // create op via the shared builder, which INCLUDES `is_deleted` so an
+          // imported tombstoned post propagates as a tombstone (not a live row)
+          // and can't resurrect on a peer.
+          captured.add(
+            CapturedSyncOp(
+              'member_board_posts',
+              p.id,
+              SyncRecordOpType.create,
+              DriftMemberBoardPostsRepository.postFields(
+                MemberBoardPost(
+                  id: p.id,
+                  targetMemberId: p.targetMemberId,
+                  authorId: p.authorId,
+                  audience: p.audience,
+                  title: p.title,
+                  body: p.body,
+                  createdAt: DateTime.parse(p.createdAt),
+                  writtenAt: DateTime.parse(p.writtenAt),
+                  editedAt:
+                      p.editedAt != null ? DateTime.parse(p.editedAt!) : null,
+                  isDeleted: p.isDeleted,
+                ),
+              ),
             ),
           );
           memberBoardPostsCreated++;
@@ -2308,6 +2379,12 @@ class DataImportService {
     // unconfigured) can never run an FFI call before the data committed. Fired
     // after the media finalize and the fronting emit pass so the restore lands
     // as one coherent burst. The drainer owns failure/retry/quarantine.
+    //
+    // `syncCredentialsPersisted.value` is re-read here on purpose (the in-txn
+    // persist gate above read it too): a true->false flip between the two
+    // leaves rows durably enqueued for a later boot/health drain, a false->true
+    // flip leaves nothing to drain — both safe, so don't cache it as a stale
+    // captured boolean.
     if (syncCredentialsPersisted.value && captured.isNotEmpty) {
       await triggerOutboxDrain(db, syncCurrentHandle.value);
     }

@@ -136,7 +136,25 @@ class DriftMediaAttachmentRepository
     });
   }
 
-  Map<String, dynamic> _attachmentFields(domain.MediaAttachment a) {
+  Map<String, dynamic> _attachmentFields(domain.MediaAttachment a) =>
+      attachmentFields(a);
+
+  /// Field-map builder for media-attachment sync emissions.
+  ///
+  /// Public so the importer (`DataImportService`) can construct
+  /// byte-identical `fields` payloads when it bypasses `create()` for the raw
+  /// bulk insert — mirroring `DriftMemberRepository.memberFields` and
+  /// `DriftMemberBoardPostsRepository.postFields`. Single source of truth per
+  /// entity keeps sync emissions aligned.
+  ///
+  /// `isDeleted` defaults to false because a `create()`-d row is always live;
+  /// the importer passes the row's real state so an imported tombstoned
+  /// attachment propagates as a tombstone instead of resurrecting on a peer
+  /// (mirroring `postFields(p.isDeleted)`).
+  static Map<String, dynamic> attachmentFields(
+    domain.MediaAttachment a, {
+    bool isDeleted = false,
+  }) {
     return {
       'member_id': a.memberId,
       'tag': a.tag,
@@ -158,7 +176,7 @@ class DriftMediaAttachmentRepository
       'thumbnail_plaintext_hash': a.thumbnailPlaintextHash,
       'source_url': a.sourceUrl,
       'preview_url': a.previewUrl,
-      'is_deleted': false,
+      'is_deleted': isDeleted,
     };
   }
 }
