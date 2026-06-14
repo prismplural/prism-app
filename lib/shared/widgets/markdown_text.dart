@@ -74,15 +74,19 @@ class MarkdownText extends StatelessWidget {
     final theme = Theme.of(context);
     final sheet = _buildStyleSheet(context, theme);
     final bodyStyle = sheet.p ?? baseStyle ?? const TextStyle();
+    final normalizedData = _normalizeDiscordLikeIndentation(data);
+    final sections = _splitBlockquoteSections(normalizedData);
+
+    if (sections.length > 1 || sections.single.isBlockquote) {
+      return _buildSectionedMarkdown(sheet: sheet, sections: sections);
+    }
 
     // `revealKey: data` resets reveal state when the rendered content changes,
     // so a reused widget slot never shows a stale spoiler as already revealed.
     return _SpoilerRevealHost(
       revealKey: data,
       child: MarkdownBody(
-        data: preserveBlankLines(
-          applyPlainLineEscapes(_normalizeDiscordLikeIndentation(data)),
-        ),
+        data: preserveBlankLines(applyPlainLineEscapes(normalizedData)),
         selectable: selectable,
         styleSheet: sheet,
         softLineBreak: true,
@@ -124,6 +128,62 @@ class MarkdownText extends StatelessWidget {
           'img': ?imgElementBuilder,
         },
       ),
+    );
+  }
+
+  Widget _buildSectionedMarkdown({
+    required MarkdownStyleSheet sheet,
+    required List<_MarkdownSection> sections,
+  }) {
+    final children = <Widget>[];
+    final blockSpacing = sheet.blockSpacing ?? 0;
+    final quoteStyle = sheet.blockquote ?? sheet.p ?? baseStyle;
+
+    void addSpacingIfNeeded() {
+      if (children.isNotEmpty && blockSpacing > 0) {
+        children.add(SizedBox(height: blockSpacing));
+      }
+    }
+
+    for (final section in sections) {
+      if (section.content.isEmpty) continue;
+      addSpacingIfNeeded();
+      if (section.isBlockquote) {
+        children.add(
+          DecoratedBox(
+            decoration: sheet.blockquoteDecoration ?? const BoxDecoration(),
+            child: Padding(
+              padding: sheet.blockquotePadding ?? EdgeInsets.zero,
+              child: _buildNestedMarkdown(section.content, quoteStyle),
+            ),
+          ),
+        );
+      } else {
+        children.add(_buildNestedMarkdown(section.content, baseStyle));
+      }
+    }
+
+    if (children.isEmpty) return const SizedBox.shrink();
+    if (children.length == 1) return children.single;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
+  Widget _buildNestedMarkdown(String content, TextStyle? style) {
+    return MarkdownText(
+      data: content,
+      enabled: enabled,
+      baseStyle: style,
+      selectable: selectable,
+      imageBuilder: imageBuilder,
+      imgElementBuilder: imgElementBuilder,
+      memberMap: memberMap,
+      onTapMember: onTapMember,
+      tableBorderless: tableBorderless,
+      tableBorderColor: tableBorderColor,
     );
   }
 
@@ -220,6 +280,74 @@ class MarkdownText extends StatelessWidget {
       return;
     }
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  List<_MarkdownSection> _splitBlockquoteSections(String input) {
+    if (input.isEmpty) {
+      return [_MarkdownSection.text(input)];
+    }
+
+    final sections = <_MarkdownSection>[];
+    final buffer = <String>[];
+    var inBlockquote = false;
+    var sawBlockquote = false;
+    _MarkdownFence? fence;
+
+    void flush() {
+      if (buffer.isEmpty) return;
+      final content = _trimBoundaryBlankLines(buffer.join('\n'));
+      if (content.isNotEmpty) {
+        sections.add(_MarkdownSection(content, inBlockquote));
+      }
+      buffer.clear();
+    }
+
+    for (final line in input.split('\n')) {
+      if (fence != null) {
+        buffer.add(line);
+        if (_isClosingFence(line, fence)) fence = null;
+        continue;
+      }
+
+      final quoteContent = _stripOneBlockquoteMarker(line);
+      if (quoteContent != null) {
+        sawBlockquote = true;
+        if (!inBlockquote) {
+          flush();
+          inBlockquote = true;
+        }
+        buffer.add(quoteContent);
+        continue;
+      }
+
+      if (inBlockquote) {
+        flush();
+        inBlockquote = false;
+      }
+      buffer.add(line);
+      fence = _openingFence(line);
+    }
+
+    flush();
+    return sawBlockquote ? sections : [_MarkdownSection.text(input)];
+  }
+
+  String? _stripOneBlockquoteMarker(String line) {
+    final match = _blockquoteLinePattern.firstMatch(line);
+    return match == null ? null : line.substring(match.end);
+  }
+
+  String _trimBoundaryBlankLines(String input) {
+    final lines = input.split('\n');
+    var start = 0;
+    var end = lines.length;
+    while (start < end && _blankLinePattern.hasMatch(lines[start])) {
+      start++;
+    }
+    while (end > start && _blankLinePattern.hasMatch(lines[end - 1])) {
+      end--;
+    }
+    return lines.sublist(start, end).join('\n');
   }
 
   String _normalizeDiscordLikeIndentation(String input) {
@@ -345,6 +473,14 @@ class MarkdownText extends StatelessWidget {
     if (end - index < 3) return null;
     return line.substring(index, end);
   }
+}
+
+class _MarkdownSection {
+  const _MarkdownSection(this.content, this.isBlockquote);
+  const _MarkdownSection.text(this.content) : isBlockquote = false;
+
+  final String content;
+  final bool isBlockquote;
 }
 
 /// Owns the [SpoilerRevealController] for a [MarkdownText] subtree and exposes
@@ -582,6 +718,7 @@ const _nbsp = '\u00A0';
 final _blankLinePattern = RegExp(r'^[ \t\r]*$');
 final _fenceOpenPattern = RegExp(r'^ {0,3}(`{3,}|~{3,})');
 
+final _blockquoteLinePattern = RegExp(r'^[ \t]{0,3}>[ \t]?');
 final _blockquoteMarker = RegExp(r'^[ \t]{0,3}>{1,3}(?:[ \t]|$)');
 final _headingMarker = RegExp(r'^#{1,6}(?:[ \t]|$)');
 final _listMarker = RegExp(r'^(?:[*+-]|\d{1,9}[.)])(?:[ \t]|$)');

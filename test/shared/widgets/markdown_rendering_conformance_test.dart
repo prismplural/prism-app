@@ -127,6 +127,24 @@ void main() {
       expect(text, isNot(contains('&amp;')));
     });
 
+    testWidgets('inline constructs render inside blockquotes', (tester) async {
+      await tester.pumpMarkdown(
+        '> **bold**, *italic*, `code`, [docs](https://example.com)',
+      );
+
+      final text = tester.renderedText;
+      expect(text, contains('bold, italic, code, docs'));
+      expect(text, isNot(contains('**')));
+      expect(text, isNot(contains('*italic*')));
+      expect(text, isNot(contains('[docs]')));
+      expect(text, isNot(contains('https://example.com')));
+      expect(tester.hasSpanStyle('bold', fontWeight: FontWeight.bold), isTrue);
+      expect(
+        tester.hasSpanStyle('italic', fontStyle: FontStyle.italic),
+        isTrue,
+      );
+    });
+
     testWidgets('raw HTML stays literal instead of rendering as markup', (
       tester,
     ) async {
@@ -168,6 +186,37 @@ extension _MarkdownPump on WidgetTester {
   String get renderedText => _allRenderedText(this).join('\n');
 
   double leftOfText(String text) => getTopLeft(find.text(text)).dx;
+
+  bool hasSpanStyle(
+    String text, {
+    FontWeight? fontWeight,
+    FontStyle? fontStyle,
+  }) {
+    bool inspect(InlineSpan span) {
+      if (span is TextSpan) {
+        if (span.text?.contains(text) ?? false) {
+          final style = span.style;
+          final matchesWeight =
+              fontWeight == null || style?.fontWeight == fontWeight;
+          final matchesStyle =
+              fontStyle == null || style?.fontStyle == fontStyle;
+          if (matchesWeight && matchesStyle) return true;
+        }
+        final children = span.children;
+        if (children != null) {
+          for (final child in children) {
+            if (inspect(child)) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    for (final richText in widgetList<RichText>(find.byType(RichText))) {
+      if (inspect(richText.text)) return true;
+    }
+    return false;
+  }
 }
 
 List<String> _allRenderedText(WidgetTester tester) {
