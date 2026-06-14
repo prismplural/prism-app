@@ -4,12 +4,13 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
-## [0.13.0] - 2026-06-13
+## [0.13.0] - 2026-06-14
 
 Feature release. PluralKit sync is substantially more reliable, sync correctness
-was hardened across a multi-wave CRDT review, custom fields gain header icons and
-member layouts, markdown supports member mentions, and media sync moves toward
-self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`e72ae73`).
+and delivery were hardened across multiple CRDT review waves, custom fields gain
+header icons and member layouts, markdown supports member mentions, and media
+sync moves toward self-healing delivery. The sync pin moves to
+`prism-sync v0.13.0` (`2992d60`).
 
 ### Added
 - Custom fields can display profile header icons, with a combined icon picker,
@@ -32,8 +33,21 @@ self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`e72ae73`).
 - PluralKit sync was hardened end-to-end: per-member push isolation, per-field
   PATCH payloads, client-side field caps, a stable service identity, token
   rotation, a mass-deletion breaker, and corrective imports that preserve data.
-- Sync apply is now atomic and recovers from interrupted pulls, and a device
-  revoke only wipes after a cryptographically verified self-revocation.
+  Group-sync catch-up now backfills only the fields a peer is missing rather than
+  re-broadcasting.
+- Sync delivery is durable: each change and its sync intent commit together
+  through a write-ahead outbox, ops are never dropped while the engine is
+  unconfigured, and the delivery journal drains and acknowledges after commit, so
+  a crash or interrupted pull no longer loses what you sent or received.
+- Hybrid logical clocks tolerate device clock drift — watermarks advance
+  monotonically, the push queue orders by logical time, forward excursions repair
+  against validated relay time, and snapshot imports gate on drift — so a device
+  with a wrong clock can't reorder history.
+- Key rotation is crash-safe: revoke and rekey journal ahead of the rotation,
+  verified epoch-key history travels in the pairing bundle, and batches that
+  arrive before their key are quarantined and replayed once it does instead of
+  being dropped. A device revoke still wipes only after a cryptographically
+  verified self-revocation.
 - prism_sync is built as a native asset, so a Rust toolchain is required at app
   build time.
 - phosphor_flutter now tracks a maintained fork that compiles on Flutter 3.44+.
@@ -41,11 +55,23 @@ self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`e72ae73`).
 ### Fixed
 - Switches and fronting sessions no longer resurrect through import, re-import, or
   stale snapshots, and primary-key tombstone collisions on import are handled.
+- Pairing holds its snapshot until a new device catches up and persists a
+  refreshed session token, so pairing no longer deadlocks or drops its session
+  after a relay refresh; a stale device recovers through a signed session-refresh
+  instead of re-pairing.
+- Schema migrations run transactionally and idempotently, and migrated synced
+  columns re-emit through a repair queue, so a half-applied upgrade can't strand
+  data.
+- Imported media and board posts now emit sync ops, and fronting orphan-rescue
+  rewrites re-emit with normalized member ids.
 - iOS recovers and diagnoses unreadable secure storage during sync setup instead
   of dead-ending recovery-phrase entry.
 - iOS no longer links SDWebImage through both CocoaPods and Swift Package
   Manager.
 - Spam-tapping archive actions no longer pops past the app shell.
+- Mention overlays honor the active palette theme, deleted custom-field choices
+  can be cleared, inline markdown renders inside blockquotes, and a custom
+  notification skip duration is saved.
 - GIF API hosts are allowlisted, secure-storage writes and at-rest app data were
   hardened, and the post-capture screenshot warning was removed.
 - Backup export now carries the navigation label mode and media thumbnail hashes.
@@ -55,10 +81,17 @@ self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`e72ae73`).
   speaking-as, and custom-field slider display.
 
 ### Internal
-- Folded in CRDT correctness remediation waves 1 and 2 (all three critical
-  findings closed) and the full PluralKit sync audit.
-- Squashed the unreleased v33–v37 database migrations into the v32 floor, and
-  added an identity-alias table with sync-generation columns.
+- Folded in the CRDT correctness remediation waves (all three critical findings
+  closed) and the full PluralKit sync audit.
+- The relay serves each pull from one consistent snapshot, prunes batches
+  atomically, keys snapshots per audience, guards the prune tail against live
+  pairing snapshots, detects a restored database through a log-lineage token, and
+  recovers stale devices through a signed session-refresh endpoint.
+- Release builds disable icon font tree-shaking so the runtime icon picker can
+  render any glyph, and the Windows desktop build links the system OpenSSL to
+  avoid the native-asset MAX_PATH limit.
+- Squashed the unreleased database migrations into the v32 floor, and added an
+  identity-alias table with sync-generation columns.
 - Member-add performance work (single-transaction custom-field commit, a
   lightweight member-name map) plus benchmarks and save-timing diagnostics.
 
