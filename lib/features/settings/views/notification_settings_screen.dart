@@ -208,11 +208,17 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
     int initial,
   ) async {
     final l10n = context.l10n;
-    final controller = TextEditingController(
-      text: initial >= _kSuppressMin && initial <= _kSuppressMax
-          ? initial.toString()
-          : '',
-    );
+    var input = initial >= _kSuppressMin && initial <= _kSuppressMax
+        ? initial.toString()
+        : '';
+    int? parsedInput() {
+      final parsed = int.tryParse(input);
+      if (parsed == null || parsed < _kSuppressMin || parsed > _kSuppressMax) {
+        return null;
+      }
+      return parsed;
+    }
+
     return PrismDialog.show<int>(
       context: context,
       title: l10n.notificationsSuppressCustomDialogTitle,
@@ -220,41 +226,38 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
         PrismButton(
           label: MaterialLocalizations.of(context).cancelButtonLabel,
           tone: PrismButtonTone.outlined,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
         ),
         PrismButton(
           label: MaterialLocalizations.of(context).okButtonLabel,
           tone: PrismButtonTone.filled,
           onPressed: () {
-            final parsed = int.tryParse(controller.text);
-            if (parsed != null &&
-                parsed >= _kSuppressMin &&
-                parsed <= _kSuppressMax) {
-              Navigator.of(context).pop(parsed);
+            final parsed = parsedInput();
+            if (parsed != null) {
+              Navigator.of(context, rootNavigator: true).pop(parsed);
             }
           },
         ),
       ],
       builder: (dialogContext) {
-        return TextField(
-          controller: controller,
+        return TextFormField(
+          initialValue: input,
           keyboardType: TextInputType.number,
           autofocus: true,
           decoration: InputDecoration(
             suffixText: l10n.notificationsSuppressCustomSuffix,
             helperText: l10n.notificationsSuppressCustomDialogHelper,
           ),
-          onSubmitted: (_) {
-            final parsed = int.tryParse(controller.text);
-            if (parsed != null &&
-                parsed >= _kSuppressMin &&
-                parsed <= _kSuppressMax) {
+          onChanged: (value) => input = value,
+          onFieldSubmitted: (_) {
+            final parsed = parsedInput();
+            if (parsed != null) {
               Navigator.of(dialogContext).pop(parsed);
             }
           },
         );
       },
-    ).whenComplete(controller.dispose);
+    );
   }
 }
 
