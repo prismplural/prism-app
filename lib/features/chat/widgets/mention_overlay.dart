@@ -8,7 +8,6 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart'
     as mention_utils;
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -205,21 +204,21 @@ class MentionOverlayState extends State<MentionOverlay>
                       maxHeight: 240,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.warmBlack.withValues(alpha: 0.65)
-                          : AppColors.warmWhite.withValues(alpha: 0.8),
+                      color: theme.colorScheme.surface.withValues(
+                        alpha: isDark ? 0.92 : 0.96,
+                      ),
                       borderRadius: BorderRadius.circular(
                         PrismShapes.of(context).radius(16),
                       ),
                       border: Border.all(
-                        color: isDark
-                            ? AppColors.warmWhite.withValues(alpha: 0.12)
-                            : AppColors.warmBlack.withValues(alpha: 0.08),
+                        color: theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.warmBlack.withValues(
-                            alpha: isDark ? 0.4 : 0.12,
+                          color: theme.colorScheme.shadow.withValues(
+                            alpha: 0.18,
                           ),
                           blurRadius: 20,
                           offset: const Offset(0, 4),
