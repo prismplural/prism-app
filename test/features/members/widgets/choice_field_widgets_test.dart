@@ -461,6 +461,38 @@ void main() {
         );
       },
     );
+
+    testWidgets('tapping deleted selected option removes stale value', (
+      tester,
+    ) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final field = _choiceField(
+        options: [_option('a', 'Apples'), _deletedOption('d', 'Dragon Fruit')],
+      );
+      final existing = _value('{"options":["d"]}');
+
+      await tester.pumpWidget(
+        _editorSubject(
+          field: field,
+          value: existing,
+          repo: repo,
+          controller: controller,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Dragon Fruit'));
+      await tester.pump();
+
+      expect(controller.hasPendingChanges, isTrue);
+
+      await controller.commit();
+      await tester.pump();
+
+      expect(repo.deletedValueIds, ['val-1']);
+      expect(repo.upsertedValues, isEmpty);
+    });
   });
 
   // ─── Display tests ──────────────────────────────────────────────────────────

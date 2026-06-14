@@ -237,6 +237,11 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     _stage(_currentValue.copyWith(optionIds: selected));
   }
 
+  void _removeOptionSelection(String optionId) {
+    final selected = Set<String>.of(_currentValue.optionIds)..remove(optionId);
+    _stage(_currentValue.copyWith(optionIds: selected));
+  }
+
   Future<void> _handleLongPress(
     BuildContext context,
     ChoiceConfig config,
@@ -552,8 +557,7 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
           child: PrismChip(
             label: option.label,
             selected: isSelected,
-            // Fix 5: deleted chips are not tappable in editor.
-            onTap: null,
+            onTap: () => _removeOptionSelection(option.id),
           ),
         ),
       ),
