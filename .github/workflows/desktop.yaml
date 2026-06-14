@@ -119,6 +119,28 @@ jobs:
           Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Pub\Cache" -ErrorAction SilentlyContinue
           Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo" -ErrorAction SilentlyContinue
 
+      - name: Use the runner's OpenSSL (skip the vendored from-source build)
+        # Native assets build prism_sync under a deep .dart_tool/hooks_runner
+        # path; SQLCipher's vendored OpenSSL then overflows Windows' 260-char
+        # MAX_PATH compiling its hundreds of nested sources (cargokit's shorter
+        # path hid this pre-0.13.0). OPENSSL_NO_VENDOR links the runner's
+        # already-installed OpenSSL, so that deep build never happens.
+        shell: pwsh
+        run: |
+          $root = $env:OPENSSL_ROOT_DIR
+          if (-not $root -or -not (Test-Path (Join-Path $root 'include\openssl\opensslv.h'))) {
+            foreach ($c in @('C:\Program Files\OpenSSL', 'C:\Program Files\OpenSSL-Win64')) {
+              if (Test-Path (Join-Path $c 'include\openssl\opensslv.h')) { $root = $c; break }
+            }
+          }
+          Write-Host "OPENSSL_DIR = $root"
+          Write-Host "--- crypto/ssl libs under root ---"
+          Get-ChildItem -Recurse -Include 'libcrypto*.lib','libssl*.lib','crypto*.lib','ssl*.lib' -Path $root -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host $_.FullName }
+          "OPENSSL_DIR=$root"   | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+          "OPENSSL_NO_VENDOR=1" | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+          "OPENSSL_STATIC=1"    | Out-File -Append -Encoding ascii $env:GITHUB_ENV
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
