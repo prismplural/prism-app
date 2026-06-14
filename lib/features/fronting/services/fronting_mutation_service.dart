@@ -126,6 +126,19 @@ class FrontingMutationService {
     );
   }
 
+  /// The most-recently started session in [sessions], or null when empty.
+  ///
+  /// Preferred over [_earliestSession] when picking which open to preserve for
+  /// an already-active member: matches the repair's keep-most-recent policy, so
+  /// a stale earlier zombie is closed rather than carried forward as the front.
+  FrontingSession? _latestSession(List<FrontingSession> sessions) {
+    if (sessions.isEmpty) return null;
+    return sessions.reduce(
+      (latest, session) =>
+          session.startTime.isAfter(latest.startTime) ? session : latest,
+    );
+  }
+
   /// For the explicit always-fronting members among [sessions], returns the
   /// single open session to preserve per member — the earliest-started, i.e.
   /// their persistent background session. Non-always-fronting rows, sleep rows,
@@ -190,7 +203,7 @@ class FrontingMutationService {
           final sameMemberActive = existing
               .where((s) => s.memberId == memberId && !s.isSleep)
               .toList();
-          final preservedActiveSession = _earliestSession(sameMemberActive);
+          final preservedActiveSession = _latestSession(sameMemberActive);
           if (preservedActiveSession != null) {
             for (final s in sameMemberActive) {
               if (s.id == preservedActiveSession.id) continue;
@@ -307,7 +320,7 @@ class FrontingMutationService {
           final sameMemberActive = actives
               .where((s) => s.memberId == memberId && !s.isSleep)
               .toList();
-          final preservedSession = _earliestSession(sameMemberActive);
+          final preservedSession = _latestSession(sameMemberActive);
           if (preservedSession != null) preserved[memberId] = preservedSession;
         }
         for (final s in actives) {

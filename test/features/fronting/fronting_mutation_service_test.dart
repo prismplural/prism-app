@@ -364,21 +364,23 @@ void main() {
           (s) => s.memberId == 'member-a',
         );
         expect(memberARows.where((s) => s.isActive), hasLength(1));
-        expect(
-          repo.sessions.singleWhere((s) => s.id == 'member-a-first').isActive,
-          isTrue,
-        );
+        // The most-recently started open is kept (matches the repair's collapse
+        // policy); the stale earlier row is the one closed.
         expect(
           repo.sessions
               .singleWhere((s) => s.id == 'member-a-duplicate')
-              .endTime,
+              .isActive,
+          isTrue,
+        );
+        expect(
+          repo.sessions.singleWhere((s) => s.id == 'member-a-first').endTime,
           cleanupAt,
         );
       },
     );
 
     test(
-      'startFronting keeps the earliest active row when Drift returns newest first',
+      'startFronting keeps the most-recent active row when Drift returns newest first',
       () async {
         final first = FrontingSession(
           id: 'member-a-first',
@@ -399,8 +401,8 @@ void main() {
         ], startTime: cleanupAt);
 
         expect(result.isSuccess, isTrue);
-        final kept = await repository.getSessionById(first.id);
-        final closed = await repository.getSessionById(duplicate.id);
+        final closed = await repository.getSessionById(first.id);
+        final kept = await repository.getSessionById(duplicate.id);
         expect(kept, isNotNull);
         expect(closed, isNotNull);
         expect(kept!.endTime, isNull);
@@ -748,7 +750,7 @@ void main() {
       });
 
       test(
-        'keeps only the earliest active selected-member row in Drift',
+        'keeps only the most-recent active selected-member row in Drift',
         () async {
           final first = FrontingSession(
             id: 'member-a-first',
@@ -769,8 +771,10 @@ void main() {
           ], now: DateTime(2026, 5, 15, 0, 5));
 
           expect(result.isSuccess, isTrue);
-          final kept = await repository.getSessionById(first.id);
-          final closed = await repository.getSessionById(duplicate.id);
+          // The most-recently started open is preserved (matches the repair's
+          // collapse policy); the stale earlier row is closed.
+          final closed = await repository.getSessionById(first.id);
+          final kept = await repository.getSessionById(duplicate.id);
           final memberBRows = (await repository.getAllSessions()).where(
             (s) => s.memberId == 'member-b',
           );

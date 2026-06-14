@@ -1377,4 +1377,134 @@ void main() {
       expect(result.mediaBlobs, isEmpty);
     });
   });
+
+  // ===========================================================================
+  // Open-session collapse on import. A backup taken from a device that
+  // accumulated zombie opens (lost close-ops, pre-invariant builds) ships every
+  // open faithfully; the importer must restore the one-open-per-member
+  // invariant instead of landing every one as a currently-fronting row
+  // ("import added a bunch of parts to front").
+  // ===========================================================================
+  group('DataImportService open-session collapse', () {
+    late AppDatabase db;
+    late DataImportService importService;
+
+    setUp(() {
+      db = _makeDb();
+      importService = _makeImport(db);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    // New-shape front session (carries sessionType, so the importer routes it
+    // through the standard path, not legacy rescue). Omit endTime for an open.
+    Map<String, dynamic> frontRow(
+      String id,
+      String memberId,
+      DateTime start, {
+      DateTime? end,
+    }) => {
+      'id': id,
+      'startTime': start.toUtc().toIso8601String(),
+      if (end != null) 'endTime': end.toUtc().toIso8601String(),
+      'headmateId': memberId,
+      'sessionType': 0,
+    };
+
+    String exportWith(List<Map<String, dynamic>> frontSessions) {
+      final now = DateTime(2026, 1, 15, 10).toUtc().toIso8601String();
+      return jsonEncode({
+        'formatVersion': '2025.1',
+        'version': '3.0',
+        'appName': 'Prism Plurality',
+        'exportDate': now,
+        'totalRecords': frontSessions.length + 1,
+        'headmates': [
+          {
+            'id': 'm-1',
+            'name': 'Alex',
+            'isActive': true,
+            'createdAt': now,
+            'displayOrder': 0,
+            'isAdmin': false,
+            'customColorEnabled': false,
+          },
+        ],
+        'frontSessions': frontSessions,
+        'sleepSessions': [],
+        'conversations': [],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      });
+    }
+
+    Future<List<dynamic>> openSessionsForMember(String memberId) async {
+      final rows = await db.frontingSessionsDao.getAllSessions();
+      return rows
+          .where((r) => r.memberId == memberId && r.endTime == null)
+          .toList();
+    }
+
+    test(
+      'collapses multiple imported opens to one, keeping the most-recent',
+      () async {
+        final t1 = DateTime(2025, 1, 1, 9);
+        final t2 = DateTime(2025, 6, 1, 9);
+        final t3 = DateTime(2026, 1, 1, 9);
+        final json = exportWith([
+          frontRow('s1', 'm-1', t1),
+          frontRow('s2', 'm-1', t2),
+          frontRow('s3', 'm-1', t3),
+        ]);
+
+        final result = await importService.importData(json);
+        expect(result.frontSessionsCreated, 3);
+
+        final opens = await openSessionsForMember('m-1');
+        expect(
+          opens.length,
+          1,
+          reason: 'only one open session may survive per member',
+        );
+        expect(
+          opens.single.id,
+          's3',
+          reason: 'the most-recently started open is kept',
+        );
+
+        // The earlier opens are closed at their next session's start, not left
+        // open and not stretched to "now".
+        final rows = await db.frontingSessionsDao.getAllSessions();
+        final s1 = rows.firstWhere((r) => r.id == 's1');
+        final s2 = rows.firstWhere((r) => r.id == 's2');
+        expect(s1.endTime, t2);
+        expect(s2.endTime, t3);
+      },
+    );
+
+    test('leaves a single imported open untouched', () async {
+      final json = exportWith([
+        frontRow(
+          's-closed',
+          'm-1',
+          DateTime(2025, 1, 1, 9),
+          end: DateTime(2025, 1, 1, 17),
+        ),
+        frontRow('s-open', 'm-1', DateTime(2026, 1, 1, 9)),
+      ]);
+
+      final result = await importService.importData(json);
+      expect(result.frontSessionsCreated, 2);
+
+      final opens = await openSessionsForMember('m-1');
+      expect(opens.length, 1);
+      expect(opens.single.id, 's-open');
+    });
+  });
 }

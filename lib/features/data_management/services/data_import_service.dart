@@ -41,6 +41,7 @@ import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+import 'package:prism_plurality/features/fronting/services/collapse_open_duplicate_sessions.dart';
 import 'package:prism_plurality/features/fronting/services/merge_adjacent_same_member_rows.dart';
 
 /// Preview of what an import file contains, without actually importing.
@@ -697,6 +698,9 @@ class DataImportService {
         // continuously-fronting members don't end up fragmented across
         // the old-shape session boundaries.
         final legacyTouchedMemberIds = <String>{};
+        // Every member id `writeSession` wrote a row for (new-shape and
+        // legacy-rescue paths both). Fed to the post-import open-collapse pass.
+        final importTouchedMemberIds = <String>{};
         // Cached lookup: PK short id → local member full UUID, populated
         // lazily so we only scan the members table when a legacy PK rescue
         // row actually arrives.
@@ -904,6 +908,11 @@ class DataImportService {
           }
           existingSessionIds.add(id);
           rescueTouchedSessionIds.add(id);
+          if (sessionType == SessionType.normal &&
+              memberId != null &&
+              memberId.isNotEmpty) {
+            importTouchedMemberIds.add(memberId);
+          }
           if (pluralkitUuid != null && pluralkitUuid.isNotEmpty) {
             existingPkPairs.add(
               PkSessionMemberKey(
@@ -1381,6 +1390,16 @@ class DataImportService {
               }
             }
           }
+
+          // Restore the one-open-per-member invariant: the writes above carry
+          // none, so a backup full of zombie opens would restore every one as a
+          // currently-fronting row. Fold the closed ids into the sweep — the
+          // collapse may also close pre-existing opens this import didn't write.
+          final collapsedOpenIds = await collapseOpenDuplicateSessions(
+            frontingSessionRepository,
+            memberIds: importTouchedMemberIds,
+          );
+          rescueTouchedSessionIds.addAll(collapsedOpenIds);
         }); // end SyncRecordMixin.suppress for fronting-session import
 
         // 3. Import sleep sessions
