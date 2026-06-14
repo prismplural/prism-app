@@ -1,6 +1,12 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
+import 'package:prism_sync/generated/frb_generated.dart';
 
 void main() {
   group('ImageCompressionService.fitWithin', () {
@@ -96,4 +102,70 @@ void main() {
       expect(hash, isNotEmpty);
     });
   });
+
+  group('ImageCompressionService.compressImage', () {
+    test(
+      'bakes EXIF orientation before storing dimensions',
+      skip: _missingFfiLibReason(),
+      () async {
+        final ffiLibPath = _resolveFfiLibPath()!;
+        await RustLib.init(externalLibrary: ExternalLibrary.open(ffiLibPath));
+
+        final source = img.Image(width: 80, height: 40);
+        img.fill(source, color: img.ColorRgb8(120, 60, 200));
+        source.exif.imageIfd.orientation = 6;
+
+        try {
+          final encoded = Uint8List.fromList(img.encodeJpg(source));
+          final decodedFixture = img.decodeImage(encoded)!;
+          expect((decodedFixture.width, decodedFixture.height), (40, 80));
+
+          final compressed = await ImageCompressionService().compressImage(
+            encoded,
+          );
+          final decodedCompressed = img.decodeImage(compressed.bytes)!;
+
+          expect((compressed.width, compressed.height), (40, 80));
+          expect(
+            (decodedCompressed.width, decodedCompressed.height),
+            (compressed.width, compressed.height),
+          );
+        } finally {
+          RustLib.dispose();
+        }
+      },
+    );
+  });
+}
+
+String? _missingFfiLibReason() => _resolveFfiLibPath() == null
+    ? 'Rust FFI lib not built for image compression integration test'
+    : null;
+
+String? _resolveFfiLibPath() {
+  final name = Platform.isWindows
+      ? 'prism_sync_ffi.dll'
+      : Platform.isMacOS
+      ? 'libprism_sync_ffi.dylib'
+      : 'libprism_sync_ffi.so';
+  final nativeAssetsDir = Platform.isMacOS
+      ? 'macos'
+      : Platform.isLinux
+      ? 'linux'
+      : Platform.isWindows
+      ? 'windows'
+      : Platform.operatingSystem;
+  final cwd = Directory.current.path;
+  final candidates = [
+    '$cwd/build/native_assets/$nativeAssetsDir/$name',
+    '$cwd/../prism-sync/target/debug/$name',
+    '$cwd/../prism-sync/target/debug/deps/$name',
+    '$cwd/../prism-sync/target/release/$name',
+    '$cwd/../prism-sync/target/release/deps/$name',
+  ];
+
+  for (final path in candidates) {
+    if (File(path).existsSync()) return path;
+  }
+  return null;
 }
