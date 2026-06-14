@@ -36,6 +36,7 @@ import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
+import 'package:prism_plurality/core/sync/remote_delivery_drain.dart';
 import 'package:prism_plurality/core/sync/sync_database_probe.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
@@ -3326,6 +3327,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
   final syncAdapter = ref.watch(driftSyncAdapterProvider);
   final db = ref.watch(databaseProvider);
   final strictCoordinator = ref.watch(strictApplyCoordinatorProvider);
+  final quarantine = ref.watch(syncQuarantineServiceProvider);
 
   return createSyncEventStream(handle).asyncMap((event) async {
     if (kDebugMode) {
@@ -3385,6 +3387,21 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       await syncAdapter.completeSyncBatch();
       if (applyError != null) {
         Error.throwWithStackTrace(applyError, applyStackTrace!);
+      }
+      // After the advisory RemoteChanges batch has applied and
+      // committed, drain the durable consumer-delivery journal that the engine
+      // populated inside the pull transaction. The drain acks each chunk only
+      // AFTER its Drift transaction commits, so a winner survives a crash
+      // between the Rust apply-commit and the Dart write, and the journal never
+      // grows unbounded. Non-strict only; the drain self-serializes and reports
+      // its own errors so it can never crash the sync event loop.
+      if (!strict) {
+        await drainRemoteDeliveries(
+          handle,
+          db: db,
+          syncAdapter: syncAdapter,
+          quarantine: quarantine,
+        );
       }
       await catchUpPkBackedSyncOnceAfterCutover(handle, db);
       // Signal the strict-apply coordinator so the joiner's pre-registered
@@ -3691,6 +3708,183 @@ final strictApplyCoordinatorProvider = Provider<StrictApplyCoordinator>((ref) {
 /// Public (not `_`-prefixed) so the joiner/bootstrap test harness and the
 /// sync event stream can both drive it; the stream is still the only
 /// production caller.
+// ---------------------------------------------------------------------------
+// Consumer-delivery journal drain
+//
+// The Rust engine journals one row per winning pulled op inside the SAME
+// storage transaction that advances the pull cursor / applied_ops /
+// field_versions. `drainRemoteDeliveries` loops take -> apply -> ack against
+// the FFI, where the ack fires only AFTER the Drift transaction commits — so a
+// pulled winner survives a crash between the Rust apply-commit and the Dart
+// consumer-DB write (at-least-once delivery; re-apply is an idempotent CRDT
+// upsert). It is serialized by a single in-flight future so concurrent triggers
+// coalesce instead of racing the same journal rows.
+// ---------------------------------------------------------------------------
+
+/// Apply a chunk of coalesced journal deliveries through the production
+/// [applyRemoteChanges] pipeline (chunked Drift transaction, per-row try/catch).
+/// Returns the number of rows applied. The deliveries arrive coalesced and
+/// chunk-bounded from the journal, so the whole chunk is handed to
+/// [applyRemoteChanges] as one `RemoteChanges`-shaped event committing a single
+/// Drift transaction. The ack in [drainRemoteDeliveries] fires only after this
+/// returns (commit landed).
+Future<int> applyConsumerDeliveries(
+  AppDatabase db,
+  DriftSyncAdapter adapter,
+  List<ConsumerDelivery> deliveries, {
+  bool strict = false,
+  void Function(int applied, int total)? onProgress,
+}) async {
+  final result = await applyRemoteChanges(
+    db,
+    adapter,
+    SyncEvent.fromJson({
+      'type': 'RemoteChanges',
+      'changes': deliveries.map((d) => d.toChange()).toList(),
+    }),
+    strict: strict,
+    onProgress: onProgress,
+  );
+  return result.rowsApplied;
+}
+
+/// Serialization latch: at most one drain runs at a time. A trigger that
+/// arrives while a drain is in flight chains onto it and queues a single
+/// trailing pass so the journal is re-checked after the current drain finishes.
+Future<DrainResult>? _remoteDeliveryDrainInFlight;
+bool _remoteDeliveryDrainQueued = false;
+
+/// Test seam: when set, [drainRemoteDeliveries] routes through this instead of
+/// the FFI/Drift path. Lets unit tests observe trigger wiring without an engine.
+@visibleForTesting
+Future<DrainResult> Function(ffi.PrismSyncHandle handle)?
+debugDrainRemoteDeliveriesOverride;
+
+/// Drain the consumer-delivery journal into the consumer Drift DB and ack each
+/// chunk only after its Drift transaction commits. Serialized: if a drain is
+/// already running, this awaits it and queues one trailing pass so rows
+/// journaled by an overlapping pull are not stranded until the next trigger.
+/// Errors are caught and reported (a drain failure must never crash the sync
+/// event loop); the journal rows survive an aborted run and are re-drained on
+/// the next trigger.
+Future<DrainResult> drainRemoteDeliveries(
+  ffi.PrismSyncHandle handle, {
+  required AppDatabase db,
+  required SyncAdapterWithCompletion syncAdapter,
+  required SyncQuarantineService quarantine,
+  bool Function()? shouldAbort,
+  bool strict = false,
+  void Function(int rowsApplied, int rowsSpilled)? onProgress,
+}) async {
+  final inFlight = _remoteDeliveryDrainInFlight;
+  if (inFlight != null) {
+    _remoteDeliveryDrainQueued = true;
+    return inFlight;
+  }
+
+  Future<DrainResult> runOnce() async {
+    final override = debugDrainRemoteDeliveriesOverride;
+    if (override != null) {
+      return override(handle);
+    }
+    // Bracket the whole drain in one adapter batch so deferred PK-entry replay
+    // and tracked quarantine writes resolve once after the journal is drained,
+    // not per chunk.
+    syncAdapter.beginSyncBatch();
+    var runningApplied = 0;
+    try {
+      return await runRemoteDeliveryDrain(
+        take: (limit) async {
+          final json = await ffi.takeUndeliveredChanges(
+            handle: handle,
+            limit: limit,
+          );
+          return DrainChunk.fromJson(jsonDecode(json) as Map<String, dynamic>);
+        },
+        ack: (upToId) =>
+            ffi.ackConsumerDeliveries(handle: handle, upToId: upToId),
+        applyChanges: (deliveries) async {
+          final chunkBase = runningApplied;
+          final applied = await applyConsumerDeliveries(
+            db,
+            syncAdapter.adapter,
+            deliveries,
+            strict: strict,
+            onProgress: (chunkApplied, _) =>
+                onProgress?.call(chunkBase + chunkApplied, 0),
+          );
+          runningApplied += applied;
+          return applied;
+        },
+        quarantineSpill: (spill) =>
+            quarantineConsumerDeliverySpill(quarantine, spill),
+        shouldAbort: shouldAbort,
+        onProgress: (rowsApplied, _) => onProgress?.call(rowsApplied, 0),
+      );
+    } finally {
+      await syncAdapter.completeSyncBatch();
+    }
+  }
+
+  final future = runOnce();
+  _remoteDeliveryDrainInFlight = future;
+  DrainResult result;
+  try {
+    result = await future;
+  } catch (e, st) {
+    _remoteDeliveryDrainInFlight = null;
+    _remoteDeliveryDrainQueued = false;
+    if (strict) rethrow;
+    ErrorReportingService.instance.report(
+      'Consumer-delivery drain failed (journal rows preserved for retry): $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+    return const DrainResult(
+      rowsApplied: 0,
+      rowsSpilled: 0,
+      chunksAcked: 0,
+      aborted: true,
+    );
+  } finally {
+    _remoteDeliveryDrainInFlight = null;
+  }
+
+  // A trigger arrived mid-drain: run one trailing pass to drain rows journaled
+  // after our last `take`. Bounded by the journal emptying.
+  final wantTrailingPass =
+      _remoteDeliveryDrainQueued && !(shouldAbort?.call() ?? false);
+  if (wantTrailingPass) {
+    _remoteDeliveryDrainQueued = false;
+    final trailing = await drainRemoteDeliveries(
+      handle,
+      db: db,
+      syncAdapter: syncAdapter,
+      quarantine: quarantine,
+      shouldAbort: shouldAbort,
+      strict: strict,
+      onProgress: onProgress,
+    );
+    return DrainResult(
+      rowsApplied: result.rowsApplied + trailing.rowsApplied,
+      rowsSpilled: result.rowsSpilled + trailing.rowsSpilled,
+      chunksAcked: result.chunksAcked + trailing.chunksAcked,
+      aborted: trailing.aborted,
+      touchedTables: {...result.touchedTables, ...trailing.touchedTables},
+    );
+  }
+  _remoteDeliveryDrainQueued = false;
+  return result;
+}
+
+/// Reset the drain serialization state. Test-only — production never needs this
+/// because the in-flight future self-clears.
+@visibleForTesting
+void debugResetRemoteDeliveryDrainState() {
+  _remoteDeliveryDrainInFlight = null;
+  _remoteDeliveryDrainQueued = false;
+}
+
 Future<ApplyResult> applyRemoteChanges(
   AppDatabase db,
   DriftSyncAdapter adapter,
