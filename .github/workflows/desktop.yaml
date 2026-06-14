@@ -181,12 +181,29 @@ jobs:
           Write-Host "Using prism-sync crates from $cratesSrc"
           cmd /c "mklink /J `"$cratesDst`" `"$cratesSrc`""
 
+      - name: Compute build info
+        # Stamp the real, clean commit into the binary. CI is a fresh checkout,
+        # so `--dirty` never triggers.
+        shell: bash
+        run: |
+          echo "APP_VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')" >> "$GITHUB_ENV"
+          echo "GIT_REV=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          echo "GIT_DESCRIBE=$(git describe --always --dirty)" >> "$GITHUB_ENV"
+          echo "GIT_BRANCH=${{ github.ref_name }}" >> "$GITHUB_ENV"
+          echo "BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Build Windows release
         env:
           # CMake forwards verbose output to MSBuild, which otherwise swallows
           # cargokit/cargo stderr behind a bare MSB8066 "exited with code -1".
           VERBOSE: '1'
-        run: flutter build windows --release --verbose
+        run: >
+          flutter build windows --release --verbose
+          --dart-define=APP_VERSION=${{ env.APP_VERSION }}
+          --dart-define=GIT_REV=${{ env.GIT_REV }}
+          --dart-define=GIT_DESCRIBE=${{ env.GIT_DESCRIBE }}
+          --dart-define=GIT_BRANCH=${{ env.GIT_BRANCH }}
+          --dart-define=BUILT_AT=${{ env.BUILT_AT }}
 
       - name: Diagnose prism_sync.dll on failure
         if: failure()

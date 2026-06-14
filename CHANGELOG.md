@@ -9,7 +9,7 @@ All notable changes to Prism will be documented in this file.
 Feature release. PluralKit sync is substantially more reliable, sync correctness
 was hardened across a multi-wave CRDT review, custom fields gain header icons and
 member layouts, markdown supports member mentions, and media sync moves toward
-self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`d471f3a`).
+self-healing delivery. The sync pin moves to `prism-sync v0.13.0` (`e72ae73`).
 
 ### Added
 - Custom fields can display profile header icons, with a combined icon picker,
