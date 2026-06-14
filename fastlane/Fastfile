@@ -440,7 +440,7 @@ platform :ios do
     defines = build_info_defines
     # Unset bundler env vars fastlane injects — they break CocoaPods when
     # flutter invokes pod install with the wrong Ruby gem environment.
-    sh("cd .. && #{scrubbed_flutter_env} flutter build ipa --release #{defines}")
+    sh("cd .. && #{scrubbed_flutter_env} flutter build ipa --release --no-tree-shake-icons #{defines}")
 
     ipa_path = Dir[File.expand_path("../build/ios/ipa/*.ipa", __dir__)].first
     UI.user_error!("No IPA found in build/ios/ipa/") unless ipa_path
@@ -465,7 +465,7 @@ platform :ios do
     checksum_path = "#{ipa_path}.sha256"
 
     FileUtils.mkdir_p(artifact_dir)
-    sh("cd .. && #{scrubbed_flutter_env} flutter build ios --release --no-codesign #{defines}")
+    sh("cd .. && #{scrubbed_flutter_env} flutter build ios --release --no-codesign --no-tree-shake-icons #{defines}")
     sh("cd .. && scripts/package_unsigned_ipa.sh #{Shellwords.escape(ipa_path)}")
     write_sha256_file(ipa_path)
 
@@ -484,7 +484,7 @@ platform :mac do
     # so the subsequent xcodebuild archive picks them up without re-specifying them.
     # Unset bundler env vars fastlane injects — they break CocoaPods when
     # flutter invokes pod install with the wrong Ruby gem environment.
-    sh("cd .. && #{scrubbed_flutter_env} flutter build macos --release #{defines}")
+    sh("cd .. && #{scrubbed_flutter_env} flutter build macos --release --no-tree-shake-icons #{defines}")
 
     build_mac_app(
       workspace: "macos/Runner.xcworkspace",
@@ -520,7 +520,7 @@ platform :mac do
 
     # flutter build writes dart-defines into macos/Flutter/ephemeral/Flutter-Generated.xcconfig
     # so the subsequent xcodebuild archive picks them up without re-specifying them.
-    sh("cd .. && #{scrubbed_flutter_env} flutter build macos --release #{defines}")
+    sh("cd .. && #{scrubbed_flutter_env} flutter build macos --release --no-tree-shake-icons #{defines}")
 
     FileUtils.rm_rf(export_dir)
     build_mac_app(
@@ -560,7 +560,7 @@ platform :android do
     dart_symbols_dir = File.join(symbols_dir, "dart")
     FileUtils.mkdir_p(dart_symbols_dir)
 
-    sh("cd .. && flutter build appbundle --release --split-debug-info=#{Shellwords.escape(dart_symbols_dir)} #{defines}")
+    sh("cd .. && flutter build appbundle --release --no-tree-shake-icons --split-debug-info=#{Shellwords.escape(dart_symbols_dir)} #{defines}")
 
     play_store_json_key = ENV["PLAY_STORE_JSON_KEY"]
     default_play_store_json_key = File.expand_path("~/.config/prism/play-store-key.json")
