@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
@@ -16,6 +17,7 @@ import 'package:prism_plurality/features/members/widgets/slider_field_widgets.da
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/member_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
@@ -1386,6 +1388,52 @@ void main() {
       expect(find.textContaining('memberIds'), findsNothing);
     },
   );
+
+  testWidgets('grouped choice child renders selected options as chips', (
+    tester,
+  ) async {
+    final group = CustomField(
+      id: 'grp-choice',
+      name: 'Preferences',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final choiceChild = CustomField(
+      id: 'child-choice',
+      name: 'Favorite Color',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'choice',
+      parentFieldId: 'grp-choice',
+      displayOrder: 0,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const ChoiceConfig(
+        options: [
+          ChoiceOption(id: 'green', label: 'Green', sortOrder: 0),
+          ChoiceOption(id: 'blue', label: 'Blue', sortOrder: 1),
+        ],
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [group, choiceChild],
+        values: [value(choiceChild.id, '{"options":["green","blue"]}')],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Favorite Color'), findsOneWidget);
+    expect(find.widgetWithText(PrismChip, 'Green'), findsOneWidget);
+    expect(find.widgetWithText(PrismChip, 'Blue'), findsOneWidget);
+
+    final labelBottom = tester.getBottomLeft(find.text('Favorite Color')).dy;
+    final chipTop = tester
+        .getTopLeft(find.widgetWithText(PrismChip, 'Green'))
+        .dy;
+    expect(chipTop, greaterThan(labelBottom));
+  });
 
   testWidgets(
     'grouped compact scale child renders emoji row instead of fraction text',

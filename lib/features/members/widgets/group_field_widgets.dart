@@ -241,12 +241,13 @@ class _GroupChildEntry {
 /// Compact `Name | Value` for fields whose effective layout is compact;
 /// stacked header + body for everything else.
 ///
-/// The compact/stacked decision flows through [effectiveDisplayLayout], so
-/// in-group rendering matches the standalone choice for the same field.
+/// Choice chips need the full-width display renderer inside groups.
 class _GroupChildDisplay extends StatelessWidget {
   const _GroupChildDisplay({required this.entry});
 
   final _GroupChildEntry entry;
+
+  bool get _isChoice => entry.child.fieldTypeId == 'choice';
 
   bool get _isLongText => entry.child.fieldTypeId == 'long_text';
 
@@ -255,6 +256,7 @@ class _GroupChildDisplay extends StatelessWidget {
   bool get _hideTitle => effectiveHideTitleOnProfile(entry.child.typeConfig);
 
   bool get _isCompact {
+    if (_isChoice) return false;
     if (_isLongText) return false;
     return effectiveDisplayLayout(
           fieldTypeId: entry.child.fieldTypeId,
