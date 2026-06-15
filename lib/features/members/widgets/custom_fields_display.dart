@@ -184,8 +184,8 @@ class CustomFieldsDisplay extends ConsumerWidget {
 
   static bool _shouldUseCard(_FieldValueEntry entry) {
     if (entry.field.fieldTypeId == 'long_text') return true;
-    if (entry.field.fieldTypeId == 'text') return false;
     if (entry.field.fieldTypeId == 'member') return false;
+    if (entry.field.fieldTypeId == 'choice') return false;
     if (entry.value.value.contains('\n')) return true;
     if (entry.field.name.length > _compactNameLimit) return true;
     if (entry.displayValue.length > _compactValueLimit) return true;

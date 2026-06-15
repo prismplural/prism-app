@@ -588,8 +588,8 @@ void main() {
 
   // ─── Compact tests ───────────────────────────────────────────────────────────
 
-  group('ChoiceCompact — first 3 chips + overflow', () {
-    testWidgets('shows first 3 chips and +N more text when overflow', (
+  group('ChoiceCompact — all selected options', () {
+    testWidgets('shows every selected chip without overflow text', (
       tester,
     ) async {
       final field = _choiceField(
@@ -609,18 +609,15 @@ void main() {
       );
       await tester.pump();
 
-      // At least 3 chip labels should be visible.
       expect(find.text('Apples'), findsOneWidget);
       expect(find.text('Bananas'), findsOneWidget);
       expect(find.text('Cherries'), findsOneWidget);
-
-      // The overflow indicator should show +2 more.
-      expect(find.text('+2 more'), findsOneWidget);
+      expect(find.text('Dates'), findsOneWidget);
+      expect(find.text('Elderberry'), findsOneWidget);
+      expect(find.text('+2 more'), findsNothing);
     });
 
-    testWidgets('uses settings order before applying visible chip limit', (
-      tester,
-    ) async {
+    testWidgets('uses settings order for every selected chip', (tester) async {
       final options = List.generate(50, (index) {
         final reverseId = (49 - index).toString().padLeft(2, '0');
         return _option('id-$reverseId', 'Option ${index + 1}', order: index);
@@ -639,13 +636,13 @@ void main() {
           .map((chip) => chip.label)
           .toList();
 
-      expect(chipLabels, ['Option 1', 'Option 2', 'Option 3']);
-      expect(find.text('+47 more'), findsOneWidget);
+      expect(chipLabels, [
+        for (var index = 0; index < 50; index++) 'Option ${index + 1}',
+      ]);
+      expect(find.text('+47 more'), findsNothing);
     });
 
-    testWidgets('falls back to plain text in narrow context (< 200px)', (
-      tester,
-    ) async {
+    testWidgets('keeps chip display in narrow context', (tester) async {
       final field = _choiceField(
         options: [
           _option('a', 'Apples'),
@@ -661,10 +658,12 @@ void main() {
       );
       await tester.pump();
 
-      // In narrow context there should be no PrismChip widgets.
-      // A Text widget with the compact plain-text representation is rendered
-      // directly instead.
-      expect(find.byType(PrismChip), findsNothing);
+      expect(find.byType(PrismChip), findsNWidgets(4));
+      expect(find.text('Apples'), findsOneWidget);
+      expect(find.text('Bananas'), findsOneWidget);
+      expect(find.text('Cherries'), findsOneWidget);
+      expect(find.text('Dates'), findsOneWidget);
+      expect(find.text('Apples, Bananas, Cherries, Dates'), findsNothing);
     });
 
     testWidgets('Other chip uses neutral text tint instead of accent color', (

@@ -24,7 +24,7 @@ void main() {
     testWidgets('renders profile display variants', (tester) async {
       await _expectGolden(
         tester,
-        surfaceSize: const Size(940, 3000),
+        surfaceSize: const Size(940, 3400),
         goldenPath: 'goldens/custom_field_profile_display_matrix.png',
         child: PrismGoldenBoard(
           key: _profileDisplayKey,
@@ -287,6 +287,24 @@ List<CustomField> _fields() {
             sortOrder: 2,
             isDeleted: true,
           ),
+          ChoiceOption(
+            id: 'amber',
+            label: 'Amber',
+            colorHex: '#D59B32',
+            sortOrder: 3,
+          ),
+          ChoiceOption(
+            id: 'violet',
+            label: 'Violet',
+            colorHex: '#7D5BC6',
+            sortOrder: 4,
+          ),
+          ChoiceOption(
+            id: 'teal',
+            label: 'Teal',
+            colorHex: '#2E8F88',
+            sortOrder: 5,
+          ),
         ],
       ),
     ),
@@ -400,7 +418,7 @@ List<CustomFieldValue> _values() {
     _value('birthday', '2026-06-15T12:30:00.000Z'),
     _value(
       'favorites',
-      '{"options":["blue","green","old-red"],"other":"Lilac"}',
+      '{"options":["amber","blue","green","old-red","teal","violet"],"other":"Lilac"}',
     ),
     _value('spark', '4'),
     _value('energy', '65'),

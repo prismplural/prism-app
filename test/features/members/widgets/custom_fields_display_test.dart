@@ -439,6 +439,43 @@ void main() {
   });
 
   testWidgets(
+    'choice field with overflow selections shows every selected option on profile',
+    (tester) async {
+      final choiceField = CustomField(
+        id: 'favorite-fruits',
+        name: 'Favorite fruits',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'choice',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ChoiceConfig(
+          options: [
+            ChoiceOption(id: 'a', label: 'Apples', sortOrder: 0),
+            ChoiceOption(id: 'b', label: 'Bananas', sortOrder: 1),
+            ChoiceOption(id: 'c', label: 'Cherries', sortOrder: 2),
+            ChoiceOption(id: 'd', label: 'Dates', sortOrder: 3),
+            ChoiceOption(id: 'e', label: 'Elderberry', sortOrder: 4),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        subject(
+          fields: [choiceField],
+          values: [value(choiceField.id, '{"options":["a","b","c","d","e"]}')],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.widgetWithText(PrismChip, 'Apples'), findsOneWidget);
+      expect(find.widgetWithText(PrismChip, 'Bananas'), findsOneWidget);
+      expect(find.widgetWithText(PrismChip, 'Cherries'), findsOneWidget);
+      expect(find.widgetWithText(PrismChip, 'Dates'), findsOneWidget);
+      expect(find.widgetWithText(PrismChip, 'Elderberry'), findsOneWidget);
+      expect(find.text('+2 more'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'compact scale field renders emoji row instead of fraction text',
     (tester) async {
       final semantics = tester.ensureSemantics();
@@ -1045,7 +1082,7 @@ void main() {
     expect(leftLabelRect.top - paintedTrackBottom, lessThanOrEqualTo(12));
   });
 
-  testWidgets('short text stays grouped even with long names and values', (
+  testWidgets('long short text values leave the compact field group', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1070,7 +1107,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(PrismSectionCard), findsOneWidget);
-    expect(find.byType(PrismSurface), findsOneWidget);
+    expect(find.byType(PrismSurface), findsNWidgets(2));
     expect(find.text('Role'), findsOneWidget);
     expect(find.text('Detailed internal relationship context'), findsOneWidget);
   });
@@ -1509,7 +1546,9 @@ void main() {
     await tester.pump();
 
     final labelCenter = tester.getCenter(find.text('Favorite Color'));
-    final chipCenter = tester.getCenter(find.widgetWithText(PrismChip, 'Green'));
+    final chipCenter = tester.getCenter(
+      find.widgetWithText(PrismChip, 'Green'),
+    );
     expect((labelCenter.dy - chipCenter.dy).abs(), lessThan(20));
   });
 

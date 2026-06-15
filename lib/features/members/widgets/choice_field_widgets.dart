@@ -710,7 +710,7 @@ class _ChoiceDisplayWidget extends StatelessWidget {
 
     if (chips.isEmpty) return const SizedBox.shrink();
 
-    return Wrap(spacing: 6, runSpacing: 4, children: chips);
+    return Wrap(spacing: 6, runSpacing: 6, children: chips);
   }
 }
 
@@ -727,10 +727,6 @@ Widget buildChoiceCompact(
 
 class _ChoiceCompactWidget extends StatelessWidget {
   const _ChoiceCompactWidget({required this.field, required this.value});
-
-  static const _maxVisibleChips = 3;
-  // Below this width threshold, fall back to plain text.
-  static const _chipFallbackWidth = 200.0;
 
   final CustomField field;
   final CustomFieldValue value;
@@ -762,70 +758,33 @@ class _ChoiceCompactWidget extends StatelessWidget {
 
     if (resolvedLabels.isEmpty) return const SizedBox.shrink();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < _chipFallbackWidth) {
-          // Narrow context: plain text.
-          final overflow = resolvedLabels.length > _maxVisibleChips
-              ? '+${resolvedLabels.length - _maxVisibleChips} more'
-              : null;
-          final visibleLabels = resolvedLabels
-              .take(_maxVisibleChips)
-              .join(', ');
-          final fullText = overflow != null
-              ? '$visibleLabels, $overflow'
-              : visibleLabels;
-          return Text(fullText, overflow: TextOverflow.ellipsis);
-        }
-
-        final visibleCount = resolvedLabels.length.clamp(0, _maxVisibleChips);
-        final overflow = resolvedLabels.length > _maxVisibleChips
-            ? resolvedLabels.length - _maxVisibleChips
-            : 0;
-
-        final chips = <Widget>[
-          for (var i = 0; i < visibleCount; i++)
-            // Fix 2: branch on whether this index is an option or the Other text.
-            if (i < resolvedOptions.length)
-              // Fix 3: Semantics for compact option chips.
-              Semantics(
-                button: false,
-                label:
-                    '${field.name}, ${resolvedLabels[i]}, '
-                    '${l10n.customFieldChoiceSelectedSuffix}'
-                    '${resolvedOptions[i].isDeleted ? ', ${l10n.customFieldChoiceRemovedSuffix}' : ''}',
-                excludeSemantics: true,
-                child: _buildMiniChip(context, resolvedOptions[i]),
-              )
-            else
-              // Other pill — now reachable.
-              // Fix 3: Semantics for compact Other chip.
-              Semantics(
-                button: false,
-                label: '${field.name}, ${resolvedLabels[i]}',
-                excludeSemantics: true,
-                child: PrismChip(
-                  label: resolvedLabels[i],
-                  selected: true,
-                  tintColor: _choiceOtherTint(context),
-                  onTap: null,
-                ),
-              ),
-          if (overflow > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Text(
-                '+$overflow more',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
+    final chips = <Widget>[
+      for (var i = 0; i < resolvedLabels.length; i++)
+        if (i < resolvedOptions.length)
+          Semantics(
+            button: false,
+            label:
+                '${field.name}, ${resolvedLabels[i]}, '
+                '${l10n.customFieldChoiceSelectedSuffix}'
+                '${resolvedOptions[i].isDeleted ? ', ${l10n.customFieldChoiceRemovedSuffix}' : ''}',
+            excludeSemantics: true,
+            child: _buildMiniChip(context, resolvedOptions[i]),
+          )
+        else
+          Semantics(
+            button: false,
+            label: '${field.name}, ${resolvedLabels[i]}',
+            excludeSemantics: true,
+            child: PrismChip(
+              label: resolvedLabels[i],
+              selected: true,
+              tintColor: _choiceOtherTint(context),
+              onTap: null,
             ),
-        ];
+          ),
+    ];
 
-        return Wrap(spacing: 4, runSpacing: 2, children: chips);
-      },
-    );
+    return Wrap(spacing: 4, runSpacing: 6, children: chips);
   }
 
   Widget _buildMiniChip(BuildContext context, ChoiceOption option) {
