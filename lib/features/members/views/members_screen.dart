@@ -1066,78 +1066,105 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
             .watch(hideTotalMemberCountProvider)
             .whenOrNull(data: (value) => value) ??
         true;
+    final itemIndexes = <Key, int>{
+      for (var i = 0; i < items.length; i++) _keyForGroupedItem(items[i]): i,
+    };
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
         SliverPadding(
           padding: EdgeInsets.only(top: 4, bottom: NavBarInset.of(context)),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final item = items[index];
-              if (item is GroupSectionItem) {
-                final key = _sectionKeys.putIfAbsent(
-                  item.group.id,
-                  GlobalKey.new,
-                );
-                final header = GroupSectionHeader(
-                  key: key,
-                  group: item.group,
-                  depth: item.depth.clamp(0, kSectionsVisualDepthCap),
-                  memberCount: counts[item.group.id] ?? 0,
-                  showMemberCount: !hideMemberCount,
-                  isCollapsed: item.isCollapsed,
-                  canCollapse: true,
-                  onToggle: () => ref
-                      .read(collapsedGroupsProvider.notifier)
-                      .toggle(item.group.id),
-                  hasDeeperDescendants:
-                      item.depth >= kSectionsVisualDepthCap &&
-                      (tree[item.group.id]?.isNotEmpty ?? false),
-                  onOpenDetail: () => _openGroup(item.group.id),
-                );
-                if (item.depth == 0 && index > 0) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      const SizedBox(height: 4),
-                      header,
-                    ],
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = items[index];
+                final itemKey = _keyForGroupedItem(item);
+                if (item is GroupSectionItem) {
+                  final key = _sectionKeys.putIfAbsent(
+                    item.group.id,
+                    GlobalKey.new,
+                  );
+                  final header = GroupSectionHeader(
+                    key: key,
+                    group: item.group,
+                    depth: item.depth.clamp(0, kSectionsVisualDepthCap),
+                    memberCount: counts[item.group.id] ?? 0,
+                    showMemberCount: !hideMemberCount,
+                    isCollapsed: item.isCollapsed,
+                    canCollapse: true,
+                    onToggle: () => ref
+                        .read(collapsedGroupsProvider.notifier)
+                        .toggle(item.group.id),
+                    hasDeeperDescendants:
+                        item.depth >= kSectionsVisualDepthCap &&
+                        (tree[item.group.id]?.isNotEmpty ?? false),
+                    onOpenDetail: () => _openGroup(item.group.id),
+                  );
+                  if (item.depth == 0 && index > 0) {
+                    return Column(
+                      key: itemKey,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        const SizedBox(height: 4),
+                        header,
+                      ],
+                    );
+                  }
+                  return KeyedSubtree(key: itemKey, child: header);
+                }
+                if (item is UngroupedSectionItem) {
+                  return KeyedSubtree(
+                    key: itemKey,
+                    child: GroupSectionHeader(
+                      key: _ungroupedKey,
+                      group: null,
+                      depth: 0,
+                      memberCount: item.memberCount,
+                      showMemberCount: !hideMemberCount,
+                      isCollapsed: false,
+                      canCollapse: false,
+                      onToggle: null,
+                    ),
                   );
                 }
-                return header;
-              }
-              if (item is UngroupedSectionItem) {
-                return GroupSectionHeader(
-                  key: _ungroupedKey,
-                  group: null,
-                  depth: 0,
-                  memberCount: item.memberCount,
-                  showMemberCount: !hideMemberCount,
-                  isCollapsed: false,
-                  canCollapse: false,
-                  onToggle: null,
-                );
-              }
-              if (item is MemberRowItem) {
-                final isFronting = frontingIds.contains(item.member.id);
-                final indent =
-                    item.depth.clamp(0, kSectionsVisualDepthCap) * 8.0;
-                return Padding(
-                  padding: EdgeInsets.only(left: indent),
-                  child: _buildMemberTile(
-                    item.member,
-                    isFronting,
-                    memberTilePrefs,
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            }, childCount: items.length),
+                if (item is MemberRowItem) {
+                  final isFronting = frontingIds.contains(item.member.id);
+                  final indent =
+                      item.depth.clamp(0, kSectionsVisualDepthCap) * 8.0;
+                  return Padding(
+                    key: itemKey,
+                    padding: EdgeInsets.only(left: indent),
+                    child: _buildMemberTile(
+                      item.member,
+                      isFronting,
+                      memberTilePrefs,
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              childCount: items.length,
+              findChildIndexCallback: (key) => itemIndexes[key],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  Key _keyForGroupedItem(GroupedMemberListItem item) {
+    if (item is GroupSectionItem) {
+      return ValueKey(('members-grouped-section', item.group.id));
+    }
+    if (item is UngroupedSectionItem) {
+      return const ValueKey(('members-grouped-section', '__ungrouped__'));
+    }
+    if (item is MemberRowItem) {
+      final groupId = item.groupId ?? '__ungrouped__';
+      return ValueKey(('members-grouped-member', groupId, item.member.id));
+    }
+    return ValueKey(item);
   }
 
   Widget _buildMemberTile(

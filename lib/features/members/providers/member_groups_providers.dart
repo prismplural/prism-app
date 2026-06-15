@@ -348,9 +348,14 @@ class GroupSectionItem extends GroupedMemberListItem {
 }
 
 class MemberRowItem extends GroupedMemberListItem {
-  const MemberRowItem({required this.member, required this.depth});
+  const MemberRowItem({
+    required this.member,
+    required this.depth,
+    this.groupId,
+  });
 
   final Member member;
+  final String? groupId;
 
   /// Indent level matching the owning group's depth.
   final int depth;
@@ -407,7 +412,9 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
         : (List<Member>.from(directMembers)
             ..sort(_compareMembersByDisplayOrder));
     for (final member in orderedDirectMembers) {
-      result.add(MemberRowItem(member: member, depth: depth));
+      result.add(
+        MemberRowItem(member: member, groupId: group.id, depth: depth),
+      );
     }
   }
 

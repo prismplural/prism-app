@@ -540,6 +540,93 @@ void main() {
     expect(tester.getTopLeft(allChip).dy, greaterThanOrEqualTo(0));
   });
 
+  testWidgets('grouped sections keep visible rows anchored across rebuilds', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 480));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final groups = List.generate(
+      18,
+      (index) => _group('group-$index', 'Group $index', displayOrder: index),
+    );
+    final insertedGroup = _group('group-new', 'Group New', displayOrder: -1);
+    final members = List.generate(
+      18,
+      (index) => _member('member-$index', displayOrder: index),
+    );
+    final insertedMember = _member('member-new', displayOrder: -1);
+    final sharedMember = _member('member-shared', displayOrder: 99);
+    final entries = [
+      for (var i = 0; i < groups.length; i++)
+        MemberGroupEntry(
+          id: 'entry-$i',
+          groupId: groups[i].id,
+          memberId: members[i].id,
+        ),
+      const MemberGroupEntry(
+        id: 'entry-shared-8',
+        groupId: 'group-8',
+        memberId: 'member-shared',
+      ),
+      const MemberGroupEntry(
+        id: 'entry-shared-9',
+        groupId: 'group-9',
+        memberId: 'member-shared',
+      ),
+    ];
+    const anchoredRowKey = ValueKey((
+      'members-grouped-member',
+      'group-9',
+      'member-shared',
+    ));
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+        ),
+        members: [...members, sharedMember],
+        groups: groups,
+        entries: entries,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(anchoredRowKey),
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    final before = tester.getTopLeft(find.byKey(anchoredRowKey)).dy;
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+        ),
+        members: [insertedMember, ...members, sharedMember],
+        groups: [insertedGroup, ...groups],
+        entries: [
+          const MemberGroupEntry(
+            id: 'entry-new',
+            groupId: 'group-new',
+            memberId: 'member-new',
+          ),
+          ...entries,
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(anchoredRowKey), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(anchoredRowKey)).dy,
+      closeTo(before, 1),
+    );
+  });
+
   testWidgets('flat reorder keeps optimistic order while notifier is pending', (
     tester,
   ) async {
