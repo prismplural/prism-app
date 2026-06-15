@@ -451,17 +451,25 @@ class _ScaleMiniWidget extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < config.steps; i++) ...[
-          if (i > 0) const SizedBox(width: 2),
-          Opacity(
-            opacity: (i + 1) <= selectedStep ? 1.0 : 0.35,
-            child: Text(config.emoji, style: TextStyle(fontSize: emojiSize)),
-          ),
+    return Semantics(
+      label: context.l10n.customFieldScaleSemanticLabel(
+        field.name,
+        selectedStep,
+        config.steps,
+      ),
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < config.steps; i++) ...[
+            if (i > 0) const SizedBox(width: 2),
+            Opacity(
+              opacity: (i + 1) <= selectedStep ? 1.0 : 0.35,
+              child: Text(config.emoji, style: TextStyle(fontSize: emojiSize)),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

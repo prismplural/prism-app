@@ -399,6 +399,7 @@ void main() {
   testWidgets(
     'compact scale field renders emoji row instead of fraction text',
     (tester) async {
+      final semantics = tester.ensureSemantics();
       final scaleField = CustomField(
         id: 'mood-scale',
         name: 'Mood',
@@ -415,6 +416,8 @@ void main() {
 
       expect(find.text('🔥'), findsNWidgets(5));
       expect(find.textContaining('3/5'), findsNothing);
+      expect(find.bySemanticsLabel('Mood: 3 of 5'), findsOneWidget);
+      semantics.dispose();
     },
   );
 
