@@ -41,12 +41,18 @@ import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
-Member _member(String id, {int displayOrder = 0, String? pronouns}) => Member(
+Member _member(
+  String id, {
+  int displayOrder = 0,
+  String? pronouns,
+  bool isActive = true,
+}) => Member(
   id: id,
   name: 'Member $id',
   pronouns: pronouns,
   displayOrder: displayOrder,
   createdAt: DateTime(2024),
+  isActive: isActive,
 );
 
 MemberGroup _group(String id, String name, {int displayOrder = 0}) =>
@@ -69,6 +75,7 @@ Widget _buildSubject({
   _FakeMembersNotifier? membersNotifier,
   bool withRouter = false,
 }) {
+  final activeMembers = members.where((member) => member.isActive).toList();
   final child = withRouter
       ? MaterialApp.router(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -111,9 +118,11 @@ Widget _buildSubject({
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
-      activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
-      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith(
+        (ref) => Stream.value(activeMembers),
+      ),
       allMemberListProvider.overrideWith((ref) => Stream.value(members)),
       memberByIdProvider.overrideWith((ref, id) {
         for (final member in members) {
@@ -665,6 +674,63 @@ void main() {
     persistence.complete();
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'members screen follows shared show-inactive state before grouped reorder',
+    (tester) async {
+      final membersNotifier = _FakeMembersNotifier();
+      final alice = _member('alice');
+      final bob = _member('bob', displayOrder: 2);
+      final inactive = _member('zara', displayOrder: 1, isActive: false);
+      final group = _group('crew', 'Crew');
+
+      await tester.pumpWidget(
+        _buildSubject(
+          settings: const SystemSettings(
+            membersListViewMode: MembersListViewMode.groupedSections,
+          ),
+          members: [alice, inactive, bob],
+          groups: [group],
+          entries: const [
+            MemberGroupEntry(
+              id: 'entry-alice',
+              groupId: 'crew',
+              memberId: 'alice',
+            ),
+            MemberGroupEntry(
+              id: 'entry-zara',
+              groupId: 'crew',
+              memberId: 'zara',
+            ),
+            MemberGroupEntry(id: 'entry-bob', groupId: 'crew', memberId: 'bob'),
+          ],
+          membersNotifier: membersNotifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scope = ProviderScope.containerOf(
+        tester.element(find.byType(MembersScreen)),
+        listen: false,
+      );
+      scope.read(showInactiveMembersProvider.notifier).set(true);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Member zara'), findsOneWidget);
+
+      await tester.tap(find.byIcon(AppIcons.moreVert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Name A–Z'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(membersNotifier.reorderedSequences, hasLength(1));
+      expect(
+        membersNotifier.reorderedSequences.single.map((member) => member.id),
+        ['alice', 'bob', 'zara'],
+      );
+    },
+  );
 
   testWidgets('options search opens shared sheet and navigates on selection', (
     tester,

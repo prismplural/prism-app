@@ -88,7 +88,6 @@ class MembersScreen extends ConsumerStatefulWidget {
 
 class _MembersScreenState extends ConsumerState<MembersScreen>
     with ListDetailSelectionState<MembersScreen> {
-  bool _showInactive = false;
   bool? _viewSettingsBannerSeen;
   _MemberDetailPaneMode _detailPaneMode = _MemberDetailPaneMode.detail;
   final List<String> _paneGroupStack = [];
@@ -148,7 +147,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     MemberNavigationBranch.groups => appShellBranchIndex(AppShellTabId.groups),
   };
 
-  Widget _buildOptionsMenuAction(List<Member>? members, Terminology terms) {
+  Widget _buildOptionsMenuAction(
+    List<Member>? members,
+    Terminology terms,
+    bool showInactive,
+  ) {
     final l10n = context.l10n;
     final availableMembers = members ?? const <Member>[];
     final canSearch = availableMembers.isNotEmpty;
@@ -184,13 +187,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
             ctx.l10n.memberShowInactive,
             style: theme.textTheme.bodyMedium,
           ),
-          trailing: _showInactive
+          trailing: showInactive
               ? Icon(AppIcons.check, size: 18, color: theme.colorScheme.primary)
               : null,
           onTap: () {
             close();
-            setState(() => _showInactive = !_showInactive);
-            ref.read(showInactiveMembersProvider.notifier).set(_showInactive);
+            ref.read(showInactiveMembersProvider.notifier).set(!showInactive);
           },
         );
       },
@@ -581,7 +583,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     // Member-list screen is user-facing — hide the Unknown sentinel from both
     // the active and "show inactive" views. Sentinel still resolves for any
     // session that points at it via the unfiltered providers used elsewhere.
-    final membersAsync = _showInactive
+    final showInactive = ref.watch(showInactiveMembersProvider);
+    final membersAsync = showInactive
         ? ref.watch(userVisibleAllMemberListProvider)
         : ref.watch(userVisibleMemberListProvider);
     final menuMembers = membersAsync.value == null
@@ -629,7 +632,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           ? null
           : _clearDetailPane,
       onSelectDetail: _openMemberInDetailPane,
-      detail: (context) => _buildDetailPane(terms, membersAsync),
+      detail: (context) => _buildDetailPane(terms, membersAsync, showInactive),
       list: (context, isWide) {
         setListDetailWide(isWide);
         if (isWide && _paneGroupStack.isNotEmpty) {
@@ -654,7 +657,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                   tooltip: context.l10n.terminologyAddButton(terms.singular),
                   onPressed: _openAddSheet,
                 ),
-                _buildOptionsMenuAction(menuMembers, terms),
+                _buildOptionsMenuAction(menuMembers, terms, showInactive),
               ],
             ),
             bodyPadding: EdgeInsets.zero,
@@ -674,7 +677,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                   child: AnimatedSwitcher(
                     duration: Anim.md,
                     child: KeyedSubtree(
-                      key: ValueKey((_showInactive, viewMode, showGroups)),
+                      key: ValueKey((viewMode, showGroups)),
                       child: membersAsync.when(
                         loading: () => const PrismLoadingState(),
                         error: (e, _) => Center(
@@ -694,7 +697,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                           if (members.isEmpty) {
                             return EmptyState(
                               icon: Icon(AppIcons.peopleOutline),
-                              title: _showInactive
+                              title: showInactive
                                   ? context.l10n.terminologyEmptyTitle(
                                       terms.pluralLower,
                                     )
@@ -870,6 +873,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   Widget _buildDetailPane(
     Terminology terms,
     AsyncValue<List<Member>> membersAsync,
+    bool showInactive,
   ) {
     final id = selectedDetailId;
     if (id == null) {
@@ -879,7 +883,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         data: (members) => members.isEmpty
             ? EmptyState(
                 icon: Icon(AppIcons.peopleOutline),
-                title: _showInactive
+                title: showInactive
                     ? context.l10n.terminologyEmptyTitle(terms.pluralLower)
                     : context.l10n.terminologyEmptyActiveTitle(
                         terms.pluralLower,
