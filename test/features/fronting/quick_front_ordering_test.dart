@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -77,6 +78,14 @@ List<String> _renderedTileOrderByName(
   }
   entries.sort((a, b) => a.value.compareTo(b.value));
   return [for (final e in entries) e.key];
+}
+
+double _avatarTopForMember(WidgetTester tester, String memberId) {
+  final finder = find.byWidgetPredicate(
+    (widget) => widget is MemberAvatar && widget.memberId == memberId,
+  );
+  expect(finder, findsOneWidget);
+  return tester.getTopLeft(finder).dy;
 }
 
 void main() {
@@ -228,6 +237,44 @@ void main() {
         'greta',
         'hugo',
       ]);
+    },
+  );
+
+  testWidgets(
+    'scroll mode keeps avatar tops aligned with mixed label heights',
+    (tester) async {
+      const longName = 'Very Long Display Name';
+      final members = [
+        _m('short', 'Alex', displayOrder: 10),
+        _m('long', longName, displayOrder: 20),
+        _m('third', 'Cy', displayOrder: 30),
+        _m('pick', 'Dee', displayOrder: 40),
+      ];
+      final t = DateTime(2026, 1, 1, 12);
+      final sessions = [
+        _session('short', t),
+        _session('long', t.add(const Duration(minutes: 1))),
+        _session('third', t.add(const Duration(minutes: 2))),
+      ];
+
+      await tester.pumpWidget(
+        _harness(
+          members: members,
+          activeSessions: sessions,
+          counts: {'pick': 1},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      expect(
+        tester.getSize(find.text(longName)).height,
+        greaterThan(tester.getSize(find.text('Alex')).height),
+      );
+
+      final top = _avatarTopForMember(tester, 'short');
+      expect(_avatarTopForMember(tester, 'long'), closeTo(top, 0.1));
+      expect(_avatarTopForMember(tester, 'third'), closeTo(top, 0.1));
     },
   );
 

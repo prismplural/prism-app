@@ -333,6 +333,7 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
               SizedBox(
                 key: ValueKey(member.id),
                 width: slotWidth,
+                height: rowHeight,
                 child: _QuickFrontButton(
                   member: member,
                   isFronting: widget.frontingIds.contains(member.id),
@@ -433,6 +434,7 @@ class _AnimatedQuickFrontRowState extends State<_AnimatedQuickFrontRow> {
               top: 0,
               child: SizedBox(
                 width: slotWidth,
+                height: rowHeight,
                 child: _QuickFrontButton(
                   member: widget.members[i],
                   isFronting: widget.frontingIds.contains(widget.members[i].id),
