@@ -397,6 +397,28 @@ void main() {
   });
 
   testWidgets(
+    'compact scale field renders emoji row instead of fraction text',
+    (tester) async {
+      final scaleField = CustomField(
+        id: 'mood-scale',
+        name: 'Mood',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'scale',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ScaleConfig(emoji: '🔥', steps: 5),
+      );
+
+      await tester.pumpWidget(
+        subject(fields: [scaleField], values: [value(scaleField.id, '3')]),
+      );
+      await tester.pump();
+
+      expect(find.text('🔥'), findsNWidgets(5));
+      expect(find.textContaining('3/5'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'read-only slider fields do not instantiate Material Slider controls',
     (tester) async {
       final fields = List.generate(
@@ -1359,6 +1381,41 @@ void main() {
       expect(find.text('Related'), findsOneWidget);
       expect(find.text('Alice'), findsOneWidget);
       expect(find.textContaining('memberIds'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'grouped compact scale child renders emoji row instead of fraction text',
+    (tester) async {
+      final group = CustomField(
+        id: 'grp-scale',
+        name: 'Scales',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const GroupConfig(),
+      );
+      final scaleChild = CustomField(
+        id: 'child-scale',
+        name: 'Mood',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'scale',
+        parentFieldId: 'grp-scale',
+        displayOrder: 0,
+        createdAt: DateTime(2026, 1, 1),
+        typeConfig: const ScaleConfig(emoji: '🌙', steps: 5),
+      );
+
+      await tester.pumpWidget(
+        subject(
+          fields: [group, scaleChild],
+          values: [value(scaleChild.id, '4')],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('🌙'), findsNWidgets(5));
+      expect(find.textContaining('4/5'), findsNothing);
     },
   );
 

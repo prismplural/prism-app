@@ -409,14 +409,13 @@ class _ScaleDisplayWidget extends StatelessWidget {
 // ─── Compact ──────────────────────────────────────────────────────────────────
 
 /// Builds the compact list-row display for a Scale field value.
-/// Shows "{emoji} {step}/{total}" on a single line when value is set,
-/// otherwise returns [SizedBox.shrink].
+/// Shows the selected scale as a compact row of active/dimmed emoji.
 Widget buildScaleCompact(
   BuildContext context,
   CustomField field,
   CustomFieldValue value,
 ) {
-  return _ScaleCompactWidget(field: field, value: value);
+  return _ScaleMiniWidget(field: field, value: value, emojiSize: 14);
 }
 
 /// Mini visual rendering — a row of emojis at [emojiSize], dimmed for steps
@@ -464,37 +463,5 @@ class _ScaleMiniWidget extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-class _ScaleCompactWidget extends StatelessWidget {
-  const _ScaleCompactWidget({required this.field, required this.value});
-
-  final CustomField field;
-  final CustomFieldValue value;
-
-  ScaleConfig _config() {
-    final c = field.typeConfig;
-    return c is ScaleConfig ? c : const ScaleConfig();
-  }
-
-  ScaleFieldValue _parseValue(String? raw) {
-    final parsed = scaleFieldDefinition.valueParser(raw);
-    return parsed is ScaleFieldValue ? parsed : const ScaleFieldValue();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final config = _config();
-    final emoji = config.emoji;
-    final steps = config.steps;
-
-    final currentValue = _parseValue(value.value);
-    final selectedStep = currentValue.step;
-    final hasValue = selectedStep != null && selectedStep >= 1;
-
-    if (!hasValue) return const SizedBox.shrink();
-
-    return Text('$emoji $selectedStep/$steps', overflow: TextOverflow.ellipsis);
   }
 }
