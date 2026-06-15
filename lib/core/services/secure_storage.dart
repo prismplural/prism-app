@@ -50,16 +50,12 @@ const _macLegacySecureStorage = FlutterSecureStorage(
 @visibleForTesting
 bool debugForceMacSecureStorageEntitlementFallback = false;
 
-// flutter_secure_storage_windows 4.1.0 keeps all entries in one
-// `flutter_secure_storage.dat` with no concurrency control: concurrent backend
-// ops corrupt it, then its recovery path can't delete the locked file (errno
-// 32) — the pairing-drain failure. Serialize every backend call behind a
-// process-global lock — the same in-process mutex fss_windows 4.2.x added for
-// issue #634 (we can't take that bump: win32 5→6 cascade via file_picker /
-// package_info_plus / share_plus). Windows-only: other backends are
-// transactional, and skipping Android keeps the lock off its interactive
-// biometric prompt. All FlutterSecureStorage instances route through
-// [runLockedSecureStorageOp].
+// flutter_secure_storage_windows keeps all entries in one
+// `flutter_secure_storage.dat`; Prism serializes backend calls defensively on
+// Windows so every FlutterSecureStorage instance shares one in-process mutex.
+// Windows-only: other backends are transactional, and skipping Android keeps
+// the lock off its interactive biometric prompt. All FlutterSecureStorage
+// instances route through [runLockedSecureStorageOp].
 final Lock _secureStorageLock = Lock();
 
 /// Test seam: force [runLockedSecureStorageOp] to serialize regardless of the
@@ -752,7 +748,9 @@ Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {
       () => _macLegacySecureStorage.read(key: key),
     );
     if (existing == null) return const SecureDeleteResult();
-    await runLockedSecureStorageOp(() => _macLegacySecureStorage.delete(key: key));
+    await runLockedSecureStorageOp(
+      () => _macLegacySecureStorage.delete(key: key),
+    );
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
     return SecureDeleteResult(
@@ -777,7 +775,9 @@ Future<SecureDeleteResult> _deleteAllMacLegacyKeychainEntries() async {
       () => _macLegacySecureStorage.readAll(),
     );
     for (final key in entries.keys) {
-      await runLockedSecureStorageOp(() => _macLegacySecureStorage.delete(key: key));
+      await runLockedSecureStorageOp(
+        () => _macLegacySecureStorage.delete(key: key),
+      );
     }
     return const SecureDeleteResult();
   } on PlatformException catch (e) {

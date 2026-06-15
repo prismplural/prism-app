@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -187,22 +186,14 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
     if (_operationActive) return null;
     _operationActive = true;
     try {
-      final result = await FilePicker.pickFiles(
+      final file = await FilePicker.pickFile(
         dialogTitle: dialogTitle,
         type: allowedExtensions.isEmpty ? FileType.any : FileType.custom,
         allowedExtensions: _normalizedExtensions(allowedExtensions),
-        // withData:true on mobile crashes large picks. file_picker
-        // serializes the whole file through StandardMethodCodec into a
-        // Direct ByteBuffer before any Dart runs, OOMing the JVM (confirmed
-        // Android trace from an SP avatar zip import; iOS jetsams silently
-        // under the same pressure). Web is the only target without a
-        // filesystem path to fall back on, so it keeps bytes-mode.
-        withData: kIsWeb,
-        withReadStream: false,
         lockParentWindow: Platform.isWindows,
       );
-      if (result == null || result.files.isEmpty) return null;
-      return _handleForPlatformFile(result.files.single);
+      if (file == null) return null;
+      return _handleForPlatformFile(file);
     } finally {
       _operationActive = false;
     }
@@ -255,6 +246,14 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
     required int expectedLength,
   }) async {
     try {
+      final bytes = await request.sourceFile.readAsBytes();
+      if (bytes.length != expectedLength) {
+        return SaveFileOutcome(
+          status: SaveFileStatus.failed,
+          bytesCopied: bytes.length,
+          error: 'Read ${bytes.length} bytes, expected $expectedLength',
+        );
+      }
       final destination = await FilePicker.saveFile(
         dialogTitle: request.dialogTitle,
         fileName: fileName,
@@ -262,33 +261,17 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
             ? FileType.any
             : FileType.custom,
         allowedExtensions: _normalizedExtensions(request.allowedExtensions),
+        bytes: bytes,
         lockParentWindow: Platform.isWindows,
       );
       if (destination == null) {
         return const SaveFileOutcome(status: SaveFileStatus.cancelled);
       }
-
-      final destinationFile = File(destination);
-      final samePath = p.equals(
-        p.absolute(request.sourceFile.path),
-        p.absolute(destinationFile.path),
-      );
-      final bytesCopied = samePath
-          ? expectedLength
-          : await _copyFile(request.sourceFile, destinationFile);
-      if (bytesCopied != expectedLength) {
-        return SaveFileOutcome(
-          status: SaveFileStatus.failed,
-          pathOrUri: destination,
-          bytesCopied: bytesCopied,
-          error: 'Copied $bytesCopied bytes, expected $expectedLength',
-        );
-      }
       return SaveFileOutcome(
         status: SaveFileStatus.saved,
         pathOrUri: destination,
         savedDisplayName: p.basename(destination),
-        bytesCopied: bytesCopied,
+        bytesCopied: bytes.length,
       );
     } on MissingPluginException catch (e) {
       return SaveFileOutcome(status: SaveFileStatus.unsupported, error: e);
@@ -315,23 +298,17 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
 
   PickedFileHandle _handleForPlatformFile(PlatformFile file) {
     final path = file.path;
-    final bytes = file.bytes;
     return PickedFileHandle(
       name: file.name,
       path: path,
       size: file.size,
       readAsBytes: () async {
-        if (bytes != null) return bytes;
-        if (path != null) return File(path).readAsBytes();
-        final stream = file.readStream;
-        if (stream != null) return _readStreamBytes(stream);
-        throw StateError('Picked file has no path, bytes, or stream');
+        if (!kIsWeb && path != null) return File(path).readAsBytes();
+        return file.readAsBytes();
       },
-      openRead: path != null
+      openRead: !kIsWeb && path != null
           ? () => File(path).openRead()
-          : bytes != null
-          ? () => Stream<List<int>>.value(bytes)
-          : null,
+          : () => file.readAsByteStream(),
     );
   }
 
@@ -345,37 +322,6 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
     } on FileSystemException {
       return null;
     }
-  }
-
-  Future<int> _copyFile(File source, File destination) async {
-    var bytesCopied = 0;
-    final output = destination.openWrite();
-    try {
-      await for (final chunk in source.openRead()) {
-        output.add(chunk);
-        bytesCopied += chunk.length;
-      }
-      await output.close();
-      return bytesCopied;
-    } catch (_) {
-      try {
-        await output.close();
-      } catch (_) {}
-      try {
-        if (await destination.exists()) {
-          await destination.delete();
-        }
-      } catch (_) {}
-      rethrow;
-    }
-  }
-
-  static Future<Uint8List> _readStreamBytes(Stream<List<int>> stream) async {
-    final builder = BytesBuilder(copy: false);
-    await for (final chunk in stream) {
-      builder.add(chunk);
-    }
-    return builder.toBytes();
   }
 
   static String _safeSuggestedName(

@@ -30,10 +30,12 @@ dependencies:
 
   # Secure key storage — iOS Keychain / Android Keystore
   flutter_secure_storage: ^10.3.1
+  # Keep Windows on the backend with deleteAll/containsKey mutex fixes.
+  flutter_secure_storage_windows: ^4.2.2
   shared_preferences: ^2.2.0
 
   # Share sheet for backup export
-  share_plus: ^12.0.1
+  share_plus: ^13.1.0
 
   # Process-global lock serializing the single-file Windows secure-storage
   # backend (flutter_secure_storage.dat). See core/services/secure_storage.dart.
@@ -62,7 +64,7 @@ dependencies:
   image: ^4.5.4
   image_picker: ^1.2.1
   platform_image_converter: ^1.0.6
-  file_picker: ^11.0.2
+  file_picker: ^12.0.0-beta.5
   flutter_local_notifications: ^21.0.0
   flutter_timezone: ^5.0.0
   timezone: any
@@ -123,7 +125,7 @@ dependencies:
     git:
       url: https://github.com/skylartaylor/ogg_caf_converter.git
       ref: 899b9692ea048b90ffa114c25b471b06d495ef7b
-  package_info_plus: ^9.0.1
+  package_info_plus: ^10.0.0
 
 dev_dependencies:
   flutter_test:
