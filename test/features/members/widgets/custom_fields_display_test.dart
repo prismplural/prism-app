@@ -31,8 +31,10 @@ void main() {
     required List<CustomFieldValue> values,
     List<Member> members = const [],
     Locale locale = const Locale('en'),
+    double? contentWidth,
   }) {
     final memberRepo = FakeMemberRepository()..seed(members);
+    const display = CustomFieldsDisplay(memberId: memberId);
     return ProviderScope(
       overrides: [
         memberRepositoryProvider.overrideWithValue(memberRepo),
@@ -45,9 +47,11 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
-        home: const Scaffold(
+        home: Scaffold(
           body: SingleChildScrollView(
-            child: CustomFieldsDisplay(memberId: memberId),
+            child: contentWidth == null
+                ? display
+                : SizedBox(width: contentWidth, child: display),
           ),
         ),
       ),
@@ -75,14 +79,19 @@ void main() {
     );
   }
 
-  CustomField field(String id, CustomFieldType type, {String? name}) =>
-      CustomField(
-        id: id,
-        name: name ?? 'Field $id',
-        fieldType: type,
-        fieldTypeId: _fieldTypeIdFor(type),
-        createdAt: DateTime(2026, 1, 1),
-      );
+  CustomField field(
+    String id,
+    CustomFieldType type, {
+    String? name,
+    CustomFieldTypeConfig? typeConfig,
+  }) => CustomField(
+    id: id,
+    name: name ?? 'Field $id',
+    fieldType: type,
+    fieldTypeId: _fieldTypeIdFor(type),
+    createdAt: DateTime(2026, 1, 1),
+    typeConfig: typeConfig,
+  );
 
   CustomFieldValue value(String fieldId, String text) => CustomFieldValue(
     id: 'value-$fieldId',
@@ -122,6 +131,33 @@ void main() {
     expect(_spanForText(span!, 'bold')?.style?.fontWeight, FontWeight.bold);
     expect(_spanForText(span, 'strong')?.style?.fontWeight, FontWeight.bold);
   });
+
+  testWidgets(
+    'compact short text label stays on one line when value can move',
+    (tester) async {
+      await tester.pumpWidget(
+        subject(
+          contentWidth: 420,
+          fields: [
+            field(
+              'pronunciation',
+              CustomFieldType.text,
+              name: 'Pronunciation',
+              typeConfig: const TextConfig(
+                headerIcon: CustomFieldHeaderIcon.phosphor('chat-circle'),
+              ),
+            ),
+          ],
+          values: [value('pronunciation', 'goro aketsi, kreu')],
+        ),
+      );
+      await tester.pump();
+
+      final labelHeight = tester.getSize(find.text('Pronunciation')).height;
+
+      expect(labelHeight, lessThan(30));
+    },
+  );
 
   testWidgets('long text fields use full markdown rendering', (tester) async {
     await tester.pumpWidget(

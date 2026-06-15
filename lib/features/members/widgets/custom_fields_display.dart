@@ -275,43 +275,111 @@ class _CompactFieldGroup extends StatelessWidget {
 class _FieldValueRow extends StatelessWidget {
   const _FieldValueRow({required this.entry});
 
+  static const _columnGap = 12.0;
+  static const _labelIconSize = 16.0;
+  static const _labelIconSpacing = 8.0;
+  static const _labelMaxWidthFactor = 0.58;
+
   final _FieldValueEntry entry;
+
+  static double _preferredLabelWidth({
+    required BuildContext context,
+    required CustomField field,
+    required TextStyle? style,
+    required double maxWidth,
+  }) {
+    final textPainter = TextPainter(
+      text: TextSpan(text: field.name, style: style),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+    final iconWidth = hasRenderableCustomFieldHeaderIcon(field)
+        ? _labelIconSize + _labelIconSpacing
+        : 0.0;
+    return (textPainter.width + iconWidth).clamp(0.0, maxWidth).toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      height: 1.35,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Flexible(
-            flex: 2,
-            fit: FlexFit.tight,
-            child: CustomFieldHeaderLabel(
-              field: entry.field,
-              iconSize: 16,
-              iconColor: theme.colorScheme.primary,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.35,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final availableForColumns = (constraints.maxWidth - _columnGap)
+              .clamp(0.0, constraints.maxWidth)
+              .toDouble();
+          final labelMaxWidth = availableForColumns * _labelMaxWidthFactor;
+          final labelWidth = _preferredLabelWidth(
+            context: context,
+            field: entry.field,
+            style: labelStyle,
+            maxWidth: labelMaxWidth,
+          );
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: labelWidth,
+                child: _CompactFieldHeaderLabel(
+                  field: entry.field,
+                  iconSize: _labelIconSize,
+                  iconColor: theme.colorScheme.primary,
+                  style: labelStyle,
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            flex: 3,
-            fit: FlexFit.tight,
-            child: _FieldValueBody(
-              entry: entry,
-              compact: true,
-              textStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
-              textAlign: TextAlign.start,
-            ),
-          ),
-        ],
+              const SizedBox(width: _columnGap),
+              Expanded(
+                child: _FieldValueBody(
+                  entry: entry,
+                  compact: true,
+                  textStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                  textAlign: TextAlign.start,
+                ),
+              ),
+            ],
+          );
+        },
       ),
+    );
+  }
+}
+
+class _CompactFieldHeaderLabel extends StatelessWidget {
+  const _CompactFieldHeaderLabel({
+    required this.field,
+    required this.iconSize,
+    required this.iconColor,
+    required this.style,
+  });
+
+  final CustomField field;
+  final double iconSize;
+  final Color iconColor;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(field.name, style: style);
+    if (!hasRenderableCustomFieldHeaderIcon(field)) return text;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CustomFieldHeaderIconView(
+          field: field,
+          size: iconSize,
+          color: iconColor,
+        ),
+        const SizedBox(width: _FieldValueRow._labelIconSpacing),
+        Flexible(child: text),
+      ],
     );
   }
 }
