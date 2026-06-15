@@ -64,7 +64,10 @@ bool isBlockImageSize(BioImageSize size, {double emBasisPx = _nominalEmPx}) {
 ///
 /// Operates on the author's raw markdown (the size fragment here is the literal
 /// `#50%`, not the URL-encoded form the parser later produces).
-String blockifyImageMarkdown(String markdown, {double emBasisPx = _nominalEmPx}) {
+String blockifyImageMarkdown(
+  String markdown, {
+  double emBasisPx = _nominalEmPx,
+}) {
   if (!markdown.contains('![')) return markdown;
 
   final lines = markdown.split('\n');
@@ -94,6 +97,18 @@ String blockifyImageMarkdown(String markdown, {double emBasisPx = _nominalEmPx})
   }
 
   for (final line in lines) {
+    final blockquote = _parseBlockquoteMarker(line);
+    if (blockquote != null && blockquote.content.contains('![')) {
+      final rewritten = blockifyImageMarkdown(
+        blockquote.content,
+        emBasisPx: emBasisPx,
+      );
+      for (final quotedLine in rewritten.split('\n')) {
+        addLine(_quoteLine(blockquote.marker, quotedLine));
+      }
+      continue;
+    }
+
     // Pipe layouts stay inline; the image builder supplies the gutter.
     if (line.contains('|')) {
       addLine(line);
@@ -147,3 +162,26 @@ String blockifyImageMarkdown(String markdown, {double emBasisPx = _nominalEmPx})
 
   return out.join('\n');
 }
+
+_BlockquoteLine? _parseBlockquoteMarker(String line) {
+  final match = _blockquoteLinePattern.firstMatch(line);
+  if (match == null) return null;
+  return _BlockquoteLine(
+    line.substring(0, match.end),
+    line.substring(match.end),
+  );
+}
+
+String _quoteLine(String marker, String content) {
+  if (content.isEmpty) return marker.trimRight();
+  return '$marker$content';
+}
+
+class _BlockquoteLine {
+  const _BlockquoteLine(this.marker, this.content);
+
+  final String marker;
+  final String content;
+}
+
+final _blockquoteLinePattern = RegExp(r'^[ \t]{0,3}>[ \t]?');

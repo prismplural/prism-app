@@ -75,6 +75,13 @@ void main() {
       );
     });
 
+    test('preserves blockquote markers when promoting images', () {
+      expect(
+        blockifyImageMarkdown('> prefix ![sample](sample-image) **suffix**'),
+        '> prefix\n>\n> ![sample](sample-image)\n>\n> **suffix**',
+      );
+    });
+
     test('mixed: only the large one is promoted, small stays inline', () {
       expect(
         blockifyImageMarkdown('a ![](flag#16) b ![](flag#96) c'),
@@ -97,10 +104,7 @@ void main() {
 
     test('treats braille blank padding around block images as whitespace', () {
       const blank = '\u2800';
-      expect(
-        blockifyImageMarkdown('$blank![](flag#96)$blank'),
-        '![](flag#96)',
-      );
+      expect(blockifyImageMarkdown('$blank![](flag#96)$blank'), '![](flag#96)');
     });
 
     test('does not pile up blank lines around an already-isolated image', () {
