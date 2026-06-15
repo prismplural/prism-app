@@ -2,3 +2,4 @@ tags:
   integration:
   slow:
   fixture-gen:
+  golden:

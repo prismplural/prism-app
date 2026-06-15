@@ -37,6 +37,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Golden test failure diffs are local review artifacts.
+test/**/failures/
+
 # Symbolication related
 app.*.symbols
 
