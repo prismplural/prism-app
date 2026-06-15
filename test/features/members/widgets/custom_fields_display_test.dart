@@ -9,7 +9,9 @@ import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
+import 'package:prism_plurality/features/members/widgets/member_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
@@ -44,6 +46,27 @@ void main() {
         home: const Scaffold(
           body: SingleChildScrollView(
             child: CustomFieldsDisplay(memberId: memberId),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget editorSubject({
+    required CustomField field,
+    required CustomFieldValue value,
+    List<Member> members = const [],
+  }) {
+    final memberRepo = FakeMemberRepository()..seed(members);
+    return ProviderScope(
+      overrides: [memberRepositoryProvider.overrideWithValue(memberRepo)],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) =>
+                buildMemberEditor(context, field, value, memberId),
           ),
         ),
       ),
@@ -193,6 +216,69 @@ void main() {
       expect(find.textContaining('memberIds'), findsNothing);
     },
   );
+
+  testWidgets('read-only member field chips open the member detail sheet', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [memberField],
+        values: [value(memberField.id, '{"memberIds":["alice"]}')],
+        members: [member('alice', 'Alice')],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final chipFinder = find.byType(MemberChip);
+    expect(chipFinder, findsOneWidget);
+    await tester.tap(chipFinder);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is MemberDetailScreen && widget.memberId == 'alice',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('editable member field chips stay in edit mode when tapped', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    await tester.pumpWidget(
+      editorSubject(
+        field: memberField,
+        value: value(memberField.id, '{"memberIds":["alice"]}'),
+        members: [member('alice', 'Alice')],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final chipFinder = find.byType(MemberChip);
+    expect(chipFinder, findsOneWidget);
+    await tester.tap(chipFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MemberDetailScreen), findsNothing);
+  });
 
   testWidgets('member field placeholders localize in Spanish', (tester) async {
     final memberField = CustomField(

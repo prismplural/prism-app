@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,9 +9,11 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_editor_scope.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -18,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 Widget buildMemberEditor(
   BuildContext context,
@@ -224,6 +229,7 @@ class _MemberFieldEditorWidgetState
             ids: _currentIds,
             currentMemberId: widget.memberId,
             compact: false,
+            readOnly: false,
             onRemoveId: _removeId,
           ),
         const SizedBox(height: 8),
@@ -260,6 +266,7 @@ class _MemberFieldDisplayWidget extends StatelessWidget {
       ids: ids,
       currentMemberId: value.memberId,
       compact: compact,
+      readOnly: true,
     );
   }
 }
@@ -270,6 +277,7 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
     required this.ids,
     required this.currentMemberId,
     required this.compact,
+    required this.readOnly,
     this.onRemoveId,
   });
 
@@ -277,6 +285,7 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
   final Set<String> ids;
   final String currentMemberId;
   final bool compact;
+  final bool readOnly;
   final ValueChanged<String>? onRemoveId;
 
   @override
@@ -302,6 +311,7 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
           fieldName: fieldName,
           member: member,
           compact: compact,
+          readOnly: readOnly,
           onRemove: onRemoveId == null ? null : () => onRemoveId!(member.id),
         ),
       for (final id in placeholderIds)
@@ -327,25 +337,27 @@ class _ResolvedMemberChip extends StatelessWidget {
     required this.fieldName,
     required this.member,
     required this.compact,
+    required this.readOnly,
     this.onRemove,
   });
 
   final String fieldName;
   final Member member;
   final bool compact;
+  final bool readOnly;
   final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final remove = onRemove;
     final chip = MemberChip(
       member: member,
-      onTap: null,
+      onTap: readOnly ? () => _openMember(context) : null,
       style: compact ? MemberChipStyle.inline : MemberChipStyle.filled,
       avatarSize: compact ? 16 : 20,
       labelMaxLines: 1,
     );
-    final remove = onRemove;
     final semanticLabel = l10n.customFieldMemberSelectedSemantic(
       fieldName,
       member.name,
@@ -356,6 +368,18 @@ class _ResolvedMemberChip extends StatelessWidget {
       removeLabel: l10n.customFieldMemberRemoveMember(member.name),
       onRemove: remove,
       child: semanticChip,
+    );
+  }
+
+  void _openMember(BuildContext context) {
+    unawaited(
+      PrismSheet.showFullScreen<void>(
+        context: context,
+        builder: (context, _) => MemberDetailScreen(
+          memberId: member.id,
+          branch: MemberNavigationBranch.members,
+        ),
+      ),
     );
   }
 }
