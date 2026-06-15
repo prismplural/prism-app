@@ -13,7 +13,6 @@ const _allowedLegacyColorReferenceCounts = <String, int>{
   'lib/features/chat/widgets/chat_markdown_editing_controller.dart': 1,
   'lib/features/chat/widgets/media/gif_bubble.dart': 4,
   'lib/features/chat/widgets/media/image_bubble.dart': 4,
-  'lib/features/chat/widgets/mention_overlay.dart': 5,
   'lib/features/chat/widgets/message_input.dart': 9,
   'lib/features/chat/widgets/reaction_bar.dart': 1,
   'lib/features/chat/widgets/voice_recorder.dart': 4,
