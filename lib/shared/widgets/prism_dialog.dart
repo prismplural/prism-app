@@ -323,7 +323,12 @@ class _GlassDialogShell extends StatelessWidget {
                   width: PrismTokens.hairlineBorderWidth,
                 ),
               ),
-              child: child,
+              // A transparent Material under the glass fill so ListTile ink and
+              // selection highlights paint on top of it, not behind the fill.
+              child: Material(
+                type: MaterialType.transparency,
+                child: child,
+              ),
             ),
           ),
         ),
