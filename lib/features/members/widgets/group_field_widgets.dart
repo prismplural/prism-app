@@ -240,8 +240,6 @@ class _GroupChildEntry {
 
 /// Compact `Name | Value` for fields whose effective layout is compact;
 /// stacked header + body for everything else.
-///
-/// Choice chips need the full-width display renderer inside groups.
 class _GroupChildDisplay extends StatelessWidget {
   const _GroupChildDisplay({required this.entry});
 
@@ -256,7 +254,11 @@ class _GroupChildDisplay extends StatelessWidget {
   bool get _hideTitle => effectiveHideTitleOnProfile(entry.child.typeConfig);
 
   bool get _isCompact {
-    if (_isChoice) return false;
+    if (_isChoice) {
+      final config = entry.child.typeConfig;
+      return config is ChoiceConfig &&
+          config.displayLayout == DisplayLayout.compact;
+    }
     if (_isLongText) return false;
     return effectiveDisplayLayout(
           fieldTypeId: entry.child.fieldTypeId,

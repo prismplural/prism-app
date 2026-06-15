@@ -14253,6 +14253,30 @@ abstract class AppLocalizations {
   /// **'Allow \'Other\' free text'**
   String get customFieldChoiceAllowOtherLabel;
 
+  /// Section heading for the choice field layout choice (auto/compact/stacked) in field settings
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get customFieldChoiceLayoutHeading;
+
+  /// Layout choice meaning 'use the type-aware default' (currently compact for top-level choice fields and stacked for grouped choice fields)
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get customFieldChoiceLayoutAuto;
+
+  /// Layout choice: label-left, choice chips-right on one row
+  ///
+  /// In en, this message translates to:
+  /// **'Compact'**
+  String get customFieldChoiceLayoutCompact;
+
+  /// Layout choice: label above, choice chips on their own row below
+  ///
+  /// In en, this message translates to:
+  /// **'Stacked'**
+  String get customFieldChoiceLayoutStacked;
+
   /// Warning chip shown when a choice option label duplicates another option
   ///
   /// In en, this message translates to:

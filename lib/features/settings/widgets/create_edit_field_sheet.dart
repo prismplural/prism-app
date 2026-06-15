@@ -88,6 +88,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   List<ChoiceOption> _choiceOptions = [];
   bool _choiceAllowsMultiple = false;
   bool _choiceAllowsOther = false;
+  // null = Auto; resolved by effectiveDisplayLayout at render time.
+  DisplayLayout? _choiceDisplayLayout;
 
   // Per-option text controllers, keyed by option ID.
   final Map<String, TextEditingController> _optionControllers = {};
@@ -212,10 +214,12 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
     if (existingConfig is! ChoiceConfig || _selectedTypeId != 'choice') {
       return _choiceOptions.isNotEmpty ||
           _choiceAllowsMultiple ||
-          _choiceAllowsOther;
+          _choiceAllowsOther ||
+          _choiceDisplayLayout != null;
     }
     if (existingConfig.allowsMultiple != _choiceAllowsMultiple) return true;
     if (existingConfig.allowsOther != _choiceAllowsOther) return true;
+    if (existingConfig.displayLayout != _choiceDisplayLayout) return true;
     if (existingConfig.options.length != _choiceOptions.length) return true;
     for (var i = 0; i < _choiceOptions.length; i++) {
       final a = existingConfig.options[i];
@@ -263,6 +267,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         _choiceOptions = List.of(config.options);
         _choiceAllowsMultiple = config.allowsMultiple;
         _choiceAllowsOther = config.allowsOther;
+        _choiceDisplayLayout = config.displayLayout;
       }
       // Hydrate scale config from existing field.
       if (f.typeConfig is ScaleConfig) {
@@ -448,6 +453,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
         options: synced,
         allowsMultiple: _choiceAllowsMultiple,
         allowsOther: _choiceAllowsOther,
+        displayLayout: _choiceDisplayLayout,
         headerIcon: _headerIcon,
         hideTitleOnProfile: _hideTitleOnProfile,
       );
@@ -456,6 +462,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       options: synced,
       allowsMultiple: _choiceAllowsMultiple,
       allowsOther: _choiceAllowsOther,
+      displayLayout: _choiceDisplayLayout,
       headerIcon: _headerIcon,
       hideTitleOnProfile: _hideTitleOnProfile,
     );
@@ -1050,6 +1057,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         optionFocusNodes: _optionFocusNodes,
                         allowsMultiple: _choiceAllowsMultiple,
                         allowsOther: _choiceAllowsOther,
+                        displayLayout: _choiceDisplayLayout,
                         duplicateIds: _duplicateOptionIds(),
                         onAddOption: _addOption,
                         onRemoveOption: _removeOption,
@@ -1060,6 +1068,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                             setState(() => _choiceAllowsMultiple = v),
                         onAllowsOtherChanged: (v) =>
                             setState(() => _choiceAllowsOther = v),
+                        onDisplayLayoutChanged: (v) =>
+                            setState(() => _choiceDisplayLayout = v),
                       ),
                     ],
 
@@ -1200,6 +1210,7 @@ class _ChoiceConfigSection extends StatelessWidget {
     required this.optionFocusNodes,
     required this.allowsMultiple,
     required this.allowsOther,
+    required this.displayLayout,
     required this.duplicateIds,
     required this.onAddOption,
     required this.onRemoveOption,
@@ -1208,6 +1219,7 @@ class _ChoiceConfigSection extends StatelessWidget {
     required this.onReorder,
     required this.onAllowsMultipleChanged,
     required this.onAllowsOtherChanged,
+    required this.onDisplayLayoutChanged,
   });
 
   final List<ChoiceOption> visibleOptions;
@@ -1216,6 +1228,7 @@ class _ChoiceConfigSection extends StatelessWidget {
   final Map<String, FocusNode> optionFocusNodes;
   final bool allowsMultiple;
   final bool allowsOther;
+  final DisplayLayout? displayLayout;
   final Set<String> duplicateIds;
   final VoidCallback onAddOption;
   final ValueChanged<String> onRemoveOption;
@@ -1224,6 +1237,7 @@ class _ChoiceConfigSection extends StatelessWidget {
   final void Function(int, int) onReorder;
   final ValueChanged<bool> onAllowsMultipleChanged;
   final ValueChanged<bool> onAllowsOtherChanged;
+  final ValueChanged<DisplayLayout?> onDisplayLayoutChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1274,6 +1288,33 @@ class _ChoiceConfigSection extends StatelessWidget {
             density: PrismControlDensity.compact,
             tone: PrismButtonTone.subtle,
           ),
+        ),
+
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        const SizedBox(height: 16),
+
+        Text(
+          l10n.customFieldChoiceLayoutHeading,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        PrismSegmentedControl<DisplayLayout?>(
+          segments: [
+            PrismSegment(value: null, label: l10n.customFieldChoiceLayoutAuto),
+            PrismSegment(
+              value: DisplayLayout.compact,
+              label: l10n.customFieldChoiceLayoutCompact,
+            ),
+            PrismSegment(
+              value: DisplayLayout.stacked,
+              label: l10n.customFieldChoiceLayoutStacked,
+            ),
+          ],
+          selected: displayLayout,
+          onChanged: onDisplayLayoutChanged,
         ),
 
         const SizedBox(height: 16),

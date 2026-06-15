@@ -8752,6 +8752,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldChoiceAllowOtherLabel => 'Allow \'Other\' free text';
 
   @override
+  String get customFieldChoiceLayoutHeading => 'Layout';
+
+  @override
+  String get customFieldChoiceLayoutAuto => 'Auto';
+
+  @override
+  String get customFieldChoiceLayoutCompact => 'Compact';
+
+  @override
+  String get customFieldChoiceLayoutStacked => 'Stacked';
+
+  @override
   String get customFieldChoiceDuplicateLabel => 'Duplicate label';
 
   @override

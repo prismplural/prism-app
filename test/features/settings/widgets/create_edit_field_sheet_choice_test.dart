@@ -226,6 +226,33 @@ void main() {
       expect(config.allowsOther, isTrue);
     });
 
+    testWidgets('layout selection persists into ChoiceConfig on save', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier();
+      await tester.pumpWidget(_buildSheet(notifier: notifier));
+      await tester.pumpAndSettle();
+
+      final nameField = find.byType(TextField).first;
+      await tester.enterText(nameField, 'Mood');
+      await tester.pump();
+
+      await tester.tap(find.text('Choice'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Stacked'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      expect(notifier.lastCreated, isNotNull);
+      final config = notifier.lastCreated!.typeConfig as ChoiceConfig?;
+      expect(config, isNotNull);
+      expect(config!.displayLayout, DisplayLayout.stacked);
+    });
+
     testWidgets(
       'editing a choice field preserves forward-compat extra keys on save',
       (tester) async {
@@ -276,6 +303,42 @@ void main() {
         );
       },
     );
+
+    testWidgets('editing a stacked choice field can switch layout to compact', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final existingField = CustomField(
+        id: 'field-layout',
+        name: 'Mood',
+        fieldType: CustomFieldType.choice,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026, 1, 1),
+        fieldTypeId: 'choice',
+        typeConfig: const ChoiceConfig(
+          displayLayout: DisplayLayout.stacked,
+          extra: {'futureFlag': true},
+        ),
+      );
+
+      final notifier = _FakeCustomFieldNotifier();
+      await tester.pumpWidget(
+        _buildSheet(field: existingField, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Compact'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      expect(notifier.lastWrittenConfigFieldId, 'field-layout');
+      final written = notifier.lastWrittenConfig as ChoiceConfig?;
+      expect(written, isNotNull);
+      expect(written!.displayLayout, DisplayLayout.compact);
+      expect(written.extra, {'futureFlag': true});
+    });
 
     testWidgets('tapping option swatch opens the color picker dialog', (
       tester,

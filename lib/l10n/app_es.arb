@@ -3724,6 +3724,22 @@
   "@customFieldChoiceAllowOtherLabel": {
     "description": "Toggle label for allowing an 'Other' free-text entry in a choice field"
   },
+  "customFieldChoiceLayoutHeading": "Layout",
+  "@customFieldChoiceLayoutHeading": {
+    "description": "Section heading for the choice field layout choice (auto/compact/stacked) in field settings"
+  },
+  "customFieldChoiceLayoutAuto": "Auto",
+  "@customFieldChoiceLayoutAuto": {
+    "description": "Layout choice meaning 'use the type-aware default' (currently compact for top-level choice fields and stacked for grouped choice fields)"
+  },
+  "customFieldChoiceLayoutCompact": "Compact",
+  "@customFieldChoiceLayoutCompact": {
+    "description": "Layout choice: label-left, choice chips-right on one row"
+  },
+  "customFieldChoiceLayoutStacked": "Stacked",
+  "@customFieldChoiceLayoutStacked": {
+    "description": "Layout choice: label above, choice chips on their own row below"
+  },
   "customFieldChoiceDuplicateLabel": "Duplicate label",
   "@customFieldChoiceDuplicateLabel": {
     "description": "Warning chip shown when a choice option label duplicates another option"

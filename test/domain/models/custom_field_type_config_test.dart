@@ -75,6 +75,17 @@ void main() {
       expect(back, c);
     });
 
+    test('ChoiceConfig round-trips with displayLayout override', () {
+      const c = ChoiceConfig(displayLayout: DisplayLayout.stacked);
+
+      final json = CustomFieldTypeConfigCodec.toJson(c);
+      final back = CustomFieldTypeConfigCodec.fromJson(json) as ChoiceConfig;
+
+      expect(json['displayLayout'], 'stacked');
+      expect(back, c);
+      expect(back.displayLayout, DisplayLayout.stacked);
+    });
+
     test('GroupConfig round-trips', () {
       const c = GroupConfig(icon: '🌟');
       final json = CustomFieldTypeConfigCodec.toJson(c);
@@ -701,6 +712,23 @@ void main() {
         DisplayLayout.stacked,
       );
     });
+
+    test('ChoiceConfig displayLayout overrides the compact default', () {
+      expect(
+        effectiveDisplayLayout(
+          fieldTypeId: 'choice',
+          typeConfig: const ChoiceConfig(),
+        ),
+        DisplayLayout.compact,
+      );
+      expect(
+        effectiveDisplayLayout(
+          fieldTypeId: 'choice',
+          typeConfig: const ChoiceConfig(displayLayout: DisplayLayout.stacked),
+        ),
+        DisplayLayout.stacked,
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -741,12 +769,14 @@ void main() {
         'options',
         'allowsMultiple',
         'allowsOther',
+        'displayLayout',
         'hideTitleOnProfile',
       ]) {
         final json = makeJson('choice', {
           'options': <dynamic>[],
           'allowsMultiple': false,
           'allowsOther': false,
+          'displayLayout': null,
           'hideTitleOnProfile': false,
           // Ensure the specific key is present
         });

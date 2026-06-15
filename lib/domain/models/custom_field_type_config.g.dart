@@ -14,6 +14,10 @@ ChoiceConfig _$ChoiceConfigFromJson(Map<String, dynamic> json) => ChoiceConfig(
       const <ChoiceOption>[],
   allowsMultiple: json['allowsMultiple'] as bool? ?? false,
   allowsOther: json['allowsOther'] as bool? ?? false,
+  displayLayout: $enumDecodeNullable(
+    _$DisplayLayoutEnumMap,
+    json['displayLayout'],
+  ),
   headerIcon: const CustomFieldHeaderIconConverter().fromJson(
     json['headerIcon'],
   ),
@@ -26,12 +30,18 @@ Map<String, dynamic> _$ChoiceConfigToJson(ChoiceConfig instance) =>
       'options': instance.options,
       'allowsMultiple': instance.allowsMultiple,
       'allowsOther': instance.allowsOther,
+      'displayLayout': _$DisplayLayoutEnumMap[instance.displayLayout],
       'headerIcon': const CustomFieldHeaderIconConverter().toJson(
         instance.headerIcon,
       ),
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
+
+const _$DisplayLayoutEnumMap = {
+  DisplayLayout.compact: 'compact',
+  DisplayLayout.stacked: 'stacked',
+};
 
 GroupConfig _$GroupConfigFromJson(Map<String, dynamic> json) => GroupConfig(
   icon: json['icon'] as String?,
@@ -81,11 +91,6 @@ Map<String, dynamic> _$ScaleConfigToJson(ScaleConfig instance) =>
       'hideTitleOnProfile': instance.hideTitleOnProfile,
       'runtimeType': instance.$type,
     };
-
-const _$DisplayLayoutEnumMap = {
-  DisplayLayout.compact: 'compact',
-  DisplayLayout.stacked: 'stacked',
-};
 
 SliderConfig _$SliderConfigFromJson(Map<String, dynamic> json) => SliderConfig(
   mode: $enumDecode(_$SliderModeEnumMap, json['mode']),

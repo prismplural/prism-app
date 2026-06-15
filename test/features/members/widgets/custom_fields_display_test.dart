@@ -398,6 +398,46 @@ void main() {
     expect(second.left - first.right, greaterThanOrEqualTo(10));
   });
 
+  testWidgets('stacked choice field renders outside compact field group', (
+    tester,
+  ) async {
+    final textField = field('nickname', CustomFieldType.text, name: 'Nickname');
+    final choiceField = CustomField(
+      id: 'favorite-color',
+      name: 'Favorite Color',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'choice',
+      displayOrder: 1,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const ChoiceConfig(
+        displayLayout: DisplayLayout.stacked,
+        options: [ChoiceOption(id: 'green', label: 'Green', sortOrder: 0)],
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [textField, choiceField],
+        values: [
+          value(textField.id, 'A'),
+          value(choiceField.id, '{"options":["green"]}'),
+        ],
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Nickname'), findsOneWidget);
+    expect(find.text('Favorite Color'), findsOneWidget);
+    expect(find.widgetWithText(PrismChip, 'Green'), findsOneWidget);
+
+    final labelBottom = tester.getBottomLeft(find.text('Favorite Color')).dy;
+    final chipTop = tester
+        .getTopLeft(find.widgetWithText(PrismChip, 'Green'))
+        .dy;
+    expect(chipTop, greaterThan(labelBottom));
+    expect(find.byType(PrismSectionCard), findsNWidgets(2));
+  });
+
   testWidgets(
     'compact scale field renders emoji row instead of fraction text',
     (tester) async {
@@ -1433,6 +1473,44 @@ void main() {
         .getTopLeft(find.widgetWithText(PrismChip, 'Green'))
         .dy;
     expect(chipTop, greaterThan(labelBottom));
+  });
+
+  testWidgets('grouped compact choice child honors explicit compact layout', (
+    tester,
+  ) async {
+    final group = CustomField(
+      id: 'grp-compact-choice',
+      name: 'Preferences',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final choiceChild = CustomField(
+      id: 'child-compact-choice',
+      name: 'Favorite Color',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'choice',
+      parentFieldId: 'grp-compact-choice',
+      displayOrder: 0,
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const ChoiceConfig(
+        displayLayout: DisplayLayout.compact,
+        options: [ChoiceOption(id: 'green', label: 'Green', sortOrder: 0)],
+      ),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [group, choiceChild],
+        values: [value(choiceChild.id, '{"options":["green"]}')],
+      ),
+    );
+    await tester.pump();
+
+    final labelCenter = tester.getCenter(find.text('Favorite Color'));
+    final chipCenter = tester.getCenter(find.widgetWithText(PrismChip, 'Green'));
+    expect((labelCenter.dy - chipCenter.dy).abs(), lessThan(20));
   });
 
   testWidgets(

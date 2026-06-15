@@ -107,6 +107,9 @@ DisplayLayout effectiveDisplayLayout({
   String? fieldTypeId,
   CustomFieldTypeConfig? typeConfig,
 }) {
+  if (typeConfig is ChoiceConfig && typeConfig.displayLayout != null) {
+    return typeConfig.displayLayout!;
+  }
   if (typeConfig is ScaleConfig && typeConfig.displayLayout != null) {
     return typeConfig.displayLayout!;
   }
@@ -132,6 +135,7 @@ sealed class CustomFieldTypeConfig with _$CustomFieldTypeConfig {
     @Default(<ChoiceOption>[]) List<ChoiceOption> options,
     @Default(false) bool allowsMultiple,
     @Default(false) bool allowsOther,
+    DisplayLayout? displayLayout,
     @CustomFieldHeaderIconConverter() CustomFieldHeaderIcon? headerIcon,
     @Default(false) bool hideTitleOnProfile,
     @Default(<String, dynamic>{})
@@ -355,6 +359,7 @@ class CustomFieldTypeConfigCodec {
         'options',
         'allowsMultiple',
         'allowsOther',
+        'displayLayout',
         'headerIcon',
         'hideTitleOnProfile',
       },
