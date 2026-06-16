@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
@@ -1347,6 +1348,44 @@ void main() {
       expect(result.messagesImported, 0);
       expect(result.pollsImported, 0);
       expect(result.warnings, isEmpty);
+    });
+
+    test('duplicate SP group members import as one live membership', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final data = const SpExportData(
+        members: [SpMember(id: 'sp-a', name: 'Alice')],
+        customFronts: [],
+        frontHistory: [],
+        groups: [
+          SpGroup(id: 'group-1', name: 'Team', memberIds: ['sp-a', 'sp-a']),
+        ],
+        channels: [],
+        messages: [],
+        polls: [],
+      );
+      final repos = _makeFakeRepos();
+
+      final result = await SpImporter(httpClient: _FakeHttpClient())
+          .executeImport(
+            db: db,
+            data: data,
+            memberRepo: DriftMemberRepository(db.membersDao, null),
+            sessionRepo: repos.sessionRepo,
+            conversationRepo: repos.conversationRepo,
+            messageRepo: repos.messageRepo,
+            pollRepo: repos.pollRepo,
+            groupsRepo: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+            downloadAvatars: false,
+          );
+
+      final row = await db
+          .customSelect('SELECT COUNT(*) AS c FROM member_group_entries')
+          .getSingle();
+
+      expect(result.groupsImported, 1);
+      expect(row.read<int>('c'), 1);
     });
 
     test(

@@ -1229,6 +1229,7 @@ class SpMapper {
     List<String> warnings,
   ) {
     final memberships = <MapEntry<String, String>>[];
+    final seenMemberships = <({String groupId, String memberId})>{};
     for (final sp in spGroups) {
       final prismGroupId = _groupIdMap[sp.id];
       if (prismGroupId == null) continue;
@@ -1242,6 +1243,8 @@ class SpMapper {
           );
           continue;
         }
+        final membership = (groupId: prismGroupId, memberId: prismMemberId);
+        if (!seenMemberships.add(membership)) continue;
         memberships.add(MapEntry(prismGroupId, prismMemberId));
       }
     }

@@ -491,6 +491,39 @@ void main() {
       expect(memberIds.contains(result.groupMemberships[1].value), isTrue);
     });
 
+    test('duplicate group memberships are mapped once', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        groups: [
+          const SpGroup(id: 'g1', name: 'Team', memberIds: ['sp-a', 'sp-a']),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.groupMemberships, hasLength(1));
+    });
+
+    test('same member in different groups keeps both memberships', () {
+      final data = _makeExportData(
+        members: [_memberA],
+        groups: [
+          const SpGroup(id: 'g1', name: 'Team A', memberIds: ['sp-a']),
+          const SpGroup(id: 'g2', name: 'Team B', memberIds: ['sp-a']),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.groupMemberships, hasLength(2));
+      expect(
+        result.groupMemberships.map((membership) => membership.key).toSet(),
+        hasLength(2),
+      );
+    });
+
     test('unknown member in group emits warning', () {
       final data = _makeExportData(
         members: [_memberA],
