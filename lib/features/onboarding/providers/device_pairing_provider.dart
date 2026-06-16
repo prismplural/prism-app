@@ -210,6 +210,49 @@ bool shouldAckSnapshotApplied({
   return journalDrained && catchUpSucceeded;
 }
 
+@visibleForTesting
+typedef TakeUndeliveredChangesFn =
+    Future<String> Function({
+      required ffi.PrismSyncHandle handle,
+      required int limit,
+    });
+
+@visibleForTesting
+typedef AckConsumerDeliveriesFn =
+    Future<void> Function({
+      required ffi.PrismSyncHandle handle,
+      required int upToId,
+    });
+
+/// Clears duplicate bootstrap journal rows after strict snapshot apply commits.
+@visibleForTesting
+Future<int> ackBootstrapConsumerDeliveryJournal({
+  required ffi.PrismSyncHandle handle,
+  TakeUndeliveredChangesFn? take,
+  AckConsumerDeliveriesFn? ack,
+  int chunkSize = 1000,
+  int maxChunks = 10000,
+}) async {
+  final takeFn = take ?? ffi.takeUndeliveredChanges;
+  final ackFn = ack ?? ffi.ackConsumerDeliveries;
+
+  for (var chunksAcked = 0; chunksAcked < maxChunks; chunksAcked++) {
+    final raw = await takeFn(handle: handle, limit: chunkSize);
+    final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    final deliveries = (decoded['deliveries'] as List?) ?? const [];
+    final maxId = (decoded['max_id'] as num?)?.toInt() ?? 0;
+    if (deliveries.isEmpty || maxId <= 0) {
+      return chunksAcked;
+    }
+    // Strict snapshot apply already committed these rows.
+    await ackFn(handle: handle, upToId: maxId);
+  }
+
+  throw StateError(
+    'Bootstrap consumer-delivery journal did not empty after $maxChunks chunks',
+  );
+}
+
 class DevicePairingNotifier extends Notifier<PairingState> {
   /// Monotonically increasing generation counter. Each new pairing attempt
   /// increments the counter and captures the value; async continuations bail
@@ -1211,7 +1254,19 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
         switch (applyOutcome) {
           case ApplyOutcomeSuccess():
-            // fall through to post-bootstrap work
+            try {
+              await ackBootstrapConsumerDeliveryJournal(handle: handle);
+              _bootstrapJournalDrained = true;
+            } catch (e, st) {
+              fatalSnapshotError = true;
+              fatalSnapshotMessage =
+                  'Failed to finish applying your system. Please try again.';
+              ErrorReportingService.instance.report(
+                'Post-bootstrap consumer-delivery journal ACK failed: $e',
+                severity: ErrorSeverity.error,
+                stackTrace: st,
+              );
+            }
             break;
           case ApplyOutcomeFailure(:final failure, :final stackTrace):
             fatalSnapshotError = true;

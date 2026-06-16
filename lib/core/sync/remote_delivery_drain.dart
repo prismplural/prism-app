@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 
 /// The Dart half of the durable consumer-delivery journal.
@@ -231,11 +232,13 @@ Future<void> quarantineConsumerDeliverySpill(
         entityType: d.table,
         entityId: d.entityId,
         fieldName: null,
-        expectedType: 'apply',
-        receivedType: d.isDelete ? 'SpilledDelete' : 'SpilledApply',
+        expectedType: kConsumerDeliverySpillExpectedType,
+        receivedType: d.isDelete
+            ? kConsumerDeliverySpillDeleteType
+            : kConsumerDeliverySpillApplyType,
         receivedValue: jsonEncode(d.fields),
         errorMessage:
-            'consumer-delivery journal over retention cap; row spilled to '
+            '$kConsumerDeliverySpillErrorPrefix; row spilled to '
             'quarantine to bound engine-DB growth (id=${d.id})',
       );
     } catch (e, st) {

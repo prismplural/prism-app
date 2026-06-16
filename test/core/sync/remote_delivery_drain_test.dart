@@ -8,6 +8,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_sync_drift/prism_sync_drift.dart' show DriftSyncAdapter;
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/remote_delivery_drain.dart';
@@ -387,6 +388,61 @@ void main() {
     },
   );
 
+  test(
+    'large fronting-session backlog spills only the over-cap prefix',
+    () async {
+      const cap = 50000;
+      const total = cap + 10250;
+      const chunkSize = 200;
+      final journal = _FakeJournal(cap: cap);
+      for (var i = 0; i < total; i++) {
+        journal.append(
+          table: 'fronting_sessions',
+          entityId: 'front-$i',
+          isDelete: false,
+          fieldName: 'start_time',
+          encodedValue: jsonEncode('2026-06-16T00:00:00.000Z'),
+        );
+      }
+
+      var appliedCount = 0;
+      var spilledCount = 0;
+      var minApplied = total;
+      var maxSpilled = -1;
+      final result = await runRemoteDeliveryDrain(
+        take: journal.take,
+        ack: journal.ack,
+        applyChanges: (deliveries) async {
+          appliedCount += deliveries.length;
+          for (final d in deliveries) {
+            expect(d.table, 'fronting_sessions');
+            final index = int.parse(d.entityId.substring('front-'.length));
+            if (index < minApplied) minApplied = index;
+          }
+          return deliveries.length;
+        },
+        quarantineSpill: (spill) async {
+          spilledCount += spill.length;
+          for (final d in spill) {
+            expect(d.table, 'fronting_sessions');
+            final index = int.parse(d.entityId.substring('front-'.length));
+            if (index > maxSpilled) maxSpilled = index;
+          }
+        },
+        chunkSize: chunkSize,
+      );
+
+      expect(result.rowsSpilled, total - cap);
+      expect(result.rowsApplied, cap);
+      expect(spilledCount, total - cap);
+      expect(appliedCount, cap);
+      expect(maxSpilled, total - cap - 1);
+      expect(minApplied, total - cap);
+      expect(result.chunksAcked, (total / chunkSize).ceil());
+      expect(journal.length, 0);
+    },
+  );
+
   // ------------------------------------------------------------------
   // onProgress heartbeat (Finding A / blocker 1): the bootstrap path forwards
   // this to the strict-apply watchdog so a long large-system apply does not
@@ -477,32 +533,35 @@ void main() {
   // permanently (the payload-bearing lane is not built in this step).
   // ------------------------------------------------------------------
 
-  test('a throwing applyChanges leaves the chunk un-acked (rows survive)', () async {
-    final journal = _FakeJournal();
-    journal.append(
-      table: 'members',
-      entityId: 'm1',
-      isDelete: false,
-      fieldName: 'name',
-      encodedValue: '"A"',
-    );
-    var ackCalls = 0;
-    await expectLater(
-      runRemoteDeliveryDrain(
-        take: journal.take,
-        ack: (upToId) async {
-          ackCalls++;
-          await journal.ack(upToId);
-        },
-        // Simulates a strict per-row apply failure surfacing out of the apply.
-        applyChanges: (_) async => throw StateError('strict apply failed'),
-        quarantineSpill: (_) async {},
-      ),
-      throwsA(isA<StateError>()),
-    );
-    expect(ackCalls, 0, reason: 'throw before ack → chunk not acked');
-    expect(journal.length, 1, reason: 'the failed row survives for retry');
-  });
+  test(
+    'a throwing applyChanges leaves the chunk un-acked (rows survive)',
+    () async {
+      final journal = _FakeJournal();
+      journal.append(
+        table: 'members',
+        entityId: 'm1',
+        isDelete: false,
+        fieldName: 'name',
+        encodedValue: '"A"',
+      );
+      var ackCalls = 0;
+      await expectLater(
+        runRemoteDeliveryDrain(
+          take: journal.take,
+          ack: (upToId) async {
+            ackCalls++;
+            await journal.ack(upToId);
+          },
+          // Simulates a strict per-row apply failure surfacing out of the apply.
+          applyChanges: (_) async => throw StateError('strict apply failed'),
+          quarantineSpill: (_) async {},
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(ackCalls, 0, reason: 'throw before ack → chunk not acked');
+      expect(journal.length, 1, reason: 'the failed row survives for retry');
+    },
+  );
 
   // ------------------------------------------------------------------
   // Integration: real Drift DB + adapter + fake journal. Verifies the
@@ -695,6 +754,216 @@ void main() {
         expect(journal.length, 0);
       },
     );
+
+    test(
+      'consumer-delivery spill quarantine replay applies then clears rows',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final adapter = buildSyncAdapterWithCompletion(db);
+        final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+
+        final now = DateTime.utc(2026, 6, 10, 12).millisecondsSinceEpoch;
+        adapter.beginSyncBatch();
+        await applyConsumerDeliveries(db, adapter.adapter, [
+          ConsumerDelivery(
+            id: 1,
+            table: 'members',
+            entityId: 'replay-me',
+            isDelete: false,
+            fields: {'name': 'Before', 'created_at': now},
+          ),
+        ], strict: true);
+        await adapter.completeSyncBatch();
+
+        await quarantineConsumerDeliverySpill(quarantine, [
+          const ConsumerDelivery(
+            id: 2,
+            table: 'members',
+            entityId: 'replay-me',
+            isDelete: false,
+            fields: {'name': 'After'},
+          ),
+        ]);
+
+        final repaired = await repairConsumerDeliverySpillQuarantineRows(
+          db,
+          adapter,
+          db.syncQuarantineDao,
+        );
+
+        expect(repaired, 1);
+        expect(await db.syncQuarantineDao.getAll(), isEmpty);
+        final member = await (db.select(
+          db.members,
+        )..where((t) => t.id.equals('replay-me'))).getSingle();
+        expect(member.name, 'After');
+      },
+    );
+
+    test(
+      'consumer-delivery spill replay leaves malformed rows quarantined',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final adapter = buildSyncAdapterWithCompletion(db);
+
+        await db.syncQuarantineDao.quarantineField(
+          id: 'bad-spill',
+          entityType: 'members',
+          entityId: 'bad-spill-member',
+          expectedType: kConsumerDeliverySpillExpectedType,
+          receivedType: kConsumerDeliverySpillApplyType,
+          receivedValue: 'not-json',
+          errorMessage: '$kConsumerDeliverySpillErrorPrefix; test payload',
+        );
+
+        final repaired = await repairConsumerDeliverySpillQuarantineRows(
+          db,
+          adapter,
+          db.syncQuarantineDao,
+        );
+
+        expect(repaired, 0);
+        final rows = await db.syncQuarantineDao.getAll();
+        expect(rows, hasLength(1));
+        expect(rows.single.id, 'bad-spill');
+        expect(rows.single.retryCount, 1);
+      },
+    );
+
+    test(
+      'consumer-delivery spill replay leaves missing sparse rows quarantined',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final adapter = buildSyncAdapterWithCompletion(db);
+        final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+
+        await quarantineConsumerDeliverySpill(quarantine, [
+          const ConsumerDelivery(
+            id: 3,
+            table: 'members',
+            entityId: 'missing-sparse-member',
+            isDelete: false,
+            fields: {'name': 'Sparse'},
+          ),
+        ]);
+
+        final repaired = await repairConsumerDeliverySpillQuarantineRows(
+          db,
+          adapter,
+          db.syncQuarantineDao,
+        );
+
+        expect(repaired, 0);
+        final rows = await db.syncQuarantineDao.getAll();
+        expect(rows, hasLength(1));
+        expect(rows.single.entityId, 'missing-sparse-member');
+        expect(rows.single.retryCount, 1);
+        expect(
+          await (db.select(db.members)
+                ..where((t) => t.id.equals('missing-sparse-member')))
+              .getSingleOrNull(),
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'consumer-delivery spill replay coalesces concurrent repair attempts',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final adapter = buildSyncAdapterWithCompletion(db);
+        final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+
+        await quarantineConsumerDeliverySpill(quarantine, [
+          const ConsumerDelivery(
+            id: 4,
+            table: 'members',
+            entityId: 'concurrent-missing-sparse-member',
+            isDelete: false,
+            fields: {'name': 'Sparse'},
+          ),
+        ]);
+
+        final first = repairConsumerDeliverySpillQuarantineRows(
+          db,
+          adapter,
+          db.syncQuarantineDao,
+        );
+        final second = repairConsumerDeliverySpillQuarantineRows(
+          db,
+          adapter,
+          db.syncQuarantineDao,
+        );
+
+        expect(await Future.wait([first, second]), [0, 0]);
+        final rows = await db.syncQuarantineDao.getAll();
+        expect(rows, hasLength(1));
+        expect(rows.single.entityId, 'concurrent-missing-sparse-member');
+        expect(
+          rows.single.retryCount,
+          1,
+          reason: 'the in-flight latch should prevent duplicate retry writes',
+        );
+      },
+    );
+
+    test(
+      'consumer-delivery spill replay applies deletes then clears rows',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final adapter = buildSyncAdapterWithCompletion(db);
+        final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+
+        final now = DateTime.utc(2026, 6, 10, 12).millisecondsSinceEpoch;
+        adapter.beginSyncBatch();
+        await applyConsumerDeliveries(db, adapter.adapter, [
+          ConsumerDelivery(
+            id: 1,
+            table: 'members',
+            entityId: 'delete-me',
+            isDelete: false,
+            fields: {'name': 'Delete Me', 'created_at': now},
+          ),
+        ], strict: true);
+        await adapter.completeSyncBatch();
+
+        await quarantineConsumerDeliverySpill(quarantine, [
+          const ConsumerDelivery(
+            id: 4,
+            table: 'members',
+            entityId: 'delete-me',
+            isDelete: true,
+            fields: {},
+          ),
+        ]);
+        final quarantinedDelete = (await db.syncQuarantineDao.getAll()).single;
+        expect(
+          quarantinedDelete.receivedType,
+          kConsumerDeliverySpillDeleteType,
+        );
+        expect(quarantinedDelete.receivedValue, '{}');
+
+        final repaired = await repairConsumerDeliverySpillQuarantineRows(
+          db,
+          adapter,
+          db.syncQuarantineDao,
+        );
+
+        expect(repaired, 1);
+        expect(await db.syncQuarantineDao.getAll(), isEmpty);
+        expect(
+          await (db.select(
+            db.members,
+          )..where((t) => t.id.equals('delete-me'))).getSingleOrNull(),
+          isNull,
+        );
+      },
+    );
   });
 
   // ------------------------------------------------------------------
@@ -786,7 +1055,6 @@ void main() {
       },
     );
   });
-
 }
 
 /// Minimal fake handle — `drainRemoteDeliveries` short-circuits to the override

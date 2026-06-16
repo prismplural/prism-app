@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show min;
@@ -15,6 +16,7 @@ import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
@@ -3733,6 +3735,7 @@ Future<int> applyConsumerDeliveries(
   DriftSyncAdapter adapter,
   List<ConsumerDelivery> deliveries, {
   bool strict = false,
+  bool skipUnknownSparsePatches = true,
   void Function(int applied, int total)? onProgress,
 }) async {
   final result = await applyRemoteChanges(
@@ -3743,9 +3746,143 @@ Future<int> applyConsumerDeliveries(
       'changes': deliveries.map((d) => d.toChange()).toList(),
     }),
     strict: strict,
+    skipUnknownSparsePatches: skipUnknownSparsePatches,
     onProgress: onProgress,
   );
   return result.rowsApplied;
+}
+
+const int kConsumerDeliverySpillRepairBatchLimit = 500;
+
+final _consumerDeliverySpillRepairsInFlight =
+    LinkedHashMap<AppDatabase, Future<int>>.identity();
+
+/// Replays payload-bearing consumer-delivery spill quarantine rows through the
+/// same strict apply path as a journal drain. A quarantine row is deleted only
+/// after its Drift apply commits; malformed or still-invalid rows stay visible
+/// in Sync Issues for a later/manual repair path.
+@visibleForTesting
+Future<int> repairConsumerDeliverySpillQuarantineRows(
+  AppDatabase db,
+  SyncAdapterWithCompletion syncAdapter,
+  SyncQuarantineDao dao, {
+  int limit = kConsumerDeliverySpillRepairBatchLimit,
+}) async {
+  final inFlight = _consumerDeliverySpillRepairsInFlight[db];
+  if (inFlight != null) return inFlight;
+
+  final repair = Future<int>.microtask(
+    () => _repairConsumerDeliverySpillQuarantineRows(
+      db,
+      syncAdapter,
+      dao,
+      limit: limit,
+    ),
+  );
+  _consumerDeliverySpillRepairsInFlight[db] = repair;
+  try {
+    return await repair;
+  } finally {
+    if (identical(_consumerDeliverySpillRepairsInFlight[db], repair)) {
+      final removed = _consumerDeliverySpillRepairsInFlight.remove(db);
+      if (removed != null) unawaited(removed);
+    }
+  }
+}
+
+Future<int> _repairConsumerDeliverySpillQuarantineRows(
+  AppDatabase db,
+  SyncAdapterWithCompletion syncAdapter,
+  SyncQuarantineDao dao, {
+  required int limit,
+}) async {
+  if (limit <= 0) return 0;
+
+  final rows = await dao.getConsumerDeliverySpillRows(limit: limit);
+  if (rows.isEmpty) return 0;
+  final appliedIds = <String>[];
+  final failedIds = <String>[];
+
+  try {
+    syncAdapter.beginSyncBatch();
+    for (final row in rows) {
+      try {
+        final delivery = _consumerDeliveryFromSpillQuarantine(row);
+        await applyConsumerDeliveries(
+          db,
+          syncAdapter.adapter,
+          [delivery],
+          strict: true,
+          skipUnknownSparsePatches: false,
+        );
+        appliedIds.add(row.id);
+      } catch (e, st) {
+        failedIds.add(row.id);
+        ErrorReportingService.instance.report(
+          'Consumer-delivery spill replay failed for '
+          '${row.entityType}/${row.entityId}: $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    }
+  } finally {
+    await syncAdapter.completeSyncBatch();
+  }
+
+  for (final id in failedIds) {
+    try {
+      await dao.incrementRetry(id);
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Consumer-delivery spill replay could not update retry count '
+        'for quarantine row $id: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+  }
+
+  var repaired = 0;
+  for (final id in appliedIds) {
+    try {
+      await dao.deleteById(id);
+      repaired++;
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Consumer-delivery spill replay could not clear quarantine row $id: $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+  }
+
+  return repaired;
+}
+
+ConsumerDelivery _consumerDeliveryFromSpillQuarantine(SyncQuarantineData row) {
+  final isDelete = row.receivedType == kConsumerDeliverySpillDeleteType;
+  var fields = <String, dynamic>{};
+
+  if (!isDelete) {
+    final rawPayload = row.receivedValue;
+    if (rawPayload == null) {
+      throw const FormatException('missing spill payload');
+    }
+    final decoded = jsonDecode(rawPayload);
+    if (decoded is! Map) {
+      throw FormatException('spill payload is ${decoded.runtimeType}, not Map');
+    }
+    fields = decoded.cast<String, dynamic>();
+  }
+
+  return ConsumerDelivery(
+    id: 0,
+    table: row.entityType,
+    entityId: row.entityId,
+    isDelete: isDelete,
+    fields: fields,
+  );
 }
 
 /// Serialization latch: at most one drain runs at a time. A trigger that
@@ -3890,6 +4027,7 @@ Future<ApplyResult> applyRemoteChanges(
   DriftSyncAdapter adapter,
   SyncEvent event, {
   bool strict = false,
+  bool skipUnknownSparsePatches = true,
   void Function(int applied, int total)? onProgress,
 }) async {
   // Apply changes in chunked transactions — each chunk of 20 changes runs
@@ -3933,6 +4071,7 @@ Future<ApplyResult> applyRemoteChanges(
         } catch (e, st) {
           final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
           final skipUnknownSparsePatch =
+              skipUnknownSparsePatches &&
               await _shouldSkipUnknownSparsePatchFailure(
                 adapter,
                 tableRaw,
@@ -5184,6 +5323,15 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   Future<bool> _queryQuarantine() async {
     try {
       final quarantine = ref.read(syncQuarantineServiceProvider);
+      final repairedConsumerSpills =
+          await repairConsumerDeliverySpillQuarantineRows(
+            ref.read(databaseProvider),
+            ref.read(driftSyncAdapterProvider),
+            ref.read(syncQuarantineDaoProvider),
+          );
+      if (repairedConsumerSpills > 0) {
+        ref.invalidate(quarantinedItemsProvider);
+      }
       await quarantine.repairLegacyMemberAgeStringMismatches();
       return await quarantine.hasQuarantinedItems();
     } catch (_) {

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/database/tables/sync_quarantine_table.dart';
 
 part 'sync_quarantine_dao.g.dart';
@@ -39,6 +40,28 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<SyncQuarantineData>> getAll() =>
       select(syncQuarantineTable).get();
+
+  Future<List<SyncQuarantineData>> getConsumerDeliverySpillRows({
+    int limit = 500,
+  }) {
+    return (select(syncQuarantineTable)
+          ..where(
+            (t) =>
+                t.expectedType.equals(kConsumerDeliverySpillExpectedType) &
+                t.fieldName.isNull() &
+                (t.receivedType.equals(kConsumerDeliverySpillApplyType) |
+                    t.receivedType.equals(kConsumerDeliverySpillDeleteType)) &
+                t.errorMessage.like(kConsumerDeliverySpillErrorLike),
+          )
+          ..orderBy([
+            (t) =>
+                OrderingTerm(expression: t.retryCount, mode: OrderingMode.asc),
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.asc),
+          ])
+          ..limit(limit))
+        .get();
+  }
 
   Future<List<SyncQuarantineData>> getDeferredPkEntryUnresolved() {
     return (select(syncQuarantineTable)..where(

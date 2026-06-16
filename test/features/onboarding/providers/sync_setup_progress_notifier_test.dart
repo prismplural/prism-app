@@ -222,7 +222,7 @@ void main() {
     addTearDown(container.dispose);
 
     final coordinator = container.read(strictApplyCoordinatorProvider);
-    coordinator.enterStrictMode();
+    unawaited(coordinator.enterStrictMode());
     coordinator.signalProgress(applied: 7, total: 20);
     await pump();
 

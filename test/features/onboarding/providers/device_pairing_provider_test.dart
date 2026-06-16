@@ -1937,6 +1937,63 @@ void main() {
   // Rust import-commit and the Dart apply would permanently lose the
   // snapshot-only entities.
   // ------------------------------------------------------------------
+  group('ackBootstrapConsumerDeliveryJournal', () {
+    test('acks every pending bootstrap journal page by high-water', () async {
+      final pages = <Map<String, dynamic>>[
+        {
+          'deliveries': [
+            {'id': 200, 'table': 'fronting_sessions'},
+          ],
+          'max_id': 200,
+          'spill_up_to_id': 200,
+          'over_cap': true,
+        },
+        {
+          'deliveries': [
+            {'id': 400, 'table': 'fronting_sessions'},
+          ],
+          'max_id': 400,
+        },
+        {'deliveries': <Map<String, dynamic>>[], 'max_id': 0},
+      ];
+      final limits = <int>[];
+      final acked = <int>[];
+
+      final chunks = await ackBootstrapConsumerDeliveryJournal(
+        handle: const _FakePrismSyncHandle(),
+        chunkSize: 200,
+        take: ({required handle, required limit}) async {
+          limits.add(limit);
+          return jsonEncode(pages.removeAt(0));
+        },
+        ack: ({required handle, required upToId}) async {
+          acked.add(upToId);
+        },
+      );
+
+      expect(chunks, 2);
+      expect(limits, [200, 200, 200]);
+      expect(acked, [200, 400]);
+    });
+
+    test('fails closed if the journal does not empty', () async {
+      await expectLater(
+        ackBootstrapConsumerDeliveryJournal(
+          handle: const _FakePrismSyncHandle(),
+          maxChunks: 2,
+          take: ({required handle, required limit}) async => jsonEncode({
+            'deliveries': [
+              {'id': 1, 'table': 'fronting_sessions'},
+            ],
+            'max_id': 1,
+          }),
+          ack: ({required handle, required upToId}) async {},
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+  });
+
   group('shouldAckSnapshotApplied (C9 gate)', () {
     test('ACK is allowed only after the journal drain completed', () {
       expect(shouldAckSnapshotApplied(journalDrained: true), isTrue);
