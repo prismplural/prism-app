@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
@@ -18,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -34,8 +36,10 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
             .watch(useProxyTagsForAuthoringProvider)
             .whenOrNull(data: (v) => v) ??
         false;
-    final gifConfig = ref.watch(gifServiceConfigProvider).asData?.value;
+    final gifConfigAsync = ref.watch(gifServiceConfigProvider);
+    final gifConfig = gifConfigAsync.asData?.value;
     final gifConsentState = ref.watch(gifConsentStateProvider);
+    final syncEnabled = ref.watch(syncEnabledProvider);
     final voiceNotesEnabled = ref.watch(voiceNotesEnabledProvider);
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
@@ -49,8 +53,14 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
               .watch(activeMemberByIdProvider(speakingAs))
               .whenOrNull(data: (m) => m?.name);
     final gifAvailable = gifConfig?.enabled == true;
-    final gifConsentSubtitle = !gifAvailable
+    final gifConfigLoading =
+        gifConfigAsync.isLoading && !gifConfigAsync.hasValue;
+    final gifConsentSubtitle = !syncEnabled
         ? context.l10n.featureChatGifSearchSyncRequiredSubtitle
+        : gifConfigLoading
+        ? context.l10n.loading
+        : !gifAvailable
+        ? context.l10n.chatGifsLoadFailed
         : switch (gifConsentState) {
             GifConsentState.unknown =>
               context.l10n.featureChatGifSearchUndecidedSubtitle,
@@ -130,8 +140,22 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                       subtitle: Text(gifConsentSubtitle),
                       showChevron: true,
                       onTap: () async {
-                        if (!gifAvailable) {
+                        if (!syncEnabled) {
                           await _showSyncRequiredDialog(context);
+                          return;
+                        }
+                        if (gifConfigLoading) {
+                          PrismToast.show(
+                            context,
+                            message: context.l10n.loading,
+                          );
+                          return;
+                        }
+                        if (!gifAvailable) {
+                          PrismToast.error(
+                            context,
+                            message: context.l10n.chatGifsLoadFailed,
+                          );
                           return;
                         }
                         final accepted = await GifConsentDialog.show(context);
