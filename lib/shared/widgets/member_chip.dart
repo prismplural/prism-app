@@ -29,6 +29,7 @@ class MemberChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scaledAvatarSize = MediaQuery.textScalerOf(context).scale(avatarSize);
     return PrismChip(
       label: member.name,
       selected: selected,
@@ -40,7 +41,7 @@ class MemberChip extends StatelessWidget {
         avatarImageData: member.avatarImageData,
         customColorEnabled: member.customColorEnabled,
         customColorHex: member.customColorHex,
-        size: avatarSize,
+        size: scaledAvatarSize,
         deferAvatarLookup: deferAvatarLookup,
       ),
       selectedColor: memberChipSelectedColor(member),

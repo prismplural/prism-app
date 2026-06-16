@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/members/widgets/member_field_widgets.da
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -32,6 +33,7 @@ void main() {
     List<Member> members = const [],
     Locale locale = const Locale('en'),
     double? contentWidth,
+    TextScaler textScaler = TextScaler.noScaling,
   }) {
     final memberRepo = FakeMemberRepository()..seed(members);
     const display = CustomFieldsDisplay(memberId: memberId);
@@ -48,10 +50,15 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         locale: locale,
         home: Scaffold(
-          body: SingleChildScrollView(
-            child: contentWidth == null
-                ? display
-                : SizedBox(width: contentWidth, child: display),
+          body: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+              child: SingleChildScrollView(
+                child: contentWidth == null
+                    ? display
+                    : SizedBox(width: contentWidth, child: display),
+              ),
+            ),
           ),
         ),
       ),
@@ -432,6 +439,60 @@ void main() {
     final first = tester.getRect(find.byType(MemberChip).at(0));
     final second = tester.getRect(find.byType(MemberChip).at(1));
     expect(second.left - first.right, greaterThanOrEqualTo(10));
+  });
+
+  testWidgets('compact member field avatars scale with text size', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const MemberConfig(displayLayout: DisplayLayout.compact),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [memberField],
+        values: [value(memberField.id, '{"memberIds":["alice"]}')],
+        members: [member('alice', 'Alice')],
+        textScaler: const TextScaler.linear(2),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final avatar = tester.widget<MemberAvatar>(find.byType(MemberAvatar));
+    expect(avatar.size, 32);
+  });
+
+  testWidgets('stacked member field avatars scale with text size', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const MemberConfig(displayLayout: DisplayLayout.stacked),
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [memberField],
+        values: [value(memberField.id, '{"memberIds":["alice"]}')],
+        members: [member('alice', 'Alice')],
+        textScaler: const TextScaler.linear(2),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final avatar = tester.widget<MemberAvatar>(find.byType(MemberAvatar));
+    expect(avatar.size, 40);
   });
 
   testWidgets('stacked choice field renders outside compact field group', (
