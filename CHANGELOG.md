@@ -9,7 +9,7 @@ All notable changes to Prism will be documented in this file.
 Patch release. Navigation labels split visibility from text style, custom-field
 display gets a focused readability pass, notes resolve member mentions in more
 places, and import/manual-sync recovery is safer. The sync pin moves to
-`prism-sync v0.13.1` (`186d02c`).
+`prism-sync v0.13.1` (`1044886`).
 
 ### Added
 - Navigation label settings now separate when labels appear (always, when
@@ -36,7 +36,8 @@ places, and import/manual-sync recovery is safer. The sync pin moves to
   duplicate bootstrap journal rows only after strict snapshot apply commits. The
   app pins `prism-sync v0.13.1`, which raises the FFI consumer-delivery journal
   cap to 250,000 rows and fixes pairing a new device after a 90-day auto-revoke
-  leaves the group waiting for a rekey.
+  leaves the group waiting for a rekey, including the post-registration epoch
+  wrap.
 - Manual sync and automatic sync cycles drain Prism's app-side outbox before
   asking Rust to sync, so queued local edits are not left behind by a direct
   sync-now trigger.
