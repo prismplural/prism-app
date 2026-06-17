@@ -260,6 +260,7 @@ Widget _buildApp({
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
       allMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
       activeMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(allMembers)),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
       memberFrontingStatsProvider(member.id).overrideWith((ref) async {
         onStatsProviderBuilt?.call();
@@ -1033,6 +1034,34 @@ void main() {
       scrollable: find.byType(Scrollable).last,
     );
     expect(find.textContaining('Board post body'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('member detail note preview resolves member mentions', (
+    tester,
+  ) async {
+    const mentionedMemberId = '11111111-2222-3333-4444-555555555555';
+    final member = _member('alice', 'Alice');
+    final mentioned = _member(mentionedMemberId, 'June');
+    final note = _note('n1').copyWith(body: 'Eugh. @[$mentionedMemberId]');
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        extraMembers: [mentioned],
+        notes: [note],
+        settings: const SystemSettings(notesEnabled: true),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Eugh. @June'), findsOneWidget);
+    expect(find.textContaining('@[$mentionedMemberId]'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));

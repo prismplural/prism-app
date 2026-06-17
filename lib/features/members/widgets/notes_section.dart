@@ -6,10 +6,12 @@ import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/views/note_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
@@ -31,6 +33,7 @@ class NotesSection extends ConsumerWidget {
     if (!notesEnabled) return const SizedBox.shrink();
 
     final notesAsync = ref.watch(recentMemberNotesProvider(memberId));
+    final memberNameMap = ref.watch(memberNameMapProvider);
     final theme = Theme.of(context);
     final l10n = context.l10n;
 
@@ -92,7 +95,10 @@ class NotesSection extends ConsumerWidget {
                       children: [
                         for (var i = 0; i < notes.length; i++) ...[
                           if (i > 0) const Divider(height: 1),
-                          _NoteTile(note: notes[i]),
+                          _NoteTile(
+                            note: notes[i],
+                            memberNameMap: memberNameMap,
+                          ),
                         ],
                       ],
                     ),
@@ -115,15 +121,19 @@ class NotesSection extends ConsumerWidget {
 }
 
 class _NoteTile extends StatelessWidget {
-  const _NoteTile({required this.note});
+  const _NoteTile({required this.note, required this.memberNameMap});
 
   final Note note;
+  final Map<String, String> memberNameMap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dateFormat = DateFormat.MMMd(context.dateLocale);
     final dateStr = dateFormat.format(note.date);
+    final bodyStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
 
     return InkWell(
       onTap: () => _openNote(context),
@@ -158,10 +168,14 @@ class _NoteTile extends StatelessWidget {
                   ),
                   if (note.body.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      redactSpoilers(note.body),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    Text.rich(
+                      TextSpan(
+                        children: imagePreviewSpans(
+                          redactSpoilers(note.body),
+                          style: bodyStyle,
+                          iconColor: theme.colorScheme.onSurfaceVariant,
+                          memberNameMap: memberNameMap,
+                        ),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

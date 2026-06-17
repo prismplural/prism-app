@@ -98,6 +98,21 @@ void main() {
         final result = filterNotes(sampleNotes, query: 'xyzzynotfound');
         expect(result, isEmpty);
       });
+
+      test('matches resolved member mention names', () {
+        const aliceId = '11111111-2222-3333-4444-555555555555';
+        final note = sampleNotes.first.copyWith(
+          body: 'Talked with @[$aliceId]',
+        );
+
+        final result = filterNotes(
+          [note],
+          query: 'alice',
+          memberNameMap: const {aliceId: 'Alice'},
+        );
+
+        expect(result.single.id, note.id);
+      });
     });
 
     group('member filter', () {

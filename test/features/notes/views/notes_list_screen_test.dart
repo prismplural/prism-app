@@ -590,6 +590,36 @@ void main() {
       expect(find.text('Clear filters'), findsOneWidget);
     });
 
+    testWidgets('search matches resolved member mentions', (tester) async {
+      const mentionedMemberId = '11111111-2222-3333-4444-555555555555';
+      final mentionedMember = Member(
+        id: mentionedMemberId,
+        name: 'June',
+        emoji: '',
+        createdAt: DateTime(2024),
+      );
+      final note = sampleNote.copyWith(
+        title: 'Self search',
+        body: 'Eugh. @[$mentionedMemberId]',
+      );
+
+      await tester.pumpWidget(
+        buildSubject(notes: [note], members: [mentionedMember]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Search notes'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(PrismTextField), 'june');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Self search'), findsOneWidget);
+      expect(find.textContaining('Eugh. @June'), findsOneWidget);
+      expect(find.text('No notes match your search'), findsNothing);
+    });
+
     testWidgets('add action button is still present', (tester) async {
       await tester.pumpWidget(
         buildSubject(notes: [sampleNote], members: [sampleMember]),

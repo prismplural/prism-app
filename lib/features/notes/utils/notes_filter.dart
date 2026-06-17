@@ -1,6 +1,7 @@
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/shared/markdown/member_mention_syntax.dart';
 
 /// Sentinel for filtering notes that have no member assigned.
 const String filterNoMemberId = '__filter_no_member__';
@@ -11,6 +12,7 @@ List<Note> filterNotes(
   List<Note> notes, {
   String? query,
   Set<String> filterMemberIds = const {},
+  Map<String, String> memberNameMap = const {},
 }) {
   var result = notes;
 
@@ -32,14 +34,19 @@ List<Note> filterNotes(
       final normalizedQuery = unorm.nfkc(trimmed).toLowerCase();
       result = result
           .where((n) {
-            final title = unorm.nfkc(n.title).toLowerCase();
-            final body = unorm.nfkc(n.body).toLowerCase();
-            return title.contains(normalizedQuery) ||
-                body.contains(normalizedQuery);
+            final searchableText = _searchableNoteText(n, memberNameMap);
+            final normalizedText = unorm.nfkc(searchableText).toLowerCase();
+            return normalizedText.contains(normalizedQuery);
           })
           .toList(growable: false);
     }
   }
 
   return result;
+}
+
+String _searchableNoteText(Note note, Map<String, String> memberNameMap) {
+  final rawText = '${note.title}\n${note.body}';
+  if (!containsMemberMention(rawText)) return rawText;
+  return '$rawText\n${replaceMemberMentionsWithNames(rawText, memberNameMap)}';
 }

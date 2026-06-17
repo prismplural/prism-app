@@ -128,6 +128,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     final notesAsync = ref.watch(allNotesProvider);
     final filterMembersAsync = ref.watch(userVisibleMemberListProvider);
     final filterMembers = filterMembersAsync.value ?? const [];
+    final memberNameMap = ref.watch(memberNameMapProvider);
     final l10n = context.l10n;
     watchMemberSearchGroupSources(ref);
     final showFilterBar =
@@ -209,6 +210,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
                       notes,
                       query: _searchQuery,
                       filterMemberIds: _filterMemberIds,
+                      memberNameMap: memberNameMap,
                     );
 
                     if (notes.isEmpty) {
@@ -248,6 +250,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
                           child: _NoteCard(
                             note: note,
                             selected: isDetailSelected(note.id),
+                            memberNameMap: memberNameMap,
                             onTap: () => unawaited(_openNote(context, note.id)),
                           ),
                         );
@@ -538,11 +541,13 @@ class _NoteCard extends ConsumerWidget {
   const _NoteCard({
     required this.note,
     required this.selected,
+    required this.memberNameMap,
     required this.onTap,
   });
 
   final Note note;
   final bool selected;
+  final Map<String, String> memberNameMap;
   final VoidCallback onTap;
 
   @override
@@ -552,7 +557,6 @@ class _NoteCard extends ConsumerWidget {
     // Locale-aware date format — must be a local variable, not static.
     final dateFormat = DateFormat.yMMMd(context.dateLocale);
     final dateLabel = dateFormat.format(note.date);
-    final memberNameMap = ref.watch(memberNameMapProvider);
 
     // Look up the member if this note is associated with one
     final memberAsync = note.memberId != null
