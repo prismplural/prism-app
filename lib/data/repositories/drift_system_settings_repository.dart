@@ -571,9 +571,15 @@ class DriftSystemSettingsRepository
   @override
   Future<void> updateSyncNavigationEnabled(bool value) async {
     await _dao.updateSyncNavigationEnabled(value);
-    // syncNavigationEnabled itself is always synced so both devices
-    // agree on whether nav layout should be shared.
-    await _syncField('sync_navigation_enabled', value);
+    if (!value) {
+      await _syncField('sync_navigation_enabled', false);
+      return;
+    }
+    final row = await _dao.getSettings();
+    await syncRecordUpdate(_table, _settingsEntityId, {
+      'sync_navigation_enabled': true,
+      ..._navigationLayoutFieldsFromRow(row),
+    });
   }
 
   @override
@@ -630,6 +636,7 @@ class DriftSystemSettingsRepository
   Map<String, dynamic> _settingsDbFieldsFromRow(SystemSettingsData row) {
     return {
       ..._settingsFieldsFromRow(row),
+      ..._navigationLayoutFieldsFromRow(row),
       'has_completed_onboarding': row.hasCompletedOnboarding,
       'previous_accent_color_hex': row.previousAccentColorHex,
       'gif_consent_state': row.gifConsentState,
@@ -655,6 +662,12 @@ class DriftSystemSettingsRepository
   Map<String, dynamic> _settingsDbFields(domain.SystemSettings s) {
     return {
       ..._settingsFields(s),
+      'nav_bar_items': SystemSettingsMapper.encodeNavBarItems(s.navBarItems),
+      'nav_bar_overflow_items': SystemSettingsMapper.encodeNavBarItems(
+        s.navBarOverflowItems,
+      ),
+      'nav_bar_label_display_mode': s.navBarLabelDisplayMode.index,
+      'nav_bar_reveal_labels_when_expanded': s.navBarRevealLabelsWhenExpanded,
       'has_completed_onboarding': s.hasCompletedOnboarding,
       'previous_accent_color_hex': s.previousAccentColorHex,
       'gif_consent_state': s.gifConsentState.index,
@@ -738,10 +751,13 @@ class DriftSystemSettingsRepository
       'reminders_enabled': row.remindersEnabled,
       'habits_badge_enabled': row.habitsBadgeEnabled,
       'sync_navigation_enabled': row.syncNavigationEnabled,
-      'nav_bar_items': row.navBarItems,
-      'nav_bar_overflow_items': row.navBarOverflowItems,
-      'nav_bar_label_display_mode': row.navBarLabelDisplayMode,
-      'nav_bar_reveal_labels_when_expanded': row.navBarRevealLabelsWhenExpanded,
+      if (row.syncNavigationEnabled) ...{
+        'nav_bar_items': row.navBarItems,
+        'nav_bar_overflow_items': row.navBarOverflowItems,
+        'nav_bar_label_display_mode': row.navBarLabelDisplayMode,
+        'nav_bar_reveal_labels_when_expanded':
+            row.navBarRevealLabelsWhenExpanded,
+      },
       'chat_badge_preferences': row.chatBadgePreferences,
       'fronting_list_view_mode': row.frontingListViewMode,
       'add_front_default_behavior': row.addFrontDefaultBehavior,
@@ -1053,12 +1069,14 @@ class DriftSystemSettingsRepository
       'reminders_enabled': s.remindersEnabled,
       'habits_badge_enabled': s.habitsBadgeEnabled,
       'sync_navigation_enabled': s.syncNavigationEnabled,
-      'nav_bar_items': SystemSettingsMapper.encodeNavBarItems(s.navBarItems),
-      'nav_bar_overflow_items': SystemSettingsMapper.encodeNavBarItems(
-        s.navBarOverflowItems,
-      ),
-      'nav_bar_label_display_mode': s.navBarLabelDisplayMode.index,
-      'nav_bar_reveal_labels_when_expanded': s.navBarRevealLabelsWhenExpanded,
+      if (s.syncNavigationEnabled) ...{
+        'nav_bar_items': SystemSettingsMapper.encodeNavBarItems(s.navBarItems),
+        'nav_bar_overflow_items': SystemSettingsMapper.encodeNavBarItems(
+          s.navBarOverflowItems,
+        ),
+        'nav_bar_label_display_mode': s.navBarLabelDisplayMode.index,
+        'nav_bar_reveal_labels_when_expanded': s.navBarRevealLabelsWhenExpanded,
+      },
       'chat_badge_preferences': SystemSettingsMapper.encodeBadgePrefs(
         s.chatBadgePreferences,
       ),
@@ -1088,4 +1106,13 @@ class DriftSystemSettingsRepository
   /// `docs/plans/sp-import-perf-quick-wins.md`.
   Map<String, dynamic> settingsFields(domain.SystemSettings s) =>
       _settingsFields(s);
+
+  Map<String, dynamic> _navigationLayoutFieldsFromRow(SystemSettingsData row) {
+    return {
+      'nav_bar_items': row.navBarItems,
+      'nav_bar_overflow_items': row.navBarOverflowItems,
+      'nav_bar_label_display_mode': row.navBarLabelDisplayMode,
+      'nav_bar_reveal_labels_when_expanded': row.navBarRevealLabelsWhenExpanded,
+    };
+  }
 }

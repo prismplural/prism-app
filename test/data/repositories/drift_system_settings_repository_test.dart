@@ -251,6 +251,56 @@ void main() {
       expect(row.pollsEnabled, isFalse);
     });
 
+    test(
+      'does not emit navigation layout fields while nav sync is disabled',
+      () async {
+        final base = await seed();
+        await repo.updateSyncNavigationEnabled(false);
+        final disabled = await repo.getSettings();
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.updateSettings(
+          disabled.copyWith(
+            navBarItems: const ['home', 'settings'],
+            navBarOverflowItems: const ['members'],
+          ),
+        );
+
+        final settings = await repo.getSettings();
+        expect(settings.navBarItems, ['home', 'settings']);
+        expect(settings.navBarOverflowItems, ['members']);
+        expect(settings.syncNavigationEnabled, isFalse);
+        expect(captured, isEmpty);
+        expect(base.syncNavigationEnabled, isTrue);
+      },
+    );
+
+    test(
+      'emits current navigation layout when nav sync is re-enabled',
+      () async {
+        await seed();
+        await repo.updateSyncNavigationEnabled(false);
+        await repo.updateNavBarItems(const ['home', 'settings']);
+        await repo.updateNavBarOverflowItems(const ['members']);
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.updateSyncNavigationEnabled(true);
+
+        expect(captured, hasLength(1));
+        expect(captured.single.fields, {
+          'sync_navigation_enabled': true,
+          'nav_bar_items': '["home","settings"]',
+          'nav_bar_overflow_items': '["members"]',
+          'nav_bar_label_display_mode': 0,
+          'nav_bar_reveal_labels_when_expanded': true,
+        });
+      },
+    );
+
     test('silently no-ops when the row does not exist', () async {
       // Drop the singleton row entirely to simulate an empty table; the
       // patch path must bail without creating one.

@@ -3291,10 +3291,13 @@ DriftSyncEntity _systemSettingsEntity(
             : null,
         'reminders_enabled': r.remindersEnabled,
         'sync_navigation_enabled': r.syncNavigationEnabled,
-        'nav_bar_items': r.navBarItems,
-        'nav_bar_overflow_items': r.navBarOverflowItems,
-        'nav_bar_label_display_mode': r.navBarLabelDisplayMode,
-        'nav_bar_reveal_labels_when_expanded': r.navBarRevealLabelsWhenExpanded,
+        if (r.syncNavigationEnabled) ...{
+          'nav_bar_items': r.navBarItems,
+          'nav_bar_overflow_items': r.navBarOverflowItems,
+          'nav_bar_label_display_mode': r.navBarLabelDisplayMode,
+          'nav_bar_reveal_labels_when_expanded':
+              r.navBarRevealLabelsWhenExpanded,
+        },
         'chat_badge_preferences': r.chatBadgePreferences,
         'habits_badge_enabled': r.habitsBadgeEnabled,
         'fronting_list_view_mode': r.frontingListViewMode,
@@ -3318,6 +3321,13 @@ DriftSyncEntity _systemSettingsEntity(
         quarantine: quarantine,
         trackQuarantineWrite: trackQuarantineWrite,
       );
+      final existingRow = await (db.select(
+        db.systemSettingsTable,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      final syncNavigationEnabled = f.boolField('sync_navigation_enabled');
+      final applyNavigationFields = syncNavigationEnabled.present
+          ? syncNavigationEnabled.value
+          : existingRow?.syncNavigationEnabled ?? true;
       final companion = SystemSettingsTableCompanion(
         id: Value(id),
         systemName: f.stringFieldNullable('system_name'),
@@ -3372,13 +3382,19 @@ DriftSyncEntity _systemSettingsEntity(
         systemTag: f.stringFieldNullable('system_tag'),
         systemAvatarData: f.blobFieldNullable('system_avatar_data'),
         remindersEnabled: f.boolField('reminders_enabled'),
-        syncNavigationEnabled: f.boolField('sync_navigation_enabled'),
-        navBarItems: f.stringField('nav_bar_items'),
-        navBarOverflowItems: f.stringField('nav_bar_overflow_items'),
-        navBarLabelDisplayMode: f.intField('nav_bar_label_display_mode'),
-        navBarRevealLabelsWhenExpanded: f.boolField(
-          'nav_bar_reveal_labels_when_expanded',
-        ),
+        syncNavigationEnabled: syncNavigationEnabled,
+        navBarItems: applyNavigationFields
+            ? f.stringField('nav_bar_items')
+            : const Value<String>.absent(),
+        navBarOverflowItems: applyNavigationFields
+            ? f.stringField('nav_bar_overflow_items')
+            : const Value<String>.absent(),
+        navBarLabelDisplayMode: applyNavigationFields
+            ? f.intField('nav_bar_label_display_mode')
+            : const Value<int>.absent(),
+        navBarRevealLabelsWhenExpanded: applyNavigationFields
+            ? f.boolField('nav_bar_reveal_labels_when_expanded')
+            : const Value<bool>.absent(),
         chatBadgePreferences: f.stringField('chat_badge_preferences'),
         habitsBadgeEnabled: f.boolField('habits_badge_enabled'),
         frontingListViewMode: f.intField('fronting_list_view_mode'),
@@ -3462,11 +3478,13 @@ DriftSyncEntity _systemSettingsEntity(
             : null,
         'reminders_enabled': row.remindersEnabled,
         'sync_navigation_enabled': row.syncNavigationEnabled,
-        'nav_bar_items': row.navBarItems,
-        'nav_bar_overflow_items': row.navBarOverflowItems,
-        'nav_bar_label_display_mode': row.navBarLabelDisplayMode,
-        'nav_bar_reveal_labels_when_expanded':
-            row.navBarRevealLabelsWhenExpanded,
+        if (row.syncNavigationEnabled) ...{
+          'nav_bar_items': row.navBarItems,
+          'nav_bar_overflow_items': row.navBarOverflowItems,
+          'nav_bar_label_display_mode': row.navBarLabelDisplayMode,
+          'nav_bar_reveal_labels_when_expanded':
+              row.navBarRevealLabelsWhenExpanded,
+        },
         'chat_badge_preferences': row.chatBadgePreferences,
         'habits_badge_enabled': row.habitsBadgeEnabled,
         'fronting_list_view_mode': row.frontingListViewMode,
