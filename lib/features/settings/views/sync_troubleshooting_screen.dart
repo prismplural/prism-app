@@ -354,7 +354,10 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     ffi.PrismSyncHandle handle,
   ) async {
     try {
-      await ffi.syncNow(handle: handle);
+      await syncNowAfterOutboxDrain(
+        db: ref.read(databaseProvider),
+        handle: handle,
+      );
       if (context.mounted) {
         PrismToast.show(
           context,

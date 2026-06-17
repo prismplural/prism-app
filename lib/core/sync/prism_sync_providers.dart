@@ -134,12 +134,31 @@ class _OutboxDrainManager {
 /// Wire (if needed) and trigger the durable outbox drainer against [handle].
 /// Used at the boot/resume/catch-up/pre-pairing-snapshot triggers; carries the
 /// app [db] so the drainer is constructed lazily the first time it is needed.
-Future<void> triggerOutboxDrain(
-  AppDatabase db,
-  ffi.PrismSyncHandle? handle,
-) {
+Future<void> triggerOutboxDrain(AppDatabase db, ffi.PrismSyncHandle? handle) {
   _OutboxDrainManager.instance.ensureWired(db);
   return _OutboxDrainManager.instance.trigger(handle);
+}
+
+/// Trigger the installed durable outbox drainer.
+Future<void> triggerInstalledOutboxDrain(ffi.PrismSyncHandle? handle) {
+  return _OutboxDrainManager.instance.trigger(handle);
+}
+
+/// Drain app-side sync emissions before asking Rust to push.
+Future<void> syncNowAfterOutboxDrain({
+  required AppDatabase db,
+  required ffi.PrismSyncHandle handle,
+  bool reconnectWebsocket = true,
+}) async {
+  await triggerOutboxDrain(db, handle);
+  if (reconnectWebsocket) {
+    try {
+      await ffi.reconnectWebsocket(handle: handle);
+    } catch (_) {
+      // Sync below still runs.
+    }
+  }
+  await ffi.syncNow(handle: handle);
 }
 
 /// Reset the process-wide outbox drain manager between tests so a drainer wired
@@ -5923,6 +5942,15 @@ class WebSocketConnectedNotifier extends Notifier<bool> {
 /// auto-sync driver will handle sustained failures. Log as a warning and
 /// continue.
 Future<void> triggerSync(ffi.PrismSyncHandle handle) async {
+  try {
+    await triggerInstalledOutboxDrain(handle);
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      'triggerSync: outbox drain failed before sync_now (non-fatal): $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+  }
   // Best-effort WebSocket reconnect (non-fatal if it fails).
   try {
     await ffi.reconnectWebsocket(handle: handle);

@@ -1070,14 +1070,10 @@ class _ConfiguredView extends ConsumerWidget {
         return;
       }
 
-      // If the WebSocket is disconnected, trigger an immediate reconnect
-      // (resets exponential backoff) so real-time notifications resume.
-      try {
-        await ffi.reconnectWebsocket(handle: handle);
-      } catch (_) {
-        // Non-fatal: the manual sync cycle below will still run.
-      }
-      await ffi.syncNow(handle: handle);
+      await syncNowAfterOutboxDrain(
+        db: ref.read(databaseProvider),
+        handle: handle,
+      );
       if (context.mounted) {
         PrismToast.show(context, message: context.l10n.syncFinished);
       }
