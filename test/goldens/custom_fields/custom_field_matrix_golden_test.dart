@@ -15,7 +15,7 @@ import 'package:prism_plurality/features/members/widgets/custom_fields_display.d
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
 
 import '../../helpers/fake_repositories.dart';
-import '../../helpers/prism_golden_test.dart';
+import '../../helpers/prism_golden.dart';
 
 void main() {
   setUpAll(loadPrismGoldenFonts);

@@ -10,7 +10,7 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 
-import '../../helpers/prism_golden_test.dart';
+import '../../helpers/prism_golden.dart';
 
 void main() {
   setUpAll(loadPrismGoldenFonts);
