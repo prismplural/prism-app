@@ -29,6 +29,8 @@ class ImageCompressionService {
   static const _quality = 85;
   static const _thumbnailMaxDimension = 300;
   static const _maxAnimatedBytes = 5 * 1024 * 1024; // 5 MB
+  static const _gifTinyDelayThresholdCentiseconds = 1;
+  static const _gifBrowserMinimumDelayCentiseconds = 10;
 
   Future<CompressedImage> compressImage(Uint8List source) async {
     // Check for animated content — pass through without re-encoding to
@@ -116,8 +118,12 @@ class ImageCompressionService {
       );
     }
 
+    final bytes = info.mimeType == 'image/gif'
+        ? _normalizeTinyGifFrameDelays(source)
+        : source;
+
     // Decode first frame for dimensions and blurhash.
-    final decoded = img.decodeImage(source);
+    final decoded = img.decodeImage(bytes);
     if (decoded == null) {
       throw ArgumentError('Unable to decode animated image');
     }
@@ -126,7 +132,7 @@ class ImageCompressionService {
     final blurhash = await computeBlurhashFromImage(decoded);
 
     return CompressedImage(
-      bytes: source,
+      bytes: bytes,
       width: decoded.width,
       height: decoded.height,
       blurhash: blurhash,
@@ -211,6 +217,55 @@ class ImageCompressionService {
       }
     }
     return false;
+  }
+
+  /// Firefox and other browsers clamp zero/10ms GIF frame delays up to 100ms.
+  /// Flutter does not, so preserving literal 0cs/1cs delays can turn otherwise
+  /// normal-looking browser GIFs into rapid flashing in Prism.
+  static Uint8List _normalizeTinyGifFrameDelays(Uint8List source) {
+    // Header (6) + Logical Screen Descriptor (7) = 13 bytes minimum.
+    if (source.length < 13) return source;
+
+    var pos = 6;
+    final packed = source[pos + 4];
+    final hasGct = (packed & 0x80) != 0;
+    final gctSize = hasGct ? 3 * (1 << ((packed & 0x07) + 1)) : 0;
+    pos += 7 + gctSize;
+
+    Uint8List? normalized;
+    while (pos < source.length) {
+      final block = source[pos];
+      if (block == 0x3B) break; // trailer
+      if (block == 0x2C) {
+        if (pos + 10 > source.length) break;
+        final imgPacked = source[pos + 9];
+        final hasLct = (imgPacked & 0x80) != 0;
+        final lctSize = hasLct ? 3 * (1 << ((imgPacked & 0x07) + 1)) : 0;
+        pos += 10 + lctSize;
+        if (pos >= source.length) break;
+        pos += 1; // LZW minimum code size
+        pos = _skipGifSubBlocks(source, pos);
+      } else if (block == 0x21) {
+        if (pos + 2 > source.length) break;
+        final label = source[pos + 1];
+        if (label == 0xF9 && pos + 6 <= source.length && source[pos + 2] == 4) {
+          final delayOffset = pos + 4;
+          final delay = source[delayOffset] | (source[delayOffset + 1] << 8);
+          if (delay <= _gifTinyDelayThresholdCentiseconds) {
+            normalized ??= Uint8List.fromList(source);
+            normalized[delayOffset] =
+                _gifBrowserMinimumDelayCentiseconds & 0xFF;
+            normalized[delayOffset + 1] =
+                _gifBrowserMinimumDelayCentiseconds >> 8;
+          }
+        }
+        pos += 2;
+        pos = _skipGifSubBlocks(source, pos);
+      } else {
+        break; // malformed / unknown — leave bytes as-is
+      }
+    }
+    return normalized ?? source;
   }
 
   /// Skip a run of GIF sub-blocks (each: 1 length byte + that many bytes),

@@ -54,6 +54,25 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
+final chatImagePickerProvider = Provider<ChatImagePicker>(
+  (ref) => const ChatImagePicker(),
+);
+
+class ChatImagePicker {
+  const ChatImagePicker();
+
+  Future<Uint8List?> pickImageBytes(
+    ImageSource source, {
+    int? imageQuality,
+  }) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      imageQuality: imageQuality,
+    );
+    return picked?.readAsBytes();
+  }
+}
+
 /// Message composition widget with inline "speaking as" avatar and text input.
 class MessageInput extends ConsumerStatefulWidget {
   const MessageInput({super.key, required this.conversationId});
@@ -409,11 +428,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       return picked?.readAsBytes();
     }
 
-    final picked = await ImagePicker().pickImage(
-      source: source,
-      imageQuality: 90,
-    );
-    return picked?.readAsBytes();
+    // Keep picker quality unset so Android does not decode animated GIFs into
+    // a single bitmap before Prism's own media pipeline can preserve them.
+    return ref.read(chatImagePickerProvider).pickImageBytes(source);
   }
 
   bool _stageImageBytes(Uint8List bytes) {

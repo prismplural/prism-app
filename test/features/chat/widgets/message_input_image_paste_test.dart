@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:drift/native.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase;
@@ -89,6 +90,7 @@ void main() {
   Widget buildSubject({
     AppClipboardReader? clipboardReader,
     ChatNotifier Function()? chatNotifierFactory,
+    ChatImagePicker? chatImagePicker,
     MediaAttachmentRepository? mediaAttachmentRepository,
     MediaService? mediaService,
   }) {
@@ -115,6 +117,8 @@ void main() {
           appClipboardReaderProvider.overrideWithValue(clipboardReader),
         if (chatNotifierFactory != null)
           chatNotifierProvider.overrideWith(chatNotifierFactory),
+        if (chatImagePicker != null)
+          chatImagePickerProvider.overrideWithValue(chatImagePicker),
         if (mediaAttachmentRepository != null)
           mediaAttachmentRepositoryProvider.overrideWithValue(
             mediaAttachmentRepository,
@@ -211,6 +215,28 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.bySemanticsLabel('Attached image preview'), findsWidgets);
+  });
+
+  testWidgets('photo library pick does not request picker recompression', (
+    tester,
+  ) async {
+    final imagePicker = _RecordingChatImagePicker(
+      Uint8List.fromList(_transparentPng),
+    );
+
+    await tester.pumpWidget(buildSubject(chatImagePicker: imagePicker));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AttachmentMenuButton), findsOneWidget);
+    final button = tester.widget<AttachmentMenuButton>(
+      find.byType(AttachmentMenuButton),
+    );
+    button.onPhotoLibrary();
+    await tester.pumpAndSettle();
+
+    expect(imagePicker.sources, [ImageSource.gallery]);
+    expect(imagePicker.imageQualities, [isNull]);
     expect(find.bySemanticsLabel('Attached image preview'), findsWidgets);
   });
 
@@ -417,6 +443,24 @@ class _RecordingChatNotifier extends ChatNotifier {
   }) async {
     sentContents.add(content);
     return 'message-1';
+  }
+}
+
+class _RecordingChatImagePicker extends ChatImagePicker {
+  _RecordingChatImagePicker(this.bytes);
+
+  final Uint8List bytes;
+  final sources = <ImageSource>[];
+  final imageQualities = <int?>[];
+
+  @override
+  Future<Uint8List?> pickImageBytes(
+    ImageSource source, {
+    int? imageQuality,
+  }) async {
+    sources.add(source);
+    imageQualities.add(imageQuality);
+    return bytes;
   }
 }
 
