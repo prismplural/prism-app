@@ -10,7 +10,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 
-import '../../helpers/prism_golden_test.dart';
+import '../../helpers/prism_golden.dart';
 
 void main() {
   setUpAll(loadPrismGoldenFonts);
