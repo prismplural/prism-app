@@ -1,4 +1,4 @@
-# Personal manual-testing wrapper — lives in prism-workspace/scripts/ instead
+# Local manual-testing wrapper
 /build.sh
 
 # Miscellaneous
@@ -36,6 +36,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+pubspec_overrides.yaml
 
 # Golden test failure diffs are local review artifacts.
 test/**/failures/

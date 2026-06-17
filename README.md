@@ -11,11 +11,11 @@ either at that boundary or in the design system.
 
 ## What's in here
 
-A Flutter app targeting iOS, Android, macOS, and web. Riverpod for state (hand
-written — no `@riverpod` codegen), `go_router` with a `StatefulShellRoute` for
-navigation, Drift + SQLite for the local database, and Material 3 with
-`dynamic_color` for theming. Dart SDK `^3.11.1`. The package name is
-`prism_plurality` because the `prism` name was taken on pub.dev.
+A Flutter app targeting iOS, Android, macOS, Linux, and Windows. Riverpod for
+state (hand written — no `@riverpod` codegen), `go_router` with a
+`StatefulShellRoute` for navigation, Drift + SQLite for the local database, and
+Material 3 with `dynamic_color` for theming. Dart SDK `^3.11.1`. The package
+name is `prism_plurality` because the `prism` name was taken on pub.dev.
 
 ```
 lib/
@@ -34,10 +34,11 @@ lib/
 ├── shared/                    # Design system: theme, widgets, extensions
 └── l10n/                      # Localization
 
-test/                          # Unit, widget, and integration tests
-integration_test/              # Flutter integration tests
-android/  ios/  macos/         # Platform shells
-fastlane/  packaging/  scripts/  # Release plumbing
+test/                              # Unit, widget, and integration tests
+integration_test/                  # Flutter integration tests
+android/  ios/  linux/  macos/    # Platform shells
+windows/
+fastlane/  packaging/  scripts/   # Release plumbing
 ```
 
 Each feature module under `lib/features/` has the same shape: `providers/`,
@@ -61,9 +62,10 @@ To add a synced entity:
 
 ## Build and run
 
-You need Flutter (Dart `^3.11.1`) and the platform toolchains for whatever
-you're targeting. A Rust toolchain only matters if you're modifying
-`prism-sync` locally.
+You need Flutter (Dart `^3.11.1`), Rust via `rustup`, and the platform
+toolchains for whatever you're targeting. The app depends on `prism_sync`
+packages that build native Rust code during Flutter builds. A local
+`prism-sync` checkout is only needed when modifying sync source locally.
 
 ```bash
 flutter pub get
@@ -113,29 +115,14 @@ In-memory Drift databases isolate DB tests.
 We're glad you're here. Bug reports, accessibility issues, fixes, and feature
 ideas are all welcome — direct feedback matters a lot to us.
 
-If you're thinking about something bigger than a polish PR, please open an
-issue first. Sync compatibility, threat model, and platform parity are the
-kinds of constraints that aren't obvious from the code, and we'd rather flag
-them at the design stage than during review.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, pull request
+expectations, and code guidelines. If you're thinking about something bigger
+than a polish PR, please open an issue first. Sync compatibility, threat model,
+and platform parity are the kinds of constraints that aren't obvious from the
+code, and we'd rather flag them at the design stage than during review.
 
-A few things worth knowing before sending a patch:
-
-- Hand-written Riverpod providers only. No `@riverpod` codegen.
-- All modal sheets go through `PrismSheet.show()` so they adapt from bottom
-  sheets on narrow screens to trailing side sheets on wide screens. All app bar
-  buttons go through `PrismIconButton`.
-- Always use the `secureStorage` constant from
-  `core/services/secure_storage.dart` — never bare `FlutterSecureStorage()`.
-- Accent colors come from `Theme.of(context).colorScheme.primary`, not from
-  settings reads.
-- If you regenerate code (Drift schema, freezed, JSON), commit the generated
-  files alongside the source change.
-- If you touched the sync schema, the parity test will tell you.
-
-By submitting a pull request you agree to the
-[Contributor License Agreement](CLA.md). The CLA exists so we can dual
-distribute — AGPL upstream, plus first-party builds on the App Store and
-Google Play.
+Contributions are accepted under Prism's project license. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 For security issues, please don't open a public issue. See
 [SECURITY.md](SECURITY.md).

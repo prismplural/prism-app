@@ -3,7 +3,7 @@
 ## Repository Role
 
 Prism is a Flutter app for plural system management. It targets iOS, Android,
-macOS, Linux, and web, and uses the public
+macOS, Linux, and Windows, and uses the public
 [prism-sync](https://github.com/prismplural/prism-sync) repository for encrypted
 CRDT sync through `flutter_rust_bridge`.
 
@@ -25,7 +25,9 @@ commits repo-local.
 
 ## Build And Test
 
-Use Flutter with Dart `^3.11.1`.
+Use Flutter with Dart `^3.11.1`, Rust via `rustup`, and the platform toolchains
+for the target you want to run. The app depends on `prism_sync` packages that
+build native Rust code during Flutter builds.
 
 ```bash
 flutter pub get
@@ -93,10 +95,11 @@ lib/
 ├── shared/                    # Theme, widgets, extensions, utilities
 └── l10n/                      # Localization
 
-test/                          # Unit and widget tests
-integration_test/              # Flutter integration tests
-android/ ios/ macos/ linux/    # Platform shells
-fastlane/ packaging/ scripts/  # Release and packaging support
+test/                              # Unit and widget tests
+integration_test/                  # Flutter integration tests
+android/ ios/ linux/ macos/        # Platform shells
+windows/
+fastlane/ packaging/ scripts/      # Release and packaging support
 ```
 
 Feature modules usually use `providers/`, `views/`, `widgets/`, and sometimes
