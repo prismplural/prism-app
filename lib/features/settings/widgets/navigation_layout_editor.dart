@@ -46,7 +46,8 @@ AppShellMobileNavLayout computeAdaptiveNavLayoutForCurrentDevice(
   required List<AppShellTab> primary,
   required List<AppShellTab> overflow,
   required String terminologyPlural,
-  NavBarLabelDisplayMode labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
+  NavBarLabelVisibility labelVisibility = NavBarLabelVisibility.always,
+  NavBarLabelStyle labelStyleMode = NavBarLabelStyle.full,
 }) {
   return computeAdaptiveMobileNavLayout(
     barWidth:
@@ -66,7 +67,8 @@ AppShellMobileNavLayout computeAdaptiveNavLayoutForCurrentDevice(
     labelStyle: navBarLabelTextStyle(context, isSelected: true),
     textScaler: MediaQuery.textScalerOf(context),
     textDirection: Directionality.of(context),
-    labelDisplayMode: labelDisplayMode,
+    labelVisibility: labelVisibility,
+    labelStyleMode: labelStyleMode,
   );
 }
 
@@ -85,8 +87,8 @@ class NavigationLayoutEditor extends StatelessWidget {
     this.showLayoutTitle = true,
     this.adaptPreviewToDeviceWidth = true,
     this.adaptSavedLayoutToDeviceWidth = true,
-    this.labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
-    this.revealLabelsWhenExpanded = true,
+    this.labelVisibility = NavBarLabelVisibility.always,
+    this.labelStyleMode = NavBarLabelStyle.full,
   });
 
   final List<AppShellTab> primaryTabs;
@@ -101,8 +103,8 @@ class NavigationLayoutEditor extends StatelessWidget {
   final bool showLayoutTitle;
   final bool adaptPreviewToDeviceWidth;
   final bool adaptSavedLayoutToDeviceWidth;
-  final NavBarLabelDisplayMode labelDisplayMode;
-  final bool revealLabelsWhenExpanded;
+  final NavBarLabelVisibility labelVisibility;
+  final NavBarLabelStyle labelStyleMode;
 
   @override
   Widget build(BuildContext context) {
@@ -140,8 +142,8 @@ class NavigationLayoutEditor extends StatelessWidget {
                 overflowTabs: overflowTabs,
                 terminologyPlural: terminologyPlural,
                 adaptToDeviceWidth: adaptPreviewToDeviceWidth,
-                labelDisplayMode: labelDisplayMode,
-                revealLabelsWhenExpanded: revealLabelsWhenExpanded,
+                labelVisibility: labelVisibility,
+                labelStyleMode: labelStyleMode,
               ),
               const SizedBox(height: 12),
               PrismSectionCard(
@@ -377,7 +379,8 @@ class NavigationLayoutEditor extends StatelessWidget {
         primary: normalized.primary,
         overflow: normalized.overflow,
         terminologyPlural: terminologyPlural,
-        labelDisplayMode: labelDisplayMode,
+        labelVisibility: labelVisibility,
+        labelStyleMode: labelStyleMode,
       );
       onLayoutChanged(adaptiveLayout.primaryTabs, adaptiveLayout.overflowTabs);
       return;
@@ -420,7 +423,8 @@ class NavigationLayoutEditor extends StatelessWidget {
       primary: primary,
       overflow: overflow,
       terminologyPlural: terminologyPlural,
-      labelDisplayMode: labelDisplayMode,
+      labelVisibility: labelVisibility,
+      labelStyleMode: labelStyleMode,
     );
     return rendered.primaryTabs.any((tab) => tab.id == candidate.id);
   }
@@ -635,16 +639,16 @@ class _NavigationBarPreview extends StatelessWidget {
     required this.overflowTabs,
     required this.terminologyPlural,
     required this.adaptToDeviceWidth,
-    required this.labelDisplayMode,
-    required this.revealLabelsWhenExpanded,
+    required this.labelVisibility,
+    required this.labelStyleMode,
   });
 
   final List<AppShellTab> primaryTabs;
   final List<AppShellTab> overflowTabs;
   final String terminologyPlural;
   final bool adaptToDeviceWidth;
-  final NavBarLabelDisplayMode labelDisplayMode;
-  final bool revealLabelsWhenExpanded;
+  final NavBarLabelVisibility labelVisibility;
+  final NavBarLabelStyle labelStyleMode;
 
   Widget _buildOverflowRow(
     BuildContext context, {
@@ -721,12 +725,11 @@ class _NavigationBarPreview extends StatelessWidget {
                 labelStyle: navBarLabelTextStyle(context, isSelected: true),
                 textScaler: MediaQuery.textScalerOf(context),
                 textDirection: Directionality.of(context),
-                labelDisplayMode: labelDisplayMode,
+                labelVisibility: labelVisibility,
+                labelStyleMode: labelStyleMode,
               )
             : _fixedPreviewLayout(primaryTabs, overflowTabs);
-        final showLabels =
-            labelDisplayMode != NavBarLabelDisplayMode.iconsOnly ||
-            revealLabelsWhenExpanded;
+        final showLabels = labelVisibility != NavBarLabelVisibility.never;
         final selectedTabId = layout.primaryTabs.isNotEmpty
             ? layout.primaryTabs.first.id
             : null;

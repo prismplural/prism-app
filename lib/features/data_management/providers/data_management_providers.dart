@@ -49,5 +49,6 @@ final dataImportServiceProvider = Provider<DataImportService>((ref) {
         ref.watch(conversationCategoriesRepositoryProvider),
     remindersRepository: ref.watch(remindersRepositoryProvider),
     friendsRepository: ref.watch(friendsRepositoryProvider),
+    appPreferenceRepository: ref.watch(appPreferenceRepositoryProvider),
   );
 });

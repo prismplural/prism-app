@@ -89,8 +89,19 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
-  NavBarLabelDisplayMode labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
+  NavBarLabelVisibility labelVisibility = NavBarLabelVisibility.always,
+  NavBarLabelStyle labelStyleMode = NavBarLabelStyle.full,
 }) {
+  // Reserve full-label width only where full labels actually render: the
+  // collapsed bar when always-visible, the expanded overflow grid when visible
+  // at all. Lets icons stay dense while expanded labels still fit untruncated.
+  final collapsedReserveFullLabelWidth =
+      labelVisibility == NavBarLabelVisibility.always &&
+      labelStyleMode == NavBarLabelStyle.full;
+  final overflowReserveFullLabelWidth =
+      labelVisibility != NavBarLabelVisibility.never &&
+      labelStyleMode == NavBarLabelStyle.full;
+
   final clampedPrimaryCount = math.min(
     primaryLabels.length,
     kMaxPrimaryNavTabs,
@@ -115,7 +126,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
     textDirection: textDirection,
     reserveMoreTrigger: false,
     maxCount: currentPrimaryLabels.length,
-    labelDisplayMode: labelDisplayMode,
+    reserveFullLabelWidth: collapsedReserveFullLabelWidth,
   );
 
   final needsOverflowMenu =
@@ -144,7 +155,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
     textDirection: textDirection,
     reserveMoreTrigger: true,
     maxCount: preferredPrimaryCount,
-    labelDisplayMode: labelDisplayMode,
+    reserveFullLabelWidth: collapsedReserveFullLabelWidth,
   );
 
   final visualOverflowLabels = [
@@ -160,7 +171,7 @@ NavBarLayoutSpec computeNavBarLayoutSpec({
           labelStyle: labelStyle,
           textScaler: textScaler,
           textDirection: textDirection,
-          labelDisplayMode: labelDisplayMode,
+          reserveFullLabelWidth: overflowReserveFullLabelWidth,
         );
 
   final overflowRows = overflowColumns == 0
@@ -226,7 +237,7 @@ int _maxFittingTabs({
   required TextDirection textDirection,
   required bool reserveMoreTrigger,
   required int maxCount,
-  required NavBarLabelDisplayMode labelDisplayMode,
+  required bool reserveFullLabelWidth,
 }) {
   final upperBound = math.min(labels.length, maxCount);
   if (upperBound <= 0) return 0;
@@ -239,7 +250,7 @@ int _maxFittingTabs({
       textScaler: textScaler,
       textDirection: textDirection,
       reserveMoreTrigger: reserveMoreTrigger,
-      labelDisplayMode: labelDisplayMode,
+      reserveFullLabelWidth: reserveFullLabelWidth,
     )) {
       return count;
     }
@@ -254,7 +265,7 @@ int _maxFittingOverflowColumns({
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
-  required NavBarLabelDisplayMode labelDisplayMode,
+  required bool reserveFullLabelWidth,
 }) {
   final upperBound = math.min(labels.length, kMaxAdaptiveOverflowColumns);
 
@@ -267,7 +278,7 @@ int _maxFittingOverflowColumns({
       textDirection: textDirection,
       reserveMoreTrigger: false,
       explicitCount: count,
-      labelDisplayMode: labelDisplayMode,
+      reserveFullLabelWidth: reserveFullLabelWidth,
     )) {
       return count;
     }
@@ -283,7 +294,7 @@ bool _tabsFit({
   required TextScaler textScaler,
   required TextDirection textDirection,
   required bool reserveMoreTrigger,
-  required NavBarLabelDisplayMode labelDisplayMode,
+  required bool reserveFullLabelWidth,
   int? explicitCount,
 }) {
   if (labels.isEmpty) return true;
@@ -297,7 +308,9 @@ bool _tabsFit({
       (reserveMoreTrigger ? _kMoreTriggerWidth : 0);
   final slotWidth = availableWidth / slotCount;
 
-  if (labelDisplayMode != NavBarLabelDisplayMode.fullLabels) {
+  // When labels are icon-width or ellipsized, items only need to clear the
+  // minimum collapsed width; full labels must fit their measured text.
+  if (!reserveFullLabelWidth) {
     return slotWidth >= _kMinimumCollapsedItemWidth;
   }
 

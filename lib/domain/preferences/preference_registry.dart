@@ -89,6 +89,19 @@ const typographyLetterSpacingPreference = PreferenceDefinition<double>(
   introducedInSchemaVersion: 31,
 );
 
+/// Full vs. truncated text for labels revealed when the nav bar's More menu
+/// expands. Only consulted in "labels when opened" mode — the always-visible and
+/// never cases encode their treatment in [NavBarLabelDisplayMode]. Default
+/// `false` keeps the historical truncated-on-reveal behavior. Synced.
+const navBarExpandedLabelsFullPreference = PreferenceDefinition<bool>(
+  key: 'navigation.expanded_labels_full',
+  scope: PreferenceScope.appSynced,
+  defaultValue: false,
+  codec: BoolPreferenceCodec(),
+  introducedInAppVersion: '0.13.1',
+  introducedInSchemaVersion: 38,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideTotalMemberCountPreference,
   frontingReminderSuppressMinutesPreference,
@@ -96,5 +109,6 @@ final appPreferenceRegistry = PreferenceRegistry(const [
   dimBackgroundBehindSheetsPreference,
   forceCenteredSheetsPreference,
   typographyLetterSpacingPreference,
+  navBarExpandedLabelsFullPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);

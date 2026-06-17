@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show
         AppDatabase,
+        AppPreferenceValuesCompanion,
         MediaAttachmentsCompanion,
         MemberBoardPostsCompanion,
         MembersCompanion,
@@ -20,11 +21,16 @@ import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
+import 'package:prism_plurality/data/repositories/preference_value_decoding.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/preference_definition.dart';
+import 'package:prism_plurality/domain/preferences/preference_entity_id.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/repositories/app_preference_repository.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -68,6 +74,7 @@ class ImportPreview {
     this.friends = 0,
     this.mediaAttachments = 0,
     this.memberBoardPosts = 0,
+    this.appPreferences = 0,
     this.formatVersion = '',
     this.exportDate = '',
   });
@@ -93,6 +100,7 @@ class ImportPreview {
   final int friends;
   final int mediaAttachments;
   final int memberBoardPosts;
+  final int appPreferences;
   final String formatVersion;
   final String exportDate;
 
@@ -117,7 +125,8 @@ class ImportPreview {
       reminders +
       friends +
       mediaAttachments +
-      memberBoardPosts;
+      memberBoardPosts +
+      appPreferences;
 }
 
 /// Result of a completed import operation.
@@ -246,6 +255,7 @@ class DataImportService {
     required this.conversationCategoriesRepository,
     required this.remindersRepository,
     required this.friendsRepository,
+    this.appPreferenceRepository,
     Future<Directory> Function()? appSupportDirectoryProvider,
   }) : _appSupportDirectoryProvider =
            appSupportDirectoryProvider ?? getApplicationSupportDirectory;
@@ -266,11 +276,29 @@ class DataImportService {
   final ConversationCategoriesRepository conversationCategoriesRepository;
   final RemindersRepository remindersRepository;
   final FriendsRepository friendsRepository;
+
+  /// Optional — when supplied, imported registry-backed app preferences are
+  /// written through the repository so the restore emits sync ops (matching
+  /// every other imported entity). When null, rows are upserted raw and stay
+  /// local until the next full sync snapshot.
+  final AppPreferenceRepository? appPreferenceRepository;
   final Future<Directory> Function() _appSupportDirectoryProvider;
 
   static final _uuidRegex = RegExp(
     r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
   );
+
+  /// Finds the synced app-preference definition whose stored row key matches an
+  /// exported `app_preference_values` row, or null for keys this build doesn't
+  /// know (forward-compat). Row keys are namespaced via [PreferenceEntityId.app].
+  static PreferenceDefinition<dynamic>? _syncedAppPreferenceForRowKey(
+    String rowKey,
+  ) {
+    for (final definition in appPreferenceRegistry.definitions) {
+      if (PreferenceEntityId.app(definition.key) == rowKey) return definition;
+    }
+    return null;
+  }
 
   static MemberProfileHeaderSource _profileHeaderSourceFromExport(
     V1Headmate headmate,
@@ -452,6 +480,7 @@ class DataImportService {
       friends: export.friends.length,
       mediaAttachments: export.mediaAttachments.length,
       memberBoardPosts: export.memberBoardPosts.length,
+      appPreferences: export.appPreferences.length,
       formatVersion: export.formatVersion,
       exportDate: export.exportDate,
     );
@@ -1770,6 +1799,44 @@ class DataImportService {
             ),
           );
           settingsUpdated = true;
+        }
+
+        // 7b. App preferences (key-value rows). Route known prefs through the
+        // repository so the restore emits sync ops like every other entity;
+        // unknown keys fall back to a raw, non-syncing upsert.
+        for (final pref in export.appPreferences) {
+          if (pref.key.isEmpty) continue;
+          final definition = _syncedAppPreferenceForRowKey(pref.key);
+          final repo = appPreferenceRepository;
+          var routed = false;
+          if (definition != null && repo != null) {
+            try {
+              await repo.set(
+                definition,
+                decodePreferenceValue(
+                  definition: definition,
+                  valueType: pref.valueType,
+                  valueJson: pref.valueJson,
+                  isDeleted: false,
+                ),
+              );
+              routed = true;
+            } catch (_) {
+              // Capability-gated or otherwise unwritable here — restore the row
+              // raw below rather than dropping it.
+              routed = false;
+            }
+          }
+          if (!routed) {
+            await db.preferenceValuesDao.upsertAppValue(
+              AppPreferenceValuesCompanion.insert(
+                key: pref.key,
+                valueType: pref.valueType,
+                valueJson: Value(pref.valueJson),
+                isDeleted: const Value(false),
+              ),
+            );
+          }
         }
 
         // 8. Import habits

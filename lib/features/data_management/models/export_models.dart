@@ -73,6 +73,7 @@ class V1Export {
     this.friends = const [],
     this.mediaAttachments = const [],
     this.memberBoardPosts = const [],
+    this.appPreferences = const [],
     this.rescueLegacyFields = false,
   });
 
@@ -103,6 +104,11 @@ class V1Export {
   final List<V1Friend> friends;
   final List<V1MediaAttachment> mediaAttachments;
   final List<V1MemberBoardPost> memberBoardPosts;
+
+  /// Synced app key-value preferences (`app_preference_values` rows) — the
+  /// registry-backed prefs that don't have dedicated `system_settings` columns,
+  /// e.g. accessibility toggles and the nav-bar expanded-label style.
+  final List<V1AppPreference> appPreferences;
 
   /// Envelope-level marker for the PRISM1 rescue importer (§4.7).
   ///
@@ -168,6 +174,8 @@ class V1Export {
       'mediaAttachments': mediaAttachments.map((e) => e.toJson()).toList(),
     if (memberBoardPosts.isNotEmpty)
       'memberBoardPosts': memberBoardPosts.map((e) => e.toJson()).toList(),
+    if (appPreferences.isNotEmpty)
+      'appPreferences': appPreferences.map((e) => e.toJson()).toList(),
     // Envelope-level rescue marker (§4.7). Only emitted when true so
     // post-migration exports stay byte-identical to pre-marker files.
     if (rescueLegacyFields) 'rescueLegacyFields': true,
@@ -348,9 +356,43 @@ class V1Export {
               )
               .toList() ??
           [],
+      appPreferences:
+          (json['appPreferences'] as List<dynamic>?)
+              ?.map((e) => V1AppPreference.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       rescueLegacyFields: rescueLegacy,
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// V1AppPreference — one `app_preference_values` row (key + codec-encoded value)
+// ---------------------------------------------------------------------------
+
+class V1AppPreference {
+  V1AppPreference({
+    required this.key,
+    required this.valueType,
+    this.valueJson,
+  });
+
+  final String key;
+  final String valueType;
+  final String? valueJson;
+
+  Map<String, dynamic> toJson() => {
+    'key': key,
+    'valueType': valueType,
+    if (valueJson != null) 'valueJson': valueJson,
+  };
+
+  factory V1AppPreference.fromJson(Map<String, dynamic> json) =>
+      V1AppPreference(
+        key: json['key'] as String,
+        valueType: json['valueType'] as String,
+        valueJson: json['valueJson'] as String?,
+      );
 }
 
 // ---------------------------------------------------------------------------

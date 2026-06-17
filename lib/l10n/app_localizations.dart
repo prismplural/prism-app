@@ -2162,47 +2162,59 @@ abstract class AppLocalizations {
   /// **'Preferences'**
   String get navigationPreferences;
 
-  /// Navigation settings: label display mode setting title
+  /// Navigation settings: when nav bar labels appear, setting title
   ///
   /// In en, this message translates to:
   /// **'Labels'**
-  String get navigationLabelDisplayTitle;
+  String get navigationLabelVisibilityTitle;
 
-  /// Navigation settings: label display mode setting subtitle
+  /// Navigation settings: label visibility setting subtitle
   ///
   /// In en, this message translates to:
-  /// **'Choose how much text appears in the mobile nav bar.'**
-  String get navigationLabelDisplaySubtitle;
+  /// **'Choose when item labels appear in the mobile nav bar.'**
+  String get navigationLabelVisibilitySubtitle;
 
-  /// Navigation settings: full labels segment
+  /// Navigation settings: labels always visible segment
+  ///
+  /// In en, this message translates to:
+  /// **'Always'**
+  String get navigationLabelVisibilityAlways;
+
+  /// Navigation settings: labels visible only when the More menu is opened segment
+  ///
+  /// In en, this message translates to:
+  /// **'When opened'**
+  String get navigationLabelVisibilityWhenExpanded;
+
+  /// Navigation settings: icons only, labels never shown segment
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get navigationLabelVisibilityNever;
+
+  /// Navigation settings: label text style setting title
+  ///
+  /// In en, this message translates to:
+  /// **'Label text'**
+  String get navigationLabelStyleTitle;
+
+  /// Navigation settings: label text style setting subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Show the full label or trim it to fit.'**
+  String get navigationLabelStyleSubtitle;
+
+  /// Navigation settings: full label text segment
   ///
   /// In en, this message translates to:
   /// **'Full'**
-  String get navigationLabelModeFull;
+  String get navigationLabelStyleFull;
 
-  /// Navigation settings: truncated labels segment
+  /// Navigation settings: truncated label text segment
   ///
   /// In en, this message translates to:
-  /// **'Truncate'**
-  String get navigationLabelModeTruncate;
-
-  /// Navigation settings: icons only segment
-  ///
-  /// In en, this message translates to:
-  /// **'Icons'**
-  String get navigationLabelModeIcons;
-
-  /// Navigation settings: reveal labels when More is expanded toggle title
-  ///
-  /// In en, this message translates to:
-  /// **'Show labels when expanded'**
-  String get navigationRevealLabelsWhenExpandedTitle;
-
-  /// Navigation settings: reveal labels when More is expanded toggle subtitle
-  ///
-  /// In en, this message translates to:
-  /// **'Keep the bar minimal until you open More, then show text for every option.'**
-  String get navigationRevealLabelsWhenExpandedSubtitle;
+  /// **'Truncated'**
+  String get navigationLabelStyleTruncated;
 
   /// Navigation settings: section title above the preview and reorderable items list
   ///

@@ -30,11 +30,16 @@ class NavigationSettingsScreen extends ConsumerWidget {
     final overflowTabs = ref.watch(navBarOverflowTabsProvider);
     final flags = ref.watch(featureFlagsProvider);
     final syncNavigationEnabled = ref.watch(syncNavigationEnabledProvider);
-    final labelDisplayMode = ref.watch(navBarLabelDisplayModeProvider);
-    final revealLabelsWhenExpanded = ref.watch(
-      navBarRevealLabelsWhenExpandedProvider,
-    );
+    final labelVisibility = ref.watch(navBarLabelVisibilityProvider);
+    final labelStyleMode = ref.watch(navBarLabelStyleProvider);
     final terms = watchTerminology(context, ref);
+
+    Widget divider() => Divider(
+      height: 1,
+      indent: 16,
+      endIndent: 16,
+      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08),
+    );
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -59,52 +64,31 @@ class NavigationSettingsScreen extends ConsumerWidget {
                         .read(settingsNotifierProvider.notifier)
                         .updateSyncNavigationEnabled(v),
                   ),
-                  Divider(
-                    height: 1,
-                    indent: 16,
-                    endIndent: 16,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.08),
-                  ),
+                  divider(),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                    child: _NavLabelDisplayModeControl(
-                      value: labelDisplayMode,
-                      onChanged: (mode) => ref
+                    child: _NavLabelVisibilityControl(
+                      value: labelVisibility,
+                      onChanged: (visibility) => ref
                           .read(settingsNotifierProvider.notifier)
-                          .updateNavBarLabelDisplayMode(mode),
+                          .updateNavBarLabelVisibility(visibility),
                     ),
                   ),
-                  if (labelDisplayMode == NavBarLabelDisplayMode.iconsOnly) ...[
-                    Divider(
-                      height: 1,
-                      indent: 16,
-                      endIndent: 16,
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.08),
-                    ),
-                    PrismSwitchRow(
-                      title:
-                          context.l10n.navigationRevealLabelsWhenExpandedTitle,
-                      subtitle: context
-                          .l10n
-                          .navigationRevealLabelsWhenExpandedSubtitle,
-                      value: revealLabelsWhenExpanded,
-                      onChanged: (v) => ref
-                          .read(settingsNotifierProvider.notifier)
-                          .updateNavBarRevealLabelsWhenExpanded(v),
+                  // The text-style axis is moot when labels never render, so it
+                  // only appears once labels are shown somewhere.
+                  if (labelVisibility != NavBarLabelVisibility.never) ...[
+                    divider(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                      child: _NavLabelStyleControl(
+                        value: labelStyleMode,
+                        onChanged: (style) => ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateNavBarLabelStyle(style),
+                      ),
                     ),
                   ],
-                  Divider(
-                    height: 1,
-                    indent: 16,
-                    endIndent: 16,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.08),
-                  ),
+                  divider(),
                   PrismSwitchRow(
                     title: context.l10n.navigationShowViewToggleTitle,
                     subtitle: context.l10n.navigationShowViewToggleSubtitle,
@@ -126,8 +110,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
             overflowTabs: overflowTabs,
             flags: flags,
             terminologyPlural: terms.plural,
-            labelDisplayMode: labelDisplayMode,
-            revealLabelsWhenExpanded: revealLabelsWhenExpanded,
+            labelVisibility: labelVisibility,
+            labelStyleMode: labelStyleMode,
             onDisabledFeatureTap: () {
               showAdaptiveDetailSurface<void>(
                 context: context,
@@ -153,14 +137,17 @@ class NavigationSettingsScreen extends ConsumerWidget {
   }
 }
 
-class _NavLabelDisplayModeControl extends StatelessWidget {
-  const _NavLabelDisplayModeControl({
-    required this.value,
-    required this.onChanged,
+/// Shared titled-segmented-control scaffold for the two label axes.
+class _NavLabelControl extends StatelessWidget {
+  const _NavLabelControl({
+    required this.title,
+    required this.subtitle,
+    required this.child,
   });
 
-  final NavBarLabelDisplayMode value;
-  final ValueChanged<NavBarLabelDisplayMode> onChanged;
+  final String title;
+  final String subtitle;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -169,38 +156,86 @@ class _NavLabelDisplayModeControl extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          context.l10n.navigationLabelDisplayTitle,
+          title,
           style: theme.textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 2),
         Text(
-          context.l10n.navigationLabelDisplaySubtitle,
+          subtitle,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 12),
-        PrismSegmentedControl<NavBarLabelDisplayMode>(
-          selected: value,
-          onChanged: onChanged,
-          segments: [
-            PrismSegment(
-              value: NavBarLabelDisplayMode.fullLabels,
-              label: context.l10n.navigationLabelModeFull,
-            ),
-            PrismSegment(
-              value: NavBarLabelDisplayMode.truncatedLabels,
-              label: context.l10n.navigationLabelModeTruncate,
-            ),
-            PrismSegment(
-              value: NavBarLabelDisplayMode.iconsOnly,
-              label: context.l10n.navigationLabelModeIcons,
-            ),
-          ],
-        ),
+        child,
       ],
+    );
+  }
+}
+
+class _NavLabelVisibilityControl extends StatelessWidget {
+  const _NavLabelVisibilityControl({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final NavBarLabelVisibility value;
+  final ValueChanged<NavBarLabelVisibility> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _NavLabelControl(
+      title: context.l10n.navigationLabelVisibilityTitle,
+      subtitle: context.l10n.navigationLabelVisibilitySubtitle,
+      child: PrismSegmentedControl<NavBarLabelVisibility>(
+        selected: value,
+        onChanged: onChanged,
+        segments: [
+          PrismSegment(
+            value: NavBarLabelVisibility.always,
+            label: context.l10n.navigationLabelVisibilityAlways,
+          ),
+          PrismSegment(
+            value: NavBarLabelVisibility.whenExpanded,
+            label: context.l10n.navigationLabelVisibilityWhenExpanded,
+          ),
+          PrismSegment(
+            value: NavBarLabelVisibility.never,
+            label: context.l10n.navigationLabelVisibilityNever,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavLabelStyleControl extends StatelessWidget {
+  const _NavLabelStyleControl({required this.value, required this.onChanged});
+
+  final NavBarLabelStyle value;
+  final ValueChanged<NavBarLabelStyle> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _NavLabelControl(
+      title: context.l10n.navigationLabelStyleTitle,
+      subtitle: context.l10n.navigationLabelStyleSubtitle,
+      child: PrismSegmentedControl<NavBarLabelStyle>(
+        selected: value,
+        onChanged: onChanged,
+        segments: [
+          PrismSegment(
+            value: NavBarLabelStyle.full,
+            label: context.l10n.navigationLabelStyleFull,
+          ),
+          PrismSegment(
+            value: NavBarLabelStyle.truncated,
+            label: context.l10n.navigationLabelStyleTruncated,
+          ),
+        ],
+      ),
     );
   }
 }

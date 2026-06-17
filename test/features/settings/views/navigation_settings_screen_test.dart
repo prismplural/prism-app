@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/navigation_settings_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/navigation_layout_editor.dart';
@@ -425,53 +426,20 @@ void main() {
       expect(repo.settings.navBarOverflowItems, isNot(contains('reminders')));
     });
 
-    testWidgets(
-      'updates navigation label display mode from segmented control',
-      (tester) async {
-        final repo = _ReactiveSystemSettingsRepository(const SystemSettings());
-        addTearDown(repo.dispose);
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              systemSettingsRepositoryProvider.overrideWithValue(repo),
-            ],
-            child: const MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: [Locale('en')],
-              home: MediaQuery(
-                data: MediaQueryData(size: Size(700, 900)),
-                child: NavigationSettingsScreen(),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('Icons'));
-        await tester.pumpAndSettle();
-
-        expect(
-          repo.settings.navBarLabelDisplayMode,
-          NavBarLabelDisplayMode.iconsOnly,
-        );
-        expect(find.text('Show labels when expanded'), findsOneWidget);
-      },
-    );
-
-    testWidgets('updates icon-only expanded label reveal toggle', (
+    testWidgets('selecting "When opened" sets icons-only with reveal', (
       tester,
     ) async {
-      final repo = _ReactiveSystemSettingsRepository(
-        const SystemSettings(
-          navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
-        ),
-      );
+      final repo = _ReactiveSystemSettingsRepository(const SystemSettings());
       addTearDown(repo.dispose);
 
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [systemSettingsRepositoryProvider.overrideWithValue(repo)],
+          overrides: [
+            systemSettingsRepositoryProvider.overrideWithValue(repo),
+            appPreferenceRepositoryProvider.overrideWithValue(
+              FakeAppPreferenceRepository(),
+            ),
+          ],
           child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: [Locale('en')],
@@ -484,10 +452,132 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Show labels when expanded'));
+      await tester.tap(find.text('When opened'));
+      await tester.pumpAndSettle();
+
+      expect(
+        repo.settings.navBarLabelDisplayMode,
+        NavBarLabelDisplayMode.iconsOnly,
+      );
+      expect(repo.settings.navBarRevealLabelsWhenExpanded, isTrue);
+      // Labels still appear when expanded, so the text-style control stays.
+      expect(find.text('Label text'), findsOneWidget);
+    });
+
+    testWidgets('selecting "Never" drops reveal and hides the style control', (
+      tester,
+    ) async {
+      final repo = _ReactiveSystemSettingsRepository(
+        const SystemSettings(
+          navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        ),
+      );
+      addTearDown(repo.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            systemSettingsRepositoryProvider.overrideWithValue(repo),
+            appPreferenceRepositoryProvider.overrideWithValue(
+              FakeAppPreferenceRepository(),
+            ),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(700, 900)),
+              child: NavigationSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Default icons-only + reveal => "When opened", so the style control shows.
+      expect(find.text('Label text'), findsOneWidget);
+
+      await tester.tap(find.text('Never'));
       await tester.pumpAndSettle();
 
       expect(repo.settings.navBarRevealLabelsWhenExpanded, isFalse);
+      expect(find.text('Label text'), findsNothing);
+    });
+
+    testWidgets('"When opened" + "Full" stores full labels on expand', (
+      tester,
+    ) async {
+      final repo = _ReactiveSystemSettingsRepository(
+        const SystemSettings(
+          navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        ),
+      );
+      addTearDown(repo.dispose);
+      final prefs = FakeAppPreferenceRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            systemSettingsRepositoryProvider.overrideWithValue(repo),
+            appPreferenceRepositoryProvider.overrideWithValue(prefs),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(700, 900)),
+              child: NavigationSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The previously-unreachable cell: icons collapsed, full labels on expand.
+      await tester.tap(find.text('Full'));
+      await tester.pumpAndSettle();
+
+      expect(await prefs.get(navBarExpandedLabelsFullPreference), isTrue);
+    });
+
+    testWidgets('truncated reveal style survives a round-trip through Never', (
+      tester,
+    ) async {
+      // Regression: hopping When opened -> Never -> When opened must not silently
+      // flip a truncated reveal back to full.
+      final repo = _ReactiveSystemSettingsRepository(
+        const SystemSettings(
+          navBarLabelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+        ),
+      );
+      addTearDown(repo.dispose);
+      final prefs = FakeAppPreferenceRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            systemSettingsRepositoryProvider.overrideWithValue(repo),
+            appPreferenceRepositoryProvider.overrideWithValue(prefs),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: MediaQuery(
+              data: MediaQueryData(size: Size(700, 900)),
+              child: NavigationSettingsScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Starts at When opened + Truncated (pref defaults false).
+      await tester.tap(find.text('Never'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('When opened'));
+      await tester.pumpAndSettle();
+
+      expect(await prefs.get(navBarExpandedLabelsFullPreference), isFalse);
     });
 
     testWidgets('moving Home to More persists without duplicates', (

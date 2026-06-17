@@ -9,7 +9,9 @@ import 'package:prism_plurality/core/database/app_database.dart'
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_app_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_habit_repository.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
@@ -118,6 +120,10 @@ DataImportService _makeImport(AppDatabase db) => DataImportService(
   ),
   remindersRepository: DriftRemindersRepository(db.remindersDao, null),
   friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+  appPreferenceRepository: DriftAppPreferenceRepository(
+    db.preferenceValuesDao,
+    null,
+  ),
 );
 
 /// Serialize a [V1Export] to JSON string and back through [DataImportService].
@@ -191,6 +197,25 @@ void main() {
           .getAllConversations();
       expect(conversations, hasLength(1));
       expect(conversations.single.includesAllMembers, isTrue);
+    });
+
+    test('app preferences survive export → import', () async {
+      // The nav-bar "full labels when expanded" choice lives in the key-value
+      // preferences table, not a system_settings column, so it has to ride the
+      // backup file as its own section to survive a fresh import.
+      final sourcePrefs = DriftAppPreferenceRepository(
+        sourceDb.preferenceValuesDao,
+        null,
+      );
+      await sourcePrefs.set(navBarExpandedLabelsFullPreference, true);
+
+      await _roundtrip(exportService, importService);
+
+      final targetPrefs = DriftAppPreferenceRepository(
+        targetDb.preferenceValuesDao,
+        null,
+      );
+      expect(await targetPrefs.get(navBarExpandedLabelsFullPreference), isTrue);
     });
 
     test('habits and completions survive export → import', () async {

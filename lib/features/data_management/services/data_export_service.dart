@@ -276,6 +276,21 @@ class DataExportService {
       lastManualSyncDate: pkState.lastManualSyncDate?.toUtc().toIso8601String(),
     );
 
+    // App preferences live in their own key-value table; dump the live rows
+    // verbatim so codec-encoded values round-trip without per-type handling.
+    final v1AppPreferences =
+        (await (db.select(
+          db.appPreferenceValues,
+        )..where((t) => t.isDeleted.equals(false))).get())
+            .map(
+              (r) => V1AppPreference(
+                key: r.key,
+                valueType: r.valueType,
+                valueJson: r.valueJson,
+              ),
+            )
+            .toList();
+
     final totalRecords =
         v1Headmates.length +
         v1Sessions.length +
@@ -297,7 +312,8 @@ class DataExportService {
         v1Reminders.length +
         v1Friends.length +
         v1MemberBoardPosts.length +
-        v1MediaAttachments.length;
+        v1MediaAttachments.length +
+        v1AppPreferences.length;
 
     return V1Export(
       formatVersion: '1.0',
@@ -327,6 +343,7 @@ class DataExportService {
       friends: v1Friends,
       mediaAttachments: v1MediaAttachments,
       memberBoardPosts: v1MemberBoardPosts,
+      appPreferences: v1AppPreferences,
       // Envelope-level marker for the PRISM1 rescue importer (§4.7).
       // The empty-list / null-keys problem on individual rows
       // (`coFronterIds: []`, `pkMemberIdsJson: null`) means per-row

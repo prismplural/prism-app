@@ -17,11 +17,14 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/core/database/database_providers.dart'
+    show appPreferenceRepositoryProvider;
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
 import 'package:prism_plurality/shared/utils/nav_bar_layout.dart';
+import '../../helpers/fake_repositories.dart' show FakeAppPreferenceRepository;
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
 
@@ -133,7 +136,8 @@ void main() {
         labelStyle: labelStyle,
         textScaler: const TextScaler.linear(2),
         textDirection: TextDirection.ltr,
-        labelDisplayMode: NavBarLabelDisplayMode.truncatedLabels,
+        labelVisibility: NavBarLabelVisibility.always,
+        labelStyleMode: NavBarLabelStyle.truncated,
       );
 
       expect(layout.spec.usesOverflowMenu, isFalse);
@@ -166,7 +170,7 @@ void main() {
       labelStyle: labelStyle,
       textScaler: const TextScaler.linear(2),
       textDirection: TextDirection.ltr,
-      labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
+      labelVisibility: NavBarLabelVisibility.never,
     );
 
     expect(layout.spec.usesOverflowMenu, isFalse);
@@ -244,8 +248,7 @@ void main() {
         rowHeight: kFloatingNavBarHeight,
         prominentIcons: true,
         labelVisibility: navBarEffectiveLabelVisibility(
-          labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
-          revealLabelsWhenExpanded: false,
+          labelVisibility: NavBarLabelVisibility.never,
           expandProgress: 1,
         ),
       ),
@@ -256,8 +259,7 @@ void main() {
         rowHeight: kFloatingNavBarHeight,
         prominentIcons: true,
         labelVisibility: navBarEffectiveLabelVisibility(
-          labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
-          revealLabelsWhenExpanded: false,
+          labelVisibility: NavBarLabelVisibility.never,
           expandProgress: 1,
         ),
       ),
@@ -301,24 +303,21 @@ void main() {
     );
     expect(
       navBarEffectiveLabelVisibility(
-        labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
-        revealLabelsWhenExpanded: true,
+        labelVisibility: NavBarLabelVisibility.whenExpanded,
         expandProgress: 0.5,
       ),
       0.5,
     );
     expect(
       navBarEffectiveLabelVisibility(
-        labelDisplayMode: NavBarLabelDisplayMode.iconsOnly,
-        revealLabelsWhenExpanded: false,
+        labelVisibility: NavBarLabelVisibility.never,
         expandProgress: 1,
       ),
       0,
     );
     expect(
       navBarEffectiveLabelVisibility(
-        labelDisplayMode: NavBarLabelDisplayMode.fullLabels,
-        revealLabelsWhenExpanded: false,
+        labelVisibility: NavBarLabelVisibility.always,
         expandProgress: 0,
       ),
       1,
@@ -427,6 +426,9 @@ void main() {
           ProviderScope(
             overrides: [
               activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+              appPreferenceRepositoryProvider.overrideWithValue(
+                FakeAppPreferenceRepository(),
+              ),
               navBarOverflowTabsProvider.overrideWithValue(
                 configuredOverflowTabs,
               ),
@@ -544,6 +546,9 @@ void main() {
           ProviderScope(
             overrides: [
               activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+              appPreferenceRepositoryProvider.overrideWithValue(
+                FakeAppPreferenceRepository(),
+              ),
               navBarOverflowTabsProvider.overrideWithValue(
                 configuredOverflowTabs,
               ),
@@ -711,6 +716,9 @@ void main() {
         ProviderScope(
           overrides: [
             activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            appPreferenceRepositoryProvider.overrideWithValue(
+              FakeAppPreferenceRepository(),
+            ),
             navBarOverflowTabsProvider.overrideWithValue(
               configuredOverflowTabs,
             ),
@@ -853,6 +861,9 @@ void main() {
         ProviderScope(
           overrides: [
             activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            appPreferenceRepositoryProvider.overrideWithValue(
+              FakeAppPreferenceRepository(),
+            ),
             navBarOverflowTabsProvider.overrideWithValue(
               configuredOverflowTabs,
             ),
@@ -952,6 +963,9 @@ void main() {
         ProviderScope(
           overrides: [
             activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            appPreferenceRepositoryProvider.overrideWithValue(
+              FakeAppPreferenceRepository(),
+            ),
             navBarOverflowTabsProvider.overrideWithValue(
               configuredOverflowTabs,
             ),
@@ -1077,6 +1091,9 @@ void main() {
         ProviderScope(
           overrides: [
             activeNavBarTabsProvider.overrideWithValue(configuredPrimaryTabs),
+            appPreferenceRepositoryProvider.overrideWithValue(
+              FakeAppPreferenceRepository(),
+            ),
             navBarOverflowTabsProvider.overrideWithValue(const <AppShellTab>[]),
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(settings),

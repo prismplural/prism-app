@@ -168,7 +168,58 @@ enum FontFamily {
   double get maximumScale => 1.5;
 }
 
+/// Persisted nav-bar label mode. With
+/// [SystemSettings.navBarRevealLabelsWhenExpanded] it encodes the UI's
+/// [NavBarLabelVisibility] plus the always-visible [NavBarLabelStyle]; the
+/// when-expanded text treatment lives in a synced app preference instead.
 enum NavBarLabelDisplayMode { fullLabels, truncatedLabels, iconsOnly }
+
+/// Whether nav-bar item labels render, and when. Orthogonal to
+/// [NavBarLabelStyle] — together they replace the old conflated display mode in
+/// the UI.
+enum NavBarLabelVisibility {
+  /// Labels always render beside their icons.
+  always,
+
+  /// Collapsed bar is icons-only; labels reveal as the More menu expands.
+  whenExpanded,
+
+  /// Icons only — labels never render anywhere.
+  never,
+}
+
+/// Text treatment for labels that are shown. Moot when visibility is
+/// [NavBarLabelVisibility.never].
+enum NavBarLabelStyle {
+  /// Reserve enough width for the full label text.
+  full,
+
+  /// Pack items to icon width and ellipsize the label.
+  truncated,
+}
+
+/// Derives the visibility axis from the stored mode + reveal flag.
+NavBarLabelVisibility navBarLabelVisibilityFor(
+  NavBarLabelDisplayMode mode,
+  bool revealWhenExpanded,
+) => switch (mode) {
+  NavBarLabelDisplayMode.iconsOnly => revealWhenExpanded
+      ? NavBarLabelVisibility.whenExpanded
+      : NavBarLabelVisibility.never,
+  _ => NavBarLabelVisibility.always,
+};
+
+/// The label text treatment encoded in the always-visible modes.
+NavBarLabelStyle navBarLabelStyleFromMode(NavBarLabelDisplayMode mode) =>
+    mode == NavBarLabelDisplayMode.truncatedLabels
+    ? NavBarLabelStyle.truncated
+    : NavBarLabelStyle.full;
+
+/// The always-visible mode that encodes a given label text treatment.
+NavBarLabelDisplayMode navBarAlwaysModeForStyle(NavBarLabelStyle style) =>
+    style == NavBarLabelStyle.truncated
+    ? NavBarLabelDisplayMode.truncatedLabels
+    : NavBarLabelDisplayMode.fullLabels;
 
 enum GifConsentState { unknown, enabled, declined }
 

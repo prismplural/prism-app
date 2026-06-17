@@ -564,19 +564,51 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
-  Future<void> updateNavBarLabelDisplayMode(
-    NavBarLabelDisplayMode value,
-  ) async {
+  // Visibility + the always-visible style ride the system_settings columns; the
+  // when-expanded style is a synced app preference. These writers keep both in
+  // step and carry the current style across a visibility change.
+  Future<void> updateNavBarLabelVisibility(NavBarLabelVisibility value) async {
+    final style = ref.read(navBarLabelStyleProvider);
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
-      await repo.updateNavBarLabelDisplayMode(value);
+      switch (value) {
+        case NavBarLabelVisibility.always:
+          await repo.updateNavBarLabelDisplayMode(
+            navBarAlwaysModeForStyle(style),
+          );
+          await repo.updateNavBarRevealLabelsWhenExpanded(false);
+        case NavBarLabelVisibility.whenExpanded:
+          await repo.updateNavBarLabelDisplayMode(
+            NavBarLabelDisplayMode.iconsOnly,
+          );
+          await repo.updateNavBarRevealLabelsWhenExpanded(true);
+          await ref
+              .read(navBarExpandedLabelsFullProvider.notifier)
+              .set(style == NavBarLabelStyle.full);
+        case NavBarLabelVisibility.never:
+          await repo.updateNavBarLabelDisplayMode(
+            NavBarLabelDisplayMode.iconsOnly,
+          );
+          await repo.updateNavBarRevealLabelsWhenExpanded(false);
+      }
     });
   }
 
-  Future<void> updateNavBarRevealLabelsWhenExpanded(bool value) async {
+  Future<void> updateNavBarLabelStyle(NavBarLabelStyle value) async {
+    final visibility = ref.read(navBarLabelVisibilityProvider);
     state = await AsyncValue.guard(() async {
-      final repo = ref.read(systemSettingsRepositoryProvider);
-      await repo.updateNavBarRevealLabelsWhenExpanded(value);
+      switch (visibility) {
+        case NavBarLabelVisibility.always:
+          await ref
+              .read(systemSettingsRepositoryProvider)
+              .updateNavBarLabelDisplayMode(navBarAlwaysModeForStyle(value));
+        case NavBarLabelVisibility.whenExpanded:
+          await ref
+              .read(navBarExpandedLabelsFullProvider.notifier)
+              .set(value == NavBarLabelStyle.full);
+        case NavBarLabelVisibility.never:
+          break; // No labels render; the style control is hidden.
+      }
     });
   }
 
@@ -1208,18 +1240,73 @@ final syncNavigationEnabledProvider = Provider<bool>((ref) {
       true;
 });
 
-final navBarLabelDisplayModeProvider = Provider<NavBarLabelDisplayMode>((ref) {
-  return ref
-          .watch(systemSettingsProvider)
-          .whenOrNull(data: (s) => s.navBarLabelDisplayMode) ??
-      NavBarLabelDisplayMode.fullLabels;
+/// Synced app preference: full vs. truncated text for labels revealed when the
+/// mobile nav bar's More menu expands. Only meaningful in "labels when opened"
+/// mode; see [navBarLabelStyleProvider].
+final navBarExpandedLabelsFullProvider =
+    AsyncNotifierProvider<NavBarExpandedLabelsFullNotifier, bool>(
+      NavBarExpandedLabelsFullNotifier.new,
+    );
+
+class NavBarExpandedLabelsFullNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final repo = ref.watch(appPreferenceRepositoryProvider);
+    final initial = await repo.get(navBarExpandedLabelsFullPreference);
+    final subscription = repo
+        .watch(navBarExpandedLabelsFullPreference)
+        .listen(
+          (value) => state = AsyncValue.data(value),
+          onError: (Object error, StackTrace stackTrace) =>
+              state = AsyncValue.error(error, stackTrace),
+        );
+    ref.onDispose(subscription.cancel);
+    return initial;
+  }
+
+  Future<void> set(bool value) async {
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(navBarExpandedLabelsFullPreference, value);
+    state = AsyncValue.data(value);
+  }
+}
+
+/// When labels appear in the mobile nav bar. Derived from the stored display
+/// mode + reveal flag (see [NavBarLabelDisplayMode]).
+final navBarLabelVisibilityProvider = Provider<NavBarLabelVisibility>((ref) {
+  final settings = ref
+      .watch(systemSettingsProvider)
+      .whenOrNull(data: (s) => s);
+  if (settings == null) return NavBarLabelVisibility.always;
+  return navBarLabelVisibilityFor(
+    settings.navBarLabelDisplayMode,
+    settings.navBarRevealLabelsWhenExpanded,
+  );
 });
 
-final navBarRevealLabelsWhenExpandedProvider = Provider<bool>((ref) {
-  return ref
-          .watch(systemSettingsProvider)
-          .whenOrNull(data: (s) => s.navBarRevealLabelsWhenExpanded) ??
-      true;
+/// Whether shown labels render in full or truncated. For always-visible labels
+/// the treatment is encoded in the display mode; for labels revealed on expand
+/// it comes from the [navBarExpandedLabelsFullProvider] app preference.
+final navBarLabelStyleProvider = Provider<NavBarLabelStyle>((ref) {
+  final settings = ref
+      .watch(systemSettingsProvider)
+      .whenOrNull(data: (s) => s);
+  final mode =
+      settings?.navBarLabelDisplayMode ?? NavBarLabelDisplayMode.fullLabels;
+  // Any icons-only mode (whenExpanded or never) carries its text treatment in
+  // the app preference, not the display mode. Reading it even in `never` keeps
+  // the choice intact across a never round-trip so it isn't silently reset to
+  // full when the user toggles labels back on.
+  if (mode == NavBarLabelDisplayMode.iconsOnly) {
+    final expandedFull =
+        ref
+            .watch(navBarExpandedLabelsFullProvider)
+            .whenOrNull(data: (v) => v) ??
+        false;
+    return expandedFull ? NavBarLabelStyle.full : NavBarLabelStyle.truncated;
+  }
+  return navBarLabelStyleFromMode(mode);
 });
 
 /// Narrow provider for `chatEnabled` flag.

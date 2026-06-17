@@ -1544,33 +1544,41 @@
   "@navigationPreferences": {
     "description": "Navigation settings: section title above the sync / view-toggle switches"
   },
-  "navigationLabelDisplayTitle": "Labels",
-  "@navigationLabelDisplayTitle": {
-    "description": "Navigation settings: label display mode setting title"
+  "navigationLabelVisibilityTitle": "Labels",
+  "@navigationLabelVisibilityTitle": {
+    "description": "Navigation settings: when nav bar labels appear, setting title"
   },
-  "navigationLabelDisplaySubtitle": "Choose how much text appears in the mobile nav bar.",
-  "@navigationLabelDisplaySubtitle": {
-    "description": "Navigation settings: label display mode setting subtitle"
+  "navigationLabelVisibilitySubtitle": "Choose when item labels appear in the mobile nav bar.",
+  "@navigationLabelVisibilitySubtitle": {
+    "description": "Navigation settings: label visibility setting subtitle"
   },
-  "navigationLabelModeFull": "Full",
-  "@navigationLabelModeFull": {
-    "description": "Navigation settings: full labels segment"
+  "navigationLabelVisibilityAlways": "Always",
+  "@navigationLabelVisibilityAlways": {
+    "description": "Navigation settings: labels always visible segment"
   },
-  "navigationLabelModeTruncate": "Truncate",
-  "@navigationLabelModeTruncate": {
-    "description": "Navigation settings: truncated labels segment"
+  "navigationLabelVisibilityWhenExpanded": "When opened",
+  "@navigationLabelVisibilityWhenExpanded": {
+    "description": "Navigation settings: labels visible only when the More menu is opened segment"
   },
-  "navigationLabelModeIcons": "Icons",
-  "@navigationLabelModeIcons": {
-    "description": "Navigation settings: icons only segment"
+  "navigationLabelVisibilityNever": "Never",
+  "@navigationLabelVisibilityNever": {
+    "description": "Navigation settings: icons only, labels never shown segment"
   },
-  "navigationRevealLabelsWhenExpandedTitle": "Show labels when expanded",
-  "@navigationRevealLabelsWhenExpandedTitle": {
-    "description": "Navigation settings: reveal labels when More is expanded toggle title"
+  "navigationLabelStyleTitle": "Label text",
+  "@navigationLabelStyleTitle": {
+    "description": "Navigation settings: label text style setting title"
   },
-  "navigationRevealLabelsWhenExpandedSubtitle": "Keep the bar minimal until you open More, then show text for every option.",
-  "@navigationRevealLabelsWhenExpandedSubtitle": {
-    "description": "Navigation settings: reveal labels when More is expanded toggle subtitle"
+  "navigationLabelStyleSubtitle": "Show the full label or trim it to fit.",
+  "@navigationLabelStyleSubtitle": {
+    "description": "Navigation settings: label text style setting subtitle"
+  },
+  "navigationLabelStyleFull": "Full",
+  "@navigationLabelStyleFull": {
+    "description": "Navigation settings: full label text segment"
+  },
+  "navigationLabelStyleTruncated": "Truncated",
+  "@navigationLabelStyleTruncated": {
+    "description": "Navigation settings: truncated label text segment"
   },
   "navigationLayoutSection": "Layout",
   "@navigationLayoutSection": {

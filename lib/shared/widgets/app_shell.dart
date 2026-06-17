@@ -359,13 +359,16 @@ double navBarIconOpticalOffsetY({required bool prominentIcons}) {
 
 @visibleForTesting
 double navBarEffectiveLabelVisibility({
-  required NavBarLabelDisplayMode labelDisplayMode,
-  required bool revealLabelsWhenExpanded,
+  required NavBarLabelVisibility labelVisibility,
   required double expandProgress,
 }) {
-  if (labelDisplayMode != NavBarLabelDisplayMode.iconsOnly) return 1.0;
-  if (!revealLabelsWhenExpanded) return 0.0;
-  return expandProgress.clamp(0.0, 1.0).toDouble();
+  return switch (labelVisibility) {
+    NavBarLabelVisibility.always => 1.0,
+    NavBarLabelVisibility.never => 0.0,
+    NavBarLabelVisibility.whenExpanded => expandProgress
+        .clamp(0.0, 1.0)
+        .toDouble(),
+  };
 }
 
 double _measureOverflowNavBarRowHeight({
@@ -435,7 +438,8 @@ class _NavLayoutSignature {
     required this.textDirection,
     required this.fontSize,
     required this.fontWeight,
-    required this.labelDisplayMode,
+    required this.labelVisibility,
+    required this.labelStyleMode,
   });
 
   final double barWidth;
@@ -445,7 +449,8 @@ class _NavLayoutSignature {
   final TextDirection textDirection;
   final double fontSize;
   final FontWeight fontWeight;
-  final NavBarLabelDisplayMode labelDisplayMode;
+  final NavBarLabelVisibility labelVisibility;
+  final NavBarLabelStyle labelStyleMode;
 
   @override
   bool operator ==(Object other) {
@@ -456,7 +461,8 @@ class _NavLayoutSignature {
         other.textDirection == textDirection &&
         other.fontSize == fontSize &&
         other.fontWeight == fontWeight &&
-        other.labelDisplayMode == labelDisplayMode &&
+        other.labelVisibility == labelVisibility &&
+        other.labelStyleMode == labelStyleMode &&
         _listEquals(other.primaryLabels, primaryLabels) &&
         _listEquals(other.overflowLabels, overflowLabels);
   }
@@ -468,7 +474,8 @@ class _NavLayoutSignature {
     textDirection,
     fontSize,
     fontWeight,
-    labelDisplayMode,
+    labelVisibility,
+    labelStyleMode,
     Object.hashAll(primaryLabels),
     Object.hashAll(overflowLabels),
   );
@@ -497,7 +504,8 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
-  NavBarLabelDisplayMode labelDisplayMode = NavBarLabelDisplayMode.fullLabels,
+  NavBarLabelVisibility labelVisibility = NavBarLabelVisibility.always,
+  NavBarLabelStyle labelStyleMode = NavBarLabelStyle.full,
 }) {
   assert(primaryTabs.length == primaryLabels.length);
   assert(overflowTabs.length == overflowLabels.length);
@@ -511,21 +519,25 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
     labelStyle: labelStyle,
     textScaler: textScaler,
     textDirection: textDirection,
-    labelDisplayMode: labelDisplayMode,
+    labelVisibility: labelVisibility,
+    labelStyleMode: labelStyleMode,
   );
   final split = splitNavBarTabsForLayout(
     primary: primaryTabs,
     overflow: overflowTabs,
     spec: spec,
   );
-  final visualPrimaryLabels =
-      labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
-      ? const <String>[]
-      : primaryLabels.take(spec.collapsedPrimaryCount).toList();
-  final visualOverflowLabels =
-      labelDisplayMode == NavBarLabelDisplayMode.iconsOnly
-      ? const <String>[]
-      : [...primaryLabels.skip(spec.collapsedPrimaryCount), ...overflowLabels];
+  // Labels only occupy the collapsed bar when always-visible; otherwise the
+  // collapsed bar is icons-only and reveal happens on expand, so row heights
+  // are measured without label text (matching the icons-only geometry).
+  final showCollapsedLabels =
+      labelVisibility == NavBarLabelVisibility.always;
+  final visualPrimaryLabels = showCollapsedLabels
+      ? primaryLabels.take(spec.collapsedPrimaryCount).toList()
+      : const <String>[];
+  final visualOverflowLabels = showCollapsedLabels
+      ? [...primaryLabels.skip(spec.collapsedPrimaryCount), ...overflowLabels]
+      : const <String>[];
   final rowHeight = _measurePrimaryNavBarRowHeight(
     primaryLabels: visualPrimaryLabels,
     barWidth: barWidth,
@@ -721,7 +733,8 @@ class _AppShellState extends ConsumerState<AppShell>
     required TextStyle labelStyle,
     required TextScaler textScaler,
     required TextDirection textDirection,
-    required NavBarLabelDisplayMode labelDisplayMode,
+    required NavBarLabelVisibility labelVisibility,
+    required NavBarLabelStyle labelStyleMode,
   }) {
     final signature = _NavLayoutSignature(
       barWidth: barWidth,
@@ -731,7 +744,8 @@ class _AppShellState extends ConsumerState<AppShell>
       textDirection: textDirection,
       fontSize: labelStyle.fontSize ?? 12.0,
       fontWeight: labelStyle.fontWeight ?? FontWeight.w500,
-      labelDisplayMode: labelDisplayMode,
+      labelVisibility: labelVisibility,
+      labelStyleMode: labelStyleMode,
     );
     final cached = _cachedNavLayout;
     if (cached != null && _cachedNavLayoutSignature == signature) {
@@ -746,7 +760,8 @@ class _AppShellState extends ConsumerState<AppShell>
       labelStyle: labelStyle,
       textScaler: textScaler,
       textDirection: textDirection,
-      labelDisplayMode: labelDisplayMode,
+      labelVisibility: labelVisibility,
+      labelStyleMode: labelStyleMode,
     );
     _cachedNavLayoutSignature = signature;
     _cachedNavLayout = layout;
@@ -1096,10 +1111,8 @@ class _AppShellState extends ConsumerState<AppShell>
       );
     } else {
       final terms = watchTerminology(context, ref);
-      final labelDisplayMode = ref.watch(navBarLabelDisplayModeProvider);
-      final revealLabelsWhenExpanded = ref.watch(
-        navBarRevealLabelsWhenExpandedProvider,
-      );
+      final labelVisibility = ref.watch(navBarLabelVisibilityProvider);
+      final labelStyleMode = ref.watch(navBarLabelStyleProvider);
       final primaryLabels = configuredPrimaryTabs
           .map(
             (tab) =>
@@ -1125,7 +1138,8 @@ class _AppShellState extends ConsumerState<AppShell>
         labelStyle: navBarLabelTextStyle(context, isSelected: true),
         textScaler: MediaQuery.textScalerOf(context),
         textDirection: Directionality.of(context),
-        labelDisplayMode: labelDisplayMode,
+        labelVisibility: labelVisibility,
+        labelStyleMode: labelStyleMode,
       );
       final currentVisibleIndex = mobileLayout.allTabs.indexWhere(
         (t) => t.branchIndex == widget.navigationShell.currentIndex,
@@ -1228,8 +1242,8 @@ class _AppShellState extends ConsumerState<AppShell>
                         overflowRows: mobileLayout.spec.overflowRows,
                         rowHeight: mobileLayout.rowHeight,
                         overflowRowHeight: mobileLayout.overflowRowHeight,
-                        labelDisplayMode: labelDisplayMode,
-                        revealLabelsWhenExpanded: revealLabelsWhenExpanded,
+                        labelVisibility: labelVisibility,
+                        labelStyleMode: labelStyleMode,
                         currentIndex: safeCurrentIndex,
                         accentColor: accentColor,
                         onTap: (index) => onTabSelected(
@@ -1340,8 +1354,8 @@ class _FloatingNavBar extends StatefulWidget {
     required this.overflowRows,
     required this.rowHeight,
     required this.overflowRowHeight,
-    required this.labelDisplayMode,
-    required this.revealLabelsWhenExpanded,
+    required this.labelVisibility,
+    required this.labelStyleMode,
     required this.currentIndex,
     required this.onTap,
     required this.accentColor,
@@ -1365,8 +1379,8 @@ class _FloatingNavBar extends StatefulWidget {
   final int overflowRows;
   final double rowHeight;
   final double overflowRowHeight;
-  final NavBarLabelDisplayMode labelDisplayMode;
-  final bool revealLabelsWhenExpanded;
+  final NavBarLabelVisibility labelVisibility;
+  final NavBarLabelStyle labelStyleMode;
   final int currentIndex;
 
   /// Called with the index into [primaryTabs] ++ [overflowTabs].
@@ -1528,7 +1542,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final showLabels =
-        widget.labelDisplayMode != NavBarLabelDisplayMode.iconsOnly;
+        widget.labelVisibility == NavBarLabelVisibility.always;
 
     if (!_needsOverflow) {
       return _buildSimpleBar(
@@ -1551,15 +1565,13 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         final currentHeight =
             widget.rowHeight + (_expandedHeight - widget.rowHeight) * t;
         final showExpandedLabels =
-            widget.labelDisplayMode != NavBarLabelDisplayMode.iconsOnly ||
-            widget.revealLabelsWhenExpanded;
+            widget.labelVisibility != NavBarLabelVisibility.never;
         final labelVisibility = navBarEffectiveLabelVisibility(
-          labelDisplayMode: widget.labelDisplayMode,
-          revealLabelsWhenExpanded: widget.revealLabelsWhenExpanded,
+          labelVisibility: widget.labelVisibility,
           expandProgress: t,
         );
         final prominentIcons =
-            widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly;
+            widget.labelVisibility != NavBarLabelVisibility.always;
         final radius =
             _collapsedRadius + (_expandedRadius - _collapsedRadius) * t;
 
@@ -1836,7 +1848,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         showLabel: showLabels,
         labelVisibility: labelVisibility,
         prominentIcon:
-            widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly,
+            widget.labelVisibility != NavBarLabelVisibility.always,
         showItemPill: true,
         onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
       ),
@@ -1951,7 +1963,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final tabCount = widget.primaryTabs.length;
     final shapes = PrismShapes.of(context);
     final prominentIcons =
-        widget.labelDisplayMode == NavBarLabelDisplayMode.iconsOnly;
+        widget.labelVisibility != NavBarLabelVisibility.always;
 
     // Pill colors
     final pillColor = _navSelectedPillColor(Theme.of(context));
