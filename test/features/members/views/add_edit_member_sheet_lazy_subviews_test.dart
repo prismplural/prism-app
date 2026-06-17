@@ -172,18 +172,20 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     const aliceId = '11111111-2222-3333-4444-555555555555';
+    const bobId = '66666666-7777-8888-9999-000000000000';
     final alice = Member(
       id: aliceId,
       name: 'Alice',
       createdAt: DateTime(2026, 1, 1),
     );
+    final bob = Member(id: bobId, name: 'Bob', createdAt: DateTime(2026, 1, 1));
     final member = Member(
       id: 'member-1',
       name: 'Aster',
-      bio: 'talked to @[$aliceId]',
+      bio: 'talked to @[$aliceId] and @[$bobId]',
       createdAt: DateTime(2026, 1, 1),
     );
-    final repo = FakeMemberRepository()..seed([member, alice]);
+    final repo = FakeMemberRepository()..seed([member, alice, bob]);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -228,6 +230,74 @@ void main() {
         .toPlainText();
 
     expect(displayText, contains('@Alice'));
+    expect(displayText, contains('@Bob'));
     expect(displayText, isNot(contains('@Unknown')));
+  });
+
+  testWidgets('compact member bio preview resolves existing mentions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const aliceId = '11111111-2222-3333-4444-555555555555';
+    const bobId = '66666666-7777-8888-9999-000000000000';
+    final alice = Member(
+      id: aliceId,
+      name: 'Alice',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final bob = Member(id: bobId, name: 'Bob', createdAt: DateTime(2026, 1, 1));
+    final member = Member(
+      id: 'member-1',
+      name: 'Aster',
+      bio: 'talked to @[$aliceId] and @[$bobId]',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final repo = FakeMemberRepository()..seed([member, alice, bob]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          memberRepositoryProvider.overrideWithValue(repo),
+          frontingSessionRepositoryProvider.overrideWithValue(
+            FakeFrontingSessionRepository(),
+          ),
+          customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
+          terminologySettingProvider.overrideWithValue((
+            term: SystemTerminology.members,
+            customSingular: null,
+            customPlural: null,
+            useEnglish: false,
+          )),
+          pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
+          pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: AddEditMemberSheet(member: member, embedded: true),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Edit bio'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byTooltip('Preview'));
+    await tester.pump();
+
+    expect(
+      find.byKey(const PageStorageKey<String>('member-edit-bio-preview')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('@Alice and @Bob'), findsOneWidget);
+    expect(find.textContaining('@Unknown'), findsNothing);
   });
 }

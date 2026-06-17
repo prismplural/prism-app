@@ -118,6 +118,9 @@ class PrismMarkdownText extends ConsumerWidget {
     final mentionMemberMap = {
       for (final member in mentionMembers) member.id: member,
     };
+    final mentionVersion = shouldResolveMemberMentions
+        ? _mentionResolutionVersion(data, mentionMemberMap)
+        : '';
     void openMentionedMember(String memberId) {
       unawaited(
         PrismSheet.showFullScreen<void>(
@@ -172,7 +175,8 @@ class PrismMarkdownText extends ConsumerWidget {
 
         String keyFor(int seg, int block) =>
             'bio-md-$memberId-$libraryVersion-'
-            '${bioMedia.length}-$stagedCount-$widthBucket-em$emBucket-seg$seg-blk$block';
+            '${bioMedia.length}-$stagedCount-$widthBucket-em$emBucket-'
+            'mentions$mentionVersion-seg$seg-blk$block';
 
         // A text block reuses the existing MarkdownText path (inline images,
         // bold, links, blockify). A table block is rendered by PrismMarkdownTable
@@ -256,5 +260,30 @@ class PrismMarkdownText extends ConsumerWidget {
         );
       },
     );
+  }
+
+  static String _mentionResolutionVersion(
+    String data,
+    Map<String, Member> memberMap,
+  ) {
+    final seen = <String>{};
+    final buffer = StringBuffer();
+    for (final match in memberMentionRegex.allMatches(data)) {
+      final id = memberMentionIdFromMatch(match);
+      if (id == null || !seen.add(id)) continue;
+      final member = memberMap[id];
+      buffer
+        ..write(id)
+        ..write('=')
+        ..write(member?.name ?? '')
+        ..write(':')
+        ..write(
+          member?.customColorEnabled == true
+              ? member?.customColorHex ?? ''
+              : '',
+        )
+        ..write(';');
+    }
+    return buffer.toString();
   }
 }

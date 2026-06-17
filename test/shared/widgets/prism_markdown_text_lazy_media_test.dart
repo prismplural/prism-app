@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,6 +151,48 @@ void main() {
     expect(selectedMemberId, isNull);
     expect(find.byType(MemberDetailScreen), findsNothing);
   });
+
+  testWidgets(
+    'member mentions update when member list resolves after preview',
+    (tester) async {
+      const aliceId = '11111111-2222-3333-4444-555555555555';
+      const bobId = '66666666-7777-8888-9999-000000000000';
+      final alice = Member(
+        id: aliceId,
+        name: 'Alice',
+        createdAt: DateTime(2026),
+      );
+      final bob = Member(id: bobId, name: 'Bob', createdAt: DateTime(2026));
+      final members = StreamController<List<Member>>();
+      addTearDown(members.close);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeMemberListProvider.overrideWith((ref) => members.stream),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: PrismMarkdownText(
+                data: 'preview @[$aliceId] and @[$bobId]',
+                mentionsInteractive: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.textContaining('@Unknown and @Unknown'), findsOneWidget);
+
+      members.add([alice, bob]);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.textContaining('@Alice and @Bob'), findsOneWidget);
+      expect(find.textContaining('@Unknown'), findsNothing);
+    },
+  );
 
   testWidgets('non-interactive table mentions do not select pane', (
     tester,
