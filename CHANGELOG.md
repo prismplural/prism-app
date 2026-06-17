@@ -4,6 +4,59 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-06-17
+
+Patch release. Navigation labels split visibility from text style, custom-field
+display gets a focused readability pass, notes resolve member mentions in more
+places, and import/manual-sync recovery is safer. The sync pin moves to
+`prism-sync v0.13.1` (`f74a66d`).
+
+### Added
+- Navigation label settings now separate when labels appear (always, when
+  opened, or never) from whether visible labels use full or truncated text. This
+  makes the previously-unavailable "full labels when opened" combination
+  selectable.
+- Choice custom fields can choose Auto, Compact, or Stacked profile display.
+
+### Changed
+- Backup export/import now carries synced app preferences that live outside
+  `system_settings`, including the new expanded-navigation-label text style.
+- Custom-field profile display renders grouped choices as chips, keeps compact
+  labels inline, scales member-chip avatars, preserves compact scale semantics,
+  and shows every selected choice instead of truncating after a few chips.
+- Note previews and note search resolve `@member` mentions, and markdown mention
+  previews refresh when the mentioned member's name or color changes.
+
+### Fixed
+- Backup imports no longer resurrect duplicate open fronting sessions. The import
+  pass collapses duplicate opens, standalone devices can self-heal, and fresh
+  fronts preserve the newest active row instead of showing a stale "fronting
+  since" date.
+- Sync recovery replays consumer-delivery spill rows from quarantine and ACKs
+  duplicate bootstrap journal rows only after strict snapshot apply commits. The
+  app pins `prism-sync v0.13.1`, which raises the FFI consumer-delivery journal
+  cap to 250,000 rows.
+- Manual sync and automatic sync cycles drain Prism's app-side outbox before
+  asking Rust to sync, so queued local edits are not left behind by a direct
+  sync-now trigger.
+- Disabled navigation-layout sync now behaves like a true local preference:
+  navigation layout fields are not exported or applied while it is disabled, and
+  the current local layout is sent when it is re-enabled.
+- Chat GIF settings distinguish disabled sync from GIF relay/config failures, so
+  synced users no longer get sent back to sync setup when GIF config is
+  unavailable.
+- SimplePlural imports dedupe repeated group memberships while preserving the
+  same member in different groups.
+- Blockquoted bio images, grouped member-list scroll position, inactive member
+  visibility, quick-front avatar alignment, and member chips inside profile
+  custom fields were tightened.
+
+### Internal
+- Added component golden coverage for custom-field matrices, custom-field sheets,
+  and member-profile headers, plus a readable golden failure report helper.
+- Added sync-now boundary coverage and real-FFI e2e coverage for chat reaction
+  sync plus custom-field pairing snapshots.
+
 ## [0.13.0] - 2026-06-14
 
 Feature release. PluralKit sync is substantially more reliable, sync correctness
