@@ -1096,6 +1096,54 @@ void main() {
   );
 
   test(
+    'wipeLocalData tolerates macOS errSecParam clear after database files are removed',
+    () async {
+      debugTreatFreshInstallSecureClearAsMacOS = true;
+      final tempDir = await Directory.systemTemp.createTemp(
+        'prism-reset-mac-empty-clear-test-',
+      );
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final dbPath = p.join(tempDir.path, 'prism.db');
+      await File(dbPath).writeAsString('db');
+
+      final secureStore = _FakeFullResetSecureStore()
+        ..deleteAllError = StateError(
+          'secure store deleteAll failed '
+          '(failure=SecureStorageFailure.unknown, '
+          'code=Unexpected security result code, message=Code: -50, '
+          'Message: One or more parameters passed to a function were not valid.)',
+        );
+      final nativeKeys = _FakeNativeResetKeys()..hasKeys = true;
+      final service = FullResetService(
+        secureStore: secureStore,
+        nativeResetKeys: nativeKeys,
+        appDataDirectory: () async => tempDir,
+        temporaryDirectory: () async => tempDir,
+        mediaCacheDirectory: () async =>
+            Directory(p.join(tempDir.path, 'none')),
+        clearMediaCache: () async {},
+      );
+
+      await service.wipeLocalData();
+
+      expect(await File(dbPath).exists(), isFalse);
+      expect(secureStore.deleteAllCalls, 1);
+      expect(nativeKeys.deleteKnownKeysCalls, 1);
+      expect(nativeKeys.hasKeys, isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+      expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+      expect(prefs.getString(kFullResetCompletedAtKey), isNotNull);
+    },
+  );
+
+  test(
     'wipeLocalData arms startup and marks native key cleanup pending when native clear fails',
     () async {
       final tempDir = await Directory.systemTemp.createTemp(

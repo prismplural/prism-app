@@ -359,14 +359,14 @@ class FullResetService {
       return true;
     } catch (e) {
       _log('Fresh-install secure-store cleanup failed: $e');
-      if (_isNonBlockingFreshInstallSecureClearFailure(e)) {
+      if (_isNonBlockingMacSecureClearFailure(e)) {
         return true;
       }
       return false;
     }
   }
 
-  bool _isNonBlockingFreshInstallSecureClearFailure(Object error) {
+  bool _isNonBlockingMacSecureClearFailure(Object error) {
     if (!Platform.isMacOS && !debugTreatFreshInstallSecureClearAsMacOS) {
       return false;
     }
@@ -555,10 +555,22 @@ class FullResetService {
         'database encryption state clear',
         clearDatabaseEncryptionState,
       );
-      final secureStoreCleared = await attempt(
-        'secure store clear',
-        secureStore.deleteAll,
-      );
+      var secureStoreCleared = false;
+      try {
+        await secureStore.deleteAll();
+        secureStoreCleared = true;
+      } catch (e) {
+        if (_isNonBlockingMacSecureClearFailure(e)) {
+          _log(
+            'Ignoring non-blocking macOS secure-store clear failure after '
+            'database files were removed: $e',
+          );
+          secureStoreCleared = true;
+        } else {
+          failures.add('secure store clear: $e');
+          _log('secure store clear failed during full reset: $e');
+        }
+      }
       if (secureStoreCleared) {
         try {
           await nativeResetKeys.deleteKnownKeys();

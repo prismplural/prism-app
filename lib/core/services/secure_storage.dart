@@ -487,7 +487,8 @@ Future<SecureWriteResult> safeSecureWrite(
       debugPrint(
         '[SECURE_STORAGE] macOS data-protection keychain write failed '
         '(code=${e.code}); routing key "$key" into the LEGACY login keychain '
-        '(weaker isolation, Time-Machine-backed). Debug/dev builds only.',
+        '(weaker isolation, Time-Machine-backed) for this macOS Security '
+        'failure.',
       );
       return safeSecureWrite(key, value, storage: _macLegacySecureStorage);
     }
@@ -518,7 +519,8 @@ Future<SecureWriteResult> safeSecureWriteVerified(
       debugPrint(
         '[SECURE_STORAGE] verified write read-back failed in the '
         'data-protection keychain; routing key "$key" into the LEGACY login '
-        'keychain (weaker, Time-Machine-backed). Debug/dev builds only.',
+        'keychain (weaker, Time-Machine-backed) for this macOS Security '
+        'failure.',
       );
       return safeSecureWriteVerified(
         key,
@@ -538,7 +540,8 @@ Future<SecureWriteResult> safeSecureWriteVerified(
       debugPrint(
         '[SECURE_STORAGE] verified write read back null in the '
         'data-protection keychain; routing key "$key" into the LEGACY login '
-        'keychain (weaker, Time-Machine-backed). Debug/dev builds only.',
+        'keychain (weaker, Time-Machine-backed) for this macOS Security '
+        'failure.',
       );
       return safeSecureWriteVerified(
         key,
@@ -674,31 +677,23 @@ bool _shouldProbeMacLegacyKeychain(FlutterSecureStorage storage) {
 }
 
 /// Whether a WRITE that hit a macOS entitlement/param error may be rerouted
-/// into the weaker legacy login keychain.
+/// into the legacy login keychain.
 ///
-/// Reads and deletes from the legacy keychain are always permitted (existing
-/// secrets may live there and must remain accessible / removable). But routing
-/// a NEW secret into `usesDataProtectionKeychain: false` storage is a security
-/// downgrade (weaker isolation, Time-Machine-backed) and is a known dev-signing
-/// artifact (the "Prism Dev" build drops keychain-access-groups). We therefore
-/// gate the legacy-WRITE fallback to debug/dev builds only; release builds fail
-/// closed and surface the classified error instead of silently degrading.
+/// Current Prism macOS installs include legacy login-keychain data, and signed
+/// Developer ID builds can still hit `errSecParam`/missing-entitlement on the
+/// data-protection keychain path. Failing closed there strands wiped installs:
+/// a fresh launch cannot persist a new database key. The fallback is therefore
+/// limited to those macOS data-protection failures instead of being debug-only.
 bool _shouldTryMacLegacyKeychainForWrite(
   PlatformException e,
   FlutterSecureStorage storage,
 ) {
-  if (!kDebugMode && !debugForceMacSecureStorageEntitlementFallback) {
-    return false;
-  }
   return _shouldTryMacLegacyKeychain(e, storage);
 }
 
 bool _shouldRetryVerifiedWriteInMacLegacyKeychain(
   FlutterSecureStorage storage,
 ) {
-  if (!kDebugMode && !debugForceMacSecureStorageEntitlementFallback) {
-    return false;
-  }
   return _shouldProbeMacLegacyKeychain(storage);
 }
 
@@ -752,7 +747,9 @@ Future<SecureDeleteResult> _deleteMacLegacyKeyIfPresent(String key) async {
       () => _macLegacySecureStorage.read(key: key),
     );
     if (existing == null) return const SecureDeleteResult();
-    await runLockedSecureStorageOp(() => _macLegacySecureStorage.delete(key: key));
+    await runLockedSecureStorageOp(
+      () => _macLegacySecureStorage.delete(key: key),
+    );
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
     return SecureDeleteResult(
@@ -777,7 +774,9 @@ Future<SecureDeleteResult> _deleteAllMacLegacyKeychainEntries() async {
       () => _macLegacySecureStorage.readAll(),
     );
     for (final key in entries.keys) {
-      await runLockedSecureStorageOp(() => _macLegacySecureStorage.delete(key: key));
+      await runLockedSecureStorageOp(
+        () => _macLegacySecureStorage.delete(key: key),
+      );
     }
     return const SecureDeleteResult();
   } on PlatformException catch (e) {
