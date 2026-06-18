@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -12,6 +14,11 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    debugTreatFreshInstallSecureClearAsMacOS = false;
+  });
+
+  tearDown(() {
+    debugTreatFreshInstallSecureClearAsMacOS = false;
   });
 
   testWidgets('restart-required recovery screen tells user to reopen Prism', (
@@ -272,6 +279,37 @@ void main() {
       expect(find.text('Local data cannot be unlocked'), findsOneWidget);
     });
 
+    testWidgets('reset action runs the local wipe service path', (
+      tester,
+    ) async {
+      final service = _RecordingRecoveryFullResetService();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnreadable,
+            service: service,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(PrismButton, 'Reset local data and start fresh'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Erase'));
+      for (var i = 0; i < 50; i += 1) {
+        await tester.pump(const Duration(milliseconds: 20));
+        if (find.text('Reset complete').evaluate().isNotEmpty) {
+          break;
+        }
+      }
+
+      expect(find.text('Reset complete'), findsOneWidget);
+      expect(service.wipeLocalDataCalls, 1);
+      expect(service.lastRequireRestart, isTrue);
+    });
+
     testWidgets('tapping "Save diagnostic report" invokes the share handler', (
       tester,
     ) async {
@@ -433,4 +471,18 @@ void main() {
       },
     );
   });
+}
+
+class _RecordingRecoveryFullResetService extends FullResetService {
+  int wipeLocalDataCalls = 0;
+  bool? lastRequireRestart;
+
+  @override
+  Future<void> wipeLocalData({
+    AppDatabase? openDatabase,
+    bool requireRestart = true,
+  }) async {
+    wipeLocalDataCalls += 1;
+    lastRequireRestart = requireRestart;
+  }
 }

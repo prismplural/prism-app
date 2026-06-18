@@ -70,7 +70,7 @@ class _PlatformResetSecureStore implements ResetSecureStore {
 
   @override
   Future<void> delete(String key) async {
-    await safeSecureDelete(key);
+    _requireSecureDeleteOk(await safeSecureDelete(key), 'delete', key: key);
   }
 
   @override
@@ -81,8 +81,22 @@ class _PlatformResetSecureStore implements ResetSecureStore {
 
   @override
   Future<void> deleteAll() async {
-    await safeSecureDeleteAll();
+    _requireSecureDeleteOk(await safeSecureDeleteAll(), 'deleteAll');
   }
+}
+
+void _requireSecureDeleteOk(
+  SecureDeleteResult result,
+  String operation, {
+  String? key,
+}) {
+  if (result.ok) return;
+  final keySuffix = key == null ? '' : ' for $key';
+  throw StateError(
+    'secure store $operation failed$keySuffix '
+    '(failure=${result.failure}, code=${result.code}, '
+    'message=${result.message})',
+  );
 }
 
 final resetSecureStoreProvider = Provider<ResetSecureStore>((ref) {

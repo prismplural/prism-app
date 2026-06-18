@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -176,6 +175,7 @@ void main() {
   // clearDatabaseEncryptionState() during full reset.
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    debugTreatFreshInstallSecureClearAsMacOS = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
@@ -184,6 +184,7 @@ void main() {
   });
 
   tearDown(() {
+    debugTreatFreshInstallSecureClearAsMacOS = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
@@ -194,6 +195,36 @@ void main() {
   // ── Completeness guard ──────────────────────────────────────────────
   // Fails when a new table is added to the schema but not to the reset
   // list or this test file. Forces the developer to handle it.
+
+  test('platform reset secure store surfaces deleteAll failures', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (MethodCall methodCall) async {
+            if (methodCall.method == 'deleteAll') {
+              throw PlatformException(
+                code: 'PrismTestDeleteAllFailed',
+                message: 'synthetic deleteAll failure',
+              );
+            }
+            return null;
+          },
+        );
+
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await expectLater(
+      container.read(resetSecureStoreProvider).deleteAll(),
+      throwsA(
+        isA<StateError>().having(
+          (error) => error.toString(),
+          'message',
+          contains('secure store deleteAll failed'),
+        ),
+      ),
+    );
+  });
 
   test('_allUserDataTables covers every table in the Drift schema', () {
     final db = AppDatabase(NativeDatabase.memory());
@@ -1986,6 +2017,35 @@ void main() {
     );
 
     test(
+      'settings full reset tolerates macOS errSecParam clear after database files are removed',
+      () async {
+        debugTreatFreshInstallSecureClearAsMacOS = true;
+        final harness = await _ResetHarness.create();
+        addTearDown(harness.dispose);
+
+        await harness.seedAllData();
+        harness.secureStore.deleteAllError = StateError(
+          'secure store deleteAll failed '
+          '(failure=SecureStorageFailure.unknown, '
+          'code=Unexpected security result code, message=Code: -50, '
+          'Message: One or more parameters passed to a function were not valid.)',
+        );
+
+        await harness.reset(ResetCategory.all);
+
+        expect(harness.secureStore.deleteAllCalls, 1);
+        expect(await harness.appDbFile.exists(), isFalse);
+        expect(await harness.syncDbFile.exists(), isFalse);
+        expect(harness.nativeResetKeys.deleteKnownKeysCalls, 1);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(kFreshInstallSentinelKey), isTrue);
+        expect(prefs.getBool(kFullResetRestartRequiredKey), isTrue);
+        expect(prefs.getString(kFullResetCompletedAtKey), isNotNull);
+      },
+    );
+
+    test(
       'full reset clears every table, recreates default settings, and removes external state',
       () async {
         final harness = await _ResetHarness.create();
@@ -3410,6 +3470,8 @@ class _ResetHarness {
 class _FakeResetSecureStore implements ResetSecureStore {
   final Map<String, String> _values = <String, String>{};
   bool throwOnReadAll = false;
+  Object? deleteAllError;
+  int deleteAllCalls = 0;
 
   @override
   Future<String?> read(String key) async => _values[key];
@@ -3428,7 +3490,14 @@ class _FakeResetSecureStore implements ResetSecureStore {
   }
 
   @override
-  Future<void> deleteAll() async => _values.clear();
+  Future<void> deleteAll() async {
+    deleteAllCalls += 1;
+    final deleteAllError = this.deleteAllError;
+    if (deleteAllError != null) {
+      throw deleteAllError;
+    }
+    _values.clear();
+  }
 
   void seedSyncValue(String key, String value) {
     _values[key] = value;
