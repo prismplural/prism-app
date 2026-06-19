@@ -58,6 +58,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     with ListDetailSelectionState<NotesListScreen> {
   _NoteEditorPane? _editorPane;
   final _noteEditorController = NoteEditorController();
+  bool _allowPopAfterInlineEditorDiscard = false;
   int _editorRevision = 0;
 
   // Search and filter state
@@ -173,96 +174,116 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
     // Each pane owns its top bar so they sit side by side in two-pane mode:
     // the notes bar is scoped to the list pane, and the note detail fills its
     // whole pane (its own bar included).
-    return ListDetailLayout(
-      onClearSelection: () => unawaited(_clearDetailPane()),
-      detail: (context) => _buildDetailPane(),
-      list: (context, isWide) {
-        setListDetailWide(isWide);
-        return PrismPageScaffold(
-          topBar: _NotesTopBar(
-            title: l10n.memberSectionNotes,
-            showBackButton: widget.showBackButton,
-            searchActive: _isSearchActive || _searchQuery.trim().isNotEmpty,
-            memberFilterActive: _filterMemberIds.isNotEmpty,
-            onToggleSearch: () => setState(() {
-              _isSearchActive = !_isSearchActive;
-              if (!_isSearchActive) {
-                _searchController.clear();
-                _searchQuery = '';
-              }
-            }),
-            onOpenMemberFilter: () => _openMemberFilter(context, filterMembers),
-            onCreateNote: () => unawaited(_openCreateNote(context)),
-            filterBar: showFilterBar ? _buildFilterBar(l10n) : null,
-          ),
-          bodyPadding: EdgeInsets.zero,
-          body: Column(
-            children: [
-              Expanded(
-                child: notesAsync.when(
-                  loading: () => const PrismLoadingState(),
-                  error: (_, _) => Center(child: Text(context.l10n.error)),
-                  data: (notes) {
-                    final hasActiveFilters =
-                        _searchQuery.trim().length >= 2 ||
-                        _filterMemberIds.isNotEmpty;
-                    final filtered = filterNotes(
-                      notes,
-                      query: _searchQuery,
-                      filterMemberIds: _filterMemberIds,
-                      memberNameMap: memberNameMap,
-                    );
-
-                    if (notes.isEmpty) {
-                      return EmptyState(
-                        icon: Icon(AppIcons.noteOutlined),
-                        title: l10n.memberNoteNoNotesYet,
-                        subtitle: l10n.memberNoteEmptySubtitle,
-                        actionLabel: l10n.memberNoteTitle,
-                        onAction: () => unawaited(_openCreateNote(context)),
-                      );
-                    }
-
-                    if (filtered.isEmpty && hasActiveFilters) {
-                      return EmptyState(
-                        icon: Icon(AppIcons.searchOff),
-                        title: l10n.memberNoteNoFilteredNotes,
-                        subtitle: l10n.memberNoteNoFilteredNotesSubtitle,
-                        actionLabel: l10n.memberNoteClearFilters,
-                        onAction: _clearAllFilters,
-                      );
-                    }
-
-                    return ListView.builder(
-                      padding: EdgeInsets.only(
-                        top: 8,
-                        left: 16,
-                        right: 16,
-                        // +16 so the last card clears the nav bar's gradient fade,
-                        // which extends 10px above NavBarInset.bottomInset.
-                        bottom: NavBarInset.of(context) + 16,
-                      ),
-                      itemCount: filtered.length,
-                      itemBuilder: (context, index) {
-                        final note = filtered[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _NoteCard(
-                            note: note,
-                            selected: isDetailSelected(note.id),
-                            memberNameMap: memberNameMap,
-                            onTap: () => unawaited(_openNote(context, note.id)),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
+    return PopScope(
+      // The inline editor's guard is inactive, so route back must ask the
+      // parent-owned controller before popping.
+      canPop: _allowPopAfterInlineEditorDiscard || _editorPane == null,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (_allowPopAfterInlineEditorDiscard) return;
+        final shouldDiscard = await _confirmCloseInlineEditorIfNeeded();
+        if (!shouldDiscard || !mounted) return;
+        // Let the immediate follow-up pop pass before rebuild.
+        setState(() {
+          _allowPopAfterInlineEditorDiscard = true;
+          _editorPane = null;
+        });
+        if (!context.mounted) return;
+        Navigator.of(context).pop();
       },
+      child: ListDetailLayout(
+        onClearSelection: () => unawaited(_clearDetailPane()),
+        detail: (context) => _buildDetailPane(),
+        list: (context, isWide) {
+          setListDetailWide(isWide);
+          return PrismPageScaffold(
+            topBar: _NotesTopBar(
+              title: l10n.memberSectionNotes,
+              showBackButton: widget.showBackButton,
+              searchActive: _isSearchActive || _searchQuery.trim().isNotEmpty,
+              memberFilterActive: _filterMemberIds.isNotEmpty,
+              onToggleSearch: () => setState(() {
+                _isSearchActive = !_isSearchActive;
+                if (!_isSearchActive) {
+                  _searchController.clear();
+                  _searchQuery = '';
+                }
+              }),
+              onOpenMemberFilter: () =>
+                  _openMemberFilter(context, filterMembers),
+              onCreateNote: () => unawaited(_openCreateNote(context)),
+              filterBar: showFilterBar ? _buildFilterBar(l10n) : null,
+            ),
+            bodyPadding: EdgeInsets.zero,
+            body: Column(
+              children: [
+                Expanded(
+                  child: notesAsync.when(
+                    loading: () => const PrismLoadingState(),
+                    error: (_, _) => Center(child: Text(context.l10n.error)),
+                    data: (notes) {
+                      final hasActiveFilters =
+                          _searchQuery.trim().length >= 2 ||
+                          _filterMemberIds.isNotEmpty;
+                      final filtered = filterNotes(
+                        notes,
+                        query: _searchQuery,
+                        filterMemberIds: _filterMemberIds,
+                        memberNameMap: memberNameMap,
+                      );
+
+                      if (notes.isEmpty) {
+                        return EmptyState(
+                          icon: Icon(AppIcons.noteOutlined),
+                          title: l10n.memberNoteNoNotesYet,
+                          subtitle: l10n.memberNoteEmptySubtitle,
+                          actionLabel: l10n.memberNoteTitle,
+                          onAction: () => unawaited(_openCreateNote(context)),
+                        );
+                      }
+
+                      if (filtered.isEmpty && hasActiveFilters) {
+                        return EmptyState(
+                          icon: Icon(AppIcons.searchOff),
+                          title: l10n.memberNoteNoFilteredNotes,
+                          subtitle: l10n.memberNoteNoFilteredNotesSubtitle,
+                          actionLabel: l10n.memberNoteClearFilters,
+                          onAction: _clearAllFilters,
+                        );
+                      }
+
+                      return ListView.builder(
+                        padding: EdgeInsets.only(
+                          top: 8,
+                          left: 16,
+                          right: 16,
+                          // +16 so the last card clears the nav bar's gradient fade,
+                          // which extends 10px above NavBarInset.bottomInset.
+                          bottom: NavBarInset.of(context) + 16,
+                        ),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final note = filtered[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _NoteCard(
+                              note: note,
+                              selected: isDetailSelected(note.id),
+                              memberNameMap: memberNameMap,
+                              onTap: () =>
+                                  unawaited(_openNote(context, note.id)),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -375,6 +396,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
       if (!canCloseEditor || !mounted) return;
 
       setState(() {
+        _allowPopAfterInlineEditorDiscard = false;
         selectedDetailId = null;
         _editorPane = _NoteEditorPane.create(revision: ++_editorRevision);
       });
@@ -396,6 +418,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
       if (!canCloseEditor || !mounted) return;
 
       setState(() {
+        _allowPopAfterInlineEditorDiscard = false;
         selectedDetailId = selectedDetailId == id && _editorPane == null
             ? null
             : id;
@@ -409,6 +432,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
 
   void _openInlineEditorForNote(Note note) {
     setState(() {
+      _allowPopAfterInlineEditorDiscard = false;
       selectedDetailId = note.id;
       _editorPane = _NoteEditorPane.edit(
         note: note,
@@ -419,20 +443,27 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
 
   void _finishInlineEditor(Note note) {
     setState(() {
+      _allowPopAfterInlineEditorDiscard = false;
       selectedDetailId = note.id;
       _editorPane = null;
     });
   }
 
   void _closeInlineEditor() {
-    setState(() => _editorPane = null);
+    setState(() {
+      _allowPopAfterInlineEditorDiscard = false;
+      _editorPane = null;
+    });
   }
 
   Future<void> _clearDetailPane() async {
     if (_editorPane != null) {
       final canCloseEditor = await _confirmCloseInlineEditorIfNeeded();
       if (!canCloseEditor || !mounted) return;
-      setState(() => _editorPane = null);
+      setState(() {
+        _allowPopAfterInlineEditorDiscard = false;
+        _editorPane = null;
+      });
       return;
     }
     if (selectedDetailId == null) return;

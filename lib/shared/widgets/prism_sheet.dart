@@ -385,6 +385,8 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
   final _controller = DraggableScrollableController();
   bool _popping = false;
 
+  static const double _kDragDismissThreshold = 0.3;
+
   @override
   void initState() {
     super.initState();
@@ -394,8 +396,9 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
   }
 
   void _onSizeChanged() {
-    // When the sheet is dragged below 40% height, dismiss the route.
-    if (!_popping && _controller.size < 0.4) {
+    // Keep top-edge overscroll below the dismiss line; snapSizes returns
+    // shallow dips to full height on release.
+    if (!_popping && _controller.size < _kDragDismissThreshold) {
       _popping = true;
       _tryDismissFromDrag();
     }

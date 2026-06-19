@@ -390,6 +390,57 @@ void main() {
     expect(find.text('Member alice'), findsOneWidget);
   });
 
+  testWidgets(
+    'wide layout system back confirms before closing dirty edit pane',
+    (tester) async {
+      _setWideWindow(tester);
+
+      await tester.pumpWidget(
+        _buildSubject(
+          settings: const SystemSettings(
+            notesEnabled: false,
+            boardsEnabled: false,
+          ),
+          members: [_member('alice')],
+          groups: const [],
+          entries: const [],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Member alice'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(_memberDetailEditButton().first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.enterText(find.byType(EditableText).first, 'Edited alice');
+      await tester.pump();
+
+      final firstBackHandled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(firstBackHandled, isTrue);
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Name *'), findsOneWidget);
+      expect(find.text('Edited alice'), findsOneWidget);
+
+      final secondBackHandled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(secondBackHandled, isTrue);
+      expect(find.text('Name *'), findsNothing);
+      expect(find.text('Edited alice'), findsNothing);
+      expect(find.text('Member alice'), findsWidgets);
+    },
+  );
+
   testWidgets('wide layout delete clears detail without popping app route', (
     tester,
   ) async {

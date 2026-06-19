@@ -35,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Create or edit a note without assuming the surrounding presentation.
 ///
@@ -65,7 +66,7 @@ class NoteEditor extends ConsumerStatefulWidget {
 class NoteEditorController {
   _NoteEditorState? _state;
 
-  bool get hasUnsavedChanges => _state?._isDirty ?? false;
+  bool get hasUnsavedChanges => _state?._hasUnsavedChanges ?? false;
 
   Future<bool> confirmDiscardIfNeeded() async {
     final state = _state;
@@ -98,8 +99,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
   late String? _initialMemberId;
   bool _memberWasEdited = false;
   bool _showPreview = false;
-  // Unique per note editor so staged images live exactly as long as this editor
-  // and stay isolated from any other open editor (see bioImageProcessorProvider).
+  // Isolates staged images to this editor instance.
   final String _editSessionId = const Uuid().v4();
   // Drives the add-image dialog when an image is pasted into the body, reusing
   // the floating image button's staging flow.
@@ -163,6 +163,25 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
       _bodyController.text != _initialBody ||
       _date != _initialDate ||
       _selectedMemberId != _initialMemberId;
+
+  bool get _hasStagedImages {
+    try {
+      return ref
+          .read(bioImageProcessorProvider(_editSessionId))
+          .staged
+          .isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _hasUnsavedChanges => _isDirty || _hasStagedImages;
+
+  void _discardStagedImages() {
+    try {
+      ref.read(bioImageProcessorProvider(_editSessionId)).discardStaged();
+    } catch (_) {}
+  }
 
   Future<void> _save() async {
     if (!_isValid) return;
@@ -253,22 +272,23 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
   }
 
   Future<bool> _confirmDiscard() async {
-    if (!_isDirty) return true;
-    return await PrismDialog.confirm(
+    if (!_hasUnsavedChanges) return true;
+    final shouldDiscard = await PrismDialog.confirm(
       context: context,
       title: context.l10n.memberNoteDiscardTitle,
       message: context.l10n.memberNoteDiscardMessage,
       confirmLabel: context.l10n.memberNoteDiscardConfirm,
       destructive: true,
     );
+    if (shouldDiscard) _discardStagedImages();
+    return shouldDiscard;
   }
 
   Future<void> _requestClose() async {
-    final shouldDiscard = await _confirmDiscard();
-    if (!shouldDiscard || !mounted) return;
-
     final onCancel = widget.onCancel;
     if (onCancel != null) {
+      final shouldDiscard = await _confirmDiscard();
+      if (!shouldDiscard || !mounted) return;
       onCancel();
     } else {
       await Navigator.of(context).maybePop();
@@ -284,10 +304,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
     _bodyController.updateTheme(context);
     watchMemberSearchGroupSources(ref);
 
-    // Keep this editor's processor session alive for the editor's whole
-    // lifetime so a staged image survives until _save() commits it — even
-    // across preview toggles, where the image button (the only other watcher)
-    // unmounts. Guarded for test contexts without media infra.
+    // Keep staged images alive across preview toggles.
     try {
       ref.watch(bioImageProcessorProvider(_editSessionId));
     } catch (_) {}
@@ -316,12 +333,12 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
             const SingleActivator(LogicalKeyboardKey.escape): () =>
                 unawaited(_requestClose()),
           },
-          child: PopScope(
-            canPop: !_isDirty,
-            onPopInvokedWithResult: (didPop, _) async {
-              if (didPop) return;
-              await _requestClose();
-            },
+          child: UnsavedChangesGuard<void>(
+            hasUnsavedChanges: _hasUnsavedChanges,
+            onDiscard: _discardStagedImages,
+            discardResult: null,
+            // Inline panes are closed by their parent controller.
+            isActive: widget.onCancel == null,
             child: Column(
               children: [
                 PrismSheetTopBar(

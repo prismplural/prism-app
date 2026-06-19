@@ -15,11 +15,11 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_mention_text_field.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 Future<String?> showFullScreenMarkdownEditor({
   required BuildContext context,
@@ -68,9 +68,7 @@ class _FullScreenMarkdownEditorSheetState
     extends ConsumerState<FullScreenMarkdownEditorSheet> {
   late final MarkdownEditingController _controller;
   late final FocusNode _focusNode;
-  // Unique per editor instance so staged images are isolated from any other
-  // open editor and live exactly as long as this sheet (see
-  // [bioImageProcessorProvider]).
+  // Isolates staged images to this editor instance.
   final String _editSessionId = const Uuid().v4();
   // Drives the add-image dialog when an image is pasted into the field, reusing
   // the same staging flow as the floating image button.
@@ -97,6 +95,16 @@ class _FullScreenMarkdownEditorSheetState
   // surface — no memberId required. Keyed by this editor's session id.
   BioImageProcessor _getProcessor() =>
       ref.read(bioImageProcessorProvider(_editSessionId));
+
+  bool get _hasStagedImages {
+    try {
+      return _getProcessor().staged.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _hasUnsavedChanges => _isDirty || _hasStagedImages;
 
   /// Routes a pasted clipboard image into the add-image dialog; false lets the
   /// default text paste run.
@@ -136,34 +144,13 @@ class _FullScreenMarkdownEditorSheetState
     Navigator.of(context).pop(_controller.text.trim());
   }
 
-  Future<void> _maybeDiscard() async {
-    if (!_isDirty) {
-      _getProcessor().discardStaged();
-      Navigator.of(context).pop(null);
-      return;
-    }
-    final confirm = await PrismDialog.confirm(
-      context: context,
-      title: context.l10n.memberNoteDiscardTitle,
-      message: context.l10n.memberNoteDiscardMessage,
-      confirmLabel: context.l10n.memberNoteDiscardConfirm,
-      destructive: true,
-    );
-    if (confirm && mounted) {
-      _getProcessor().discardStaged();
-      Navigator.of(context).pop(null);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     _controller.updateTheme(context);
 
-    // Keep this editor's processor session alive for the sheet's whole
-    // lifetime so staged images survive until _save() commits them (and are
-    // discarded on close). Guarded for test contexts without media infra.
+    // Keep staged images alive until save or discard.
     try {
       ref.watch(bioImageProcessorProvider(_editSessionId));
     } catch (_) {}
@@ -174,12 +161,14 @@ class _FullScreenMarkdownEditorSheetState
 
     return ListenableBuilder(
       listenable: _controller,
-      builder: (context, _) => PopScope(
-        canPop: !_isDirty,
-        onPopInvokedWithResult: (didPop, _) async {
-          if (didPop) return;
-          await _maybeDiscard();
+      builder: (context, _) => UnsavedChangesGuard<String?>(
+        hasUnsavedChanges: _hasUnsavedChanges,
+        onDiscard: () {
+          try {
+            _getProcessor().discardStaged();
+          } catch (_) {}
         },
+        discardResult: null,
         child: Stack(
           children: [
             Column(

@@ -4,12 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/database/database_provider.dart'
+    show databaseProvider;
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/notes_repository.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/widgets/note_editor.dart';
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -28,6 +34,7 @@ import 'package:prism_plurality/features/members/providers/notes_providers.dart'
 import 'package:prism_plurality/features/notes/views/notes_list_screen.dart';
 import 'package:prism_plurality/features/notes/widgets/notes_filter_bar.dart';
 
+import '../../../helpers/bio_image_test_utils.dart';
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
@@ -68,6 +75,8 @@ void main() {
     List<Note> notes = const [],
     List<Member> members = const [],
     _FakeNotesRepository? notesRepository,
+    bool withParentRoute = false,
+    TestBioImageInfra? imageInfra,
   }) {
     final repository = notesRepository ?? _FakeNotesRepository(notes);
     final memberRepository = FakeMemberRepository()..seed(members);
@@ -75,6 +84,11 @@ void main() {
       overrides: [
         memberRepositoryProvider.overrideWithValue(memberRepository),
         notesRepositoryProvider.overrideWithValue(repository),
+        if (imageInfra != null) ...[
+          databaseProvider.overrideWithValue(imageInfra.database),
+          prismSyncHandleProvider.overrideWithBuild((ref, notifier) => null),
+          mediaServiceProvider.overrideWithValue(imageInfra.mediaService),
+        ],
         allNotesProvider.overrideWith((ref) => Stream.value(notes)),
         activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
         currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
@@ -82,10 +96,12 @@ void main() {
           const AsyncValue.data(SystemSettings()),
         ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: [Locale('en')],
-        home: NotesListScreen(),
+        supportedLocales: const [Locale('en')],
+        home: withParentRoute
+            ? const _NotesRouteHost()
+            : const NotesListScreen(),
       ),
     );
   }
@@ -331,6 +347,90 @@ void main() {
         expect(find.text('Draft note'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'close button confirms and discards image-only staged inline edit',
+      (tester) async {
+        _setWideWindow(tester);
+        final imageInfra = TestBioImageInfra.create();
+        addTearDown(imageInfra.close);
+
+        await tester.pumpWidget(
+          buildSubject(notes: const [], imageInfra: imageInfra),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(AppIcons.add));
+        await tester.pumpAndSettle();
+
+        final imageButton = tester.widget<MarkdownImageButton>(
+          find.byType(MarkdownImageButton),
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(MarkdownImageButton)),
+        );
+        final processor = container.read(
+          bioImageProcessorProvider(imageButton.sessionId),
+        );
+        processor.staged.add(testStagedBioImage());
+
+        final bodyField = find.byType(TextField).last;
+        await tester.enterText(bodyField, 'temporary text');
+        await tester.pump();
+        await tester.enterText(bodyField, '');
+        await tester.pump();
+
+        await tester.tap(find.byIcon(AppIcons.close));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Discard changes?'), findsOneWidget);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(NoteEditor), findsOneWidget);
+        expect(processor.staged, isNotEmpty);
+
+        await tester.tap(find.byIcon(AppIcons.close));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Discard'));
+        await tester.pumpAndSettle();
+
+        expect(processor.staged, isEmpty);
+        expect(find.byType(NoteEditor), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 1));
+      },
+    );
+
+    testWidgets('system back discards dirty inline editor then pops route', (
+      tester,
+    ) async {
+      _setWideWindow(tester);
+
+      await tester.pumpWidget(
+        buildSubject(notes: const [], withParentRoute: true),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open notes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(AppIcons.add));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText).first, 'Draft note');
+      await tester.pump();
+
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(handled, isTrue);
+      expect(find.text('Discard changes?'), findsOneWidget);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotesListScreen), findsNothing);
+      expect(find.text('Open notes'), findsOneWidget);
+    });
 
     testWidgets('opens edit editor inline on wide layouts', (tester) async {
       _setWideWindow(tester);
@@ -629,6 +729,26 @@ void main() {
       expect(find.byIcon(AppIcons.add), findsOneWidget);
     });
   });
+}
+
+class _NotesRouteHost extends StatelessWidget {
+  const _NotesRouteHost();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const NotesListScreen()),
+            );
+          },
+          child: const Text('Open notes'),
+        ),
+      ),
+    );
+  }
 }
 
 void _setWideWindow(WidgetTester tester) {

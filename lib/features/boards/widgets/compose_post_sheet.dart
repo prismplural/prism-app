@@ -28,12 +28,12 @@ import 'package:prism_plurality/shared/widgets/image_first_paste.dart';
 import 'package:prism_plurality/shared/widgets/markdown_editing_controller.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Sheet for composing a new board post or editing an existing one.
 ///
@@ -190,6 +190,19 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
         _targetMemberId != _initialTargetMemberId ||
         _audience != _initialAudience;
   }
+
+  bool get _hasStagedImages {
+    try {
+      return ref
+          .read(bioImageProcessorProvider(_editSessionId))
+          .staged
+          .isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _hasUnsavedChanges => _isDirty || _hasStagedImages;
 
   // ---------------------------------------------------------------------------
   // Edit-mode prefill
@@ -429,18 +442,13 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   }
 
   // ---------------------------------------------------------------------------
-  // Discard confirmation
+  // Discard cleanup
   // ---------------------------------------------------------------------------
 
-  Future<bool> _confirmDiscard() async {
-    if (!_isDirty) return true;
-    return PrismDialog.confirm(
-      context: context,
-      title: context.l10n.memberNoteDiscardTitle,
-      message: context.l10n.memberNoteDiscardMessage,
-      confirmLabel: context.l10n.memberNoteDiscardConfirm,
-      destructive: true,
-    );
+  void _discardStagedImages() {
+    try {
+      ref.read(bioImageProcessorProvider(_editSessionId)).discardStaged();
+    } catch (_) {}
   }
 
   // ---------------------------------------------------------------------------
@@ -479,13 +487,10 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 
     return ListenableBuilder(
       listenable: Listenable.merge([_titleController, _bodyController]),
-      builder: (context, _) => PopScope(
-        canPop: !_isDirty,
-        onPopInvokedWithResult: (didPop, _) async {
-          if (didPop) return;
-          final shouldDiscard = await _confirmDiscard();
-          if (shouldDiscard && context.mounted) Navigator.of(context).pop();
-        },
+      builder: (context, _) => UnsavedChangesGuard<MemberBoardPost?>(
+        hasUnsavedChanges: _hasUnsavedChanges,
+        onDiscard: _discardStagedImages,
+        discardResult: null,
         child: Column(
           children: [
             PrismSheetTopBar(

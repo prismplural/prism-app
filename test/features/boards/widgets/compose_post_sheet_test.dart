@@ -4,7 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/app_database.dart'
+    show AppDatabase;
+import 'package:prism_plurality/core/database/database_provider.dart'
+    show databaseProvider;
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/services/media/media_service.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
@@ -21,10 +28,13 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
+
+import '../../../helpers/bio_image_test_utils.dart';
 
 // ---------------------------------------------------------------------------
 // Fake providers
@@ -185,6 +195,8 @@ Widget _buildSubject({
   MemberBoardPost? repoPost,
   _FakeBoardPostNotifier? notifier,
   bool imageProcessing = false,
+  AppDatabase? database,
+  MediaService? mediaService,
   List<FrontingSession> activeSessions = const [],
   ComposerDefaultMember composerDefaultMember =
       ComposerDefaultMember.latestFronter,
@@ -200,6 +212,11 @@ Widget _buildSubject({
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
+      if (database != null) databaseProvider.overrideWithValue(database),
+      if (database != null)
+        prismSyncHandleProvider.overrideWithBuild((ref, notifier) => null),
+      if (mediaService != null)
+        mediaServiceProvider.overrideWithValue(mediaService),
       speakingAsProvider.overrideWith(
         () => _FakeSpeakingAsNotifier(speakingAs),
       ),
@@ -468,6 +485,64 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Write something...'), findsNothing);
+    });
+
+    testWidgets('image-only staged edits prompt and discard on close', (
+      tester,
+    ) async {
+      final imageInfra = TestBioImageInfra.create();
+      addTearDown(imageInfra.close);
+
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice],
+          speakingAs: 'alice',
+          database: imageInfra.database,
+          mediaService: imageInfra.mediaService,
+        ),
+      );
+      await _openSheet(tester);
+
+      final imageButton = tester.widget<MarkdownImageButton>(
+        find.byType(MarkdownImageButton),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MarkdownImageButton)),
+      );
+      final processor = container.read(
+        bioImageProcessorProvider(imageButton.sessionId),
+      );
+      processor.staged.add(testStagedBioImage());
+
+      final bodyField = find.byType(TextField).last;
+      await tester.enterText(bodyField, 'temporary text');
+      await tester.pump();
+      await tester.enterText(bodyField, '');
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+
+      expect(processor.staged, isNotEmpty);
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(find.text('New post'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(processor.staged, isNotEmpty);
+      expect(find.text('New post'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(processor.staged, isEmpty);
+      expect(find.text('New post'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
     });
 
     // ── Member chip pre-fill ─────────────────────────────────────────────────

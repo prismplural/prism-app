@@ -91,6 +91,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   bool? _viewSettingsBannerSeen;
   _MemberDetailPaneMode _detailPaneMode = _MemberDetailPaneMode.detail;
   final List<String> _paneGroupStack = [];
+  final AddEditMemberSheetController _editMemberController =
+      AddEditMemberSheetController();
 
   // Section keys for scroll-to-section navigation in the grouped list.
   final Map<String, GlobalKey> _sectionKeys = {};
@@ -776,7 +778,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       canPop: !hasPaneBackAction,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        _handlePaneBack();
+        unawaited(_handlePaneBack());
       },
       child: ListDetailPaneScope(
         selectDetail: (id) => _selectMember(id, navigate: () {}),
@@ -797,8 +799,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     setState(() {});
   }
 
-  void _handlePaneBack() {
+  Future<void> _handlePaneBack() async {
     if (_detailPaneMode == _MemberDetailPaneMode.edit) {
+      final shouldClose = await _editMemberController.confirmDiscardIfNeeded();
+      if (!shouldClose || !mounted) return;
       _closeEditPane();
       return;
     }
@@ -931,6 +935,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
             child: AddEditMemberSheet(
               key: ValueKey('edit_${member.id}'),
               member: member,
+              controller: _editMemberController,
               embedded: true,
               onCancel: _closeEditPane,
               onSaved: (_) => _closeEditPane(),

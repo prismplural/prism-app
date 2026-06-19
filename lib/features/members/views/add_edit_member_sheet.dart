@@ -92,6 +92,7 @@ class AddEditMemberSheet extends ConsumerStatefulWidget {
     super.key,
     this.member,
     this.scrollController,
+    this.controller,
     this.embedded = false,
     this.onCancel,
     this.onSaved,
@@ -99,6 +100,7 @@ class AddEditMemberSheet extends ConsumerStatefulWidget {
 
   final Member? member;
   final ScrollController? scrollController;
+  final AddEditMemberSheetController? controller;
   final bool embedded;
   final VoidCallback? onCancel;
   final ValueChanged<bool>? onSaved;
@@ -107,6 +109,28 @@ class AddEditMemberSheet extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<AddEditMemberSheet> createState() => _AddEditMemberSheetState();
+}
+
+class AddEditMemberSheetController {
+  _AddEditMemberSheetState? _state;
+
+  bool get hasUnsavedChanges => _state?._hasUnsavedChanges ?? false;
+
+  Future<bool> confirmDiscardIfNeeded() async {
+    final state = _state;
+    if (state == null || !state.mounted) return true;
+    return state._confirmDiscardIfNeeded();
+  }
+
+  void _attach(_AddEditMemberSheetState state) {
+    _state = state;
+  }
+
+  void _detach(_AddEditMemberSheetState state) {
+    if (identical(_state, state)) {
+      _state = null;
+    }
+  }
 }
 
 class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
@@ -236,6 +260,27 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       _birthdayHideYear != _initialBirthdayHideYear ||
       _createdAt != _initialCreatedAt ||
       _customFieldsEditorController.hasPendingChanges;
+
+  bool get _hasStagedImages {
+    try {
+      if (_getBioProcessor().staged.isNotEmpty) return true;
+    } catch (_) {}
+    try {
+      if (_getCustomFieldLongTextProcessor().staged.isNotEmpty) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  bool get _hasUnsavedChanges => _isDirty || _hasStagedImages;
+
+  void _discardStagedImages() {
+    try {
+      _getBioProcessor().discardStaged();
+    } catch (_) {}
+    try {
+      _getCustomFieldLongTextProcessor().discardStaged();
+    } catch (_) {}
+  }
 
   void _handleCustomFieldsDirtyChanged() {
     if (!mounted) return;
@@ -374,10 +419,20 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _initialBirthdayHideYear = _birthdayHideYear;
     _createdAt = widget.member?.createdAt ?? DateTime.now();
     _initialCreatedAt = _createdAt;
+    widget.controller?._attach(this);
+  }
+
+  @override
+  void didUpdateWidget(covariant AddEditMemberSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller?._detach(this);
+    widget.controller?._attach(this);
   }
 
   @override
   void dispose() {
+    widget.controller?._detach(this);
     if (!widget.isEditing && !_saved) {
       ref
           .read(customFieldValueNotifierProvider.notifier)
@@ -856,18 +911,19 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _swapView(_MemberEditView.customFields);
   }
 
-  Future<void> _requestClose() async {
-    if (_isDirty) {
+  Future<bool> _confirmDiscardIfNeeded() async {
+    if (_hasUnsavedChanges) {
       final shouldDiscard = await UnsavedChangesGuard.confirmDiscard(context);
-      if (!shouldDiscard || !mounted) return;
+      if (!shouldDiscard || !mounted) return false;
       _customFieldsEditorController.discard();
-      try {
-        _getBioProcessor().discardStaged();
-      } catch (_) {}
-      try {
-        _getCustomFieldLongTextProcessor().discardStaged();
-      } catch (_) {}
+      _discardStagedImages();
     }
+    return true;
+  }
+
+  Future<void> _requestClose() async {
+    final shouldClose = await _confirmDiscardIfNeeded();
+    if (!shouldClose || !mounted) return;
 
     if (widget.embedded) {
       widget.onCancel?.call();
@@ -1353,9 +1409,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             }
           },
           child: UnsavedChangesGuard<bool>(
-            hasUnsavedChanges: _isDirty,
+            hasUnsavedChanges: _hasUnsavedChanges,
             isActive: !widget.embedded && _view == _MemberEditView.main,
-            onDiscard: _customFieldsEditorController.discard,
+            onDiscard: () {
+              _customFieldsEditorController.discard();
+              _discardStagedImages();
+            },
             child: SafeArea(
               child: Form(
                 key: _formKey,
