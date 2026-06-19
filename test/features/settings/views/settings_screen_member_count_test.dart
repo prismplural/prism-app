@@ -40,12 +40,12 @@ void main() {
 
   Widget buildSubject({
     List<Member>? subjectMembers,
-    bool hideTotalMemberCount = false,
+    bool hideMemberCounts = false,
     SyncStatus syncStatus = const SyncStatus(),
   }) {
     final appPrefs = FakeAppPreferenceRepository();
-    if (hideTotalMemberCount) {
-      appPrefs.seed(hideTotalMemberCountPreference, true);
+    if (hideMemberCounts) {
+      appPrefs.seed(hideMemberCountsPreference, true);
     }
     addTearDown(appPrefs.close);
 
@@ -72,7 +72,7 @@ void main() {
   }
 
   group('SettingsScreen member count', () {
-    testWidgets('shows total member count by default', (tester) async {
+    testWidgets('shows member counts by default', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
 
@@ -87,14 +87,11 @@ void main() {
       expect(find.text('+1'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when synced preference is enabled', (
+    testWidgets('hides member counts when synced preference is enabled', (
       tester,
     ) async {
       await tester.pumpWidget(
-        buildSubject(
-          subjectMembers: overflowMembers,
-          hideTotalMemberCount: true,
-        ),
+        buildSubject(subjectMembers: overflowMembers, hideMemberCounts: true),
       );
       await tester.pumpAndSettle();
 

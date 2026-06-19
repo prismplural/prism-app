@@ -152,9 +152,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     // System card displays member count + avatar stack — exclude the Unknown
     // sentinel so it doesn't inflate the count or appear in the stack.
     final membersAsync = ref.watch(userVisibleMembersProvider);
-    final hideTotalMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final syncStatus = ref.watch(syncStatusProvider);
@@ -181,7 +181,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   settings,
                   membersAsync,
                   terms,
-                  hideTotalMemberCount: hideTotalMemberCount,
+                  hideMemberCounts: hideMemberCounts,
                 ),
                 const SizedBox(height: 8),
                 _buildSection(
@@ -437,7 +437,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     dynamic settings,
     AsyncValue<List<dynamic>> membersAsync,
     dynamic terms, {
-    required bool hideTotalMemberCount,
+    required bool hideMemberCounts,
   }) {
     final theme = Theme.of(context);
     final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
@@ -474,7 +474,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           : members.isNotEmpty
                           ? _AvatarCluster(
                               members: members,
-                              hideOverflowCount: hideTotalMemberCount,
+                              hideOverflowCount: hideMemberCounts,
                             )
                           : CircleAvatar(
                               radius: 40,
@@ -509,7 +509,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                             ),
                           ),
                           const SizedBox(height: 2),
-                          if (!hideTotalMemberCount && members.isNotEmpty)
+                          if (!hideMemberCounts && members.isNotEmpty)
                             Text(
                               '${members.length} ${members.length == 1 ? terms.singular.toLowerCase() : terms.plural.toLowerCase()}',
                               style: theme.textTheme.bodyMedium?.copyWith(

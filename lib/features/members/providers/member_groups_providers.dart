@@ -95,19 +95,26 @@ final transitiveGroupMemberIdsProvider = Provider.family<Set<String>, String>((
       .toSet();
 });
 
-/// Transitive unique member counts per group.
+/// Visibility-aware transitive unique member counts per group.
 /// Replaces the former StreamProvider-backed direct-count; callers should read
 /// this map directly (no `.value` unwrap needed).
 final groupMemberCountsProvider = Provider<Map<String, int>>((ref) {
   final tree = ref.watch(groupTreeProvider);
   final allGroups = ref.watch(allGroupsProvider).value ?? [];
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
+  final showInactive = ref.watch(showInactiveMembersProvider);
+  final allMembers = ref.watch(userVisibleAllMemberListProvider).value ?? [];
+  final visibleMemberIds = {
+    for (final member in allMembers)
+      if (showInactive || member.isActive) member.id,
+  };
 
   // Pre-bucket entries in one O(E) pass, then fold child sets upward once.
   // Calling `getDescendantGroupIds` for every group repeats subtree walks and
   // gets expensive in large, deeply nested systems.
   final membersByGroup = <String, Set<String>>{};
   for (final entry in allEntries) {
+    if (!visibleMemberIds.contains(entry.memberId)) continue;
     membersByGroup.putIfAbsent(entry.groupId, () => {}).add(entry.memberId);
   }
 

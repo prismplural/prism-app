@@ -134,9 +134,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
     final l10n = context.l10n;
     final counts = ref.watch(groupMemberCountsProvider);
-    final hideMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final providerFlatItems = ref.watch(flatGroupListProvider);
@@ -221,7 +221,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                             ),
                             reorderIndex: index,
                             memberCount: counts[entry.group.id] ?? 0,
-                            showMemberCount: !hideMemberCount,
+                            showMemberCount: !hideMemberCounts,
                             onTap: () => _openGroup(entry.group.id),
                             onDelete: () => _confirmDelete(entry.group),
                           );

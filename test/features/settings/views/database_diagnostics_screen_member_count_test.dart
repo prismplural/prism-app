@@ -15,10 +15,10 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
-  Widget buildSubject({bool hideTotalMemberCount = false}) {
+  Widget buildSubject({bool hideMemberCounts = false}) {
     final appPrefs = FakeAppPreferenceRepository();
-    if (hideTotalMemberCount) {
-      appPrefs.seed(hideTotalMemberCountPreference, true);
+    if (hideMemberCounts) {
+      appPrefs.seed(hideMemberCountsPreference, true);
     }
     addTearDown(appPrefs.close);
 
@@ -48,7 +48,7 @@ void main() {
   }
 
   group('DatabaseDiagnosticsScreen member count', () {
-    testWidgets('shows total member count by default', (tester) async {
+    testWidgets('shows member counts by default', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
 
@@ -57,10 +57,10 @@ void main() {
       expect(find.text('Fronting Sessions'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when synced preference is enabled', (
+    testWidgets('hides member counts when synced preference is enabled', (
       tester,
     ) async {
-      await tester.pumpWidget(buildSubject(hideTotalMemberCount: true));
+      await tester.pumpWidget(buildSubject(hideMemberCounts: true));
       await tester.pumpAndSettle();
 
       expect(find.text('Headmates'), findsNothing);

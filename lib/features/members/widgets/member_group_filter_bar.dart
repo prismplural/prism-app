@@ -21,8 +21,9 @@ class MemberGroupFilterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final flatList = ref.watch(flatGroupListProvider);
     final counts = ref.watch(groupMemberCountsProvider);
-    final hideMemberCount = ref
-            .watch(hideTotalMemberCountProvider)
+    final hideMemberCounts =
+        ref
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final activeFilter = ref.watch(activeGroupFilterProvider);
@@ -63,21 +64,23 @@ class MemberGroupFilterBar extends ConsumerWidget {
               ...flatList.map((entry) {
                 final group = entry.group;
                 final count = counts[group.id] ?? 0;
-                final isSelected =
-                    scrollMode ? false : activeFilter == group.id;
+                final isSelected = scrollMode
+                    ? false
+                    : activeFilter == group.id;
                 final groupColor = group.colorHex != null
                     ? AppColors.fromHex(group.colorHex!)
                     : null;
-                final labelText = hideMemberCount
+                final labelText = hideMemberCounts
                     ? group.name
                     : '${group.name} \u2022 $count';
-                final countSemantic = hideMemberCount
+                final countSemantic = hideMemberCounts
                     ? ''
                     : ', $count members';
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Semantics(
-                    label: '${group.name}$countSemantic, '
+                    label:
+                        '${group.name}$countSemantic, '
                         '${isSelected ? 'selected' : 'not selected'}',
                     excludeSemantics: true,
                     child: PrismChip(
@@ -117,9 +120,11 @@ class MemberGroupFilterBar extends ConsumerWidget {
                       } else {
                         ref
                             .read(activeGroupFilterProvider.notifier)
-                            .setFilter(activeFilter == '__ungrouped__'
-                                ? null
-                                : '__ungrouped__');
+                            .setFilter(
+                              activeFilter == '__ungrouped__'
+                                  ? null
+                                  : '__ungrouped__',
+                            );
                       }
                     },
                   ),

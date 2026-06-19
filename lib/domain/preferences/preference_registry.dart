@@ -18,7 +18,7 @@ final class PreferenceRegistry {
   final List<PreferenceDefinition<dynamic>> definitions;
 }
 
-const hideTotalMemberCountPreference = PreferenceDefinition<bool>(
+const hideMemberCountsPreference = PreferenceDefinition<bool>(
   key: 'privacy.hide_total_member_count',
   scope: PreferenceScope.appSynced,
   defaultValue: false,
@@ -103,7 +103,7 @@ const navBarExpandedLabelsFullPreference = PreferenceDefinition<bool>(
 );
 
 final appPreferenceRegistry = PreferenceRegistry(const [
-  hideTotalMemberCountPreference,
+  hideMemberCountsPreference,
   frontingReminderSuppressMinutesPreference,
   composerDefaultMemberPreference,
   dimBackgroundBehindSheetsPreference,

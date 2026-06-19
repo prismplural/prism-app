@@ -132,9 +132,9 @@ class _MemberGroupPickerListState extends ConsumerState<MemberGroupPickerList> {
     final memberCounts = showCounts
         ? ref.watch(groupMemberCountsProvider)
         : const <String, int>{};
-    final hideMemberCount = showCounts
+    final hideMemberCounts = showCounts
         ? ref
-                  .watch(hideTotalMemberCountProvider)
+                  .watch(hideMemberCountsProvider)
                   .whenOrNull(data: (value) => value) ??
               true
         : true;
@@ -183,7 +183,7 @@ class _MemberGroupPickerListState extends ConsumerState<MemberGroupPickerList> {
                 entry.depth,
                 memberCounts[entry.group.id] ?? 0,
                 terms,
-                showMemberCount: showCounts && !hideMemberCount,
+                showMemberCount: showCounts && !hideMemberCounts,
               );
             }, childCount: filtered.length),
           ),

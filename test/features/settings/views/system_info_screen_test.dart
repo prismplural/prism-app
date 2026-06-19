@@ -36,13 +36,13 @@ void main() {
   Widget buildSubject({
     SystemSettings settings = seedSettings,
     List<Member> members = const [],
-    bool hideTotalMemberCount = false,
+    bool hideMemberCounts = false,
     FakeAppPreferenceRepository? appPrefs,
   }) {
     final fakeRepo = FakeSystemSettingsRepository()..settings = settings;
     final effectivePrefs = appPrefs ?? FakeAppPreferenceRepository();
-    if (hideTotalMemberCount) {
-      effectivePrefs.seed(hideTotalMemberCountPreference, true);
+    if (hideMemberCounts) {
+      effectivePrefs.seed(hideMemberCountsPreference, true);
     }
     if (appPrefs == null) {
       addTearDown(effectivePrefs.close);
@@ -113,7 +113,8 @@ void main() {
     testWidgets(
       'editing description inline triggers updateSystemDescription after debounce',
       (tester) async {
-        final fakeRepo = FakeSystemSettingsRepository()..settings = seedSettings;
+        final fakeRepo = FakeSystemSettingsRepository()
+          ..settings = seedSettings;
         final appPrefs = FakeAppPreferenceRepository();
         addTearDown(appPrefs.close);
 
@@ -135,8 +136,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final descField =
-            find.widgetWithText(TextFormField, 'A test description');
+        final descField = find.widgetWithText(
+          TextFormField,
+          'A test description',
+        );
         expect(descField, findsOneWidget);
         await tester.enterText(descField, 'Updated **bold** description');
         await tester.pump(const Duration(milliseconds: 400));
@@ -148,20 +151,18 @@ void main() {
       },
     );
 
-    testWidgets('shows the full-screen description editor button',
-        (tester) async {
+    testWidgets('shows the full-screen description editor button', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
-      expect(
-        find.byTooltip('Open description in full screen'),
-        findsOneWidget,
-      );
+      expect(find.byTooltip('Open description in full screen'), findsOneWidget);
     });
 
     // The full editor round-trip needs media-infra provider overrides
     // unavailable in this harness; covered by manual QA.
 
-    testWidgets('shows total member count by default', (tester) async {
+    testWidgets('shows member counts by default', (tester) async {
       await tester.pumpWidget(buildSubject(members: seedMembers));
       await tester.pumpAndSettle();
 
@@ -172,27 +173,27 @@ void main() {
       );
 
       expect(find.text('2 headmates'), findsOneWidget);
-      expect(find.text('Hide total member count'), findsOneWidget);
+      expect(find.text('Hide member counts'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when synced preference is enabled', (
+    testWidgets('hides member counts when synced preference is enabled', (
       tester,
     ) async {
       await tester.pumpWidget(
-        buildSubject(members: overflowMembers, hideTotalMemberCount: true),
+        buildSubject(members: overflowMembers, hideMemberCounts: true),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('+1'), findsNothing);
 
       await tester.scrollUntilVisible(
-        find.text('Hide total member count'),
+        find.text('Hide member counts'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
       expect(find.text('9 headmates'), findsNothing);
-      expect(find.text('Hide total member count'), findsOneWidget);
+      expect(find.text('Hide member counts'), findsOneWidget);
     });
 
     testWidgets('toggling hide count persists as a synced app preference', (
@@ -207,15 +208,15 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
-        find.text('Hide total member count'),
+        find.text('Hide member counts'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
-      await tester.tap(find.text('Hide total member count'));
+      await tester.tap(find.text('Hide member counts'));
       await tester.pumpAndSettle();
 
-      expect(await appPrefs.get(hideTotalMemberCountPreference), true);
+      expect(await appPrefs.get(hideMemberCountsPreference), true);
       expect(find.text('2 headmates'), findsNothing);
     });
   });

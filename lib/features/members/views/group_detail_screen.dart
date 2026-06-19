@@ -1570,9 +1570,9 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
     final count = ref.watch(
       groupMemberCountsProvider.select((m) => m[group.id] ?? 0),
     );
-    final hideMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final paneScope = ListDetailPaneScope.maybeOf(context);
@@ -1580,7 +1580,7 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
       key: ValueKey('subgroup_${group.id}'),
       group: group,
       memberCount: count,
-      showMemberCount: !hideMemberCount,
+      showMemberCount: !hideMemberCounts,
       reorderIndex: reorderIndex,
       onTap: () {
         if (paneScope != null) {

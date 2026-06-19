@@ -492,6 +492,52 @@ void main() {
 
       expect(c.read(groupMemberCountsProvider)['empty'], 0);
     });
+
+    test('inactive members are excluded while hidden', () {
+      final c = makeContainer(
+        groups: [
+          _group(id: 'root'),
+          _group(id: 'child', parentGroupId: 'root'),
+        ],
+        entries: [
+          _entry(groupId: 'root', memberId: 'active'),
+          _entry(groupId: 'child', memberId: 'inactive'),
+        ],
+        members: [
+          _member(id: 'active'),
+          _member(id: 'inactive', isActive: false),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      final counts = c.read(groupMemberCountsProvider);
+      expect(counts['root'], 1);
+      expect(counts['child'], 0);
+    });
+
+    test('inactive members are included when show inactive is enabled', () {
+      final c = makeContainer(
+        groups: [
+          _group(id: 'root'),
+          _group(id: 'child', parentGroupId: 'root'),
+        ],
+        entries: [
+          _entry(groupId: 'root', memberId: 'active'),
+          _entry(groupId: 'child', memberId: 'inactive'),
+        ],
+        members: [
+          _member(id: 'active'),
+          _member(id: 'inactive', isActive: false),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      c.read(showInactiveMembersProvider.notifier).set(true);
+
+      final counts = c.read(groupMemberCountsProvider);
+      expect(counts['root'], 2);
+      expect(counts['child'], 1);
+    });
   });
 
   // ── transitiveGroupMemberIdsProvider ─────────────────────────────────────

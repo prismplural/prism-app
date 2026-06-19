@@ -19,10 +19,10 @@ void main() {
     Member(id: 'm2', name: 'Bob', createdAt: DateTime.utc(2024, 1, 2)),
   ];
 
-  Widget buildSubject({bool hideTotalMemberCount = false}) {
+  Widget buildSubject({bool hideMemberCounts = false}) {
     final appPrefs = FakeAppPreferenceRepository();
-    if (hideTotalMemberCount) {
-      appPrefs.seed(hideTotalMemberCountPreference, true);
+    if (hideMemberCounts) {
+      appPrefs.seed(hideMemberCountsPreference, true);
     }
     addTearDown(appPrefs.close);
 
@@ -49,7 +49,7 @@ void main() {
   }
 
   group('StatisticsScreen member count', () {
-    testWidgets('shows total member count by default', (tester) async {
+    testWidgets('shows member counts by default', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
 
@@ -58,10 +58,10 @@ void main() {
       expect(find.text('2 active, 0 inactive'), findsOneWidget);
     });
 
-    testWidgets('hides total member count when synced preference is enabled', (
+    testWidgets('hides member counts when synced preference is enabled', (
       tester,
     ) async {
-      await tester.pumpWidget(buildSubject(hideTotalMemberCount: true));
+      await tester.pumpWidget(buildSubject(hideMemberCounts: true));
       await tester.pumpAndSettle();
 
       expect(find.text('Total headmates'), findsNothing);

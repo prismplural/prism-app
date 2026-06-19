@@ -1739,11 +1739,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoColorNoneSet => 'No color set';
 
   @override
-  String get systemInfoHideTotalMemberCountTitle => 'Hide total member count';
+  String get systemInfoHideTotalMemberCountTitle => 'Hide member counts';
 
   @override
   String get systemInfoHideTotalMemberCountSubtitle =>
-      'Hides total counts in Settings, System Information, Statistics, and diagnostics. Group counts stay visible.';
+      'Hides member totals in Settings, System Information, Statistics, diagnostics, and group or folder count chips.';
 
   @override
   String get devicesTitle => 'Manage Devices';
@@ -3260,7 +3260,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String memberGroupAllInactiveHiddenSubtitle(String termPlural) {
-    return 'Every $termPlural in this group is inactive. Turn on Show inactive to see them.';
+    return 'All $termPlural in this group are inactive. Turn on Show inactive to see them.';
   }
 
   @override

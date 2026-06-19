@@ -77,7 +77,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('hideTotalMemberCountProvider', () {
+  group('hideMemberCountsProvider', () {
     test('defaults to false', () async {
       final prefs = FakeAppPreferenceRepository();
       addTearDown(prefs.close);
@@ -86,19 +86,19 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      expect(await container.read(hideTotalMemberCountProvider.future), false);
+      expect(await container.read(hideMemberCountsProvider.future), false);
     });
 
     test('reads the synced app preference', () async {
       final prefs = FakeAppPreferenceRepository()
-        ..seed(hideTotalMemberCountPreference, true);
+        ..seed(hideMemberCountsPreference, true);
       addTearDown(prefs.close);
       final container = ProviderContainer(
         overrides: [appPreferenceRepositoryProvider.overrideWithValue(prefs)],
       );
       addTearDown(container.dispose);
 
-      expect(await container.read(hideTotalMemberCountProvider.future), true);
+      expect(await container.read(hideMemberCountsProvider.future), true);
     });
 
     test(
@@ -111,10 +111,10 @@ void main() {
         );
         addTearDown(container.dispose);
 
-        await container.read(hideTotalMemberCountProvider.notifier).set(true);
+        await container.read(hideMemberCountsProvider.notifier).set(true);
 
-        expect(container.read(hideTotalMemberCountProvider).value, true);
-        expect(await prefs.get(hideTotalMemberCountPreference), true);
+        expect(container.read(hideMemberCountsProvider).value, true);
+        expect(await prefs.get(hideMemberCountsPreference), true);
       },
     );
   });

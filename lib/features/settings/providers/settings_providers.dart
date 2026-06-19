@@ -1275,9 +1275,7 @@ class NavBarExpandedLabelsFullNotifier extends AsyncNotifier<bool> {
 /// When labels appear in the mobile nav bar. Derived from the stored display
 /// mode + reveal flag (see [NavBarLabelDisplayMode]).
 final navBarLabelVisibilityProvider = Provider<NavBarLabelVisibility>((ref) {
-  final settings = ref
-      .watch(systemSettingsProvider)
-      .whenOrNull(data: (s) => s);
+  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
   if (settings == null) return NavBarLabelVisibility.always;
   return navBarLabelVisibilityFor(
     settings.navBarLabelDisplayMode,
@@ -1289,9 +1287,7 @@ final navBarLabelVisibilityProvider = Provider<NavBarLabelVisibility>((ref) {
 /// the treatment is encoded in the display mode; for labels revealed on expand
 /// it comes from the [navBarExpandedLabelsFullProvider] app preference.
 final navBarLabelStyleProvider = Provider<NavBarLabelStyle>((ref) {
-  final settings = ref
-      .watch(systemSettingsProvider)
-      .whenOrNull(data: (s) => s);
+  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
   final mode =
       settings?.navBarLabelDisplayMode ?? NavBarLabelDisplayMode.fullLabels;
   // Any icons-only mode (whenExpanded or never) carries its text treatment in
@@ -1491,18 +1487,18 @@ class ScreenPrivacyEnabledNotifier extends AsyncNotifier<bool> {
   }
 }
 
-/// Synced app preference for hiding global member-count totals.
-final hideTotalMemberCountProvider =
-    AsyncNotifierProvider<HideTotalMemberCountNotifier, bool>(
-      HideTotalMemberCountNotifier.new,
+/// Synced app preference for hiding member counts across management surfaces.
+final hideMemberCountsProvider =
+    AsyncNotifierProvider<HideMemberCountsNotifier, bool>(
+      HideMemberCountsNotifier.new,
     );
 
-class HideTotalMemberCountNotifier extends AsyncNotifier<bool> {
+class HideMemberCountsNotifier extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
     final repo = ref.watch(appPreferenceRepositoryProvider);
     final subscription = repo
-        .watch(hideTotalMemberCountPreference)
+        .watch(hideMemberCountsPreference)
         .listen(
           (value) {
             state = AsyncValue.data(value);
@@ -1512,13 +1508,13 @@ class HideTotalMemberCountNotifier extends AsyncNotifier<bool> {
           },
         );
     ref.onDispose(subscription.cancel);
-    return repo.get(hideTotalMemberCountPreference);
+    return repo.get(hideMemberCountsPreference);
   }
 
   Future<void> set(bool value) async {
     await ref
         .read(appPreferenceRepositoryProvider)
-        .set(hideTotalMemberCountPreference, value);
+        .set(hideMemberCountsPreference, value);
     state = AsyncValue.data(value);
   }
 }

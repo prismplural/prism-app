@@ -2303,13 +2303,13 @@
   "@systemInfoColorNoneSet": {
     "description": "Shown when no system color has been chosen"
   },
-  "systemInfoHideTotalMemberCountTitle": "Hide total member count",
+  "systemInfoHideTotalMemberCountTitle": "Hide member counts",
   "@systemInfoHideTotalMemberCountTitle": {
-    "description": "Switch label for hiding global member count totals"
+    "description": "Switch label for hiding member count totals and group count chips"
   },
-  "systemInfoHideTotalMemberCountSubtitle": "Hides total counts in Settings, System Information, Statistics, and diagnostics. Group counts stay visible.",
+  "systemInfoHideTotalMemberCountSubtitle": "Hides member totals in Settings, System Information, Statistics, diagnostics, and group or folder count chips.",
   "@systemInfoHideTotalMemberCountSubtitle": {
-    "description": "Helper text for hiding total member count displays"
+    "description": "Helper text for hiding member count displays"
   },
   "devicesTitle": "Manage Devices",
   "@devicesTitle": {
@@ -4337,7 +4337,7 @@
   "@memberGroupAllInactiveHiddenTitle": {
     "description": "Empty state title in group detail when every member is inactive and the show-inactive toggle is off"
   },
-  "memberGroupAllInactiveHiddenSubtitle": "Every {termPlural} in this group is inactive. Turn on Show inactive to see them.",
+  "memberGroupAllInactiveHiddenSubtitle": "All {termPlural} in this group are inactive. Turn on Show inactive to see them.",
   "@memberGroupAllInactiveHiddenSubtitle": {
     "description": "Empty state subtitle in group detail when every member is inactive and the show-inactive toggle is off",
     "placeholders": {

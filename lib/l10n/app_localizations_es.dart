@@ -1768,11 +1768,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get systemInfoHideTotalMemberCountTitle =>
-      'Ocultar el total de integrantes';
+      'Ocultar conteos de integrantes';
 
   @override
   String get systemInfoHideTotalMemberCountSubtitle =>
-      'Oculta los totales en Ajustes, Información del sistema, Estadísticas y diagnósticos. Los conteos de grupos siguen visibles.';
+      'Oculta los totales en Ajustes, Información del sistema, Estadísticas, diagnósticos y conteos de grupos o carpetas.';
 
   @override
   String get devicesTitle => 'Administrar dispositivos';

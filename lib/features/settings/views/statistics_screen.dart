@@ -23,16 +23,16 @@ class StatisticsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final hideTotalMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
-    final memberCountAsync = hideTotalMemberCount
+    final memberCountAsync = hideMemberCounts
         ? null
         : ref.watch(memberCountStatProvider);
     final sessionCountAsync = ref.watch(sessionCountStatProvider);
-    final membersAsync = hideTotalMemberCount
+    final membersAsync = hideMemberCounts
         ? null
         : ref.watch(allMembersStatProvider);
     final sessionsAsync = ref.watch(allSessionsStatProvider);
@@ -65,7 +65,7 @@ class StatisticsScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (!hideTotalMemberCount) ...[
+                  if (!hideMemberCounts) ...[
                     _StatRow(
                       label: context.l10n.statisticsTotalMembers(
                         watchTerminology(context, ref).pluralLower,

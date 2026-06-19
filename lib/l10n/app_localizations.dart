@@ -3194,16 +3194,16 @@ abstract class AppLocalizations {
   /// **'No color set'**
   String get systemInfoColorNoneSet;
 
-  /// Switch label for hiding global member count totals
+  /// Switch label for hiding member count totals and group count chips
   ///
   /// In en, this message translates to:
-  /// **'Hide total member count'**
+  /// **'Hide member counts'**
   String get systemInfoHideTotalMemberCountTitle;
 
-  /// Helper text for hiding total member count displays
+  /// Helper text for hiding member count displays
   ///
   /// In en, this message translates to:
-  /// **'Hides total counts in Settings, System Information, Statistics, and diagnostics. Group counts stay visible.'**
+  /// **'Hides member totals in Settings, System Information, Statistics, diagnostics, and group or folder count chips.'**
   String get systemInfoHideTotalMemberCountSubtitle;
 
   /// Device management screen title
@@ -5557,7 +5557,7 @@ abstract class AppLocalizations {
   /// Empty state subtitle in group detail when every member is inactive and the show-inactive toggle is off
   ///
   /// In en, this message translates to:
-  /// **'Every {termPlural} in this group is inactive. Turn on Show inactive to see them.'**
+  /// **'All {termPlural} in this group are inactive. Turn on Show inactive to see them.'**
   String memberGroupAllInactiveHiddenSubtitle(String termPlural);
 
   /// Label for the inactive/archived filter chip in system management screen

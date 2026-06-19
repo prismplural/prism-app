@@ -31,9 +31,9 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
     final hlcAsync = ref.watch(crdtLatestHlcProvider);
     final dbPathAsync = ref.watch(dbPathProvider);
     final terms = watchTerminology(context, ref);
-    final hideTotalMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
 
@@ -59,7 +59,7 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (!hideTotalMemberCount) ...[
+                if (!hideMemberCounts) ...[
                   _CountRow(
                     label: terms.plural,
                     countAsync: ref.watch(memberCountProvider),

@@ -1,20 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 
 void main() {
-  test('app registry includes hide total member count preference', () {
+  test('app registry includes hide member counts preference', () {
     expect(
       appPreferenceRegistry.definitions,
-      contains(hideTotalMemberCountPreference),
+      contains(hideMemberCountsPreference),
     );
-    expect(
-      hideTotalMemberCountPreference.key,
-      'privacy.hide_total_member_count',
-    );
-    expect(hideTotalMemberCountPreference.scope, PreferenceScope.appSynced);
-    expect(hideTotalMemberCountPreference.defaultValue, isFalse);
+    expect(hideMemberCountsPreference.key, 'privacy.hide_total_member_count');
+    expect(hideMemberCountsPreference.scope, PreferenceScope.appSynced);
+    expect(hideMemberCountsPreference.defaultValue, isFalse);
   });
 
   test('accessibility preferences are current synced app preferences', () {

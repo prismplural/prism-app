@@ -962,9 +962,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     final terms = watchTerminology(context, ref);
     final rootGroups = ref.watch(childGroupsProvider(null));
     final counts = ref.watch(groupMemberCountsProvider);
-    final hideMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final entries = ref.watch(allGroupEntriesProvider).value ?? [];
@@ -992,7 +992,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                   key: ValueKey('folder_${group.id}'),
                   group: group,
                   memberCount: counts[group.id] ?? 0,
-                  showMemberCount: !hideMemberCount,
+                  showMemberCount: !hideMemberCounts,
                   onTap: () => _openGroup(group.id),
                 );
               }
@@ -1070,9 +1070,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     _MemberTilePrefs memberTilePrefs,
   ) {
     final tree = ref.watch(groupTreeProvider);
-    final hideMemberCount =
+    final hideMemberCounts =
         ref
-            .watch(hideTotalMemberCountProvider)
+            .watch(hideMemberCountsProvider)
             .whenOrNull(data: (value) => value) ??
         true;
     final itemIndexes = <Key, int>{
@@ -1098,7 +1098,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                     group: item.group,
                     depth: item.depth.clamp(0, kSectionsVisualDepthCap),
                     memberCount: counts[item.group.id] ?? 0,
-                    showMemberCount: !hideMemberCount,
+                    showMemberCount: !hideMemberCounts,
                     isCollapsed: item.isCollapsed,
                     canCollapse: true,
                     onToggle: () => ref
@@ -1130,7 +1130,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                       group: null,
                       depth: 0,
                       memberCount: item.memberCount,
-                      showMemberCount: !hideMemberCount,
+                      showMemberCount: !hideMemberCounts,
                       isCollapsed: false,
                       canCollapse: false,
                       onToggle: null,

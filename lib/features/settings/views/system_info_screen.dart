@@ -208,7 +208,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     // System info shows member count + avatar cluster — exclude the Unknown
     // sentinel so it doesn't appear as a manageable headmate.
     final membersAsync = ref.watch(userVisibleMembersProvider);
-    final hideTotalMemberCountAsync = ref.watch(hideTotalMemberCountProvider);
+    final hideMemberCountsAsync = ref.watch(hideMemberCountsProvider);
     final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
@@ -230,14 +230,11 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
           }
 
           final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
-          final hideTotalMemberCount =
-              hideTotalMemberCountAsync.whenOrNull(data: (value) => value) ??
-              true;
-          final hideTotalMemberCountSwitchValue =
-              hideTotalMemberCountAsync.whenOrNull(data: (value) => value) ??
-              false;
-          final hideTotalMemberCountSwitchEnabled =
-              hideTotalMemberCountAsync.hasValue;
+          final hideMemberCounts =
+              hideMemberCountsAsync.whenOrNull(data: (value) => value) ?? true;
+          final hideMemberCountsSwitchValue =
+              hideMemberCountsAsync.whenOrNull(data: (value) => value) ?? false;
+          final hideMemberCountsSwitchEnabled = hideMemberCountsAsync.hasValue;
           final Uint8List? avatarData = settings.systemAvatarData;
           final String? colorHex = settings.systemColor;
           final Color? systemColor = colorHex != null
@@ -306,7 +303,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                         : members.isNotEmpty
                         ? _AvatarCluster(
                             members: members,
-                            hideOverflowCount: hideTotalMemberCount,
+                            hideOverflowCount: hideMemberCounts,
                           )
                         : CircleAvatar(
                             radius: 56,
@@ -479,13 +476,11 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                   iconColor: Colors.indigo,
                   title: l10n.systemInfoHideTotalMemberCountTitle,
                   subtitle: l10n.systemInfoHideTotalMemberCountSubtitle,
-                  value: hideTotalMemberCountSwitchValue,
-                  enabled: hideTotalMemberCountSwitchEnabled,
+                  value: hideMemberCountsSwitchValue,
+                  enabled: hideMemberCountsSwitchEnabled,
                   onChanged: (value) {
                     unawaited(
-                      ref
-                          .read(hideTotalMemberCountProvider.notifier)
-                          .set(value),
+                      ref.read(hideMemberCountsProvider.notifier).set(value),
                     );
                   },
                 ),
@@ -494,7 +489,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               const SizedBox(height: 16),
 
               // Member count caption
-              if (!hideTotalMemberCount && members.isNotEmpty)
+              if (!hideMemberCounts && members.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
