@@ -20,11 +20,13 @@ const kDatabaseKeyStorageKey = 'prism_sync.database_key';
 
 /// Hex-encoded 32-byte key for the Rust sync database (`prism_sync.db`).
 ///
-/// Stored separately from [kDatabaseKeyStorageKey] so that crash-safe rotation
-/// of the two databases can be staged independently. Both keys converge to the
-/// same HKDF-derived local-storage key after `cacheRuntimeKeys` completes, but
-/// are rotated one at a time (Drift first, then Rust) with their own staging
-/// slots for crash recovery.
+/// Stored separately from [kDatabaseKeyStorageKey] so each DB carries its own
+/// stable, device-local at-rest key with its own staging slot for crash-safe
+/// rotation. Neither key is bound to the sync group's rotating material:
+/// `cacheRuntimeKeys` no longer rotates prism.db to the engine's local-storage
+/// key (that key is HKDF(DEK, DeviceSecret), and DeviceSecret is wiped on
+/// credential reset + regenerated on re-pair — binding the at-rest key to it
+/// orphaned intact DBs on any skipped/interrupted rekey).
 ///
 /// For existing installs that pre-date this slot, [ensureLocalSyncDatabaseKey]
 /// seeds it from [kDatabaseKeyStorageKey] so `createPrismSync` keeps opening
@@ -100,6 +102,34 @@ Future<void> setKeychainRepairPending(bool value) async {
   } else {
     await prefs.remove(kKeychainRepairPendingKey);
   }
+}
+
+/// Count of consecutive boots that ended in `keychainUnavailable` (the app DB
+/// key could not be read this boot). Reset to 0 on any `ready` boot. Once it
+/// reaches [kKeychainUnavailableResetThreshold] the otherwise non-destructive
+/// recovery screen also offers a last-resort reset, so a genuinely-broken
+/// keystore isn't a permanent dead-end while transient flaps stay
+/// non-destructive.
+const kKeychainUnavailableBootCountKey =
+    'prism.keychain.unavailable_boot_count';
+
+/// Consecutive `keychainUnavailable` boots before the recovery screen surfaces
+/// a last-resort reset. Three keeps single/double transient flaps fully
+/// non-destructive.
+const kKeychainUnavailableResetThreshold = 3;
+
+/// Increment and return the consecutive-`keychainUnavailable`-boot counter.
+Future<int> incrementKeychainUnavailableBootCount() async {
+  final prefs = await SharedPreferences.getInstance();
+  final next = (prefs.getInt(kKeychainUnavailableBootCountKey) ?? 0) + 1;
+  await prefs.setInt(kKeychainUnavailableBootCountKey, next);
+  return next;
+}
+
+/// Clear the consecutive-`keychainUnavailable`-boot counter (a boot recovered).
+Future<void> clearKeychainUnavailableBootCount() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(kKeychainUnavailableBootCountKey);
 }
 
 // ---------------------------------------------------------------------------
@@ -574,8 +604,22 @@ Future<void> restoreDatabaseKeyHexForRecovery(
 /// has flagged the keychain as repair-pending, callers must supply
 /// [verifiedStartupKey].
 Future<String> ensureLocalDatabaseKey({String? verifiedStartupKey}) async {
-  final existing = await readDatabaseKeyHex();
-  if (existing != null) return existing;
+  final existing = await readSlotForDiagnostic(
+    kDatabaseKeyStorageKey,
+    slotLabel: 'primary DB key',
+  );
+  if (existing.hex != null) return existing.hex!;
+  // Only a CLEAN missing read may proceed to generate. A failed read
+  // (transient / unknown / cipher / invalid) is indeterminate — the slot may
+  // hold the real key, and generating a new one over it would orphan an
+  // existing prism.db. Refuse and let the caller retry when readable.
+  if (existing.outcome != SlotOutcome.missing) {
+    throw StateError(
+      'Refusing to generate app DB key: existing slot read was '
+      '${existing.outcome.name}, not a clean miss — retry when the keychain '
+      'is readable',
+    );
+  }
 
   // Generate 32 random bytes via platform CSPRNG.
   final rng = Random.secure();
@@ -630,11 +674,11 @@ Future<void> clearDatabaseEncryptionState() async {
 // Rust sync database key management (prism_sync.db)
 // ---------------------------------------------------------------------------
 //
-// The Rust sync database uses a DEDICATED keychain slot so its key can be
-// rotated independently from the Drift app database. Both converge to the
-// same HKDF-derived local-storage key after cacheRuntimeKeys completes, but
-// they are rotated one at a time (Drift first, Rust second) so a crash between
-// the two rotations is safely recoverable via each DB's own staging slot.
+// The Rust sync database uses a DEDICATED keychain slot, independent of the
+// Drift app-database slot. Each DB keeps its own stable device-local at-rest
+// key; neither is rotated to the sync engine's local-storage key (see
+// `cacheRuntimeKeys`). The staging slots remain for crash-safe rotation should
+// a deliberate rekey ever be reintroduced.
 
 /// Promote the sync DB staging key to the primary slot.
 ///
@@ -668,22 +712,48 @@ Future<void> discardStagingSyncDatabaseKey() async {
 /// continues to open the sync DB with the same key it was using before the
 /// split. On fresh installs both slots are generated independently.
 Future<String> ensureLocalSyncDatabaseKey({String? verifiedStartupKey}) async {
-  final existing = await readSyncDatabaseKeyHex();
-  if (existing != null) return existing;
+  final existing = await readSlotForDiagnostic(
+    kSyncDatabaseKeyStorageKey,
+    slotLabel: 'sync DB key',
+  );
+  if (existing.hex != null) return existing.hex!;
+  // Only a CLEAN missing read may migrate/generate. A failed read (transient /
+  // unknown / cipher / invalid) is indeterminate: the slot may hold the real
+  // dedicated key, and overwriting it with the Drift key — or a fresh one —
+  // would orphan prism_sync.db, which is encrypted with the real key. Refuse
+  // and let the caller retry once the keychain is readable.
+  if (existing.outcome != SlotOutcome.missing) {
+    throw StateError(
+      'Refusing to seed sync DB key: existing slot read was '
+      '${existing.outcome.name}, not a clean miss — retry when the keychain '
+      'is readable',
+    );
+  }
 
   // Migration path: the sync DB was previously opened with the Drift key.
   // Copy it to the new dedicated slot so the DB remains openable.
-  final driftKey = await readDatabaseKeyHex();
-  if (driftKey != null) {
+  final driftRead = await readSlotForDiagnostic(
+    kDatabaseKeyStorageKey,
+    slotLabel: 'primary DB key (sync seed)',
+  );
+  if (driftRead.hex != null) {
     final writeResult = await writeSyncDatabaseKeyHex(
-      driftKey,
+      driftRead.hex!,
       verifiedStartupKey: verifiedStartupKey,
     );
     _requireSecureWriteOk(writeResult, 'Migrate sync DB key from Drift slot');
     debugPrint(
       '[DB_ENCRYPT] Migrated sync DB key from Drift slot to dedicated slot',
     );
-    return driftKey;
+    return driftRead.hex!;
+  }
+  // The Drift slot also failed to read cleanly — refuse rather than generate a
+  // fresh key that could orphan a sync DB encrypted with an unread key.
+  if (driftRead.outcome != SlotOutcome.missing) {
+    throw StateError(
+      'Refusing to generate sync DB key: Drift slot read was '
+      '${driftRead.outcome.name}, not a clean miss',
+    );
   }
 
   // Neither slot exists — generate a fresh key.

@@ -584,7 +584,13 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       unawaited(_cancelActiveCeremony());
       state = state.copyWith(
         step: PairingStep.error,
-        errorMessage: structuredError?.userMessage ?? e.toString(),
+        // A transient secure-storage read at boot (keychainUnavailable) is not
+        // a pairing failure — the data is intact and a relaunch usually clears
+        // it. Give the calm "try again" copy rather than a raw exception dump.
+        errorMessage: e is SyncDbKeychainUnavailableException
+            ? "Couldn't reach secure storage just now — your data is safe. "
+                  'Close and reopen Prism, then try pairing again.'
+            : structuredError?.userMessage ?? e.toString(),
         errorCode: structuredError?.code,
       );
     }

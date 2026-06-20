@@ -1079,7 +1079,9 @@ class _ConfiguredView extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        final message = e is SyncDbUnrecoverableException
+        final message = e is SyncDbKeychainUnavailableException
+            ? _syncTemporarilyUnavailableMessage
+            : e is SyncDbUnrecoverableException
             ? _syncDatabaseNeedsRepairMessage
             : context.l10n.syncFailed(e);
         PrismToast.error(context, message: message);
@@ -1111,6 +1113,10 @@ class _ConfiguredView extends ConsumerWidget {
 const _syncDatabaseNeedsRepairMessage =
     'Sync database needs repair. Open Advanced to reset sync and re-pair '
     'this device.';
+
+const _syncTemporarilyUnavailableMessage =
+    "Couldn't reach secure storage just now — your data is safe. Close and "
+    'reopen Prism, then try syncing again.';
 
 bool _watchSyncDatabaseReadyForUi(WidgetRef ref) {
   try {

@@ -20,6 +20,13 @@ enum ResetRecoveryScreenMode {
   freshInstallAnomaly,
   sentinelRestored,
   keychainUnreadable,
+
+  /// Secure storage could not be READ this boot (transient / locked / platform
+  /// error), so no key could be verified — but the on-disk data is very likely
+  /// intact. This screen is deliberately NON-destructive: the only actions are
+  /// to retry/restart. No reset, no erase. Distinct from [keychainUnreadable],
+  /// which is for a genuinely lost/corrupt key.
+  keychainUnavailable,
 }
 
 /// Diagnostic handoff outcome for the recovery screen.
@@ -47,6 +54,7 @@ class ResetRecoveryApp extends StatelessWidget {
     this.shareDiagnostic,
     this.syncHistoryHintReader,
     this.appExit,
+    this.offerResetOnUnavailable = false,
   });
 
   final ResetRecoveryScreenMode mode;
@@ -65,6 +73,11 @@ class ResetRecoveryApp extends StatelessWidget {
   /// Test hook for the platform "exit" action ("Restart and unlock and try
   /// again" primary button).
   final AppExitHandler? appExit;
+
+  /// Only for [ResetRecoveryScreenMode.keychainUnavailable]: after enough
+  /// consecutive unreadable boots (see `kKeychainUnavailableResetThreshold`)
+  /// the otherwise non-destructive screen also surfaces a last-resort reset.
+  final bool offerResetOnUnavailable;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +103,7 @@ class ResetRecoveryApp extends StatelessWidget {
           shareDiagnostic: shareDiagnostic,
           syncHistoryHintReader: syncHistoryHintReader,
           appExit: appExit,
+          offerResetOnUnavailable: offerResetOnUnavailable,
         ),
         debugShowCheckedModeBanner: false,
       ),
@@ -106,6 +120,7 @@ class ResetRecoveryScreen extends StatefulWidget {
     this.shareDiagnostic,
     this.syncHistoryHintReader,
     this.appExit,
+    this.offerResetOnUnavailable = false,
   });
 
   final ResetRecoveryScreenMode mode;
@@ -114,6 +129,9 @@ class ResetRecoveryScreen extends StatefulWidget {
   final DiagnosticReportShareHandler? shareDiagnostic;
   final SyncHistoryHintReader? syncHistoryHintReader;
   final AppExitHandler? appExit;
+
+  /// See [ResetRecoveryApp.offerResetOnUnavailable].
+  final bool offerResetOnUnavailable;
 
   @override
   State<ResetRecoveryScreen> createState() => _ResetRecoveryScreenState();
@@ -143,10 +161,13 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     final isAnomaly = _mode == ResetRecoveryScreenMode.freshInstallAnomaly;
     final isKeychainUnreadable =
         _mode == ResetRecoveryScreenMode.keychainUnreadable;
+    final isKeychainUnavailable =
+        _mode == ResetRecoveryScreenMode.keychainUnavailable;
     final headerIcon = switch (_mode) {
       ResetRecoveryScreenMode.freshInstallAnomaly =>
         Icons.warning_amber_rounded,
       ResetRecoveryScreenMode.keychainUnreadable => Icons.lock_outline,
+      ResetRecoveryScreenMode.keychainUnavailable => Icons.lock_clock_outlined,
       _ => Icons.check_circle_outline,
     };
     final headerIconColor = (isAnomaly || isKeychainUnreadable)
@@ -203,6 +224,8 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
                   const SizedBox(height: 24),
                   if (isAnomaly)
                     ..._buildFreshInstallAnomalyActions(colorScheme)
+                  else if (isKeychainUnavailable)
+                    ..._buildKeychainUnavailableActions(colorScheme)
                   else if (isKeychainUnreadable)
                     ..._buildKeychainUnreadableActions(colorScheme)
                   else
@@ -257,6 +280,61 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
         enabled: !_busy,
         tone: PrismButtonTone.outlined,
       ),
+    ];
+  }
+
+  /// Non-destructive actions for the "secure storage temporarily unreadable"
+  /// screen. Deliberately NO reset / erase: the data is very likely intact and
+  /// the next launch usually reads fine. Mirrors the iOS "please retry"
+  /// precedent — never offer to destroy data on a read we couldn't complete.
+  List<Widget> _buildKeychainUnavailableActions(ColorScheme colorScheme) {
+    return [
+      PrismButton(
+        label: 'Close and reopen Prism',
+        onPressed: _busy ? () {} : _restartAndTryAgain,
+        enabled: !_busy,
+        tone: PrismButtonTone.filled,
+      ),
+      const SizedBox(height: 12),
+      Text(
+        'Your data is still on this device — Prism just could not reach secure '
+        'storage this time. Fully close Prism and reopen it. If it keeps '
+        'happening, restart your device.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+      const SizedBox(height: 8),
+      TextButton(
+        onPressed: _busy ? null : _saveDiagnosticReport,
+        child: Text(
+          'Save diagnostic report',
+          style: TextStyle(color: colorScheme.onSurfaceVariant),
+        ),
+      ),
+      // Last-resort escape hatch: only after several consecutive unreadable
+      // boots (a likely-permanent keystore fault, not a flap) do we offer a
+      // destructive reset, behind the same confirmation as the unreadable
+      // screen — so a genuinely-broken device isn't a permanent dead-end.
+      if (widget.offerResetOnUnavailable) ...[
+        const SizedBox(height: 16),
+        Text(
+          'Still stuck after restarting several times? As a last resort you '
+          'can reset local data on this device.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          label: 'Reset local data (last resort)',
+          onPressed: _confirmAndResetLocalData,
+          enabled: !_busy,
+          tone: PrismButtonTone.outlined,
+        ),
+      ],
     ];
   }
 
@@ -454,6 +532,8 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
     ResetRecoveryScreenMode.sentinelRestored => 'Ready to continue',
     ResetRecoveryScreenMode.keychainUnreadable =>
       'Local data cannot be unlocked',
+    ResetRecoveryScreenMode.keychainUnavailable =>
+      'Secure storage is temporarily unavailable',
   };
 
   String get _message => switch (_mode) {
@@ -467,6 +547,9 @@ class _ResetRecoveryScreenState extends State<ResetRecoveryScreen> {
       'Close and reopen Prism to continue with the existing local data.',
     ResetRecoveryScreenMode.keychainUnreadable =>
       "Prism can't read the encryption key for this device's data.",
+    ResetRecoveryScreenMode.keychainUnavailable =>
+      "Prism couldn't reach this device's secure storage just now. This is "
+          'usually temporary and your data is safe.',
   };
 
   Future<void> _loadContinueAvailability() async {

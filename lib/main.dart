@@ -173,6 +173,28 @@ void main() async {
     return;
   }
 
+  // App DB key couldn't be READ this boot, but the on-disk DB is very likely
+  // intact — show a non-destructive retry screen, never the reset flow, so a
+  // keychain flap can't drive a user into erasing recoverable data. Only after
+  // several consecutive such boots (a likely-permanent fault, not a flap) does
+  // it also offer a last-resort reset, so a broken device isn't a dead-end.
+  if (appProbe.state == DbStartupState.keychainUnavailable) {
+    final unavailableStreak = await incrementKeychainUnavailableBootCount();
+    runApp(
+      ResetRecoveryApp(
+        mode: ResetRecoveryScreenMode.keychainUnavailable,
+        diagnostic: combinedDiagnostic,
+        offerResetOnUnavailable:
+            unavailableStreak >= kKeychainUnavailableResetThreshold,
+      ),
+    );
+    return;
+  }
+
+  // App DB key read fine this boot — clear any prior keychainUnavailable streak
+  // so the last-resort reset only ever appears after *consecutive* failures.
+  await clearKeychainUnavailableBootCount();
+
   // Sync DB only unrecoverable → continue boot in degraded mode. The §8
   // KeychainDegradedStateService transitions were already written by
   // `probeSyncDatabaseStartup` itself (syncKey + syncCredentials →
@@ -395,26 +417,33 @@ Future<void> _initRustLib() async {
   await RustLib.init();
 }
 
-/// Wraps [probeAppDatabaseStartup] so any unexpected throw becomes a
-/// synthetic unrecoverable report. The probe itself already catches
-/// classified secure-storage failures; this is belt-and-braces.
+/// Wraps [probeAppDatabaseStartup] so any unexpected throw becomes a synthetic
+/// report. The probe itself already catches classified secure-storage failures
+/// and decides ready / keychainUnavailable / unrecoverable; this is
+/// belt-and-braces for an UNEXPECTED, unclassified throw.
+///
+/// We synthesise `keychainUnavailable`, NOT `unrecoverable`: we have no
+/// positive evidence the on-disk key is gone — only that the probe failed to
+/// complete — so we must not route an intact DB to the destructive reset
+/// screen. The non-destructive retry screen handles it, and its escape hatch
+/// surfaces a last-resort reset if the throw is persistent.
 Future<DbStartupReport> _safeProbeAppDb() async {
   try {
     return await probeAppDatabaseStartup();
   } catch (e, st) {
     debugPrint(
       '[BOOT] probeAppDatabaseStartup threw — synthesising '
-      'unrecoverable report: $e\n$st',
+      'keychainUnavailable report (deferred, not destructive): $e\n$st',
     );
     return DbStartupReport(
-      state: DbStartupState.unrecoverable,
+      state: DbStartupState.keychainUnavailable,
       keyInMemory: null,
       usedRecoverySlot: null,
       diagnostic: SecureStorageDiagnostic(
         recoveredVia: null,
-        // Stamp the terminal state so a healthy sync probe's `recoveredVia`
-        // can't mask app DB data loss in the merge (see mergeWith).
-        appDbState: DbStartupStateName.unrecoverable,
+        // Non-null terminal state so a healthy sync probe's `recoveredVia`
+        // can't mask the app DB outcome in the merge (see mergeWith).
+        appDbState: DbStartupStateName.keychainUnavailable,
         slotOutcomes: <String, String>{'probe': 'threw: $e'},
       ),
     );

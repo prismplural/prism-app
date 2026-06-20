@@ -293,6 +293,21 @@ class SyncDbUnrecoverableException implements Exception {
       'app continues in local-only mode pending re-pair';
 }
 
+/// Thrown by `createHandle` when the §5 sync DB probe returned
+/// `keychainUnavailable` — the sync key could not be READ this boot (likely a
+/// transient/locked keychain), as opposed to a genuinely lost key. The
+/// `build()` path catches this and runs local-only WITHOUT stamping
+/// `syncKey/syncCredentials = unreadable`, so a momentary flap doesn't surface
+/// a spurious "re-pair to resume sync" banner. The next clean boot recovers.
+class SyncDbKeychainUnavailableException implements Exception {
+  const SyncDbKeychainUnavailableException();
+
+  @override
+  String toString() =>
+      'SyncDbKeychainUnavailableException: sync DB key could not be read this '
+      'boot; app continues in local-only mode and retries next boot';
+}
+
 // ---------------------------------------------------------------------------
 // §5 — Sync DB startup probe + recovery
 // ---------------------------------------------------------------------------
@@ -303,12 +318,11 @@ class SyncDbUnrecoverableException implements Exception {
 //   1. The fresh-install branch does NOT generate a key. The sync DB is only
 //      created during the pairing flow; there is no sensible standalone key
 //      to write at boot.
-//   2. There are additional cross-DB recovery candidates: older installs
-//      converged the two keys when `cacheRuntimeKeys` rotated both DBs to
-//      the HKDF-derived local-storage key, so the app-DB primary/staging
-//      slots are valid candidates for opening `prism_sync.db` on those
-//      installs. (`ensureLocalSyncDatabaseKey` documents the migration
-//      that seeds the dedicated sync slot from the Drift slot.)
+//   2. Cross-DB recovery candidates: where the app-DB key equals the sync-DB
+//      key (fresh installs seed the sync slot from the Drift slot; older
+//      installs converged), the app-DB slots can open `prism_sync.db`. They
+//      fail harmlessly when the keys differ (prism.db is no longer rotated to
+//      the engine key).
 //
 // On unrecoverable: the app still launches (local-only mode); the sync
 // handle is just null and the in-app banner surfaces re-pair guidance.
@@ -385,6 +399,16 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
   final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
   final file = File(dbPath);
 
+  // See the app-DB probe: a transient/unknown (or unreadable-identity) read is
+  // "couldn't read", not "key gone". On it we defer to keychainUnavailable
+  // rather than declaring the sync DB unrecoverable.
+  var sawIndeterminate = false;
+  void noteOutcome(SlotOutcome outcome) {
+    if (outcome == SlotOutcome.transient || outcome == SlotOutcome.unknown) {
+      sawIndeterminate = true;
+    }
+  }
+
   Future<SecureStorageDiagnostic> buildDiagnostic({
     required String? recoveredVia,
     required DbStartupStateName syncDbState,
@@ -455,6 +479,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     kSyncDatabaseKeyStorageKey,
     slotLabel: 'sync DB key',
   );
+  noteOutcome(syncPrimary.outcome);
   if (syncPrimary.hex != null) {
     if (await syncDatabaseOpenProbe(dbPath, syncPrimary.hex!)) {
       debugPrint('[SYNC_PROBE] Sync primary slot opened the sync DB');
@@ -482,6 +507,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     '${kSyncDatabaseKeyStorageKey}_staging',
     slotLabel: 'sync DB staging key',
   );
+  noteOutcome(syncStaging.outcome);
   if (syncStaging.hex != null) {
     if (await syncDatabaseOpenProbe(dbPath, syncStaging.hex!)) {
       debugPrint(
@@ -543,6 +569,7 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
     '${kDatabaseKeyStorageKey}_staging',
     slotLabel: 'app DB staging key',
   );
+  noteOutcome(appStaging.outcome);
   if (appStaging.hex != null) {
     if (await syncDatabaseOpenProbe(dbPath, appStaging.hex!)) {
       debugPrint(
@@ -570,6 +597,11 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
 
   // ── 7. Unpaired stale DB ────────────────────────────────────────────────
   final syncIdentityState = await _readPersistentSyncIdentityState();
+  if (syncIdentityState == PersistentSyncIdentityState.unreadable) {
+    // We couldn't even read the identity slots — don't discard the DB and
+    // don't declare it unrecoverable on a read we couldn't complete.
+    sawIndeterminate = true;
+  }
   if (syncIdentityState == PersistentSyncIdentityState.absent) {
     await _discardUnpairedSyncDatabase(dbPath: dbPath);
     slotOutcomes[DiagnosticSlotIds.syncDbUnpairedDiscard] = 'ok';
@@ -589,7 +621,29 @@ Future<DbStartupReport> probeSyncDatabaseStartup({
         'skipped: partial-identity';
   }
 
-  // ── 8. Unrecoverable ───────────────────────────────────────────────────
+  // ── 8. No slot produced a working key ──────────────────────────────────
+  //
+  // As with the app DB: if any read was indeterminate (transient / unknown /
+  // unreadable identity), we couldn't read the keychain this boot — defer
+  // rather than declare the sync DB unrecoverable (which strands sync and, on
+  // the unpaired path, can discard + recreate the DB). Don't stamp the slots
+  // permanently unreadable.
+  if (sawIndeterminate) {
+    debugPrint(
+      '[SYNC_PROBE] Recovery slots could not be read this boot — keychain '
+      'unavailable (deferring, NOT unrecoverable). Outcomes: $slotOutcomes',
+    );
+    return DbStartupReport(
+      state: DbStartupState.keychainUnavailable,
+      keyInMemory: null,
+      usedRecoverySlot: null,
+      diagnostic: await buildDiagnostic(
+        recoveredVia: null,
+        syncDbState: DbStartupStateName.keychainUnavailable,
+      ),
+    );
+  }
+
   debugPrint(
     '[SYNC_PROBE] All recovery slots exhausted — sync DB unrecoverable. '
     'Outcomes: $slotOutcomes',
@@ -830,6 +884,21 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
           severity: ErrorSeverity.warning,
         );
         return null;
+      } on SyncDbKeychainUnavailableException catch (e) {
+        // Sync DB key couldn't be READ this boot (likely transient). Run
+        // local-only but DON'T stamp the slots unreadable — that would surface
+        // a spurious re-pair banner for a temporary condition. The probe left
+        // the degraded state untouched on purpose; the next clean boot
+        // recovers and a ready sync probe sets syncKey = ok.
+        debugPrint(
+          '[SYNC] Sync keychain unavailable this boot — local-only, '
+          'no degraded-slot stamp',
+        );
+        ErrorReportingService.instance.report(
+          'Sync DB keychain unavailable on boot (transient): $e',
+          severity: ErrorSeverity.warning,
+        );
+        return null;
       } catch (e, st) {
         // Non-fatal: user can re-setup from settings
         ErrorReportingService.instance.report(
@@ -879,8 +948,17 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // If the existing sync DB cannot be opened, surface degraded sync instead
     // of generating a replacement key.
     final probeReport = ref.read(syncDatabaseStartupProvider);
+    // Neither non-ready state may fall through to `ensureLocalSyncDatabaseKey`
+    // (which would generate/migrate a replacement key over a real-but-unread
+    // slot and orphan prism_sync.db). They differ only in how `build()` reports
+    // them: `unrecoverable` stamps the slots unreadable (re-pair banner);
+    // `keychainUnavailable` (couldn't read this boot, DB likely intact) stays
+    // quiet and retries next boot.
     if (probeReport.state == DbStartupState.unrecoverable) {
       throw const SyncDbUnrecoverableException();
+    }
+    if (probeReport.state == DbStartupState.keychainUnavailable) {
+      throw const SyncDbKeychainUnavailableException();
     }
     final probeKeyHex = discardedUnpairedDb ? null : probeReport.keyInMemory;
     final String databaseKeyHex;
@@ -1362,23 +1440,11 @@ Future<SyncHealthState> _autoConfigureIfReady(
       maxRetries: 3,
     );
 
-    // Safety-net backfill: derive and cache the local storage key if the
-    // keychain slot is empty. With always-on encryption (Signal model),
-    // ensureLocalDatabaseKey() populates this slot at first launch, so this
-    // guard is normally a no-op. It remains as defense-in-depth for edge
-    // cases (e.g. upgrade from a very old version).
-    try {
-      final existingDbKey = await readDatabaseKeyHex();
-      if (existingDbKey == null) {
-        final lskBytes = await ffi.localStorageKey(handle: handle);
-        await cacheDatabaseKey(Uint8List.fromList(lskBytes));
-        debugPrint(
-          '[SYNC] Backfilled database encryption key from local_storage_key',
-        );
-      }
-    } catch (e) {
-      debugPrint('[SYNC] Failed to backfill database key (non-fatal): $e');
-    }
+    // Deliberately NO local-storage-key backfill of the primary app-DB slot:
+    // prism.db is no longer keyed by the LSK (see `cacheRuntimeKeys`), so
+    // writing the LSK would diverge from the on-disk key and orphan the DB. A
+    // missing/stale slot is instead repaired with the VERIFIED key (via
+    // `repairPrimaryDatabaseKeyFromVerifiedMemory`), never the LSK.
 
     // Cold-start catch-up sync is scheduled as fire-and-forget in
     // `createHandle()` after `cacheRuntimeKeys` + `drainRustStore`, so it does
@@ -2508,18 +2574,20 @@ Future<void> writeRuntimeDekCacheCore({
 /// Export the raw DEK from Rust and cache it as a device-bound wrapped blob.
 ///
 /// Call after `initialize()`, `unlock()`, or a completed pairing ceremony —
-/// any operation that leaves the key hierarchy unlocked. On subsequent app launches,
-/// `_autoConfigureIfReady` unwraps this cached DEK to restore the unlocked
-/// state without re-deriving via Argon2id.
-/// If the device does not have a sync_id/device_id yet (pre-sync onboarding),
-/// the runtime cache is skipped; app DB rotation still runs.
+/// any operation that leaves the key hierarchy unlocked. On subsequent app
+/// launches, `_autoConfigureIfReady` unwraps this cached DEK to restore the
+/// unlocked state without re-deriving via Argon2id. If the device does not
+/// have a sync_id/device_id yet (pre-sync onboarding) the runtime cache is
+/// skipped.
 ///
-/// Rotates the Drift app DB to the HKDF-derived local storage key
-/// (HKDF(DEK, DeviceSecret)).
-Future<void> cacheRuntimeKeys(
-  ffi.PrismSyncHandle handle,
-  AppDatabase db,
-) async {
+/// Does NOT rotate the app DB key. Both local DBs keep their own stable
+/// device-local at-rest keys; the app DB is deliberately not bound to the
+/// engine local-storage key (HKDF(DEK, DeviceSecret)) — DeviceSecret is wiped
+/// on credential reset and regenerated on re-pair, so binding the at-rest key
+/// to it orphaned intact DBs on the next cold boot. `db` is retained only for
+/// signature stability (a deliberate at-rest rekey could be reintroduced
+/// through it) and is otherwise unused.
+Future<void> cacheRuntimeKeys(ffi.PrismSyncHandle handle, AppDatabase db) async {
   final runtimeDekAad = buildRuntimeDekAad(
     syncId: decodeStoredUtf8(
       await _safeReadValue('${_secureStorePrefix}sync_id'),
@@ -2559,27 +2627,8 @@ Future<void> cacheRuntimeKeys(
     }
   }
 
-  // Rotate only prism.db. prism_sync.db keeps its original dedicated key.
-  try {
-    final lskBytes = Uint8List.fromList(
-      await ffi.localStorageKey(handle: handle),
-    );
-    final newHexKey = lskBytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
-
-    final currentDriftKey = await readDatabaseKeyHex();
-    if (currentDriftKey != newHexKey) {
-      await rotateDatabaseToKey(db: db, newKey: lskBytes);
-    }
-
-    // Keep the Rust sync DB on its original dedicated key. Rekeying it under
-    // WAL has produced files that fail to reopen after Android process death.
-  } catch (e) {
-    // Non-fatal: the app DB keeps its current key and rotation retries on
-    // the next unlock.
-    debugPrint('[SYNC] Failed to rotate database keys to derived key: $e');
-  }
+  // No app-DB rotation here — both local DBs keep their own device-local keys
+  // (see the doc comment for why binding to the engine key orphaned DBs).
 }
 
 /// Pure, testable core of the keychain-write phase of `drainRustStore`.

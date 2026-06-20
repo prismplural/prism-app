@@ -74,7 +74,12 @@ class DiagnosticSlotIds {
 
 /// Stringification of [DbStartupState] (referenced by probe callers).
 /// Defined here so this file does not depend on the database layer.
-enum DbStartupStateName { ready, unrecoverable }
+///
+/// [keychainUnavailable] is distinct from [unrecoverable]: the on-disk DB
+/// may be perfectly intact, but the keychain could not be READ this boot
+/// (transient/locked/platform error), so no key could be verified. It must
+/// NOT route to the destructive reset flow — the next boot may read fine.
+enum DbStartupStateName { ready, unrecoverable, keychainUnavailable }
 
 /// Outcome of the keychain-repair write-back attempt that runs after
 /// the app DB probe in `main.dart`. See

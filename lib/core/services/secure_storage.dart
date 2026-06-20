@@ -388,7 +388,18 @@ Future<SecureReadResult> safeSecureRead(
     return SecureReadResult(value: value);
   } on PlatformException catch (e) {
     if (_shouldTryMacLegacyKeychain(e, storage)) {
-      return safeSecureRead(key, storage: _macLegacySecureStorage);
+      final legacy = await safeSecureRead(key, storage: _macLegacySecureStorage);
+      // If legacy had the key (or failed itself), return that. But a clean
+      // empty from legacy is NOT "key absent" — the data-protection slot that
+      // errored above was never read. Surface the original error as a failure
+      // so callers treat it as "couldn't read", not "missing" (which would
+      // condemn an intact DB to the reset path).
+      if (!legacy.ok || legacy.value != null) return legacy;
+      return SecureReadResult(
+        failure: classifySecureStorageError(e),
+        code: e.code,
+        message: e.message,
+      );
     }
     return SecureReadResult(
       failure: classifySecureStorageError(e),

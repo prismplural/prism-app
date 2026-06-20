@@ -1146,6 +1146,46 @@ void main() {
         isFalse,
       );
     });
+
+    // ── Repro: migrate-over-a-transiently-unreadable slot (keychain flap) ──
+    //
+    // The sync slot already holds the real dedicated key, but the READ flaps
+    // transiently. `readSyncDatabaseKeyHex` collapses the failure to null, so
+    // ensureLocalSyncDatabaseKey concludes "pre-split install" and migrates
+    // the (different) Drift key over the real sync key — orphaning
+    // prism_sync.db, which is encrypted with the real key. A failed read must
+    // never trigger a divergent overwrite.
+    test(
+      'ensureLocalSyncDatabaseKey must not overwrite a transiently-unreadable '
+      'sync slot',
+      () async {
+        final realSyncKey = '77' * 32;
+        final driftKey = '42' * 32;
+        storageStub._store[kSyncDatabaseKeyStorageKey] = realSyncKey;
+        storageStub._store[kDatabaseKeyStorageKey] = driftKey;
+        // Sync slot read flaps transient on every attempt (retried twice).
+        storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+          _transientException(),
+          _transientException(),
+          _transientException(),
+        ];
+
+        // The exact post-fix shape (throw vs. return) is the fix's call; the
+        // invariant under test is that the real key is NOT clobbered.
+        try {
+          await ensureLocalSyncDatabaseKey();
+        } catch (_) {
+          // Refusing (throwing) on an indeterminate read is acceptable.
+        }
+
+        expect(
+          storageStub._store[kSyncDatabaseKeyStorageKey],
+          equals(realSyncKey),
+          reason: 'a transient read failure must not migrate the Drift key '
+              'over the real sync key',
+        );
+      },
+    );
   });
 
   group('rotateDatabaseToKey requires durable staging and primary writes', () {
@@ -1223,6 +1263,27 @@ void main() {
         newHex,
         reason: 'next boot needs staging to recover the rekeyed DB',
       );
+    });
+  });
+
+  group('keychainUnavailable boot counter (escape-hatch gate)', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('increments from zero and accumulates', () async {
+      expect(await incrementKeychainUnavailableBootCount(), 1);
+      expect(await incrementKeychainUnavailableBootCount(), 2);
+      expect(await incrementKeychainUnavailableBootCount(), 3);
+    });
+
+    test('clear resets the streak so the gate only fires on consecutive boots',
+        () async {
+      await incrementKeychainUnavailableBootCount();
+      await incrementKeychainUnavailableBootCount();
+      await clearKeychainUnavailableBootCount();
+      // A single later failure must start over at 1 — below the threshold.
+      final afterClear = await incrementKeychainUnavailableBootCount();
+      expect(afterClear, 1);
+      expect(afterClear, lessThan(kKeychainUnavailableResetThreshold));
     });
   });
 }

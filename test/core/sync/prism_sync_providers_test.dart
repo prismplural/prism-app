@@ -2688,6 +2688,48 @@ void main() {
       expect(state.syncCredentials, SlotState.unreadable);
     });
 
+    // Repro/contract: a transiently-unreadable slot on an intact sync DB must
+    // NOT be declared unrecoverable (which would strand sync and, on the
+    // unpaired path, discard + recreate the DB) and must NOT mark the slots
+    // permanently unreadable. See [DbStartupState.keychainUnavailable].
+    test('transient slot read on an intact sync DB → keychainUnavailable, '
+        'not unrecoverable, DB preserved', () async {
+      final hex = _hexKey(0xa7);
+      final dbPath = '${tempDir.path}/prism_sync.db';
+      _createEncryptedDb(dbPath, hex);
+      // Identity present so the unpaired-discard path does not fire.
+      storageStub.store[kSyncRelayUrlKey] = base64Encode(
+        utf8.encode('https://relay.example.test'),
+      );
+      storageStub.store[kSyncIdKey] = base64Encode(utf8.encode('sync-id'));
+      storageStub.store[kSyncDeviceIdKey] = base64Encode(
+        utf8.encode('device-id'),
+      );
+      storageStub.store[kSyncDeviceSecretKey] = base64Encode(
+        utf8.encode('device-secret'),
+      );
+
+      // Sync primary slot flaps transient on every attempt (retried twice).
+      storageStub.throwOnReadKeyQueue[kSyncDatabaseKeyStorageKey] = [
+        _transientException(),
+        _transientException(),
+        _transientException(),
+      ];
+
+      final report = await probeSyncDatabaseStartup(
+        verifiedAppDbKey: null,
+        directory: tempDir,
+        degradedStateService: degradedStateService,
+        syncDatabaseOpenProbe: _dartSyncDatabaseOpenProbe,
+      );
+
+      expect(report.state, DbStartupState.keychainUnavailable);
+      expect(report.keyInMemory, isNull);
+      expect(File(dbPath).existsSync(), isTrue, reason: 'DB must be preserved');
+      final state = await degradedStateService.read();
+      expect(state.syncKey, isNot(SlotState.unreadable));
+    });
+
     test(
       'unpaired stale sync DB is discarded instead of blocking setup',
       () async {
@@ -3055,6 +3097,11 @@ PlatformException _cipherException() => PlatformException(
   details:
       'javax.crypto.AEADBadTagException: Error while decrypting\n\tat '
       'com.it_nomads.fluttersecurestorage.FlutterSecureStorage.read(FlutterSecureStorage.java:200)',
+);
+
+PlatformException _transientException() => PlatformException(
+  code: 'UserNotAuthenticated',
+  message: 'UserNotAuthenticated: keystore temporarily unavailable',
 );
 
 String _hexKey(int fill) => fill.toRadixString(16).padLeft(2, '0') * 32;

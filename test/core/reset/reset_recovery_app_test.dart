@@ -433,4 +433,98 @@ void main() {
       },
     );
   });
+
+  group('keychainUnavailable mode', () {
+    testWidgets('renders temporary-unavailability copy', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnavailable,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Secure storage is temporarily unavailable'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('your data is safe'), findsOneWidget);
+    });
+
+    testWidgets('offers NO destructive action — only retry', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnavailable,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The whole point of this state: never offer to destroy recoverable
+      // data on a read we couldn't complete.
+      expect(find.textContaining('Reset'), findsNothing);
+      expect(find.textContaining('Erase'), findsNothing);
+      expect(find.textContaining('start fresh'), findsNothing);
+      // The retry action is present and enabled.
+      final retry = tester.widget<PrismButton>(
+        find.widgetWithText(PrismButton, 'Close and reopen Prism'),
+      );
+      expect(retry.enabled, isTrue);
+    });
+
+    testWidgets('retry button invokes the exit hook', (tester) async {
+      var exitCalls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ResetRecoveryScreen(
+            mode: ResetRecoveryScreenMode.keychainUnavailable,
+            appExit: () async => exitCalls += 1,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(PrismButton, 'Close and reopen Prism'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(exitCalls, 1);
+    });
+
+    testWidgets(
+      'after repeated failures (offerResetOnUnavailable) a last-resort reset '
+      'appears, behind confirmation',
+      (tester) async {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: ResetRecoveryScreen(
+              mode: ResetRecoveryScreenMode.keychainUnavailable,
+              offerResetOnUnavailable: true,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Retry still leads; the destructive option is now also available.
+        expect(
+          find.widgetWithText(PrismButton, 'Close and reopen Prism'),
+          findsOneWidget,
+        );
+        final reset = find.widgetWithText(
+          PrismButton,
+          'Reset local data (last resort)',
+        );
+        expect(reset, findsOneWidget);
+
+        // It must not erase immediately — it goes through a confirmation.
+        await tester.ensureVisible(reset);
+        await tester.tap(reset);
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+      },
+    );
+  });
 }

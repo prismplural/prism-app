@@ -66,9 +66,15 @@ Future<File> getDatabaseFile({Directory? directory}) async {
 /// - [ready]: the probe found (or generated) a key that successfully opens
 ///   the on-disk DB (or, in the fresh-install case, the new key was
 ///   persisted and the DB has yet to be created by Drift).
-/// - [unrecoverable]: every recovery slot failed to open the DB. The boot
-///   path MUST short-circuit to the recovery UI (§7 — not implemented yet).
-enum DbStartupState { ready, unrecoverable }
+/// - [unrecoverable]: every recovery slot was READ and none opened the DB
+///   (keys genuinely missing or cipher-corrupt). The boot path short-circuits
+///   to the recovery UI, which may offer a destructive reset.
+/// - [keychainUnavailable]: the DB file exists but at least one slot could not
+///   be READ this boot (transient / locked / platform error) and no slot
+///   produced a working key. The key may be intact and readable on the next
+///   boot, so this MUST NOT trigger a destructive reset — the boot path shows
+///   a non-destructive "retry" screen instead.
+enum DbStartupState { ready, unrecoverable, keychainUnavailable }
 
 /// Result of the §4 app DB startup probe.
 @immutable
@@ -211,6 +217,16 @@ Future<DbStartupReport> probeAppDatabaseStartup({
   final file = await getDatabaseFile(directory: directory);
   final dbPath = file.path;
 
+  // A transient/unknown read (keychain locked at boot, macOS errSecParam, …) is
+  // "couldn't read", not "key gone" — so it must not contribute to an
+  // unrecoverable verdict. See [DbStartupState.keychainUnavailable].
+  var sawIndeterminate = false;
+  void noteOutcome(SlotOutcome outcome) {
+    if (outcome == SlotOutcome.transient || outcome == SlotOutcome.unknown) {
+      sawIndeterminate = true;
+    }
+  }
+
   int? readSchemaVersionBeforeOpen(String hexKey) {
     try {
       return _readEncryptedUserVersion(dbPath, hexKey);
@@ -311,6 +327,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     '${kDatabaseKeyStorageKey}_staging',
     slotLabel: 'app DB staging key',
   );
+  noteOutcome(stagingRead.outcome);
   if (stagingRead.hex != null) {
     try {
       await _recoverFromStagingKey(stagingRead.hex!, dbPath);
@@ -333,6 +350,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     kDatabaseKeyStorageKey,
     slotLabel: 'primary DB key',
   );
+  noteOutcome(primaryRead.outcome);
   if (primaryRead.hex != null) {
     if (_tryOpenEncrypted(dbPath, primaryRead.hex!)) {
       debugPrint('[DB_PROVIDER] Primary slot opened the DB');
@@ -365,6 +383,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     kSyncDatabaseKeyStorageKey,
     slotLabel: 'sync DB key',
   );
+  noteOutcome(syncRead.outcome);
   if (syncRead.hex != null) {
     if (_tryOpenEncrypted(dbPath, syncRead.hex!)) {
       debugPrint('[DB_PROVIDER] Sync slot opened the DB — repair-pending');
@@ -394,6 +413,7 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     '${kSyncDatabaseKeyStorageKey}_staging',
     slotLabel: 'sync DB staging key',
   );
+  noteOutcome(syncStagingRead.outcome);
   if (syncStagingRead.hex != null) {
     if (_tryOpenEncrypted(dbPath, syncStagingRead.hex!)) {
       debugPrint(
@@ -423,7 +443,28 @@ Future<DbStartupReport> probeAppDatabaseStartup({
     );
   }
 
-  // ── 6. Unrecoverable ───────────────────────────────────────────────────
+  // ── 6. No slot produced a working key ──────────────────────────────────
+  //
+  // Split the verdict on WHY. An indeterminate read (we couldn't read, vs. a
+  // clean-missing or cipher-corrupt key) is not proof the key is gone, so defer
+  // to a non-destructive retry rather than the reset flow, and don't stamp the
+  // slot unreadable.
+  if (sawIndeterminate) {
+    debugPrint(
+      '[DB_PROVIDER] Recovery slots could not be read this boot — keychain '
+      'unavailable (deferring, NOT unrecoverable). Outcomes: $slotOutcomes',
+    );
+    return DbStartupReport(
+      state: DbStartupState.keychainUnavailable,
+      keyInMemory: null,
+      usedRecoverySlot: null,
+      diagnostic: await buildDiagnostic(
+        recoveredVia: null,
+        appDbState: DbStartupStateName.keychainUnavailable,
+      ),
+    );
+  }
+
   debugPrint(
     '[DB_PROVIDER] All recovery slots exhausted — DB unrecoverable. '
     'Outcomes: $slotOutcomes',
