@@ -109,25 +109,40 @@ class _MemberMentionTextFieldState
   void initState() {
     super.initState();
     widget.controller.addListener(_onTextChanged);
+    widget.focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void didUpdateWidget(covariant MemberMentionTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller == widget.controller) return;
-    oldWidget.controller.removeListener(_onTextChanged);
-    widget.controller.addListener(_onTextChanged);
-    _lastSelection = null;
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode.removeListener(_onFocusChanged);
+      widget.focusNode.addListener(_onFocusChanged);
+    }
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+      _lastSelection = null;
+    }
     _onTextChanged();
   }
 
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
+    widget.focusNode.removeListener(_onFocusChanged);
     if (_overlayController.isShowing) {
       _overlayController.hide();
     }
     super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (widget.focusNode.hasFocus) {
+      _onTextChanged();
+    } else {
+      _dismissOverlay();
+    }
   }
 
   void _onTextChanged() {
@@ -147,7 +162,9 @@ class _MemberMentionTextFieldState
     _lastSelection = selection;
     var nextMentionVisible = false;
     var nextMentionFilter = '';
-    if (selection.isValid && selection.isCollapsed) {
+    if (widget.focusNode.hasFocus &&
+        selection.isValid &&
+        selection.isCollapsed) {
       final trigger = detectMemberMentionTrigger(
         widget.controller.text,
         selection.baseOffset,

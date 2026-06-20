@@ -64,6 +64,46 @@ void main() {
     expect(find.byKey(const Key('memberMentionOverlaySurface')), findsNothing);
   });
 
+  testWidgets('tapping a member suggestion inserts durable token', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 360,
+                child: MemberMentionTextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  mentionCandidates: [alice],
+                  hintText: 'Body',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'hi @al');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Alice'));
+    await tester.pumpAndSettle();
+
+    expect(controller.text, 'hi @[$aliceId] ');
+    expect(find.byKey(const Key('memberMentionOverlaySurface')), findsNothing);
+  });
+
   testWidgets('keeps suggestions visible for tall multiline fields', (
     tester,
   ) async {
@@ -285,6 +325,104 @@ void main() {
       find.byKey(const Key('memberMentionOverlaySurface')),
       findsOneWidget,
     );
+  });
+
+  testWidgets(
+    'unfocused companion mention field does not create a duplicate menu',
+    (tester) async {
+      final controller = TextEditingController();
+      final inactiveFocusNode = FocusNode();
+      final activeFocusNode = FocusNode();
+      addTearDown(controller.dispose);
+      addTearDown(inactiveFocusNode.dispose);
+      addTearDown(activeFocusNode.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: [
+                  SizedBox(
+                    width: 360,
+                    child: ExcludeFocus(
+                      child: MemberMentionTextField(
+                        controller: controller,
+                        focusNode: inactiveFocusNode,
+                        mentionCandidates: [alice],
+                        hintText: 'Inactive',
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 360,
+                    child: MemberMentionTextField(
+                      controller: controller,
+                      focusNode: activeFocusNode,
+                      mentionCandidates: [alice],
+                      hintText: 'Active',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(TextField, 'Active'));
+      await tester.enterText(find.widgetWithText(TextField, 'Active'), '@a');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('memberMentionOverlaySurface')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('dismisses suggestions when the field loses focus', (
+    tester,
+  ) async {
+    final controller = TextEditingController();
+    final focusNode = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focusNode.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 360,
+                child: MemberMentionTextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  mentionCandidates: [alice],
+                  hintText: 'Body',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), '@a');
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('memberMentionOverlaySurface')),
+      findsOneWidget,
+    );
+
+    focusNode.unfocus();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('memberMentionOverlaySurface')), findsNothing);
   });
 
   testWidgets('keyboard arrows jump over durable mention tokens', (
