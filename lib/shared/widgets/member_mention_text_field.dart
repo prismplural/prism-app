@@ -104,6 +104,7 @@ class _MemberMentionTextFieldState
   Rect? _lastCaretGlobalRect;
   int? _mentionAnchorAtIndex;
   TextSelection? _lastSelection;
+  bool _textChangedCheckScheduled = false;
 
   @override
   void initState() {
@@ -124,7 +125,7 @@ class _MemberMentionTextFieldState
       widget.controller.addListener(_onTextChanged);
       _lastSelection = null;
     }
-    _onTextChanged();
+    _scheduleTextChangedCheck();
   }
 
   @override
@@ -143,6 +144,16 @@ class _MemberMentionTextFieldState
     } else {
       _dismissOverlay();
     }
+  }
+
+  void _scheduleTextChangedCheck() {
+    if (_textChangedCheckScheduled) return;
+    _textChangedCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _textChangedCheckScheduled = false;
+      if (!mounted) return;
+      _onTextChanged();
+    });
   }
 
   void _onTextChanged() {

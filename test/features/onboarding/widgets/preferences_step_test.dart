@@ -19,7 +19,7 @@ void main() {
     );
   }
 
-  testWidgets('keeps fronting-specific controls out of generic preferences', (
+  testWidgets('keeps fronting behavior controls out of terminology setup', (
     tester,
   ) async {
     final container = ProviderContainer(
@@ -34,7 +34,9 @@ void main() {
     await tester.pumpWidget(buildSubject(container));
     await tester.pumpAndSettle();
 
-    expect(find.text('Terminology'), findsOneWidget);
+    expect(find.text('Member terminology'), findsOneWidget);
+    expect(find.text('System terminology'), findsOneWidget);
+    expect(find.text('Fronting terminology'), findsOneWidget);
     expect(find.text('Accent Color'), findsNothing);
     expect(find.text('Fronting behavior'), findsNothing);
     expect(find.text('When adding a new front'), findsNothing);

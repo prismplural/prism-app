@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
@@ -21,6 +22,7 @@ import 'package:prism_plurality/features/settings/providers/pin_lock_providers.d
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import '../../helpers/fake_repositories.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -258,6 +260,7 @@ void main() {
       final members = StreamController<List<domain.Member>>();
       addTearDown(members.close);
       final memberPushCalls = <String>[];
+      final memberRepository = FakeMemberRepository()..seed([before]);
 
       final router = GoRouter(
         initialLocation: AppRoutePaths.home,
@@ -299,6 +302,7 @@ void main() {
             ),
             habitsBadgeEnabledProvider.overrideWith((ref) => false),
             activeSessionsProvider.overrideWith((ref) => const Stream.empty()),
+            memberRepositoryProvider.overrideWithValue(memberRepository),
             allMembersProvider.overrideWith((ref) => members.stream),
             unreadConversationCountProvider.overrideWith((ref) => 0),
             frontingMigrationModeProvider.overrideWith(
@@ -319,6 +323,7 @@ void main() {
 
       members.add([before]);
       await tester.pump();
+      memberRepository.seed([after]);
       members.add([after]);
       await tester.pump();
 
@@ -365,9 +370,7 @@ void main() {
       expect(calls, ['m-1']);
     });
 
-    testWidgets('bio / birthday / color edits fire the push', (
-      tester,
-    ) async {
+    testWidgets('bio / birthday / color edits fire the push', (tester) async {
       expect(
         await runEdit(
           tester,

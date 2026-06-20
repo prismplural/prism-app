@@ -50,8 +50,8 @@ Run the narrowest useful test while developing, then run broader checks before
 opening a pull request.
 
 ```bash
-flutter analyze
-flutter test
+flutter analyze --no-fatal-infos
+flutter test --concurrency=2
 flutter test test/path/to/file_test.dart
 ```
 
@@ -64,6 +64,34 @@ flutter test test/core/sync/sync_schema_parity_test.dart
 
 For UI changes, include screenshots or a short screen recording when it helps
 reviewers understand the behavior.
+
+## Continuous Integration
+
+Pull requests run GitHub Actions checks for the contributor baseline:
+
+- `flutter analyze --no-fatal-infos`
+- `flutter test --concurrency=2`
+- visual regression checks from the committed baselines under `test/goldens`
+- generated-code cleanliness after `dart run build_runner build`
+- an arm64 Android debug APK build
+
+These checks are meant to catch ordinary review blockers without requiring
+contributors to have every platform locally. Release packaging, signing,
+store upload, and full desktop artifact generation stay in separate release
+workflows.
+
+### Updating Visual Baselines
+
+When a UI change is intentional, regenerate the affected baselines with the
+pinned Flutter version before opening the pull request:
+
+```bash
+flutter test --update-goldens --concurrency=1 test/goldens
+```
+
+The Linux CI render is authoritative. If it differs from a local render, use
+the uploaded `visual-differences` artifact to inspect the baseline, current
+image, and focused comparison crops before updating anything.
 
 ## Project Shape
 
@@ -136,8 +164,8 @@ cd ../prism-sync
 flutter_rust_bridge_codegen generate
 ```
 
-Then run `flutter pub get`, `flutter analyze`, and the relevant Flutter tests in
-this app.
+Then run `flutter pub get`, `flutter analyze --no-fatal-infos`, and the
+relevant Flutter tests in this app.
 
 ## Working With App-Owned Native Packages
 

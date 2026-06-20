@@ -137,12 +137,12 @@ void main() {
     countsNotifier.dispose();
   });
 
-  testWidgets('members row uses neutral "System members" label', (tester) async {
+  testWidgets('members row uses neutral "Members" label', (tester) async {
     await tester.pumpWidget(
       _wrap(const LiveCountCard(counts: {'members': 3})),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('System members'), findsOneWidget);
+    expect(find.textContaining('Members'), findsOneWidget);
   });
 
   testWidgets('disableAnimations=true → no running animations', (tester) async {

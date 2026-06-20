@@ -210,6 +210,8 @@ Widget _buildSubject({
       memberRepositoryProvider.overrideWithValue(memberRepo),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
+      allMemberListProvider.overrideWith((ref) => Stream.value(members)),
       activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
       memberFrontingCountsProvider.overrideWith((ref) async => const {}),
       allGroupsProvider.overrideWith(
@@ -256,7 +258,7 @@ Widget _buildSubject({
   );
 }
 
-Finder _addButton() => find.byTooltip('Add fronting entry');
+Finder _addButton() => find.byTooltip('Log Front');
 
 Finder _confirmSelectionButton() => find.byWidgetPredicate(
   (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,

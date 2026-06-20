@@ -14,6 +14,7 @@ import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/front_comments_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/views/edit_front_session_screen.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -62,6 +63,8 @@ Widget _wrap({
       ).overrideWith((ref) => Stream.value(session)),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
       activeMembersProvider.overrideWith((ref) => Stream.value([member])),
+      activeMemberListProvider.overrideWith((ref) => Stream.value([member])),
+      allMemberListProvider.overrideWith((ref) => Stream.value([member])),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),
@@ -155,7 +158,7 @@ void main() {
       await tester.tap(find.byIcon(AppIcons.editOutlined));
       await tester.pumpAndSettle();
 
-      expect(find.text('Edit Session'), findsOneWidget);
+      expect(find.byType(EditFrontSessionScreen), findsOneWidget);
       expect(find.byKey(const Key('detailSideSheetPanel')), findsNWidgets(2));
     },
   );
@@ -206,7 +209,7 @@ void main() {
       await tester.tap(find.byIcon(AppIcons.editOutlined));
       await tester.pumpAndSettle();
 
-      expect(find.text('Edit Session'), findsOneWidget);
+      expect(find.byType(EditFrontSessionScreen), findsOneWidget);
       expect(find.byType(BottomSheet), findsNWidgets(2));
       expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
     },

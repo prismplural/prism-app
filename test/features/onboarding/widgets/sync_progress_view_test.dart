@@ -105,7 +105,7 @@ void main() {
     );
 
     testWidgets(
-      'phase 1 (downloading) renders PrismShimmerBar and download title',
+      'downloading renders PrismShimmerBar and download title',
       (tester) async {
         final notifier = FakeSyncSetupProgressNotifier();
         // Use disableAnimations so AnimatedSwitcher transitions instantly.
@@ -124,7 +124,7 @@ void main() {
 
         expect(find.byType(PrismShimmerBar), findsOneWidget);
         expect(find.byType(PrismSpinner), findsNothing);
-        expect(find.text('Downloading your system'), findsOneWidget);
+        expect(find.text('Downloading your data'), findsOneWidget);
       },
     );
 
@@ -311,7 +311,7 @@ void main() {
 
       expect(
         find.text(
-          'Still going — larger systems can take a minute on slow networks.',
+          'Still going — larger restores can take a minute on slow networks.',
         ),
         findsOneWidget,
       );
@@ -327,7 +327,7 @@ void main() {
 
       expect(
         find.text(
-          'Still going — larger systems can take a minute on slow networks.',
+          'Still going — larger restores can take a minute on slow networks.',
         ),
         findsNothing,
       );
