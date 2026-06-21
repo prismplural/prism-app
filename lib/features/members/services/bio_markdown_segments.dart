@@ -69,6 +69,7 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
   var borderless = false;
   Color? color;
   TextAlign? textAlign;
+  _MarkdownCodeFence? codeFence;
 
   void flush({required bool fenced}) {
     if (buf.isEmpty) return;
@@ -92,6 +93,19 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
   }
 
   for (final line in markdown.split('\n')) {
+    if (codeFence != null) {
+      buf.add(line);
+      if (_closesMarkdownCodeFence(line, codeFence)) codeFence = null;
+      continue;
+    }
+
+    final openedCodeFence = _opensMarkdownCodeFence(line);
+    if (openedCodeFence != null) {
+      buf.add(line);
+      codeFence = openedCodeFence;
+      continue;
+    }
+
     final m = _fenceLine.firstMatch(line);
     if (m != null) {
       final spec = (m.group(1) ?? '').trimRight();
@@ -161,3 +175,50 @@ TextAlign? _parseTextAlign(String spec) {
       return null;
   }
 }
+
+class _MarkdownCodeFence {
+  const _MarkdownCodeFence(this.character, this.length);
+
+  final String character;
+  final int length;
+}
+
+_MarkdownCodeFence? _opensMarkdownCodeFence(String line) {
+  final marker = _markdownCodeFenceMarker(line);
+  return marker == null ? null : _MarkdownCodeFence(marker[0], marker.length);
+}
+
+bool _closesMarkdownCodeFence(String line, _MarkdownCodeFence fence) {
+  final marker = _markdownCodeFenceMarker(line);
+  if (marker == null ||
+      marker[0] != fence.character ||
+      marker.length < fence.length) {
+    return false;
+  }
+
+  final markerStart = line.indexOf(marker);
+  final rest = line.substring(markerStart + marker.length);
+  return rest.trim().isEmpty;
+}
+
+String? _markdownCodeFenceMarker(String line) {
+  var index = 0;
+  while (index < line.length && index < 3 && line.codeUnitAt(index) == _space) {
+    index += 1;
+  }
+  if (index >= line.length || line.codeUnitAt(index) == _space) return null;
+
+  final unit = line.codeUnitAt(index);
+  if (unit != _backtick && unit != _tilde) return null;
+
+  var end = index;
+  while (end < line.length && line.codeUnitAt(end) == unit) {
+    end += 1;
+  }
+  if (end - index < 3) return null;
+  return line.substring(index, end);
+}
+
+const _space = 0x20;
+const _backtick = 0x60;
+const _tilde = 0x7e;

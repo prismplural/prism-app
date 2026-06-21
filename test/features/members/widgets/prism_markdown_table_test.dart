@@ -81,6 +81,67 @@ void main() {
         TextAlign.justify,
       );
     });
+
+    testWidgets(
+      'default prose around an aligned fence keeps default alignment',
+      (tester) async {
+        await _pumpPrismMarkdown(
+          tester,
+          'Before **default**\n\n'
+          ':::center\n'
+          'Inside **centered**\n'
+          ':::\n\n'
+          'After **default**',
+        );
+        await tester.pumpAndSettle();
+
+        _expectRenderedAlign(tester, 'Before default', TextAlign.start);
+        _expectRenderedAlign(tester, 'Inside centered', TextAlign.center);
+        _expectRenderedAlign(tester, 'After default', TextAlign.start);
+      },
+    );
+
+    testWidgets('alignment fences apply to blockquote content', (tester) async {
+      await _pumpPrismMarkdown(tester, ':::right\n> Quoted **body**\n:::');
+      await tester.pumpAndSettle();
+
+      _expectRenderedAlign(tester, 'Quoted body', TextAlign.end);
+    });
+
+    testWidgets('alignment fence provides table cell fallback alignment', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        ':::center\n'
+        '| Alpha | Beta |\n'
+        '| - | - |\n'
+        '| Fallback alpha | **Fallback beta** |\n'
+        ':::',
+      );
+      await tester.pumpAndSettle();
+
+      _expectRenderedAlign(tester, 'Fallback alpha', TextAlign.center);
+      _expectRenderedAlign(tester, 'Fallback beta', TextAlign.center);
+    });
+
+    testWidgets('GFM table alignment overrides alignment fence fallback', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        ':::right\n'
+        '| Left column | Center column | Fallback column |\n'
+        '| :-- | :-: | - |\n'
+        '| explicit left | explicit center | fallback right |\n'
+        ':::',
+      );
+      await tester.pumpAndSettle();
+
+      _expectRenderedAlign(tester, 'explicit left', TextAlign.start);
+      _expectRenderedAlign(tester, 'explicit center', TextAlign.center);
+      _expectRenderedAlign(tester, 'fallback right', TextAlign.end);
+    });
   });
 
   group('PrismMarkdownTable column widths', () {
@@ -191,6 +252,48 @@ Text _textContaining(WidgetTester tester, String value) {
         (widget) => (widget.data ?? widget.textSpan?.toPlainText() ?? '')
             .contains(value),
       );
+}
+
+void _expectRenderedAlign(
+  WidgetTester tester,
+  String value,
+  TextAlign expected,
+) {
+  final alignments = _textAlignmentsContaining(tester, value);
+  expect(alignments, isNotEmpty, reason: value);
+  expect(
+    alignments.any((actual) => _matchesAlignment(actual, expected)),
+    isTrue,
+    reason: '$value alignments were $alignments, expected $expected',
+  );
+}
+
+List<TextAlign?> _textAlignmentsContaining(WidgetTester tester, String value) {
+  final alignments = <TextAlign?>[];
+  for (final text in tester.widgetList<Text>(find.byType(Text))) {
+    final content = text.data ?? text.textSpan?.toPlainText() ?? '';
+    if (content.contains(value)) alignments.add(text.textAlign);
+  }
+  for (final richText in tester.widgetList<RichText>(find.byType(RichText))) {
+    final content = richText.text.toPlainText();
+    if (content.contains(value)) alignments.add(richText.textAlign);
+  }
+  return alignments;
+}
+
+bool _matchesAlignment(TextAlign? actual, TextAlign expected) {
+  switch (expected) {
+    case TextAlign.left:
+    case TextAlign.start:
+      return actual == TextAlign.left || actual == TextAlign.start;
+    case TextAlign.right:
+    case TextAlign.end:
+      return actual == TextAlign.right || actual == TextAlign.end;
+    case TextAlign.center:
+      return actual == TextAlign.center;
+    case TextAlign.justify:
+      return actual == TextAlign.justify;
+  }
 }
 
 List<String> _allRenderedText(WidgetTester tester) {

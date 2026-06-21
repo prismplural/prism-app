@@ -73,6 +73,35 @@ void main() {
       }
     });
 
+    test('directives inside markdown code fences stay literal', () {
+      const md =
+          '```\n'
+          ':::center\n'
+          'literal\n'
+          ':::\n'
+          '```';
+
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.isDefault, isTrue);
+      expect(segs.first.content, md);
+    });
+
+    test('bare ::: inside fenced code does not close an alignment fence', () {
+      const md =
+          ':::center\n'
+          '```\n'
+          ':::\n'
+          '```\n'
+          'still centered\n'
+          ':::';
+
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.textAlign, TextAlign.center);
+      expect(segs.first.content, '```\n:::\n```\nstill centered');
+    });
+
     test('prose + fenced + prose → three ordered segments', () {
       const md = 'intro\n\n:::plain\n| a | b |\n:::\n\noutro';
       final segs = parseStyledSegments(md);
