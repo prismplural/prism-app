@@ -21,6 +21,7 @@ import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
+import 'package:prism_plurality/core/services/biometric_service.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
@@ -111,6 +112,7 @@ void main() async {
   // The sync DB probe opens prism_sync.db through the Rust FFI, so FRB must
   // be ready before probes run.
   await _initRustLib();
+  await _clearObsoleteBiometricDek();
 
   final appProbe = await _safeProbeAppDb();
   final syncProbe = await _safeProbeSyncDb(
@@ -360,6 +362,16 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+Future<void> _clearObsoleteBiometricDek() async {
+  try {
+    await BiometricService().clear();
+  } catch (e, st) {
+    debugPrint(
+      '[BOOT] obsolete biometric DEK cleanup failed (non-fatal): $e\n$st',
+    );
+  }
 }
 
 Future<void> _maybeSeedDebugStressFixture(String? verifiedStartupKey) async {

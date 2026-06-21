@@ -1,38 +1,29 @@
+import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:prism_plurality/core/services/biometric_service_provider.dart';
+import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// Onboarding step that offers optional biometric (Face ID / Touch ID /
-/// fingerprint) enrollment.
+/// fingerprint) unlock for Prism's PIN lock.
 ///
-/// If biometrics are unavailable on this device, [onSkipped] is called
-/// automatically after the first frame via a post-frame callback so the
-/// onboarding flow can advance without the user seeing the step at all.
+/// Availability is checked only after the user taps Enable so the app does
+/// not perform platform biometric work before explicit opt-in.
 class BiometricSetupStep extends ConsumerStatefulWidget {
   const BiometricSetupStep({
     super.key,
-    required this.dekBytes,
     required this.onEnrolled,
     required this.onSkipped,
   });
 
-  /// The raw DEK bytes from OnboardingState, stored after initialize().
-  /// May be null if the onboarding state hasn't derived a DEK yet (rare edge
-  /// case — if null, enrollment is skipped automatically).
-  final Uint8List? dekBytes;
+  /// Called after biometric PIN unlock has been enabled for this install.
+  final FutureOr<void> Function() onEnrolled;
 
-  /// Called after the DEK has been successfully enrolled in the biometric
-  /// keychain.
-  final VoidCallback onEnrolled;
-
-  /// Called when the user taps "Not now", or when biometrics are unavailable,
-  /// or when dekBytes is null.
+  /// Called when the user taps "Not now", or when biometrics are unavailable.
   final VoidCallback onSkipped;
 
   @override
@@ -42,35 +33,17 @@ class BiometricSetupStep extends ConsumerStatefulWidget {
 class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
   bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      // Defer the biometric probe until explicit opt-in; iOS may prompt.
-      if (widget.dekBytes == null) {
-        widget.onSkipped();
-      }
-    });
-  }
-
   Future<void> _enroll() async {
-    final dek = widget.dekBytes;
-    if (dek == null) {
-      widget.onSkipped();
-      return;
-    }
     setState(() => _isLoading = true);
     try {
-      final service = ref.read(biometricServiceProvider);
-      final available = await service.isAvailable();
+      final service = ref.read(pinLockServiceProvider);
+      final available = await service.isBiometricAvailable();
       if (!mounted) return;
       if (!available) {
         widget.onSkipped();
         return;
       }
-      await service.enroll(dek);
-      if (mounted) widget.onEnrolled();
+      if (mounted) await widget.onEnrolled();
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

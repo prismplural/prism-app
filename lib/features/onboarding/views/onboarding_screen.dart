@@ -333,7 +333,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       ),
       OnboardingStep.biometricSetup => BiometricSetupStep(
         key: const ValueKey('biometric-setup'),
-        dekBytes: onboarding.dekBytes,
         onEnrolled: n.onBiometricEnrolled,
         onSkipped: n.onBiometricSkipped,
       ),

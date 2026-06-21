@@ -167,10 +167,6 @@ class OnboardingState {
   /// kept in memory only until the biometric step completes or is skipped.
   final List<String> mnemonicWords;
 
-  /// The raw DEK bytes exported after initialize(). Used for biometric
-  /// enrollment in BiometricSetupStep. Cleared after biometric step.
-  final Uint8List? dekBytes;
-
   const OnboardingState({
     this.currentStep = OnboardingStep.welcome,
     this.systemName = '',
@@ -211,7 +207,6 @@ class OnboardingState {
     this.isSyncPath = false,
     this.allMembersChannelKey,
     this.mnemonicWords = const [],
-    this.dekBytes,
   });
 
   static const _sentinel = Object();
@@ -257,7 +252,6 @@ class OnboardingState {
     bool clearFronterId = false,
     String? allMembersChannelKey,
     List<String>? mnemonicWords,
-    Object? dekBytes = _sentinel,
   }) {
     return OnboardingState(
       currentStep: currentStep ?? this.currentStep,
@@ -331,7 +325,6 @@ class OnboardingState {
       isSyncPath: isSyncPath ?? this.isSyncPath,
       allMembersChannelKey: allMembersChannelKey ?? this.allMembersChannelKey,
       mnemonicWords: mnemonicWords ?? this.mnemonicWords,
-      dekBytes: dekBytes == _sentinel ? this.dekBytes : dekBytes as Uint8List?,
     );
   }
 
@@ -526,7 +519,6 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       // 6. Rotate local database keys. If a sync identity already exists, also
       //    cache a device-bound wrapped DEK for Signal-style fast unlock.
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
-      final dekBytes = await ffi.exportDek(handle: handle);
 
       // 7. PIN hash already stored by PinSetupStep.onPinEntered before
       //    calling onPinConfirmed — no second storePin() call here.
@@ -535,12 +527,11 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       //     immediately after a new install.
       await ref.read(authPolicyServiceProvider).recordPinVerified();
 
-      // 10. Store words and DEK in ephemeral state, advance step. The mnemonic
-      // words are retained only for the recovery-phrase display and are cleared
-      // when the user leaves the biometric setup step.
+      // 10. Store words in ephemeral state, advance step. The mnemonic words
+      // are retained only for the recovery-phrase display and are cleared when
+      // the user leaves the biometric setup step.
       state = state.copyWith(
         mnemonicWords: mnemonicWords,
-        dekBytes: dekBytes,
         currentStep: OnboardingStep.recoveryPhrase,
       );
     } catch (e, st) {
@@ -561,22 +552,21 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     state = state.copyWith(currentStep: OnboardingStep.biometricSetup);
   }
 
-  /// Called when the user successfully enrolls biometrics.
-  void onBiometricEnrolled() {
-    // Clear sensitive ephemeral fields and advance.
+  /// Called when the user enables biometric PIN unlock.
+  Future<void> onBiometricEnrolled() async {
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .updateBiometricLockEnabled(true);
     state = state.copyWith(
       mnemonicWords: [],
-      dekBytes: null,
       currentStep: OnboardingStep.importData,
     );
   }
 
   /// Called when the user skips the biometric enrollment step.
   void onBiometricSkipped() {
-    // Clear sensitive ephemeral fields and advance.
     state = state.copyWith(
       mnemonicWords: [],
-      dekBytes: null,
       currentStep: OnboardingStep.importData,
     );
   }
