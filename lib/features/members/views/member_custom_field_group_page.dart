@@ -23,14 +23,14 @@ class MemberCustomFieldGroupPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final memberAsync = ref.watch(activeMemberByIdProvider(memberId));
+    final memberAsync = ref.watch(memberByIdProvider(memberId));
     final fieldAsync = ref.watch(customFieldByIdProvider(fieldId));
 
     return memberAsync.when(
       loading: _loadingScaffold,
       error: (error, _) => _messageScaffold(context, '$error'),
       data: (member) {
-        if (member == null) {
+        if (member == null || member.isDeleted) {
           return _messageScaffold(
             context,
             context.l10n.settingsCustomFieldNotFound,

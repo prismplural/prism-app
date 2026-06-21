@@ -42,8 +42,8 @@ import '../../../helpers/fake_repositories.dart';
 
 final _now = DateTime(2026, 5, 1, 12);
 
-Member _member(String id, String name) =>
-    Member(id: id, name: name, createdAt: _now, isActive: true);
+Member _member(String id, String name, {bool isActive = true}) =>
+    Member(id: id, name: name, createdAt: _now, isActive: isActive);
 
 FrontingSession _session({
   required String id,
@@ -90,9 +90,9 @@ MemberBoardPost _boardPost(String id, {String body = 'Board post body'}) =>
       writtenAt: _now,
     );
 
-GoRouter _router({required String memberId}) {
+GoRouter _router({required String memberId, String? initialLocation}) {
   return GoRouter(
-    initialLocation: AppRoutePaths.member(memberId),
+    initialLocation: initialLocation ?? AppRoutePaths.member(memberId),
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -478,6 +478,58 @@ void main() {
 
     expect(find.text('Blue'), findsOneWidget);
     expect(find.text('Favorite color'), findsOneWidget);
+  });
+
+  testWidgets('page-mode custom field group opens for inactive members', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice', isActive: false);
+    final group = CustomField(
+      id: 'vitals',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: _now,
+    );
+    final child = CustomField(
+      id: 'favorite-color',
+      name: 'Favorite color',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'text',
+      parentFieldId: group.id,
+      createdAt: _now,
+    );
+    final value = CustomFieldValue(
+      id: 'value-favorite-color',
+      customFieldId: child.id,
+      memberId: member.id,
+      value: 'Blue',
+    );
+    final router = _router(
+      memberId: member.id,
+      initialLocation: AppRoutePaths.memberCustomFieldGroup(
+        member.id,
+        group.id,
+      ),
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        customFields: [group, child],
+        customFieldValues: [value],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vitals'), findsOneWidget);
+    expect(find.text('Favorite color'), findsOneWidget);
+    expect(find.text('Blue'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1));
   });
 
   testWidgets(
