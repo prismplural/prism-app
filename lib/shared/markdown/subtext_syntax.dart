@@ -38,6 +38,7 @@ class SubtextBuilder extends MarkdownElementBuilder {
     this.mutedColor,
     this.codeBackground,
     this.linkColor,
+    this.textAlign,
     this.scale = 0.85,
     this.onTapLink,
   });
@@ -46,6 +47,7 @@ class SubtextBuilder extends MarkdownElementBuilder {
   final Color? mutedColor;
   final Color? codeBackground;
   final Color? linkColor;
+  final TextAlign? textAlign;
   final double scale;
   final SubtextLinkTap? onTapLink;
 
@@ -66,6 +68,7 @@ class SubtextBuilder extends MarkdownElementBuilder {
       style: small,
       codeBackground: codeBackground,
       linkColor: linkColor,
+      textAlign: textAlign,
       onTapLink: onTapLink,
     );
   }
@@ -79,6 +82,7 @@ class _SubtextSpan extends StatefulWidget {
     required this.style,
     this.codeBackground,
     this.linkColor,
+    this.textAlign,
     this.onTapLink,
   });
 
@@ -86,6 +90,7 @@ class _SubtextSpan extends StatefulWidget {
   final TextStyle style;
   final Color? codeBackground;
   final Color? linkColor;
+  final TextAlign? textAlign;
   final SubtextLinkTap? onTapLink;
 
   @override
@@ -117,7 +122,10 @@ class _SubtextSpanState extends State<_SubtextSpan> {
   @override
   Widget build(BuildContext context) {
     final spans = _buildSpans(widget.nodes, widget.style);
-    return Text.rich(TextSpan(children: spans, style: widget.style));
+    return Text.rich(
+      TextSpan(children: spans, style: widget.style),
+      textAlign: widget.textAlign,
+    );
   }
 
   List<InlineSpan> _buildSpans(
@@ -197,8 +205,11 @@ class _SubtextSpanState extends State<_SubtextSpan> {
         final linkRecognizer = TapGestureRecognizer()..onTap = () => tap(href);
         _recognizers.add(linkRecognizer);
         return TextSpan(
-          children:
-              _buildSpans(children, linkStyle, recognizer: linkRecognizer),
+          children: _buildSpans(
+            children,
+            linkStyle,
+            recognizer: linkRecognizer,
+          ),
         );
       case 'spoiler':
         // Subtext renders inline text spans, which can't host the interactive

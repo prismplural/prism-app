@@ -13,6 +13,16 @@ Future<Table> _pumpTable(
   String data, {
   List<Member> members = const [],
 }) async {
+  await _pumpPrismMarkdown(tester, data, members: members);
+  await tester.pumpAndSettle();
+  return tester.widget<Table>(find.byType(Table));
+}
+
+Future<void> _pumpPrismMarkdown(
+  WidgetTester tester,
+  String data, {
+  List<Member> members = const [],
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -28,11 +38,51 @@ Future<Table> _pumpTable(
       ),
     ),
   );
-  await tester.pumpAndSettle();
-  return tester.widget<Table>(find.byType(Table));
 }
 
 void main() {
+  group('PrismMarkdownText alignment fences', () {
+    testWidgets('center fence strips markers and aligns rendered markdown', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        ':::center\n# Hello\n\nCentered **body**\n\n-# quiet aside\n:::',
+      );
+      await tester.pumpAndSettle();
+
+      final rendered = _allRenderedText(tester).join('\n');
+      expect(rendered, contains('Hello'));
+      expect(rendered, contains('Centered body'));
+      expect(rendered, contains('quiet aside'));
+      expect(rendered, isNot(contains(':::')));
+
+      expect(
+        _richTextContaining(tester, 'Centered body').textAlign,
+        TextAlign.center,
+      );
+      expect(
+        _textContaining(tester, 'quiet aside').textAlign,
+        TextAlign.center,
+      );
+    });
+
+    testWidgets('justify fence applies justify alignment to formatted prose', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        ':::justify\nJustified **body** text with enough words to wrap.\n:::',
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        _richTextContaining(tester, 'Justified body text').textAlign,
+        TextAlign.justify,
+      );
+    });
+  });
+
   group('PrismMarkdownTable column widths', () {
     testWidgets('image in left column hugs, text column flexes', (
       tester,
@@ -126,4 +176,32 @@ void main() {
       expect(find.textContaining('@[$aliceId]'), findsNothing);
     });
   });
+}
+
+RichText _richTextContaining(WidgetTester tester, String value) {
+  return tester
+      .widgetList<RichText>(find.byType(RichText))
+      .singleWhere((widget) => widget.text.toPlainText().contains(value));
+}
+
+Text _textContaining(WidgetTester tester, String value) {
+  return tester
+      .widgetList<Text>(find.byType(Text))
+      .singleWhere(
+        (widget) => (widget.data ?? widget.textSpan?.toPlainText() ?? '')
+            .contains(value),
+      );
+}
+
+List<String> _allRenderedText(WidgetTester tester) {
+  final result = <String>[];
+  for (final text in tester.widgetList<Text>(find.byType(Text))) {
+    final content = text.data ?? text.textSpan?.toPlainText() ?? '';
+    if (content.isNotEmpty) result.add(content);
+  }
+  for (final richText in tester.widgetList<RichText>(find.byType(RichText))) {
+    final content = richText.text.toPlainText();
+    if (content.isNotEmpty) result.add(content);
+  }
+  return result;
 }

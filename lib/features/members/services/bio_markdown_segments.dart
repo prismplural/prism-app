@@ -6,26 +6,32 @@
 ///   :::plain        → tables in this block render with NO borders
 ///   :::#RRGGBB       → tables in this block render with that border color
 ///                      (also accepts #RGB and #AARRGGBB)
+///   :::left          → text in this block renders left-aligned
+///   :::center        → text in this block renders centered
+///   :::right         → text in this block renders right-aligned
+///   :::justify       → text in this block renders justified
 ///   :::              → closes the current block
 ///
 /// Anything outside a fence renders with the app's default table styling, so
 /// existing bios are unaffected. Fences do not nest; an unclosed fence runs to
 /// the end of the text.
 ///
-/// Only a recognized directive opens a fence: `:::plain` or a valid hex color.
-/// Any other `:::` line — an unknown spec, an invalid hex color, or a stray
-/// bare `:::` outside an open fence — is preserved verbatim as literal content
-/// and passed through to the markdown renderer rather than being dropped.
+/// Only a recognized directive opens a fence: `:::plain`, a valid hex color,
+/// or one of the supported text alignment names. Any other `:::` line — an
+/// unknown spec, an invalid hex color, or a stray bare `:::` outside an open
+/// fence — is preserved verbatim as literal content and passed through to the
+/// markdown renderer rather than being dropped.
 library;
 
-import 'package:flutter/painting.dart' show Color;
+import 'dart:ui' show Color, TextAlign;
 
-/// A contiguous run of markdown plus the table-border treatment for its tables.
+/// A contiguous run of markdown plus optional Prism-specific presentation.
 class MarkdownSegment {
   const MarkdownSegment({
     required this.content,
     this.borderless = false,
     this.borderColor,
+    this.textAlign,
   });
 
   final String content;
@@ -37,13 +43,17 @@ class MarkdownSegment {
   /// Null → app default border.
   final Color? borderColor;
 
-  /// Whether this segment uses the default (non-overridden) table styling.
-  bool get isDefault => !borderless && borderColor == null;
+  /// Text alignment for prose in this segment. Null → app default alignment.
+  final TextAlign? textAlign;
+
+  /// Whether this segment uses the default presentation.
+  bool get isDefault => !borderless && borderColor == null && textAlign == null;
 }
 
 // A `:::` directive line (optionally indented). Group 1 is the spec (`plain`,
-// `#FF8800`, or empty for a closing fence). `\r?` before `$` is necessary
-// because Dart's `.` doesn't match `\r`, so a CRLF line would fail entirely.
+// `#FF8800`, `center`, or empty for a closing fence). `\r?` before `$` is
+// necessary because Dart's `.` doesn't match `\r`, so a CRLF line would fail
+// entirely.
 final _fenceLine = RegExp(r'^\s*:::[ \t]*(.*?)[ \t]*\r?$');
 
 /// Parse [markdown] into ordered [MarkdownSegment]s split on `:::` fences.
@@ -58,17 +68,27 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
   var inFence = false;
   var borderless = false;
   Color? color;
+  TextAlign? textAlign;
 
   void flush({required bool fenced}) {
     if (buf.isEmpty) return;
     final content = buf.join('\n');
     buf.clear();
     if (content.trim().isEmpty) return; // skip whitespace-only runs
-    segments.add(MarkdownSegment(
-      content: content,
-      borderless: fenced && borderless,
-      borderColor: fenced ? color : null,
-    ));
+    segments.add(
+      MarkdownSegment(
+        content: content,
+        borderless: fenced && borderless,
+        borderColor: fenced ? color : null,
+        textAlign: fenced ? textAlign : null,
+      ),
+    );
+  }
+
+  void clearFenceStyle() {
+    borderless = false;
+    color = null;
+    textAlign = null;
   }
 
   for (final line in markdown.split('\n')) {
@@ -80,23 +100,26 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
           // A bare `:::` closes the open fence (and is consumed).
           flush(fenced: true);
           inFence = false;
-          borderless = false;
-          color = null;
+          clearFenceStyle();
           continue;
         }
         // A non-empty `:::` spec inside a fence is literal content.
       } else {
-        // Only `:::plain` or a valid hex color opens a fence; any other `:::`
-        // line falls through to buf.add below as literal content.
+        // Only known Prism directives open a fence; any other `:::` line falls
+        // through to buf.add below as literal content.
         final isPlain = spec.toLowerCase() == 'plain';
         final parsed = parseHexColor(spec);
-        if (isPlain || parsed != null) {
+        final parsedAlign = _parseTextAlign(spec);
+        if (isPlain || parsed != null || parsedAlign != null) {
           flush(fenced: false); // emit preceding default content
           inFence = true;
+          clearFenceStyle();
           if (isPlain) {
             borderless = true;
-          } else {
+          } else if (parsed != null) {
             color = parsed;
+          } else {
+            textAlign = parsedAlign;
           }
           continue;
         }
@@ -122,4 +145,19 @@ Color? parseHexColor(String spec) {
   if (hex.length != 8) return null;
   final value = int.tryParse(hex, radix: 16);
   return value == null ? null : Color(value);
+}
+
+TextAlign? _parseTextAlign(String spec) {
+  switch (spec.trim().toLowerCase()) {
+    case 'left':
+      return TextAlign.left;
+    case 'center':
+      return TextAlign.center;
+    case 'right':
+      return TextAlign.right;
+    case 'justify':
+      return TextAlign.justify;
+    default:
+      return null;
+  }
 }

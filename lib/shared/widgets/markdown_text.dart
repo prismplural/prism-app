@@ -26,6 +26,7 @@ class MarkdownText extends StatelessWidget {
     this.onTapMember,
     this.tableBorderless = false,
     this.tableBorderColor,
+    this.textAlign,
   });
 
   /// The text content (plain or Markdown).
@@ -62,12 +63,16 @@ class MarkdownText extends StatelessWidget {
   /// Null → the default theme border.
   final Color? tableBorderColor;
 
+  /// Optional block text alignment. Null → renderer default.
+  final TextAlign? textAlign;
+
   @override
   Widget build(BuildContext context) {
     if (!enabled) {
       return Text(
         data,
         style: nullableTextStyleForTextPresentation(baseStyle, data),
+        textAlign: textAlign,
       );
     }
 
@@ -121,6 +126,7 @@ class MarkdownText extends StatelessWidget {
             mutedColor: theme.colorScheme.onSurfaceVariant,
             codeBackground: theme.colorScheme.surfaceContainerHighest,
             linkColor: theme.colorScheme.primary,
+            textAlign: textAlign,
             // ignore: unnecessary_lambdas — adapts non-null href to nullable handler
             onTapLink: (href) => _launchSafeLink(href),
           ),
@@ -184,6 +190,7 @@ class MarkdownText extends StatelessWidget {
       onTapMember: onTapMember,
       tableBorderless: tableBorderless,
       tableBorderColor: tableBorderColor,
+      textAlign: textAlign,
     );
   }
 
@@ -199,9 +206,21 @@ class MarkdownText extends StatelessWidget {
     final radius = PrismShapes.of(context).radius(8);
     final mutedSurface = theme.colorScheme.surfaceContainerHighest;
     final mutedFg = theme.colorScheme.onSurfaceVariant;
+    final markdownAlign = _wrapAlignmentForTextAlign(textAlign);
 
     final sheet = base.copyWith(
       p: strip(baseStyle ?? base.p),
+      textAlign: markdownAlign,
+      h1Align: markdownAlign,
+      h2Align: markdownAlign,
+      h3Align: markdownAlign,
+      h4Align: markdownAlign,
+      h5Align: markdownAlign,
+      h6Align: markdownAlign,
+      unorderedListAlign: markdownAlign,
+      orderedListAlign: markdownAlign,
+      blockquoteAlign: markdownAlign,
+      codeblockAlign: markdownAlign,
       a: strip(base.a).copyWith(
         color: theme.colorScheme.primary,
         decoration: TextDecoration.underline,
@@ -249,6 +268,23 @@ class MarkdownText extends StatelessWidget {
       );
     }
     return sheet;
+  }
+
+  WrapAlignment? _wrapAlignmentForTextAlign(TextAlign? align) {
+    switch (align) {
+      case TextAlign.left:
+      case TextAlign.start:
+        return WrapAlignment.start;
+      case TextAlign.center:
+        return WrapAlignment.center;
+      case TextAlign.right:
+      case TextAlign.end:
+        return WrapAlignment.end;
+      case TextAlign.justify:
+        return WrapAlignment.spaceBetween;
+      case null:
+        return null;
+    }
   }
 
   Widget _buildTaskListCheckbox({

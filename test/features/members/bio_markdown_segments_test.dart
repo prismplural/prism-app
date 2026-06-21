@@ -48,6 +48,31 @@ void main() {
       expect(segs.first.borderColor, const Color(0xFFFF8800));
     });
 
+    test('alignment fences strip markers and preserve content', () {
+      const md = ':::center\n# Title\n\nCentered **body**\n:::';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.textAlign, TextAlign.center);
+      expect(segs.first.borderless, isFalse);
+      expect(segs.first.borderColor, isNull);
+      expect(segs.first.content, '# Title\n\nCentered **body**');
+    });
+
+    test('all alignment directives are recognized case-insensitively', () {
+      final alignments = {
+        'left': TextAlign.left,
+        'CENTER': TextAlign.center,
+        'Right': TextAlign.right,
+        'justify': TextAlign.justify,
+      };
+
+      for (final entry in alignments.entries) {
+        final segs = parseStyledSegments(':::${entry.key}\ntext\n:::');
+        expect(segs.single.textAlign, entry.value, reason: entry.key);
+        expect(segs.single.content, 'text', reason: entry.key);
+      }
+    });
+
     test('prose + fenced + prose → three ordered segments', () {
       const md = 'intro\n\n:::plain\n| a | b |\n:::\n\noutro';
       final segs = parseStyledSegments(md);
@@ -134,39 +159,48 @@ void main() {
       expect(segs[1].content, 'outside');
     });
 
-    test('closing fence with trailing CR (CRLF line ending) closes the fence', () {
-      final md = ':::plain\n| a | b |\n| - | - |\n:::\r\n\noutside';
-      final segs = parseStyledSegments(md);
-      expect(segs, hasLength(2));
-      expect(segs[0].borderless, isTrue);
-      expect(segs[1].isDefault, isTrue);
-      expect(segs[1].content.trim(), 'outside');
-    });
+    test(
+      'closing fence with trailing CR (CRLF line ending) closes the fence',
+      () {
+        const md = ':::plain\n| a | b |\n| - | - |\n:::\r\n\noutside';
+        final segs = parseStyledSegments(md);
+        expect(segs, hasLength(2));
+        expect(segs[0].borderless, isTrue);
+        expect(segs[1].isDefault, isTrue);
+        expect(segs[1].content.trim(), 'outside');
+      },
+    );
 
-    test('opening fence with trailing CR (CRLF line ending) opens the fence', () {
-      final md = ':::plain\r\n| a | b |\n| - | - |\n:::';
-      final segs = parseStyledSegments(md);
-      expect(segs, hasLength(1));
-      expect(segs[0].borderless, isTrue);
-    });
+    test(
+      'opening fence with trailing CR (CRLF line ending) opens the fence',
+      () {
+        const md = ':::plain\r\n| a | b |\n| - | - |\n:::';
+        final segs = parseStyledSegments(md);
+        expect(segs, hasLength(1));
+        expect(segs[0].borderless, isTrue);
+      },
+    );
 
     test('hex fence with trailing CR opens and closes correctly', () {
-      final md = ':::#FF8800\r\n| a | b |\n| - | - |\n:::\r\n\noutside';
+      const md = ':::#FF8800\r\n| a | b |\n| - | - |\n:::\r\n\noutside';
       final segs = parseStyledSegments(md);
       expect(segs, hasLength(2));
-      expect(segs[0].borderColor?.value, 0xFFFF8800);
+      expect(segs[0].borderColor?.toARGB32(), 0xFFFF8800);
       expect(segs[1].isDefault, isTrue);
     });
 
-    test('two consecutive fenced blocks → two separate borderless segments', () {
-      const md = ':::plain\nA\n:::\n:::plain\nB\n:::';
-      final segs = parseStyledSegments(md);
-      expect(segs, hasLength(2));
-      expect(segs[0].borderless, isTrue);
-      expect(segs[0].content, 'A');
-      expect(segs[1].borderless, isTrue);
-      expect(segs[1].content, 'B');
-    });
+    test(
+      'two consecutive fenced blocks → two separate borderless segments',
+      () {
+        const md = ':::plain\nA\n:::\n:::plain\nB\n:::';
+        final segs = parseStyledSegments(md);
+        expect(segs, hasLength(2));
+        expect(segs[0].borderless, isTrue);
+        expect(segs[0].content, 'A');
+        expect(segs[1].borderless, isTrue);
+        expect(segs[1].content, 'B');
+      },
+    );
 
     test('non-empty spec inside open fence is literal content', () {
       const md = ':::plain\n:::another\nsome text\n:::';
@@ -193,13 +227,16 @@ void main() {
       expect(segs.first.content, md);
     });
 
-    test('fenced table followed by default table: second segment is default', () {
-      const rows = '| a | b |\n| - | - |';
-      final md = ':::plain\n$rows\n:::\n\n$rows';
-      final segs = parseStyledSegments(md);
-      expect(segs, hasLength(2));
-      expect(segs[0].borderless, isTrue);
-      expect(segs[1].isDefault, isTrue);
-    });
+    test(
+      'fenced table followed by default table: second segment is default',
+      () {
+        const rows = '| a | b |\n| - | - |';
+        const md = ':::plain\n$rows\n:::\n\n$rows';
+        final segs = parseStyledSegments(md);
+        expect(segs, hasLength(2));
+        expect(segs[0].borderless, isTrue);
+        expect(segs[1].isDefault, isTrue);
+      },
+    );
   });
 }

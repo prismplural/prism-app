@@ -23,6 +23,7 @@ class PrismMarkdownTable extends StatelessWidget {
     this.onTapMember,
     this.borderless = false,
     this.borderColor,
+    this.textAlign,
   });
 
   final TableData table;
@@ -44,6 +45,9 @@ class PrismMarkdownTable extends StatelessWidget {
 
   /// Border color (ignored when [borderless]); null → theme divider color.
   final Color? borderColor;
+
+  /// Fallback text alignment for cells without GFM column alignment.
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +75,9 @@ class PrismMarkdownTable extends StatelessWidget {
                   context,
                   cell: c < rows[r].length ? rows[r][c] : '',
                   isHeader: r == 0,
-                  align: c < table.aligns.length ? table.aligns[c] : null,
+                  align:
+                      (c < table.aligns.length ? table.aligns[c] : null) ??
+                      textAlign,
                   // Only intrinsic-width (image-hug) columns are measured, so
                   // only they need the finite-width guard.
                   hug: widths[c] is IntrinsicColumnWidth,
@@ -146,6 +152,7 @@ class PrismMarkdownTable extends StatelessWidget {
       baseStyle: style,
       memberMap: memberMap,
       onTapMember: onTapMember,
+      textAlign: align,
     );
 
     return TableCell(

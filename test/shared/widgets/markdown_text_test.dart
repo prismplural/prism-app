@@ -206,6 +206,28 @@ void main() {
     expect(paragraphLeft, lessThan(itemLeft));
   });
 
+  testWidgets('textAlign applies to formatted paragraphs and subtext', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(
+            data: 'Aligned **body**\n\n-# quiet aside',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+
+    final body = _richTextContaining(tester, 'Aligned body');
+    expect(body.textAlign, TextAlign.center);
+
+    final subtext = _textContaining(tester, 'quiet aside');
+    expect(subtext.textAlign, TextAlign.center);
+  });
+
   group('plain line escapes', () {
     test(
       'escape non-punctuation line starts while preserving CommonMark escapes',
@@ -935,6 +957,21 @@ void main() {
       expect(text, contains('▮'));
     });
   });
+}
+
+RichText _richTextContaining(WidgetTester tester, String value) {
+  return tester
+      .widgetList<RichText>(find.byType(RichText))
+      .singleWhere((widget) => widget.text.toPlainText().contains(value));
+}
+
+Text _textContaining(WidgetTester tester, String value) {
+  return tester
+      .widgetList<Text>(find.byType(Text))
+      .singleWhere(
+        (widget) => (widget.data ?? widget.textSpan?.toPlainText() ?? '')
+            .contains(value),
+      );
 }
 
 List<String> _plainTextWidgets(WidgetTester tester) {

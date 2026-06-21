@@ -197,6 +197,7 @@ class PrismMarkdownText extends ConsumerWidget {
               onTapMember: onTapMember,
               borderless: seg.borderless,
               borderColor: seg.borderColor,
+              textAlign: seg.textAlign,
             );
           }
           return MarkdownText(
@@ -214,6 +215,7 @@ class PrismMarkdownText extends ConsumerWidget {
             onTapMember: onTapMember,
             tableBorderless: seg.borderless,
             tableBorderColor: seg.borderColor,
+            textAlign: seg.textAlign,
           );
         }
 
