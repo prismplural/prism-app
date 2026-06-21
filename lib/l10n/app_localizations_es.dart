@@ -12105,6 +12105,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldMenuEdit => 'Edit';
 
   @override
+  String get customFieldMenuShareAsTemplate => 'Compartir como plantilla';
+
+  @override
   String get customFieldMenuMoveIntoGroup => 'Move into group';
 
   @override
@@ -12129,64 +12132,64 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldNoEligibleGroups => 'No groups to move into';
 
   @override
-  String get fieldTemplateCardKicker => 'Field template';
+  String get fieldTemplateCardKicker => 'Plantilla de campos';
 
   @override
   String fieldTemplateFieldCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$count fields',
-      one: '1 field',
-      zero: 'No fields',
+      other: '$count campos',
+      one: '1 campo',
+      zero: 'Sin campos',
     );
     return '$_temp0';
   }
 
   @override
-  String get fieldTemplateCardScanHint => 'Scan or paste to import';
+  String get fieldTemplateCardScanHint => 'Escanea o pega para importar';
 
   @override
   String fieldTemplateQrSemanticLabel(String name) {
-    return 'QR code for the $name field template';
+    return 'Código QR de la plantilla de campos $name';
   }
 
   @override
-  String get fieldTemplateShareTitle => 'Share template';
+  String get fieldTemplateShareTitle => 'Compartir plantilla';
 
   @override
-  String get fieldTemplateShareCopy => 'Copy template';
+  String get fieldTemplateShareCopy => 'Copiar plantilla';
 
   @override
-  String get fieldTemplateShareCopiedToast => 'Template copied';
+  String get fieldTemplateShareCopiedToast => 'Plantilla copiada';
 
   @override
-  String get fieldTemplateShareSaveImage => 'Save image';
+  String get fieldTemplateShareSaveImage => 'Guardar imagen';
 
   @override
-  String get fieldTemplateShareShareImage => 'Share image';
+  String get fieldTemplateShareShareImage => 'Compartir imagen';
 
   @override
-  String get fieldTemplateShareImageSaved => 'Template image saved';
+  String get fieldTemplateShareImageSaved => 'Imagen de plantilla guardada';
 
   @override
-  String get fieldTemplateShareImageFailed => 'Couldn\'t create the image';
+  String get fieldTemplateShareImageFailed => 'No se pudo crear la imagen';
 
   @override
-  String get fieldTemplateShareSubject => 'Prism field template';
+  String get fieldTemplateShareSubject => 'Plantilla de campos de Prism';
 
   @override
-  String get fieldTemplateShareWhatsIncluded => 'What\'s included';
+  String get fieldTemplateShareWhatsIncluded => 'Qué incluye';
 
   @override
   String get fieldTemplateShareNoQrWarning =>
-      'This template is too long to fit a QR code — copy it or share the image instead.';
+      'Esta plantilla es demasiado larga para un código QR: cópiala o comparte la imagen.';
 
   @override
-  String get fieldTemplateShareTextLabel => 'Template text';
+  String get fieldTemplateShareTextLabel => 'Texto de la plantilla';
 
   @override
-  String get fieldTemplatePreviewUnknownBadge => 'Newer version';
+  String get fieldTemplatePreviewUnknownBadge => 'Versión más reciente';
 
   @override
   String fieldTemplatePreviewRowSemantic(String name, String type) {
@@ -12194,63 +12197,64 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get fieldTemplateImportPreviewTitle => 'Review template';
+  String get fieldTemplateImportPreviewTitle => 'Revisar plantilla';
 
   @override
   String get fieldTemplateImportOwnershipLine =>
-      'Saved to your fields. Changes won\'t affect the original.';
+      'Se guarda en tus campos. Los cambios no afectarán al original.';
 
   @override
-  String get fieldTemplateImportConfirm => 'Import fields';
+  String get fieldTemplateImportConfirm => 'Importar campos';
 
   @override
-  String get fieldTemplateImportTitle => 'Import template';
+  String get fieldTemplateImportTitle => 'Importar plantilla';
 
   @override
   String get fieldTemplateImportDescription =>
-      'Paste a template, choose its image, or scan a QR code to add someone\'s custom fields to your own.';
+      'Pega una plantilla, elige su imagen o escanea un código QR para añadir a los tuyos los campos personalizados de otra persona.';
 
   @override
-  String get fieldTemplateImportPasteLabel => 'Paste template';
+  String get fieldTemplateImportPasteLabel => 'Pegar plantilla';
 
   @override
-  String get fieldTemplateImportPasteAction => 'Import';
+  String get fieldTemplateImportPasteAction => 'Importar';
 
   @override
-  String get fieldTemplateImportChooseImage => 'Choose image';
+  String get fieldTemplateImportChooseImage => 'Elegir imagen';
 
   @override
-  String get fieldTemplateImportScan => 'Scan QR code';
+  String get fieldTemplateImportScan => 'Escanear código QR';
 
   @override
   String get fieldTemplateImportScanDescription =>
-      'Point your camera at a template\'s QR code.';
+      'Apunta la cámara al código QR de una plantilla.';
 
   @override
-  String get fieldTemplateImportDividerOr => 'or';
+  String get fieldTemplateImportDividerOr => 'o';
 
   @override
   String get fieldTemplateImportErrorInvalid =>
-      'This code doesn\'t look right — check for typos or ask for a new one.';
+      'Este código no parece correcto: revisa si hay errores o pide uno nuevo.';
 
   @override
   String get fieldTemplateImportErrorVersion =>
-      'This template needs a newer version of Prism. Update the app to import it.';
+      'Esta plantilla necesita una versión más reciente de Prism. Actualiza la app para importarla.';
 
   @override
   String get fieldTemplateImportErrorNoImage =>
-      'Couldn\'t find a template in that image — try pasting it instead.';
+      'No se encontró ninguna plantilla en esa imagen: prueba a pegarla.';
 
   @override
-  String get fieldTemplateImportErrorFailed => 'Couldn\'t import the template.';
+  String get fieldTemplateImportErrorFailed =>
+      'No se pudo importar la plantilla.';
 
   @override
   String fieldTemplateImportSuccessToast(String name, int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: '$name imported ($count fields)',
-      one: '$name imported (1 field)',
+      other: '$name importada ($count campos)',
+      one: '$name importada (1 campo)',
     );
     return '$_temp0';
   }

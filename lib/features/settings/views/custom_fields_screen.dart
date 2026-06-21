@@ -9,8 +9,11 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/custom_field_group_delete_actions.dart';
+import 'package:prism_plurality/features/settings/services/field_template_export_service.dart';
 import 'package:prism_plurality/features/settings/views/custom_field_detail_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
+import 'package:prism_plurality/features/settings/widgets/import_template_sheet.dart';
+import 'package:prism_plurality/features/settings/widgets/share_template_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/custom_field_type_labels.dart';
@@ -45,6 +48,11 @@ class CustomFieldsScreen extends ConsumerWidget {
         title: context.l10n.settingsCustomFieldsTitle,
         showBackButton: true,
         actions: [
+          PrismTopBarAction(
+            icon: AppIcons.download,
+            tooltip: context.l10n.fieldTemplateImportTitle,
+            onPressed: () => ImportTemplateSheet.show(context),
+          ),
           PrismTopBarAction(
             icon: AppIcons.add,
             tooltip: context.l10n.settingsCustomFieldsAddTooltip,
@@ -475,6 +483,26 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     );
   }
 
+  Future<void> _shareAsTemplate(BuildContext context) async {
+    final service = ref.read(fieldTemplateExportServiceProvider);
+    final field = widget.field;
+    try {
+      final template = field.fieldTypeId == 'group'
+          ? await service.buildTemplateForGroup(field.id)
+          : await service.buildTemplateForField(field.id);
+      if (!context.mounted) return;
+      await ShareTemplateSheet.show(context, template: template);
+    } catch (e) {
+      // The field/group may have been deleted between tap and read.
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.settingsCustomFieldsError(e.toString()),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmDelete(BuildContext context) async {
     final navigator = Navigator.of(context);
     final displayName = _displayName(context, widget.field);
@@ -695,8 +723,8 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
     required bool hasEligible,
     required bool hasOtherGroups,
   }) {
-    // Edit + Delete are always present (2).
-    int count = 2;
+    // Edit + Share + Delete are always present (3).
+    int count = 3;
     if (!isGroup && hasEligible) count++; // Move into group
     if (!isGroup && !hasEligible && widget.allGroups.isEmpty) {
       // No groups at all — skip the move-into item entirely
@@ -731,6 +759,20 @@ class _FieldRowState extends ConsumerState<_FieldRow> {
         onTap: () {
           close();
           _openEditSheet(context);
+        },
+      ),
+    );
+
+    // Share as template
+    items.add(
+      _MenuItem(
+        icon: AppIcons.share,
+        label: context.l10n.customFieldMenuShareAsTemplate,
+        enabled: true,
+        destructive: false,
+        onTap: () {
+          close();
+          _shareAsTemplate(context);
         },
       ),
     );

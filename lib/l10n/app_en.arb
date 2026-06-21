@@ -12828,6 +12828,8 @@
   "@sliderGradientPresetPaletteWarmInk": { "description": "Label for the warm-ink gradient preset" },
   "customFieldMenuEdit": "Edit",
   "@customFieldMenuEdit": { "description": "Context menu item to edit a custom field" },
+  "customFieldMenuShareAsTemplate": "Share as template",
+  "@customFieldMenuShareAsTemplate": { "description": "Context menu / top-bar action to share a custom field or group as a reusable template" },
   "customFieldMenuMoveIntoGroup": "Move into group",
   "@customFieldMenuMoveIntoGroup": { "description": "Context menu item to move a field into a group; tapping shows a submenu of groups" },
   "customFieldMenuMoveOutOfGroup": "Move out of group",

@@ -19178,6 +19178,12 @@ abstract class AppLocalizations {
   /// **'Edit'**
   String get customFieldMenuEdit;
 
+  /// Context menu / top-bar action to share a custom field or group as a reusable template
+  ///
+  /// In en, this message translates to:
+  /// **'Share as template'**
+  String get customFieldMenuShareAsTemplate;
+
   /// Context menu item to move a field into a group; tapping shows a submenu of groups
   ///
   /// In en, this message translates to:

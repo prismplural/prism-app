@@ -21,8 +21,10 @@ import 'package:prism_plurality/features/members/providers/members_batch_provide
 import 'package:prism_plurality/features/members/widgets/scale_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/services/field_template_export_service.dart';
 import 'package:prism_plurality/features/settings/views/custom_field_group_delete_actions.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
+import 'package:prism_plurality/features/settings/widgets/share_template_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -183,6 +185,11 @@ class _CustomFieldDetailBodyState
         showBackButton: true,
         actions: [
           PrismTopBarAction(
+            icon: AppIcons.share,
+            tooltip: context.l10n.customFieldMenuShareAsTemplate,
+            onPressed: () => _shareAsTemplate(context),
+          ),
+          PrismTopBarAction(
             icon: AppIcons.editOutlined,
             tooltip: context.l10n.edit,
             onPressed: () => _openEditSheet(context),
@@ -323,6 +330,25 @@ class _CustomFieldDetailBodyState
         scrollController: scrollController,
       ),
     );
+  }
+
+  Future<void> _shareAsTemplate(BuildContext context) async {
+    final service = ref.read(fieldTemplateExportServiceProvider);
+    try {
+      final template = field.fieldTypeId == 'group'
+          ? await service.buildTemplateForGroup(field.id)
+          : await service.buildTemplateForField(field.id);
+      if (!context.mounted) return;
+      await ShareTemplateSheet.show(context, template: template);
+    } catch (e) {
+      // The field/group may have been deleted between tap and read.
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.settingsCustomFieldsError(e.toString()),
+        );
+      }
+    }
   }
 
   Future<void> _handleMoveAction(

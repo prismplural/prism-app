@@ -11912,6 +11912,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldMenuEdit => 'Edit';
 
   @override
+  String get customFieldMenuShareAsTemplate => 'Share as template';
+
+  @override
   String get customFieldMenuMoveIntoGroup => 'Move into group';
 
   @override
