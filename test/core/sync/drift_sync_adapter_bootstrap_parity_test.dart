@@ -77,6 +77,37 @@ void main() {
     },
   );
 
+  test('system_settings bootstrap emits only the singleton row', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    final syncAdapter = buildSyncAdapterWithCompletion(db);
+
+    await db
+        .into(db.systemSettingsTable)
+        .insert(
+          const SystemSettingsTableCompanion(
+            id: Value('singleton'),
+            systemName: Value('Primary system'),
+          ),
+        );
+    await db
+        .into(db.systemSettingsTable)
+        .insert(
+          const SystemSettingsTableCompanion(
+            id: Value('rogue-settings-row'),
+            systemName: Value('Rogue system'),
+          ),
+        );
+
+    final fetchers = bootstrapFetchersFor(syncAdapter.adapter, db);
+    final rows = await fetchers['system_settings']!();
+
+    expect(rows, hasLength(1));
+    expect(rows.single.id, 'singleton');
+    expect(rows.single.fields['system_name'], 'Primary system');
+  });
+
   test('buildBootstrapRecords wraps rows with table + entity_id', () async {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);

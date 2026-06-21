@@ -72,7 +72,9 @@ Map<String, BootstrapFetcher> bootstrapFetchersFor(
     ),
     'system_settings': build(
       'system_settings',
-      () => db.select(db.systemSettingsTable).get(),
+      () => (db.select(
+        db.systemSettingsTable,
+      )..where((t) => t.id.equals('singleton'))).get(),
     ),
     'app_preference_values': build(
       'app_preference_values',
