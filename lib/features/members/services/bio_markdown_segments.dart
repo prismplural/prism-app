@@ -10,10 +10,12 @@
 ///   :::center        → text in this block renders centered
 ///   :::right         → text in this block renders right-aligned
 ///   :::justify       → text in this block renders justified
+///   :::center plain  → compose text alignment with table styling
 ///   :::              → closes the current block
 ///
 /// Anything outside a fence renders with the app's default table styling, so
-/// existing bios are unaffected. Fences do not nest; an unclosed fence runs to
+/// existing bios are unaffected. Fences can nest; inner fences inherit outer
+/// settings unless they override the same setting. An unclosed fence runs to
 /// the end of the text.
 ///
 /// Only a recognized directive opens a fence: `:::plain`, a valid hex color,
@@ -65,31 +67,23 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
 
   final segments = <MarkdownSegment>[];
   final buf = <String>[];
-  var inFence = false;
-  var borderless = false;
-  Color? color;
-  TextAlign? textAlign;
+  final styleStack = <_FenceStyle>[];
   _MarkdownCodeFence? codeFence;
 
-  void flush({required bool fenced}) {
+  void flush() {
     if (buf.isEmpty) return;
     final content = buf.join('\n');
     buf.clear();
     if (content.trim().isEmpty) return; // skip whitespace-only runs
+    final style = _effectiveStyle(styleStack);
     segments.add(
       MarkdownSegment(
         content: content,
-        borderless: fenced && borderless,
-        borderColor: fenced ? color : null,
-        textAlign: fenced ? textAlign : null,
+        borderless: style.borderless,
+        borderColor: style.borderColor,
+        textAlign: style.textAlign,
       ),
     );
-  }
-
-  void clearFenceStyle() {
-    borderless = false;
-    color = null;
-    textAlign = null;
   }
 
   for (final line in markdown.split('\n')) {
@@ -109,39 +103,22 @@ List<MarkdownSegment> parseStyledSegments(String markdown) {
     final m = _fenceLine.firstMatch(line);
     if (m != null) {
       final spec = (m.group(1) ?? '').trimRight();
-      if (inFence) {
-        if (spec.isEmpty) {
-          // A bare `:::` closes the open fence (and is consumed).
-          flush(fenced: true);
-          inFence = false;
-          clearFenceStyle();
-          continue;
-        }
-        // A non-empty `:::` spec inside a fence is literal content.
-      } else {
-        // Only known Prism directives open a fence; any other `:::` line falls
-        // through to buf.add below as literal content.
-        final isPlain = spec.toLowerCase() == 'plain';
-        final parsed = parseHexColor(spec);
-        final parsedAlign = _parseTextAlign(spec);
-        if (isPlain || parsed != null || parsedAlign != null) {
-          flush(fenced: false); // emit preceding default content
-          inFence = true;
-          clearFenceStyle();
-          if (isPlain) {
-            borderless = true;
-          } else if (parsed != null) {
-            color = parsed;
-          } else {
-            textAlign = parsedAlign;
-          }
-          continue;
-        }
+      if (spec.isEmpty && styleStack.isNotEmpty) {
+        flush();
+        styleStack.removeLast();
+        continue;
+      }
+
+      final style = _parseFenceStyle(spec);
+      if (style != null) {
+        flush();
+        styleStack.add(style);
+        continue;
       }
     }
     buf.add(line);
   }
-  flush(fenced: inFence); // unclosed fence runs to EOF
+  flush(); // unclosed fences run to EOF with their stacked style
 
   return segments.isEmpty ? [MarkdownSegment(content: markdown)] : segments;
 }
@@ -174,6 +151,88 @@ TextAlign? _parseTextAlign(String spec) {
     default:
       return null;
   }
+}
+
+class _FenceStyle {
+  const _FenceStyle({this.borderless, this.borderColor, this.textAlign});
+
+  /// Null means this fence does not change table styling.
+  final bool? borderless;
+  final Color? borderColor;
+  final TextAlign? textAlign;
+}
+
+class _ResolvedFenceStyle {
+  const _ResolvedFenceStyle({
+    required this.borderless,
+    this.borderColor,
+    this.textAlign,
+  });
+
+  final bool borderless;
+  final Color? borderColor;
+  final TextAlign? textAlign;
+}
+
+_FenceStyle? _parseFenceStyle(String spec) {
+  final tokens = spec
+      .trim()
+      .split(RegExp(r'[ \t]+'))
+      .where((token) => token.isNotEmpty);
+  bool? borderless;
+  Color? borderColor;
+  TextAlign? textAlign;
+  var recognized = false;
+
+  for (final token in tokens) {
+    final lower = token.toLowerCase();
+    final color = parseHexColor(token);
+    final align = _parseTextAlign(token);
+    if (lower == 'plain') {
+      recognized = true;
+      borderless = true;
+      borderColor = null;
+    } else if (color != null) {
+      recognized = true;
+      borderless = false;
+      borderColor = color;
+    } else if (align != null) {
+      recognized = true;
+      textAlign = align;
+    } else {
+      return null;
+    }
+  }
+
+  return recognized
+      ? _FenceStyle(
+          borderless: borderless,
+          borderColor: borderColor,
+          textAlign: textAlign,
+        )
+      : null;
+}
+
+_ResolvedFenceStyle _effectiveStyle(List<_FenceStyle> stack) {
+  var borderless = false;
+  Color? borderColor;
+  TextAlign? textAlign;
+
+  for (final style in stack) {
+    if (style.borderless != null) {
+      borderless = style.borderless!;
+      borderColor = style.borderColor;
+    }
+    if (style.textAlign != null) {
+      textAlign = style.textAlign;
+    }
+  }
+
+  return _ResolvedFenceStyle(
+    borderless: borderless,
+    borderColor: borderColor,
+    textAlign: textAlign,
+  );
 }
 
 class _MarkdownCodeFence {

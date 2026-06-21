@@ -73,6 +73,59 @@ void main() {
       }
     });
 
+    test('same-line directives compose table styling and alignment', () {
+      const md = ':::right #FF8800\n| a | b |\n| - | - |\n:::';
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(1));
+      expect(segs.first.textAlign, TextAlign.right);
+      expect(segs.first.borderless, isFalse);
+      expect(segs.first.borderColor, const Color(0xFFFF8800));
+      expect(segs.first.content, '| a | b |\n| - | - |');
+    });
+
+    test('nested directives inherit outer alignment', () {
+      const md =
+          ':::center\n'
+          'intro\n'
+          ':::plain\n'
+          '| a | b |\n'
+          '| - | - |\n'
+          ':::\n'
+          'outro\n'
+          ':::';
+
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(3));
+      expect(segs[0].content, 'intro');
+      expect(segs[0].textAlign, TextAlign.center);
+      expect(segs[0].borderless, isFalse);
+      expect(segs[1].content, '| a | b |\n| - | - |');
+      expect(segs[1].textAlign, TextAlign.center);
+      expect(segs[1].borderless, isTrue);
+      expect(segs[2].content, 'outro');
+      expect(segs[2].textAlign, TextAlign.center);
+      expect(segs[2].borderless, isFalse);
+    });
+
+    test('inner table styling overrides outer table styling until closed', () {
+      const md =
+          ':::plain\n'
+          'plain before\n'
+          ':::#FF8800\n'
+          '| a | b |\n'
+          '| - | - |\n'
+          ':::\n'
+          'plain after\n'
+          ':::';
+
+      final segs = parseStyledSegments(md);
+      expect(segs, hasLength(3));
+      expect(segs[0].borderless, isTrue);
+      expect(segs[1].borderless, isFalse);
+      expect(segs[1].borderColor, const Color(0xFFFF8800));
+      expect(segs[2].borderless, isTrue);
+    });
+
     test('directives inside markdown code fences stay literal', () {
       const md =
           '```\n'

@@ -142,6 +142,56 @@ void main() {
       _expectRenderedAlign(tester, 'explicit center', TextAlign.center);
       _expectRenderedAlign(tester, 'fallback right', TextAlign.end);
     });
+
+    testWidgets('nested table styling inherits section alignment', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        ':::center\n'
+        'Centered **section**\n'
+        ':::plain\n'
+        '| Name | Note |\n'
+        '| - | - |\n'
+        '| Alice | table at end |\n'
+        ':::\n'
+        ':::',
+      );
+      await tester.pumpAndSettle();
+
+      _expectRenderedAlign(tester, 'Centered section', TextAlign.center);
+      _expectRenderedAlign(tester, 'table at end', TextAlign.center);
+
+      final table = tester.widget<Table>(find.byType(Table));
+      final border = table.border!;
+      expect(border.top, BorderSide.none);
+      expect(border.right, BorderSide.none);
+      expect(border.bottom, BorderSide.none);
+      expect(border.left, BorderSide.none);
+    });
+
+    testWidgets('same-line composition aligns and colors table borders', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        ':::right #FF8800\n'
+        '| Name | Note |\n'
+        '| - | - |\n'
+        '| Alice | composed table |\n'
+        ':::',
+      );
+      await tester.pumpAndSettle();
+
+      _expectRenderedAlign(tester, 'composed table', TextAlign.end);
+
+      final table = tester.widget<Table>(find.byType(Table));
+      final border = table.border!;
+      expect(border.top.color, const Color(0xFFFF8800));
+      expect(border.right.color, const Color(0xFFFF8800));
+      expect(border.bottom.color, const Color(0xFFFF8800));
+      expect(border.left.color, const Color(0xFFFF8800));
+    });
   });
 
   group('PrismMarkdownTable column widths', () {
