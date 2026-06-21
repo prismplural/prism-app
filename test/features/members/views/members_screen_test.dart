@@ -20,6 +20,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
+import 'package:prism_plurality/features/members/providers/custom_field_group_profile_preferences.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -27,6 +28,7 @@ import 'package:prism_plurality/features/members/providers/member_stats_provider
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/members/views/member_custom_field_group_page.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/views/members_screen.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
@@ -73,6 +75,7 @@ Widget _buildSubject({
   List<CustomFieldValue> customFieldValues = const [],
   _FakeFrontingNotifier? frontingNotifier,
   _FakeMembersNotifier? membersNotifier,
+  void Function(FakeAppPreferenceRepository appPrefs)? seedAppPreferences,
   bool withRouter = false,
 }) {
   final activeMembers = members.where((member) => member.isActive).toList();
@@ -111,6 +114,7 @@ Widget _buildSubject({
           home: MembersScreen(showBackButton: false),
         );
   final appPrefs = FakeAppPreferenceRepository();
+  seedAppPreferences?.call(appPrefs);
   addTearDown(appPrefs.close);
 
   return ProviderScope(
@@ -160,6 +164,10 @@ Widget _buildSubject({
         );
       }),
       customFieldsProvider.overrideWithValue(AsyncValue.data(customFields)),
+      for (final field in customFields)
+        customFieldByIdProvider(
+          field.id,
+        ).overrideWith((ref) => Stream.value(field)),
       memberCustomFieldValuesProvider.overrideWith(
         (ref, memberId) => Stream.value(
           customFieldValues
@@ -546,6 +554,84 @@ void main() {
 
       expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
       expect(find.text('Grouped Note'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
+    'wide layout opens page-mode custom field groups inside the detail pane',
+    (tester) async {
+      _setWideWindow(tester);
+
+      final group = CustomField(
+        id: 'vitals',
+        name: 'Vitals',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        displayOrder: 0,
+        createdAt: DateTime(2024),
+      );
+      final child = CustomField(
+        id: 'favorite-color',
+        name: 'Favorite color',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'text',
+        parentFieldId: group.id,
+        displayOrder: 1,
+        createdAt: DateTime(2024),
+      );
+      final value = CustomFieldValue(
+        id: 'value-favorite-color',
+        customFieldId: child.id,
+        memberId: 'alice',
+        value: 'Blue',
+      );
+
+      await tester.pumpWidget(
+        _buildSubject(
+          settings: const SystemSettings(
+            notesEnabled: false,
+            boardsEnabled: false,
+          ),
+          members: [_member('alice')],
+          groups: const [],
+          entries: const [],
+          customFields: [group, child],
+          customFieldValues: [value],
+          seedAppPreferences: (appPrefs) => appPrefs.seed(
+            customFieldGroupProfileDisplayModePreference(group.id),
+            CustomFieldGroupProfileDisplayMode.page.storageValue,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Member alice'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(MemberCustomFieldGroupPage), findsNothing);
+      expect(find.text('Vitals'), findsOneWidget);
+      expect(find.text('1 field'), findsOneWidget);
+      expect(find.text('Blue'), findsNothing);
+
+      await tester.tap(find.text('Vitals'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
+      expect(find.byType(MembersScreen), findsOneWidget);
+      expect(find.byType(MemberCustomFieldGroupPage), findsOneWidget);
+      expect(find.text('Favorite color'), findsOneWidget);
+      expect(find.text('Blue'), findsOneWidget);
+
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(handled, isTrue);
+      expect(find.byType(MemberCustomFieldGroupPage), findsNothing);
+      expect(find.text('Vitals'), findsOneWidget);
+      expect(find.text('Blue'), findsNothing);
     },
   );
 

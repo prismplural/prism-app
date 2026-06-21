@@ -23,6 +23,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
     required this.memberId,
     this.branch = MemberNavigationBranch.settings,
     this.groupId,
+    this.onOpenGroupPage,
   });
 
   static const _compactNameLimit = 24;
@@ -32,6 +33,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
+  final ValueChanged<String>? onOpenGroupPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -142,6 +144,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
             memberId,
             branch: branch,
             groupId: groupId,
+            onOpenGroupPage: onOpenGroupPage,
           ),
         );
         continue;

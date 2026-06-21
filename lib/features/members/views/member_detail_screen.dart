@@ -61,12 +61,14 @@ class MemberDetailScreen extends ConsumerWidget {
     this.groupId,
     this.showBackButton = true,
     this.onEdit,
+    this.onOpenCustomFieldGroupPage,
   });
 
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
   final VoidCallback? onEdit;
+  final ValueChanged<String>? onOpenCustomFieldGroupPage;
 
   /// Hidden when the screen is embedded as the detail pane of a two-pane
   /// list-detail layout, where there is no route to pop back to.
@@ -106,6 +108,7 @@ class MemberDetailScreen extends ConsumerWidget {
           groupId: groupId,
           showBackButton: showBackButton,
           onEdit: onEdit,
+          onOpenCustomFieldGroupPage: onOpenCustomFieldGroupPage,
         );
       },
     );
@@ -119,6 +122,7 @@ class _MemberDetailBody extends ConsumerWidget {
     required this.groupId,
     required this.showBackButton,
     required this.onEdit,
+    required this.onOpenCustomFieldGroupPage,
   });
 
   final Member member;
@@ -126,6 +130,7 @@ class _MemberDetailBody extends ConsumerWidget {
   final String? groupId;
   final bool showBackButton;
   final VoidCallback? onEdit;
+  final ValueChanged<String>? onOpenCustomFieldGroupPage;
 
   bool _isFronting(List<dynamic> sessions) {
     return sessions.any((s) => s.memberId == member.id);
@@ -225,6 +230,7 @@ class _MemberDetailBody extends ConsumerWidget {
         memberId: member.id,
         branch: branch,
         groupId: groupId,
+        onOpenGroupPage: onOpenCustomFieldGroupPage,
       ),
       NotesSection(memberId: member.id),
       MemberGroupsSection(

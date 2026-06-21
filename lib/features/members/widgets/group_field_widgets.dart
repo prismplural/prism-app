@@ -164,12 +164,14 @@ Widget buildGroupDisplayForMember(
   String memberId, {
   MemberNavigationBranch branch = MemberNavigationBranch.settings,
   String? groupId,
+  ValueChanged<String>? onOpenGroupPage,
 }) {
   return GroupProfileDisplayWidget(
     field: field,
     memberId: memberId,
     branch: branch,
     groupId: groupId,
+    onOpenGroupPage: onOpenGroupPage,
   );
 }
 
@@ -180,12 +182,14 @@ class GroupProfileDisplayWidget extends ConsumerWidget {
     required this.memberId,
     required this.branch,
     required this.groupId,
+    required this.onOpenGroupPage,
   });
 
   final CustomField field;
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
+  final ValueChanged<String>? onOpenGroupPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -207,6 +211,7 @@ class GroupProfileDisplayWidget extends ConsumerWidget {
         memberId: memberId,
         branch: branch,
         groupId: groupId,
+        onOpenGroupPage: onOpenGroupPage,
       ),
     };
   }
@@ -308,12 +313,14 @@ class _GroupPageRowWidget extends StatelessWidget {
     required this.memberId,
     required this.branch,
     required this.groupId,
+    required this.onOpenGroupPage,
   });
 
   final CustomField field;
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
+  final ValueChanged<String>? onOpenGroupPage;
 
   @override
   Widget build(BuildContext context) {
@@ -329,6 +336,7 @@ class _GroupPageRowWidget extends StatelessWidget {
           field.id,
           groupId: groupId,
         );
+        final openInPane = onOpenGroupPage;
         return SizedBox(
           width: double.infinity,
           child: PrismSurface(
@@ -348,7 +356,11 @@ class _GroupPageRowWidget extends StatelessWidget {
                 context.l10n.customFieldGroupChildrenCount(childEntries.length),
               ),
               showChevron: true,
-              onTap: router == null ? null : () => router.push(path),
+              onTap: openInPane != null
+                  ? () => openInPane(field.id)
+                  : router == null
+                  ? null
+                  : () => router.push(path),
             ),
           ),
         );

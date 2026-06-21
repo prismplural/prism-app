@@ -23,6 +23,7 @@ import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/features/members/widgets/member_list_view_settings_sheet.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
+import 'package:prism_plurality/features/members/views/member_custom_field_group_page.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -55,7 +56,7 @@ const _kMembersViewSettingsBannerSeenKey =
 
 String _memberOptimisticKey(Member member) => member.id;
 
-enum _MemberDetailPaneMode { detail, edit }
+enum _MemberDetailPaneMode { detail, edit, customFieldGroup }
 
 class _MemberTilePrefs {
   const _MemberTilePrefs({
@@ -90,6 +91,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     with ListDetailSelectionState<MembersScreen> {
   bool? _viewSettingsBannerSeen;
   _MemberDetailPaneMode _detailPaneMode = _MemberDetailPaneMode.detail;
+  String? _detailPaneCustomFieldGroupId;
   final List<String> _paneGroupStack = [];
   final AddEditMemberSheetController _editMemberController =
       AddEditMemberSheetController();
@@ -632,7 +634,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     return ListDetailLayout(
       onClearSelection: _detailPaneMode == _MemberDetailPaneMode.edit
           ? null
-          : _clearDetailPane,
+          : _handleDetailPaneClose,
       onSelectDetail: _openMemberInDetailPane,
       detail: (context) => _buildDetailPane(terms, membersAsync, showInactive),
       list: (context, isWide) {
@@ -806,6 +808,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       _closeEditPane();
       return;
     }
+    if (_detailPaneMode == _MemberDetailPaneMode.customFieldGroup) {
+      _closeCustomFieldGroupPane();
+      return;
+    }
     if (_paneGroupStack.isNotEmpty) {
       _popGroupPane();
       return;
@@ -824,6 +830,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       _paneGroupStack.clear();
       selectedDetailId = null;
       _detailPaneMode = _MemberDetailPaneMode.detail;
+      _detailPaneCustomFieldGroupId = null;
     });
   }
 
@@ -833,14 +840,24 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       setState(() {
         selectedDetailId = selectedDetailId == id ? null : id;
         _detailPaneMode = _MemberDetailPaneMode.detail;
+        _detailPaneCustomFieldGroupId = null;
       });
     } else {
       navigate();
     }
   }
 
+  void _handleDetailPaneClose() {
+    if (_detailPaneMode == _MemberDetailPaneMode.customFieldGroup) {
+      _closeCustomFieldGroupPane();
+      return;
+    }
+    _clearDetailPane();
+  }
+
   void _clearDetailPane() {
     _detailPaneMode = _MemberDetailPaneMode.detail;
+    _detailPaneCustomFieldGroupId = null;
     clearDetailSelection();
   }
 
@@ -849,6 +866,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     setState(() {
       selectedDetailId = memberId;
       _detailPaneMode = _MemberDetailPaneMode.edit;
+      _detailPaneCustomFieldGroupId = null;
     });
   }
 
@@ -857,12 +875,33 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     setState(() {
       selectedDetailId = memberId;
       _detailPaneMode = _MemberDetailPaneMode.detail;
+      _detailPaneCustomFieldGroupId = null;
     });
   }
 
   void _closeEditPane() {
     if (!isDetailPaneVisible) return;
-    setState(() => _detailPaneMode = _MemberDetailPaneMode.detail);
+    setState(() {
+      _detailPaneMode = _MemberDetailPaneMode.detail;
+      _detailPaneCustomFieldGroupId = null;
+    });
+  }
+
+  void _openCustomFieldGroupInPane(String memberId, String fieldId) {
+    if (!isDetailPaneVisible) return;
+    setState(() {
+      selectedDetailId = memberId;
+      _detailPaneMode = _MemberDetailPaneMode.customFieldGroup;
+      _detailPaneCustomFieldGroupId = fieldId;
+    });
+  }
+
+  void _closeCustomFieldGroupPane() {
+    if (!isDetailPaneVisible) return;
+    setState(() {
+      _detailPaneMode = _MemberDetailPaneMode.detail;
+      _detailPaneCustomFieldGroupId = null;
+    });
   }
 
   void _openGroup(String id) {
@@ -944,6 +983,17 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         },
       );
     }
+    if (_detailPaneMode == _MemberDetailPaneMode.customFieldGroup) {
+      final fieldId = _detailPaneCustomFieldGroupId;
+      if (fieldId != null) {
+        return MemberCustomFieldGroupPage(
+          key: ValueKey('custom_field_group_${id}_$fieldId'),
+          memberId: id,
+          fieldId: fieldId,
+          onBack: _closeCustomFieldGroupPane,
+        );
+      }
+    }
     // ListDetailLayout isolates this pane's NestedScrollView for us.
     return MemberDetailScreen(
       key: ValueKey(id),
@@ -951,6 +1001,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       branch: widget.branch,
       showBackButton: false,
       onEdit: () => _openEditInPane(id),
+      onOpenCustomFieldGroupPage: (fieldId) =>
+          _openCustomFieldGroupInPane(id, fieldId),
     );
   }
 

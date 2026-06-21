@@ -6,20 +6,26 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
 class MemberCustomFieldGroupPage extends ConsumerWidget {
   const MemberCustomFieldGroupPage({
     super.key,
     required this.memberId,
     required this.fieldId,
+    this.showBackButton = true,
+    this.onBack,
   });
 
   final String memberId;
   final String fieldId;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,7 +33,7 @@ class MemberCustomFieldGroupPage extends ConsumerWidget {
     final fieldAsync = ref.watch(customFieldByIdProvider(fieldId));
 
     return memberAsync.when(
-      loading: _loadingScaffold,
+      loading: () => _loadingScaffold(context),
       error: (error, _) => _messageScaffold(context, '$error'),
       data: (member) {
         if (member == null || member.isDeleted) {
@@ -37,7 +43,7 @@ class MemberCustomFieldGroupPage extends ConsumerWidget {
           );
         }
         return fieldAsync.when(
-          loading: _loadingScaffold,
+          loading: () => _loadingScaffold(context),
           error: (error, _) => _messageScaffold(context, '$error'),
           data: (field) {
             if (field == null || field.fieldTypeId != kGroupFieldTypeId) {
@@ -49,6 +55,8 @@ class MemberCustomFieldGroupPage extends ConsumerWidget {
             return _MemberCustomFieldGroupPageBody(
               memberId: memberId,
               field: field,
+              showBackButton: showBackButton,
+              onBack: onBack,
             );
           },
         );
@@ -56,17 +64,32 @@ class MemberCustomFieldGroupPage extends ConsumerWidget {
     );
   }
 
-  Widget _loadingScaffold() {
-    return const PrismPageScaffold(
-      topBar: PrismTopBar(title: ''),
-      body: PrismLoadingState(),
+  Widget _loadingScaffold(BuildContext context) {
+    return PrismPageScaffold(
+      topBar: _topBar(context, ''),
+      body: const PrismLoadingState(),
     );
   }
 
   Widget _messageScaffold(BuildContext context, String message) {
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: ''),
+      topBar: _topBar(context, ''),
       body: Center(child: Text(message)),
+    );
+  }
+
+  PreferredSizeWidget _topBar(BuildContext context, String title) {
+    final back = onBack;
+    return PrismTopBar(
+      title: title,
+      showBackButton: showBackButton && back == null,
+      leading: back == null
+          ? null
+          : PrismTopBarAction(
+              icon: AppIcons.arrowBack,
+              tooltip: context.l10n.back,
+              onPressed: back,
+            ),
     );
   }
 }
@@ -75,16 +98,20 @@ class _MemberCustomFieldGroupPageBody extends StatelessWidget {
   const _MemberCustomFieldGroupPageBody({
     required this.memberId,
     required this.field,
+    required this.showBackButton,
+    required this.onBack,
   });
 
   final String memberId;
   final CustomField field;
+  final bool showBackButton;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     final title = _groupDisplayName(context, field);
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: title),
+      topBar: _topBar(context, title),
       bodyPadding: EdgeInsets.zero,
       body: Builder(
         builder: (context) => SingleChildScrollView(
@@ -97,6 +124,21 @@ class _MemberCustomFieldGroupPageBody extends StatelessWidget {
           child: CustomFieldGroupPageContent(field: field, memberId: memberId),
         ),
       ),
+    );
+  }
+
+  PreferredSizeWidget _topBar(BuildContext context, String title) {
+    final back = onBack;
+    return PrismTopBar(
+      title: title,
+      showBackButton: showBackButton && back == null,
+      leading: back == null
+          ? null
+          : PrismTopBarAction(
+              icon: AppIcons.arrowBack,
+              tooltip: context.l10n.back,
+              onPressed: back,
+            ),
     );
   }
 }
