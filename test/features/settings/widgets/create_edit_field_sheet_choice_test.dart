@@ -37,6 +37,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 
   @override
   Future<Object?> createField({
+    String? id,
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
@@ -46,7 +47,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
     String? parentFieldId,
   }) async {
     lastCreated = CustomField(
-      id: 'created-id',
+      id: id ?? 'created-id',
       name: name,
       fieldType: fieldType,
       datePrecision: datePrecision,

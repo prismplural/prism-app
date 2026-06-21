@@ -69,6 +69,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
   /// `AsyncValue.guard` would otherwise swallow `InvalidFieldTypeException`
   /// and other failures into state with no UI surface.
   Future<Object?> createField({
+    String? id,
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
@@ -81,7 +82,7 @@ class CustomFieldNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
       final field = CustomField(
-        id: _uuid.v4(),
+        id: id ?? _uuid.v4(),
         name: name,
         fieldType: fieldType,
         datePrecision: datePrecision,

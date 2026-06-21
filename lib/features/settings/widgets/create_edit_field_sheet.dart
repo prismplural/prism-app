@@ -129,6 +129,10 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   bool _hideTitleOnProfile = false;
   CustomFieldHeaderIcon? _headerIcon;
   DisplayLayout? _memberDisplayLayout;
+  CustomFieldGroupProfileDisplayMode _groupProfileDisplayMode =
+      CustomFieldGroupProfileDisplayMode.inline;
+  CustomFieldGroupCollapseDefaultMode _groupCollapseDefaultMode =
+      CustomFieldGroupCollapseDefaultMode.lastState;
 
   bool _saving = false;
   late final String _initialName;
@@ -145,7 +149,20 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       (_selectedTypeId == 'choice' && _isChoiceDirty) ||
       (_selectedTypeId == 'scale' && _isScaleDirty) ||
       (_selectedTypeId == 'slider' && _isSliderDirty) ||
-      (_selectedTypeId == 'member' && _isMemberDirty);
+      (_selectedTypeId == 'member' && _isMemberDirty) ||
+      (_selectedTypeId == 'group' && _isNewGroupDisplayModeDirty) ||
+      (_selectedTypeId == 'group' && _isNewGroupCollapseDefaultDirty);
+
+  bool get _isNewGroupDisplayModeDirty =>
+      !widget.isEditing &&
+      _groupProfileDisplayMode != CustomFieldGroupProfileDisplayMode.inline;
+
+  bool get _isNewGroupCollapseDefaultDirty =>
+      !widget.isEditing &&
+      _groupProfileDisplayMode ==
+          CustomFieldGroupProfileDisplayMode.collapsible &&
+      _groupCollapseDefaultMode !=
+          CustomFieldGroupCollapseDefaultMode.lastState;
 
   bool get _isScaleDirty {
     final existingConfig = widget.field?.typeConfig;
@@ -858,9 +875,11 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           }
         }
       } else {
+        final createdFieldId = _uuid.v4();
         // Must check the return — InvalidFieldTypeException would otherwise
         // be swallowed and the sheet would pop with a success Haptic.
         final err = await notifier.createField(
+          id: createdFieldId,
           name: name,
           fieldType: legacyFieldType,
           datePrecision: _selectedTypeId == 'date' ? _selectedPrecision : null,
@@ -869,6 +888,20 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
           parentFieldId: widget.parentFieldId,
         );
         if (err != null) throw err;
+        if (_selectedTypeId == 'group') {
+          final appPreferences = ref.read(appPreferenceRepositoryProvider);
+          await appPreferences.set(
+            customFieldGroupProfileDisplayModePreference(createdFieldId),
+            _groupProfileDisplayMode.storageValue,
+          );
+          if (_groupProfileDisplayMode ==
+              CustomFieldGroupProfileDisplayMode.collapsible) {
+            await appPreferences.set(
+              customFieldGroupCollapseDefaultModePreference(createdFieldId),
+              _groupCollapseDefaultMode.storageValue,
+            );
+          }
+        }
       }
 
       if (mounted) {
@@ -1172,11 +1205,23 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                       onHideTitleChanged: (v) =>
                           setState(() => _hideTitleOnProfile = v),
                     ),
-                    if (widget.isEditing && _selectedTypeId == 'group') ...[
+                    if (_selectedTypeId == 'group') ...[
                       const SizedBox(height: 16),
-                      _GroupProfileDisplayConfigSection(
-                        fieldId: widget.field!.id,
-                      ),
+                      if (widget.isEditing)
+                        _PersistedGroupProfileDisplayConfigSection(
+                          fieldId: widget.field!.id,
+                        )
+                      else
+                        _GroupProfileDisplayConfigSection(
+                          mode: _groupProfileDisplayMode,
+                          collapseDefaultMode: _groupCollapseDefaultMode,
+                          onChanged: (next) {
+                            setState(() => _groupProfileDisplayMode = next);
+                          },
+                          onCollapseDefaultChanged: (next) {
+                            setState(() => _groupCollapseDefaultMode = next);
+                          },
+                        ),
                     ],
 
                     const SizedBox(height: 32),
@@ -2763,20 +2808,78 @@ class _ShowTitleConfigSection extends StatelessWidget {
   }
 }
 
-class _GroupProfileDisplayConfigSection extends ConsumerWidget {
-  const _GroupProfileDisplayConfigSection({required this.fieldId});
+class _PersistedGroupProfileDisplayConfigSection extends ConsumerWidget {
+  const _PersistedGroupProfileDisplayConfigSection({required this.fieldId});
 
   final String fieldId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final mode =
         ref
             .watch(customFieldGroupProfileDisplayModeProvider(fieldId))
             .whenOrNull(data: (value) => value) ??
         CustomFieldGroupProfileDisplayMode.inline;
+    final collapseDefaultMode =
+        ref
+            .watch(customFieldGroupCollapseDefaultModeProvider(fieldId))
+            .whenOrNull(data: (value) => value) ??
+        CustomFieldGroupCollapseDefaultMode.lastState;
 
+    return _GroupProfileDisplayConfigSection(
+      mode: mode,
+      collapseDefaultMode: collapseDefaultMode,
+      onChanged: (next) async {
+        try {
+          await ref
+              .read(
+                customFieldGroupProfileDisplayModeProvider(fieldId).notifier,
+              )
+              .set(next);
+        } catch (error) {
+          if (!context.mounted) return;
+          PrismToast.error(
+            context,
+            message: context.l10n.settingsCustomFieldsError('$error'),
+          );
+        }
+      },
+      onCollapseDefaultChanged: (next) async {
+        try {
+          await ref
+              .read(
+                customFieldGroupCollapseDefaultModeProvider(fieldId).notifier,
+              )
+              .set(next);
+        } catch (error) {
+          if (!context.mounted) return;
+          PrismToast.error(
+            context,
+            message: context.l10n.settingsCustomFieldsError('$error'),
+          );
+        }
+      },
+    );
+  }
+}
+
+class _GroupProfileDisplayConfigSection extends StatelessWidget {
+  const _GroupProfileDisplayConfigSection({
+    required this.mode,
+    required this.collapseDefaultMode,
+    required this.onChanged,
+    required this.onCollapseDefaultChanged,
+  });
+
+  final CustomFieldGroupProfileDisplayMode mode;
+  final CustomFieldGroupCollapseDefaultMode collapseDefaultMode;
+  final ValueChanged<CustomFieldGroupProfileDisplayMode> onChanged;
+  final ValueChanged<CustomFieldGroupCollapseDefaultMode>
+  onCollapseDefaultChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2803,24 +2906,36 @@ class _GroupProfileDisplayConfigSection extends ConsumerWidget {
             ),
           ],
           selected: mode,
-          onChanged: (next) async {
-            try {
-              await ref
-                  .read(
-                    customFieldGroupProfileDisplayModeProvider(
-                      fieldId,
-                    ).notifier,
-                  )
-                  .set(next);
-            } catch (error) {
-              if (!context.mounted) return;
-              PrismToast.error(
-                context,
-                message: context.l10n.settingsCustomFieldsError('$error'),
-              );
-            }
-          },
+          onChanged: onChanged,
         ),
+        if (mode == CustomFieldGroupProfileDisplayMode.collapsible) ...[
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.customFieldGroupCollapseDefaultHeading,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          PrismSegmentedControl<CustomFieldGroupCollapseDefaultMode>(
+            segments: [
+              PrismSegment(
+                value: CustomFieldGroupCollapseDefaultMode.open,
+                label: context.l10n.customFieldGroupCollapseDefaultOpen,
+              ),
+              PrismSegment(
+                value: CustomFieldGroupCollapseDefaultMode.closed,
+                label: context.l10n.customFieldGroupCollapseDefaultClosed,
+              ),
+              PrismSegment(
+                value: CustomFieldGroupCollapseDefaultMode.lastState,
+                label: context.l10n.customFieldGroupCollapseDefaultLastState,
+              ),
+            ],
+            selected: collapseDefaultMode,
+            onChanged: onCollapseDefaultChanged,
+          ),
+        ],
       ],
     );
   }

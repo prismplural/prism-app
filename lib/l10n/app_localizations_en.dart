@@ -11509,6 +11509,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldGroupProfileDisplayPage => 'Page';
 
   @override
+  String get customFieldGroupCollapseDefaultHeading => 'Default state';
+
+  @override
+  String get customFieldGroupCollapseDefaultOpen => 'Open';
+
+  @override
+  String get customFieldGroupCollapseDefaultClosed => 'Closed';
+
+  @override
+  String get customFieldGroupCollapseDefaultLastState => 'Last state';
+
+  @override
   String get customFieldHeaderIconLabel => 'Header icon';
 
   @override

@@ -33,6 +33,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 
   @override
   Future<Object?> createField({
+    String? id,
     required String name,
     required CustomFieldType fieldType,
     DatePrecision? datePrecision,
@@ -42,7 +43,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
     String? parentFieldId,
   }) async {
     lastCreated = CustomField(
-      id: 'created-id',
+      id: id ?? 'created-id',
       name: name,
       fieldType: fieldType,
       datePrecision: datePrecision,
@@ -652,6 +653,93 @@ void main() {
           customFieldGroupProfileDisplayModePreference(group.id),
         ),
         CustomFieldGroupProfileDisplayMode.page.storageValue,
+      );
+    });
+
+    testWidgets('creating a group writes the selected display mode', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+      final notifier = _FakeCustomFieldNotifier();
+
+      await tester.pumpWidget(
+        _buildSheet(notifier: notifier, appPreferences: appPrefs),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile display'), findsNothing);
+
+      await tester.tap(find.text('Group'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile display'), findsOneWidget);
+
+      await tester.tap(find.text('Page'));
+      await tester.pump();
+      await tester.enterText(
+        find.byType(EditableText).first,
+        'Profile sections',
+      );
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      expect(notifier.lastCreated, isNotNull);
+      expect(notifier.lastCreated!.fieldTypeId, 'group');
+      expect(
+        await appPrefs.get(
+          customFieldGroupProfileDisplayModePreference(
+            notifier.lastCreated!.id,
+          ),
+        ),
+        CustomFieldGroupProfileDisplayMode.page.storageValue,
+      );
+    });
+
+    testWidgets('creating a collapsible group writes the default state', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+      final notifier = _FakeCustomFieldNotifier();
+
+      await tester.pumpWidget(
+        _buildSheet(notifier: notifier, appPreferences: appPrefs),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Group'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Collapsible'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Default state'), findsOneWidget);
+
+      await tester.tap(find.text('Closed'));
+      await tester.pump();
+      await tester.enterText(find.byType(EditableText).first, 'Vitals');
+      await tester.tap(find.byIcon(AppIcons.check));
+      await tester.pumpAndSettle();
+
+      expect(notifier.lastCreated, isNotNull);
+      expect(
+        await appPrefs.get(
+          customFieldGroupProfileDisplayModePreference(
+            notifier.lastCreated!.id,
+          ),
+        ),
+        CustomFieldGroupProfileDisplayMode.collapsible.storageValue,
+      );
+      expect(
+        await appPrefs.get(
+          customFieldGroupCollapseDefaultModePreference(
+            notifier.lastCreated!.id,
+          ),
+        ),
+        CustomFieldGroupCollapseDefaultMode.closed.storageValue,
       );
     });
   });

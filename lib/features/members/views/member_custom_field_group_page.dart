@@ -4,10 +4,11 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/features/members/widgets/group_field_widgets.dart';
+import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -121,7 +122,10 @@ class _MemberCustomFieldGroupPageBody extends StatelessWidget {
             24,
             NavBarInset.of(context) + 32,
           ),
-          child: CustomFieldGroupPageContent(field: field, memberId: memberId),
+          child: _MemberCustomFieldGroupPageContent(
+            field: field,
+            memberId: memberId,
+          ),
         ),
       ),
     );
@@ -147,4 +151,51 @@ String _groupDisplayName(BuildContext context, CustomField field) {
   final trimmed = field.name.trim();
   if (trimmed.isNotEmpty) return trimmed;
   return context.l10n.customFieldGroupUntitledFallback;
+}
+
+class _MemberCustomFieldGroupPageContent extends ConsumerWidget {
+  const _MemberCustomFieldGroupPageContent({
+    required this.field,
+    required this.memberId,
+  });
+
+  final CustomField field;
+  final String memberId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fieldsAsync = ref.watch(customFieldsProvider);
+    final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
+
+    return fieldsAsync.when(
+      loading: () => const PrismLoadingState(),
+      error: (error, _) =>
+          Center(child: Text(context.l10n.settingsCustomFieldsError('$error'))),
+      data: (fields) => valuesAsync.when(
+        loading: () => const PrismLoadingState(),
+        error: (error, _) => Center(
+          child: Text(context.l10n.settingsCustomFieldsError('$error')),
+        ),
+        data: (values) {
+          final valuesByFieldId = {for (final v in values) v.customFieldId: v};
+          final hasRenderableChild = fields.any(
+            (child) =>
+                child.parentFieldId == field.id &&
+                (valuesByFieldId[child.id]?.value.isNotEmpty ?? false),
+          );
+          if (!hasRenderableChild) {
+            return EmptyState(
+              icon: Icon(AppIcons.folderOutlined),
+              title: context.l10n.customFieldGroupChildrenEmptyTitle,
+              subtitle: context.l10n.customFieldGroupChildrenEmptySubtitle,
+            );
+          }
+          return CustomFieldsDisplay(
+            memberId: memberId,
+            parentFieldId: field.id,
+          );
+        },
+      ),
+    );
+  }
 }

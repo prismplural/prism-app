@@ -41,12 +41,17 @@ void main() {
     TextScaler textScaler = TextScaler.noScaling,
     FakeAppPreferenceRepository? appPreferences,
     _FakeMemberProfilePreferenceRepository? memberProfilePreferences,
+    String? parentFieldId,
+    bool disableAnimations = false,
   }) {
     final memberRepo = FakeMemberRepository()..seed(members);
     final appPrefs = appPreferences ?? FakeAppPreferenceRepository();
     final memberProfilePrefs =
         memberProfilePreferences ?? _FakeMemberProfilePreferenceRepository();
-    const display = CustomFieldsDisplay(memberId: memberId);
+    final display = CustomFieldsDisplay(
+      memberId: memberId,
+      parentFieldId: parentFieldId,
+    );
     return ProviderScope(
       overrides: [
         memberRepositoryProvider.overrideWithValue(memberRepo),
@@ -66,7 +71,10 @@ void main() {
         home: Scaffold(
           body: Builder(
             builder: (context) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+              data: MediaQuery.of(context).copyWith(
+                textScaler: textScaler,
+                disableAnimations: disableAnimations,
+              ),
               child: SingleChildScrollView(
                 child: contentWidth == null
                     ? display
@@ -806,10 +814,135 @@ void main() {
     expect(find.text('Vitals'), findsOneWidget);
     expect(find.text('Blue'), findsOneWidget);
 
+    final expandedHeight = tester
+        .getSize(find.byType(CustomFieldsDisplay))
+        .height;
+
     await tester.tap(find.text('Vitals'));
     await tester.pumpAndSettle();
 
     expect(find.text('Blue'), findsNothing);
+    final collapsedHeight = tester
+        .getSize(find.byType(CustomFieldsDisplay))
+        .height;
+    expect(collapsedHeight, lessThan(expandedHeight));
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! AnimatedContainer) return false;
+        final decoration = widget.decoration;
+        if (decoration is! BoxDecoration) return false;
+        final border = decoration.border;
+        return decoration.color == Colors.transparent &&
+            border is Border &&
+            border.bottom.width == 0 &&
+            border.bottom.color == Colors.transparent;
+      }),
+      findsOneWidget,
+    );
+    expect(
+      await memberPrefs.get(
+        memberId,
+        customFieldGroupCollapsedPreference(groupField.id),
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('collapsible group snaps closed when animations are disabled', (
+    tester,
+  ) async {
+    final appPrefs = FakeAppPreferenceRepository();
+    final memberPrefs = _FakeMemberProfilePreferenceRepository();
+    addTearDown(appPrefs.close);
+    addTearDown(memberPrefs.close);
+
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final childField = field(
+      'favorite-color',
+      CustomFieldType.text,
+      name: 'Favorite color',
+    ).copyWith(parentFieldId: groupField.id);
+    appPrefs.seed(
+      customFieldGroupProfileDisplayModePreference(groupField.id),
+      CustomFieldGroupProfileDisplayMode.collapsible.storageValue,
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, 'Blue')],
+        appPreferences: appPrefs,
+        memberProfilePreferences: memberPrefs,
+        disableAnimations: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Vitals'));
+    await tester.pump();
+
+    expect(find.text('Blue'), findsNothing);
+  });
+
+  testWidgets('fixed closed groups do not update remembered collapsed state', (
+    tester,
+  ) async {
+    final appPrefs = FakeAppPreferenceRepository();
+    final memberPrefs = _FakeMemberProfilePreferenceRepository();
+    addTearDown(appPrefs.close);
+    addTearDown(memberPrefs.close);
+
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final childField = field(
+      'favorite-color',
+      CustomFieldType.text,
+      name: 'Favorite color',
+    ).copyWith(parentFieldId: groupField.id);
+    appPrefs
+      ..seed(
+        customFieldGroupProfileDisplayModePreference(groupField.id),
+        CustomFieldGroupProfileDisplayMode.collapsible.storageValue,
+      )
+      ..seed(
+        customFieldGroupCollapseDefaultModePreference(groupField.id),
+        CustomFieldGroupCollapseDefaultMode.closed.storageValue,
+      );
+    await memberPrefs.set(
+      memberId,
+      customFieldGroupCollapsedPreference(groupField.id),
+      true,
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, 'Blue')],
+        appPreferences: appPrefs,
+        memberProfilePreferences: memberPrefs,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Blue'), findsNothing);
+
+    await tester.tap(find.text('Vitals'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Blue'), findsOneWidget);
     expect(
       await memberPrefs.get(
         memberId,
@@ -831,7 +964,9 @@ void main() {
       fieldType: CustomFieldType.text,
       fieldTypeId: 'group',
       createdAt: DateTime(2026, 1, 1),
-      typeConfig: const GroupConfig(),
+      typeConfig: const GroupConfig(
+        headerIcon: CustomFieldHeaderIcon.emoji('🌈'),
+      ),
     );
     final childField = field(
       'favorite-color',
@@ -853,8 +988,59 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Vitals'), findsOneWidget);
-    expect(find.text('1 field'), findsOneWidget);
+    expect(find.text('1 field'), findsNothing);
     expect(find.text('Blue'), findsNothing);
+    expect(find.text('🌈'), findsOneWidget);
+
+    final iconCircle = find.ancestor(
+      of: find.text('🌈'),
+      matching: find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox) return false;
+        final decoration = widget.decoration;
+        return decoration is BoxDecoration &&
+            decoration.shape == BoxShape.circle;
+      }),
+    );
+    expect(iconCircle, findsOneWidget);
+  });
+
+  testWidgets('group page children use the profile display layout', (
+    tester,
+  ) async {
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final firstChild = field(
+      'favorite-color',
+      CustomFieldType.text,
+      name: 'Favorite color',
+    ).copyWith(parentFieldId: groupField.id, displayOrder: 0);
+    final secondChild = field(
+      'favorite-food',
+      CustomFieldType.text,
+      name: 'Favorite food',
+    ).copyWith(parentFieldId: groupField.id, displayOrder: 1);
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, firstChild, secondChild],
+        values: [value(firstChild.id, 'Blue'), value(secondChild.id, 'Soup')],
+        parentFieldId: groupField.id,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vitals'), findsNothing);
+    expect(find.text('Favorite color'), findsOneWidget);
+    expect(find.text('Blue'), findsOneWidget);
+    expect(find.text('Favorite food'), findsOneWidget);
+    expect(find.text('Soup'), findsOneWidget);
+    expect(find.byType(PrismSectionCard), findsOneWidget);
   });
 
   testWidgets(

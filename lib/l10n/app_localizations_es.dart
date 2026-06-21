@@ -11700,6 +11700,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get customFieldGroupProfileDisplayPage => 'Page';
 
   @override
+  String get customFieldGroupCollapseDefaultHeading => 'Estado predeterminado';
+
+  @override
+  String get customFieldGroupCollapseDefaultOpen => 'Abierto';
+
+  @override
+  String get customFieldGroupCollapseDefaultClosed => 'Cerrado';
+
+  @override
+  String get customFieldGroupCollapseDefaultLastState => 'Último estado';
+
+  @override
   String get customFieldHeaderIconLabel => 'Icono del encabezado';
 
   @override

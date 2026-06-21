@@ -18484,6 +18484,30 @@ abstract class AppLocalizations {
   /// **'Page'**
   String get customFieldGroupProfileDisplayPage;
 
+  /// Small heading above the segmented control that chooses whether a collapsible custom field group starts open, closed, or remembered
+  ///
+  /// In en, this message translates to:
+  /// **'Default state'**
+  String get customFieldGroupCollapseDefaultHeading;
+
+  /// Segment label for making a collapsible custom field group start open
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get customFieldGroupCollapseDefaultOpen;
+
+  /// Segment label for making a collapsible custom field group start closed
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get customFieldGroupCollapseDefaultClosed;
+
+  /// Segment label for making a collapsible custom field group remember its last open or closed state
+  ///
+  /// In en, this message translates to:
+  /// **'Last state'**
+  String get customFieldGroupCollapseDefaultLastState;
+
   /// Label for the custom field header icon picker in the field editor sheet
   ///
   /// In en, this message translates to:

@@ -470,7 +470,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Vitals'), findsOneWidget);
-    expect(find.text('1 field'), findsOneWidget);
+    expect(find.text('1 field'), findsNothing);
     expect(find.text('Blue'), findsNothing);
 
     await tester.tap(find.text('Vitals'));

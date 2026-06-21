@@ -23,6 +23,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
     required this.memberId,
     this.branch = MemberNavigationBranch.settings,
     this.groupId,
+    this.parentFieldId,
     this.onOpenGroupPage,
   });
 
@@ -33,11 +34,14 @@ class CustomFieldsDisplay extends ConsumerWidget {
   final String memberId;
   final MemberNavigationBranch branch;
   final String? groupId;
+  final String? parentFieldId;
   final ValueChanged<String>? onOpenGroupPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fieldsAsync = ref.watch(topLevelCustomFieldsProvider);
+    final fieldsAsync = parentFieldId == null
+        ? ref.watch(topLevelCustomFieldsProvider)
+        : ref.watch(customFieldsProvider);
     // Raw fields (children included) are needed to tell whether a group has
     // any child worth rendering — see _buildContent's empty-group skip.
     final allFieldsAsync = ref.watch(customFieldsProvider);
@@ -68,19 +72,13 @@ class CustomFieldsDisplay extends ConsumerWidget {
       for (final v in values) v.customFieldId: v,
     };
 
-    // Iterate top-level fields (parentFieldId == null) in displayOrder.
-    // Group-type fields have no per-member value and are routed directly to
-    // _GroupDisplayWidget (which watches providers itself). Non-group fields
-    // take the value-driven _FieldValueEntry path as before.
-    //
-    // Children of groups are intentionally excluded here — they render inside
-    // their parent's _GroupDisplayWidget instead.
-    final topLevelFields = fields
-        .where((f) => f.parentFieldId == null)
+    // Group pages scope this display to one parent; profiles stay top-level.
+    final scopedFields = fields
+        .where((f) => f.parentFieldId == parentFieldId)
         .toList();
 
     final items = <_TopLevelItem>[];
-    for (final field in topLevelFields) {
+    for (final field in scopedFields) {
       if (field.fieldTypeId == 'group') {
         // Skip groups that would render nothing. _GroupDisplayWidget returns
         // SizedBox.shrink() when no child has a value, but the surrounding

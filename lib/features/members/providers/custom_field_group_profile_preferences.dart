@@ -22,9 +22,27 @@ enum CustomFieldGroupProfileDisplayMode {
   }
 }
 
+enum CustomFieldGroupCollapseDefaultMode {
+  open('open'),
+  closed('closed'),
+  lastState('last_state');
+
+  const CustomFieldGroupCollapseDefaultMode(this.storageValue);
+
+  final String storageValue;
+
+  static CustomFieldGroupCollapseDefaultMode fromStorage(String value) {
+    for (final mode in values) {
+      if (mode.storageValue == value) return mode;
+    }
+    return lastState;
+  }
+}
+
 typedef CustomFieldGroupCollapsedKey = ({String memberId, String groupId});
 
 const _groupDisplayModeValues = {'inline', 'collapsible', 'page'};
+const _groupCollapseDefaultModeValues = {'open', 'closed', 'last_state'};
 
 PreferenceDefinition<String> customFieldGroupProfileDisplayModePreference(
   String groupId,
@@ -45,6 +63,22 @@ PreferenceDefinition<bool> customFieldGroupCollapsedPreference(String groupId) {
     scope: PreferenceScope.memberProfileSynced,
     defaultValue: false,
     codec: const BoolPreferenceCodec(),
+    introducedInAppVersion: '0.13.1',
+    introducedInSchemaVersion: 38,
+  );
+}
+
+PreferenceDefinition<String> customFieldGroupCollapseDefaultModePreference(
+  String groupId,
+) {
+  return PreferenceDefinition<String>(
+    key:
+        'custom_fields.group_collapse_default.${_encodedGroupSegment(groupId)}',
+    scope: PreferenceScope.appSynced,
+    defaultValue: CustomFieldGroupCollapseDefaultMode.lastState.storageValue,
+    codec: const StringPreferenceCodec(
+      allowedValues: _groupCollapseDefaultModeValues,
+    ),
     introducedInAppVersion: '0.13.1',
     introducedInSchemaVersion: 38,
   );
@@ -102,6 +136,50 @@ final customFieldGroupProfileDisplayModeProvider =
       CustomFieldGroupProfileDisplayMode,
       String
     >(CustomFieldGroupProfileDisplayModeNotifier.new);
+
+class CustomFieldGroupCollapseDefaultModeNotifier
+    extends AsyncNotifier<CustomFieldGroupCollapseDefaultMode> {
+  CustomFieldGroupCollapseDefaultModeNotifier(this.groupId);
+
+  final String groupId;
+
+  @override
+  Future<CustomFieldGroupCollapseDefaultMode> build() async {
+    final repo = ref.watch(appPreferenceRepositoryProvider);
+    final definition = customFieldGroupCollapseDefaultModePreference(groupId);
+    final initial = CustomFieldGroupCollapseDefaultMode.fromStorage(
+      await repo.get(definition),
+    );
+    final subscription = repo
+        .watch(definition)
+        .listen(
+          (value) => state = AsyncValue.data(
+            CustomFieldGroupCollapseDefaultMode.fromStorage(value),
+          ),
+          onError: (Object error, StackTrace stackTrace) =>
+              state = AsyncValue.error(error, stackTrace),
+        );
+    ref.onDispose(subscription.cancel);
+    return initial;
+  }
+
+  Future<void> set(CustomFieldGroupCollapseDefaultMode mode) async {
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(
+          customFieldGroupCollapseDefaultModePreference(groupId),
+          mode.storageValue,
+        );
+    state = AsyncValue.data(mode);
+  }
+}
+
+final customFieldGroupCollapseDefaultModeProvider =
+    AsyncNotifierProvider.family<
+      CustomFieldGroupCollapseDefaultModeNotifier,
+      CustomFieldGroupCollapseDefaultMode,
+      String
+    >(CustomFieldGroupCollapseDefaultModeNotifier.new);
 
 class CustomFieldGroupCollapsedNotifier extends AsyncNotifier<bool> {
   CustomFieldGroupCollapsedNotifier(this.key);

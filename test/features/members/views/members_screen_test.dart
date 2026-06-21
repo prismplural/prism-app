@@ -116,6 +116,10 @@ Widget _buildSubject({
   final appPrefs = FakeAppPreferenceRepository();
   seedAppPreferences?.call(appPrefs);
   addTearDown(appPrefs.close);
+  final customFieldValueMemberIds = {
+    for (final member in members) member.id,
+    for (final value in customFieldValues) value.memberId,
+  };
 
   return ProviderScope(
     overrides: [
@@ -168,13 +172,14 @@ Widget _buildSubject({
         customFieldByIdProvider(
           field.id,
         ).overrideWith((ref) => Stream.value(field)),
-      memberCustomFieldValuesProvider.overrideWith(
-        (ref, memberId) => Stream.value(
-          customFieldValues
-              .where((value) => value.memberId == memberId)
-              .toList(growable: false),
+      for (final memberId in customFieldValueMemberIds)
+        memberCustomFieldValuesProvider(memberId).overrideWithValue(
+          AsyncValue.data(
+            customFieldValues
+                .where((value) => value.memberId == memberId)
+                .toList(growable: false),
+          ),
         ),
-      ),
       pluralKitSyncProvider.overrideWith(
         () => _FakePluralKitSyncNotifier(
           const PluralKitSyncState(isConnected: false),
@@ -608,15 +613,24 @@ void main() {
       await tester.tap(find.text('Member alice'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 20; i++) {
+        if (find.text('Vitals').evaluate().isNotEmpty &&
+            find.text('Blue').evaluate().isEmpty) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
       expect(find.byType(MemberCustomFieldGroupPage), findsNothing);
       expect(find.text('Vitals'), findsOneWidget);
-      expect(find.text('1 field'), findsOneWidget);
+      expect(find.text('1 field'), findsNothing);
       expect(find.text('Blue'), findsNothing);
 
       await tester.tap(find.text('Vitals'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
       expect(find.byType(MembersScreen), findsOneWidget);
@@ -627,6 +641,7 @@ void main() {
       final handled = await tester.binding.handlePopRoute();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
 
       expect(handled, isTrue);
       expect(find.byType(MemberCustomFieldGroupPage), findsNothing);
