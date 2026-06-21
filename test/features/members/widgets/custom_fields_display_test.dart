@@ -1,14 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/repositories/member_profile_preference_repository.dart';
+import 'package:prism_plurality/features/members/providers/custom_field_group_profile_preferences.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
@@ -34,12 +39,21 @@ void main() {
     Locale locale = const Locale('en'),
     double? contentWidth,
     TextScaler textScaler = TextScaler.noScaling,
+    FakeAppPreferenceRepository? appPreferences,
+    _FakeMemberProfilePreferenceRepository? memberProfilePreferences,
   }) {
     final memberRepo = FakeMemberRepository()..seed(members);
+    final appPrefs = appPreferences ?? FakeAppPreferenceRepository();
+    final memberProfilePrefs =
+        memberProfilePreferences ?? _FakeMemberProfilePreferenceRepository();
     const display = CustomFieldsDisplay(memberId: memberId);
     return ProviderScope(
       overrides: [
         memberRepositoryProvider.overrideWithValue(memberRepo),
+        appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+        memberProfilePreferenceRepositoryProvider.overrideWithValue(
+          memberProfilePrefs,
+        ),
         customFieldsProvider.overrideWithValue(AsyncValue.data(fields)),
         memberCustomFieldValuesProvider(
           memberId,
@@ -714,6 +728,96 @@ void main() {
 
     expect(find.text('Vitals'), findsOneWidget);
     expect(find.text('🌈'), findsOneWidget);
+  });
+
+  testWidgets('collapsible group persists closed state per member', (
+    tester,
+  ) async {
+    final appPrefs = FakeAppPreferenceRepository();
+    final memberPrefs = _FakeMemberProfilePreferenceRepository();
+    addTearDown(appPrefs.close);
+    addTearDown(memberPrefs.close);
+
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final childField = field(
+      'favorite-color',
+      CustomFieldType.text,
+      name: 'Favorite color',
+    ).copyWith(parentFieldId: groupField.id);
+    appPrefs.seed(
+      customFieldGroupProfileDisplayModePreference(groupField.id),
+      CustomFieldGroupProfileDisplayMode.collapsible.storageValue,
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, 'Blue')],
+        appPreferences: appPrefs,
+        memberProfilePreferences: memberPrefs,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vitals'), findsOneWidget);
+    expect(find.text('Blue'), findsOneWidget);
+
+    await tester.tap(find.text('Vitals'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Blue'), findsNothing);
+    expect(
+      await memberPrefs.get(
+        memberId,
+        customFieldGroupCollapsedPreference(groupField.id),
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('page group renders as a row without inline child values', (
+    tester,
+  ) async {
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
+
+    final groupField = CustomField(
+      id: 'group',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: DateTime(2026, 1, 1),
+      typeConfig: const GroupConfig(),
+    );
+    final childField = field(
+      'favorite-color',
+      CustomFieldType.text,
+      name: 'Favorite color',
+    ).copyWith(parentFieldId: groupField.id);
+    appPrefs.seed(
+      customFieldGroupProfileDisplayModePreference(groupField.id),
+      CustomFieldGroupProfileDisplayMode.page.storageValue,
+    );
+
+    await tester.pumpWidget(
+      subject(
+        fields: [groupField, childField],
+        values: [value(childField.id, 'Blue')],
+        appPreferences: appPrefs,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vitals'), findsOneWidget);
+    expect(find.text('1 field'), findsOneWidget);
+    expect(find.text('Blue'), findsNothing);
   });
 
   testWidgets(
@@ -1975,3 +2079,75 @@ String _fieldTypeIdFor(CustomFieldType type) => switch (type) {
   CustomFieldType.longText => 'long_text',
   CustomFieldType.choice => 'choice',
 };
+
+class _FakeMemberProfilePreferenceRepository
+    implements MemberProfilePreferenceRepository {
+  final Map<String, Object?> _values = {};
+  final Map<String, StreamController<Object?>> _controllers = {};
+
+  @override
+  Future<T> get<T>(String memberId, PreferenceDefinition<T> definition) async {
+    final value = _values[_id(memberId, definition)];
+    if (value is T) return value;
+    return definition.defaultValue;
+  }
+
+  @override
+  Stream<T> watch<T>(
+    String memberId,
+    PreferenceDefinition<T> definition,
+  ) async* {
+    yield await get(memberId, definition);
+    yield* _controllerFor(_id(memberId, definition)).stream.map((value) {
+      if (value is T) return value;
+      return definition.defaultValue;
+    });
+  }
+
+  @override
+  Future<void> set<T>(
+    String memberId,
+    PreferenceDefinition<T> definition,
+    T value,
+  ) async {
+    definition.validate(value);
+    final id = _id(memberId, definition);
+    _values[id] = value;
+    _controllerFor(id).add(value);
+  }
+
+  @override
+  Future<void> reset<T>(
+    String memberId,
+    PreferenceDefinition<T> definition,
+  ) async {
+    final id = _id(memberId, definition);
+    _values.remove(id);
+    _controllerFor(id).add(definition.defaultValue);
+  }
+
+  @override
+  Future<void> resetAllForMember(String memberId) async {
+    final prefix = '$memberId:';
+    final matchingKeys = _values.keys
+        .where((key) => key.startsWith(prefix))
+        .toList();
+    for (final key in matchingKeys) {
+      _values.remove(key);
+      _controllerFor(key).add(null);
+    }
+  }
+
+  String _id(String memberId, PreferenceDefinition<dynamic> definition) =>
+      '$memberId:${definition.key}';
+
+  StreamController<Object?> _controllerFor(String key) {
+    return _controllers.putIfAbsent(key, StreamController<Object?>.broadcast);
+  }
+
+  Future<void> close() async {
+    for (final controller in _controllers.values) {
+      await controller.close();
+    }
+  }
+}

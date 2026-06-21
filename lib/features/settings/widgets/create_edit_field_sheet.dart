@@ -13,6 +13,7 @@ import 'package:prism_plurality/domain/custom_fields/slider_gradient_presets.dar
 import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
+import 'package:prism_plurality/features/members/providers/custom_field_group_profile_preferences.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -1171,6 +1172,12 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                       onHideTitleChanged: (v) =>
                           setState(() => _hideTitleOnProfile = v),
                     ),
+                    if (widget.isEditing && _selectedTypeId == 'group') ...[
+                      const SizedBox(height: 16),
+                      _GroupProfileDisplayConfigSection(
+                        fieldId: widget.field!.id,
+                      ),
+                    ],
 
                     const SizedBox(height: 32),
                   ],
@@ -2752,6 +2759,69 @@ class _ShowTitleConfigSection extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
+    );
+  }
+}
+
+class _GroupProfileDisplayConfigSection extends ConsumerWidget {
+  const _GroupProfileDisplayConfigSection({required this.fieldId});
+
+  final String fieldId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final mode =
+        ref
+            .watch(customFieldGroupProfileDisplayModeProvider(fieldId))
+            .whenOrNull(data: (value) => value) ??
+        CustomFieldGroupProfileDisplayMode.inline;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.l10n.customFieldGroupProfileDisplayHeading,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        PrismSegmentedControl<CustomFieldGroupProfileDisplayMode>(
+          segments: [
+            PrismSegment(
+              value: CustomFieldGroupProfileDisplayMode.inline,
+              label: context.l10n.customFieldGroupProfileDisplayInline,
+            ),
+            PrismSegment(
+              value: CustomFieldGroupProfileDisplayMode.collapsible,
+              label: context.l10n.customFieldGroupProfileDisplayCollapsible,
+            ),
+            PrismSegment(
+              value: CustomFieldGroupProfileDisplayMode.page,
+              label: context.l10n.customFieldGroupProfileDisplayPage,
+            ),
+          ],
+          selected: mode,
+          onChanged: (next) async {
+            try {
+              await ref
+                  .read(
+                    customFieldGroupProfileDisplayModeProvider(
+                      fieldId,
+                    ).notifier,
+                  )
+                  .set(next);
+            } catch (error) {
+              if (!context.mounted) return;
+              PrismToast.error(
+                context,
+                message: context.l10n.settingsCustomFieldsError('$error'),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }

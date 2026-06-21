@@ -17,6 +17,7 @@ import '../../features/fronting/views/timeline_screen.dart';
 import '../../features/members/views/members_screen.dart';
 import '../../features/members/navigation/member_navigation_branch.dart';
 import '../../features/members/views/member_detail_screen.dart';
+import '../../features/members/views/member_custom_field_group_page.dart';
 import '../../features/members/views/member_fronting_history_screen.dart';
 import '../../features/chat/views/chat_screen.dart';
 import '../../features/chat/views/chat_search_screen.dart';
@@ -467,6 +468,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                                   memberId: state.pathParameters['id']!,
                                 ),
                           ),
+                          GoRoute(
+                            path: 'custom-fields/:fieldId',
+                            builder: (context, state) =>
+                                MemberCustomFieldGroupPage(
+                                  memberId: state.pathParameters['id']!,
+                                  fieldId: state.pathParameters['fieldId']!,
+                                ),
+                          ),
                         ],
                       ),
                     ],
@@ -770,6 +779,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                           memberId: state.pathParameters['id']!,
                         ),
                       ),
+                      GoRoute(
+                        path: 'custom-fields/:fieldId',
+                        builder: (context, state) => MemberCustomFieldGroupPage(
+                          memberId: state.pathParameters['id']!,
+                          fieldId: state.pathParameters['fieldId']!,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -934,6 +950,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                             builder: (context, state) =>
                                 MemberConversationsScreen(
                                   memberId: state.pathParameters['memberId']!,
+                                ),
+                          ),
+                          GoRoute(
+                            path: 'custom-fields/:fieldId',
+                            builder: (context, state) =>
+                                MemberCustomFieldGroupPage(
+                                  memberId: state.pathParameters['memberId']!,
+                                  fieldId: state.pathParameters['fieldId']!,
                                 ),
                           ),
                         ],

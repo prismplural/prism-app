@@ -79,6 +79,11 @@ abstract final class AppRoutePaths {
       '/groups/$groupId/member/$memberId/fronting';
   static String groupMemberConversations(String groupId, String memberId) =>
       '/groups/$groupId/member/$memberId/conversations';
+  static String groupMemberCustomFieldGroup(
+    String groupId,
+    String memberId,
+    String fieldId,
+  ) => '/groups/$groupId/member/$memberId/custom-fields/$fieldId';
 
   // Full-screen routes
   static const onboarding = '/onboarding';
@@ -97,11 +102,15 @@ abstract final class AppRoutePaths {
   static String member(String id) => '/members/$id';
   static String memberFrontingHistory(String id) => '/members/$id/fronting';
   static String memberConversations(String id) => '/members/$id/conversations';
+  static String memberCustomFieldGroup(String id, String fieldId) =>
+      '/members/$id/custom-fields/$fieldId';
   static String settingsMember(String id) => '/settings/members/$id';
   static String settingsMemberFrontingHistory(String id) =>
       '/settings/members/$id/fronting';
   static String settingsMemberConversations(String id) =>
       '/settings/members/$id/conversations';
+  static String settingsMemberCustomFieldGroup(String id, String fieldId) =>
+      '/settings/members/$id/custom-fields/$fieldId';
   static String settingsCustomField(String id) => '/settings/custom-fields/$id';
   static String settingsHabit(String id) => '/settings/habits/$id';
   static String settingsFriend(String id) => '/settings/sharing/$id';

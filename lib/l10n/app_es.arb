@@ -4043,6 +4043,22 @@
   "@customFieldDisplaySectionHeader": {
     "description": "Small section header in the field editor sheet above presentation options like the show-title toggle"
   },
+  "customFieldGroupProfileDisplayHeading": "Profile display",
+  "@customFieldGroupProfileDisplayHeading": {
+    "description": "Small heading above the segmented control that chooses how a custom field group appears on member profiles"
+  },
+  "customFieldGroupProfileDisplayInline": "Inline",
+  "@customFieldGroupProfileDisplayInline": {
+    "description": "Segment label for rendering a custom field group inline on the member profile"
+  },
+  "customFieldGroupProfileDisplayCollapsible": "Collapsible",
+  "@customFieldGroupProfileDisplayCollapsible": {
+    "description": "Segment label for rendering a custom field group as an expandable/collapsible section on the member profile"
+  },
+  "customFieldGroupProfileDisplayPage": "Page",
+  "@customFieldGroupProfileDisplayPage": {
+    "description": "Segment label for rendering a custom field group as a row that opens a separate member profile page"
+  },
   "customFieldHeaderIconLabel": "Icono del encabezado",
   "@customFieldHeaderIconLabel": {
     "description": "Label for the custom field header icon picker in the field editor sheet"

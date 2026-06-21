@@ -11497,6 +11497,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldDisplaySectionHeader => 'Display';
 
   @override
+  String get customFieldGroupProfileDisplayHeading => 'Profile display';
+
+  @override
+  String get customFieldGroupProfileDisplayInline => 'Inline';
+
+  @override
+  String get customFieldGroupProfileDisplayCollapsible => 'Collapsible';
+
+  @override
+  String get customFieldGroupProfileDisplayPage => 'Page';
+
+  @override
   String get customFieldHeaderIconLabel => 'Header icon';
 
   @override

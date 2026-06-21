@@ -5,14 +5,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/members/providers/custom_field_group_profile_preferences.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 // ── Fake notifier (same signature as real CustomFieldNotifier) ───────────────
 
@@ -80,6 +84,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
 Widget _buildSheet({
   CustomField? field,
   _FakeCustomFieldNotifier? notifier,
+  FakeAppPreferenceRepository? appPreferences,
   ({
     SystemTerminology term,
     String? customSingular,
@@ -89,9 +94,11 @@ Widget _buildSheet({
   terminology,
 }) {
   final fakeNotifier = notifier ?? _FakeCustomFieldNotifier();
+  final appPrefs = appPreferences ?? FakeAppPreferenceRepository();
   return ProviderScope(
     overrides: [
       customFieldNotifierProvider.overrideWith(() => fakeNotifier),
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       if (terminology != null)
         terminologySettingProvider.overrideWithValue(terminology),
     ],
@@ -612,6 +619,41 @@ void main() {
         expect(sw.value, isFalse);
       },
     );
+  });
+
+  group('Create/Edit Field Sheet — Group profile display', () {
+    testWidgets('editing a group writes Page mode to preferences', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+      final group = CustomField(
+        id: 'group-1',
+        name: 'Vitals',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'group',
+        createdAt: DateTime(2026),
+        typeConfig: const GroupConfig(),
+      );
+
+      await tester.pumpWidget(
+        _buildSheet(field: group, appPreferences: appPrefs),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile display'), findsOneWidget);
+
+      await tester.tap(find.text('Page'));
+      await tester.pump();
+
+      expect(
+        await appPrefs.get(
+          customFieldGroupProfileDisplayModePreference(group.id),
+        ),
+        CustomFieldGroupProfileDisplayMode.page.storageValue,
+      );
+    });
   });
 
   // ── Pure Dart unit tests for churn-avoidance helpers ─────────────────────

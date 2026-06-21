@@ -122,46 +122,50 @@ class _PrismExpandableSectionState extends State<PrismExpandableSection> {
       accentColor: widget.accentColor,
       fillColor: widget.fillColor,
       borderColor: widget.borderColor,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          PrismListRow(
-            title: widget.title,
-            subtitle: widget.subtitle,
-            leading: widget.leading,
-            trailing: trailing,
-            padding: widget.headerPadding,
-            enabled: widget.enabled,
-            dense: widget.dense,
-            onTap: canToggle ? _toggleExpanded : null,
-          ),
-          if (hasChildren)
-            ClipRect(
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(end: _expanded ? 1 : 0),
-                duration: Anim.md,
-                curve: Curves.easeOutCubic,
-                child: Padding(
-                  padding: widget.contentPadding,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: _buildContentChildren(),
-                  ),
-                ),
-                builder: (context, value, child) {
-                  if (value == 0) {
-                    return const SizedBox.shrink();
-                  }
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    heightFactor: value,
-                    child: Opacity(opacity: value.clamp(0, 1), child: child),
-                  );
-                },
-              ),
+      child: Semantics(
+        container: true,
+        expanded: hasChildren ? _expanded : null,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PrismListRow(
+              title: widget.title,
+              subtitle: widget.subtitle,
+              leading: widget.leading,
+              trailing: trailing,
+              padding: widget.headerPadding,
+              enabled: widget.enabled,
+              dense: widget.dense,
+              onTap: canToggle ? _toggleExpanded : null,
             ),
-        ],
+            if (hasChildren)
+              ClipRect(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: _expanded ? 1 : 0),
+                  duration: Anim.md,
+                  curve: Curves.easeOutCubic,
+                  child: Padding(
+                    padding: widget.contentPadding,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: _buildContentChildren(),
+                    ),
+                  ),
+                  builder: (context, value, child) {
+                    if (value == 0) {
+                      return const SizedBox.shrink();
+                    }
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: value,
+                      child: Opacity(opacity: value.clamp(0, 1), child: child),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

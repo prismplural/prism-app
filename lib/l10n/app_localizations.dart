@@ -18460,6 +18460,30 @@ abstract class AppLocalizations {
   /// **'Display'**
   String get customFieldDisplaySectionHeader;
 
+  /// Small heading above the segmented control that chooses how a custom field group appears on member profiles
+  ///
+  /// In en, this message translates to:
+  /// **'Profile display'**
+  String get customFieldGroupProfileDisplayHeading;
+
+  /// Segment label for rendering a custom field group inline on the member profile
+  ///
+  /// In en, this message translates to:
+  /// **'Inline'**
+  String get customFieldGroupProfileDisplayInline;
+
+  /// Segment label for rendering a custom field group as an expandable/collapsible section on the member profile
+  ///
+  /// In en, this message translates to:
+  /// **'Collapsible'**
+  String get customFieldGroupProfileDisplayCollapsible;
+
+  /// Segment label for rendering a custom field group as a row that opens a separate member profile page
+  ///
+  /// In en, this message translates to:
+  /// **'Page'**
+  String get customFieldGroupProfileDisplayPage;
+
   /// Label for the custom field header icon picker in the field editor sheet
   ///
   /// In en, this message translates to:

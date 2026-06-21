@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
@@ -21,11 +22,13 @@ import 'package:prism_plurality/features/fronting/providers/member_fronting_hist
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
+import 'package:prism_plurality/features/members/providers/custom_field_group_profile_preferences.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
+import 'package:prism_plurality/features/members/views/member_custom_field_group_page.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -34,6 +37,8 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 final _now = DateTime(2026, 5, 1, 12);
 
@@ -173,6 +178,13 @@ GoRouter _router({required String memberId}) {
                           memberId: state.pathParameters['id']!,
                         ),
                       ),
+                      GoRoute(
+                        path: 'custom-fields/:fieldId',
+                        builder: (_, state) => MemberCustomFieldGroupPage(
+                          memberId: state.pathParameters['id']!,
+                          fieldId: state.pathParameters['fieldId']!,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -224,6 +236,9 @@ Widget _buildApp({
   List<Conversation> conversations = const [],
   List<Member> extraMembers = const [],
   List<Note> notes = const [],
+  List<CustomField> customFields = const [],
+  List<CustomFieldValue> customFieldValues = const [],
+  FakeAppPreferenceRepository? appPreferences,
   MemberBoardSection? boardSection,
   List<MemberGroup> memberGroups = const [],
   SystemSettings settings = const SystemSettings(
@@ -237,6 +252,7 @@ Widget _buildApp({
 }) {
   final bob = _member('bob', 'Bob');
   final allMembers = [member, bob, ...extraMembers];
+  final appPrefs = appPreferences ?? FakeAppPreferenceRepository();
   final stats = recentSessions.isEmpty
       ? const MemberFrontingStats(
           totalSessions: 0,
@@ -257,6 +273,7 @@ Widget _buildApp({
   return ProviderScope(
     overrides: [
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
       allMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
       activeMembersProvider.overrideWith((ref) => Stream.value(allMembers)),
@@ -319,9 +336,11 @@ Widget _buildApp({
       allGroupEntriesProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroupEntry>[]),
       ),
-      customFieldsProvider.overrideWith(
-        (ref) => Stream.value(const <CustomField>[]),
-      ),
+      customFieldsProvider.overrideWith((ref) => Stream.value(customFields)),
+      for (final field in customFields)
+        customFieldByIdProvider(
+          field.id,
+        ).overrideWith((ref) => Stream.value(field)),
       pluralKitSyncProvider.overrideWith(
         () => _FakePluralKitSyncNotifier(
           const PluralKitSyncState(isConnected: false),
@@ -332,7 +351,7 @@ Widget _buildApp({
       ),
       memberCustomFieldValuesProvider(
         member.id,
-      ).overrideWith((ref) => Stream.value(const <CustomFieldValue>[])),
+      ).overrideWith((ref) => Stream.value(customFieldValues)),
     ],
     child: MaterialApp.router(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -403,6 +422,62 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  testWidgets('page-mode custom field group opens a member profile page', (
+    tester,
+  ) async {
+    final member = _member('alice', 'Alice');
+    final router = _router(memberId: member.id);
+    addTearDown(router.dispose);
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
+    final group = CustomField(
+      id: 'vitals',
+      name: 'Vitals',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'group',
+      createdAt: _now,
+    );
+    final child = CustomField(
+      id: 'favorite-color',
+      name: 'Favorite color',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'text',
+      parentFieldId: group.id,
+      createdAt: _now,
+    );
+    final value = CustomFieldValue(
+      id: 'value-favorite-color',
+      customFieldId: child.id,
+      memberId: member.id,
+      value: 'Blue',
+    );
+    appPrefs.seed(
+      customFieldGroupProfileDisplayModePreference(group.id),
+      CustomFieldGroupProfileDisplayMode.page.storageValue,
+    );
+
+    await tester.pumpWidget(
+      _buildApp(
+        router: router,
+        member: member,
+        customFields: [group, child],
+        customFieldValues: [value],
+        appPreferences: appPrefs,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vitals'), findsOneWidget);
+    expect(find.text('1 field'), findsOneWidget);
+    expect(find.text('Blue'), findsNothing);
+
+    await tester.tap(find.text('Vitals'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Blue'), findsOneWidget);
+    expect(find.text('Favorite color'), findsOneWidget);
   });
 
   testWidgets(

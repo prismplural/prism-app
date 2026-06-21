@@ -221,7 +221,11 @@ class _MemberDetailBody extends ConsumerWidget {
         ),
       ],
       const SizedBox(height: 24),
-      CustomFieldsDisplay(memberId: member.id),
+      CustomFieldsDisplay(
+        memberId: member.id,
+        branch: branch,
+        groupId: groupId,
+      ),
       NotesSection(memberId: member.id),
       MemberGroupsSection(
         memberId: member.id,

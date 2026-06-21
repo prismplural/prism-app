@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
@@ -17,13 +18,20 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Displays custom field values on a member detail screen.
 class CustomFieldsDisplay extends ConsumerWidget {
-  const CustomFieldsDisplay({super.key, required this.memberId});
+  const CustomFieldsDisplay({
+    super.key,
+    required this.memberId,
+    this.branch = MemberNavigationBranch.settings,
+    this.groupId,
+  });
 
   static const _compactNameLimit = 24;
   static const _compactValueLimit = 48;
   static const _compactCombinedLimit = 64;
 
   final String memberId;
+  final MemberNavigationBranch branch;
+  final String? groupId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -128,7 +136,14 @@ class CustomFieldsDisplay extends ConsumerWidget {
       if (item.isGroup) {
         flushCompactRun();
         if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
-        widgets.add(buildGroupDisplayForMember(item.groupField!, memberId));
+        widgets.add(
+          buildGroupDisplayForMember(
+            item.groupField!,
+            memberId,
+            branch: branch,
+            groupId: groupId,
+          ),
+        );
         continue;
       }
 

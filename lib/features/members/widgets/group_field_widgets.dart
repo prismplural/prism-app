@@ -4,19 +4,26 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
+import 'package:prism_plurality/features/members/providers/custom_field_group_profile_preferences.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_display_scope.dart';
 import 'package:prism_plurality/features/members/widgets/custom_field_renderers.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/custom_field_header_icon.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
@@ -152,8 +159,57 @@ Widget buildGroupDisplay(
 
 /// Public factory for use from [CustomFieldsDisplay], which routes group-typed
 /// fields directly (no [CustomFieldValue] is available for groups).
-Widget buildGroupDisplayForMember(CustomField field, String memberId) {
-  return GroupDisplayWidget(field: field, memberId: memberId);
+Widget buildGroupDisplayForMember(
+  CustomField field,
+  String memberId, {
+  MemberNavigationBranch branch = MemberNavigationBranch.settings,
+  String? groupId,
+}) {
+  return GroupProfileDisplayWidget(
+    field: field,
+    memberId: memberId,
+    branch: branch,
+    groupId: groupId,
+  );
+}
+
+class GroupProfileDisplayWidget extends ConsumerWidget {
+  const GroupProfileDisplayWidget({
+    super.key,
+    required this.field,
+    required this.memberId,
+    required this.branch,
+    required this.groupId,
+  });
+
+  final CustomField field;
+  final String memberId;
+  final MemberNavigationBranch branch;
+  final String? groupId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode =
+        ref
+            .watch(customFieldGroupProfileDisplayModeProvider(field.id))
+            .whenOrNull(data: (value) => value) ??
+        CustomFieldGroupProfileDisplayMode.inline;
+
+    return switch (mode) {
+      CustomFieldGroupProfileDisplayMode.inline => GroupDisplayWidget(
+        field: field,
+        memberId: memberId,
+      ),
+      CustomFieldGroupProfileDisplayMode.collapsible =>
+        _CollapsibleGroupDisplayWidget(field: field, memberId: memberId),
+      CustomFieldGroupProfileDisplayMode.page => _GroupPageRowWidget(
+        field: field,
+        memberId: memberId,
+        branch: branch,
+        groupId: groupId,
+      ),
+    };
+  }
 }
 
 /// Read-only display for a Group field. Watches [customFieldsProvider] to
@@ -173,6 +229,148 @@ class GroupDisplayWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    return _GroupChildEntriesView(
+      field: field,
+      memberId: memberId,
+      builder: (context, childEntries) {
+        if (childEntries.isEmpty) return const SizedBox.shrink();
+
+        return _GroupCard(
+          field: field,
+          theme: theme,
+          child: _GroupChildrenColumn(entries: childEntries),
+        );
+      },
+    );
+  }
+}
+
+class _CollapsibleGroupDisplayWidget extends ConsumerWidget {
+  const _CollapsibleGroupDisplayWidget({
+    required this.field,
+    required this.memberId,
+  });
+
+  final CustomField field;
+  final String memberId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final collapsedKey = (memberId: memberId, groupId: field.id);
+    final collapsed =
+        ref
+            .watch(customFieldGroupCollapsedProvider(collapsedKey))
+            .whenOrNull(data: (value) => value) ??
+        false;
+
+    return _GroupChildEntriesView(
+      field: field,
+      memberId: memberId,
+      builder: (context, childEntries) {
+        if (childEntries.isEmpty) return const SizedBox.shrink();
+        return PrismExpandableSection(
+          title: CustomFieldHeaderLabel(
+            field: field,
+            iconSize: 16,
+            iconColor: theme.colorScheme.primary,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+            ),
+          ),
+          subtitle: Text(
+            context.l10n.customFieldGroupChildrenCount(childEntries.length),
+          ),
+          initiallyExpanded: !collapsed,
+          contentSpacing: 8,
+          children: [
+            for (final entry in childEntries)
+              CustomFieldDisplayScope(
+                labelHandled: true,
+                child: _GroupChildDisplay(entry: entry),
+              ),
+          ],
+          onExpansionChanged: (expanded) {
+            ref
+                .read(customFieldGroupCollapsedProvider(collapsedKey).notifier)
+                .setCollapsed(!expanded);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _GroupPageRowWidget extends StatelessWidget {
+  const _GroupPageRowWidget({
+    required this.field,
+    required this.memberId,
+    required this.branch,
+    required this.groupId,
+  });
+
+  final CustomField field;
+  final String memberId;
+  final MemberNavigationBranch branch;
+  final String? groupId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _GroupChildEntriesView(
+      field: field,
+      memberId: memberId,
+      builder: (context, childEntries) {
+        if (childEntries.isEmpty) return const SizedBox.shrink();
+        final router = GoRouter.maybeOf(context);
+        final path = branch.memberCustomFieldGroupPath(
+          memberId,
+          field.id,
+          groupId: groupId,
+        );
+        return SizedBox(
+          width: double.infinity,
+          child: PrismSurface(
+            padding: EdgeInsets.zero,
+            tone: PrismSurfaceTone.subtle,
+            child: PrismListRow(
+              title: CustomFieldHeaderLabel(
+                field: field,
+                iconSize: 16,
+                iconColor: theme.colorScheme.primary,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+              subtitle: Text(
+                context.l10n.customFieldGroupChildrenCount(childEntries.length),
+              ),
+              showChevron: true,
+              onTap: router == null ? null : () => router.push(path),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GroupChildEntriesView extends ConsumerWidget {
+  const _GroupChildEntriesView({
+    required this.field,
+    required this.memberId,
+    required this.builder,
+  });
+
+  final CustomField field;
+  final String memberId;
+  final Widget Function(BuildContext context, List<_GroupChildEntry> entries)
+  builder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final fieldsAsync = ref.watch(customFieldsProvider);
     final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
 
@@ -182,44 +380,105 @@ class GroupDisplayWidget extends ConsumerWidget {
       data: (fields) => valuesAsync.when(
         loading: () => const SizedBox.shrink(),
         error: (_, _) => const SizedBox.shrink(),
-        data: (values) {
-          final children =
-              fields.where((f) => f.parentFieldId == field.id).toList()
-                ..sort(_compareFieldOrder);
-          final valuesByFieldId = {for (final v in values) v.customFieldId: v};
+        data: (values) => builder(
+          context,
+          _groupChildEntries(
+            fields: fields,
+            values: values,
+            parentFieldId: field.id,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-          final childEntries = <_GroupChildEntry>[];
-          for (final child in children) {
-            final value = valuesByFieldId[child.id];
-            if (value == null || value.value.isEmpty) continue;
-            final renderer = rendererFor(
-              customFieldTypeRegistry.lookupById(child.fieldTypeId),
-            );
-            if (renderer == null) continue;
-            childEntries.add(
-              _GroupChildEntry(child: child, value: value, renderer: renderer),
+List<_GroupChildEntry> _groupChildEntries({
+  required List<CustomField> fields,
+  required List<CustomFieldValue> values,
+  required String parentFieldId,
+}) {
+  final children =
+      fields.where((f) => f.parentFieldId == parentFieldId).toList()
+        ..sort(_compareFieldOrder);
+  final valuesByFieldId = {for (final v in values) v.customFieldId: v};
+
+  final childEntries = <_GroupChildEntry>[];
+  for (final child in children) {
+    final value = valuesByFieldId[child.id];
+    if (value == null || value.value.isEmpty) continue;
+    final renderer = rendererFor(
+      customFieldTypeRegistry.lookupById(child.fieldTypeId),
+    );
+    if (renderer == null) continue;
+    childEntries.add(
+      _GroupChildEntry(child: child, value: value, renderer: renderer),
+    );
+  }
+  return childEntries;
+}
+
+class _GroupChildrenColumn extends StatelessWidget {
+  const _GroupChildrenColumn({required this.entries});
+
+  final List<_GroupChildEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomFieldDisplayScope(
+      labelHandled: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < entries.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _GroupChildDisplay(entry: entries[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class CustomFieldGroupPageContent extends ConsumerWidget {
+  const CustomFieldGroupPageContent({
+    super.key,
+    required this.field,
+    required this.memberId,
+  });
+
+  final CustomField field;
+  final String memberId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fieldsAsync = ref.watch(customFieldsProvider);
+    final valuesAsync = ref.watch(memberCustomFieldValuesProvider(memberId));
+
+    return fieldsAsync.when(
+      loading: () => const PrismLoadingState(),
+      error: (error, _) =>
+          Center(child: Text(context.l10n.settingsCustomFieldsError('$error'))),
+      data: (fields) => valuesAsync.when(
+        loading: () => const PrismLoadingState(),
+        error: (error, _) => Center(
+          child: Text(context.l10n.settingsCustomFieldsError('$error')),
+        ),
+        data: (values) {
+          final entries = _groupChildEntries(
+            fields: fields,
+            values: values,
+            parentFieldId: field.id,
+          );
+          if (entries.isEmpty) {
+            return EmptyState(
+              icon: Icon(AppIcons.folderOutlined),
+              title: context.l10n.customFieldGroupChildrenEmptyTitle,
+              subtitle: context.l10n.customFieldGroupChildrenEmptySubtitle,
             );
           }
-
-          if (childEntries.isEmpty) return const SizedBox.shrink();
-
-          return _GroupCard(
-            field: field,
-            theme: theme,
-            child: CustomFieldDisplayScope(
-              labelHandled: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < childEntries.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 8),
-                    _GroupChildDisplay(entry: childEntries[i]),
-                  ],
-                ],
-              ),
-            ),
-          );
+          return _GroupChildrenColumn(entries: entries);
         },
       ),
     );

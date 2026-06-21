@@ -51,4 +51,27 @@ extension MemberNavigationBranchPaths on MemberNavigationBranch {
             : AppRoutePaths.groupMemberConversations(groupId, memberId),
     };
   }
+
+  String memberCustomFieldGroupPath(
+    String memberId,
+    String fieldId, {
+    String? groupId,
+  }) {
+    return switch (this) {
+      MemberNavigationBranch.settings =>
+        AppRoutePaths.settingsMemberCustomFieldGroup(memberId, fieldId),
+      MemberNavigationBranch.members => AppRoutePaths.memberCustomFieldGroup(
+        memberId,
+        fieldId,
+      ),
+      MemberNavigationBranch.groups =>
+        groupId == null
+            ? AppRoutePaths.memberCustomFieldGroup(memberId, fieldId)
+            : AppRoutePaths.groupMemberCustomFieldGroup(
+                groupId,
+                memberId,
+                fieldId,
+              ),
+    };
+  }
 }
