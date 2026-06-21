@@ -19220,6 +19220,108 @@ abstract class AppLocalizations {
   /// **'No groups to move into'**
   String get customFieldNoEligibleGroups;
 
+  /// Small label on the shareable field-template card identifying it as a Prism field template
+  ///
+  /// In en, this message translates to:
+  /// **'Field template'**
+  String get fieldTemplateCardKicker;
+
+  /// Count of fields included in a shared field template
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No fields} =1{1 field} other{{count} fields}}'**
+  String fieldTemplateFieldCount(int count);
+
+  /// Hint on the shareable field-template card explaining how the recipient imports it
+  ///
+  /// In en, this message translates to:
+  /// **'Scan or paste to import'**
+  String get fieldTemplateCardScanHint;
+
+  /// Accessibility label for the QR code image on a shared field template
+  ///
+  /// In en, this message translates to:
+  /// **'QR code for the {name} field template'**
+  String fieldTemplateQrSemanticLabel(String name);
+
+  /// Title of the sheet for sharing a custom-field group or field as a template
+  ///
+  /// In en, this message translates to:
+  /// **'Share template'**
+  String get fieldTemplateShareTitle;
+
+  /// Primary action on the share-template sheet: copy the template to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Copy template'**
+  String get fieldTemplateShareCopy;
+
+  /// Toast shown after copying a template to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Template copied'**
+  String get fieldTemplateShareCopiedToast;
+
+  /// Action to save the branded template card as a PNG image (desktop)
+  ///
+  /// In en, this message translates to:
+  /// **'Save image'**
+  String get fieldTemplateShareSaveImage;
+
+  /// Action to share the branded template card as a PNG image (mobile)
+  ///
+  /// In en, this message translates to:
+  /// **'Share image'**
+  String get fieldTemplateShareShareImage;
+
+  /// Toast shown after the branded template image is saved
+  ///
+  /// In en, this message translates to:
+  /// **'Template image saved'**
+  String get fieldTemplateShareImageSaved;
+
+  /// Toast shown when rendering or saving the branded template image fails
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t create the image'**
+  String get fieldTemplateShareImageFailed;
+
+  /// Subject line used when sharing a template image via the system share sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Prism field template'**
+  String get fieldTemplateShareSubject;
+
+  /// Heading above the list of fields a shared template contains
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s included'**
+  String get fieldTemplateShareWhatsIncluded;
+
+  /// Inline note shown when a template is too long to render as a scannable QR
+  ///
+  /// In en, this message translates to:
+  /// **'This template is too long to fit a QR code — copy it or share the image instead.'**
+  String get fieldTemplateShareNoQrWarning;
+
+  /// Label above the selectable template text field shown on desktop for keyboard copy
+  ///
+  /// In en, this message translates to:
+  /// **'Template text'**
+  String get fieldTemplateShareTextLabel;
+
+  /// Inline badge on a template field whose type this app version doesn't recognise; it imports as-is
+  ///
+  /// In en, this message translates to:
+  /// **'Newer version'**
+  String get fieldTemplatePreviewUnknownBadge;
+
+  /// Accessibility label for one field row in a template summary or preview
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, {type}'**
+  String fieldTemplatePreviewRowSemantic(String name, String type);
+
   /// Title of the Media settings screen, which manages the encrypted image library, chat images, and avatars/banners
   ///
   /// In en, this message translates to:

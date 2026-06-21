@@ -11936,6 +11936,71 @@ class AppLocalizationsEn extends AppLocalizations {
   String get customFieldNoEligibleGroups => 'No groups to move into';
 
   @override
+  String get fieldTemplateCardKicker => 'Field template';
+
+  @override
+  String fieldTemplateFieldCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fields',
+      one: '1 field',
+      zero: 'No fields',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fieldTemplateCardScanHint => 'Scan or paste to import';
+
+  @override
+  String fieldTemplateQrSemanticLabel(String name) {
+    return 'QR code for the $name field template';
+  }
+
+  @override
+  String get fieldTemplateShareTitle => 'Share template';
+
+  @override
+  String get fieldTemplateShareCopy => 'Copy template';
+
+  @override
+  String get fieldTemplateShareCopiedToast => 'Template copied';
+
+  @override
+  String get fieldTemplateShareSaveImage => 'Save image';
+
+  @override
+  String get fieldTemplateShareShareImage => 'Share image';
+
+  @override
+  String get fieldTemplateShareImageSaved => 'Template image saved';
+
+  @override
+  String get fieldTemplateShareImageFailed => 'Couldn\'t create the image';
+
+  @override
+  String get fieldTemplateShareSubject => 'Prism field template';
+
+  @override
+  String get fieldTemplateShareWhatsIncluded => 'What\'s included';
+
+  @override
+  String get fieldTemplateShareNoQrWarning =>
+      'This template is too long to fit a QR code — copy it or share the image instead.';
+
+  @override
+  String get fieldTemplateShareTextLabel => 'Template text';
+
+  @override
+  String get fieldTemplatePreviewUnknownBadge => 'Newer version';
+
+  @override
+  String fieldTemplatePreviewRowSemantic(String name, String type) {
+    return '$name, $type';
+  }
+
+  @override
   String get mediaScreenTitle => 'Media';
 
   @override
