@@ -260,6 +260,7 @@ void main() {
           fields: [memberField],
           values: [value(memberField.id, raw)],
           members: [
+            member('member-1', 'Self', displayOrder: 0),
             member('alice', 'Alice', displayOrder: 2),
             member('bob', 'Bob', displayOrder: 1),
           ],
@@ -268,9 +269,10 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      expect(find.text('Self'), findsOneWidget);
       expect(find.text('Bob'), findsOneWidget);
       expect(find.text('Alice'), findsOneWidget);
-      expect(find.text('Self reference'), findsOneWidget);
+      expect(find.text('Self reference'), findsNothing);
       expect(find.text('Unavailable member'), findsOneWidget);
       expect(find.textContaining('memberIds'), findsNothing);
     },
@@ -339,6 +341,39 @@ void main() {
     expect(find.byType(MemberDetailScreen), findsNothing);
   });
 
+  testWidgets('member field editor treats self as a normal selected member', (
+    tester,
+  ) async {
+    final memberField = CustomField(
+      id: 'support-team',
+      name: 'Support team',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    await tester.pumpWidget(
+      editorSubject(
+        field: memberField,
+        value: value(memberField.id, '{"memberIds":["member-1"]}'),
+        members: [
+          member('member-1', 'Self', displayOrder: 0),
+          member('alice', 'Alice', displayOrder: 1),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.widgetWithText(MemberChip, 'Self'), findsOneWidget);
+    expect(find.text('Self reference'), findsNothing);
+
+    await tester.tap(find.textContaining('Select'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('member-1')), findsOneWidget);
+  });
+
   testWidgets('member field placeholders localize in Spanish', (tester) async {
     final memberField = CustomField(
       id: 'support-team',
@@ -353,13 +388,15 @@ void main() {
       subject(
         fields: [memberField],
         values: [value(memberField.id, raw)],
+        members: [member('member-1', 'Propio')],
         locale: const Locale('es'),
       ),
     );
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Referencia propia'), findsOneWidget);
+    expect(find.text('Propio'), findsOneWidget);
+    expect(find.text('Referencia propia'), findsNothing);
     expect(find.text('Miembro no disponible'), findsOneWidget);
     expect(find.text('Self reference'), findsNothing);
     expect(find.text('Unavailable member'), findsNothing);

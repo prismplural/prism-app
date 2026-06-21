@@ -915,7 +915,6 @@ class _MemberValuePreview extends StatelessWidget {
           id: null,
           label: _unavailableMemberLabel(context),
           member: null,
-          isSelf: false,
           isUnavailable: true,
         ),
       );
@@ -937,7 +936,7 @@ class _MemberReferenceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final member = summary.member;
-    if (member != null && !summary.isSelf) {
+    if (member != null) {
       return MemberChip(
         member: member,
         style: MemberChipStyle.inline,
@@ -1063,14 +1062,12 @@ class _MemberReferenceSummary {
     required this.id,
     required this.label,
     required this.member,
-    required this.isSelf,
     required this.isUnavailable,
   });
 
   final String? id;
   final String label;
   final Member? member;
-  final bool isSelf;
   final bool isUnavailable;
 }
 
@@ -1084,22 +1081,18 @@ List<_MemberReferenceSummary> _memberReferenceSummaries(
   final ids = _parseMemberReferenceIds(field, raw);
   return [
     for (final id in ids)
-      if (ownerMember != null && id == ownerMember.id)
-        _MemberReferenceSummary(
-          id: id,
-          label: context.l10n.customFieldMemberSelfReferenceWithName(
-            _FilledValueRow._memberDisplayName(ownerMember),
-          ),
-          member: ownerMember,
-          isSelf: true,
-          isUnavailable: false,
-        )
-      else if (membersById[id] case final member?)
+      if (membersById[id] case final member?)
         _MemberReferenceSummary(
           id: id,
           label: _FilledValueRow._memberDisplayName(member),
           member: member,
-          isSelf: false,
+          isUnavailable: false,
+        )
+      else if (ownerMember != null && id == ownerMember.id)
+        _MemberReferenceSummary(
+          id: id,
+          label: _FilledValueRow._memberDisplayName(ownerMember),
+          member: ownerMember,
           isUnavailable: false,
         )
       else
@@ -1107,7 +1100,6 @@ List<_MemberReferenceSummary> _memberReferenceSummaries(
           id: id,
           label: _unavailableMemberLabel(context),
           member: null,
-          isSelf: false,
           isUnavailable: true,
         ),
   ];

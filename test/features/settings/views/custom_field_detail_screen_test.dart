@@ -362,15 +362,14 @@ void main() {
 
       expect(find.text('Related member'), findsOneWidget);
       expect(find.text('Bea'), findsOneWidget);
-      expect(find.text('Self (Alice)'), findsOneWidget);
+      expect(find.text('Alice'), findsWidgets);
+      expect(find.text('Self (Alice)'), findsNothing);
       expect(find.text('Unavailable member'), findsOneWidget);
       expect(find.textContaining('memberIds'), findsNothing);
       expect(find.textContaining('missing-member'), findsNothing);
       expect(
         find.bySemanticsLabel(
-          RegExp(
-            r'Related member for Alice: .*Bea.*Self \(Alice\).*Unavailable member',
-          ),
+          RegExp(r'Related member for Alice: .*Bea.*Alice.*Unavailable member'),
         ),
         findsOneWidget,
       );

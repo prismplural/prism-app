@@ -161,7 +161,7 @@ class _MemberFieldEditorWidgetState
     );
     if (selected == null || !mounted) return;
     // Preserve stored references that are intentionally not picker candidates
-    // (self/missing/deleted IDs) until the user removes them explicitly.
+    // (missing/deleted IDs) until the user removes them explicitly.
     final preserved = _currentIds.difference(candidateIds);
     _stage({...preserved, ...selected});
   }
@@ -199,9 +199,7 @@ class _MemberFieldEditorWidgetState
     final membersAsync = ref.watch(userVisibleAllMemberListProvider);
     final candidates =
         (membersAsync.value ?? const <Member>[])
-            .where(
-              (member) => member.id != widget.memberId && !member.isDeleted,
-            )
+            .where((member) => !member.isDeleted)
             .toList()
           ..sort(_compareMembersForDisplay);
 
@@ -227,7 +225,6 @@ class _MemberFieldEditorWidgetState
           _MemberFieldSelectionChips(
             fieldName: widget.field.name,
             ids: _currentIds,
-            currentMemberId: widget.memberId,
             compact: false,
             readOnly: false,
             onRemoveId: _removeId,
@@ -264,7 +261,6 @@ class _MemberFieldDisplayWidget extends StatelessWidget {
     return _MemberFieldSelectionChips(
       fieldName: field.name,
       ids: ids,
-      currentMemberId: value.memberId,
       compact: compact,
       readOnly: true,
     );
@@ -275,7 +271,6 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
   const _MemberFieldSelectionChips({
     required this.fieldName,
     required this.ids,
-    required this.currentMemberId,
     required this.compact,
     required this.readOnly,
     this.onRemoveId,
@@ -283,26 +278,22 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
 
   final String fieldName;
   final Set<String> ids;
-  final String currentMemberId;
   final bool compact;
   final bool readOnly;
   final ValueChanged<String>? onRemoveId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lookupIds = ids.where((id) => id != currentMemberId);
-    final membersAsync = ref.watch(
-      membersByIdsListProvider(memberIdsKey(lookupIds)),
-    );
+    final membersAsync = ref.watch(membersByIdsListProvider(memberIdsKey(ids)));
     final membersById = membersAsync.value ?? const <String, Member>{};
     final resolvedMembers = [
       for (final id in ids)
-        if (id != currentMemberId && membersById[id] != null) membersById[id]!,
+        if (membersById[id] != null) membersById[id]!,
     ]..sort(_compareMembersForDisplay);
     final resolvedIds = resolvedMembers.map((member) => member.id).toSet();
     final placeholderIds = [
       for (final id in ids)
-        if (id == currentMemberId || !resolvedIds.contains(id)) id,
+        if (!resolvedIds.contains(id)) id,
     ];
 
     final chips = <Widget>[
@@ -317,7 +308,6 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
       for (final id in placeholderIds)
         _UnavailableMemberChip(
           fieldName: fieldName,
-          selfReference: id == currentMemberId,
           compact: compact,
           onRemove: onRemoveId == null ? null : () => onRemoveId!(id),
         ),
@@ -387,13 +377,11 @@ class _ResolvedMemberChip extends StatelessWidget {
 class _UnavailableMemberChip extends StatelessWidget {
   const _UnavailableMemberChip({
     required this.fieldName,
-    required this.selfReference,
     required this.compact,
     this.onRemove,
   });
 
   final String fieldName;
-  final bool selfReference;
   final bool compact;
   final VoidCallback? onRemove;
 
@@ -401,9 +389,7 @@ class _UnavailableMemberChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final label = selfReference
-        ? l10n.customFieldMemberSelfReference
-        : l10n.customFieldMemberUnavailable;
+    final label = l10n.customFieldMemberUnavailable;
     final textStyle = theme.textTheme.labelMedium?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
       fontWeight: FontWeight.w500,
@@ -428,9 +414,7 @@ class _UnavailableMemberChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                selfReference
-                    ? AppIcons.personOutline
-                    : AppIcons.personOffOutlined,
+                AppIcons.personOffOutlined,
                 size: compact ? 14 : 16,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
