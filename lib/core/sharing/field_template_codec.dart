@@ -12,6 +12,7 @@ const kMaxTemplateJsonBytes = 256 * 1024; // decompressed size cap
 const kMaxTemplateEntries = 50;
 const kMaxFieldNameChars = 200;
 const kMaxChoiceOptions = 200;
+const kMaxFieldTypeIdChars = 64; // type ids sync to peers verbatim
 
 enum FieldTemplateCodecError { unsupportedVersion, corrupt, invalid }
 
@@ -155,6 +156,16 @@ class FieldTemplateCodec {
       }
     }
 
+    // Field type id length — bounded since it syncs to peers verbatim.
+    for (final e in t.entries) {
+      if (e.fieldTypeId.length > kMaxFieldTypeIdChars) {
+        throw const FieldTemplateCodecException(
+          FieldTemplateCodecError.invalid,
+          'A field type id exceeds the maximum length.',
+        );
+      }
+    }
+
     // Fix 2: a known-type entry MUST use compactConfig; rawConfigJson is for
     // unknown types only. Also reject entries that carry both slots.
     for (final e in t.entries) {
@@ -258,23 +269,28 @@ class FieldTemplateCodec {
       if (t.entries[i].fieldTypeId == kGroupFieldTypeId) groupIndices.add(i);
     }
 
-    // Normalize: out-of-range parentIndex or non-group parent → promote.
+    // Normalize: strip impersonation chars from names, and promote any entry
+    // whose parentIndex is out of range or points at a non-group.
     var needsNormalization = false;
     final normalized = t.entries.map((e) {
-      if (e.parentIndex == null) return e;
-      final idx = e.parentIndex!;
-      if (idx < 0 || idx >= t.entries.length || !groupIndices.contains(idx)) {
-        needsNormalization = true;
-        return FieldTemplateEntry(
-          name: e.name,
-          fieldTypeId: e.fieldTypeId,
-          parentIndex: null,
-          compactConfig: e.compactConfig,
-          rawConfigJson: e.rawConfigJson,
-          datePrecision: e.datePrecision,
-        );
+      final cleanName = _sanitizeName(e.name);
+      var parentIndex = e.parentIndex;
+      if (parentIndex != null &&
+          (parentIndex < 0 ||
+              parentIndex >= t.entries.length ||
+              !groupIndices.contains(parentIndex))) {
+        parentIndex = null;
       }
-      return e;
+      if (cleanName == e.name && parentIndex == e.parentIndex) return e;
+      needsNormalization = true;
+      return FieldTemplateEntry(
+        name: cleanName,
+        fieldTypeId: e.fieldTypeId,
+        parentIndex: parentIndex,
+        compactConfig: e.compactConfig,
+        rawConfigJson: e.rawConfigJson,
+        datePrecision: e.datePrecision,
+      );
     }).toList();
 
     if (!needsNormalization) return t;
@@ -292,6 +308,27 @@ class FieldTemplateCodec {
     }
   }
 }
+
+// Strips bidi-control, zero-width, and other invisible format/control chars
+// that could impersonate built-in fields (e.g. a U+202E right-to-left override
+// rendering "oiB" as "Bio"). Visible content is preserved.
+String _sanitizeName(String name) {
+  if (name.isEmpty) return name;
+  final buffer = StringBuffer();
+  for (final rune in name.runes) {
+    if (!_isImpersonationChar(rune)) buffer.writeCharCode(rune);
+  }
+  return buffer.toString();
+}
+
+bool _isImpersonationChar(int c) =>
+    c <= 0x1F || // C0 controls
+    (c >= 0x7F && c <= 0x9F) || // DEL + C1 controls
+    (c >= 0x200B && c <= 0x200F) || // zero-width chars + LRM/RLM
+    (c >= 0x202A && c <= 0x202E) || // bidi embeddings/overrides
+    (c >= 0x2060 && c <= 0x2064) || // invisible operators / format
+    (c >= 0x2066 && c <= 0x206F) || // bidi isolates + deprecated format
+    c == 0xFEFF; // BOM / zero-width no-break space
 
 // Byte-counting sink for streaming inflate. Accumulates output chunks and
 // throws FieldTemplateCodecException.corrupt if the running total exceeds
@@ -325,4 +362,3 @@ class _BoundedByteSink implements Sink<List<int>> {
     return out;
   }
 }
-

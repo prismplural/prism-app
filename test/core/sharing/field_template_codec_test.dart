@@ -216,4 +216,512 @@ void main() {
       expect(decoded.entries[1].fieldTypeId, 'scale');
     });
   });
+
+  group('validateAndNormalize — throw cases', () {
+    FieldTemplate _makeTemplate(List<FieldTemplateEntry> entries) =>
+        FieldTemplate(version: 1, entries: entries);
+
+    test('> kMaxTemplateEntries → invalid', () {
+      final entries = List.generate(
+        kMaxTemplateEntries + 1,
+        (i) => FieldTemplateEntry(name: 'F$i', fieldTypeId: 'text'),
+      );
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate(entries)),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('exactly kMaxTemplateEntries passes', () {
+      final entries = List.generate(
+        kMaxTemplateEntries,
+        (i) => FieldTemplateEntry(name: 'F$i', fieldTypeId: 'text'),
+      );
+      final result = codec.validateAndNormalize(_makeTemplate(entries));
+      expect(result.entries.length, kMaxTemplateEntries);
+    });
+
+    test('name > kMaxFieldNameChars → invalid', () {
+      final longName = 'A' * (kMaxFieldNameChars + 1);
+      expect(
+        () => codec.validateAndNormalize(
+          _makeTemplate([FieldTemplateEntry(name: longName, fieldTypeId: 'text')]),
+        ),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('> kMaxChoiceOptions in choice field → invalid', () {
+      final options = List.generate(
+        kMaxChoiceOptions + 1,
+        (i) => {'label': 'Opt $i'},
+      );
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        compactConfig: {
+          'runtimeType': 'choice',
+          'options': options,
+          'allowsMultiple': false,
+          'allowsOther': false,
+        },
+      );
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate([entry])),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('exactly kMaxChoiceOptions passes', () {
+      final options = List.generate(
+        kMaxChoiceOptions,
+        (i) => {'label': 'Opt $i'},
+      );
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        compactConfig: {
+          'runtimeType': 'choice',
+          'options': options,
+          'allowsMultiple': false,
+          'allowsOther': false,
+        },
+      );
+      // Should not throw.
+      final result = codec.validateAndNormalize(_makeTemplate([entry]));
+      expect(result.entries.length, 1);
+    });
+
+    test('depth-2: entry is both parent and child → invalid', () {
+      // Entry 0 is a group, entry 1 is a group child that is ALSO a parent of entry 2.
+      final entries = [
+        const FieldTemplateEntry(name: 'Root', fieldTypeId: 'group'),
+        // Entry 1 is child of entry 0 AND parent of entry 2 → depth 2 → invalid.
+        const FieldTemplateEntry(name: 'Mid', fieldTypeId: 'group', parentIndex: 0),
+        const FieldTemplateEntry(name: 'Leaf', fieldTypeId: 'text', parentIndex: 1),
+      ];
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate(entries)),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('invalid colorHex (no hash) → invalid', () {
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        compactConfig: {
+          'runtimeType': 'choice',
+          'options': [
+            {'label': 'Red', 'colorHex': 'ff0000'}, // missing #
+          ],
+          'allowsMultiple': false,
+          'allowsOther': false,
+        },
+      );
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate([entry])),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('invalid colorHex (too short) → invalid', () {
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        compactConfig: {
+          'runtimeType': 'choice',
+          'options': [
+            {'label': 'Red', 'colorHex': '#fff'}, // 3-digit shorthand
+          ],
+          'allowsMultiple': false,
+          'allowsOther': false,
+        },
+      );
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate([entry])),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('valid colorHex passes', () {
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        compactConfig: {
+          'runtimeType': 'choice',
+          'options': [
+            {'label': 'Red', 'colorHex': '#FF0000'},
+            {'label': 'Blue', 'colorHex': '#0000ff'},
+          ],
+          'allowsMultiple': false,
+          'allowsOther': false,
+        },
+      );
+      final result = codec.validateAndNormalize(_makeTemplate([entry]));
+      expect(result.entries.length, 1);
+    });
+  });
+
+  group('validateAndNormalize — normalize (no throw) cases', () {
+    FieldTemplate _makeTemplate(List<FieldTemplateEntry> entries) =>
+        FieldTemplate(version: 1, entries: entries);
+
+    test('out-of-range parentIndex → promoted to top-level', () {
+      final entries = [
+        const FieldTemplateEntry(
+          name: 'Orphan',
+          fieldTypeId: 'text',
+          parentIndex: 99, // out of range
+        ),
+      ];
+      final result = codec.validateAndNormalize(_makeTemplate(entries));
+      expect(result.entries[0].parentIndex, isNull);
+    });
+
+    test('negative parentIndex → promoted to top-level', () {
+      final entries = [
+        const FieldTemplateEntry(
+          name: 'Orphan',
+          fieldTypeId: 'text',
+          parentIndex: -1,
+        ),
+      ];
+      final result = codec.validateAndNormalize(_makeTemplate(entries));
+      expect(result.entries[0].parentIndex, isNull);
+    });
+
+    test('parentIndex pointing at non-group entry → promoted', () {
+      final entries = [
+        const FieldTemplateEntry(name: 'Text', fieldTypeId: 'text'),
+        // Tries to parent under a 'text' field (not a group) → promoted.
+        const FieldTemplateEntry(name: 'Child', fieldTypeId: 'text', parentIndex: 0),
+      ];
+      final result = codec.validateAndNormalize(_makeTemplate(entries));
+      expect(result.entries[1].parentIndex, isNull);
+      // Entry 0 untouched.
+      expect(result.entries[0].parentIndex, isNull);
+    });
+
+    test('unknown fieldTypeId entry is tolerated', () {
+      const rawJson = '{"runtimeType":"mysteryType","fancyKey":42}';
+      final entries = [
+        const FieldTemplateEntry(
+          name: 'Future Field',
+          fieldTypeId: 'mysteryType',
+          rawConfigJson: rawJson,
+        ),
+      ];
+      // Should not throw.
+      final result = codec.validateAndNormalize(_makeTemplate(entries));
+      expect(result.entries.length, 1);
+      expect(result.entries[0].fieldTypeId, 'mysteryType');
+    });
+
+    test('valid group parent is preserved', () {
+      final entries = [
+        const FieldTemplateEntry(name: 'MyGroup', fieldTypeId: 'group'),
+        const FieldTemplateEntry(name: 'Child', fieldTypeId: 'text', parentIndex: 0),
+      ];
+      final result = codec.validateAndNormalize(_makeTemplate(entries));
+      expect(result.entries[1].parentIndex, 0); // not promoted
+    });
+  });
+
+  // ── Fix 1: streaming gzip-bomb guard ────────────────────────────────────────
+
+  group('Fix1: streaming gzip-bomb guard', () {
+    // Build a valid PF1 code whose decompressed output exceeds kMaxTemplateJsonBytes
+    // without the streaming cap ever materialising the full buffer.
+    String _buildBombCode() {
+      // Craft a huge JSON string that will compress well, so the compressed form
+      // stays under kMaxTemplateCodeChars but the decompressed form is > 256 KB.
+      final bigJson = jsonEncode({
+        'v': 1,
+        'f': [
+          // One entry with a giant name that compresses to ~nothing but inflates big.
+          {'n': 'A' * (kMaxTemplateJsonBytes + 1024), 't': 'text'},
+        ],
+      });
+      final bytes = utf8.encode(bigJson);
+      final compressed = GZipCodec().encode(bytes);
+      final b64 = base64Url.encode(compressed).replaceAll('=', '');
+      return 'PF1:$b64';
+    }
+
+    test('oversized decompressed payload → corrupt (streaming check)', () {
+      final code = _buildBombCode();
+      // The pre-compress check must pass (code is not oversized).
+      expect(code.length, lessThanOrEqualTo(kMaxTemplateCodeChars));
+
+      expect(
+        () => codec.decode(code),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.corrupt,
+          ),
+        ),
+      );
+    });
+  });
+
+  // ── Fix 2: rawConfigJson bypass for known types ──────────────────────────────
+
+  group('Fix2: rawConfigJson bypass for known types', () {
+    FieldTemplate _makeTemplate(List<FieldTemplateEntry> entries) =>
+        FieldTemplate(version: 1, entries: entries);
+
+    test('known type (choice) with rawConfigJson → invalid', () {
+      const rawJson = '{"runtimeType":"choice","options":[]}';
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        rawConfigJson: rawJson,
+      );
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate([entry])),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('entry with both compactConfig and rawConfigJson → invalid', () {
+      final entry = FieldTemplateEntry(
+        name: 'Choice',
+        fieldTypeId: 'choice',
+        compactConfig: const {
+          'runtimeType': 'choice',
+          'options': <dynamic>[],
+          'allowsMultiple': false,
+          'allowsOther': false,
+        },
+        rawConfigJson: '{"extra":"sneaky"}',
+      );
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate([entry])),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('unknown type with only rawConfigJson → tolerated', () {
+      const rawJson = '{"runtimeType":"futureThing","x":1}';
+      final entry = FieldTemplateEntry(
+        name: 'Future',
+        fieldTypeId: 'futureThing',
+        rawConfigJson: rawJson,
+      );
+      // Should not throw.
+      final result = codec.validateAndNormalize(_makeTemplate([entry]));
+      expect(result.entries.length, 1);
+    });
+  });
+
+  // ── Fix 3: malformed options caught in validateAndNormalize ─────────────────
+
+  group('Fix3: malformed option structure → invalid', () {
+    FieldTemplate _makeTemplate(List<FieldTemplateEntry> entries) =>
+        FieldTemplate(version: 1, entries: entries);
+
+    FieldTemplateEntry _choiceEntry(List<dynamic> options) => FieldTemplateEntry(
+      name: 'Choice',
+      fieldTypeId: 'choice',
+      compactConfig: {
+        'runtimeType': 'choice',
+        'options': options,
+        'allowsMultiple': false,
+        'allowsOther': false,
+      },
+    );
+
+    test('option is not a Map (int in list) → invalid', () {
+      expect(
+        () => codec.validateAndNormalize(_makeTemplate([_choiceEntry([123])])),
+        throwsA(isA<FieldTemplateCodecException>().having(
+          (e) => e.kind, 'kind', FieldTemplateCodecError.invalid,
+        )),
+      );
+    });
+
+    test('option label is non-String → invalid', () {
+      expect(
+        () => codec.validateAndNormalize(
+          _makeTemplate([_choiceEntry([{'label': 5}])]),
+        ),
+        throwsA(isA<FieldTemplateCodecException>().having(
+          (e) => e.kind, 'kind', FieldTemplateCodecError.invalid,
+        )),
+      );
+    });
+
+    test('option colorHex is non-String → invalid', () {
+      expect(
+        () => codec.validateAndNormalize(
+          _makeTemplate([_choiceEntry([{'label': 'x', 'colorHex': 7}])]),
+        ),
+        throwsA(isA<FieldTemplateCodecException>().having(
+          (e) => e.kind, 'kind', FieldTemplateCodecError.invalid,
+        )),
+      );
+    });
+
+    test('option missing label field → invalid', () {
+      expect(
+        () => codec.validateAndNormalize(
+          _makeTemplate([_choiceEntry([<String, dynamic>{}])]),
+        ),
+        throwsA(isA<FieldTemplateCodecException>().having(
+          (e) => e.kind, 'kind', FieldTemplateCodecError.invalid,
+        )),
+      );
+    });
+
+    test('well-formed option passes', () {
+      final result = codec.validateAndNormalize(_makeTemplate([
+        _choiceEntry([
+          {'label': 'Red', 'colorHex': '#ff0000'},
+          {'label': 'Blue'},
+        ]),
+      ]));
+      expect(result.entries.length, 1);
+    });
+  });
+
+  // ── Fix 5: validateAndNormalize version check ────────────────────────────────
+
+  group('Fix5: validateAndNormalize version check', () {
+    test('version 2 template → unsupportedVersion', () {
+      final t = FieldTemplate(
+        version: 2,
+        entries: const [FieldTemplateEntry(name: 'X', fieldTypeId: 'text')],
+      );
+      expect(
+        () => codec.validateAndNormalize(t),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.unsupportedVersion,
+          ),
+        ),
+      );
+    });
+
+    test('version 0 template → unsupportedVersion', () {
+      final t = FieldTemplate(
+        version: 0,
+        entries: const [FieldTemplateEntry(name: 'X', fieldTypeId: 'text')],
+      );
+      expect(
+        () => codec.validateAndNormalize(t),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.unsupportedVersion,
+          ),
+        ),
+      );
+    });
+
+    test('version 1 template → passes', () {
+      final t = FieldTemplate(
+        version: 1,
+        entries: const [FieldTemplateEntry(name: 'X', fieldTypeId: 'text')],
+      );
+      // Should not throw.
+      final result = codec.validateAndNormalize(t);
+      expect(result.entries.length, 1);
+    });
+
+    test('fieldTypeId over the length cap → invalid', () {
+      final t = FieldTemplate(
+        version: 1,
+        entries: [
+          FieldTemplateEntry(
+            name: 'X',
+            fieldTypeId: 'a' * (kMaxFieldTypeIdChars + 1),
+          ),
+        ],
+      );
+      expect(
+        () => codec.validateAndNormalize(t),
+        throwsA(
+          isA<FieldTemplateCodecException>().having(
+            (e) => e.kind,
+            'kind',
+            FieldTemplateCodecError.invalid,
+          ),
+        ),
+      );
+    });
+
+    test('strips bidi/zero-width impersonation chars from names', () {
+      // U+202E (right-to-left override) + U+200B (zero-width space) in a name.
+      final dirty =
+          'A${String.fromCharCode(0x202E)}B${String.fromCharCode(0x200B)}C';
+      final t = FieldTemplate(
+        version: 1,
+        entries: [FieldTemplateEntry(name: dirty, fieldTypeId: 'text')],
+      );
+      final result = codec.validateAndNormalize(t);
+      expect(result.entries.single.name, 'ABC');
+    });
+
+    test('leaves a clean template untouched (no needless realloc)', () {
+      final t = FieldTemplate(
+        version: 1,
+        entries: const [FieldTemplateEntry(name: 'Bio', fieldTypeId: 'text')],
+      );
+      expect(identical(codec.validateAndNormalize(t), t), isTrue);
+    });
+  });
 }

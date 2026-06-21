@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
-import 'package:prism_plurality/domain/models/choice_option.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:uuid/uuid.dart';
