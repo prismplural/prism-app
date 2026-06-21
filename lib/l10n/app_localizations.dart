@@ -19322,6 +19322,102 @@ abstract class AppLocalizations {
   /// **'{name}, {type}'**
   String fieldTemplatePreviewRowSemantic(String name, String type);
 
+  /// Title of the sheet that previews a template's fields before importing
+  ///
+  /// In en, this message translates to:
+  /// **'Review template'**
+  String get fieldTemplateImportPreviewTitle;
+
+  /// Reassurance shown in the import preview that the imported fields are independent copies
+  ///
+  /// In en, this message translates to:
+  /// **'Saved to your fields. Changes won\'t affect the original.'**
+  String get fieldTemplateImportOwnershipLine;
+
+  /// Primary action that imports the previewed template's fields
+  ///
+  /// In en, this message translates to:
+  /// **'Import fields'**
+  String get fieldTemplateImportConfirm;
+
+  /// Title of the import-template entry sheet and its top-bar action
+  ///
+  /// In en, this message translates to:
+  /// **'Import template'**
+  String get fieldTemplateImportTitle;
+
+  /// Explainer at the top of the import-template entry sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a template, choose its image, or scan a QR code to add someone\'s custom fields to your own.'**
+  String get fieldTemplateImportDescription;
+
+  /// Label on the paste field in the import-template sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Paste template'**
+  String get fieldTemplateImportPasteLabel;
+
+  /// Button that decodes and previews a pasted template
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get fieldTemplateImportPasteAction;
+
+  /// Button to pick a saved template image file to import
+  ///
+  /// In en, this message translates to:
+  /// **'Choose image'**
+  String get fieldTemplateImportChooseImage;
+
+  /// Button (mobile) to open the camera and scan a template QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get fieldTemplateImportScan;
+
+  /// Instruction shown above the camera when scanning a template QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Point your camera at a template\'s QR code.'**
+  String get fieldTemplateImportScanDescription;
+
+  /// Divider label between the paste field and the image/scan options
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get fieldTemplateImportDividerOr;
+
+  /// Error shown when a pasted or scanned template can't be decoded
+  ///
+  /// In en, this message translates to:
+  /// **'This code doesn\'t look right — check for typos or ask for a new one.'**
+  String get fieldTemplateImportErrorInvalid;
+
+  /// Error shown when a template was made by a newer, unsupported version
+  ///
+  /// In en, this message translates to:
+  /// **'This template needs a newer version of Prism. Update the app to import it.'**
+  String get fieldTemplateImportErrorVersion;
+
+  /// Error shown when a chosen image contains no readable template
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t find a template in that image — try pasting it instead.'**
+  String get fieldTemplateImportErrorNoImage;
+
+  /// Error shown when importing a previewed template fails to write
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t import the template.'**
+  String get fieldTemplateImportErrorFailed;
+
+  /// Toast shown after a template is imported
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{name} imported (1 field)} other{{name} imported ({count} fields)}}'**
+  String fieldTemplateImportSuccessToast(String name, int count);
+
   /// Title of the Media settings screen, which manages the encrypted image library, chat images, and avatars/banners
   ///
   /// In en, this message translates to:

@@ -12194,6 +12194,68 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get fieldTemplateImportPreviewTitle => 'Review template';
+
+  @override
+  String get fieldTemplateImportOwnershipLine =>
+      'Saved to your fields. Changes won\'t affect the original.';
+
+  @override
+  String get fieldTemplateImportConfirm => 'Import fields';
+
+  @override
+  String get fieldTemplateImportTitle => 'Import template';
+
+  @override
+  String get fieldTemplateImportDescription =>
+      'Paste a template, choose its image, or scan a QR code to add someone\'s custom fields to your own.';
+
+  @override
+  String get fieldTemplateImportPasteLabel => 'Paste template';
+
+  @override
+  String get fieldTemplateImportPasteAction => 'Import';
+
+  @override
+  String get fieldTemplateImportChooseImage => 'Choose image';
+
+  @override
+  String get fieldTemplateImportScan => 'Scan QR code';
+
+  @override
+  String get fieldTemplateImportScanDescription =>
+      'Point your camera at a template\'s QR code.';
+
+  @override
+  String get fieldTemplateImportDividerOr => 'or';
+
+  @override
+  String get fieldTemplateImportErrorInvalid =>
+      'This code doesn\'t look right — check for typos or ask for a new one.';
+
+  @override
+  String get fieldTemplateImportErrorVersion =>
+      'This template needs a newer version of Prism. Update the app to import it.';
+
+  @override
+  String get fieldTemplateImportErrorNoImage =>
+      'Couldn\'t find a template in that image — try pasting it instead.';
+
+  @override
+  String get fieldTemplateImportErrorFailed => 'Couldn\'t import the template.';
+
+  @override
+  String fieldTemplateImportSuccessToast(String name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$name imported ($count fields)',
+      one: '$name imported (1 field)',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get mediaScreenTitle => 'Media';
 
   @override
