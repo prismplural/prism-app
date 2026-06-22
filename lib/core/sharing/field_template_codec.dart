@@ -6,12 +6,13 @@ import 'package:prism_plurality/domain/custom_fields/field_template.dart';
 import 'package:prism_plurality/domain/custom_fields/registry.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 
-// Limits enforced on decode.
+// Limits enforced on decode. The byte caps are the real DoS guard; the
+// per-template entry/option caps are generous structural bounds.
 const kMaxTemplateCodeChars = 64 * 1024; // gzip-bomb guard (pre-gunzip)
 const kMaxTemplateJsonBytes = 256 * 1024; // decompressed size cap
-const kMaxTemplateEntries = 50;
+const kMaxTemplateEntries = 200;
 const kMaxFieldNameChars = 200;
-const kMaxChoiceOptions = 200;
+const kMaxChoiceOptions = 2000;
 const kMaxFieldTypeIdChars = 64; // type ids sync to peers verbatim
 
 enum FieldTemplateCodecError { unsupportedVersion, corrupt, invalid }

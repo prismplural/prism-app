@@ -152,11 +152,11 @@ void main() {
 
   // ── Validation at the boundary ─────────────────────────────────────────────
 
-  test('validation: >50 entries → throws invalid, writes nothing', () async {
+  test('validation: over the entry cap → throws invalid, writes nothing', () async {
     final oversized = FieldTemplate(
       version: 1,
       entries: List.generate(
-        51,
+        kMaxTemplateEntries + 1,
         (i) => FieldTemplateEntry(name: 'F$i', fieldTypeId: 'text'),
       ),
     );
