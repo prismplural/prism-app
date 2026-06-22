@@ -20,7 +20,7 @@ void main() {
     home: Scaffold(body: SingleChildScrollView(child: child)),
   );
 
-  testWidgets('renders a QR and prints the share code', (tester) async {
+  testWidgets('renders a QR and does not print the raw code', (tester) async {
     await tester.pumpWidget(
       host(
         const BrandedTemplateCard(
@@ -32,10 +32,10 @@ void main() {
       ),
     );
 
-    // qr_flutter keeps its data private, so bind the code through the printed
-    // text beneath the QR (the recompression-proof fallback) plus QR presence.
+    // The QR + embedded tEXt chunk carry the code; it can't fit legibly on the
+    // card, so it is never printed.
     expect(find.byType(QrImageView), findsOneWidget);
-    expect(find.text('PF1:abc'), findsOneWidget);
+    expect(find.text('PF1:abc'), findsNothing);
   });
 
   testWidgets('shows the template name and a type chip', (tester) async {
@@ -54,7 +54,9 @@ void main() {
     expect(find.text('Rating'), findsOneWidget);
   });
 
-  testWidgets('omits the QR when the code is too long to scan', (tester) async {
+  testWidgets('shows the no-QR note when the code is too long to scan', (
+    tester,
+  ) async {
     final tooLong = 'PF1:${'a' * 3000}';
     await tester.pumpWidget(
       host(
@@ -68,6 +70,32 @@ void main() {
     );
 
     expect(find.byType(QrImageView), findsNothing);
+    expect(find.text('Too large for a QR code'), findsOneWidget);
+    expect(find.text('Copy the text to import'), findsOneWidget);
+  });
+
+  testWidgets('renders in dark mode without error', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        theme: ThemeData.dark(),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: BrandedTemplateCard(
+              name: 'Stats',
+              code: 'PF1:abc',
+              fieldCount: 3,
+              typeLabels: ['Rating'],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Stats'), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
   });
 
   test('qrEccForCodeLength matches the QR v40 caps at every boundary', () {

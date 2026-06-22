@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/sharing/field_template_codec.dart';
 import 'package:prism_plurality/domain/custom_fields/field_template.dart';
+import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/branded_template_card.dart';
 import 'package:prism_plurality/features/settings/widgets/field_template_summary.dart';
@@ -81,6 +82,34 @@ class _ShareTemplateSheetContentState
         message: context.l10n.fieldTemplateShareCopiedToast,
       );
     }
+  }
+
+  // Text-only share path for templates too large for a QR — the code can't be
+  // stripped the way a re-compressed image's metadata can be.
+  Future<void> _shareText() async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: _code,
+        subject: context.l10n.fieldTemplateShareSubject,
+        sharePositionOrigin: _shareOrigin(),
+      ),
+    );
+  }
+
+  /// A non-null reason the template can't be shared at all (over a structural
+  /// cap or the byte cap) — distinct from merely being too long for a QR.
+  String? _shareBlockReason() {
+    if (widget.template.entries.length > kMaxTemplateEntries ||
+        _code.length > kMaxTemplateCodeChars) {
+      return context.l10n.fieldTemplateShareTooLarge;
+    }
+    for (final field in _domainFields) {
+      final config = field.typeConfig;
+      if (config is ChoiceConfig && config.options.length > kMaxChoiceOptions) {
+        return context.l10n.fieldTemplateShareTooLarge;
+      }
+    }
+    return null;
   }
 
   Future<void> _saveOrShareImage() async {
@@ -180,6 +209,7 @@ class _ShareTemplateSheetContentState
       }
     }
     final hasQr = qrEccForCodeLength(_code.length) != null;
+    final blockReason = _shareBlockReason();
 
     return Column(
       children: [
@@ -191,56 +221,79 @@ class _ShareTemplateSheetContentState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // The card has a fixed intrinsic width so the captured PNG is
-                // consistent; scale the on-screen preview down to fit narrower
-                // phones. The RepaintBoundary capture is unaffected by this.
-                Center(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: BrandedTemplateCard(
-                      boundaryKey: _cardKey,
-                      name: name,
-                      code: _code,
-                      fieldCount: fieldCount,
-                      typeLabels: typeLabels,
+                if (blockReason != null) ...[
+                  // Over a structural/byte cap: a code nobody can import. Don't
+                  // offer the card or share actions — show why and what's inside.
+                  _InlineNote(text: blockReason),
+                  const SizedBox(height: 24),
+                ] else ...[
+                  // The card has a fixed intrinsic width so the captured PNG is
+                  // consistent; scale the on-screen preview down to fit narrower
+                  // phones. The RepaintBoundary capture is unaffected by this.
+                  Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: BrandedTemplateCard(
+                        boundaryKey: _cardKey,
+                        name: name,
+                        code: _code,
+                        fieldCount: fieldCount,
+                        typeLabels: typeLabels,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: PrismButton(
-                        label: l10n.fieldTemplateShareCopy,
-                        icon: AppIcons.copy,
-                        tone: PrismButtonTone.filled,
-                        onPressed: _copyCode,
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PrismButton(
+                          label: l10n.fieldTemplateShareCopy,
+                          icon: AppIcons.copy,
+                          tone: PrismButtonTone.filled,
+                          onPressed: _copyCode,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: PrismButton(
-                        key: _shareButtonKey,
-                        label: _isDesktop
-                            ? l10n.fieldTemplateShareSaveImage
-                            : l10n.fieldTemplateShareShareImage,
-                        icon: _isDesktop ? AppIcons.download : AppIcons.share,
-                        tone: PrismButtonTone.subtle,
-                        isLoading: _busy,
-                        onPressed: _saveOrShareImage,
+                      const SizedBox(width: 12),
+                      // With a QR, sharing the image is the path; without one the
+                      // image can't be scanned and its metadata can be stripped,
+                      // so share the code as text instead.
+                      Expanded(
+                        child: hasQr
+                            ? PrismButton(
+                                key: _shareButtonKey,
+                                label: _isDesktop
+                                    ? l10n.fieldTemplateShareSaveImage
+                                    : l10n.fieldTemplateShareShareImage,
+                                icon: _isDesktop
+                                    ? AppIcons.download
+                                    : AppIcons.share,
+                                tone: PrismButtonTone.subtle,
+                                isLoading: _busy,
+                                onPressed: _saveOrShareImage,
+                              )
+                            : PrismButton(
+                                key: _shareButtonKey,
+                                label: l10n.fieldTemplateShareAsText,
+                                icon: AppIcons.share,
+                                tone: PrismButtonTone.subtle,
+                                onPressed: _shareText,
+                              ),
                       ),
+                    ],
+                  ),
+                  if (!hasQr) ...[
+                    const SizedBox(height: 12),
+                    _InlineNote(text: l10n.fieldTemplateShareNoQrWarning),
+                  ],
+                  if (_isDesktop || !hasQr) ...[
+                    const SizedBox(height: 20),
+                    _SelectableCode(
+                      label: l10n.fieldTemplateShareTextLabel,
+                      code: _code,
                     ),
                   ],
-                ),
-                if (!hasQr) ...[
-                  const SizedBox(height: 12),
-                  _InlineNote(text: l10n.fieldTemplateShareNoQrWarning),
+                  const SizedBox(height: 24),
                 ],
-                if (_isDesktop) ...[
-                  const SizedBox(height: 20),
-                  _SelectableCode(label: l10n.fieldTemplateShareTextLabel, code: _code),
-                ],
-                const SizedBox(height: 24),
                 Text(
                   l10n.fieldTemplateShareWhatsIncluded,
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -323,11 +376,18 @@ class _SelectableCode extends StatelessWidget {
               color: theme.colorScheme.outline.withValues(alpha: 0.3),
             ),
           ),
-          child: SelectableText(
-            code,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: 'monospace',
-              height: 1.4,
+          // Cap the height so a long code doesn't dominate the sheet; the full
+          // code stays selectable via the inner scroll.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 160),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                code,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  height: 1.4,
+                ),
+              ),
             ),
           ),
         ),

@@ -12150,6 +12150,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get fieldTemplateCardScanHint => 'Escanea o pega para importar';
 
   @override
+  String get fieldTemplateCardCopyHint => 'Copia el texto para importar';
+
+  @override
+  String get fieldTemplateCardNoQr => 'Demasiado grande para un código QR';
+
+  @override
   String fieldTemplateQrSemanticLabel(String name) {
     return 'Código QR de la plantilla de campos $name';
   }
@@ -12183,7 +12189,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get fieldTemplateShareNoQrWarning =>
-      'Esta plantilla es demasiado larga para un código QR: cópiala o comparte la imagen.';
+      'Esta plantilla es demasiado larga para un código QR: cópiala o compártela como texto.';
+
+  @override
+  String get fieldTemplateShareAsText => 'Compartir como texto';
+
+  @override
+  String get fieldTemplateShareTooLarge =>
+      'Esta plantilla es demasiado grande para compartir: prueba a quitar algunos campos u opciones.';
 
   @override
   String get fieldTemplateShareTextLabel => 'Texto de la plantilla';

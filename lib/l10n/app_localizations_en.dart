@@ -11957,6 +11957,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fieldTemplateCardScanHint => 'Scan or paste to import';
 
   @override
+  String get fieldTemplateCardCopyHint => 'Copy the text to import';
+
+  @override
+  String get fieldTemplateCardNoQr => 'Too large for a QR code';
+
+  @override
   String fieldTemplateQrSemanticLabel(String name) {
     return 'QR code for the $name field template';
   }
@@ -11990,7 +11996,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fieldTemplateShareNoQrWarning =>
-      'This template is too long to fit a QR code — copy it or share the image instead.';
+      'This template is too long to fit a QR code — copy it or share it as text.';
+
+  @override
+  String get fieldTemplateShareAsText => 'Share as text';
+
+  @override
+  String get fieldTemplateShareTooLarge =>
+      'This template is too large to share — try removing some fields or choice options.';
 
   @override
   String get fieldTemplateShareTextLabel => 'Template text';

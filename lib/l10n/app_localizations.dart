@@ -19244,6 +19244,18 @@ abstract class AppLocalizations {
   /// **'Scan or paste to import'**
   String get fieldTemplateCardScanHint;
 
+  /// Hint on the shareable field-template card when the code is too long for a QR, so scanning isn't possible
+  ///
+  /// In en, this message translates to:
+  /// **'Copy the text to import'**
+  String get fieldTemplateCardCopyHint;
+
+  /// Shown in place of the QR on the card when the template code is too long to fit a scannable QR
+  ///
+  /// In en, this message translates to:
+  /// **'Too large for a QR code'**
+  String get fieldTemplateCardNoQr;
+
   /// Accessibility label for the QR code image on a shared field template
   ///
   /// In en, this message translates to:
@@ -19307,8 +19319,20 @@ abstract class AppLocalizations {
   /// Inline note shown when a template is too long to render as a scannable QR
   ///
   /// In en, this message translates to:
-  /// **'This template is too long to fit a QR code — copy it or share the image instead.'**
+  /// **'This template is too long to fit a QR code — copy it or share it as text.'**
   String get fieldTemplateShareNoQrWarning;
+
+  /// Action to share the template code as plain text via the system share sheet (used when the template is too large for a QR image)
+  ///
+  /// In en, this message translates to:
+  /// **'Share as text'**
+  String get fieldTemplateShareAsText;
+
+  /// Shown when a template exceeds the import size limits and can't be shared at all
+  ///
+  /// In en, this message translates to:
+  /// **'This template is too large to share — try removing some fields or choice options.'**
+  String get fieldTemplateShareTooLarge;
 
   /// Label above the selectable template text field shown on desktop for keyboard copy
   ///

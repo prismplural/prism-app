@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:prism_plurality/core/sharing/field_template_png.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Logical width of the rendered card. Fixed so the captured PNG is consistent
 /// regardless of the surrounding layout.
@@ -60,9 +61,11 @@ Future<Uint8List?> captureBrandedTemplateCardPng(
   }
 }
 
-/// A fixed-palette, shareable card for a field template: prism mark, spectrum
-/// rule, wordmark, the template name + type chips, a scannable QR beside the
-/// mark, and the code printed beneath. Wrap with [boundaryKey] to capture it.
+/// A shareable card for a field template: prism mark, spectrum rule, wordmark,
+/// the template name + type chips, and a scannable QR beside the mark. Follows
+/// the app's light/dark brightness (the QR box stays white to scan); the full
+/// code is carried by the QR + the embedded tEXt chunk, never printed. Wrap with
+/// [boundaryKey] to capture it.
 class BrandedTemplateCard extends StatelessWidget {
   const BrandedTemplateCard({
     super.key,
@@ -87,8 +90,7 @@ class BrandedTemplateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final ecc = qrEccForCodeLength(code.length);
-    const onCard = AppColors.warmBlack;
-    final muted = AppColors.warmBlack.withValues(alpha: 0.6);
+    final c = _CardPalette.of(context);
 
     return RepaintBoundary(
       key: boundaryKey,
@@ -96,9 +98,9 @@ class BrandedTemplateCard extends StatelessWidget {
         width: _kCardWidth,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: AppColors.warmOffWhite,
+          color: c.bg,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.warmBlack.withValues(alpha: 0.08)),
+          border: Border.all(color: c.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -118,18 +120,18 @@ class BrandedTemplateCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Prism',
                         style: TextStyle(
                           fontFamily: 'Unbounded',
                           fontWeight: FontWeight.w700,
                           fontSize: 20,
                           letterSpacing: 0.5,
-                          color: onCard,
+                          color: c.onCard,
                         ),
                       ),
                       const Spacer(),
-                      _Kicker(label: l10n.fieldTemplateCardKicker),
+                      _Kicker(label: l10n.fieldTemplateCardKicker, palette: c),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -137,17 +139,17 @@ class BrandedTemplateCard extends StatelessWidget {
                     name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
-                      color: onCard,
+                      color: c.onCard,
                       height: 1.1,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     l10n.fieldTemplateFieldCount(fieldCount),
-                    style: TextStyle(fontSize: 13, color: muted),
+                    style: TextStyle(fontSize: 13, color: c.muted),
                   ),
                   if (typeLabels.isNotEmpty) ...[
                     const SizedBox(height: 14),
@@ -155,7 +157,8 @@ class BrandedTemplateCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        for (final label in typeLabels) _TypeChip(label: label),
+                        for (final label in typeLabels)
+                          _TypeChip(label: label, palette: c),
                       ],
                     ),
                   ],
@@ -170,39 +173,34 @@ class BrandedTemplateCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
+                            Text(
                               'prismplural.com',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.prismPurpleLight,
+                                color: c.brand,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              l10n.fieldTemplateCardScanHint,
-                              style: TextStyle(fontSize: 12, color: muted),
+                              // No QR means scanning isn't possible — point at
+                              // the code text instead.
+                              ecc != null
+                                  ? l10n.fieldTemplateCardScanHint
+                                  : l10n.fieldTemplateCardCopyHint,
+                              style: TextStyle(fontSize: 12, color: c.muted),
                             ),
                           ],
                         ),
                       ),
-                      if (ecc != null) ...[
-                        const SizedBox(width: 12),
-                        _QrBox(code: code, ecc: ecc, name: name),
-                      ],
+                      const SizedBox(width: 12),
+                      // The full code can't fit legibly on a fixed card, so it
+                      // isn't printed — the QR and the embedded tEXt chunk carry
+                      // it. When it's too long for a QR, say so.
+                      ecc != null
+                          ? _QrBox(code: code, ecc: ecc, name: name)
+                          : _NoQrNote(palette: c),
                     ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    code,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      height: 1.3,
-                      color: muted,
-                    ),
                   ),
                 ],
               ),
@@ -215,25 +213,26 @@ class BrandedTemplateCard extends StatelessWidget {
 }
 
 class _Kicker extends StatelessWidget {
-  const _Kicker({required this.label});
+  const _Kicker({required this.label, required this.palette});
 
   final String label;
+  final _CardPalette palette;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.prismPurple.withValues(alpha: 0.16),
+        color: palette.kickerBg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
-          color: AppColors.prismPurpleLight,
+          color: palette.brand,
         ),
       ),
     );
@@ -241,24 +240,25 @@ class _Kicker extends StatelessWidget {
 }
 
 class _TypeChip extends StatelessWidget {
-  const _TypeChip({required this.label});
+  const _TypeChip({required this.label, required this.palette});
 
   final String label;
+  final _CardPalette palette;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.prismPurple.withValues(alpha: 0.12),
+        color: palette.chipBg,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: AppColors.warmBlack,
+          color: palette.chipText,
         ),
       ),
     );
@@ -318,6 +318,82 @@ class _QrBox extends StatelessWidget {
             color: AppColors.warmBlack,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Card palette resolved from the app brightness. Brand accents stay constant;
+/// surface/text/chip tones flip for dark mode. The QR box is white regardless
+/// (see [_QrBox]) so it always scans.
+class _CardPalette {
+  const _CardPalette({
+    required this.bg,
+    required this.onCard,
+    required this.muted,
+    required this.border,
+    required this.brand,
+    required this.chipBg,
+    required this.chipText,
+    required this.kickerBg,
+  });
+
+  factory _CardPalette.of(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final onCard = dark ? AppColors.warmWhite : AppColors.warmBlack;
+    return _CardPalette(
+      bg: dark ? AppColors.charcoalSurface : AppColors.warmOffWhite,
+      onCard: onCard,
+      muted: onCard.withValues(alpha: 0.6),
+      border: onCard.withValues(alpha: dark ? 0.14 : 0.08),
+      brand: dark ? AppColors.prismPurple : AppColors.prismPurpleLight,
+      chipBg: AppColors.prismPurple.withValues(alpha: dark ? 0.22 : 0.12),
+      chipText: dark ? AppColors.warmWhite : AppColors.warmBlack,
+      kickerBg: AppColors.prismPurple.withValues(alpha: dark ? 0.24 : 0.16),
+    );
+  }
+
+  final Color bg;
+  final Color onCard;
+  final Color muted;
+  final Color border;
+  final Color brand;
+  final Color chipBg;
+  final Color chipText;
+  final Color kickerBg;
+}
+
+/// Shown in the QR's place when the code is too long to fit a scannable QR.
+class _NoQrNote extends StatelessWidget {
+  const _NoQrNote({required this.palette});
+
+  final _CardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 146,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
+      decoration: BoxDecoration(
+        color: AppColors.prismPurple.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.infoOutline, size: 22, color: palette.brand),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.fieldTemplateCardNoQr,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+              color: palette.onCard.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
       ),
     );
   }
