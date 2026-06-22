@@ -5,6 +5,10 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/app_failure.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show triggerInstalledOutboxDrain;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart'
+    show syncCurrentHandle;
 import 'package:prism_plurality/core/services/fronting_reminder_reanchor.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -79,7 +83,11 @@ final frontingMutationServiceProvider = Provider<FrontingMutationService>((
   final commentsRepository = ref.watch(frontSessionCommentsRepositoryProvider);
   return FrontingMutationService(
     repository: ref.watch(frontingSessionRepositoryProvider),
-    mutationRunner: MutationRunner.forDatabase(ref.watch(databaseProvider)),
+    mutationRunner: MutationRunner.forDatabase(
+      ref.watch(databaseProvider),
+      // See frontingChangeExecutorProvider — same deferred-drain reason.
+      onCommitted: () => triggerInstalledOutboxDrain(syncCurrentHandle.value),
+    ),
     frontSessionCommentsRepository: commentsRepository,
     // Required for the auto-create-Unknown-sentinel path used by the
     // add-front sheet's "Front as Unknown" flow.

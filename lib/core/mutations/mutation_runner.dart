@@ -16,21 +16,32 @@ typedef MutationErrorReporter =
 typedef TransactionRunner = Future<T> Function<T>(MutationAction<T> action);
 
 class MutationRunner {
-  MutationRunner({required this.transactionRunner, this.reportError});
+  MutationRunner({
+    required this.transactionRunner,
+    this.reportError,
+    this.onCommitted,
+  });
 
   factory MutationRunner.forDatabase(
     AppDatabase database, {
     ErrorReportingService? errorReportingService,
+    void Function()? onCommitted,
   }) {
     final reporter = errorReportingService ?? ErrorReportingService.instance;
     return MutationRunner(
       transactionRunner: database.transaction,
       reportError: reporter.report,
+      onCommitted: onCommitted,
     );
   }
 
   final TransactionRunner transactionRunner;
   final MutationErrorReporter? reportError;
+
+  /// Fired after a successful transactional commit. A `syncRecord*` emit inside
+  /// the transaction defers its drain to preserve emit-after-commit; without
+  /// this the enqueued ops sit undelivered until the next ambient drain.
+  final void Function()? onCommitted;
 
   Future<MutationResult<T>> run<T>({
     required MutationAction<T> action,
@@ -43,6 +54,11 @@ class MutationRunner {
       final result = await (transactional
           ? transactionRunner(action)
           : action());
+
+      // Non-transactional runs already drained inline.
+      if (transactional) {
+        onCommitted?.call();
+      }
 
       for (final callback in onSuccess) {
         try {

@@ -4,6 +4,10 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show triggerInstalledOutboxDrain;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart'
+    show syncCurrentHandle;
 import 'package:prism_plurality/core/services/error_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -20,6 +24,9 @@ final pollMutationServiceProvider = Provider<PollMutationService>((ref) {
     runner: MutationRunner.forDatabase(
       database,
       errorReportingService: errorReportingService,
+      // DriftPollRepository emits inside the runner transaction; see
+      // MutationRunner.onCommitted.
+      onCommitted: () => triggerInstalledOutboxDrain(syncCurrentHandle.value),
     ),
   );
 });

@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
+    show triggerInstalledOutboxDrain;
+import 'package:prism_plurality/core/sync/sync_runtime_state.dart'
+    show syncCurrentHandle;
 import 'package:prism_plurality/features/fronting/editing/fronting_change_executor.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_guard.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_service.dart';
@@ -26,6 +30,9 @@ final frontingChangeExecutorProvider = Provider<FrontingChangeExecutor>((ref) {
   final repository = ref.watch(frontingSessionRepositoryProvider);
   final mutationRunner = MutationRunner.forDatabase(
     ref.watch(databaseProvider),
+    // The change executor emits sync ops inside the runner transaction (the
+    // fronting delete/edit-to-ongoing propagation bug otherwise).
+    onCommitted: () => triggerInstalledOutboxDrain(syncCurrentHandle.value),
   );
   return FrontingChangeExecutor(
     repository: repository,
