@@ -47,7 +47,8 @@ void main() {
 
   // Stand-in encoders: avoid real image decode in a unit test. The service only
   // cares that the result is under budget and smaller than the input.
-  Uint8List? fakeAvatar(Uint8List input) => _bytes(8 * 1024, fill: 1);
+  Future<Uint8List?> fakeAvatar(Uint8List input) async =>
+      _bytes(8 * 1024, fill: 1);
   Future<Uint8List> fakeHeader(Uint8List input) async => _bytes(16 * 1024, fill: 2);
 
   setUp(() {
@@ -157,7 +158,7 @@ void main() {
       recordUpdate: ({required table, required entityId, required fields}) async {
         updates.add(_Captured(table, entityId, fields));
       },
-      avatarNormalizer: (input) => _bytes(800 * 1024), // still oversized
+      avatarNormalizer: (input) async => _bytes(800 * 1024), // still oversized
       headerNormalizer: fakeHeader,
     );
     await _insertMember(db, id: 'stubborn', avatar: _bytes(700 * 1024));

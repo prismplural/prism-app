@@ -17,8 +17,9 @@ typedef OversizedImageRecordUpdate =
     });
 
 /// Re-encode an avatar blob to the on-disk + on-wire budget. Returns null if the
-/// input can't be decoded (caller skips the field).
-typedef AvatarInlineNormalizer = Uint8List? Function(Uint8List bytes);
+/// input can't be decoded (caller skips the field). Async so the default can run
+/// the decode off the main isolate (this loop over members otherwise ANR'd).
+typedef AvatarInlineNormalizer = Future<Uint8List?> Function(Uint8List bytes);
 
 /// Re-encode a profile-header / banner blob. Throws if it can't be normalized.
 typedef HeaderInlineNormalizer = Future<Uint8List> Function(Uint8List bytes);
@@ -58,7 +59,8 @@ class OversizedInlineImageReemitService {
   }) : _db = db,
        _recordUpdate = recordUpdate,
        _preferences = preferences,
-       _avatarNormalizer = avatarNormalizer ?? AvatarNormalizer.normalize,
+       _avatarNormalizer =
+           avatarNormalizer ?? AvatarNormalizer.normalizeOffMainIsolate,
        _headerNormalizer =
            headerNormalizer ?? _defaultHeaderNormalizer;
 
@@ -130,7 +132,7 @@ class OversizedInlineImageReemitService {
 
         final avatar = row.readNullable<Uint8List>('avatar_image_data');
         if (_isOversized(avatar)) {
-          final shrunk = _shrinkAvatar(avatar!);
+          final shrunk = await _shrinkAvatar(avatar!);
           if (shrunk != null) {
             await _writeBlob(id, avatar: shrunk);
             fields['avatar_image_data'] = base64Encode(shrunk);
@@ -187,9 +189,9 @@ class OversizedInlineImageReemitService {
 
   /// Only accept the re-encode if it's under budget and smaller — never make a
   /// stuck row worse.
-  Uint8List? _shrinkAvatar(Uint8List bytes) {
+  Future<Uint8List?> _shrinkAvatar(Uint8List bytes) async {
     try {
-      final out = _avatarNormalizer(bytes);
+      final out = await _avatarNormalizer(bytes);
       if (out == null) return null;
       if (out.length > maxInlineSyncBytes || out.length >= bytes.length) {
         return null;

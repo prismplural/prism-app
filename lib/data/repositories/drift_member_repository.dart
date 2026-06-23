@@ -386,6 +386,14 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   Future<void> batchUpdateAvatars(List<domain.Member> membersWithBytes) async {
     if (membersWithBytes.isEmpty) return;
 
+    // Decode/re-encode is pure-Dart CPU work — animated GIFs run for seconds
+    // — so normalizing inline here ANR'd a Simply Plural import. `normalizeBatch`
+    // runs the same routine off the main isolate; an undecodable member still
+    // throws, aborting the batch as before.
+    final normalized = await AvatarNormalizer.normalizeBatch(
+      [for (final member in membersWithBytes) member.avatarImageData],
+    );
+
     // The DAO writes ONLY `avatar_image_data` for each row (see
     // `MembersDao.batchUpdateAvatars`). Emit a one-field patch per member
     // to match what the DAO actually persists. Going through the full
@@ -396,12 +404,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     // would clobber on those stale columns.
     final bytesById = <String, Uint8List>{};
     final normalizedIds = <String>[];
-    for (final member in membersWithBytes) {
-      final n = _normalizeMember(member);
-      final bytes = n.avatarImageData;
+    for (var i = 0; i < membersWithBytes.length; i++) {
+      final member = membersWithBytes[i];
+      final bytes = normalized[i];
       if (bytes == null) continue;
 
-      final existingRow = await _dao.getMemberByIdRow(n.id);
+      final existingRow = await _dao.getMemberByIdRow(member.id);
       if (existingRow == null || existingRow.isDeleted) continue;
 
       // Skip rows where the stored avatar already matches — no local write,
@@ -412,8 +420,8 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
         continue;
       }
 
-      bytesById[n.id] = bytes;
-      normalizedIds.add(n.id);
+      bytesById[member.id] = bytes;
+      normalizedIds.add(member.id);
     }
     if (bytesById.isEmpty) return;
 

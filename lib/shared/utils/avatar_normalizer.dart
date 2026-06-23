@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:image/image.dart' as img;
 
 /// Normalizes avatar images for small on-device display and cheap sync.
@@ -46,21 +47,22 @@ class AvatarNormalizer {
       );
     }
 
+    // Idempotent fast-path: a JPEG already within both the dimension and byte
+    // budget is returned verbatim. The header probe above already yields the
+    // dimensions, so a conforming avatar skips the full decode entirely — the
+    // decode is the multi-hundred-millisecond cost, and normalize runs on
+    // every member write (including writes that don't touch the avatar).
+    // Skipping it also avoids JPEG-on-JPEG re-encoding generation loss.
+    if (_isJpeg(bytes) &&
+        bytes.length <= targetMaxBytes &&
+        info.width <= maxDimension &&
+        info.height <= maxDimension) {
+      return bytes;
+    }
+
     final decoded = img.decodeImage(bytes);
     if (decoded == null) {
       throw StateError('Unsupported avatar image format');
-    }
-
-    // Idempotent fast-path: if the input is already a JPEG within both the
-    // dimension and byte budget, return it verbatim. The repository calls
-    // normalize on every member write, including writes that don't touch the
-    // avatar field — without this, JPEG-on-JPEG re-encoding accumulates
-    // generation loss until the avatar visibly degrades.
-    if (_isJpeg(bytes) &&
-        bytes.length <= targetMaxBytes &&
-        decoded.width <= maxDimension &&
-        decoded.height <= maxDimension) {
-      return bytes;
     }
 
     final resized = _resize(decoded);
@@ -78,6 +80,26 @@ class AvatarNormalizer {
 
     return bestEffort;
   }
+
+  /// Off-main-isolate single normalize — identical result to [normalize], run
+  /// in a background isolate. Use from any path that can `await` so the UI
+  /// thread never stalls on a pure-Dart image decode.
+  static Future<Uint8List?> normalizeOffMainIsolate(Uint8List? bytes) {
+    if (bytes == null || bytes.isEmpty) return Future<Uint8List?>.value(bytes);
+    return compute(normalize, bytes);
+  }
+
+  /// Off-main-isolate batch normalize — one background isolate for the whole
+  /// list, for loops over many members (Simply Plural import, oversized-inline
+  /// re-emit) where inline decode ANR'd. Output order matches input, null maps
+  /// to null, and an undecodable member throws — same contract as [normalize].
+  static Future<List<Uint8List?>> normalizeBatch(List<Uint8List?> images) {
+    if (images.isEmpty) return Future<List<Uint8List?>>.value(const []);
+    return compute(_normalizeBatch, images);
+  }
+
+  static List<Uint8List?> _normalizeBatch(List<Uint8List?> images) =>
+      [for (final bytes in images) normalize(bytes)];
 
   static bool _isJpeg(Uint8List bytes) {
     return bytes.length >= 3 &&

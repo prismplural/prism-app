@@ -140,6 +140,68 @@ void main() {
       reason: 'fast-path should return the input instance verbatim',
     );
   });
+
+  // Regression: decoding avatars inline on the main isolate (in the Simply
+  // Plural import batch and the oversized-inline re-emit migration) froze the
+  // UI thread long enough to ANR — animated GIFs, walked frame-by-frame in
+  // pure Dart, were the worst case. normalizeBatch runs the same routine in a
+  // background isolate. This asserts the offloaded path is order-preserving
+  // and byte-identical to per-item normalize, including a real animated GIF.
+  test('normalizeBatch matches per-item normalize across formats', () async {
+    final bigPng = Uint8List.fromList(img.encodePng(_gradient(1200, 800)));
+    final conformingJpeg = Uint8List.fromList(
+      img.encodeJpg(_gradient(200, 200), quality: 85),
+    );
+    final animatedGif = _animatedGif();
+
+    final inputs = <Uint8List?>[bigPng, conformingJpeg, animatedGif, null];
+    final batch = await AvatarNormalizer.normalizeBatch(inputs);
+
+    expect(batch, hasLength(inputs.length));
+    for (var i = 0; i < inputs.length; i++) {
+      final inline = AvatarNormalizer.normalize(inputs[i]);
+      if (inline == null) {
+        expect(batch[i], isNull, reason: 'index $i should be null');
+      } else {
+        expect(
+          _bytesEqual(batch[i]!, inline),
+          isTrue,
+          reason: 'offloaded result differs from inline normalize at index $i',
+        );
+      }
+    }
+
+    // The animated GIF (index 2) re-encodes to a budget-fitting JPEG.
+    expect(batch[2], isNotNull);
+    expect(batch[2]!.length, lessThanOrEqualTo(AvatarNormalizer.targetMaxBytes));
+    expect(img.decodeJpg(batch[2]!), isNotNull);
+    // Conforming JPEG (index 1) returns verbatim through the batch path.
+    expect(_bytesEqual(batch[1]!, conformingJpeg), isTrue);
+  });
+
+  test('normalizeBatch returns empty for an empty list', () async {
+    expect(await AvatarNormalizer.normalizeBatch(const []), isEmpty);
+  });
+}
+
+img.Image _gradient(int width, int height) {
+  final image = img.Image(width: width, height: height);
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      image.setPixelRgb(x, y, (x * 7) % 255, (y * 5) % 255, (x + y) % 255);
+    }
+  }
+  return image;
+}
+
+/// A real two-frame animated GIF — the format that walked frame-by-frame on
+/// the main isolate and tipped the import into an ANR.
+Uint8List _animatedGif() {
+  final frame0 = _gradient(48, 48);
+  final frame1 = img.Image(width: 48, height: 48);
+  img.fill(frame1, color: img.ColorRgb8(10, 10, 200));
+  frame0.addFrame(frame1);
+  return Uint8List.fromList(img.encodeGif(frame0));
 }
 
 bool _bytesEqual(Uint8List a, Uint8List b) {
