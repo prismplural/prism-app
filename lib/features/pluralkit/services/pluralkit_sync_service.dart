@@ -2844,6 +2844,7 @@ class PluralKitSyncService {
           PkUnmappedFronterRef(
             pkId: pkId,
             pkUuid: detailsById[pkId]?.uuid,
+            // raw-name-ok: PluralKit API details object, not a Prism member
             name: detailsById[pkId]?.name,
             displayName: detailsById[pkId]?.displayName,
             avatarUrl: detailsById[pkId]?.avatarUrl,
@@ -5076,6 +5077,7 @@ class PluralKitSyncService {
           'sessions; skipping DELETE.',
         );
         onStaleLink?.call(
+          // raw-name-ok: diagnostic message, not a member-name UI surface.
           "Skipped deleting PluralKit member '${member.name}' — it still "
           'has linked local switches. Delete those first, or undelete the '
           'member to keep it.',
@@ -5135,6 +5137,7 @@ class PluralKitSyncService {
         deleted++;
       } on PkDeletionForbiddenException catch (e) {
         onStaleLink?.call(
+          // raw-name-ok: diagnostic message, not a member-name UI surface.
           "PluralKit refused member deletion of '${member.name}' — your "
           'token may not own this member. Check your token and retry. '
           '(pkId=${e.pkId})',

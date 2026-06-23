@@ -18,6 +18,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/scale_field_widgets.dart';
 import 'package:prism_plurality/features/members/widgets/slider_field_widgets.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -637,6 +638,7 @@ class _FilledInContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final entries = [
       for (final value in values)
         if (value.value.trim().isNotEmpty &&
@@ -707,6 +709,7 @@ class _FilledInContent extends ConsumerWidget {
                       field: field,
                       entry: entries[index],
                       membersById: membersById,
+                      preferDisplayName: preferDisplayName,
                     ),
                   ),
                 );
@@ -780,22 +783,27 @@ class _FilledValueRow extends StatelessWidget {
     required this.field,
     required this.entry,
     required this.membersById,
+    required this.preferDisplayName,
   });
 
   final CustomField field;
   final _FilledValueEntry entry;
   final Map<String, Member> membersById;
+  final bool preferDisplayName;
 
   @override
   Widget build(BuildContext context) {
     final member = entry.member;
-    final memberName = _memberDisplayName(member);
+    final memberName = member.effectiveName(
+      preferDisplayName: preferDisplayName,
+    );
     final formattedValue = _formatValueForField(
       context,
       field,
       entry.value.value,
       ownerMember: member,
       membersById: membersById,
+      preferDisplayName: preferDisplayName,
     );
 
     return Semantics(
@@ -821,17 +829,11 @@ class _FilledValueRow extends StatelessWidget {
           value: entry.value,
           ownerMember: member,
           membersById: membersById,
+          preferDisplayName: preferDisplayName,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
     );
-  }
-
-  static String _memberDisplayName(Member member) {
-    final displayName = member.displayName?.trim();
-    return displayName == null || displayName.isEmpty
-        ? member.name
-        : displayName;
   }
 }
 
@@ -841,6 +843,7 @@ class _ValuePreview extends StatelessWidget {
     required this.value,
     required this.ownerMember,
     required this.membersById,
+    required this.preferDisplayName,
   });
 
   static const _previewCharacterLimit = 220;
@@ -850,6 +853,7 @@ class _ValuePreview extends StatelessWidget {
   final CustomFieldValue value;
   final Member ownerMember;
   final Map<String, Member> membersById;
+  final bool preferDisplayName;
 
   @override
   Widget build(BuildContext context) {
@@ -868,6 +872,7 @@ class _ValuePreview extends StatelessWidget {
         rawValue: rawValue,
         ownerMember: ownerMember,
         membersById: membersById,
+        preferDisplayName: preferDisplayName,
       );
     }
     if (field.fieldType == CustomFieldType.color) {
@@ -880,6 +885,7 @@ class _ValuePreview extends StatelessWidget {
       rawValue,
       ownerMember: ownerMember,
       membersById: membersById,
+      preferDisplayName: preferDisplayName,
     );
     final preview = _buildPreview(formattedValue);
     final isTruncated = preview != formattedValue.trimRight();
@@ -919,12 +925,14 @@ class _MemberValuePreview extends StatelessWidget {
     required this.rawValue,
     required this.ownerMember,
     required this.membersById,
+    required this.preferDisplayName,
   });
 
   final CustomField field;
   final String rawValue;
   final Member ownerMember;
   final Map<String, Member> membersById;
+  final bool preferDisplayName;
 
   @override
   Widget build(BuildContext context) {
@@ -934,6 +942,7 @@ class _MemberValuePreview extends StatelessWidget {
       rawValue,
       ownerMember: ownerMember,
       membersById: membersById,
+      preferDisplayName: preferDisplayName,
     );
     if (refs.isEmpty) {
       refs.add(
@@ -965,6 +974,7 @@ class _MemberReferenceChip extends StatelessWidget {
     if (member != null) {
       return MemberChip(
         member: member,
+        resolvedName: summary.label,
         style: MemberChipStyle.inline,
         avatarSize: 18,
         labelMaxLines: 1,
@@ -978,7 +988,7 @@ class _MemberReferenceChip extends StatelessWidget {
       avatar: member != null
           ? MemberAvatar(
               memberId: member.id,
-              memberName: member.name,
+              memberName: summary.label,
               emoji: member.emoji,
               avatarImageData: member.avatarImageData,
               customColorEnabled: member.customColorEnabled,
@@ -1046,6 +1056,7 @@ String _formatValueForField(
   String raw, {
   Member? ownerMember,
   Map<String, Member> membersById = const <String, Member>{},
+  bool preferDisplayName = true,
 }) {
   if (field.fieldTypeId == 'member') {
     return _formatMemberValue(
@@ -1054,6 +1065,7 @@ String _formatValueForField(
       raw,
       ownerMember: ownerMember,
       membersById: membersById,
+      preferDisplayName: preferDisplayName,
     );
   }
   return switch (field.fieldType) {
@@ -1071,6 +1083,7 @@ String _formatMemberValue(
   String raw, {
   Member? ownerMember,
   Map<String, Member> membersById = const <String, Member>{},
+  bool preferDisplayName = true,
 }) {
   final refs = _memberReferenceSummaries(
     context,
@@ -1078,6 +1091,7 @@ String _formatMemberValue(
     raw,
     ownerMember: ownerMember,
     membersById: membersById,
+    preferDisplayName: preferDisplayName,
   );
   if (refs.isEmpty) return _unavailableMemberLabel(context);
   return refs.map((ref) => ref.label).join(', ');
@@ -1103,6 +1117,7 @@ List<_MemberReferenceSummary> _memberReferenceSummaries(
   String raw, {
   Member? ownerMember,
   Map<String, Member> membersById = const <String, Member>{},
+  bool preferDisplayName = true,
 }) {
   final ids = _parseMemberReferenceIds(field, raw);
   return [
@@ -1110,14 +1125,14 @@ List<_MemberReferenceSummary> _memberReferenceSummaries(
       if (membersById[id] case final member?)
         _MemberReferenceSummary(
           id: id,
-          label: _FilledValueRow._memberDisplayName(member),
+          label: member.effectiveName(preferDisplayName: preferDisplayName),
           member: member,
           isUnavailable: false,
         )
       else if (ownerMember != null && id == ownerMember.id)
         _MemberReferenceSummary(
           id: id,
-          label: _FilledValueRow._memberDisplayName(ownerMember),
+          label: ownerMember.effectiveName(preferDisplayName: preferDisplayName),
           member: ownerMember,
           isUnavailable: false,
         )

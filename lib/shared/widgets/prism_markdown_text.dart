@@ -118,8 +118,9 @@ class PrismMarkdownText extends ConsumerWidget {
     final mentionMemberMap = {
       for (final member in mentionMembers) member.id: member,
     };
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final mentionVersion = shouldResolveMemberMentions
-        ? _mentionResolutionVersion(data, mentionMemberMap)
+        ? _mentionResolutionVersion(data, mentionMemberMap, preferDisplayName)
         : '';
     void openMentionedMember(String memberId) {
       unawaited(
@@ -195,6 +196,7 @@ class PrismMarkdownText extends ConsumerWidget {
               baseStyle: baseStyle,
               memberMap: mentionMemberMap,
               onTapMember: onTapMember,
+              preferDisplayName: preferDisplayName,
               borderless: seg.borderless,
               borderColor: seg.borderColor,
               textAlign: seg.textAlign,
@@ -213,6 +215,7 @@ class PrismMarkdownText extends ConsumerWidget {
             imgElementBuilder: imgBuilder,
             memberMap: mentionMemberMap,
             onTapMember: onTapMember,
+            preferDisplayName: preferDisplayName,
             tableBorderless: seg.borderless,
             tableBorderColor: seg.borderColor,
             textAlign: seg.textAlign,
@@ -230,6 +233,7 @@ class PrismMarkdownText extends ConsumerWidget {
             selectable: selectable,
             memberMap: mentionMemberMap,
             onTapMember: onTapMember,
+            preferDisplayName: preferDisplayName,
           );
         }
 
@@ -267,6 +271,7 @@ class PrismMarkdownText extends ConsumerWidget {
   static String _mentionResolutionVersion(
     String data,
     Map<String, Member> memberMap,
+    bool preferDisplayName,
   ) {
     final seen = <String>{};
     final buffer = StringBuffer();
@@ -277,7 +282,9 @@ class PrismMarkdownText extends ConsumerWidget {
       buffer
         ..write(id)
         ..write('=')
-        ..write(member?.name ?? '')
+        ..write(
+          member?.effectiveName(preferDisplayName: preferDisplayName) ?? '',
+        )
         ..write(':')
         ..write(
           member?.customColorEnabled == true

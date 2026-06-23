@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
@@ -531,12 +532,14 @@ class _SessionPreviewSheet extends ConsumerWidget {
     final member = session.memberId != null
         ? membersMap[session.memberId]
         : null;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final memberName = member?.effectiveName(preferDisplayName: prefer);
 
     final String displayName;
     if (session.memberId == null) {
       displayName = 'Unknown';
     } else {
-      displayName = member?.name ?? 'Unknown';
+      displayName = memberName ?? 'Unknown';
     }
 
     final startLabel = context.formatTime(session.startTime);
@@ -558,7 +561,7 @@ class _SessionPreviewSheet extends ConsumerWidget {
             children: [
               MemberAvatar(
                 emoji: member?.emoji ?? '?',
-                memberName: member?.name,
+                memberName: memberName,
                 customColorEnabled: member?.customColorEnabled ?? false,
                 customColorHex: member?.customColorHex,
                 avatarImageData: member?.avatarImageData,
@@ -669,7 +672,7 @@ class _HeaderRow extends StatelessWidget {
 }
 
 /// A member avatar + name in the sticky top header row.
-class _MemberHeader extends StatelessWidget {
+class _MemberHeader extends ConsumerWidget {
   const _MemberHeader({
     required this.row,
     required this.rowIndex,
@@ -687,9 +690,11 @@ class _MemberHeader extends StatelessWidget {
   final Brightness brightness;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final color = row.resolveColor(rowIndex, primaryColor, brightness);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final name = row.member.effectiveName(preferDisplayName: prefer);
 
     return SizedBox(
       width: width,
@@ -698,7 +703,7 @@ class _MemberHeader extends StatelessWidget {
         children: [
           MemberAvatar(
             emoji: row.member.emoji,
-            memberName: row.member.name,
+            memberName: name,
             customColorEnabled: row.member.customColorEnabled,
             customColorHex: row.member.customColorHex,
             avatarImageData: row.member.avatarImageData,
@@ -709,7 +714,7 @@ class _MemberHeader extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            row.member.name,
+            name,
             style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w500,
               color: color,

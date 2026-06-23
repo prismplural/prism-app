@@ -608,6 +608,22 @@
   "@appearanceCornerStyleDescription": {
     "description": "Description text for the corner style picker"
   },
+  "appearanceMemberNamesTitle": "Member names",
+  "@appearanceMemberNamesTitle": {
+    "description": "Appearance settings section: which member name to show"
+  },
+  "appearanceMemberNamesDisplay": "Display name",
+  "@appearanceMemberNamesDisplay": {
+    "description": "Member name display option: show the display name"
+  },
+  "appearanceMemberNamesLegacy": "Name",
+  "@appearanceMemberNamesLegacy": {
+    "description": "Member name display option: show the canonical name"
+  },
+  "appearanceMemberNamesDescription": "Choose which name to show for members across the app.",
+  "@appearanceMemberNamesDescription": {
+    "description": "Description text for the member name display picker"
+  },
   "appearanceAccentColor": "Accent Color",
   "@appearanceAccentColor": {
     "description": "Appearance settings section: Accent Color"

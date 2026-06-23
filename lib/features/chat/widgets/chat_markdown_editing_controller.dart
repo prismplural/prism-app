@@ -24,6 +24,7 @@ class ChatMarkdownEditingController extends TextEditingController {
   TextStyle _baseStyle = const TextStyle();
   bool _themeReady = false;
   Map<String, Member> _mentionMembers = const {};
+  bool _preferDisplayName = true;
 
   // Cache: parsed spans are expensive to build on every keystroke.
   // Invalidated when text changes or when updateTheme() is called.
@@ -43,9 +44,16 @@ class ChatMarkdownEditingController extends TextEditingController {
     _cachedChildren = null;
   }
 
-  void updateMentionMembers(Map<String, Member> members) {
-    if (_sameMentionMembers(_mentionMembers, members)) return;
+  void updateMentionMembers(
+    Map<String, Member> members, {
+    bool preferDisplayName = true,
+  }) {
+    if (_preferDisplayName == preferDisplayName &&
+        _sameMentionMembers(_mentionMembers, members)) {
+      return;
+    }
     _mentionMembers = Map<String, Member>.unmodifiable(members);
+    _preferDisplayName = preferDisplayName;
     _cachedText = null;
     _cachedChildren = null;
     notifyListeners();
@@ -265,7 +273,9 @@ class ChatMarkdownEditingController extends TextEditingController {
 
   TextSpan _buildMentionSpan(String memberId, TextStyle baseStyle) {
     final member = _mentionMembers[memberId];
-    final name = member?.name ?? 'Unknown';
+    final name =
+        member?.effectiveName(preferDisplayName: _preferDisplayName) ??
+        'Unknown';
     final mentionColor =
         member != null &&
             member.customColorEnabled &&

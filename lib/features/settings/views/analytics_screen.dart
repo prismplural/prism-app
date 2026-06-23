@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
@@ -292,7 +293,8 @@ class _ExpandableMemberDetailState
       activeMemberByIdProvider(widget.stat.memberId),
     );
     final member = memberAsync.whenOrNull(data: (m) => m);
-    final name = member?.name ?? '...';
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final name = member?.effectiveName(preferDisplayName: prefer) ?? '...';
     final accent =
         member?.customColorEnabled == true && member?.customColorHex != null
         ? AppColors.fromHex(member!.customColorHex!)
@@ -310,7 +312,7 @@ class _ExpandableMemberDetailState
               children: [
                 MemberAvatar(
                   avatarImageData: member?.avatarImageData,
-                  memberName: member?.name,
+                  memberName: member?.effectiveName(preferDisplayName: prefer),
                   emoji: member?.emoji ?? '',
                   customColorEnabled: member?.customColorEnabled ?? false,
                   customColorHex: member?.customColorHex,

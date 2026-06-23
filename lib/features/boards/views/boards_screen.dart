@@ -727,6 +727,10 @@ class _BoardsMemberFilterButton extends ConsumerWidget {
     final currentMember = filterId != null
         ? members.where((m) => m.id == filterId).firstOrNull
         : null;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final currentMemberName = currentMember?.effectiveName(
+      preferDisplayName: prefer,
+    );
 
     // Trigger: full 44pt avatar matching the + button's circle, with a
     // small down-chevron pip overlaying the bottom-right corner.
@@ -742,7 +746,7 @@ class _BoardsMemberFilterButton extends ConsumerWidget {
           if (currentMember != null)
             MemberAvatar(
               avatarImageData: currentMember.avatarImageData,
-              memberName: currentMember.name,
+              memberName: currentMemberName,
               emoji: currentMember.emoji,
               customColorEnabled: currentMember.customColorEnabled,
               customColorHex: currentMember.customColorHex,
@@ -791,8 +795,8 @@ class _BoardsMemberFilterButton extends ConsumerWidget {
       ),
     );
 
-    final filterLabel = currentMember != null
-        ? l10n.boardsViewFilterMember(currentMember.name)
+    final filterLabel = currentMemberName != null
+        ? l10n.boardsViewFilterMember(currentMemberName)
         : allMembersLabel;
 
     return Semantics(

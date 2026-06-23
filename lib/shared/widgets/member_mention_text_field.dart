@@ -303,10 +303,18 @@ class _MemberMentionTextFieldState
 
   double _estimatedOverlayHeight(List<Member> candidates) {
     final filter = _mentionFilter.toLowerCase();
+    final prefer = ref.read(memberNamePreferDisplayProvider);
     final count = filter.isEmpty
         ? candidates.length
         : candidates
-              .where((member) => member.name.toLowerCase().contains(filter))
+              .where(
+                (member) =>
+                    member.name.toLowerCase().contains(filter) ||
+                    member
+                        .effectiveName(preferDisplayName: prefer)
+                        .toLowerCase()
+                        .contains(filter),
+              )
               .length;
     if (count == 0) return 0;
     return math.min(_overlayMaxHeight, 8 + (count * 48.0));
@@ -350,12 +358,18 @@ class _MemberMentionTextFieldState
     return topLeft & renderBox.size;
   }
 
-  void _updateControllerMentionMembers(Map<String, Member> memberMap) {
+  void _updateControllerMentionMembers(
+    Map<String, Member> memberMap, {
+    required bool preferDisplayName,
+  }) {
     final controller = widget.controller;
     if (controller is! MarkdownEditingController) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(widget.controller, controller)) return;
-      controller.updateMentionMembers(memberMap);
+      controller.updateMentionMembers(
+        memberMap,
+        preferDisplayName: preferDisplayName,
+      );
     });
   }
 
@@ -366,7 +380,11 @@ class _MemberMentionTextFieldState
         ref.watch(userVisibleMemberListProvider).value ??
         const <Member>[];
     final memberMap = {for (final member in candidates) member.id: member};
-    _updateControllerMentionMembers(memberMap);
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
+    _updateControllerMentionMembers(
+      memberMap,
+      preferDisplayName: preferDisplayName,
+    );
 
     final showOverlay = _mentionMenuVisible && candidates.isNotEmpty;
     _syncOverlayPortal(showOverlay);
@@ -456,7 +474,7 @@ class _MentionOverlayPlacement {
   final double width;
 }
 
-class _MemberMentionOverlay extends StatefulWidget {
+class _MemberMentionOverlay extends ConsumerStatefulWidget {
   const _MemberMentionOverlay({
     super.key,
     required this.members,
@@ -471,17 +489,27 @@ class _MemberMentionOverlay extends StatefulWidget {
   final ValueChanged<Member> onSelect;
 
   @override
-  State<_MemberMentionOverlay> createState() => _MemberMentionOverlayState();
+  ConsumerState<_MemberMentionOverlay> createState() =>
+      _MemberMentionOverlayState();
 }
 
-class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
+class _MemberMentionOverlayState extends ConsumerState<_MemberMentionOverlay> {
   int _selectedIndex = 0;
 
-  List<Member> get _filtered {
+  List<Member> _filteredFor(bool prefer) {
     final lower = widget.filter.toLowerCase();
     if (lower.isEmpty) return widget.members;
+    // Match against both the canonical name and the effective (display) name
+    // so users can filter by whatever the rows actually show them.
     return widget.members
-        .where((member) => member.name.toLowerCase().contains(lower))
+        .where(
+          (member) =>
+              member.name.toLowerCase().contains(lower) ||
+              member
+                  .effectiveName(preferDisplayName: prefer)
+                  .toLowerCase()
+                  .contains(lower),
+        )
         .toList(growable: false);
   }
 
@@ -495,7 +523,7 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
 
   bool handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
-    final filtered = _filtered;
+    final filtered = _filteredFor(ref.read(memberNamePreferDisplayProvider));
     if (filtered.isEmpty) return false;
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -519,7 +547,8 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final filtered = _filteredFor(prefer);
     if (filtered.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
@@ -563,8 +592,11 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
               itemBuilder: (context, index) {
                 final member = filtered[index];
                 final isHighlighted = index == _selectedIndex;
+                final memberName = member.effectiveName(
+                  preferDisplayName: prefer,
+                );
                 return Semantics(
-                  label: member.name,
+                  label: memberName,
                   button: true,
                   child: Container(
                     color: isHighlighted
@@ -583,7 +615,7 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
                                 avatarImageData: member.avatarImageData,
                                 memberId: member.id,
                                 deferAvatarLookup: true,
-                                memberName: member.name,
+                                memberName: memberName,
                                 emoji: member.emoji,
                                 customColorEnabled: member.customColorEnabled,
                                 customColorHex: member.customColorHex,
@@ -592,7 +624,7 @@ class _MemberMentionOverlayState extends State<_MemberMentionOverlay> {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  member.name,
+                                  memberName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(

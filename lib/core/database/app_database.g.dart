@@ -5113,6 +5113,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _memberNameDisplayMeta = const VerificationMeta(
+    'memberNameDisplay',
+  );
+  @override
+  late final GeneratedColumn<int> memberNameDisplay = GeneratedColumn<int>(
+    'member_name_display',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _customTerminologyMeta = const VerificationMeta(
     'customTerminology',
   );
@@ -6051,6 +6063,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     accentColorHex,
     perMemberAccentColors,
     terminology,
+    memberNameDisplay,
     customTerminology,
     customPluralTerminology,
     localeOverride,
@@ -6178,6 +6191,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         terminology.isAcceptableOrUnknown(
           data['terminology']!,
           _terminologyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('member_name_display')) {
+      context.handle(
+        _memberNameDisplayMeta,
+        memberNameDisplay.isAcceptableOrUnknown(
+          data['member_name_display']!,
+          _memberNameDisplayMeta,
         ),
       );
     }
@@ -6838,6 +6860,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}terminology'],
       )!,
+      memberNameDisplay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}member_name_display'],
+      )!,
       customTerminology: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}custom_terminology'],
@@ -7143,6 +7169,7 @@ class SystemSettingsData extends DataClass
   final String accentColorHex;
   final bool perMemberAccentColors;
   final int terminology;
+  final int memberNameDisplay;
   final String? customTerminology;
   final String? customPluralTerminology;
   final String? localeOverride;
@@ -7252,6 +7279,7 @@ class SystemSettingsData extends DataClass
     required this.accentColorHex,
     required this.perMemberAccentColors,
     required this.terminology,
+    required this.memberNameDisplay,
     this.customTerminology,
     this.customPluralTerminology,
     this.localeOverride,
@@ -7336,6 +7364,7 @@ class SystemSettingsData extends DataClass
     map['accent_color_hex'] = Variable<String>(accentColorHex);
     map['per_member_accent_colors'] = Variable<bool>(perMemberAccentColors);
     map['terminology'] = Variable<int>(terminology);
+    map['member_name_display'] = Variable<int>(memberNameDisplay);
     if (!nullToAbsent || customTerminology != null) {
       map['custom_terminology'] = Variable<String>(customTerminology);
     }
@@ -7467,6 +7496,7 @@ class SystemSettingsData extends DataClass
       accentColorHex: Value(accentColorHex),
       perMemberAccentColors: Value(perMemberAccentColors),
       terminology: Value(terminology),
+      memberNameDisplay: Value(memberNameDisplay),
       customTerminology: customTerminology == null && nullToAbsent
           ? const Value.absent()
           : Value(customTerminology),
@@ -7578,6 +7608,7 @@ class SystemSettingsData extends DataClass
         json['perMemberAccentColors'],
       ),
       terminology: serializer.fromJson<int>(json['terminology']),
+      memberNameDisplay: serializer.fromJson<int>(json['memberNameDisplay']),
       customTerminology: serializer.fromJson<String?>(
         json['customTerminology'],
       ),
@@ -7742,6 +7773,7 @@ class SystemSettingsData extends DataClass
       'accentColorHex': serializer.toJson<String>(accentColorHex),
       'perMemberAccentColors': serializer.toJson<bool>(perMemberAccentColors),
       'terminology': serializer.toJson<int>(terminology),
+      'memberNameDisplay': serializer.toJson<int>(memberNameDisplay),
       'customTerminology': serializer.toJson<String?>(customTerminology),
       'customPluralTerminology': serializer.toJson<String?>(
         customPluralTerminology,
@@ -7858,6 +7890,7 @@ class SystemSettingsData extends DataClass
     String? accentColorHex,
     bool? perMemberAccentColors,
     int? terminology,
+    int? memberNameDisplay,
     Value<String?> customTerminology = const Value.absent(),
     Value<String?> customPluralTerminology = const Value.absent(),
     Value<String?> localeOverride = const Value.absent(),
@@ -7937,6 +7970,7 @@ class SystemSettingsData extends DataClass
     accentColorHex: accentColorHex ?? this.accentColorHex,
     perMemberAccentColors: perMemberAccentColors ?? this.perMemberAccentColors,
     terminology: terminology ?? this.terminology,
+    memberNameDisplay: memberNameDisplay ?? this.memberNameDisplay,
     customTerminology: customTerminology.present
         ? customTerminology.value
         : this.customTerminology,
@@ -8061,6 +8095,9 @@ class SystemSettingsData extends DataClass
       terminology: data.terminology.present
           ? data.terminology.value
           : this.terminology,
+      memberNameDisplay: data.memberNameDisplay.present
+          ? data.memberNameDisplay.value
+          : this.memberNameDisplay,
       customTerminology: data.customTerminology.present
           ? data.customTerminology.value
           : this.customTerminology,
@@ -8283,6 +8320,7 @@ class SystemSettingsData extends DataClass
           ..write('accentColorHex: $accentColorHex, ')
           ..write('perMemberAccentColors: $perMemberAccentColors, ')
           ..write('terminology: $terminology, ')
+          ..write('memberNameDisplay: $memberNameDisplay, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
           ..write('localeOverride: $localeOverride, ')
@@ -8379,6 +8417,7 @@ class SystemSettingsData extends DataClass
     accentColorHex,
     perMemberAccentColors,
     terminology,
+    memberNameDisplay,
     customTerminology,
     customPluralTerminology,
     localeOverride,
@@ -8462,6 +8501,7 @@ class SystemSettingsData extends DataClass
           other.accentColorHex == this.accentColorHex &&
           other.perMemberAccentColors == this.perMemberAccentColors &&
           other.terminology == this.terminology &&
+          other.memberNameDisplay == this.memberNameDisplay &&
           other.customTerminology == this.customTerminology &&
           other.customPluralTerminology == this.customPluralTerminology &&
           other.localeOverride == this.localeOverride &&
@@ -8553,6 +8593,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String> accentColorHex;
   final Value<bool> perMemberAccentColors;
   final Value<int> terminology;
+  final Value<int> memberNameDisplay;
   final Value<String?> customTerminology;
   final Value<String?> customPluralTerminology;
   final Value<String?> localeOverride;
@@ -8633,6 +8674,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.accentColorHex = const Value.absent(),
     this.perMemberAccentColors = const Value.absent(),
     this.terminology = const Value.absent(),
+    this.memberNameDisplay = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
     this.localeOverride = const Value.absent(),
@@ -8714,6 +8756,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.accentColorHex = const Value.absent(),
     this.perMemberAccentColors = const Value.absent(),
     this.terminology = const Value.absent(),
+    this.memberNameDisplay = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
     this.localeOverride = const Value.absent(),
@@ -8795,6 +8838,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? accentColorHex,
     Expression<bool>? perMemberAccentColors,
     Expression<int>? terminology,
+    Expression<int>? memberNameDisplay,
     Expression<String>? customTerminology,
     Expression<String>? customPluralTerminology,
     Expression<String>? localeOverride,
@@ -8877,6 +8921,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (perMemberAccentColors != null)
         'per_member_accent_colors': perMemberAccentColors,
       if (terminology != null) 'terminology': terminology,
+      if (memberNameDisplay != null) 'member_name_display': memberNameDisplay,
       if (customTerminology != null) 'custom_terminology': customTerminology,
       if (customPluralTerminology != null)
         'custom_plural_terminology': customPluralTerminology,
@@ -9000,6 +9045,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String>? accentColorHex,
     Value<bool>? perMemberAccentColors,
     Value<int>? terminology,
+    Value<int>? memberNameDisplay,
     Value<String?>? customTerminology,
     Value<String?>? customPluralTerminology,
     Value<String?>? localeOverride,
@@ -9082,6 +9128,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       perMemberAccentColors:
           perMemberAccentColors ?? this.perMemberAccentColors,
       terminology: terminology ?? this.terminology,
+      memberNameDisplay: memberNameDisplay ?? this.memberNameDisplay,
       customTerminology: customTerminology ?? this.customTerminology,
       customPluralTerminology:
           customPluralTerminology ?? this.customPluralTerminology,
@@ -9206,6 +9253,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     }
     if (terminology.present) {
       map['terminology'] = Variable<int>(terminology.value);
+    }
+    if (memberNameDisplay.present) {
+      map['member_name_display'] = Variable<int>(memberNameDisplay.value);
     }
     if (customTerminology.present) {
       map['custom_terminology'] = Variable<String>(customTerminology.value);
@@ -9506,6 +9556,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('accentColorHex: $accentColorHex, ')
           ..write('perMemberAccentColors: $perMemberAccentColors, ')
           ..write('terminology: $terminology, ')
+          ..write('memberNameDisplay: $memberNameDisplay, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
           ..write('localeOverride: $localeOverride, ')
@@ -31083,6 +31134,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String> accentColorHex,
       Value<bool> perMemberAccentColors,
       Value<int> terminology,
+      Value<int> memberNameDisplay,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
       Value<String?> localeOverride,
@@ -31165,6 +31217,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String> accentColorHex,
       Value<bool> perMemberAccentColors,
       Value<int> terminology,
+      Value<int> memberNameDisplay,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
       Value<String?> localeOverride,
@@ -31276,6 +31329,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get terminology => $composableBuilder(
     column: $table.terminology,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get memberNameDisplay => $composableBuilder(
+    column: $table.memberNameDisplay,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -31680,6 +31738,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get memberNameDisplay => $composableBuilder(
+    column: $table.memberNameDisplay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get customTerminology => $composableBuilder(
     column: $table.customTerminology,
     builder: (column) => ColumnOrderings(column),
@@ -32080,6 +32143,11 @@ class $$SystemSettingsTableTableAnnotationComposer
 
   GeneratedColumn<int> get terminology => $composableBuilder(
     column: $table.terminology,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get memberNameDisplay => $composableBuilder(
+    column: $table.memberNameDisplay,
     builder: (column) => column,
   );
 
@@ -32488,6 +32556,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<String> accentColorHex = const Value.absent(),
                 Value<bool> perMemberAccentColors = const Value.absent(),
                 Value<int> terminology = const Value.absent(),
+                Value<int> memberNameDisplay = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
                 Value<String?> localeOverride = const Value.absent(),
@@ -32573,6 +32642,7 @@ class $$SystemSettingsTableTableTableManager
                 accentColorHex: accentColorHex,
                 perMemberAccentColors: perMemberAccentColors,
                 terminology: terminology,
+                memberNameDisplay: memberNameDisplay,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
                 localeOverride: localeOverride,
@@ -32658,6 +32728,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<String> accentColorHex = const Value.absent(),
                 Value<bool> perMemberAccentColors = const Value.absent(),
                 Value<int> terminology = const Value.absent(),
+                Value<int> memberNameDisplay = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
                 Value<String?> localeOverride = const Value.absent(),
@@ -32743,6 +32814,7 @@ class $$SystemSettingsTableTableTableManager
                 accentColorHex: accentColorHex,
                 perMemberAccentColors: perMemberAccentColors,
                 terminology: terminology,
+                memberNameDisplay: memberNameDisplay,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
                 localeOverride: localeOverride,

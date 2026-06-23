@@ -318,7 +318,7 @@ class _SkipButton extends StatelessWidget {
   }
 }
 
-class _LargeSystemSearchTrigger extends StatelessWidget {
+class _LargeSystemSearchTrigger extends ConsumerWidget {
   const _LargeSystemSearchTrigger({
     required this.members,
     required this.selectedFronterId,
@@ -334,9 +334,13 @@ class _LargeSystemSearchTrigger extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final selectedMember = _selectedMember;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final selectedName = selectedMember?.effectiveName(
+      preferDisplayName: prefer,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -356,7 +360,7 @@ class _LargeSystemSearchTrigger extends StatelessWidget {
             children: [
               if (selectedMember != null)
                 MemberAvatar(
-                  memberName: selectedMember.name,
+                  memberName: selectedName!,
                   emoji: selectedMember.emoji,
                   avatarImageData: selectedMember.avatarImageData,
                   customColorEnabled: selectedMember.customColorEnabled,
@@ -372,7 +376,7 @@ class _LargeSystemSearchTrigger extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  selectedMember?.name ??
+                  selectedName ??
                       (importedActiveNames.isNotEmpty
                           ? importedActiveNames.join(', ')
                           : null) ??

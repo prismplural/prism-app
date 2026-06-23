@@ -3,10 +3,12 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart'
     as mention_utils;
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -21,7 +23,7 @@ final _broadcastMentionDisplayAliases = mention_utils.broadcastMentionAliases
 ///
 /// Shows conversation participants filtered by the text after `@`.
 /// Mobile: tap to select. Desktop: arrow keys + Enter/Tab to confirm.
-class MentionOverlay extends StatefulWidget {
+class MentionOverlay extends ConsumerStatefulWidget {
   const MentionOverlay({
     super.key,
     required this.members,
@@ -51,7 +53,7 @@ class MentionOverlay extends StatefulWidget {
   }
 
   @override
-  State<MentionOverlay> createState() => MentionOverlayState();
+  ConsumerState<MentionOverlay> createState() => MentionOverlayState();
 }
 
 class _MentionOverlayEntry {
@@ -73,23 +75,30 @@ List<String> _broadcastAliasesForFilter(String filter) {
       .toList(growable: false);
 }
 
-class MentionOverlayState extends State<MentionOverlay>
+class MentionOverlayState extends ConsumerState<MentionOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
   int _selectedIndex = 0;
 
-  List<_MentionOverlayEntry> get _filtered {
+  List<_MentionOverlayEntry> _filteredFor(bool prefer) {
     final broadcastEntries = _broadcastAliasesForFilter(
       widget.filter,
     ).map(_MentionOverlayEntry.broadcast);
     final lower = widget.filter.toLowerCase();
+    // Match against both the canonical name and the effective (display) name
+    // so users can filter by whatever the rows actually show them.
     final memberEntries =
         (widget.filter.isEmpty
                 ? widget.members
                 : widget.members.where(
-                    (m) => m.name.toLowerCase().contains(lower),
+                    (m) =>
+                        m.name.toLowerCase().contains(lower) ||
+                        m
+                            .effectiveName(preferDisplayName: prefer)
+                            .toLowerCase()
+                            .contains(lower),
                   ))
             .map(_MentionOverlayEntry.member);
     return [...memberEntries, ...broadcastEntries];
@@ -130,7 +139,9 @@ class MentionOverlayState extends State<MentionOverlay>
   /// Handle keyboard navigation. Returns true if the event was consumed.
   bool handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
-    final filtered = _filtered;
+    final filtered = _filteredFor(
+      ref.read(memberNamePreferDisplayProvider),
+    );
     if (filtered.isEmpty) return false;
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -169,7 +180,8 @@ class MentionOverlayState extends State<MentionOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final filtered = _filteredFor(prefer);
     if (filtered.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
@@ -240,8 +252,11 @@ class MentionOverlayState extends State<MentionOverlay>
                           );
                         }
                         final member = entry.member!;
+                        final memberName = member.effectiveName(
+                          preferDisplayName: prefer,
+                        );
                         return Semantics(
-                          label: member.name,
+                          label: memberName,
                           button: true,
                           child: Container(
                             color: isHighlighted
@@ -262,7 +277,7 @@ class MentionOverlayState extends State<MentionOverlay>
                                     children: [
                                       MemberAvatar(
                                         avatarImageData: member.avatarImageData,
-                                        memberName: member.name,
+                                        memberName: memberName,
                                         emoji: member.emoji,
                                         customColorEnabled:
                                             member.customColorEnabled,
@@ -272,7 +287,7 @@ class MentionOverlayState extends State<MentionOverlay>
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          member.name,
+                                          memberName,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: theme.textTheme.bodyMedium

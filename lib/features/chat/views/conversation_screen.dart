@@ -443,12 +443,19 @@ String _conversationTitle(
   final participantMapAsync = ref.watch(
     membersByIdsProvider(memberIdsKey(conversation.participantIds)),
   );
+  final prefer = ref.watch(memberNamePreferDisplayProvider);
 
   return participantMapAsync.when(
     data: (participantMap) {
       final names = conversation.participantIds
           .where((id) => id != speakingAs)
-          .map((id) => participantMap[id]?.name ?? context.l10n.unknown)
+          .map(
+            (id) =>
+                participantMap[id]?.effectiveName(
+                  preferDisplayName: prefer,
+                ) ??
+                context.l10n.unknown,
+          )
           .toList();
       return names.isEmpty
           ? context.l10n.chatConversationNoTitle

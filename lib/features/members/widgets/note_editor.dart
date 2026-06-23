@@ -564,7 +564,7 @@ class _BottomToolbar extends ConsumerWidget {
   }
 }
 
-class _MemberToolbarChip extends StatelessWidget {
+class _MemberToolbarChip extends ConsumerWidget {
   const _MemberToolbarChip({
     required this.member,
     required this.settings,
@@ -578,7 +578,7 @@ class _MemberToolbarChip extends StatelessWidget {
   final VoidCallback onPickMember;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final terminology = resolveTerminology(
       l10n,
@@ -590,16 +590,18 @@ class _MemberToolbarChip extends StatelessWidget {
 
     final selectedMember = member;
     if (selectedMember != null) {
+      final prefer = ref.watch(memberNamePreferDisplayProvider);
+      final name = selectedMember.effectiveName(preferDisplayName: prefer);
       return _ToolbarChip(
         icon: null,
-        label: selectedMember.name,
+        label: name,
         color: mutedColor,
         onTap: onPickMember,
         leading: MemberAvatar(
           avatarImageData: selectedMember.avatarImageData,
           memberId: selectedMember.id,
           deferAvatarLookup: true,
-          memberName: selectedMember.name,
+          memberName: name,
           emoji: selectedMember.emoji,
           customColorEnabled: selectedMember.customColorEnabled,
           customColorHex: selectedMember.customColorHex,
@@ -607,7 +609,7 @@ class _MemberToolbarChip extends StatelessWidget {
         ),
         semanticLabel: l10n.memberNoteMemberSemantics(
           terminology.singular,
-          selectedMember.name,
+          name,
         ),
       );
     }

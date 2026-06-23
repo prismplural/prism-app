@@ -815,14 +815,16 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
       builder: (context, ref, _) {
         final memberAsync = ref.watch(activeMemberByIdProvider(otherId));
         final terms = watchTerminology(context, ref);
+        final prefer = ref.watch(memberNamePreferDisplayProvider);
         return memberAsync.when(
           data: (member) {
             if (member == null) return const SizedBox.shrink();
+            final name = member.effectiveName(preferDisplayName: prefer);
             return Column(
               children: [
                 MemberAvatar(
                   avatarImageData: member.avatarImageData,
-                  memberName: member.name,
+                  memberName: name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -830,7 +832,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  member.name,
+                  name,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -1040,10 +1042,13 @@ class _ParticipantTile extends ConsumerWidget {
                     ? conversation.participantIds.first
                     : null));
 
+        final prefer = ref.watch(memberNamePreferDisplayProvider);
+        final memberName = member.effectiveName(preferDisplayName: prefer);
+
         final tile = PrismListRow(
           leading: MemberAvatar(
             avatarImageData: member.avatarImageData,
-            memberName: member.name,
+            memberName: memberName,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
@@ -1051,7 +1056,7 @@ class _ParticipantTile extends ConsumerWidget {
           ),
           title: Row(
             children: [
-              Flexible(child: Text(member.name)),
+              Flexible(child: Text(memberName)),
               if (isOwner) ...[
                 const SizedBox(width: 8),
                 _RoleChip(label: context.l10n.chatInfoOwner, theme: theme),

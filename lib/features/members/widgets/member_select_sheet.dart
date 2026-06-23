@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -78,6 +79,7 @@ class MemberSelectSheet extends ConsumerWidget {
     // placeholder, not a selectable headmate.
     final membersAsync = ref.watch(userVisibleMembersProvider);
     final settingsAsync = ref.watch(systemSettingsProvider);
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final l10n = context.l10n;
 
     return settingsAsync.when(
@@ -185,13 +187,19 @@ class MemberSelectSheet extends ConsumerWidget {
                           selected: isSelected,
                           leading: MemberAvatar(
                             avatarImageData: member.avatarImageData,
-                            memberName: member.name,
+                            memberName: member.effectiveName(
+                              preferDisplayName: preferDisplayName,
+                            ),
                             emoji: member.emoji,
                             customColorEnabled: member.customColorEnabled,
                             customColorHex: member.customColorHex,
                             size: 36,
                           ),
-                          title: Text(member.name),
+                          title: Text(
+                            member.effectiveName(
+                              preferDisplayName: preferDisplayName,
+                            ),
+                          ),
                           subtitle: member.pronouns != null
                               ? Text(member.pronouns!)
                               : null,

@@ -136,6 +136,7 @@ class _PostDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final authorAsync = post.authorId != null
         ? ref.watch(activeMemberByIdProvider(post.authorId!))
@@ -187,6 +188,7 @@ class _PostDetailBody extends ConsumerWidget {
                     authorColor: authorColor,
                     theme: theme,
                     l10n: l10n,
+                    prefer: prefer,
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -249,6 +251,7 @@ class _DetailParticipantsRow extends StatelessWidget {
     required this.authorColor,
     required this.theme,
     required this.l10n,
+    required this.prefer,
   });
 
   final Member? author;
@@ -257,6 +260,7 @@ class _DetailParticipantsRow extends StatelessWidget {
   final Color authorColor;
   final ThemeData theme;
   final AppLocalizations l10n;
+  final bool prefer;
 
   @override
   Widget build(BuildContext context) {
@@ -279,8 +283,13 @@ class _DetailParticipantsRow extends StatelessWidget {
     );
 
     final showTargetAvatar = post.targetMemberId != null;
+    final authorName =
+        author?.effectiveName(preferDisplayName: prefer) ??
+        post.authorId ??
+        l10n.boardsTileRemovedMember;
     final receiverName = post.targetMemberId != null
-        ? (target?.name ?? l10n.boardsTileRemovedMember)
+        ? (target?.effectiveName(preferDisplayName: prefer) ??
+              l10n.boardsTileRemovedMember)
         : l10n.boardsTileEveryone;
 
     return Wrap(
@@ -293,7 +302,7 @@ class _DetailParticipantsRow extends StatelessWidget {
           children: [
             MemberAvatar(
               avatarImageData: author?.avatarImageData,
-              memberName: author?.name,
+              memberName: author?.effectiveName(preferDisplayName: prefer),
               emoji: author?.emoji ?? '❔',
               customColorEnabled: author?.customColorEnabled ?? false,
               customColorHex: author?.customColorHex,
@@ -301,7 +310,7 @@ class _DetailParticipantsRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              author?.name ?? post.authorId ?? l10n.boardsTileRemovedMember,
+              authorName,
               style: authorStyle,
             ),
           ],
@@ -315,7 +324,7 @@ class _DetailParticipantsRow extends StatelessWidget {
                 opacity: 0.55,
                 child: MemberAvatar(
                   avatarImageData: target?.avatarImageData,
-                  memberName: target?.name,
+                  memberName: target?.effectiveName(preferDisplayName: prefer),
                   emoji: target?.emoji ?? '❔',
                   customColorEnabled: target?.customColorEnabled ?? false,
                   customColorHex: target?.customColorHex,

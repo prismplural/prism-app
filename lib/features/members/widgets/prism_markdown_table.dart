@@ -21,6 +21,7 @@ class PrismMarkdownTable extends StatelessWidget {
     this.baseStyle,
     this.memberMap,
     this.onTapMember,
+    this.preferDisplayName = true,
     this.borderless = false,
     this.borderColor,
     this.textAlign,
@@ -39,6 +40,9 @@ class PrismMarkdownTable extends StatelessWidget {
 
   /// Called when a resolved member mention is tapped in a table cell.
   final ValueChanged<String>? onTapMember;
+
+  /// Whether mention labels resolve through the display-name preference.
+  final bool preferDisplayName;
 
   /// No borders + neutral header (matches `:::plain`).
   final bool borderless;
@@ -153,6 +157,7 @@ class PrismMarkdownTable extends StatelessWidget {
       memberMap: memberMap,
       onTapMember: onTapMember,
       textAlign: align,
+      preferDisplayName: preferDisplayName,
     );
 
     return TableCell(

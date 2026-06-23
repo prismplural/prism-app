@@ -322,7 +322,7 @@ class _MemberFieldSelectionChips extends ConsumerWidget {
   }
 }
 
-class _ResolvedMemberChip extends StatelessWidget {
+class _ResolvedMemberChip extends ConsumerWidget {
   const _ResolvedMemberChip({
     required this.fieldName,
     required this.member,
@@ -338,11 +338,15 @@ class _ResolvedMemberChip extends StatelessWidget {
   final VoidCallback? onRemove;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final remove = onRemove;
+    final name = member.effectiveName(
+      preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
+    );
     final chip = MemberChip(
       member: member,
+      resolvedName: name,
       onTap: readOnly ? () => _openMember(context) : null,
       style: compact ? MemberChipStyle.inline : MemberChipStyle.filled,
       avatarSize: compact ? 16 : 20,
@@ -350,12 +354,12 @@ class _ResolvedMemberChip extends StatelessWidget {
     );
     final semanticLabel = l10n.customFieldMemberSelectedSemantic(
       fieldName,
-      member.name,
+      name,
     );
     final semanticChip = Semantics(label: semanticLabel, child: chip);
     if (remove == null) return semanticChip;
     return _RemovableChipFrame(
-      removeLabel: l10n.customFieldMemberRemoveMember(member.name),
+      removeLabel: l10n.customFieldMemberRemoveMember(name),
       onRemove: remove,
       child: semanticChip,
     );

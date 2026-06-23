@@ -48,8 +48,11 @@ class BoardMessageSection extends ConsumerWidget {
     final viewerMember = viewerAsync.value;
 
     // Resolve the profile member for the tooltip name.
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     final profileMemberAsync = ref.watch(activeMemberByIdProvider(memberId));
-    final profileMemberName = profileMemberAsync.value?.name ?? memberId;
+    final profileMemberName =
+        profileMemberAsync.value?.effectiveName(preferDisplayName: prefer) ??
+        memberId;
 
     return sectionAsync.when(
       loading: () => const SizedBox.shrink(),

@@ -23,6 +23,7 @@ void main() {
         accentColorHex: '#7C3AED',
         perMemberAccentColors: false,
         terminology: 0,
+        memberNameDisplay: 0,
         customTerminology: null,
         customPluralTerminology: null,
         terminologyUseEnglish: false,

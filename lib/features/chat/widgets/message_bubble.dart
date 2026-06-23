@@ -429,9 +429,10 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         ? widget.permissions.isMemberDeparted(authorId, member: author)
         : false;
 
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     return MemberAvatar(
       avatarImageData: author?.avatarImageData,
-      memberName: author?.name,
+      memberName: author?.effectiveName(preferDisplayName: prefer),
       emoji: author?.emoji ?? '?',
       customColorEnabled: author?.customColorEnabled ?? false,
       customColorHex: author?.customColorHex,
@@ -446,6 +447,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     required ThemeData theme,
   }) {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final authorColor =
         (author != null &&
@@ -541,9 +543,10 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
                                 return _ReplyQuote(
                                   authorName:
-                                      widget
-                                          .authorMap?[effectiveAuthorId]
-                                          ?.name ??
+                                      widget.authorMap?[effectiveAuthorId]
+                                          ?.effectiveName(
+                                            preferDisplayName: prefer,
+                                          ) ??
                                       effectiveAuthorId ??
                                       context.l10n.unknown,
                                   content: widget.message.replyToContent ?? '',
@@ -568,7 +571,10 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                               runSpacing: 2,
                               children: [
                                 Text(
-                                  author?.name ?? context.l10n.unknown,
+                                  author?.effectiveName(
+                                        preferDisplayName: prefer,
+                                      ) ??
+                                      context.l10n.unknown,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: authorColor,
                                     fontWeight: FontWeight.w700,
@@ -612,6 +618,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                             child: ChatMessageText(
                               content: widget.message.content,
                               authorMap: widget.authorMap,
+                              preferDisplayName: prefer,
                               baseStyle:
                                   (theme.textTheme.bodyLarge ??
                                           const TextStyle())

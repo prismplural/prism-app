@@ -157,8 +157,9 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
 
   void _updateMentionMembers(
     TextEditingController controller,
-    Map<String, Member> memberMap,
-  ) {
+    Map<String, Member> memberMap, {
+    required bool preferDisplayName,
+  }) {
     if (controller is! ChatMarkdownEditingController &&
         controller is! MarkdownEditingController) {
       return;
@@ -166,9 +167,15 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(_textController, controller)) return;
       if (controller is ChatMarkdownEditingController) {
-        controller.updateMentionMembers(memberMap);
+        controller.updateMentionMembers(
+          memberMap,
+          preferDisplayName: preferDisplayName,
+        );
       } else if (controller is MarkdownEditingController) {
-        controller.updateMentionMembers(memberMap);
+        controller.updateMentionMembers(
+          memberMap,
+          preferDisplayName: preferDisplayName,
+        );
       }
     });
   }
@@ -182,12 +189,17 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     final mentionMemberMap = {
       for (final member in mentionCandidates) member.id: member,
     };
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     if (controller is ChatMarkdownEditingController) {
       controller.updateTheme(context);
     } else if (controller is MarkdownEditingController) {
       controller.updateTheme(context);
     }
-    _updateMentionMembers(controller, mentionMemberMap);
+    _updateMentionMembers(
+      controller,
+      mentionMemberMap,
+      preferDisplayName: preferDisplayName,
+    );
 
     // NOTE: CustomFieldType.choice is handled entirely by the renderer registry
     // (buildChoiceEditor in choice_field_widgets.dart). FieldInputWidget is

@@ -79,3 +79,18 @@ abstract class Member with _$Member {
 
   factory Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);
 }
+
+extension MemberEffectiveName on Member {
+  /// The name to show for this member: the canonical `name` in legacy mode,
+  /// else the first non-blank of `displayName` → `pluralkitDisplayName` →
+  /// `name`. Takes a plain bool, not the `MemberNameDisplay` enum, to avoid a
+  /// model↔settings import cycle.
+  String effectiveName({required bool preferDisplayName}) {
+    if (!preferDisplayName) return name;
+    for (final candidate in [displayName, pluralkitDisplayName]) {
+      final trimmed = candidate?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    }
+    return name;
+  }
+}

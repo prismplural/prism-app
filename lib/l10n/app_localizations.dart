@@ -902,6 +902,30 @@ abstract class AppLocalizations {
   /// **'Choose between rounded or square corners throughout the app.'**
   String get appearanceCornerStyleDescription;
 
+  /// Appearance settings section: which member name to show
+  ///
+  /// In en, this message translates to:
+  /// **'Member names'**
+  String get appearanceMemberNamesTitle;
+
+  /// Member name display option: show the display name
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get appearanceMemberNamesDisplay;
+
+  /// Member name display option: show the canonical name
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get appearanceMemberNamesLegacy;
+
+  /// Description text for the member name display picker
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which name to show for members across the app.'**
+  String get appearanceMemberNamesDescription;
+
   /// Appearance settings section: Accent Color
   ///
   /// In en, this message translates to:

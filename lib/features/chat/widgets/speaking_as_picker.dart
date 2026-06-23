@@ -45,6 +45,7 @@ class SpeakingAsPicker extends ConsumerWidget {
     final membersAsync = ref.watch(userVisibleMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     final terms = watchTerminology(context, ref);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return membersAsync.when(
       data: (members) {
@@ -72,6 +73,7 @@ class SpeakingAsPicker extends ConsumerWidget {
             authorOptions,
             speakingAs,
             terms.plural,
+            prefer,
           );
         }
 
@@ -94,14 +96,15 @@ class SpeakingAsPicker extends ConsumerWidget {
                 );
               }
               final member = authorOptions[index - 1];
+              final memberName = member.effectiveName(preferDisplayName: prefer);
               return PrismChip(
-                label: member.name,
+                label: memberName,
                 selected: member.id == speakingAs,
                 onTap: () =>
                     ref.read(speakingAsProvider.notifier).setMember(member.id),
                 avatar: MemberAvatar(
                   avatarImageData: member.avatarImageData,
-                  memberName: member.name,
+                  memberName: memberName,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -178,6 +181,7 @@ class SpeakingAsPicker extends ConsumerWidget {
     List<Member> members,
     String? speakingAs,
     String termPlural,
+    bool prefer,
   ) {
     // When autoSelectFirst is false and nothing is chosen, show a placeholder.
     final Member? displayMember = speakingAs != null
@@ -186,6 +190,7 @@ class SpeakingAsPicker extends ConsumerWidget {
             orElse: () => members.first,
           )
         : (autoSelectFirst ? members.first : null);
+    final displayName = displayMember?.effectiveName(preferDisplayName: prefer);
 
     return SizedBox(
       height: 48,
@@ -201,7 +206,7 @@ class SpeakingAsPicker extends ConsumerWidget {
               children: [
                 if (displayMember != null) ...[
                   MemberAvatar(
-                    memberName: displayMember.name,
+                    memberName: displayName,
                     emoji: displayMember.emoji,
                     avatarImageData: displayMember.avatarImageData,
                     customColorEnabled: displayMember.customColorEnabled,
@@ -209,7 +214,7 @@ class SpeakingAsPicker extends ConsumerWidget {
                     size: 24,
                   ),
                   const SizedBox(width: 8),
-                  Text(displayMember.name, style: theme.textTheme.bodyMedium),
+                  Text(displayName!, style: theme.textTheme.bodyMedium),
                 ] else ...[
                   Icon(
                     AppIcons.personOutline,

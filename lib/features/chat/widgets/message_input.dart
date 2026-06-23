@@ -808,8 +808,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             MentionOverlay.hasBroadcastAliasMatches(_mentionFilter));
     _syncMentionOverlayPortal(showMentionOverlay);
     final memberMap = {for (final m in members) m.id: m};
-    _controller.updateMentionMembers(memberMap);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    _controller.updateMentionMembers(memberMap, preferDisplayName: prefer);
     final currentMember = findChatAuthorOption(context, members, speakingAs);
+    final currentMemberName = currentMember?.effectiveName(
+      preferDisplayName: prefer,
+    );
 
     final fronterIds =
         ref
@@ -872,6 +876,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 ? ReplyBanner(
                     message: replyingTo,
                     memberMap: memberMap,
+                    prefer: prefer,
                     onDismiss: () => ref
                         .read(
                           replyingToProvider(widget.conversationId).notifier,
@@ -908,8 +913,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Semantics(
-                  label: currentMember != null
-                      ? context.l10n.chatSpeakingAs(currentMember.name)
+                  label: currentMemberName != null
+                      ? context.l10n.chatSpeakingAs(currentMemberName)
                       : context.l10n.chatChooseSpeakingMember(
                           terms.singularLower,
                         ),
@@ -931,7 +936,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     child: currentMember != null
                         ? MemberAvatar(
                             avatarImageData: currentMember.avatarImageData,
-                            memberName: currentMember.name,
+                            memberName: currentMemberName,
                             emoji: currentMember.emoji,
                             customColorEnabled:
                                 currentMember.customColorEnabled,
@@ -1611,11 +1616,13 @@ class ReplyBanner extends StatelessWidget {
     required this.message,
     required this.memberMap,
     required this.onDismiss,
+    required this.prefer,
   });
 
   final ChatMessage message;
   final Map<String, Member> memberMap;
   final VoidCallback onDismiss;
+  final bool prefer;
 
   @override
   Widget build(BuildContext context) {
@@ -1651,7 +1658,8 @@ class ReplyBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  author?.name ?? context.l10n.unknown,
+                  author?.effectiveName(preferDisplayName: prefer) ??
+                      context.l10n.unknown,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: authorColor,
                     fontWeight: FontWeight.w600,
@@ -1682,15 +1690,17 @@ class ReplyBanner extends StatelessWidget {
   }
 }
 
-class _ProxyTagAuthorChip extends StatelessWidget {
+class _ProxyTagAuthorChip extends ConsumerWidget {
   const _ProxyTagAuthorChip({required this.member, required this.onDismiss});
 
   final Member member;
   final VoidCallback onDismiss;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final effectiveName = member.effectiveName(preferDisplayName: prefer);
     final isDark = theme.brightness == Brightness.dark;
     final authorColor =
         (member.customColorEnabled && member.customColorHex != null)
@@ -1709,7 +1719,7 @@ class _ProxyTagAuthorChip extends StatelessWidget {
         children: [
           MemberAvatar(
             avatarImageData: member.avatarImageData,
-            memberName: member.name,
+            memberName: effectiveName,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
@@ -1718,7 +1728,7 @@ class _ProxyTagAuthorChip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              context.l10n.chatPostingAsProxy(member.name),
+              context.l10n.chatPostingAsProxy(effectiveName),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: authorColor,
                 fontWeight: FontWeight.w600,

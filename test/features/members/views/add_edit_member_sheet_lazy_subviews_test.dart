@@ -14,6 +14,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
@@ -66,6 +67,7 @@ Widget _buildMemberEditor({
         customPlural: null,
         useEnglish: false,
       )),
+      memberNamePreferDisplayProvider.overrideWithValue(false),
       pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
       pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
       if (imageInfra != null) ...[
@@ -134,6 +136,7 @@ void main() {
               customPlural: null,
               useEnglish: false,
             )),
+            memberNamePreferDisplayProvider.overrideWithValue(false),
             pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
             pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
           ],
@@ -194,6 +197,7 @@ void main() {
             customPlural: null,
             useEnglish: false,
           )),
+          memberNamePreferDisplayProvider.overrideWithValue(false),
           pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
           pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
         ],
@@ -410,6 +414,7 @@ void main() {
             customPlural: null,
             useEnglish: false,
           )),
+          memberNamePreferDisplayProvider.overrideWithValue(false),
           pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
           pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
         ],
@@ -481,6 +486,7 @@ void main() {
             customPlural: null,
             useEnglish: false,
           )),
+          memberNamePreferDisplayProvider.overrideWithValue(false),
           pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
           pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
         ],

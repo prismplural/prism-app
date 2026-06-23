@@ -47,7 +47,12 @@ class MemberSearchIndex {
 /// - Queries are case-insensitive.
 /// - Decorative Unicode variants in names still match plain ASCII queries.
 /// - Full names are included in the search surface when present.
+/// - The PluralKit display name is included so PK importers can find members
+///   by the name PK proxies them as.
 /// - Pronouns are included in the search surface when present.
+///
+/// The index is intentionally mode-independent: it matches any of a member's
+/// names regardless of the [MemberNameDisplay] setting.
 ///
 /// An empty [query] returns [members] unchanged (no allocation).
 List<Member> filterMembers(
@@ -76,6 +81,7 @@ String _searchKey(Member member, Iterable<String> additionalSearchTerms) {
 
   writeTerm(member.name);
   writeTerm(member.displayName);
+  writeTerm(member.pluralkitDisplayName);
   writeTerm(member.pronouns);
   for (final term in additionalSearchTerms) {
     writeTerm(term);

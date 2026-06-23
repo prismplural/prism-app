@@ -19,8 +19,14 @@ String? memberMentionIdFromMatch(Match match) => match.group(1);
 bool containsMemberMention(String content) =>
     memberMentionRegex.hasMatch(content);
 
-String memberMentionDisplayName(String memberId, Map<String, Member>? members) {
-  return members?[memberId]?.name ?? 'Unknown';
+String memberMentionDisplayName(
+  String memberId,
+  Map<String, Member>? members, {
+  required bool preferDisplayName,
+}) {
+  final member = members?[memberId];
+  if (member == null) return 'Unknown';
+  return member.effectiveName(preferDisplayName: preferDisplayName);
 }
 
 Color memberMentionColor(Member? member, ThemeData theme, {Color? fallback}) {
@@ -59,11 +65,17 @@ class MemberMentionBuilder extends MarkdownElementBuilder {
     required this.memberMap,
     required this.theme,
     this.onTapMember,
+    this.preferDisplayName = true,
   });
 
   final Map<String, Member>? memberMap;
   final ThemeData theme;
   final ValueChanged<String>? onTapMember;
+
+  /// Whether to resolve the mention label through the display-name preference.
+  /// Defaults to the app default (display mode) so callers that don't thread
+  /// the setting still show the preferred name.
+  final bool preferDisplayName;
 
   @override
   Widget? visitElementAfterWithContext(
@@ -76,7 +88,8 @@ class MemberMentionBuilder extends MarkdownElementBuilder {
     if (id == null) return null;
 
     final member = memberMap?[id];
-    final display = '@${memberMentionDisplayName(id, memberMap)}';
+    final display =
+        '@${memberMentionDisplayName(id, memberMap, preferDisplayName: preferDisplayName)}';
     final color = memberMentionColor(member, theme);
     final merged = (parentStyle ?? const TextStyle()).copyWith(
       color: color,
@@ -102,10 +115,12 @@ TextSpan buildMemberMentionTextSpan({
   required ThemeData theme,
   required TextStyle baseStyle,
   Color? fallbackColor,
+  bool preferDisplayName = true,
 }) {
   final member = memberMap?[memberId];
   final color = memberMentionColor(member, theme, fallback: fallbackColor);
-  final display = '@${memberMentionDisplayName(memberId, memberMap)}';
+  final display =
+      '@${memberMentionDisplayName(memberId, memberMap, preferDisplayName: preferDisplayName)}';
   return TextSpan(
     text: display,
     style: baseStyle.copyWith(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -247,33 +249,39 @@ class MemberSelectorPopup extends StatelessWidget {
     final isSelected = member.id == selectedMemberId;
     final selectedColor = _selectedColor(theme, member);
 
-    return PrismListRow(
-      key: ValueKey('member-selector-popup-${member.id}'),
-      dense: true,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      leading: MemberAvatar(
-        avatarImageData: member.avatarImageData,
-        memberName: member.name,
-        emoji: member.emoji,
-        customColorEnabled: member.customColorEnabled,
-        customColorHex: member.customColorHex,
-        size: avatarSize,
-      ),
-      selected: isSelected,
-      title: Text(
-        member.name,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          color: isSelected ? selectedColor : theme.colorScheme.onSurface,
-        ),
-      ),
-      trailing: isSelected
-          ? Icon(AppIcons.check, size: 18, color: selectedColor)
-          : null,
-      onTap: () {
-        close();
-        onMemberSelected(member.id);
+    return Consumer(
+      builder: (context, ref, _) {
+        final prefer = ref.watch(memberNamePreferDisplayProvider);
+        final name = member.effectiveName(preferDisplayName: prefer);
+        return PrismListRow(
+          key: ValueKey('member-selector-popup-${member.id}'),
+          dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          leading: MemberAvatar(
+            avatarImageData: member.avatarImageData,
+            memberName: name,
+            emoji: member.emoji,
+            customColorEnabled: member.customColorEnabled,
+            customColorHex: member.customColorHex,
+            size: avatarSize,
+          ),
+          selected: isSelected,
+          title: Text(
+            name,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              color: isSelected ? selectedColor : theme.colorScheme.onSurface,
+            ),
+          ),
+          trailing: isSelected
+              ? Icon(AppIcons.check, size: 18, color: selectedColor)
+              : null,
+          onTap: () {
+            close();
+            onMemberSelected(member.id);
+          },
+        );
       },
     );
   }

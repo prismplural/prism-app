@@ -1627,6 +1627,11 @@ class DataImportService {
                       s.terminology < SystemTerminology.values.length
                   ? SystemTerminology.values[s.terminology]
                   : SystemTerminology.headmates,
+              memberNameDisplay:
+                  s.memberNameDisplay >= 0 &&
+                      s.memberNameDisplay < MemberNameDisplay.values.length
+                  ? MemberNameDisplay.values[s.memberNameDisplay]
+                  : MemberNameDisplay.display,
               customTerminology: s.customTerminology,
               customPluralTerminology: s.customPluralTerminology,
               terminologyUseEnglish: s.terminologyUseEnglish,

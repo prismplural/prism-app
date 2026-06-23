@@ -26,6 +26,8 @@ class MemberCard extends StatelessWidget {
   const MemberCard({
     super.key,
     required this.member,
+    this.resolvedName,
+    this.subtitleName,
     this.showPronouns = true,
     this.trailing,
     this.onTap,
@@ -36,6 +38,17 @@ class MemberCard extends StatelessWidget {
   });
 
   final Member member;
+
+  /// The name to render as the primary label. When null, falls back to the
+  /// canonical [Member.name] so untouched call sites keep today's behavior.
+  /// Hosts resolve the effective name once at the list level and pass it here.
+  final String? resolvedName;
+
+  /// Optional secondary label shown after the primary name (today's display
+  /// name). Rendered only when non-null and non-empty. Hosts pass null in
+  /// display mode (no secondary) and the member's display name in legacy mode.
+  final String? subtitleName;
+
   final bool showPronouns;
   final Widget? trailing;
   final VoidCallback? onTap;
@@ -57,6 +70,8 @@ class MemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final primaryName = resolvedName ?? member.name;
+    final secondary = subtitleName?.trim();
     final hasCustomColor =
         member.customColorEnabled && member.customColorHex != null;
     final accentColor = hasCustomColor
@@ -84,7 +99,7 @@ class MemberCard extends StatelessWidget {
         child: Semantics(
           button: true,
           enabled: onTap != null,
-          label: member.name,
+          label: primaryName,
           child: InkWell(
             onTap: onTap,
             borderRadius: radius,
@@ -107,7 +122,7 @@ class MemberCard extends StatelessWidget {
                           avatarImageData: member.avatarImageData,
                           memberId: member.id,
                           deferAvatarLookup: deferAvatarLookup,
-                          memberName: member.name,
+                          memberName: resolvedName ?? member.name,
                           emoji: member.emoji,
                           customColorEnabled: member.customColorEnabled,
                           customColorHex: member.customColorHex,
@@ -123,7 +138,7 @@ class MemberCard extends StatelessWidget {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      member.name,
+                                      primaryName,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
                                             fontWeight: FontWeight.w600,
@@ -142,20 +157,17 @@ class MemberCard extends StatelessWidget {
                                           context.l10n.memberInactiveChip,
                                     ),
                                   ],
-                                  if (member.displayName != null &&
-                                      member.displayName!
-                                          .trim()
-                                          .isNotEmpty) ...[
+                                  if (secondary != null &&
+                                      secondary.isNotEmpty) ...[
                                     const SizedBox(width: 6),
                                     Flexible(
                                       child: Text(
-                                        member.displayName!.trim(),
+                                        secondary,
                                         style: theme.textTheme.bodySmall
                                             ?.copyWith(
                                               color: theme
                                                   .colorScheme
                                                   .onSurfaceVariant,
-                                              fontStyle: FontStyle.italic,
                                             ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,

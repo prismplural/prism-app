@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/fronting/widgets/comments_for_range_sec
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
@@ -366,7 +367,8 @@ class _Header extends ConsumerWidget {
     final isOpenEnded =
         matchedPeriod?.isOpenEnded ?? hint?.isOpenEnded ?? false;
 
-    final names = _namesString(context, activeMembers);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final names = _namesString(context, activeMembers, prefer);
 
     final startStr = context.formatTime(start);
     final endStr = isOpenEnded
@@ -465,8 +467,10 @@ class _Header extends ConsumerWidget {
 
   // Same logic as _PeriodTile._namesString, but UNTRUNCATED — show every name.
   // Context-aware so the conjunction respects the active locale.
-  String _namesString(BuildContext context, List<Member> members) {
-    final names = members.map((m) => m.name).toList();
+  String _namesString(BuildContext context, List<Member> members, bool prefer) {
+    final names = members
+        .map((m) => m.effectiveName(preferDisplayName: prefer))
+        .toList();
     if (names.isEmpty) return context.l10n.frontingPeriodMemberUnknown;
     if (names.length == 1) return names[0];
     if (names.length == 2) {
@@ -674,7 +678,10 @@ class _CoFronterRow extends ConsumerWidget {
     final duration = session.endTime == null
         ? DateTime.now().difference(session.startTime)
         : session.endTime!.difference(session.startTime);
-    final name = member?.name ?? context.l10n.frontingPeriodMemberUnknown;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final name =
+        member?.effectiveName(preferDisplayName: prefer) ??
+        context.l10n.frontingPeriodMemberUnknown;
 
     const dimAlpha = 0.6;
 
@@ -694,7 +701,7 @@ class _CoFronterRow extends ConsumerWidget {
           )
         : MemberAvatar(
             avatarImageData: member.avatarImageData,
-            memberName: member.name,
+            memberName: name,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
@@ -864,6 +871,7 @@ class _BrieflyJoinedSection extends ConsumerWidget {
             .watch(membersByIdsProvider(membersKey))
             .whenOrNull(data: (d) => d) ??
         const <String, Member>{};
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return PrismSectionCard(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -893,6 +901,7 @@ class _BrieflyJoinedSection extends ConsumerWidget {
             _BriefVisitorRow(
               visit: visitors[i],
               member: membersMap[visitors[i].memberId],
+              prefer: prefer,
             ),
           ],
           const SizedBox(height: 4),
@@ -904,15 +913,22 @@ class _BrieflyJoinedSection extends ConsumerWidget {
 
 /// One row in [_BrieflyJoinedSection].
 class _BriefVisitorRow extends StatelessWidget {
-  const _BriefVisitorRow({required this.visit, required this.member});
+  const _BriefVisitorRow({
+    required this.visit,
+    required this.member,
+    required this.prefer,
+  });
 
   final EphemeralVisit visit;
   final Member? member;
+  final bool prefer;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final name = member?.name ?? context.l10n.frontingPeriodMemberUnknown;
+    final name =
+        member?.effectiveName(preferDisplayName: prefer) ??
+        context.l10n.frontingPeriodMemberUnknown;
     final isUnknown = member == null;
 
     const dimAlpha = 0.6;
@@ -933,7 +949,7 @@ class _BriefVisitorRow extends StatelessWidget {
           )
         : MemberAvatar(
             avatarImageData: member!.avatarImageData,
-            memberName: member!.name,
+            memberName: name,
             emoji: member!.emoji,
             customColorEnabled: member!.customColorEnabled,
             customColorHex: member!.customColorHex,
@@ -1044,6 +1060,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
             .watch(membersByIdsProvider(membersKey))
             .whenOrNull(data: (d) => d) ??
         const <String, Member>{};
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return PrismSectionCard(
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -1073,6 +1090,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
             _AlwaysPresentRow(
               memberId: memberIds[i],
               member: membersMap[memberIds[i]],
+              prefer: prefer,
             ),
           ],
           const SizedBox(height: 4),
@@ -1084,15 +1102,22 @@ class _AlwaysPresentSection extends ConsumerWidget {
 
 /// One row in [_AlwaysPresentSection].
 class _AlwaysPresentRow extends StatelessWidget {
-  const _AlwaysPresentRow({required this.memberId, required this.member});
+  const _AlwaysPresentRow({
+    required this.memberId,
+    required this.member,
+    required this.prefer,
+  });
 
   final String memberId;
   final Member? member;
+  final bool prefer;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final name = member?.name ?? context.l10n.frontingPeriodMemberUnknown;
+    final name =
+        member?.effectiveName(preferDisplayName: prefer) ??
+        context.l10n.frontingPeriodMemberUnknown;
     final isUnknown = member == null;
 
     const dimAlpha = 0.6;
@@ -1113,7 +1138,7 @@ class _AlwaysPresentRow extends StatelessWidget {
           )
         : MemberAvatar(
             avatarImageData: member!.avatarImageData,
-            memberName: member!.name,
+            memberName: name,
             emoji: member!.emoji,
             customColorEnabled: member!.customColorEnabled,
             customColorHex: member!.customColorHex,

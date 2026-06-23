@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/fronting/providers/member_fronting_history_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -113,7 +114,9 @@ class _MemberFrontingHistoryScreenState
           topBar: PrismTopBar(
             title: memberFrontingHistoryTitleForWidth(
               context: context,
-              memberName: member.name,
+              memberName: member.effectiveName(
+                preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
+              ),
             ),
             showBackButton: true,
             actions: [

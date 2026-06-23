@@ -453,6 +453,19 @@ class AppLocalizationsEs extends AppLocalizations {
       'Elige entre esquinas redondeadas o cuadradas en toda la app.';
 
   @override
+  String get appearanceMemberNamesTitle => 'Nombres de los miembros';
+
+  @override
+  String get appearanceMemberNamesDisplay => 'Nombre para mostrar';
+
+  @override
+  String get appearanceMemberNamesLegacy => 'Nombre';
+
+  @override
+  String get appearanceMemberNamesDescription =>
+      'Elige qué nombre mostrar para los miembros en toda la app.';
+
+  @override
   String get appearanceAccentColor => 'Color de acento';
 
   @override

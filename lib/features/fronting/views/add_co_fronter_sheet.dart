@@ -84,6 +84,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
     final membersAsync = ref.watch(activeMembersProvider);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final availableForSearch =
         membersAsync.value
@@ -197,16 +198,19 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                     itemCount: available.length,
                     itemBuilder: (context, index) {
                       final member = available[index];
+                      final memberName = member.effectiveName(
+                        preferDisplayName: prefer,
+                      );
                       return PrismCheckboxRow(
                         leading: MemberAvatar(
                           avatarImageData: member.avatarImageData,
-                          memberName: member.name,
+                          memberName: memberName,
                           emoji: member.emoji,
                           customColorEnabled: member.customColorEnabled,
                           customColorHex: member.customColorHex,
                           size: 40,
                         ),
-                        title: Text(member.name),
+                        title: Text(memberName),
                         subtitle: member.pronouns != null
                             ? Text(member.pronouns!)
                             : null,

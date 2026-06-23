@@ -12,6 +12,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/utils/current_fronters_order.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -611,6 +612,8 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final member = widget.member;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final memberName = member.effectiveName(preferDisplayName: prefer);
     final ringSize = widget.ringSize;
     final avatarSize = (ringSize - _kAvatarRingInset).clamp(0.0, ringSize);
     final accentColor =
@@ -621,7 +624,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     return Semantics(
       button: true,
       enabled: true,
-      label: context.l10n.frontingQuickFrontLabel(member.name),
+      label: context.l10n.frontingQuickFrontLabel(memberName),
       onLongPressHint: context.l10n.frontingQuickFrontHoldHint,
       child: GestureDetector(
         onLongPressStart: (_) => _onPressStart(),
@@ -679,7 +682,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                       avatarImageData: member.avatarImageData,
                       memberId: member.id,
                       deferAvatarLookup: true,
-                      memberName: member.name,
+                      memberName: memberName,
                       emoji: member.emoji,
                       customColorEnabled: member.customColorEnabled,
                       customColorHex: member.customColorHex,
@@ -690,7 +693,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
               ),
               const SizedBox(height: _kQuickFrontLabelGap),
               Text(
-                member.name,
+                memberName,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: widget.isFronting
                       ? FontWeight.bold

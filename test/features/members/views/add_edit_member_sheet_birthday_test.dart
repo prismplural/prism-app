@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -43,6 +44,7 @@ Widget _harness(Member member) {
         customPlural: null,
         useEnglish: false,
       )),
+      memberNamePreferDisplayProvider.overrideWithValue(false),
       pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
       pkSyncDirectionProvider.overrideWith(_StaticPkSyncDirectionNotifier.new),
     ],

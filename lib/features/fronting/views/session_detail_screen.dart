@@ -304,6 +304,8 @@ class _SessionDetailBody extends ConsumerWidget {
         ? ref.watch(activeMemberByIdProvider(session.memberId!))
         : null;
     final member = memberAsync?.value;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final memberName = member?.effectiveName(preferDisplayName: prefer) ?? '';
     final showPill =
         session.isActive && !session.isSleep && session.memberId != null;
     final bottomReserve = showPill ? navBarInset + 84 : 24 + navBarInset;
@@ -449,13 +451,13 @@ class _SessionDetailBody extends ConsumerWidget {
           bottom: navBarInset + 16,
           child: Center(
             child: _FloatingEndSessionButton(
-              memberName: member?.name ?? '',
+              memberName: memberName,
               tintColor: tint,
               onPressed: () => _handleEndSession(
                 context,
                 ref,
                 session,
-                member?.name ?? '',
+                memberName,
                 activeSessions: activeSessions,
               ),
             ),
@@ -498,6 +500,7 @@ class _FronterSection extends ConsumerWidget {
     }
 
     final memberAsync = ref.watch(activeMemberByIdProvider(session.memberId!));
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return memberAsync.when(
       loading: () => const PrismSurface(
@@ -507,6 +510,7 @@ class _FronterSection extends ConsumerWidget {
       error: (_, _) => const SizedBox.shrink(),
       data: (member) {
         if (member == null) return const SizedBox.shrink();
+        final memberName = member.effectiveName(preferDisplayName: prefer);
         final header = resolveMemberProfileHeader(
           member,
           layoutOverride: MemberProfileHeaderLayout.compactBackground,
@@ -528,7 +532,7 @@ class _FronterSection extends ConsumerWidget {
                         (MediaQuery.sizeOf(context).width *
                                 MediaQuery.devicePixelRatioOf(context))
                             .ceil(),
-                    semanticLabel: '${member.name} profile header',
+                    semanticLabel: '$memberName profile header',
                     errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
@@ -550,6 +554,7 @@ class _FronterSection extends ConsumerWidget {
                   padding: const EdgeInsets.all(20),
                   child: _FronterMemberRow(
                     member: member,
+                    memberName: memberName,
                     titleColor: Colors.white,
                     subtitleColor: Colors.white.withValues(alpha: 0.82),
                   ),
@@ -562,7 +567,7 @@ class _FronterSection extends ConsumerWidget {
         return PrismSurface(
           onTap: () => _openMemberDetail(context, member.id),
           padding: const EdgeInsets.all(20),
-          child: _FronterMemberRow(member: member),
+          child: _FronterMemberRow(member: member, memberName: memberName),
         );
       },
     );
@@ -572,11 +577,13 @@ class _FronterSection extends ConsumerWidget {
 class _FronterMemberRow extends StatelessWidget {
   const _FronterMemberRow({
     required this.member,
+    required this.memberName,
     this.titleColor,
     this.subtitleColor,
   });
 
   final Member member;
+  final String memberName;
   final Color? titleColor;
   final Color? subtitleColor;
 
@@ -587,7 +594,7 @@ class _FronterMemberRow extends StatelessWidget {
       children: [
         MemberAvatar(
           avatarImageData: member.avatarImageData,
-          memberName: member.name,
+          memberName: memberName,
           emoji: member.emoji,
           customColorEnabled: member.customColorEnabled,
           customColorHex: member.customColorHex,
@@ -600,7 +607,7 @@ class _FronterMemberRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                member.name,
+                memberName,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   color: titleColor,
                   fontWeight: FontWeight.bold,

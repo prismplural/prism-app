@@ -35,6 +35,8 @@ class MemberBoardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final memberAsync = ref.watch(activeMemberByIdProvider(memberId));
     final member = memberAsync.value;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final memberName = member?.effectiveName(preferDisplayName: prefer);
 
     final speakingAsId = ref.watch(speakingAsProvider);
     final viewerAsync = speakingAsId != null
@@ -45,6 +47,7 @@ class MemberBoardScreen extends ConsumerWidget {
     return PrismPageScaffold(
       topBar: _MemberBoardTopBar(
         member: member,
+        memberName: memberName,
         onComposeTap: () => _openCompose(context),
       ),
       body: _MemberBoardBody(memberId: memberId, viewerMember: viewerMember),
@@ -73,9 +76,14 @@ void _openMemberBoardPost(BuildContext context, String postId) {
 
 class _MemberBoardTopBar extends StatelessWidget
     implements PreferredSizeWidget {
-  const _MemberBoardTopBar({required this.member, required this.onComposeTap});
+  const _MemberBoardTopBar({
+    required this.member,
+    required this.memberName,
+    required this.onComposeTap,
+  });
 
   final Member? member;
+  final String? memberName;
   final VoidCallback onComposeTap;
 
   @override
@@ -88,7 +96,7 @@ class _MemberBoardTopBar extends StatelessWidget
     final leadingAvatar = member != null
         ? MemberAvatar(
             avatarImageData: member!.avatarImageData,
-            memberName: member!.name,
+            memberName: memberName,
             emoji: member!.emoji,
             customColorEnabled: member!.customColorEnabled,
             customColorHex: member!.customColorHex,
@@ -98,7 +106,7 @@ class _MemberBoardTopBar extends StatelessWidget
 
     return PrismTopBar(
       title: l10n.memberBoardScreenTitle,
-      subtitle: member?.name,
+      subtitle: memberName,
       leading: leadingAvatar,
       showBackButton: leadingAvatar == null,
       trailing: PrismTopBarAction(

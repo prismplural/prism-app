@@ -294,6 +294,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateMemberNameDisplay(domain.MemberNameDisplay value) async {
+    await _dao.updateMemberNameDisplay(value);
+    await _syncField('member_name_display', value.index);
+  }
+
+  @override
   Future<void> updatePaletteSource(domain.PaletteSource value) async {
     await _dao.updatePaletteSource(value.index);
     await _syncFieldIfThemeEnabled('palette_source', value.index);
@@ -710,6 +716,7 @@ class DriftSystemSettingsRepository
       'accent_color_hex': row.accentColorHex,
       'per_member_accent_colors': row.perMemberAccentColors,
       'terminology': row.terminology,
+      'member_name_display': row.memberNameDisplay,
       'custom_terminology': row.customTerminology,
       'custom_plural_terminology': row.customPluralTerminology,
       'terminology_use_english': row.terminologyUseEnglish,
@@ -799,6 +806,9 @@ class DriftSystemSettingsRepository
           : const Value.absent(),
       terminology: fields.containsKey('terminology')
           ? Value(fields['terminology'] as int)
+          : const Value.absent(),
+      memberNameDisplay: fields.containsKey('member_name_display')
+          ? Value(fields['member_name_display'] as int)
           : const Value.absent(),
       customTerminology: fields.containsKey('custom_terminology')
           ? Value(fields['custom_terminology'] as String?)
@@ -1028,6 +1038,7 @@ class DriftSystemSettingsRepository
       'accent_color_hex': s.accentColorHex,
       'per_member_accent_colors': s.perMemberAccentColors,
       'terminology': s.terminology.index,
+      'member_name_display': s.memberNameDisplay.index,
       'custom_terminology': s.customTerminology,
       'custom_plural_terminology': s.customPluralTerminology,
       'terminology_use_english': s.terminologyUseEnglish,

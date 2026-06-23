@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/member_name_style.dart';
 import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
@@ -78,7 +80,7 @@ class MemberProfileHeader extends StatelessWidget {
   }
 }
 
-class _CompactMemberProfileHeader extends StatelessWidget {
+class _CompactMemberProfileHeader extends ConsumerWidget {
   const _CompactMemberProfileHeader({
     required this.member,
     required this.isFronting,
@@ -96,9 +98,12 @@ class _CompactMemberProfileHeader extends StatelessWidget {
   final VoidCallback? onNameStyleTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final hasImage = imageData != null && imageData!.isNotEmpty;
+    final resolvedName = member.effectiveName(
+      preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
+    );
 
     Widget child = Padding(
       padding: hasImage ? const EdgeInsets.all(16) : EdgeInsets.zero,
@@ -138,7 +143,7 @@ class _CompactMemberProfileHeader extends StatelessWidget {
           Positioned.fill(
             child: _HeaderImage(
               imageData: imageData!,
-              semanticLabel: '${member.name} profile header',
+              semanticLabel: '$resolvedName profile header',
             ),
           ),
           Positioned.fill(
@@ -176,7 +181,7 @@ class _CompactMemberProfileHeader extends StatelessWidget {
   }
 }
 
-class _ClassicMemberProfileHeader extends StatelessWidget {
+class _ClassicMemberProfileHeader extends ConsumerWidget {
   const _ClassicMemberProfileHeader({
     required this.member,
     required this.isFronting,
@@ -194,9 +199,12 @@ class _ClassicMemberProfileHeader extends StatelessWidget {
   final VoidCallback? onNameStyleTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final radius = BorderRadius.circular(PrismShapes.of(context).radius(20));
+    final resolvedName = member.effectiveName(
+      preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,7 +218,7 @@ class _ClassicMemberProfileHeader extends StatelessWidget {
                 aspectRatio: 3,
                 child: _HeaderImage(
                   imageData: imageData,
-                  semanticLabel: '${member.name} profile header',
+                  semanticLabel: '$resolvedName profile header',
                 ),
               ),
             ),
@@ -243,7 +251,7 @@ class _ClassicMemberProfileHeader extends StatelessWidget {
   }
 }
 
-class _MemberHeaderAvatar extends StatelessWidget {
+class _MemberHeaderAvatar extends ConsumerWidget {
   const _MemberHeaderAvatar({
     required this.member,
     required this.size,
@@ -257,14 +265,16 @@ class _MemberHeaderAvatar extends StatelessWidget {
   final VoidCallback? onRemove;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final hasImage =
         member.avatarImageData != null && member.avatarImageData!.isNotEmpty;
     final theme = Theme.of(context);
 
     final avatar = MemberAvatar(
       avatarImageData: member.avatarImageData,
-      memberName: member.name,
+      memberName: member.effectiveName(
+        preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
+      ),
       emoji: member.emoji,
       customColorEnabled: member.customColorEnabled,
       customColorHex: member.customColorHex,
@@ -338,7 +348,7 @@ class _MemberHeaderAvatar extends StatelessWidget {
   }
 }
 
-class _MemberHeaderMetadata extends StatelessWidget {
+class _MemberHeaderMetadata extends ConsumerWidget {
   const _MemberHeaderMetadata({
     required this.member,
     required this.isFronting,
@@ -362,18 +372,27 @@ class _MemberHeaderMetadata extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final primary = foregroundColor ?? theme.colorScheme.onSurface;
     final secondary = secondaryColor ?? theme.colorScheme.onSurfaceVariant;
     final birthday = _birthdayDisplay(context, member);
     final shadows = applyTextShadow ? _onImageShadows : null;
 
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
+    final primaryTitle = member.effectiveName(
+      preferDisplayName: preferDisplayName,
+    );
+    // Show the canonical name as a parenthetical only in legacy mode; in
+    // display mode the effective name already stands alone.
     final fullName = member.displayName?.trim();
-    final hasFullName =
-        fullName != null && fullName.isNotEmpty && fullName != member.name;
-    final primaryTitle = member.name;
-    final secondaryTitle = hasFullName ? fullName : null;
+    final secondaryTitle =
+        !preferDisplayName &&
+            fullName != null &&
+            fullName.isNotEmpty &&
+            fullName != member.name
+        ? fullName
+        : null;
 
     final pronouns = member.pronouns?.trim();
     final hasPronouns = pronouns != null && pronouns.isNotEmpty;

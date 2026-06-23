@@ -116,6 +116,7 @@ const String prismSyncSchema = '''
         "accent_color_hex": "String",
         "per_member_accent_colors": "Bool",
         "terminology": "Int",
+        "member_name_display": "Int",
         "custom_terminology": "String",
         "custom_plural_terminology": "String",
         "terminology_use_english": "Bool",

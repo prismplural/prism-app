@@ -1366,8 +1366,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     final mentionMemberMap = {
       for (final member in mentionCandidates) member.id: member,
     };
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     _bioController.updateTheme(context);
-    _bioController.updateMentionMembers(mentionMemberMap);
+    _bioController.updateMentionMembers(
+      mentionMemberMap,
+      preferDisplayName: preferDisplayName,
+    );
 
     final canSave = _nameController.text.trim().isNotEmpty;
     final inDetailView = _view != _MemberEditView.main;

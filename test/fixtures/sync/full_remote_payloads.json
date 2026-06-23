@@ -144,6 +144,7 @@
       "accent_color_hex": "#112233",
       "per_member_accent_colors": true,
       "terminology": 0,
+      "member_name_display": 0,
       "custom_terminology": "headmate",
       "custom_plural_terminology": "system",
       "terminology_use_english": false,

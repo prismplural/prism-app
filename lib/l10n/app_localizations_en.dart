@@ -450,6 +450,19 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose between rounded or square corners throughout the app.';
 
   @override
+  String get appearanceMemberNamesTitle => 'Member names';
+
+  @override
+  String get appearanceMemberNamesDisplay => 'Display name';
+
+  @override
+  String get appearanceMemberNamesLegacy => 'Name';
+
+  @override
+  String get appearanceMemberNamesDescription =>
+      'Choose which name to show for members across the app.';
+
+  @override
   String get appearanceAccentColor => 'Accent Color';
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/statistics_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -258,7 +259,7 @@ class _StatRow extends StatelessWidget {
   }
 }
 
-class _TopFronterRow extends StatelessWidget {
+class _TopFronterRow extends ConsumerWidget {
   const _TopFronterRow({
     required this.rank,
     required this.member,
@@ -270,9 +271,11 @@ class _TopFronterRow extends StatelessWidget {
   final int sessionCount;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final name = member?.name ?? 'Unknown';
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final name =
+        member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown';
     final emoji = member?.emoji ?? '\u2754';
 
     return Padding(
@@ -292,7 +295,7 @@ class _TopFronterRow extends StatelessWidget {
           const SizedBox(width: 8),
           MemberAvatar(
             emoji: emoji,
-            memberName: member?.name,
+            memberName: member?.effectiveName(preferDisplayName: prefer),
             avatarImageData: member?.avatarImageData,
             customColorEnabled: member?.customColorEnabled ?? false,
             customColorHex: member?.customColorHex,

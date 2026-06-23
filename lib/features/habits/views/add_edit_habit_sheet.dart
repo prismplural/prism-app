@@ -149,6 +149,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     // habit to the placeholder member. (Habit *completions* are still allowed
     // to attribute to "Unknown" via the HeadmatePicker on the complete-sheet.)
     final membersAsync = ref.watch(userVisibleAllMembersProvider);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final canSave = _nameController.text.trim().isNotEmpty;
 
@@ -318,13 +319,15 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                       error: (e, _) => Text('Error: $e'),
                       data: (members) {
                         final selectedMember = _assignedMember(members);
+                        final selectedMemberName = selectedMember
+                            ?.effectiveName(preferDisplayName: prefer);
                         watchMemberSearchGroupSources(ref);
                         return PrismListRow(
                           title: Text(
                             context.l10n.habitsAssignedMember(terms.singular),
                           ),
                           subtitle: Text(
-                            selectedMember?.name ??
+                            selectedMemberName ??
                                 context.l10n.habitsAssignedMemberAnyone,
                           ),
                           leading: selectedMember == null
@@ -336,7 +339,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                               : MemberAvatar(
                                   avatarImageData:
                                       selectedMember.avatarImageData,
-                                  memberName: selectedMember.name,
+                                  memberName: selectedMemberName,
                                   emoji: selectedMember.emoji,
                                   customColorEnabled:
                                       selectedMember.customColorEnabled,

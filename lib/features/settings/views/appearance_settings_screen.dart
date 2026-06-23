@@ -123,6 +123,28 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   },
                 ),
               ),
+              PrismSection(
+                title: context.l10n.appearanceMemberNamesTitle,
+                description: context.l10n.appearanceMemberNamesDescription,
+                child: PrismSegmentedControl<MemberNameDisplay>(
+                  segments: [
+                    PrismSegment(
+                      value: MemberNameDisplay.display,
+                      label: context.l10n.appearanceMemberNamesDisplay,
+                    ),
+                    PrismSegment(
+                      value: MemberNameDisplay.legacyName,
+                      label: context.l10n.appearanceMemberNamesLegacy,
+                    ),
+                  ],
+                  selected: ref.watch(memberNameDisplayProvider),
+                  onChanged: (value) {
+                    ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateMemberNameDisplay(value);
+                  },
+                ),
+              ),
               if (selectedThemeStyle != ThemeStyle.materialYou)
                 PrismSection(
                   title: context.l10n.appearanceAccentColor,

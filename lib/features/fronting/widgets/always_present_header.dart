@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/fronting/views/session_detail_screen.da
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
@@ -30,7 +31,12 @@ class AlwaysPresentHeader extends ConsumerWidget {
 
     final theme = Theme.of(context);
     final members = qualifying.map((q) => q.member).toList(growable: false);
-    final names = _joinNames(members);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final names = _joinNames(
+      members
+          .map((m) => m.effectiveName(preferDisplayName: prefer))
+          .toList(growable: false),
+    );
     final durationLabel = _shortestAge(qualifying).toRoundedString();
     final explicitCount = qualifying
         .where((q) => q.member.isAlwaysFronting)
@@ -130,12 +136,12 @@ Duration _shortestAge(List<AlwaysPresentMember> qualifying) {
   return shortest;
 }
 
-String _joinNames(List<Member> members) {
-  if (members.isEmpty) return '';
-  if (members.length == 1) return members[0].name;
-  if (members.length == 2) return '${members[0].name} & ${members[1].name}';
-  final head = members.take(members.length - 1).map((m) => m.name).join(', ');
-  return '$head & ${members.last.name}';
+String _joinNames(List<String> names) {
+  if (names.isEmpty) return '';
+  if (names.length == 1) return names[0];
+  if (names.length == 2) return '${names[0]} & ${names[1]}';
+  final head = names.take(names.length - 1).join(', ');
+  return '$head & ${names.last}';
 }
 
 /// Sliver delegate that hosts the sticky [AlwaysPresentHeader].

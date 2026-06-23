@@ -9,6 +9,7 @@ import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Watches all members (active and inactive).
 ///
@@ -135,16 +136,30 @@ final activeMemberByIdProvider = Provider.autoDispose
       });
     });
 
-/// Cached map of memberId → display name, derived from active members.
+/// Whether members should be shown by their display name (vs the canonical
+/// `name`). Single source of truth for the [MemberNameDisplay] preference,
+/// resolved to a plain bool so surfaces read it once instead of each widget
+/// watching the setting. Defaults to true (mode `display`).
+final memberNamePreferDisplayProvider = Provider<bool>((ref) {
+  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
+  return settings?.memberNameDisplay != MemberNameDisplay.legacyName;
+});
+
+/// Cached map of memberId → effective display name, derived from active members.
 /// Computed once and shared across all consumers (e.g., mention previews).
 ///
 /// Watches the light list shape, not [activeMembersProvider]: this map only
 /// needs names, and it's always live, so the heavy shape would re-load every
 /// member's image blobs into memory on each insert or edit.
+///
+/// Resolves each name through [memberNamePreferDisplayProvider], so this is the
+/// single memoized recompute point: it re-runs only when the member list or the
+/// display preference changes, not per leaf widget.
 final memberNameMapProvider = Provider<Map<String, String>>((ref) {
   final members = ref.watch(activeMemberListProvider).value;
   if (members == null) return const {};
-  return {for (final m in members) m.id: m.name};
+  final prefer = ref.watch(memberNamePreferDisplayProvider);
+  return {for (final m in members) m.id: m.effectiveName(preferDisplayName: prefer)};
 });
 
 /// Member CRUD notifier.

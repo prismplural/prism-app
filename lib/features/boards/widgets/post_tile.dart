@@ -124,17 +124,21 @@ class _PostTileContent extends ConsumerWidget {
   final bool showAudiencePill;
   final VoidCallback? onTap;
 
-  String _buildA11yLabel(BuildContext context) {
+  String _buildA11yLabel(BuildContext context, bool prefer) {
     final l10n = context.l10n;
     final authorName =
-        author?.name ?? post.authorId ?? l10n.boardsTileRemovedMember;
+        author?.effectiveName(preferDisplayName: prefer) ??
+        post.authorId ??
+        l10n.boardsTileRemovedMember;
     final isPublic = post.audience == 'public';
     final audienceText = isPublic ? 'public' : 'private';
 
     String recipientPart = '';
     if (post.targetMemberId != null) {
       final targetName =
-          target?.name ?? post.targetMemberId ?? l10n.boardsTileRemovedMember;
+          target?.effectiveName(preferDisplayName: prefer) ??
+          post.targetMemberId ??
+          l10n.boardsTileRemovedMember;
       recipientPart = ' to $targetName';
     } else if (isPublic) {
       recipientPart = ' ${l10n.boardsTileToEveryone}';
@@ -216,6 +220,7 @@ class _PostTileContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final perms = MemberBoardPostPermissions(
       post: post,
@@ -255,7 +260,7 @@ class _PostTileContent extends ConsumerWidget {
           context.push(AppRoutePaths.boardPost(post.id));
         }
       },
-      semanticLabel: _buildA11yLabel(context),
+      semanticLabel: _buildA11yLabel(context, prefer),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -278,6 +283,7 @@ class _PostTileContent extends ConsumerWidget {
                       authorColor: authorColor,
                       theme: theme,
                       l10n: l10n,
+                      prefer: prefer,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -412,6 +418,7 @@ class _PostHeaderParticipants extends StatelessWidget {
     required this.authorColor,
     required this.theme,
     required this.l10n,
+    required this.prefer,
   });
 
   final Member? author;
@@ -420,6 +427,7 @@ class _PostHeaderParticipants extends StatelessWidget {
   final Color authorColor;
   final ThemeData theme;
   final AppLocalizations l10n;
+  final bool prefer;
 
   @override
   Widget build(BuildContext context) {
@@ -444,8 +452,13 @@ class _PostHeaderParticipants extends StatelessWidget {
     );
 
     final showTargetAvatar = post.targetMemberId != null;
+    final authorName =
+        author?.effectiveName(preferDisplayName: prefer) ??
+        post.authorId ??
+        l10n.boardsTileRemovedMember;
     final receiverName = post.targetMemberId != null
-        ? (target?.name ?? l10n.boardsTileRemovedMember)
+        ? (target?.effectiveName(preferDisplayName: prefer) ??
+              l10n.boardsTileRemovedMember)
         : l10n.boardsTileEveryone;
 
     return Row(
@@ -454,7 +467,7 @@ class _PostHeaderParticipants extends StatelessWidget {
       children: [
         MemberAvatar(
           avatarImageData: author?.avatarImageData,
-          memberName: author?.name,
+          memberName: author?.effectiveName(preferDisplayName: prefer),
           emoji: author?.emoji ?? '❔',
           customColorEnabled: author?.customColorEnabled ?? false,
           customColorHex: author?.customColorHex,
@@ -463,7 +476,7 @@ class _PostHeaderParticipants extends StatelessWidget {
         const SizedBox(width: 6),
         Flexible(
           child: Text(
-            author?.name ?? post.authorId ?? l10n.boardsTileRemovedMember,
+            authorName,
             style: authorStyle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -477,7 +490,7 @@ class _PostHeaderParticipants extends StatelessWidget {
             opacity: 0.55,
             child: MemberAvatar(
               avatarImageData: target?.avatarImageData,
-              memberName: target?.name,
+              memberName: target?.effectiveName(preferDisplayName: prefer),
               emoji: target?.emoji ?? '❔',
               customColorEnabled: target?.customColorEnabled ?? false,
               customColorHex: target?.customColorHex,

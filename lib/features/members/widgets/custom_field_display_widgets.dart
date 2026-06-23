@@ -103,6 +103,7 @@ class _FieldInlineMarkdownTextState
     final mentionMemberMap = {
       for (final member in mentionMembers) member.id: member,
     };
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
 
     final segments = <_InlineMarkdownSegment>[];
     final matched = List.filled(data.length, false);
@@ -179,7 +180,8 @@ class _FieldInlineMarkdownTextState
           _InlineMarkdownSegment(
             start: match.start,
             end: match.end,
-            content: '@${memberMentionDisplayName(memberId, mentionMemberMap)}',
+            content:
+                '@${memberMentionDisplayName(memberId, mentionMemberMap, preferDisplayName: preferDisplayName)}',
             style: baseStyle.copyWith(
               color: mentionColor,
               fontWeight: FontWeight.w600,

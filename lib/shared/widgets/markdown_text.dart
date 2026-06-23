@@ -24,6 +24,7 @@ class MarkdownText extends StatelessWidget {
     this.imgElementBuilder,
     this.memberMap,
     this.onTapMember,
+    this.preferDisplayName = true,
     this.tableBorderless = false,
     this.tableBorderColor,
     this.textAlign,
@@ -54,6 +55,10 @@ class MarkdownText extends StatelessWidget {
 
   /// Called when a resolved member mention is tapped.
   final ValueChanged<String>? onTapMember;
+
+  /// Whether mention labels resolve through the display-name preference.
+  /// Defaults to the app default (display mode).
+  final bool preferDisplayName;
 
   /// Render tables with no borders and a neutral (non-bold) header row. Used
   /// for `:::plain` layout tables (image-beside-text) so they read clean.
@@ -120,6 +125,7 @@ class MarkdownText extends StatelessWidget {
             memberMap: memberMap,
             theme: theme,
             onTapMember: onTapMember,
+            preferDisplayName: preferDisplayName,
           ),
           'subtext': SubtextBuilder(
             baseStyle: bodyStyle,
@@ -188,6 +194,7 @@ class MarkdownText extends StatelessWidget {
       imgElementBuilder: imgElementBuilder,
       memberMap: memberMap,
       onTapMember: onTapMember,
+      preferDisplayName: preferDisplayName,
       tableBorderless: tableBorderless,
       tableBorderColor: tableBorderColor,
       textAlign: textAlign,

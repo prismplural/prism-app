@@ -115,7 +115,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 38;
+  static const currentSchemaVersion = 39;
 
   /// Optional view of the sync engine's absorbing-delete state. When the sync
   /// layer has a live engine handle it sets this so the deterministic-id rescue
@@ -1406,6 +1406,17 @@ class AppDatabase extends _$AppDatabase {
         // Idempotent: createTableIfAbsent guards a partial-failure retry
         // and dev/test DBs created at the current schema.
         await _createTableIfAbsent(migrator, syncMigrationRepairs);
+      },
+    ),
+    _MigrationStep(
+      from: 38,
+      to: 39,
+      apply: (migrator, to) async {
+        await _addColumnIfAbsent(
+          migrator,
+          systemSettingsTable,
+          systemSettingsTable.memberNameDisplay,
+        );
       },
     ),
   ];

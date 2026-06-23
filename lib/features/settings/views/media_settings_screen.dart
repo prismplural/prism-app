@@ -102,7 +102,10 @@ final tagUsageProvider = FutureProvider.autoDispose
       final boardPosts =
           ref.watch(_imageMarkdownBoardPostsProvider).value ?? const [];
 
-      final memberName = {for (final m in members) m.id: m.name};
+      final prefer = ref.watch(memberNamePreferDisplayProvider);
+      final memberName = {
+        for (final m in members) m.id: m.effectiveName(preferDisplayName: prefer),
+      };
       final fieldName = {for (final f in fields) f.id: f.name};
 
       // Each source carries the label + route to jump to if it references a tag.
@@ -118,7 +121,9 @@ final tagUsageProvider = FutureProvider.autoDispose
             TagUsageSource(
               text: bio,
               kind: TagUsageKind.bio,
-              label: l10n.mediaUsageLabelBio(m.name),
+              label: l10n.mediaUsageLabelBio(
+                m.effectiveName(preferDisplayName: prefer),
+              ),
               route: AppRoutePaths.settingsMember(m.id),
             ),
           );

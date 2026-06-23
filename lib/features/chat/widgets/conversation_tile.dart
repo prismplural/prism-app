@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -40,8 +41,10 @@ class ConversationTile extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+
     Widget tile = PrismListRow(
-      leading: _buildLeading(context, tileData),
+      leading: _buildLeading(context, tileData, prefer),
       title: Text(
         tileData.displayTitle,
         maxLines: 1,
@@ -82,7 +85,11 @@ class ConversationTile extends ConsumerWidget {
     return tile;
   }
 
-  Widget _buildLeading(BuildContext context, ConversationTileData tileData) {
+  Widget _buildLeading(
+    BuildContext context,
+    ConversationTileData tileData,
+    bool prefer,
+  ) {
     if (tileData.conversation.emoji != null) {
       return TintedGlassSurface(
         width: 40,
@@ -100,7 +107,7 @@ class ConversationTile extends ConsumerWidget {
       final member = tileData.dmPartner!;
       return MemberAvatar(
         avatarImageData: member.avatarImageData,
-        memberName: member.name,
+        memberName: member.effectiveName(preferDisplayName: prefer),
         emoji: member.emoji,
         customColorEnabled: member.customColorEnabled,
         customColorHex: member.customColorHex,

@@ -98,9 +98,16 @@ bool hasMarkdownChars(String input) {
 /// Color comes from the member's custom color when enabled, otherwise falls
 /// back to the active theme's primary color.
 class MentionBuilder extends MarkdownElementBuilder {
-  MentionBuilder({required this.authorMap, required this.theme});
+  MentionBuilder({
+    required this.authorMap,
+    required this.theme,
+    this.preferDisplayName = true,
+  });
   final Map<String, Member>? authorMap;
   final ThemeData theme;
+
+  /// Whether the mention label resolves through the display-name preference.
+  final bool preferDisplayName;
 
   @override
   Widget? visitElementAfterWithContext(
@@ -123,7 +130,9 @@ class MentionBuilder extends MarkdownElementBuilder {
     }
 
     final member = id == null ? null : authorMap?[id];
-    final name = member?.name ?? 'Unknown';
+    final name =
+        member?.effectiveName(preferDisplayName: preferDisplayName) ??
+        'Unknown';
     final mentionColor =
         (member != null &&
             member.customColorEnabled &&

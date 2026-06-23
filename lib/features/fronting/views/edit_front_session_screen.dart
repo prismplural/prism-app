@@ -309,6 +309,7 @@ class _EditFrontSessionScreenState
     final termPlural = watchTerminology(context, ref).plural;
     final sessionAsync = ref.watch(sessionByIdProvider(widget.sessionId));
     final membersAsync = ref.watch(activeMembersProvider);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return ListenableBuilder(
       listenable: _notesController,
@@ -410,6 +411,7 @@ class _EditFrontSessionScreenState
                       watchMemberSearchGroupSources(ref);
                       return _FronterPickerRow(
                         selectedMember: selected,
+                        prefer: prefer,
                         onPickerOpen: () =>
                             _openFronterPicker(members, termPlural),
                       );
@@ -456,10 +458,12 @@ class _EditFrontSessionScreenState
 class _FronterPickerRow extends StatelessWidget {
   const _FronterPickerRow({
     required this.selectedMember,
+    required this.prefer,
     required this.onPickerOpen,
   });
 
   final Member? selectedMember;
+  final bool prefer;
   final VoidCallback onPickerOpen;
 
   @override
@@ -475,7 +479,7 @@ class _FronterPickerRow extends StatelessWidget {
           children: [
             if (member != null) ...[
               MemberAvatar(
-                memberName: member.name,
+                memberName: member.effectiveName(preferDisplayName: prefer),
                 emoji: member.emoji,
                 avatarImageData: member.avatarImageData,
                 customColorEnabled: member.customColorEnabled,
@@ -484,7 +488,10 @@ class _FronterPickerRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(member.name, style: theme.textTheme.bodyLarge),
+                child: Text(
+                  member.effectiveName(preferDisplayName: prefer),
+                  style: theme.textTheme.bodyLarge,
+                ),
               ),
             ] else ...[
               Icon(

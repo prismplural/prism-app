@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/system_settings_table.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 
 part 'system_settings_dao.g.dart';
 
@@ -320,6 +321,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> updateTerminology(int value) =>
       _updateField(SystemSettingsTableCompanion(terminology: Value(value)));
+
+  Future<void> updateMemberNameDisplay(MemberNameDisplay value) => _updateField(
+    SystemSettingsTableCompanion(memberNameDisplay: Value(value.index)),
+  );
 
   Future<void> updateThemeMode(int value) =>
       _updateField(SystemSettingsTableCompanion(themeMode: Value(value)));

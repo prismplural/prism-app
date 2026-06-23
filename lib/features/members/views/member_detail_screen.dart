@@ -167,6 +167,7 @@ class _MemberDetailBody extends ConsumerWidget {
                   context,
                   isFronting,
                   bioMarkdownEnabled: bioMarkdownEnabled,
+                  preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
                 ),
               ),
             ),
@@ -209,6 +210,7 @@ class _MemberDetailBody extends ConsumerWidget {
     BuildContext context,
     bool isFronting, {
     required bool bioMarkdownEnabled,
+    required bool preferDisplayName,
   }) {
     final theme = Theme.of(context);
     return [
@@ -222,6 +224,7 @@ class _MemberDetailBody extends ConsumerWidget {
           enabled: bioMarkdownEnabled && member.markdownEnabled,
           baseStyle: theme.textTheme.bodyLarge,
           memberId: member.id,
+          // raw-name-ok: markdown mention rendering uses the canonical handle.
           memberName: member.name,
         ),
       ],
@@ -235,7 +238,7 @@ class _MemberDetailBody extends ConsumerWidget {
       NotesSection(memberId: member.id),
       MemberGroupsSection(
         memberId: member.id,
-        memberName: member.name,
+        memberName: member.effectiveName(preferDisplayName: preferDisplayName),
         branch: branch,
       ),
       ProxyTagsSection(member: member),
@@ -289,7 +292,11 @@ class _MemberDetailBody extends ConsumerWidget {
           if (context.mounted) {
             PrismToast.show(
               context,
-              message: context.l10n.memberIsFronting(member.name),
+              message: context.l10n.memberIsFronting(
+                member.effectiveName(
+                  preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+                ),
+              ),
             );
           }
         } catch (e) {
@@ -315,7 +322,8 @@ class _MemberDetailBody extends ConsumerWidget {
       context: context,
       title: 'Delete ${terms.singularLower}?',
       message:
-          'Are you sure you want to delete ${member.name}? '
+          'Are you sure you want to delete '
+          '${member.effectiveName(preferDisplayName: ref.read(memberNamePreferDisplayProvider))}? '
           'This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
@@ -759,6 +767,7 @@ class _ConversationTile extends ConsumerWidget {
         context.l10n.memberConversationFallback;
 
     final allMembersAsync = ref.watch(allMembersProvider);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     final participantsSubtitle = allMembersAsync.whenOrNull(
       data: (members) {
         final others = members
@@ -770,10 +779,12 @@ class _ConversationTile extends ConsumerWidget {
             )
             .toList();
         if (others.isEmpty) return '';
-        if (others.length == 1) return others[0].name;
-        if (others.length == 2) return '${others[0].name}, ${others[1].name}';
+        String nameOf(int i) =>
+            others[i].effectiveName(preferDisplayName: prefer);
+        if (others.length == 1) return nameOf(0);
+        if (others.length == 2) return '${nameOf(0)}, ${nameOf(1)}';
         final extra = others.length - 2;
-        return '${others[0].name}, ${others[1].name} +$extra more';
+        return '${nameOf(0)}, ${nameOf(1)} +$extra more';
       },
     );
     final messageCountText = context.l10n.settingsDataBrowserMessageCount(

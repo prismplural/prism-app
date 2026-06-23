@@ -45,6 +45,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateThemeBrightness(domain.ThemeBrightness value);
   Future<void> updateThemeStyle(domain.ThemeStyle value);
   Future<void> updateCornerStyle(domain.CornerStyle value);
+  Future<void> updateMemberNameDisplay(domain.MemberNameDisplay value);
   Future<void> updatePaletteSource(domain.PaletteSource value);
   Future<void> updatePaletteSeedColorHex(String hex);
   Future<void> updatePaletteMood(domain.PaletteMood value);

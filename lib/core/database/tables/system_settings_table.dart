@@ -23,6 +23,9 @@ class SystemSettingsTable extends Table {
       boolean().withDefault(const Constant(false))();
   IntColumn get terminology =>
       integer().withDefault(const Constant(0))(); // enum index
+  // MemberNameDisplay enum index — 0 = display (default), 1 = legacyName.
+  IntColumn get memberNameDisplay =>
+      integer().withDefault(const Constant(0))();
   TextColumn get customTerminology => text().nullable()();
   TextColumn get customPluralTerminology => text().nullable()();
   TextColumn get localeOverride => text().nullable()();

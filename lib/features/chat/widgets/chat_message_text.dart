@@ -25,6 +25,7 @@ class ChatMessageText extends StatefulWidget {
     required this.authorMap,
     required this.baseStyle,
     required this.defaultColor,
+    this.preferDisplayName = true,
     this.imgElementBuilder,
     this.imageLibraryVersion = 0,
   });
@@ -33,6 +34,10 @@ class ChatMessageText extends StatefulWidget {
   final Map<String, Member>? authorMap;
   final TextStyle baseStyle;
   final Color defaultColor;
+
+  /// Whether mention labels resolve through the display-name preference.
+  /// Threaded from the bubble (a Consumer); defaults to the app default.
+  final bool preferDisplayName;
 
   /// Optional `img` element builder. When supplied (by the message bubble,
   /// which has Riverpod access), `![](tag)` resolves to library images.
@@ -99,6 +104,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
         _mentionRenderSignature(content, widget.authorMap),
         keySalt,
         widget.imageLibraryVersion,
+        widget.preferDisplayName,
       ),
     );
 
@@ -165,6 +171,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
             theme: theme,
             defaultColor: defaultColor,
             baseStyle: effectiveBaseStyle,
+            preferDisplayName: widget.preferDisplayName,
           ),
         ),
       );
@@ -187,6 +194,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
             'mention': MentionBuilder(
               authorMap: widget.authorMap,
               theme: theme,
+              preferDisplayName: widget.preferDisplayName,
             ),
             'a': SafeLinkBuilder(theme: theme, onTap: _openExternal),
             'spoiler': SpoilerBuilder(theme: theme),
@@ -235,7 +243,7 @@ class _ChatMessageTextState extends State<ChatMessageText> {
       final member = authorMap?[memberId];
       values.addAll([
         memberId,
-        member?.name,
+        member?.effectiveName(preferDisplayName: widget.preferDisplayName),
         member?.customColorEnabled,
         member?.customColorHex,
       ]);
@@ -371,6 +379,7 @@ TextSpan buildMentionSpan({
   required ThemeData theme,
   required Color defaultColor,
   required TextStyle baseStyle,
+  bool preferDisplayName = true,
 }) {
   final defaultStyle = baseStyle.copyWith(color: defaultColor);
   final matches = chatMentionRegex.allMatches(content).toList();
@@ -396,7 +405,10 @@ TextSpan buildMentionSpan({
     final memberId = mentionIdFromMatch(match);
     final alias = broadcastAliasFromMatch(match);
     final member = memberId == null ? null : authorMap?[memberId];
-    final name = alias ?? member?.name ?? 'Unknown';
+    final name =
+        alias ??
+        member?.effectiveName(preferDisplayName: preferDisplayName) ??
+        'Unknown';
     final mentionColor = alias == null
         ? _memberColor(member, theme)
         : theme.colorScheme.primary;

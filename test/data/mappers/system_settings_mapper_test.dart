@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 /// Mirrors the corner-style / nav-bar mapper tests already in this folder.
 void main() {
   SystemSettingsData makeDbRow({
+    int memberNameDisplay = 0,
     int frontingListViewMode = 0,
     int addFrontDefaultBehavior = 0,
     int quickFrontDefaultBehavior = 0,
@@ -39,6 +40,7 @@ void main() {
       accentColorHex: '#AF8EE9',
       perMemberAccentColors: false,
       terminology: terminology,
+      memberNameDisplay: memberNameDisplay,
       customTerminology: null,
       customPluralTerminology: null,
       terminologyUseEnglish: false,
@@ -113,6 +115,28 @@ void main() {
       bioMarkdownEnabled: true,
     );
   }
+
+  group('SystemSettingsMapper — memberNameDisplay', () {
+    test('round-trips legacyName through toDomain and toCompanion', () {
+      final domain = SystemSettingsMapper.toDomain(
+        makeDbRow(memberNameDisplay: MemberNameDisplay.legacyName.index),
+      );
+      expect(domain.memberNameDisplay, MemberNameDisplay.legacyName);
+      expect(
+        SystemSettingsMapper.toCompanion(domain).memberNameDisplay.value,
+        MemberNameDisplay.legacyName.index,
+      );
+    });
+
+    test('invalid stored index falls back to display', () {
+      expect(
+        SystemSettingsMapper.toDomain(
+          makeDbRow(memberNameDisplay: 999),
+        ).memberNameDisplay,
+        MemberNameDisplay.display,
+      );
+    });
+  });
 
   group('SystemSettingsMapper — fontFamily', () {
     test('maps bundled accessible font indices', () {

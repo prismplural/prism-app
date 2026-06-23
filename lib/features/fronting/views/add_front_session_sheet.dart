@@ -510,14 +510,15 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
     if (widget.members.length > _MemberGrid._compactThreshold) {
       return _buildCompactList(context);
     }
-    return _buildLargeGrid(context);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    return _buildLargeGrid(context, prefer);
   }
 
   // ---------------------------------------------------------------------------
   // Large grid (≤12 members): 3 columns, big avatars, multi-select
   // ---------------------------------------------------------------------------
 
-  Widget _buildLargeGrid(BuildContext context) {
+  Widget _buildLargeGrid(BuildContext context, bool prefer) {
     final theme = Theme.of(context);
     final inSideSheet = ModalSideSheetMarker.of(context);
     // Always include the Unknown tile.
@@ -547,16 +548,17 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
             if (index == totalCount - 1) {
               return _gridUnknownTile(theme);
             }
-            return _gridMemberTile(theme, widget.members[index]);
+            return _gridMemberTile(theme, widget.members[index], prefer);
           },
         ),
       ],
     );
   }
 
-  Widget _gridMemberTile(ThemeData theme, Member member) {
+  Widget _gridMemberTile(ThemeData theme, Member member, bool prefer) {
     final isSelected = widget.selectedIds.contains(member.id);
     final isFronting = widget.frontingMemberIds.contains(member.id);
+    final memberName = member.effectiveName(preferDisplayName: prefer);
     return GestureDetector(
       key: Key('addFrontMemberTile-${member.id}'),
       onTap: () => widget.onToggle(member.id),
@@ -581,7 +583,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
               opacity: isFronting && !isSelected ? 0.5 : 1.0,
               child: MemberAvatar(
                 avatarImageData: member.avatarImageData,
-                memberName: member.name,
+                memberName: memberName,
                 emoji: member.emoji,
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
@@ -593,7 +595,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
             ),
             const SizedBox(height: 6),
             Text(
-              member.name,
+              memberName,
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),

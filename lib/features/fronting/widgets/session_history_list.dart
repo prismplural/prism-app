@@ -1250,7 +1250,8 @@ class _PerMemberSessionTile extends ConsumerWidget {
     final durationAccentColor = _durationAccentColor(context, accentColor);
 
     final timeRange = slice.timeRangeString(context);
-    final name = member?.name ?? 'Unknown';
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final name = member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown';
 
     final leadingWidget = isUnknown
         ? Container(
@@ -1270,7 +1271,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
             avatarImageData: member.avatarImageData,
             memberId: member.id,
             deferAvatarLookup: true,
-            memberName: member.name,
+            memberName: name,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
@@ -1567,13 +1568,16 @@ class _PeriodTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final avatarMembers = <Member>[];
     final rosterNames = <String>[];
     for (final id in period.activeMembers) {
       final member = membersMap[id];
       if (rosterNames.length < _periodRosterNameLimit) {
-        rosterNames.add(member?.name ?? 'Unknown');
+        rosterNames.add(
+          member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown',
+        );
       }
       if (member != null && avatarMembers.length < _periodAvatarMemberLimit) {
         avatarMembers.add(member);
@@ -1665,7 +1669,11 @@ class _PeriodTile extends ConsumerWidget {
                   _briefVisitorChipLimit,
                 ))
                   _BriefVisitorChip(
-                    name: membersMap[v.memberId]?.name ?? 'Unknown',
+                    name:
+                        membersMap[v.memberId]?.effectiveName(
+                          preferDisplayName: prefer,
+                        ) ??
+                        'Unknown',
                   ),
                 if (slice.briefVisitors.length > _briefVisitorChipLimit)
                   _BriefVisitorOverflowChip(

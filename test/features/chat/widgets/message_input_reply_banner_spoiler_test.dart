@@ -34,6 +34,7 @@ void main() {
               message: message,
               memberMap: {'alice-id': alice},
               onDismiss: () {},
+              prefer: false,
             ),
           ),
         ),

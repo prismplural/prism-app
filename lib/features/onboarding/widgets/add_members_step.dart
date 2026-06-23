@@ -100,6 +100,7 @@ class AddMembersStep extends ConsumerWidget {
                                           width: 40,
                                           height: 40,
                                           semanticLabel:
+                                              // raw-name-ok: avatar label only.
                                               '${member.name} avatar',
                                         ),
                                       )

@@ -77,6 +77,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
     BuildContext context,
     List<String> selectedOutsideTopIds,
     List<Member> members,
+    bool prefer,
   ) {
     if (selectedOutsideTopIds.isEmpty) return null;
     if (selectedOutsideTopIds.length > 1) {
@@ -86,7 +87,10 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
     final selectedId = selectedOutsideTopIds.single;
     if (selectedId == unknownSentinelMemberId) return context.l10n.unknown;
 
-    return members.where((member) => member.id == selectedId).firstOrNull?.name;
+    return members
+        .where((member) => member.id == selectedId)
+        .firstOrNull
+        ?.effectiveName(preferDisplayName: prefer);
   }
 
   String _greeting(BuildContext context) {
@@ -168,6 +172,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
     final theme = Theme.of(context);
     final membersAsync = ref.watch(activeMembersProvider);
     final morningCountsAsync = ref.watch(morningFrontingCountsProvider);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final duration = DateTime.now().difference(widget.session.startTime);
 
@@ -281,6 +286,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                   context,
                   selectedOutsideTopIds,
                   members,
+                  prefer,
                 );
 
                 return Column(
@@ -292,6 +298,9 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                         final isSelected = _selectedMemberIds.contains(
                           member.id,
                         );
+                        final memberName = member.effectiveName(
+                          preferDisplayName: prefer,
+                        );
                         final accentColor =
                             member.customColorEnabled &&
                                 member.customColorHex != null
@@ -301,7 +310,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: Semantics(
-                            label: member.name,
+                            label: memberName,
                             button: true,
                             selected: isSelected,
                             child: GestureDetector(
@@ -324,7 +333,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                     child: Center(
                                       child: MemberAvatar(
                                         avatarImageData: member.avatarImageData,
-                                        memberName: member.name,
+                                        memberName: memberName,
                                         emoji: member.emoji,
                                         customColorEnabled:
                                             member.customColorEnabled,
@@ -337,7 +346,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                   SizedBox(
                                     width: 64,
                                     child: Text(
-                                      member.name,
+                                      memberName,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
                                             fontWeight: isSelected

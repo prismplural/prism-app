@@ -552,6 +552,8 @@ class _CompletionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final member = _findMember();
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final memberName = member?.effectiveName(preferDisplayName: prefer);
     final actions = _contextActions(context, ref);
     final rating = completion.rating != null
         ? Semantics(
@@ -574,7 +576,7 @@ class _CompletionTile extends ConsumerWidget {
       leading: member != null
           ? MemberAvatar(
               emoji: member.emoji,
-              memberName: member.name,
+              memberName: memberName,
               customColorEnabled: member.customColorEnabled,
               customColorHex: member.customColorHex,
               avatarImageData: member.avatarImageData,
@@ -584,7 +586,7 @@ class _CompletionTile extends ConsumerWidget {
       title: Text(_formatDate(context, completion.completedAt)),
       subtitle: Text(
         [
-          if (member != null) member.name,
+          ?memberName,
           if (completion.notes != null) completion.notes!,
         ].join(' — '),
         maxLines: 1,

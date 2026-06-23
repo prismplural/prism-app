@@ -17,6 +17,7 @@ class MemberChip extends StatelessWidget {
     this.avatarSize = 20,
     this.deferAvatarLookup = true,
     this.labelMaxLines = 2,
+    this.resolvedName,
   });
 
   final Member member;
@@ -27,16 +28,22 @@ class MemberChip extends StatelessWidget {
   final bool deferAvatarLookup;
   final int labelMaxLines;
 
+  /// The effective name to render, resolved by the caller through
+  /// `memberNamePreferDisplayProvider`. Falls back to the canonical `name`
+  /// when omitted so non-Riverpod callers keep working unchanged.
+  final String? resolvedName;
+
   @override
   Widget build(BuildContext context) {
     final scaledAvatarSize = MediaQuery.textScalerOf(context).scale(avatarSize);
+    final name = resolvedName ?? member.name;
     return PrismChip(
-      label: member.name,
+      label: name,
       selected: selected,
       onTap: onTap,
       avatar: MemberAvatar(
         memberId: member.id,
-        memberName: member.name,
+        memberName: name,
         emoji: member.emoji,
         avatarImageData: member.avatarImageData,
         customColorEnabled: member.customColorEnabled,

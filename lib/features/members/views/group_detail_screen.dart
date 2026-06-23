@@ -185,6 +185,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final paneScope = ListDetailPaneScope.maybeOf(context);
     final canPopPane = paneScope?.canPopPane ?? false;
     final terms = watchTerminology(context, ref);
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
     final allGroupsAsync = ref.watch(allGroupsProvider);
     final canAddSubGroup = allGroupsAsync.hasValue;
@@ -411,6 +412,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                       reorderIndex: index,
                       totalCount: visiblePairs.length,
                       sortMode: group.sortState.mode,
+                      preferDisplayName: preferDisplayName,
                       focusNode: _focusNodeFor(entry.id),
                       onMoveTo: (newIndex) =>
                           _moveTo(visiblePairs, index, newIndex),
@@ -1603,6 +1605,7 @@ class _GroupMemberTile extends ConsumerWidget {
     required this.reorderIndex,
     required this.totalCount,
     required this.sortMode,
+    required this.preferDisplayName,
     required this.focusNode,
     required this.onMoveTo,
   });
@@ -1614,6 +1617,11 @@ class _GroupMemberTile extends ConsumerWidget {
   final int reorderIndex;
   final int totalCount;
   final GroupSortMode sortMode;
+
+  /// Hoisted from the parent `_GroupDetailBodyState.build` so the whole list
+  /// shares one `memberNamePreferDisplayProvider` watch instead of one per
+  /// visible row.
+  final bool preferDisplayName;
 
   /// Per-entry focus node owned by the parent state. After a custom-action
   /// reorder, the parent requests focus on this node so screen-reader
@@ -1663,6 +1671,10 @@ class _GroupMemberTile extends ConsumerWidget {
           confirmDismiss: (_) => _confirmRemove(context, ref, member),
           child: MemberCard(
             member: member,
+            resolvedName: member.effectiveName(
+              preferDisplayName: preferDisplayName,
+            ),
+            subtitleName: preferDisplayName ? null : member.displayName,
             deferAvatarLookup: true,
             reorderIndex: reorderIndex,
             dragHandleHint: isManual
@@ -1692,11 +1704,14 @@ class _GroupMemberTile extends ConsumerWidget {
   ) async {
     final l10n = context.l10n;
     final terms = readTerminology(context, ref);
+    final memberName = member.effectiveName(
+      preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+    );
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: l10n.memberRemoveFromGroupTitle(terms.singular),
       message: l10n.memberRemoveFromGroupMessage(
-        member.name,
+        memberName,
         terms.singularLower,
       ),
       confirmLabel: l10n.confirm,
@@ -1712,7 +1727,7 @@ class _GroupMemberTile extends ConsumerWidget {
       if (context.mounted) {
         PrismToast.show(
           context,
-          message: context.l10n.memberRemoved(member.name),
+          message: context.l10n.memberRemoved(memberName),
         );
       }
     }

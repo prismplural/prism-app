@@ -4,6 +4,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/models/search_result.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 
 class ChatSearchQueryNotifier extends Notifier<String> {
   @override
@@ -26,6 +27,7 @@ final chatSearchResultsProvider =
       final memberRepo = ref.watch(memberRepositoryProvider);
       final speakingAs = ref.watch(speakingAsProvider);
       final speakingAsMember = ref.watch(currentChatViewerProvider);
+      final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
 
       if (speakingAs == null) return [];
 
@@ -70,7 +72,9 @@ final chatSearchResultsProvider =
             snippet: r.snippet,
             timestamp: r.timestamp,
             authorId: r.authorId,
-            authorName: author?.name,
+            authorName: author?.effectiveName(
+              preferDisplayName: preferDisplayName,
+            ),
             authorEmoji: author?.emoji,
             authorAvatarData: author?.avatarImageData,
             authorCustomColorEnabled: author?.customColorEnabled,

@@ -225,6 +225,13 @@ enum GifConsentState { unknown, enabled, declined }
 
 enum SystemTerminology { members, headmates, alters, parts, facets, custom }
 
+/// System-wide rule for which member name string surfaces show.
+///
+/// `display` (default) routes through the three-tier effective-name resolver
+/// (displayName → pluralkitDisplayName → name); `legacyName` always shows the
+/// canonical `name`.
+enum MemberNameDisplay { display, legacyName }
+
 /// Fronting Preferences 1B — default state of the home-screen session list.
 ///
 /// `combinedPeriods` is the post-1A default: derived periods with avatar
@@ -256,6 +263,7 @@ abstract class SystemSettings with _$SystemSettings {
     @Default('#9070A0') String accentColorHex,
     @Default(true) bool perMemberAccentColors,
     @Default(SystemTerminology.headmates) SystemTerminology terminology,
+    @Default(MemberNameDisplay.display) MemberNameDisplay memberNameDisplay,
     String? customTerminology,
     String? customPluralTerminology,
     @Default(false) bool frontingRemindersEnabled,

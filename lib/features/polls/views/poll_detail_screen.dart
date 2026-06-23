@@ -631,6 +631,7 @@ class _VotingAsChipRow extends ConsumerWidget {
     final frontingCountsAsync = ref.watch(memberFrontingCountsProvider);
     final frontingCounts = frontingCountsAsync.value ?? const {};
     final termPlural = watchTerminology(context, ref).pluralLower;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     // Build the ordered member list: fronter first, then by frequency desc.
     final fronterMember = currentFronterId != null
@@ -663,8 +664,9 @@ class _VotingAsChipRow extends ConsumerWidget {
           final member = orderedMembers[index - 1];
           final isSelected = votingAs == member.id;
           final voted = _hasVoted(member.id);
+          final memberName = member.effectiveName(preferDisplayName: prefer);
           return PrismChip(
-            label: member.name,
+            label: memberName,
             selected: isSelected,
             onTap: () => onSelectMember(member.id),
             avatar: Stack(
@@ -672,7 +674,7 @@ class _VotingAsChipRow extends ConsumerWidget {
               children: [
                 MemberAvatar(
                   avatarImageData: member.avatarImageData,
-                  memberName: member.name,
+                  memberName: memberName,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -914,12 +916,15 @@ class _VoterNames extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       children: votes.map((vote) {
         final memberAsync = ref.watch(activeMemberByIdProvider(vote.memberId));
-        final name = memberAsync.value?.name ?? 'Unknown';
+        final name =
+            memberAsync.value?.effectiveName(preferDisplayName: prefer) ??
+            'Unknown';
         return PrismPill(
           label: vote.responseText != null && vote.responseText!.isNotEmpty
               ? '$name: ${vote.responseText}'

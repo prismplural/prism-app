@@ -236,6 +236,9 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                     },
                   ),
                 );
+                final preferDisplayName = ref.watch(
+                  memberNamePreferDisplayProvider,
+                );
 
                 return SliverList.builder(
                   itemCount: results.length,
@@ -244,6 +247,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                     return SearchResultTile(
                       result: result,
                       authorMap: authorMap,
+                      preferDisplayName: preferDisplayName,
                       onTap: () {
                         openChatConversation(
                           context,

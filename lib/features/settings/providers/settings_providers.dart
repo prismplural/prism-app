@@ -196,6 +196,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateMemberNameDisplay(MemberNameDisplay value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateMemberNameDisplay(value);
+    });
+  }
+
   Future<void> updatePaletteSource(PaletteSource source) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -897,6 +904,16 @@ final cornerStyleProvider = Provider<CornerStyle>((ref) {
   if (settings == null) return ref.watch(cachedCornerStyleProvider);
   // Bridge: domain enum index → UI enum
   return CornerStyle.values[settings.cornerStyle.index];
+});
+
+/// Synced system-wide rule for which member name surfaces show (display name
+/// vs the canonical name). Defaults to [MemberNameDisplay.display] until
+/// settings load.
+final memberNameDisplayProvider = Provider<MemberNameDisplay>((ref) {
+  return ref
+          .watch(systemSettingsProvider)
+          .whenOrNull(data: (s) => s.memberNameDisplay) ??
+      MemberNameDisplay.display;
 });
 
 /// Whether appearance settings are synced across devices.

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -108,7 +110,7 @@ const double _kChipBarHeight = 56.0;
 /// **Single-select** — pops immediately with a [MemberSearchSingleResult].
 /// **Multi-select** — shows a checkmark action and selected-count title; pops
 /// with `Set<String>`.
-class MemberSearchSheet extends StatefulWidget {
+class MemberSearchSheet extends ConsumerStatefulWidget {
   const MemberSearchSheet({
     super.key,
     required this.members,
@@ -235,10 +237,10 @@ class MemberSearchSheet extends StatefulWidget {
   }
 
   @override
-  State<MemberSearchSheet> createState() => _MemberSearchSheetState();
+  ConsumerState<MemberSearchSheet> createState() => _MemberSearchSheetState();
 }
 
-class _MemberSearchSheetState extends State<MemberSearchSheet> {
+class _MemberSearchSheetState extends ConsumerState<MemberSearchSheet> {
   late final TextEditingController _searchController;
   late final FocusNode _searchFocus;
   MemberSearchIndex? _allMembersIndex;
@@ -351,9 +353,15 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   void _popSingle(MemberSearchSingleResult result) =>
       Navigator.of(context).pop(result);
 
+  /// Resolved name-display preference for the current build. Set once in
+  /// [build] from [memberNamePreferDisplayProvider] so the row builders read it
+  /// without each watching the provider themselves.
+  bool _preferDisplayName = true;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    _preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final filtered = _filteredMembers;
     final hasGroups = widget.groups.isNotEmpty;
     final title = widget.multiSelect
@@ -623,7 +631,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
       selected: isSelected,
       leading: MemberAvatar(
         memberId: member.id,
-        memberName: member.name,
+        memberName: member.effectiveName(preferDisplayName: _preferDisplayName),
         emoji: member.emoji,
         avatarImageData: member.avatarImageData,
         customColorEnabled: member.customColorEnabled,
@@ -631,7 +639,9 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
         size: 36,
         deferAvatarLookup: true,
       ),
-      title: Text(member.name),
+      title: Text(
+        member.effectiveName(preferDisplayName: _preferDisplayName),
+      ),
       subtitle: _buildMemberSubtitle(member),
       trailing: trailing,
       onTap: () {
@@ -646,8 +656,11 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
 
   Widget? _buildMemberSubtitle(Member member) {
     final parts = <String>[];
+    // In display mode the effective name is already the title, so the display
+    // name never repeats as a subtitle; legacy mode keeps it as today.
     final fullName = member.displayName?.trim();
-    if (fullName != null &&
+    if (!_preferDisplayName &&
+        fullName != null &&
         fullName.isNotEmpty &&
         normalizeMemberSearchText(fullName) !=
             normalizeMemberSearchText(member.name.trim())) {

@@ -82,6 +82,7 @@ class _SelectedMemberPickerBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final terms = watchTerminology(context, ref);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     final selected = selectedMemberId != null
         ? members.where((m) => m.id == selectedMemberId).firstOrNull
         : null;
@@ -102,6 +103,7 @@ class _SelectedMemberPickerBody extends ConsumerWidget {
           _SelectedMemberTile(
             member: selected,
             showPronouns: showPronouns,
+            prefer: prefer,
             onPressed: onPressed,
           ),
       ],
@@ -171,6 +173,7 @@ class _SelectedMultiMemberPickerBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final terms = watchTerminology(context, ref);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     final selectedMembers = members
         .where((member) => selectedMemberIds.contains(member.id))
         .toList();
@@ -202,6 +205,7 @@ class _SelectedMultiMemberPickerBody extends ConsumerWidget {
             itemBuilder: (context, index) => _SelectedMemberTile(
               member: selectedMembers[index],
               showPronouns: showPronouns,
+              prefer: prefer,
             ),
           ),
         ),
@@ -252,11 +256,13 @@ class _SelectedMemberTile extends StatelessWidget {
   const _SelectedMemberTile({
     required this.member,
     required this.showPronouns,
+    required this.prefer,
     this.onPressed,
   });
 
   final Member member;
   final bool showPronouns;
+  final bool prefer;
   final VoidCallback? onPressed;
 
   @override
@@ -276,7 +282,7 @@ class _SelectedMemberTile extends StatelessWidget {
               children: [
                 MemberAvatar(
                   avatarImageData: member.avatarImageData,
-                  memberName: member.name,
+                  memberName: member.effectiveName(preferDisplayName: prefer),
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -287,7 +293,10 @@ class _SelectedMemberTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(member.name, style: theme.textTheme.titleSmall),
+                      Text(
+                        member.effectiveName(preferDisplayName: prefer),
+                        style: theme.textTheme.titleSmall,
+                      ),
                       if (showPronouns && member.pronouns != null)
                         Text(
                           member.pronouns!,

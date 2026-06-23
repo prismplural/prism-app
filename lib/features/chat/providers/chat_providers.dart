@@ -641,9 +641,11 @@ class ChatNotifier extends AsyncNotifier<void> {
       final memberRepo = ref.read(memberRepositoryProvider);
       final member = await memberRepo.getMemberById(memberId);
       if (member != null && !member.isDeleted) {
+        final prefer = ref.read(memberNamePreferDisplayProvider);
+        final name = member.effectiveName(preferDisplayName: prefer);
         await _sendSystemMessage(
           conversationId,
-          '${member.name} was removed by $removedByName',
+          '$name was removed by $removedByName',
         );
       }
     }
@@ -695,9 +697,11 @@ class ChatNotifier extends AsyncNotifier<void> {
 
       await convRepo.updateConversation(conv.copyWith(creatorId: newCreatorId));
 
+      final prefer = ref.read(memberNamePreferDisplayProvider);
+      final name = member.effectiveName(preferDisplayName: prefer);
       await _sendSystemMessage(
         conversationId,
-        '${member.name} is now the conversation owner',
+        '$name is now the conversation owner',
       );
     });
   }
@@ -817,9 +821,11 @@ class ChatNotifier extends AsyncNotifier<void> {
       final member = await memberRepo.getMemberById(memberId);
       await _removeParticipantCore(conversationId, memberId);
       if (member != null && !member.isDeleted) {
+        final prefer = ref.read(memberNamePreferDisplayProvider);
+        final name = member.effectiveName(preferDisplayName: prefer);
         await _sendSystemMessage(
           conversationId,
-          '${member.name} left the conversation',
+          '$name left the conversation',
         );
       }
     });
@@ -982,10 +988,12 @@ class ChatNotifier extends AsyncNotifier<void> {
         if (addedByName != null && newIds.isNotEmpty) {
           final memberRepo = ref.read(memberRepositoryProvider);
           final members = await memberRepo.getMembersByIds(newIds.toList());
+          final prefer = ref.read(memberNamePreferDisplayProvider);
           for (final member in members.where((member) => !member.isDeleted)) {
+            final name = member.effectiveName(preferDisplayName: prefer);
             await _sendSystemMessage(
               conversationId,
-              '${member.name} was added by $addedByName',
+              '$name was added by $addedByName',
             );
           }
         }
@@ -1376,6 +1384,11 @@ class ConversationTileData {
   final String? lastMessageAuthorName;
   final String? lastMessageDisplayContent;
 
+  /// System-wide display preference, captured once so the synchronous
+  /// [displayTitle] getter can resolve participant names through
+  /// `effectiveName` without a `ref`.
+  final bool preferDisplayName;
+
   const ConversationTileData({
     required this.conversation,
     this.lastMessage,
@@ -1386,6 +1399,7 @@ class ConversationTileData {
     this.dmPartner,
     this.lastMessageAuthorName,
     this.lastMessageDisplayContent,
+    this.preferDisplayName = true,
   });
 
   bool get hasUnread {
@@ -1406,7 +1420,13 @@ class ConversationTileData {
     if (conversation.includesAllMembers) return 'Everyone';
     final otherNames = conversation.participantIds
         .where((id) => id != speakingAs)
-        .map((id) => participantMap[id]?.name ?? 'Unknown')
+        .map(
+          (id) =>
+              participantMap[id]?.effectiveName(
+                preferDisplayName: preferDisplayName,
+              ) ??
+              'Unknown',
+        )
         .toList();
     if (otherNames.isEmpty) return 'Conversation';
     return otherNames.join(', ');
@@ -1472,6 +1492,11 @@ final conversationTileDataProvider = Provider.autoDispose
       // Mention name map — always watch to keep the dependency graph stable.
       final nameMap = ref.watch(memberNameMapProvider);
 
+      // System-wide display preference: resolve participant/author names
+      // through `effectiveName` so the tile title and last-message author
+      // honor it just like every other member-name render.
+      final prefer = ref.watch(memberNamePreferDisplayProvider);
+
       // DM partner: derive from participantMap (already batch-loaded) rather than
       // a conditional ref.watch() that would destabilize the dependency graph.
       Member? dmPartner;
@@ -1492,7 +1517,8 @@ final conversationTileDataProvider = Provider.autoDispose
       String? lastMessageDisplayContent;
       if (lastMessage != null) {
         if (lastMessage.authorId != null) {
-          lastMessageAuthorName = participantMap[lastMessage.authorId]?.name;
+          lastMessageAuthorName = participantMap[lastMessage.authorId]
+              ?.effectiveName(preferDisplayName: prefer);
         }
         lastMessageDisplayContent = buildTilePreviewContent(
           lastMessage.content,
@@ -1510,6 +1536,7 @@ final conversationTileDataProvider = Provider.autoDispose
         dmPartner: dmPartner,
         lastMessageAuthorName: lastMessageAuthorName,
         lastMessageDisplayContent: lastMessageDisplayContent,
+        preferDisplayName: prefer,
       );
     });
 

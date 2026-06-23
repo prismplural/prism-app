@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -37,8 +38,12 @@ Widget _buildSheet({
   Set<String> initialSelected = const {},
   Set<String> fronterIds = const {},
   String? fronterSectionLabel,
+  bool preferDisplayName = true,
 }) {
   return ProviderScope(
+    overrides: [
+      memberNamePreferDisplayProvider.overrideWithValue(preferDisplayName),
+    ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
@@ -262,6 +267,7 @@ void main() {
     testWidgets('shows distinct full name in member rows', (tester) async {
       await tester.pumpWidget(
         _buildSheet(
+          preferDisplayName: false,
           members: [
             _member(
               id: 'reverie',
@@ -282,6 +288,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _buildSheet(
+          preferDisplayName: false,
           members: [_member(id: 'alice', name: 'alice', displayName: 'Alice')],
         ),
       );

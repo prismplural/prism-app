@@ -64,12 +64,17 @@ class _MemberTilePrefs {
     required this.showFrontButtons,
     required this.frontButtonBehavior,
     required this.frontingActionBusy,
+    required this.preferDisplayName,
   });
 
   final bool showPronouns;
   final bool showFrontButtons;
   final FrontStartBehavior frontButtonBehavior;
   final bool frontingActionBusy;
+
+  /// Display-name preference resolved once per build so each tile renders the
+  /// effective name without watching the setting itself.
+  final bool preferDisplayName;
 }
 
 /// Main member list screen.
@@ -159,6 +164,27 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     final l10n = context.l10n;
     final availableMembers = members ?? const <Member>[];
     final canSearch = availableMembers.isNotEmpty;
+    // Read the display preference once for the alphabetical sorts below so the
+    // comparators resolve effective names without per-row watches.
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
+    // Compares by effective name in [direction]; ties fall back to the
+    // canonical name then id (always ascending) so order is deterministic.
+    int compareByEffectiveName(Member a, Member b, {required int direction}) {
+      final byName =
+          direction *
+          a
+              .effectiveName(preferDisplayName: preferDisplayName)
+              .toLowerCase()
+              .compareTo(
+                b
+                    .effectiveName(preferDisplayName: preferDisplayName)
+                    .toLowerCase(),
+              );
+      if (byName != 0) return byName;
+      final byCanonical = a.name.compareTo(b.name);
+      if (byCanonical != 0) return byCanonical;
+      return a.id.compareTo(b.id);
+    }
 
     final entries = <Widget Function(BuildContext, VoidCallback)>[
       (ctx, close) {
@@ -241,7 +267,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
             close();
             _reorderBy(
               availableMembers,
-              (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+              (a, b) => compareByEffectiveName(a, b, direction: 1),
             );
           },
         ),
@@ -253,7 +279,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
             close();
             _reorderBy(
               availableMembers,
-              (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()),
+              (a, b) => compareByEffectiveName(a, b, direction: -1),
             );
           },
         ),
@@ -455,11 +481,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       }),
     );
     Haptics.selection();
+    final name = member.effectiveName(
+      preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+    );
     PrismToast.show(
       context,
       message: newActive
-          ? context.l10n.memberActivated(member.name)
-          : context.l10n.memberDeactivated(member.name),
+          ? context.l10n.memberActivated(name)
+          : context.l10n.memberDeactivated(name),
     );
   }
 
@@ -614,11 +643,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
     final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final memberTilePrefs = _MemberTilePrefs(
       showPronouns: showPronouns,
       showFrontButtons: showFrontButtons,
       frontButtonBehavior: frontButtonBehavior,
       frontingActionBusy: frontingActionBusy,
+      preferDisplayName: preferDisplayName,
     );
     final showGroups = ref.watch(membersShowGroupsProvider);
     final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
@@ -1236,12 +1267,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   }) {
     final theme = Theme.of(context);
     final actions = _memberContextActions(member, isFronting);
+    final resolvedName = member.effectiveName(
+      preferDisplayName: memberTilePrefs.preferDisplayName,
+    );
     final frontButtonLabel = switch (memberTilePrefs.frontButtonBehavior) {
       FrontStartBehavior.additive => context.l10n.memberFrontButtonAddSemantic(
-        member.name,
+        resolvedName,
       ),
       FrontStartBehavior.replace =>
-        context.l10n.memberFrontButtonReplaceSemantic(member.name),
+        context.l10n.memberFrontButtonReplaceSemantic(resolvedName),
     };
 
     return BlurPopupAnchor(
@@ -1267,6 +1301,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       },
       child: MemberCard(
         member: member,
+        resolvedName: resolvedName,
+        subtitleName: memberTilePrefs.preferDisplayName
+            ? null
+            : member.displayName,
         deferAvatarLookup: true,
         showPronouns: memberTilePrefs.showPronouns,
         selected: isDetailSelected(member.id),
@@ -1342,7 +1380,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         label: context.l10n.delete,
         icon: AppIcons.deleteOutline,
         destructive: true,
-        onSelected: () => _confirmDeleteMember(context, member.id, member.name),
+        onSelected: () => _confirmDeleteMember(
+          context,
+          member.id,
+          member.effectiveName(
+            preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+          ),
+        ),
       ),
     ];
   }
@@ -1354,11 +1398,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     }
 
     final terms = readTerminology(context, ref);
+    final name = member.effectiveName(
+      preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+    );
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Archive ${terms.singularLower}?',
       message:
-          '${member.name} will be moved to inactive ${terms.pluralLower}. '
+          '$name will be moved to inactive ${terms.pluralLower}. '
           'You can show inactive ${terms.pluralLower} and unarchive them later.',
       confirmLabel: 'Archive',
     );
@@ -1380,7 +1427,11 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       if (!mounted) return;
       PrismToast.show(
         context,
-        message: context.l10n.memberIsFronting(member.name),
+        message: context.l10n.memberIsFronting(
+          member.effectiveName(
+            preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1395,7 +1446,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     ManageGroupsSheet.show(
       context,
       memberId: member.id,
-      memberName: member.name,
+      memberName: member.effectiveName(
+        preferDisplayName: ref.read(memberNamePreferDisplayProvider),
+      ),
     );
   }
 }

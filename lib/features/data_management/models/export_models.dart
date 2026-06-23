@@ -1197,6 +1197,7 @@ class V1SystemSettings {
     this.accentColorHex = '#9070A0',
     this.perMemberAccentColors = true,
     this.terminology = 0,
+    this.memberNameDisplay = 0,
     this.customTerminology,
     this.customPluralTerminology,
     this.terminologyUseEnglish = false,
@@ -1278,6 +1279,7 @@ class V1SystemSettings {
   final String accentColorHex;
   final bool perMemberAccentColors;
   final int terminology;
+  final int memberNameDisplay; // MemberNameDisplay enum index
   final String? customTerminology;
   final String? customPluralTerminology;
   final bool terminologyUseEnglish;
@@ -1360,6 +1362,7 @@ class V1SystemSettings {
     'accentColorHex': accentColorHex,
     'perMemberAccentColors': perMemberAccentColors,
     'terminology': terminology,
+    'memberNameDisplay': memberNameDisplay,
     if (customTerminology != null) 'customTerminology': customTerminology,
     if (customPluralTerminology != null)
       'customPluralTerminology': customPluralTerminology,
@@ -1443,6 +1446,7 @@ class V1SystemSettings {
     accentColorHex: json['accentColorHex'] as String? ?? '#9070A0',
     perMemberAccentColors: json['perMemberAccentColors'] as bool? ?? true,
     terminology: json['terminology'] as int? ?? 0,
+    memberNameDisplay: json['memberNameDisplay'] as int? ?? 0,
     customTerminology: json['customTerminology'] as String?,
     customPluralTerminology: json['customPluralTerminology'] as String?,
     terminologyUseEnglish: json['terminologyUseEnglish'] as bool? ?? false,

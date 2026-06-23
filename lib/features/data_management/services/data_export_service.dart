@@ -639,6 +639,7 @@ class DataExportService {
     accentColorHex: s.accentColorHex,
     perMemberAccentColors: s.perMemberAccentColors,
     terminology: s.terminology.index,
+    memberNameDisplay: s.memberNameDisplay.index,
     customTerminology: s.customTerminology,
     customPluralTerminology: s.customPluralTerminology,
     terminologyUseEnglish: s.terminologyUseEnglish,

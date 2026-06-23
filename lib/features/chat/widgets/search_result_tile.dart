@@ -13,10 +13,15 @@ class SearchResultTile extends StatelessWidget {
     required this.result,
     required this.onTap,
     this.authorMap = const <String, Member>{},
+    this.preferDisplayName = true,
   });
 
   final MessageSearchResult result;
   final VoidCallback onTap;
+
+  /// Whether mention labels in the snippet resolve through the display-name
+  /// preference. Defaults to the app default (display mode).
+  final bool preferDisplayName;
 
   /// Members keyed by ID, used to resolve `@[uuid]` mention tokens in the
   /// snippet to colored `@MemberName` chips. Defaults to an empty map so
@@ -169,7 +174,9 @@ class SearchResultTile extends StatelessWidget {
       }
       if (region.isMention) {
         final member = authorMap[region.payload];
-        final name = member?.name ?? 'Unknown';
+        final name =
+            member?.effectiveName(preferDisplayName: preferDisplayName) ??
+            'Unknown';
         final mentionColor = (member != null &&
                 member.customColorEnabled &&
                 member.customColorHex != null)

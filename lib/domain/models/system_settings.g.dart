@@ -17,6 +17,12 @@ _SystemSettings _$SystemSettingsFromJson(
   terminology:
       $enumDecodeNullable(_$SystemTerminologyEnumMap, json['terminology']) ??
       SystemTerminology.headmates,
+  memberNameDisplay:
+      $enumDecodeNullable(
+        _$MemberNameDisplayEnumMap,
+        json['memberNameDisplay'],
+      ) ??
+      MemberNameDisplay.display,
   customTerminology: json['customTerminology'] as String?,
   customPluralTerminology: json['customPluralTerminology'] as String?,
   frontingRemindersEnabled: json['frontingRemindersEnabled'] as bool? ?? false,
@@ -178,6 +184,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'accentColorHex': instance.accentColorHex,
   'perMemberAccentColors': instance.perMemberAccentColors,
   'terminology': _$SystemTerminologyEnumMap[instance.terminology]!,
+  'memberNameDisplay': _$MemberNameDisplayEnumMap[instance.memberNameDisplay]!,
   'customTerminology': instance.customTerminology,
   'customPluralTerminology': instance.customPluralTerminology,
   'frontingRemindersEnabled': instance.frontingRemindersEnabled,
@@ -264,6 +271,11 @@ const _$SystemTerminologyEnumMap = {
   SystemTerminology.parts: 'parts',
   SystemTerminology.facets: 'facets',
   SystemTerminology.custom: 'custom',
+};
+
+const _$MemberNameDisplayEnumMap = {
+  MemberNameDisplay.display: 'display',
+  MemberNameDisplay.legacyName: 'legacyName',
 };
 
 const _$AppThemeModeEnumMap = {

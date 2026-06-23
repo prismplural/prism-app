@@ -103,6 +103,7 @@ class NotesFilterBar extends StatelessWidget implements PreferredSizeWidget {
                             if (filter.member case final member?)
                               MemberChip(
                                 member: member,
+                                resolvedName: filter.label,
                                 onTap: onClearMemberFilter == null
                                     ? null
                                     : () => onClearMemberFilter!(filter.id),

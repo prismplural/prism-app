@@ -479,6 +479,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     final targetMember = _targetMemberId != null
         ? ref.watch(activeMemberByIdProvider(_targetMemberId!)).value
         : null;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
     try {
@@ -525,7 +526,9 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
                       children: [
                         Semantics(
                           label:
-                              targetMember?.name ??
+                              targetMember?.effectiveName(
+                                preferDisplayName: prefer,
+                              ) ??
                               l10n.boardsComposeToNoHeadmate,
                           button: true,
                           child: InkWell(
@@ -539,7 +542,9 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
                                     MemberAvatar(
                                       avatarImageData:
                                           targetMember.avatarImageData,
-                                      memberName: targetMember.name,
+                                      memberName: targetMember.effectiveName(
+                                        preferDisplayName: prefer,
+                                      ),
                                       emoji: targetMember.emoji,
                                       customColorEnabled:
                                           targetMember.customColorEnabled,
@@ -556,7 +561,9 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      targetMember?.name ??
+                                      targetMember?.effectiveName(
+                                            preferDisplayName: prefer,
+                                          ) ??
                                           l10n.boardsComposeToNoHeadmate,
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
@@ -680,6 +687,8 @@ class _BottomToolbar extends ConsumerWidget {
     final authorMember = speakingAsId != null
         ? ref.watch(activeMemberByIdProvider(speakingAsId)).value
         : null;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final authorName = authorMember?.effectiveName(preferDisplayName: prefer);
 
     return Container(
       padding: EdgeInsets.only(
@@ -699,8 +708,9 @@ class _BottomToolbar extends ConsumerWidget {
         builder: (context, constraints) {
           final authorSelector = !isEditing
               ? _AuthorSelectorButton(
-                  label: authorMember?.name ?? l10n.boardsComposeSelectAuthor,
+                  label: authorName ?? l10n.boardsComposeSelectAuthor,
                   authorMember: authorMember,
+                  authorName: authorName,
                   mutedColor: mutedColor,
                   onTap: onPickAuthor,
                 )
@@ -784,12 +794,14 @@ class _AuthorSelectorButton extends StatelessWidget {
   const _AuthorSelectorButton({
     required this.label,
     required this.authorMember,
+    required this.authorName,
     required this.mutedColor,
     required this.onTap,
   });
 
   final String label;
   final Member? authorMember;
+  final String? authorName;
   final Color mutedColor;
   final VoidCallback onTap;
 
@@ -813,7 +825,7 @@ class _AuthorSelectorButton extends StatelessWidget {
               child: authorMember != null
                   ? MemberAvatar(
                       avatarImageData: authorMember!.avatarImageData,
-                      memberName: authorMember!.name,
+                      memberName: authorName,
                       emoji: authorMember!.emoji,
                       customColorEnabled: authorMember!.customColorEnabled,
                       customColorHex: authorMember!.customColorHex,

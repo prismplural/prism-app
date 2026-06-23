@@ -3250,6 +3250,7 @@ DriftSyncEntity _systemSettingsEntity(
         'accent_color_hex': r.accentColorHex,
         'per_member_accent_colors': r.perMemberAccentColors,
         'terminology': r.terminology,
+        'member_name_display': r.memberNameDisplay,
         'custom_terminology': r.customTerminology,
         'custom_plural_terminology': r.customPluralTerminology,
         'terminology_use_english': r.terminologyUseEnglish,
@@ -3336,6 +3337,7 @@ DriftSyncEntity _systemSettingsEntity(
         accentColorHex: f.stringField('accent_color_hex'),
         perMemberAccentColors: f.boolField('per_member_accent_colors'),
         terminology: f.intField('terminology'),
+        memberNameDisplay: f.intField('member_name_display'),
         customTerminology: f.stringFieldNullable('custom_terminology'),
         customPluralTerminology: f.stringFieldNullable(
           'custom_plural_terminology',
@@ -3436,6 +3438,7 @@ DriftSyncEntity _systemSettingsEntity(
         'accent_color_hex': row.accentColorHex,
         'per_member_accent_colors': row.perMemberAccentColors,
         'terminology': row.terminology,
+        'member_name_display': row.memberNameDisplay,
         'custom_terminology': row.customTerminology,
         'custom_plural_terminology': row.customPluralTerminology,
         'terminology_use_english': row.terminologyUseEnglish,

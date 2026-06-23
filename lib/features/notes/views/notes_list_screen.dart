@@ -288,6 +288,7 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
   }
 
   PreferredSizeWidget _buildFilterBar(AppLocalizations l10n) {
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
     final membersById = {
       for (final member
           in ref.watch(userVisibleMemberListProvider).value ?? const <Member>[])
@@ -302,7 +303,11 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
             avatar: Icon(AppIcons.removeCircleOutline, size: 20),
           )
         else if (membersById[memberId] case final member?)
-          NotesMemberFilter(id: memberId, label: member.name, member: member),
+          NotesMemberFilter(
+            id: memberId,
+            label: member.effectiveName(preferDisplayName: prefer),
+            member: member,
+          ),
     ];
 
     return NotesFilterBar(
@@ -594,6 +599,7 @@ class _NoteCard extends ConsumerWidget {
         ? ref.watch(activeMemberByIdProvider(note.memberId!))
         : null;
     final member = memberAsync?.value;
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     Color? colorBar;
     if (note.colorHex != null) {
@@ -616,7 +622,8 @@ class _NoteCard extends ConsumerWidget {
         : l10n.memberNoteUntitled;
 
     final semanticLabel = member != null
-        ? '$titleLabel. ${l10n.memberSectionNotes}. ${member.name}. $dateLabel.'
+        ? '$titleLabel. ${l10n.memberSectionNotes}. '
+              '${member.effectiveName(preferDisplayName: prefer)}. $dateLabel.'
         : '$titleLabel. ${l10n.memberSectionNotes}. $dateLabel.';
 
     return PrismSectionCard(
@@ -700,6 +707,9 @@ class _NoteCard extends ConsumerWidget {
                       const SizedBox(width: 12),
                       MemberChip(
                         member: member,
+                        resolvedName: member.effectiveName(
+                          preferDisplayName: prefer,
+                        ),
                         style: MemberChipStyle.inline,
                         avatarSize: 20,
                       ),

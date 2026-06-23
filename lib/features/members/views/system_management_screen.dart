@@ -146,6 +146,7 @@ class _SystemManagementScreenState
     final l10n = context.l10n;
     // System management is a user-facing list — hide the Unknown sentinel.
     final membersAsync = ref.watch(userVisibleMembersProvider);
+    final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -280,7 +281,9 @@ class _SystemManagementScreenState
                               checkboxAffinity: PrismCheckboxAffinity.leading,
                               value: isSelected,
                               onChanged: (_) => _toggleSelection(member.id),
-                              title: Text(member.name),
+                              title: Text(
+                                member.effectiveName(preferDisplayName: prefer),
+                              ),
                               subtitle: member.pronouns != null
                                   ? Text(member.pronouns!)
                                   : null,
@@ -294,7 +297,9 @@ class _SystemManagementScreenState
                           return PrismListRow(
                             key: ValueKey(member.id),
                             leading: CircleAvatar(child: Text(member.emoji)),
-                            title: Text(member.name),
+                            title: Text(
+                              member.effectiveName(preferDisplayName: prefer),
+                            ),
                             subtitle: member.pronouns != null
                                 ? Text(member.pronouns!)
                                 : null,

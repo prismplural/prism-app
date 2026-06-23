@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
@@ -144,6 +145,10 @@ Widget _wrap(PkMappingController controller) {
       // mount without exploding.
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       pkMappingControllerProvider.overrideWith(() => controller),
+      // The member search sheet reads this internally; pin it so opening the
+      // sheet doesn't mount the drift-backed settings stream (leaves a pending
+      // timer at teardown).
+      memberNamePreferDisplayProvider.overrideWithValue(true),
     ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,

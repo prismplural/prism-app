@@ -389,12 +389,18 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                             (member) => member.id == _targetMemberId,
                           );
                           watchMemberSearchGroupSources(ref);
+                          final prefer = ref.watch(
+                            memberNamePreferDisplayProvider,
+                          );
+                          final selectedName = selectedMember?.effectiveName(
+                            preferDisplayName: prefer,
+                          );
                           return PrismListRow(
                             leading: selectedMember != null
                                 ? MemberAvatar(
                                     avatarImageData:
                                         selectedMember.avatarImageData,
-                                    memberName: selectedMember.name,
+                                    memberName: selectedName!,
                                     emoji: selectedMember.emoji,
                                     customColorEnabled:
                                         selectedMember.customColorEnabled,
@@ -404,7 +410,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                                   )
                                 : Icon(AppIcons.peopleOutline),
                             title: Text(
-                              selectedMember?.name ??
+                              selectedName ??
                                   context.l10n.remindersTargetAny,
                             ),
                             subtitle: selectedMember != null

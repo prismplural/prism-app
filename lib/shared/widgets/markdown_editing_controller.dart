@@ -16,6 +16,7 @@ class MarkdownEditingController extends TextEditingController {
   TextStyle _baseStyle = const TextStyle();
   bool _themeReady = false;
   Map<String, Member> _mentionMembers = const {};
+  bool _preferDisplayName = true;
 
   // Cache: parsed spans are expensive to build on every keystroke.
   // Invalidated when text changes or when updateTheme() is called.
@@ -35,9 +36,16 @@ class MarkdownEditingController extends TextEditingController {
     _cachedChildren = null;
   }
 
-  void updateMentionMembers(Map<String, Member> members) {
-    if (_sameMentionMembers(_mentionMembers, members)) return;
+  void updateMentionMembers(
+    Map<String, Member> members, {
+    bool preferDisplayName = true,
+  }) {
+    if (_preferDisplayName == preferDisplayName &&
+        _sameMentionMembers(_mentionMembers, members)) {
+      return;
+    }
     _mentionMembers = Map<String, Member>.unmodifiable(members);
+    _preferDisplayName = preferDisplayName;
     _cachedText = null;
     _cachedChildren = null;
     notifyListeners();
@@ -151,7 +159,8 @@ class MarkdownEditingController extends TextEditingController {
                 member.customColorHex != null
             ? AppColors.fromHex(member.customColorHex!)
             : _mentionFallbackColor;
-        final display = '@${member?.name ?? 'Unknown'}';
+        final display =
+            '@${member?.effectiveName(preferDisplayName: _preferDisplayName) ?? 'Unknown'}';
         final hiddenLength = mention.end - mention.start - display.length;
         spans.add(
           TextSpan(
