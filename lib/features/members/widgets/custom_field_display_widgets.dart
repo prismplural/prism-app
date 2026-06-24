@@ -13,7 +13,6 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/safe_link.dart';
 import 'package:prism_plurality/shared/utils/text_presentation.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Shared display widget helpers extracted from custom_fields_display.dart.
@@ -320,119 +319,21 @@ class _InlineMarkdownSegment {
   final String? memberId;
 }
 
-/// Renders a long text value with a line/character preview and a "View more"
-/// sheet opener when the text is truncated.
+/// Renders a long text custom field value in full. It sits on a scrollable
+/// member detail surface, so long values grow the scroll extent.
 class FieldLongTextPreview extends StatelessWidget {
-  const FieldLongTextPreview({
-    super.key,
-    required this.title,
-    required this.data,
-    this.style,
-  });
+  const FieldLongTextPreview({super.key, required this.data, this.style});
 
-  static const _previewCharacterLimit = 900;
-  static const _previewLineLimit = 12;
-
-  final String title;
   final String data;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final preview = _buildPreview(data);
-    final isTruncated = preview != data;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PrismMarkdownText(
-          data: isTruncated ? '$preview...' : data,
-          enabled: true,
-          baseStyle: style ?? theme.textTheme.bodyMedium,
-        ),
-        if (isTruncated) ...[
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => _openDetail(context),
-            child: Text(
-              'View more',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _openDetail(BuildContext context) {
-    PrismSheet.showFullScreen<void>(
-      context: context,
-      builder: (context, scrollController) => _FieldDetailSheet(
-        title: title,
-        data: data,
-        scrollController: scrollController,
-      ),
-    );
-  }
-
-  String _buildPreview(String raw) {
-    final lines = raw.split('\n');
-    var preview = lines.length > _previewLineLimit
-        ? lines.take(_previewLineLimit).join('\n')
-        : raw;
-
-    if (preview.length > _previewCharacterLimit) {
-      preview = preview.substring(0, _previewCharacterLimit);
-      final lastWhitespace = preview.lastIndexOf(RegExp(r'\s'));
-      if (lastWhitespace > _previewCharacterLimit * 0.65) {
-        preview = preview.substring(0, lastWhitespace);
-      }
-    }
-
-    return preview.trimRight();
-  }
-}
-
-class _FieldDetailSheet extends StatelessWidget {
-  const _FieldDetailSheet({
-    required this.title,
-    required this.data,
-    required this.scrollController,
-  });
-
-  final String title;
-  final String data;
-  final ScrollController scrollController;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(title: title),
-          Expanded(
-            child: ListView(
-              controller: scrollController,
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-              children: [
-                PrismMarkdownText(
-                  data: data,
-                  enabled: true,
-                  baseStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    height: 1.55,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return PrismMarkdownText(
+      data: data,
+      enabled: true,
+      baseStyle: style ?? theme.textTheme.bodyMedium,
     );
   }
 }

@@ -162,7 +162,7 @@ Widget buildLongTextDisplay(
   CustomField field,
   CustomFieldValue value,
 ) {
-  return FieldLongTextPreview(title: field.name, data: value.value);
+  return FieldLongTextPreview(data: value.value);
 }
 
 Widget buildLongTextCompact(
@@ -170,7 +170,7 @@ Widget buildLongTextCompact(
   CustomField field,
   CustomFieldValue value,
 ) {
-  return FieldLongTextPreview(title: field.name, data: value.value);
+  return FieldLongTextPreview(data: value.value);
 }
 
 // ─── color ────────────────────────────────────────────────────────────────

@@ -1550,7 +1550,7 @@ void main() {
     expect(find.text('Protector'), findsOneWidget);
   });
 
-  testWidgets('long text truncates and opens full detail sheet', (
+  testWidgets('long text renders in full inline without truncation', (
     tester,
   ) async {
     final longBody = '${List.filled(180, 'filler').join(' ')} FINAL_SENTINEL';
@@ -1563,14 +1563,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('View more'), findsOneWidget);
-    expect(_hasRichTextContaining(tester, 'FINAL_SENTINEL'), isFalse);
-
-    await tester.ensureVisible(find.text('View more'));
-    await tester.tap(find.text('View more'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Second bio'), findsWidgets);
+    // The trailing sentinel sits past the old preview limit, so finding it
+    // proves the value renders in full instead of truncated.
+    expect(find.text('View more'), findsNothing);
     expect(_hasRichTextContaining(tester, 'FINAL_SENTINEL'), isTrue);
   });
 
