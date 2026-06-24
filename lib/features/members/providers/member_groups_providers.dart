@@ -406,7 +406,11 @@ final _groupedMemberListStructureProvider = Provider<List<GroupedMemberListItem>
 
   final result = <GroupedMemberListItem>[];
 
+  // Cycle guard mirroring the other walkers in group_tree_utils.dart: a cyclic
+  // tree (e.g. a self-parent) would otherwise recurse forever and crash here.
+  final visited = <String>{};
   void visitGroup(MemberGroup group, int depth) {
+    if (!visited.add(group.id)) return;
     result.add(
       GroupSectionItem(group: group, depth: depth, isCollapsed: false),
     );

@@ -398,6 +398,19 @@ void main() {
       final allIds = tree.values.expand((l) => l).map((g) => g.id).toSet();
       expect(allIds, containsAll(['a', 'b', 'c']));
     });
+
+    test('self-parent is promoted to root', () {
+      // The createdAt/id tiebreak can't break a self-parent, so it needs
+      // explicit handling. Reachable via sync/import.
+      final selfParent = _group(id: 'a', parentGroupId: 'a');
+      final result = GroupTreeUtils.resolveSyncCycles([selfParent]);
+      expect(result.single.parentGroupId, isNull);
+
+      // And it must end up as a root, not stranded in its own child list.
+      final tree = GroupTreeUtils.buildGroupTree(result);
+      expect(tree[null]?.map((g) => g.id), contains('a'));
+      expect(tree['a'] ?? const [], isEmpty);
+    });
   });
 
   // ── flattenTree ─────────────────────────────────────────────────────────────

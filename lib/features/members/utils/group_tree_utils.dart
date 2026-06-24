@@ -133,6 +133,14 @@ class GroupTreeUtils {
         continue; // dangling, not a cycle
       }
 
+      // A self-parent is a degenerate cycle the tiebreak below can't resolve
+      // (a group can't win against itself); promote it to root deterministically.
+      if (g.parentGroupId == g.id) {
+        result[i] = g.copyWith(parentGroupId: null);
+        idMap[g.id] = result[i];
+        continue;
+      }
+
       // Walk up to detect a cycle involving g.
       final visited = <String>{g.id};
       String? current = g.parentGroupId;

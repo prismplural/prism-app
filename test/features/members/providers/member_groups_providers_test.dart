@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
@@ -52,6 +53,7 @@ ProviderContainer makeContainer({
   List<Member> members = const [],
   MembersGroupedDefaultState groupedDefaultState =
       MembersGroupedDefaultState.open,
+  List<Override> extraOverrides = const [],
 }) => ProviderContainer(
   overrides: [
     allGroupsProvider.overrideWithValue(AsyncValue.data(groups)),
@@ -69,6 +71,7 @@ ProviderContainer makeContainer({
       AsyncValue.data(members.where((member) => member.isActive).toList()),
     ),
     membersGroupedDefaultStateProvider.overrideWithValue(groupedDefaultState),
+    ...extraOverrides,
   ],
 );
 
@@ -80,6 +83,48 @@ void main() {
       final c = makeContainer();
       addTearDown(c.dispose);
       expect(c.read(groupedMemberListProvider), isEmpty);
+    });
+
+    test('self-parent group does not infinite-loop and renders as a root', () {
+      // Regression: a self-parent group (reachable via sync/import) survived
+      // resolveSyncCycles and dropped out of the list. It must surface once as
+      // a root section.
+      final c = makeContainer(
+        groups: [_group(id: 'a', parentGroupId: 'a')],
+        entries: [_entry(groupId: 'a', memberId: 'm1')],
+        members: [_member(id: 'm1')],
+      );
+      addTearDown(c.dispose);
+
+      final list = c.read(groupedMemberListProvider);
+      final sections = list.whereType<GroupSectionItem>().toList();
+      expect(sections, hasLength(1));
+      expect(sections.single.group.id, 'a');
+      expect(sections.single.depth, 0);
+      expect(
+        list.whereType<MemberRowItem>().map((e) => e.member.id),
+        ['m1'],
+      );
+    });
+
+    test('cyclic tree map terminates (visitGroup cycle guard)', () {
+      // Defence in depth: a cycle reaching the tree map directly must still
+      // terminate. 'a' is planted in its own child list, bypassing
+      // resolveSyncCycles.
+      final a = _group(id: 'a');
+      final c = makeContainer(
+        extraOverrides: [
+          groupTreeProvider.overrideWithValue({
+            null: [a],
+            'a': [a], // self-cycle in the raw tree
+          }),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      final list = c.read(groupedMemberListProvider);
+      expect(list.whereType<GroupSectionItem>(), hasLength(1));
+      expect((list.first as GroupSectionItem).group.id, 'a');
     });
 
     test(
