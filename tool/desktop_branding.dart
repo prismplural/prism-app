@@ -159,7 +159,7 @@ void _check() {
   expect(
     _fileContains(
       '.github/workflows/desktop.yaml',
-      'dart run tool/desktop_branding.dart check',
+      'dart tool/desktop_branding.dart check',
     ),
     'Desktop CI must run the branding check.',
   );
