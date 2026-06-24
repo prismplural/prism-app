@@ -17,6 +17,7 @@ import 'package:prism_plurality/features/members/providers/notes_providers.dart'
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_table_button.dart';
+import 'package:prism_plurality/features/members/widgets/remote_markdown_image_import_prompt.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -185,6 +186,14 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
 
   Future<void> _save() async {
     if (!_isValid) return;
+    final shouldContinue = await promptAndStageRemoteMarkdownImages(
+      context: context,
+      ref: ref,
+      controller: _bodyController,
+      sessionId: _editSessionId,
+    );
+    if (!shouldContinue || !mounted) return;
+
     // Commit any images staged via the image button before persisting.
     var failedTags = const <String>[];
     try {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/members/services/remote_markdown_image_refs.dart';
 
@@ -13,6 +15,84 @@ void main() {
       expect(refs[0].altText, 'Cat');
       expect(refs[0].url, 'https://cdn.example.com/cat-photo.png');
       expect(refs[0].fragment, '#50%');
+    });
+
+    test('finds embedded data image markdown refs', () {
+      final refs = findDataMarkdownImageRefs(
+        'Before ![Flag](data:image/png;base64,aGVsbG8=) after.',
+      );
+
+      expect(refs, hasLength(1));
+      expect(refs[0].altText, 'Flag');
+      expect(refs[0].mimeType, 'image/png');
+      expect(utf8.decode(decodeDataMarkdownImageRef(refs[0])), 'hello');
+    });
+
+    test('decodes embedded data image refs with unpadded base64', () {
+      final refs = findDataMarkdownImageRefs(
+        '![Flag](data:image/png;base64,aGVsbG8)',
+      );
+
+      expect(refs, hasLength(1));
+      expect(utf8.decode(decodeDataMarkdownImageRef(refs.single)), 'hello');
+    });
+
+    test('reports stageable refs for remote or embedded images', () {
+      expect(
+        hasStageableMarkdownImageRefs(
+          '![remote](https://example.com/flag.png)',
+        ),
+        isTrue,
+      );
+      expect(
+        hasStageableMarkdownImageRefs('![inline](data:image/png;base64,AA==)'),
+        isTrue,
+      );
+      expect(hasStageableMarkdownImageRefs('![library](flag-tag)'), isFalse);
+    });
+
+    test('builds imports for embedded images with unique tags', () {
+      final refs = findDataMarkdownImageRefs(
+        '![](data:image/png;base64,AA==) ![](data:image/png;base64,AQ==)',
+      );
+
+      final imports = buildDataMarkdownImageImports(
+        refs,
+        unavailableTags: const ['embedded-image-1'],
+      );
+
+      expect(imports, hasLength(2));
+      expect(imports[0].suggestedTag, 'embedded-image-1-2');
+      expect(imports[1].suggestedTag, 'embedded-image-2');
+    });
+
+    test('dedupes identical embedded refs and rewrites every occurrence', () {
+      const embedded = '![Flag](data:image/png;base64,AA==)';
+      final refs = findDataMarkdownImageRefs('$embedded then $embedded');
+
+      final imports = buildDataMarkdownImageImports(refs);
+
+      expect(imports, hasLength(1));
+      expect(imports.single.ref.fullMatch, embedded);
+      expect(
+        rewriteDataMarkdownImageRefs('$embedded then $embedded', {
+          embedded: '![Flag](flag)',
+        }),
+        '![Flag](flag) then ![Flag](flag)',
+      );
+    });
+
+    test('rewrites embedded image refs to committed library tags', () {
+      const first = '![Flag](data:image/png;base64,AA==)';
+      const second = '![](data:image/jpeg;base64,AQ==)';
+      const markdown = '$first between $second';
+
+      final rewritten = rewriteDataMarkdownImageRefs(markdown, {
+        first: '![Flag](flag)',
+        second: '![](flag-2)',
+      });
+
+      expect(rewritten, '![Flag](flag) between ![](flag-2)');
     });
 
     test('suggests tags from filenames', () {

@@ -14,8 +14,9 @@ Future<bool> promptAndStageRemoteMarkdownImages({
   required TextEditingController controller,
   required String sessionId,
 }) async {
-  final refs = findRemoteMarkdownImageRefs(controller.text);
-  if (refs.isEmpty) return true;
+  final dataRefs = findDataMarkdownImageRefs(controller.text);
+  final remoteRefs = findRemoteMarkdownImageRefs(controller.text);
+  if (dataRefs.isEmpty && remoteRefs.isEmpty) return true;
 
   final processor = ref.read(bioImageProcessorProvider(sessionId));
   final library = await readImageLibrarySnapshot(
@@ -24,6 +25,73 @@ Future<bool> promptAndStageRemoteMarkdownImages({
   );
   if (!context.mounted) return false;
 
+  final unavailableTags = [
+    ...library.map((a) => a.tag),
+    ...processor.staged.map((s) => s.tag),
+  ];
+  int? embeddedStageStart;
+  String? embeddedOriginalText;
+  TextSelection? embeddedOriginalSelection;
+
+  void rollbackEmbeddedStaging() {
+    final stageStart = embeddedStageStart;
+    if (stageStart != null && processor.staged.length > stageStart) {
+      processor.staged.removeRange(stageStart, processor.staged.length);
+    }
+
+    final originalText = embeddedOriginalText;
+    if (originalText != null) {
+      controller.value = TextEditingValue(
+        text: originalText,
+        selection:
+            embeddedOriginalSelection ??
+            TextSelection.collapsed(offset: originalText.length),
+      );
+    }
+  }
+
+  if (dataRefs.isNotEmpty) {
+    embeddedStageStart = processor.staged.length;
+    embeddedOriginalText = controller.text;
+    embeddedOriginalSelection = controller.selection;
+    final imports = buildDataMarkdownImageImports(
+      dataRefs,
+      unavailableTags: unavailableTags,
+    );
+
+    final notifier = ref.read(bioImageProcessingStateProvider.notifier);
+    notifier.setProcessing(imports.length);
+
+    final successes = <String, String>{};
+    for (final item in imports) {
+      try {
+        final bytes = decodeDataMarkdownImageRef(item.ref);
+        final stagedTag = await processor.stageDeviceImage(
+          bytes,
+          item.suggestedTag,
+          altText: item.ref.altText.isEmpty ? null : item.ref.altText,
+        );
+        successes[item.ref.fullMatch] = '![${item.ref.altText}]($stagedTag)';
+        notifier.incrementCompleted();
+      } catch (e) {
+        rollbackEmbeddedStaging();
+        final message = _stageEmbeddedFailureMessage(e);
+        notifier.setError(message);
+        if (context.mounted) {
+          PrismToast.error(context, message: message);
+        }
+        return false;
+      }
+    }
+
+    controller.text = rewriteDataMarkdownImageRefs(controller.text, successes);
+    controller.selection = TextSelection.collapsed(
+      offset: controller.text.length,
+    );
+  }
+
+  final refs = findRemoteMarkdownImageRefs(controller.text);
+  if (refs.isEmpty) return true;
   final imports = buildRemoteMarkdownImageImports(
     refs,
     unavailableTags: [
@@ -32,16 +100,26 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     ],
   );
   if (imports.isEmpty) return true;
+  if (!context.mounted) {
+    rollbackEmbeddedStaging();
+    return false;
+  }
 
   final choices = await _showRemoteImageImportPrompt(context, imports: imports);
-  if (choices == null) return false;
+  if (choices == null) {
+    rollbackEmbeddedStaging();
+    return false;
+  }
   if (choices.isEmpty) return true;
 
   final latestLibrary = await readImageLibrarySnapshot(
     ref,
     useCachedValueOnError: true,
   );
-  if (!context.mounted) return false;
+  if (!context.mounted) {
+    rollbackEmbeddedStaging();
+    return false;
+  }
   final validation = validateRemoteMarkdownImageTagChoices(
     choices,
     unavailableTags: [
@@ -52,6 +130,7 @@ Future<bool> promptAndStageRemoteMarkdownImages({
   if (!validation.isValid) {
     final message = validation.errorMessage ?? 'Could not save image tags';
     PrismToast.error(context, message: message);
+    rollbackEmbeddedStaging();
     return false;
   }
 
@@ -79,6 +158,7 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     if (context.mounted) {
       PrismToast.error(context, message: message);
     }
+    rollbackEmbeddedStaging();
     return false;
   }
 
@@ -92,6 +172,14 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     PrismToast.error(context, message: 'Some images could not be fetched');
   }
   return true;
+}
+
+String _stageEmbeddedFailureMessage(Object error) {
+  if (error is FormatException) {
+    return 'Could not read embedded image';
+  }
+  if (error is StateError) return error.message;
+  return 'Could not save embedded image';
 }
 
 String _stageFailureMessage(Object error) {

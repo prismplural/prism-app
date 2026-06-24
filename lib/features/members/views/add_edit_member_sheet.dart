@@ -53,6 +53,7 @@ import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
+import 'package:prism_plurality/features/members/services/remote_markdown_image_refs.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
@@ -854,7 +855,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
 
   Future<bool> _stageAndCommitBioImages() async {
     if (!widget.embedded ||
-        (!_bioEditorOpened && !_bioController.text.contains('http'))) {
+        (!_bioEditorOpened &&
+            !hasStageableMarkdownImageRefs(_bioController.text))) {
       return true;
     }
 
@@ -882,7 +884,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   Future<bool> _stageAndCommitCustomFieldLongTextImages() async {
     final controller = _customFieldLongTextController;
     if (controller is! MarkdownEditingController) return true;
-    if (controller.text.contains('http')) {
+    if (hasStageableMarkdownImageRefs(controller.text)) {
       final shouldContinue = await promptAndStageRemoteMarkdownImages(
         context: context,
         ref: ref,

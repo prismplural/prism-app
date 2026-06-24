@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 
 class RemoteMarkdownImageRef {
@@ -24,6 +27,30 @@ class RemoteMarkdownImageImport {
   final String suggestedTag;
 }
 
+class DataMarkdownImageRef {
+  const DataMarkdownImageRef({
+    required this.fullMatch,
+    required this.altText,
+    required this.mimeType,
+    required this.base64Payload,
+  });
+
+  final String fullMatch;
+  final String altText;
+  final String mimeType;
+  final String base64Payload;
+}
+
+class DataMarkdownImageImport {
+  const DataMarkdownImageImport({
+    required this.ref,
+    required this.suggestedTag,
+  });
+
+  final DataMarkdownImageRef ref;
+  final String suggestedTag;
+}
+
 class RemoteMarkdownImageTagChoiceValidation {
   const RemoteMarkdownImageTagChoiceValidation({
     required this.normalizedTags,
@@ -37,6 +64,14 @@ class RemoteMarkdownImageTagChoiceValidation {
 }
 
 final _remoteImagePattern = RegExp(r'!\[([^\]]*)\]\((https://[^)\s]+)\)');
+final _dataImagePattern = RegExp(
+  r'!\[([^\]]*)\]\((data:(image/[A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+))\)',
+);
+
+bool hasStageableMarkdownImageRefs(String markdown) {
+  return findRemoteMarkdownImageRefs(markdown).isNotEmpty ||
+      findDataMarkdownImageRefs(markdown).isNotEmpty;
+}
 
 List<RemoteMarkdownImageRef> findRemoteMarkdownImageRefs(String markdown) {
   if (!markdown.contains('http')) return const [];
@@ -60,6 +95,47 @@ List<RemoteMarkdownImageRef> findRemoteMarkdownImageRefs(String markdown) {
   }
 
   return refs;
+}
+
+List<DataMarkdownImageRef> findDataMarkdownImageRefs(String markdown) {
+  if (!markdown.contains('data:image')) return const [];
+
+  final refs = <DataMarkdownImageRef>[];
+  for (final match in _dataImagePattern.allMatches(markdown)) {
+    refs.add(
+      DataMarkdownImageRef(
+        fullMatch: match.group(0)!,
+        altText: match.group(1) ?? '',
+        mimeType: match.group(3) ?? 'image',
+        base64Payload: match.group(4) ?? '',
+      ),
+    );
+  }
+  return refs;
+}
+
+List<DataMarkdownImageImport> buildDataMarkdownImageImports(
+  Iterable<DataMarkdownImageRef> refs, {
+  Iterable<String> unavailableTags = const [],
+}) {
+  final usedTags = unavailableTags.where((tag) => tag.isNotEmpty).toSet();
+  final seenMatches = <String>{};
+  var index = 1;
+  final imports = <DataMarkdownImageImport>[];
+
+  for (final ref in refs) {
+    if (!seenMatches.add(ref.fullMatch)) continue;
+
+    final tag = _uniqueTag('embedded-image-${index++}', usedTags);
+    usedTags.add(tag);
+    imports.add(DataMarkdownImageImport(ref: ref, suggestedTag: tag));
+  }
+  return imports;
+}
+
+Uint8List decodeDataMarkdownImageRef(DataMarkdownImageRef ref) {
+  final normalized = ref.base64Payload.replaceAll(RegExp(r'\s+'), '');
+  return base64Decode(base64.normalize(normalized));
 }
 
 List<RemoteMarkdownImageImport> buildRemoteMarkdownImageImports(
@@ -97,6 +173,19 @@ String rewriteRemoteMarkdownImageRefs(
       ref.fullMatch,
       '![${ref.altText}]($tag${ref.fragment})',
     );
+  }
+  return result;
+}
+
+String rewriteDataMarkdownImageRefs(
+  String markdown,
+  Map<String, String> fullMatchToReplacement,
+) {
+  if (fullMatchToReplacement.isEmpty) return markdown;
+
+  var result = markdown;
+  for (final entry in fullMatchToReplacement.entries) {
+    result = result.replaceAll(entry.key, entry.value);
   }
   return result;
 }
