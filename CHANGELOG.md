@@ -4,6 +4,9 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Linux desktop CI now packages Flatpak bundle and website-hostable repository artifacts alongside the existing tarball and `.deb`.
+
 ## [0.13.1] - 2026-06-17
 
 Patch release. Navigation labels split visibility from text style, custom-field
