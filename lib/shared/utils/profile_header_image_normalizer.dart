@@ -1,30 +1,55 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 abstract interface class ProfileHeaderWebpEncoder {
-  Future<Uint8List> encode(img.Image image, {required int quality});
+  /// [pngBytes] is the lossless intermediate built off the main isolate;
+  /// [width]/[height] cap the native encode.
+  Future<Uint8List> encode({
+    required Uint8List pngBytes,
+    required int width,
+    required int height,
+    required int quality,
+  });
 }
 
 class FlutterProfileHeaderWebpEncoder implements ProfileHeaderWebpEncoder {
   const FlutterProfileHeaderWebpEncoder();
 
   @override
-  Future<Uint8List> encode(img.Image image, {required int quality}) async {
-    // Encode to PNG first (lossless intermediate), then let Rust re-encode.
-    // Rust sends opaque images to JPEG but any image with real transparency to
-    // lossless WebP, which ignores `quality` — so those can only be shrunk by
-    // reducing dimensions, not quality.
+  Future<Uint8List> encode({
+    required Uint8List pngBytes,
+    required int width,
+    required int height,
+    required int quality,
+  }) async {
+    // Rust sends opaque images to JPEG but anything with real transparency to
+    // lossless WebP, which ignores `quality` — those shrink only by dimension.
     final (bytes, _) = await ffi.encodeImage(
-      imageBytes: Uint8List.fromList(img.encodePng(image)),
-      maxWidth: image.width,
-      maxHeight: image.height,
+      imageBytes: pngBytes,
+      maxWidth: width,
+      maxHeight: height,
       quality: quality,
     );
     return bytes;
   }
+}
+
+/// A prepared header frame — dimensions plus its lossless PNG, built in a
+/// background isolate. The FFI re-encode (not isolate-sendable) runs against
+/// [png] on the platform thread.
+class _PreparedHeaderFrame {
+  const _PreparedHeaderFrame({
+    required this.width,
+    required this.height,
+    required this.png,
+  });
+
+  final int width;
+  final int height;
+  final Uint8List png;
 }
 
 class ProfileHeaderImageNormalizer {
@@ -47,25 +72,35 @@ class ProfileHeaderImageNormalizer {
 
   final ProfileHeaderWebpEncoder _encoder;
 
+  /// Prep on the calling isolate, for contexts that can't spawn one — notably
+  /// widget-test fake-async zones, where `compute` never completes. The re-emit
+  /// migration uses [normalizeOffMainIsolate] instead.
   Future<Uint8List> normalize(Uint8List input) async {
     if (input.isEmpty) {
       throw ArgumentError('Profile header image input is empty');
     }
+    return _encodeLadder(_prepareHeaderLadder(input));
+  }
 
-    final decoded = img.decodeImage(input);
-    if (decoded == null) {
-      throw ArgumentError('Unable to decode profile header image');
+  /// Runs the pure-Dart prep in a background isolate, leaving only the FFI
+  /// re-encode on the platform thread. Without this a banner GIF's
+  /// frame-by-frame decode froze the UI thread (Android ANR) during the re-emit
+  /// migration.
+  Future<Uint8List> normalizeOffMainIsolate(Uint8List input) async {
+    if (input.isEmpty) {
+      throw ArgumentError('Profile header image input is empty');
     }
+    return _encodeLadder(await compute(_prepareHeaderLadder, input));
+  }
 
-    // Best-effort, never throwing on size — mirrors AvatarNormalizer.normalize.
-    // Quality can't shrink the lossless WebP that transparent banners encode
-    // to, so when the ladder overshoots [hardMaxBytes] we downscale and retry
-    // until it fits or we reach the floor.
-    var prepared = _resizeDown(centerCropToThreeToOne(decoded));
-
+  /// Runs the FFI quality ladder per frame until one fits [hardMaxBytes].
+  /// Best-effort, never throws on size (mirrors AvatarNormalizer): transparent
+  /// banners hit lossless WebP, which ignores quality, so the ladder downscales
+  /// instead; the smallest seen is the fallback.
+  Future<Uint8List> _encodeLadder(List<_PreparedHeaderFrame> ladder) async {
     Uint8List? smallest;
-    while (true) {
-      final encoded = await _encodeBestQuality(prepared);
+    for (final frame in ladder) {
+      final encoded = await _encodeBestQuality(frame);
       if (encoded != null) {
         if (smallest == null || encoded.length < smallest.length) {
           smallest = encoded;
@@ -74,10 +109,6 @@ class ProfileHeaderImageNormalizer {
           return encoded;
         }
       }
-
-      final downscaled = _downscaleTowardFloor(prepared);
-      if (downscaled == null) break;
-      prepared = downscaled;
     }
 
     if (smallest == null) {
@@ -87,12 +118,18 @@ class ProfileHeaderImageNormalizer {
     return smallest;
   }
 
-  /// Runs the quality ladder once, returning the smallest encoding and stopping
-  /// early once one is within [targetMaxBytes]. Null only if nothing encoded.
-  Future<Uint8List?> _encodeBestQuality(img.Image image) async {
+  /// Runs the quality ladder once over a prepared [frame], returning the
+  /// smallest encoding and stopping early once one is within [targetMaxBytes].
+  /// Null only if nothing encoded.
+  Future<Uint8List?> _encodeBestQuality(_PreparedHeaderFrame frame) async {
     Uint8List? smallest;
     for (final quality in _webpQualities) {
-      final encoded = await _encoder.encode(image, quality: quality);
+      final encoded = await _encoder.encode(
+        pngBytes: frame.png,
+        width: frame.width,
+        height: frame.height,
+        quality: quality,
+      );
       if (encoded.isEmpty) continue;
       if (smallest == null || encoded.length < smallest.length) {
         smallest = encoded;
@@ -102,6 +139,33 @@ class ProfileHeaderImageNormalizer {
       }
     }
     return smallest;
+  }
+
+  /// Pure-Dart prep for [normalizeOffMainIsolate], run in a background isolate.
+  /// Builds the downscale ladder, PNG-encoding each step once — PNG is
+  /// quality-independent, so the FFI quality ladder reuses it.
+  static List<_PreparedHeaderFrame> _prepareHeaderLadder(Uint8List input) {
+    final decoded = img.decodeImage(input);
+    if (decoded == null) {
+      throw ArgumentError('Unable to decode profile header image');
+    }
+
+    var prepared = _resizeDown(centerCropToThreeToOne(decoded));
+    final frames = <_PreparedHeaderFrame>[];
+    while (true) {
+      frames.add(
+        _PreparedHeaderFrame(
+          width: prepared.width,
+          height: prepared.height,
+          png: Uint8List.fromList(img.encodePng(prepared)),
+        ),
+      );
+
+      final downscaled = _downscaleTowardFloor(prepared);
+      if (downscaled == null) break;
+      prepared = downscaled;
+    }
+    return frames;
   }
 
   /// Shrinks [source] one step toward [_minFallbackWidth], preserving its

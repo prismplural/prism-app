@@ -77,8 +77,10 @@ class OversizedInlineImageReemitService {
   final AvatarInlineNormalizer _avatarNormalizer;
   final HeaderInlineNormalizer _headerNormalizer;
 
+  // Off-main: this loops over members, and the banners it touches — animated
+  // GIFs among them — froze the UI thread on inline decode (ANR).
   static Future<Uint8List> _defaultHeaderNormalizer(Uint8List bytes) =>
-      ProfileHeaderImageNormalizer().normalize(bytes);
+      ProfileHeaderImageNormalizer().normalizeOffMainIsolate(bytes);
 
   static Future<bool> hasCandidates(AppDatabase db) async {
     final rows = await db

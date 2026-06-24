@@ -316,8 +316,15 @@ class _PngProfileHeaderEncoder implements ProfileHeaderWebpEncoder {
   const _PngProfileHeaderEncoder();
 
   @override
-  Future<Uint8List> encode(img.Image image, {required int quality}) async {
-    return Uint8List.fromList(img.encodePng(image));
+  Future<Uint8List> encode({
+    required Uint8List pngBytes,
+    required int width,
+    required int height,
+    required int quality,
+  }) async {
+    // The prepared PNG is already cropped and resized; pass it through so the
+    // picker test can decode it back and assert the normalized dimensions.
+    return pngBytes;
   }
 }
 

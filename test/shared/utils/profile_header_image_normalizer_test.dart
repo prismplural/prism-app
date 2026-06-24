@@ -233,6 +233,38 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    // Regression: a banner GIF used to be decoded frame-by-frame on the main
+    // isolate during the re-emit migration, freezing the UI thread (ANR).
+    // normalizeOffMainIsolate moves that decode into a background isolate. The
+    // passthrough fake stands in for the native encoder (which flattens the
+    // animation), so this only checks the off-isolate prep cropped to 3:1.
+    test('re-encodes an animated GIF banner through the off-isolate path',
+        () async {
+      final encoder = _PngPassthroughEncoder();
+
+      final normalized = await ProfileHeaderImageNormalizer(
+        encoder: encoder,
+      ).normalizeOffMainIsolate(_animatedGifBanner());
+
+      // One ladder frame was enough — the budget was met at the base resolution
+      // without walking the downscale ladder.
+      expect(encoder.images, hasLength(1));
+      final prepared = encoder.images.single;
+      expect(prepared.width, 900);
+      expect(prepared.height, 300); // center-cropped 900x900 → 3:1
+
+      // The passthrough output decodes back to the prepared 3:1 banner, within
+      // the inline-sync hard cap.
+      final decoded = img.decodeImage(normalized);
+      expect(decoded, isNotNull);
+      expect(decoded!.width, 900);
+      expect(decoded.height, 300);
+      expect(
+        normalized.length,
+        lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+      );
+    });
   });
 
   group('ProfileHeaderImageNormalizer.centerCropToThreeToOne', () {
@@ -300,17 +332,63 @@ class _FakeWebpEncoder implements ProfileHeaderWebpEncoder {
   final int? length;
   final double? bytesPerPixel;
   final qualities = <int>[];
+
+  /// Frames the normalizer fed in, decoded back from their PNG so tests inspect
+  /// dimensions and pixels just as they did before the off-isolate split.
   final images = <img.Image>[];
 
   @override
-  Future<Uint8List> encode(img.Image image, {required int quality}) async {
+  Future<Uint8List> encode({
+    required Uint8List pngBytes,
+    required int width,
+    required int height,
+    required int quality,
+  }) async {
     qualities.add(quality);
-    images.add(img.Image.from(image));
+    images.add(img.decodeImage(pngBytes)!);
 
     final bytesPerPixel = this.bytesPerPixel;
     final outputLength = bytesPerPixel != null
-        ? (image.width * image.height * bytesPerPixel).round()
+        ? (width * height * bytesPerPixel).round()
         : lengthsByQuality?[quality] ?? length ?? 1;
     return Uint8List(outputLength);
   }
+}
+
+/// Returns the prepared PNG verbatim, so a test can decode the normalizer's
+/// output back into a real image. Records each frame it was handed.
+class _PngPassthroughEncoder implements ProfileHeaderWebpEncoder {
+  final images = <img.Image>[];
+
+  @override
+  Future<Uint8List> encode({
+    required Uint8List pngBytes,
+    required int width,
+    required int height,
+    required int quality,
+  }) async {
+    images.add(img.decodeImage(pngBytes)!);
+    return pngBytes;
+  }
+}
+
+img.Image _gradient(int width, int height) {
+  final image = img.Image(width: width, height: height);
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      image.setPixelRgb(x, y, (x * 7) % 255, (y * 5) % 255, (x + y) % 255);
+    }
+  }
+  return image;
+}
+
+/// A real two-frame animated GIF banner — the format that walked frame-by-frame
+/// on the main isolate and tipped the re-emit migration into an ANR. 900x900 so
+/// the off-isolate prep also exercises the center-crop to 3:1.
+Uint8List _animatedGifBanner() {
+  final frame0 = _gradient(900, 900);
+  final frame1 = img.Image(width: 900, height: 900);
+  img.fill(frame1, color: img.ColorRgb8(10, 10, 200));
+  frame0.addFrame(frame1);
+  return Uint8List.fromList(img.encodeGif(frame0));
 }
