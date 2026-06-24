@@ -56,7 +56,7 @@ jobs:
         run: flutter pub get
 
       - name: Check desktop branding
-        run: dart run tool/desktop_branding.dart check
+        run: dart tool/desktop_branding.dart check
 
       - name: Build Linux release
         run: flutter build linux --release --no-tree-shake-icons
@@ -173,7 +173,7 @@ jobs:
         run: flutter pub get
 
       - name: Check desktop branding
-        run: dart run tool/desktop_branding.dart check
+        run: dart tool/desktop_branding.dart check
 
       - name: Stage prism-sync crates for cargokit
         # Cargokit resolves this path lexically on Windows; point it at the
