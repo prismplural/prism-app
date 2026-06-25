@@ -76,9 +76,16 @@ class SessionCommentsSection extends ConsumerWidget {
       context: context,
       builder: (context, scrollController) => AddCommentSheet(
         sessionId: session.id,
-        timestamp: session.startTime,
+        timestamp: _newCommentTimestamp(session),
         scrollController: scrollController,
       ),
     );
+  }
+
+  DateTime _newCommentTimestamp(FrontingSession session) {
+    if (session.isActive) {
+      return DateTime.now();
+    }
+    return session.startTime;
   }
 }
