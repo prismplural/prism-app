@@ -435,6 +435,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     } catch (_) {
       // Ignore parse errors.
     }
+    final hasStoredDate = initial != null;
     initial ??= DateTime.now();
 
     switch (precision) {
@@ -469,13 +470,15 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
         }
 
       case DatePrecision.monthDay:
-        initial = _withYear(initial, 2000);
+        final pickerInitial = hasStoredDate
+            ? initial
+            : _withYear(initial, 2000);
         final picked = await showPrismDatePicker(
           context: context,
           anchorContext: anchorContext,
-          initialDate: initial,
-          firstDate: DateTime(2000, 1, 1),
-          lastDate: DateTime(2000, 12, 31),
+          initialDate: pickerInitial,
+          firstDate: DateTime(1),
+          lastDate: DateTime(9999, 12, 31),
         );
         if (picked != null && mounted) {
           _textController.text = picked.toIso8601String();

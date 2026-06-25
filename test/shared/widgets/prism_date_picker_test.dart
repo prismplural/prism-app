@@ -248,6 +248,51 @@ void main() {
     expect(picked, DateTime(2006, 1, 15));
   });
 
+  testWidgets('birthday date bounds allow scrolling before year 2000', (
+    tester,
+  ) async {
+    DateTime? picked;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Builder(
+              builder: (anchorContext) => TextButton(
+                onPressed: () async {
+                  picked = await showPrismDatePicker(
+                    context: context,
+                    anchorContext: anchorContext,
+                    initialDate: DateTime(2000, 1, 15),
+                    firstDate: DateTime(1),
+                    lastDate: DateTime(9999, 12, 31),
+                  );
+                },
+                child: const Text('Open picker'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open picker'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('January 2000'));
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('1990'),
+      find.byType(YearPicker),
+      const Offset(0, 240),
+    );
+    await tester.tap(find.text('1990'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15'));
+    await tester.pumpAndSettle();
+
+    expect(picked, DateTime(1990, 1, 15));
+  });
+
   testWidgets('year mode commits the selected year', (tester) async {
     DateTime? picked;
 
