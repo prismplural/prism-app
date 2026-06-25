@@ -4,8 +4,56 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-06-25
+
+Feature release. Field templates can now be shared and imported,
+custom-field groups gain profile display options, markdown gains richer fenced
+styling, member names can follow display names everywhere, and Linux desktop
+releases now include Flatpak packaging. The sync pin remains on
+`prism-sync v0.13.1` (`1044886`).
+
 ### Added
-- Linux desktop CI now packages Flatpak bundle and website-hostable repository artifacts alongside the existing tarball and `.deb`.
+- Custom fields can be shared as portable field templates, including branded
+  image cards, PF1 share codes, text fallback for large templates, import
+  preview, validation, and paste/file/scan entry points.
+- Custom-field groups can render inline, collapsible, or as their own page on
+  member profiles, including member self-reference fields and inactive-group
+  coverage.
+- Markdown supports alignment fences and styled fences.
+- Member-facing surfaces can choose whether Full Name or Name is primary,
+  optionally show the alternate name where there is room, and sync that
+  presentation across devices and backup export/import.
+- Linux desktop CI now packages Flatpak bundle and website-hostable repository
+  artifacts alongside the existing tarball and `.deb`.
+
+### Changed
+- Long-text custom-field values show in full instead of truncating.
+- Profile header and batch avatar normalization run off the main isolate in the
+  expensive paths.
+
+### Fixed
+- Embedded markdown images in member and custom-field text are persisted as media
+  attachments instead of raw image bytes, and existing markdown image references
+  are preserved on save.
+- Editors now prompt before discarding staged media.
+- Uploaded GIFs keep playing after media upload handling.
+- Alignment-fenced markdown renders at the full available width.
+- A transient keychain read failure no longer causes Prism to recreate the
+  encrypted sync database.
+- Sync bootstrap only creates the singleton system-settings row, and mutation
+  runner transactions drain the sync outbox after commit.
+- Legacy biometric prompts no longer appear during startup.
+- Hidden member counts stay hidden in grouped member surfaces, and cyclic groups
+  no longer break the grouped member list.
+- Older month-day custom-field dates can be entered again.
+- Active-front comments default to the current time.
+
+### Internal
+- Added public contributor onboarding docs and GitHub issue/PR templates.
+- Added focused v38-to-v39 migration coverage for the new member-name display
+  setting.
+- Added pairing snapshot delivery coverage and custom-field group display tests.
+- Flatpak branding CI avoids native hooks.
 
 ## [0.13.1] - 2026-06-17
 
