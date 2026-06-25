@@ -7,7 +7,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/core/sharing/field_template_png.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Logical width of the rendered card. Fixed so the captured PNG is consistent
@@ -16,15 +15,18 @@ const double _kCardWidth = 380;
 
 const String _kLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
 
-/// Brand spectrum, ordered like real prism dispersion (warm → cool → violet).
-/// Uses the app's actual accent palette, never the user's seeded accent.
+const Color _kBrandPurple = Color(0xFFB498C2);
+const Color _kBrandPurpleLight = Color(0xFF9070A0);
+
+/// Brand spectrum, ordered like real prism dispersion (warm -> cool -> violet).
+/// Uses Prism's fixed accent palette, never the user's seeded accent.
 const List<Color> _kSpectrum = [
-  AppColors.accentRoseDark,
-  AppColors.accentAmberDark,
-  AppColors.accentSageDark,
-  AppColors.accentBlueDark,
-  AppColors.accentPurpleDark,
-  AppColors.accentLavenderDark,
+  Color(0xFFC98E8E),
+  Color(0xFFB58D67),
+  Color(0xFF8DA399),
+  Color(0xFF7A9BA8),
+  _kBrandPurple,
+  Color(0xFF9B8EAD),
 ];
 
 /// QR error-correction level for a code of [length] chars, or null when the
@@ -166,7 +168,7 @@ class BrandedTemplateCard extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const _MarkChip(),
+                      _MarkChip(color: c.brand),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -266,7 +268,9 @@ class _TypeChip extends StatelessWidget {
 }
 
 class _MarkChip extends StatelessWidget {
-  const _MarkChip();
+  const _MarkChip({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -274,7 +278,7 @@ class _MarkChip extends StatelessWidget {
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: AppColors.prismPurple,
+        color: color,
         borderRadius: BorderRadius.circular(11),
       ),
       alignment: Alignment.center,
@@ -311,11 +315,11 @@ class _QrBox extends StatelessWidget {
           // ECC-H and cost capacity, so the code stays unobstructed.
           eyeStyle: const QrEyeStyle(
             eyeShape: QrEyeShape.square,
-            color: AppColors.warmBlack,
+            color: Colors.black,
           ),
           dataModuleStyle: const QrDataModuleStyle(
             dataModuleShape: QrDataModuleShape.square,
-            color: AppColors.warmBlack,
+            color: Colors.black,
           ),
         ),
       ),
@@ -339,17 +343,21 @@ class _CardPalette {
   });
 
   factory _CardPalette.of(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final onCard = dark ? AppColors.warmWhite : AppColors.warmBlack;
+    final colorScheme = Theme.of(context).colorScheme;
+    final dark = colorScheme.brightness == Brightness.dark;
+    final onCard = colorScheme.onSurface;
+    final brand = dark ? _kBrandPurple : _kBrandPurpleLight;
     return _CardPalette(
-      bg: dark ? AppColors.charcoalSurface : AppColors.warmOffWhite,
+      bg: dark
+          ? colorScheme.surfaceContainerHighest
+          : colorScheme.surfaceContainerLowest,
       onCard: onCard,
-      muted: onCard.withValues(alpha: 0.6),
-      border: onCard.withValues(alpha: dark ? 0.14 : 0.08),
-      brand: dark ? AppColors.prismPurple : AppColors.prismPurpleLight,
-      chipBg: AppColors.prismPurple.withValues(alpha: dark ? 0.22 : 0.12),
-      chipText: dark ? AppColors.warmWhite : AppColors.warmBlack,
-      kickerBg: AppColors.prismPurple.withValues(alpha: dark ? 0.24 : 0.16),
+      muted: colorScheme.onSurfaceVariant,
+      border: colorScheme.outlineVariant.withValues(alpha: dark ? 0.42 : 0.62),
+      brand: brand,
+      chipBg: brand.withValues(alpha: dark ? 0.22 : 0.12),
+      chipText: onCard,
+      kickerBg: brand.withValues(alpha: dark ? 0.24 : 0.16),
     );
   }
 
@@ -375,7 +383,7 @@ class _NoQrNote extends StatelessWidget {
       width: 146,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
       decoration: BoxDecoration(
-        color: AppColors.prismPurple.withValues(alpha: 0.12),
+        color: palette.chipBg,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(

@@ -528,12 +528,17 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     _showCustomFieldLongTextPreview = false;
     _customFieldLongTextEditSessionId = const Uuid().v4();
     _swapView(_MemberEditView.customFieldLongText);
+    _focusDetailEditorAfterTransition(
+      _MemberEditView.customFieldLongText,
+      focusNode,
+    );
   }
 
   Future<void> _openBioEditor() async {
     if (widget.embedded) {
       _bioEditorOpened = true;
       _swapView(_MemberEditView.bio);
+      _focusDetailEditorAfterTransition(_MemberEditView.bio, _bioFocusNode);
       return;
     }
 
@@ -547,6 +552,27 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     if (result != null && mounted) {
       setState(() => _bioController.text = result);
     }
+  }
+
+  void _focusDetailEditorAfterTransition(
+    _MemberEditView target,
+    FocusNode focusNode,
+  ) {
+    if (!widget.embedded) return;
+    late AnimationStatusListener listener;
+    listener = (status) {
+      if (status != AnimationStatus.completed &&
+          status != AnimationStatus.dismissed) {
+        return;
+      }
+      _viewAnimationController.removeStatusListener(listener);
+      if (status != AnimationStatus.completed) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _view != target || !focusNode.canRequestFocus) return;
+        focusNode.requestFocus();
+      });
+    };
+    _viewAnimationController.addStatusListener(listener);
   }
 
   void _popToMain() => _swapView(_MemberEditView.main);
@@ -1597,14 +1623,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
       children: [
         PrismGlassIconButton(
           icon: showingPreview ? AppIcons.edit : AppIcons.preview,
-          onPressed: () => setState(() {
-            if (_view == _MemberEditView.customFieldLongText) {
-              _showCustomFieldLongTextPreview =
-                  !_showCustomFieldLongTextPreview;
-            } else {
-              _showBioPreview = !_showBioPreview;
-            }
-          }),
+          onPressed: _toggleDetailPreview,
           tooltip: showingPreview
               ? l10n.memberBioEditorTooltip
               : l10n.memberBioPreviewTooltip,
@@ -1614,6 +1633,21 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         doneButton,
       ],
     );
+  }
+
+  void _toggleDetailPreview() {
+    if (_view == _MemberEditView.customFieldLongText) {
+      _customFieldLongTextFocusNode?.unfocus();
+      setState(() {
+        _showCustomFieldLongTextPreview = !_showCustomFieldLongTextPreview;
+      });
+      return;
+    }
+
+    _bioFocusNode.unfocus();
+    setState(() {
+      _showBioPreview = !_showBioPreview;
+    });
   }
 
   Widget _buildMainView() {
@@ -2192,7 +2226,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                                   maxLines: null,
                                   textCapitalization:
                                       TextCapitalization.sentences,
-                                  autofocus: true,
+                                  autofocus: !widget.embedded,
                                   contextMenuBuilder: contextMenuBuilder,
                                 ),
                           ),
@@ -2376,7 +2410,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
                                   maxLines: null,
                                   textCapitalization:
                                       TextCapitalization.sentences,
-                                  autofocus: true,
+                                  autofocus: !widget.embedded,
                                   contextMenuBuilder: contextMenuBuilder,
                                 ),
                           ),

@@ -77,6 +77,7 @@ Widget _buildSubject({
   _FakeMembersNotifier? membersNotifier,
   void Function(FakeAppPreferenceRepository appPrefs)? seedAppPreferences,
   bool withRouter = false,
+  Set<String>? customFieldValueMemberIds,
 }) {
   final activeMembers = members.where((member) => member.isActive).toList();
   final child = withRouter
@@ -116,10 +117,12 @@ Widget _buildSubject({
   final appPrefs = FakeAppPreferenceRepository();
   seedAppPreferences?.call(appPrefs);
   addTearDown(appPrefs.close);
-  final customFieldValueMemberIds = {
-    for (final member in members) member.id,
-    for (final value in customFieldValues) value.memberId,
-  };
+  final effectiveCustomFieldValueMemberIds =
+      customFieldValueMemberIds ??
+      {
+        for (final member in members) member.id,
+        for (final value in customFieldValues) value.memberId,
+      };
 
   return ProviderScope(
     overrides: [
@@ -172,7 +175,7 @@ Widget _buildSubject({
         customFieldByIdProvider(
           field.id,
         ).overrideWith((ref) => Stream.value(field)),
-      for (final memberId in customFieldValueMemberIds)
+      for (final memberId in effectiveCustomFieldValueMemberIds)
         memberCustomFieldValuesProvider(memberId).overrideWithValue(
           AsyncValue.data(
             customFieldValues
@@ -718,6 +721,10 @@ void main() {
     );
     final insertedMember = _member('member-new', displayOrder: -1);
     final sharedMember = _member('member-shared', displayOrder: 99);
+    final customFieldValueMemberIds = {
+      for (final member in [insertedMember, ...members, sharedMember])
+        member.id,
+    };
     final entries = [
       for (var i = 0; i < groups.length; i++)
         MemberGroupEntry(
@@ -750,6 +757,7 @@ void main() {
         members: [...members, sharedMember],
         groups: groups,
         entries: entries,
+        customFieldValueMemberIds: customFieldValueMemberIds,
       ),
     );
     await tester.pumpAndSettle();
@@ -777,6 +785,7 @@ void main() {
           ),
           ...entries,
         ],
+        customFieldValueMemberIds: customFieldValueMemberIds,
       ),
     );
     await tester.pumpAndSettle();

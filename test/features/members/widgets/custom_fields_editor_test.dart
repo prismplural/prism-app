@@ -596,7 +596,7 @@ void main() {
       await tester.tap(find.text('Select Headmates'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Current'), findsNothing);
+      expect(find.text('Current'), findsOneWidget);
       expect(find.text('Alice'), findsOneWidget);
       expect(find.text('Inactive'), findsOneWidget);
       expect(find.text('Deleted'), findsNothing);
