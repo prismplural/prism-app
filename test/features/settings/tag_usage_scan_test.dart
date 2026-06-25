@@ -156,6 +156,22 @@ void main() {
       expect(usage['Flag']!.map((r) => r.route), ['/members/m1']);
       expect(usage['flag']!.map((r) => r.route), ['/members/m1']);
     });
+
+    test('matches image refs with markdown titles', () {
+      final usage = scanTagUsage(
+        tags: {'nbflag'},
+        sources: const [
+          TagUsageSource(
+            text: 'hello ![flag](nbflag "Nonbinary flag")',
+            kind: TagUsageKind.bio,
+            label: "Alex's bio",
+            route: '/members/m1',
+          ),
+        ],
+      );
+
+      expect(usage['nbflag']!.map((r) => r.route), ['/members/m1']);
+    });
   });
 
   group('rewriteImageTag', () {
@@ -177,6 +193,13 @@ void main() {
       expect(
         rewriteImageTag('![alt](flag#50%)', 'flag', 'banner'),
         '![alt](banner#50%)',
+      );
+    });
+
+    test('preserves markdown image title', () {
+      expect(
+        rewriteImageTag('![alt](flag#50% "A useful title")', 'flag', 'banner'),
+        '![alt](banner#50% "A useful title")',
       );
     });
 
@@ -235,6 +258,7 @@ void main() {
     test('true for exact tag ref with and without fragment', () {
       expect(textReferencesTag('![](flag)', 'flag'), isTrue);
       expect(textReferencesTag('![alt](flag#50%)', 'flag'), isTrue);
+      expect(textReferencesTag('![alt](flag "title")', 'flag'), isTrue);
     });
 
     test('false for prefix tags and non-matching text', () {

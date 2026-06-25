@@ -6,7 +6,11 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/services/media/media_service.dart';
 import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
+import 'package:prism_plurality/features/members/services/remote_markdown_image_refs.dart';
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
+
+typedef BioImageFetchBytes =
+    Future<Uint8List?> Function(String url, {int maxBytes});
 
 /// Processes external image URLs in imported bios (e.g. from Simply Plural),
 /// fetching and encrypting each into the shared image library and rewriting
@@ -21,22 +25,20 @@ class BioImageImporter {
   BioImageImporter({
     required MediaService mediaService,
     required DriftMediaAttachmentRepository repository,
-  })  : _mediaService = mediaService,
-        _repository = repository;
+    BioImageFetchBytes fetchImageBytes = fetchRemoteImageBytes,
+  }) : _mediaService = mediaService,
+       _repository = repository,
+       _fetchImageBytes = fetchImageBytes;
 
   final MediaService _mediaService;
   final DriftMediaAttachmentRepository _repository;
+  final BioImageFetchBytes _fetchImageBytes;
 
   static const _uuid = Uuid();
   static const _maxBytesPerImage = 5 * 1024 * 1024;
 
   // url → tag, populated as images are imported so repeats reuse one entry.
   final Map<String, String> _urlToTag = {};
-
-  /// Matches `![alt](url)` where url starts with http:// or https://.
-  /// Captures: 1=alt, 2=full url (may include #fragment).
-  static final _imagePattern =
-      RegExp(r'!\[([^\]]*)\]\((https?://[^)\s]+)\)');
 
   int get importedCount => _urlToTag.length;
 
@@ -45,32 +47,20 @@ class BioImageImporter {
   /// URLs that fail to fetch are left untouched (will render as missing).
   Future<String> processBio(String? bio) async {
     if (bio == null || bio.isEmpty) return bio ?? '';
-    if (!bio.contains('http')) return bio;
+    if (!bio.contains('![')) return bio;
 
-    final matches = _imagePattern.allMatches(bio).toList();
-    if (matches.isEmpty) return bio;
+    final refs = findRemoteMarkdownImageRefs(bio);
+    if (refs.isEmpty) return bio;
 
-    var result = bio;
-
-    for (final match in matches) {
-      final alt = match.group(1) ?? '';
-      final fullUrl = match.group(2)!;
-
-      // Split off any #WxH sizing fragment so it survives the rewrite.
-      final hashIdx = fullUrl.indexOf('#');
-      final url = hashIdx >= 0 ? fullUrl.substring(0, hashIdx) : fullUrl;
-      final fragment = hashIdx >= 0 ? fullUrl.substring(hashIdx) : '';
-
-      final tag = await _importUrl(url);
+    final successes = <String, String>{};
+    for (final ref in refs) {
+      if (successes.containsKey(ref.url)) continue;
+      final tag = await _importUrl(ref.url);
       if (tag == null) continue; // fetch failed — leave the original URL
-
-      result = result.replaceFirst(
-        match.group(0)!,
-        '![$alt]($tag$fragment)',
-      );
+      successes[ref.url] = tag;
     }
 
-    return result;
+    return rewriteRemoteMarkdownImageRefs(bio, successes);
   }
 
   /// Fetch + encrypt + store one URL, returning its library tag (or null on
@@ -80,7 +70,7 @@ class BioImageImporter {
     if (cached != null) return cached;
 
     try {
-      final bytes = await fetchRemoteImageBytes(url, maxBytes: _maxBytesPerImage);
+      final bytes = await _fetchImageBytes(url, maxBytes: _maxBytesPerImage);
       if (bytes == null) return null;
 
       final prepared = await _mediaService.prepareBioImage(bytes);
@@ -89,7 +79,10 @@ class BioImageImporter {
       // Dedup by plaintext hash too — same image at different URLs.
       final existing = await _repository.getForMember('');
       final dup = existing
-          .where((a) => a.plaintextHash == prepared.plaintextHash && a.tag.isNotEmpty)
+          .where(
+            (a) =>
+                a.plaintextHash == prepared.plaintextHash && a.tag.isNotEmpty,
+          )
           .toList();
       if (dup.isNotEmpty) {
         _urlToTag[url] = dup.first.tag;
@@ -99,27 +92,29 @@ class BioImageImporter {
       await _mediaService.uploadBioImage(prepared);
 
       final tag = 'img-${_uuid.v4().substring(0, 8)}';
-      await _repository.create(MediaAttachment(
-        id: _uuid.v4(),
-        memberId: '',
-        messageId: '',
-        tag: tag,
-        mediaId: prepared.mediaId,
-        mediaType: 'image',
-        encryptionKeyB64: base64Encode(prepared.encryptionKey),
-        contentHash: prepared.contentHash,
-        plaintextHash: prepared.plaintextHash,
-        mimeType: prepared.mimeType,
-        sizeBytes: prepared.sizeBytes,
-        width: prepared.width,
-        height: prepared.height,
-        durationMs: 0,
-        blurhash: prepared.blurhash,
-        waveformB64: '',
-        thumbnailMediaId: '',
-        sourceUrl: url, // keep original for backup/export
-        previewUrl: '',
-      ));
+      await _repository.create(
+        MediaAttachment(
+          id: _uuid.v4(),
+          memberId: '',
+          messageId: '',
+          tag: tag,
+          mediaId: prepared.mediaId,
+          mediaType: 'image',
+          encryptionKeyB64: base64Encode(prepared.encryptionKey),
+          contentHash: prepared.contentHash,
+          plaintextHash: prepared.plaintextHash,
+          mimeType: prepared.mimeType,
+          sizeBytes: prepared.sizeBytes,
+          width: prepared.width,
+          height: prepared.height,
+          durationMs: 0,
+          blurhash: prepared.blurhash,
+          waveformB64: '',
+          thumbnailMediaId: '',
+          sourceUrl: url, // keep original for backup/export
+          previewUrl: '',
+        ),
+      );
 
       _urlToTag[url] = tag;
       return tag;

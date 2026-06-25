@@ -46,7 +46,9 @@ class TagUsageRef {
   final String route;
 }
 
-final _imageRefPattern = RegExp(r'!\[[^\]]*\]\(([^)]+)\)');
+final _imageRefPattern = RegExp(
+  r'''!\[[^\]]*\]\(([^)\s]+)(?:\s+["'][^)]*["'])?\)''',
+);
 
 /// Extract the bare image refs (tag or URL, with any `#WxH`/`#50%` sizing
 /// fragment stripped) from [text].
@@ -58,12 +60,13 @@ Iterable<String> imageRefsIn(String text) sync* {
   }
 }
 
-/// Builds the regex that matches `![alt](oldTag)` and `![alt](oldTag#frag)`
-/// image refs for a specific [oldTag]. The trailing `(#[^)]*)?\)` requires
-/// oldTag to be immediately followed by `#` or `)`, so a longer tag that merely
-/// has oldTag as a prefix (e.g. `flagpole` for oldTag `flag`) does NOT match.
-RegExp _renamePattern(String oldTag) =>
-    RegExp(r'!\[([^\]]*)\]\(' + RegExp.escape(oldTag) + r'(#[^)]*)?\)');
+/// Matches image refs to [oldTag], including optional fragments/titles.
+/// The boundary avoids prefix matches like `flagpole`.
+RegExp _renamePattern(String oldTag) => RegExp(
+  r'''!\[([^\]]*)\]\(''' +
+      RegExp.escape(oldTag) +
+      r'''(#[^)\s]*)?(\s+["'][^)]*["'])?\)''',
+);
 
 /// Whether [text] contains at least one `![…](oldTag)` / `![…](oldTag#frag)`
 /// image ref. Cheap guard so callers can skip a write when nothing changes.
@@ -81,7 +84,7 @@ String rewriteImageTag(String text, String oldTag, String newTag) {
   if (!text.contains('![')) return text;
   return text.replaceAllMapped(
     _renamePattern(oldTag),
-    (m) => '![${m.group(1)!}]($newTag${m.group(2) ?? ''})',
+    (m) => '![${m.group(1)!}]($newTag${m.group(2) ?? ''}${m.group(3) ?? ''})',
   );
 }
 

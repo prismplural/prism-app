@@ -63,6 +63,7 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     notifier.setProcessing(imports.length);
 
     final successes = <String, String>{};
+    final failures = <String>[];
     for (final item in imports) {
       try {
         final bytes = decodeDataMarkdownImageRef(item.ref);
@@ -72,15 +73,10 @@ Future<bool> promptAndStageRemoteMarkdownImages({
           altText: item.ref.altText.isEmpty ? null : item.ref.altText,
         );
         successes[item.ref.fullMatch] = '![${item.ref.altText}]($stagedTag)';
-        notifier.incrementCompleted();
       } catch (e) {
-        rollbackEmbeddedStaging();
-        final message = _stageEmbeddedFailureMessage(e);
-        notifier.setError(message);
-        if (context.mounted) {
-          PrismToast.error(context, message: message);
-        }
-        return false;
+        failures.add(_stageEmbeddedFailureMessage(e));
+      } finally {
+        notifier.incrementCompleted();
       }
     }
 
@@ -88,6 +84,15 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     controller.selection = TextSelection.collapsed(
       offset: controller.text.length,
     );
+    if (failures.isNotEmpty) {
+      final message = failures.length == 1
+          ? failures.single
+          : 'Some embedded images could not be saved';
+      notifier.setError(message);
+      if (context.mounted) {
+        PrismToast.error(context, message: message);
+      }
+    }
   }
 
   final refs = findRemoteMarkdownImageRefs(controller.text);

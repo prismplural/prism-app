@@ -9,12 +9,14 @@ class RemoteMarkdownImageRef {
     required this.altText,
     required this.url,
     required this.fragment,
+    required this.titleSuffix,
   });
 
   final String fullMatch;
   final String altText;
   final String url;
   final String fragment;
+  final String titleSuffix;
 }
 
 class RemoteMarkdownImageImport {
@@ -63,9 +65,17 @@ class RemoteMarkdownImageTagChoiceValidation {
   bool get isValid => errorMessage == null;
 }
 
-final _remoteImagePattern = RegExp(r'!\[([^\]]*)\]\((https://[^)\s]+)\)');
+final _remoteImagePattern = RegExp(
+  r'''!\[([^\]]*)\]\((?:<)?((?:(?:https?:)?//|[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}/)[^)\s>]+)(?:>)?(\s+["'][^)]*["'])?\)''',
+  caseSensitive: false,
+);
+final _schemeLessRemoteImagePattern = RegExp(
+  r'!\[[^\]]*\]\((?:<)?[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z]{2,}/',
+  caseSensitive: false,
+);
 final _dataImagePattern = RegExp(
   r'!\[([^\]]*)\]\((data:(image/[A-Za-z0-9.+-]+);base64,([A-Za-z0-9+/=\r\n]+))\)',
+  caseSensitive: false,
 );
 
 bool hasStageableMarkdownImageRefs(String markdown) {
@@ -74,7 +84,11 @@ bool hasStageableMarkdownImageRefs(String markdown) {
 }
 
 List<RemoteMarkdownImageRef> findRemoteMarkdownImageRefs(String markdown) {
-  if (!markdown.contains('http')) return const [];
+  if (!markdown.contains('://') &&
+      !markdown.contains('//') &&
+      !_schemeLessRemoteImagePattern.hasMatch(markdown)) {
+    return const [];
+  }
 
   final refs = <RemoteMarkdownImageRef>[];
   for (final match in _remoteImagePattern.allMatches(markdown)) {
@@ -90,6 +104,7 @@ List<RemoteMarkdownImageRef> findRemoteMarkdownImageRefs(String markdown) {
         altText: match.group(1) ?? '',
         url: url,
         fragment: fragment,
+        titleSuffix: match.group(3) ?? '',
       ),
     );
   }
@@ -98,7 +113,7 @@ List<RemoteMarkdownImageRef> findRemoteMarkdownImageRefs(String markdown) {
 }
 
 List<DataMarkdownImageRef> findDataMarkdownImageRefs(String markdown) {
-  if (!markdown.contains('data:image')) return const [];
+  if (!markdown.toLowerCase().contains('data:image')) return const [];
 
   final refs = <DataMarkdownImageRef>[];
   for (final match in _dataImagePattern.allMatches(markdown)) {
@@ -171,7 +186,7 @@ String rewriteRemoteMarkdownImageRefs(
     if (tag == null || tag.isEmpty) continue;
     result = result.replaceFirst(
       ref.fullMatch,
-      '![${ref.altText}]($tag${ref.fragment})',
+      '![${ref.altText}]($tag${ref.fragment}${ref.titleSuffix})',
     );
   }
   return result;

@@ -5,16 +5,57 @@ import 'package:prism_plurality/features/members/services/remote_markdown_image_
 
 void main() {
   group('remote markdown image refs', () {
-    test('finds https markdown image URLs', () {
+    test('finds external markdown image URLs', () {
       final refs = findRemoteMarkdownImageRefs(
         'Before ![Cat](https://cdn.example.com/cat-photo.png#50%) '
         'and ![](http://example.com/banner.webp).',
       );
 
-      expect(refs, hasLength(1));
+      expect(refs, hasLength(2));
       expect(refs[0].altText, 'Cat');
       expect(refs[0].url, 'https://cdn.example.com/cat-photo.png');
       expect(refs[0].fragment, '#50%');
+      expect(refs[1].altText, '');
+      expect(refs[1].url, 'http://example.com/banner.webp');
+      expect(refs[1].fragment, '');
+    });
+
+    test('finds URL-like markdown images without an explicit scheme', () {
+      final refs = findRemoteMarkdownImageRefs(
+        '![Blinkie](i.postimg.cc/abc/blinkie.gif) '
+        '![](//cdn.example.com/stamp.png#2em)',
+      );
+
+      expect(refs, hasLength(2));
+      expect(refs[0].altText, 'Blinkie');
+      expect(refs[0].url, 'i.postimg.cc/abc/blinkie.gif');
+      expect(refs[0].fragment, '');
+      expect(refs[1].url, '//cdn.example.com/stamp.png');
+      expect(refs[1].fragment, '#2em');
+    });
+
+    test('leaves bare library tags out of remote image detection', () {
+      expect(findRemoteMarkdownImageRefs('![Flag](nbflag)'), isEmpty);
+      expect(hasStageableMarkdownImageRefs('![Flag](nbflag)'), isFalse);
+    });
+
+    test('finds uppercase URL schemes and markdown image titles', () {
+      final refs = findRemoteMarkdownImageRefs(
+        '![Stamp](HTTPS://cdn.example.com/stamp.png "A stamp")',
+      );
+
+      expect(refs, hasLength(1));
+      expect(refs.single.altText, 'Stamp');
+      expect(refs.single.url, 'HTTPS://cdn.example.com/stamp.png');
+      expect(refs.single.fragment, '');
+      expect(refs.single.titleSuffix, ' "A stamp"');
+      expect(
+        rewriteRemoteMarkdownImageRefs(
+          '![Stamp](HTTPS://cdn.example.com/stamp.png "A stamp")',
+          {'HTTPS://cdn.example.com/stamp.png': 'stamp'},
+        ),
+        '![Stamp](stamp "A stamp")',
+      );
     });
 
     test('finds embedded data image markdown refs', () {
@@ -37,11 +78,29 @@ void main() {
       expect(utf8.decode(decodeDataMarkdownImageRef(refs.single)), 'hello');
     });
 
+    test('finds embedded data image refs case-insensitively', () {
+      final refs = findDataMarkdownImageRefs(
+        '![Flag](DATA:IMAGE/PNG;base64,aGVsbG8=)',
+      );
+
+      expect(refs, hasLength(1));
+      expect(refs.single.mimeType, 'IMAGE/PNG');
+      expect(utf8.decode(decodeDataMarkdownImageRef(refs.single)), 'hello');
+    });
+
     test('reports stageable refs for remote or embedded images', () {
       expect(
         hasStageableMarkdownImageRefs(
           '![remote](https://example.com/flag.png)',
         ),
+        isTrue,
+      );
+      expect(
+        hasStageableMarkdownImageRefs('![remote](http://example.com/flag.png)'),
+        isTrue,
+      );
+      expect(
+        hasStageableMarkdownImageRefs('![remote](i.postimg.cc/x/flag.png)'),
         isTrue,
       );
       expect(
@@ -123,10 +182,10 @@ void main() {
     });
 
     test(
-      'rewrites only successfully imported URLs and preserves alt/fragment',
+      'rewrites only successfully imported URLs and preserves alt/fragment/title',
       () {
         const markdown =
-            '![Cat](https://example.com/cat.png#50%) ![Dog](https://example.com/dog.png)';
+            '![Cat](https://example.com/cat.png#50% "Cat title") ![Dog](https://example.com/dog.png)';
 
         final rewritten = rewriteRemoteMarkdownImageRefs(markdown, {
           'https://example.com/cat.png': 'cat-photo',
@@ -134,7 +193,7 @@ void main() {
 
         expect(
           rewritten,
-          '![Cat](cat-photo#50%) ![Dog](https://example.com/dog.png)',
+          '![Cat](cat-photo#50% "Cat title") ![Dog](https://example.com/dog.png)',
         );
       },
     );

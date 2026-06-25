@@ -370,36 +370,64 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
-  testWidgets(
-    'cleans up embedded images staged before a later staging failure',
-    (tester) async {
-      final processor = _FakeBioImageProcessor(
-        failTags: const {'embedded-image-2'},
-      )..staged.add(_fakeStagedImage('already-staged'));
-      final notes = _FakeNotesRepository();
+  testWidgets('keeps saving when one embedded image fails to stage', (
+    tester,
+  ) async {
+    final processor = _FakeBioImageProcessor(
+      failTags: const {'embedded-image-2'},
+    )..staged.add(_fakeStagedImage('already-staged'));
+    final notes = _FakeNotesRepository();
 
-      await tester.pumpWidget(
-        buildSaveSubject(processor: processor, notes: notes),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      buildSaveSubject(processor: processor, notes: notes),
+    );
+    await tester.pumpAndSettle();
 
-      final bodyField = find.byType(TextField).last;
-      await tester.enterText(
-        bodyField,
-        '![One](data:image/png;base64,aGVsbG8=) '
-        '![Two](data:image/png;base64,AQ==)',
-      );
-      await tester.pump();
-      await tester.tap(find.byTooltip('Save note'));
-      await tester.pumpAndSettle();
+    final bodyField = find.byType(TextField).last;
+    await tester.enterText(
+      bodyField,
+      '![One](data:image/png;base64,aGVsbG8=) '
+      '![Two](data:image/png;base64,AQ==)',
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Save note'));
+    await tester.pumpAndSettle();
 
-      expect(notes.created, isEmpty);
-      expect(processor.commitCount, 0);
-      expect(processor.stagedPayloads, hasLength(1));
-      expect(processor.staged.map((image) => image.tag), ['already-staged']);
-      await tester.pump(const Duration(seconds: 5));
-    },
-  );
+    expect(notes.created, hasLength(1));
+    expect(
+      notes.created.single.body,
+      '![One](embedded-image-1) ![Two](data:image/png;base64,AQ==)',
+    );
+    expect(processor.commitCount, 1);
+    expect(processor.stagedPayloads, hasLength(1));
+    expect(processor.staged, isEmpty);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('keeps saving when an embedded data image is malformed', (
+    tester,
+  ) async {
+    final processor = _FakeBioImageProcessor();
+    final notes = _FakeNotesRepository();
+    const body = 'Before ![Bad](data:image/png;base64,AA=A) after.';
+
+    await tester.pumpWidget(
+      buildSaveSubject(processor: processor, notes: notes),
+    );
+    await tester.pumpAndSettle();
+
+    final bodyField = find.byType(TextField).last;
+    await tester.enterText(bodyField, body);
+    await tester.pump();
+    await tester.tap(find.byTooltip('Save note'));
+    await tester.pumpAndSettle();
+
+    expect(notes.created, hasLength(1));
+    expect(notes.created.single.body, body);
+    expect(processor.commitCount, 1);
+    expect(processor.stagedPayloads, isEmpty);
+    await tester.pump(const Duration(seconds: 5));
+  });
 }
 
 final Uint8List _kTransparentPngBytes = Uint8List.fromList(const <int>[
