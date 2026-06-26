@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/custom_fields/definitions/member_field_definition.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
@@ -160,9 +161,20 @@ class _MemberFieldEditorWidgetState
       allowEmptySelection: true,
     );
     if (selected == null || !mounted) return;
-    // Preserve stored references that are intentionally not picker candidates
-    // (missing/deleted IDs) until the user removes them explicitly.
-    final preserved = _currentIds.difference(candidateIds);
+    final unavailableIds = _currentIds.difference(candidateIds);
+    if (unavailableIds.isEmpty) {
+      _stage(selected);
+      return;
+    }
+    final unavailableMembers = await ref
+        .read(memberRepositoryProvider)
+        .getMembersByIds(unavailableIds.toList());
+    if (!mounted) return;
+    final deletedIds = {
+      for (final member in unavailableMembers)
+        if (member.isDeleted) member.id,
+    };
+    final preserved = unavailableIds.difference(deletedIds);
     _stage({...preserved, ...selected});
   }
 

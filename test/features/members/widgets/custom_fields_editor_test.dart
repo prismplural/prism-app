@@ -625,6 +625,120 @@ void main() {
     },
   );
 
+  testWidgets('member field picker drops deleted ids when replacing value', (
+    tester,
+  ) async {
+    final repo = _FakeCustomFieldsRepository();
+    final controller = CustomFieldsEditorController();
+    final showEditor = ValueNotifier(true);
+    final field = CustomField(
+      id: 'member-field',
+      name: 'Related Members',
+      fieldType: CustomFieldType.text,
+      fieldTypeId: 'member',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    const existing = CustomFieldValue(
+      id: 'existing-value',
+      customFieldId: 'member-field',
+      memberId: memberId,
+      value: '{"memberIds":["deleted"]}',
+    );
+
+    await tester.pumpWidget(
+      _subject(
+        repo: repo,
+        controller: controller,
+        showEditor: showEditor,
+        memberId: memberId,
+        fields: [field],
+        values: const [existing],
+        members: [
+          _member(id: memberId, name: 'Current', displayOrder: 0),
+          _member(id: 'bob', name: 'Bob', displayOrder: 1),
+          _member(
+            id: 'deleted',
+            name: 'Deleted',
+            displayOrder: 2,
+            isDeleted: true,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unavailable member'), findsOneWidget);
+
+    await tester.tap(find.text('Select Headmates'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bob'));
+    await tester.tap(find.byTooltip('Confirm selected headmates'));
+    await tester.pumpAndSettle();
+
+    final failures = await controller.commit();
+    await tester.pump();
+
+    expect(failures, isEmpty);
+    expect(repo.upsertedValues, hasLength(1));
+    expect(repo.upsertedValues.single.value, '{"memberIds":["bob"]}');
+  });
+
+  testWidgets(
+    'member field picker preserves missing ids when replacing value',
+    (tester) async {
+      final repo = _FakeCustomFieldsRepository();
+      final controller = CustomFieldsEditorController();
+      final showEditor = ValueNotifier(true);
+      final field = CustomField(
+        id: 'member-field',
+        name: 'Related Members',
+        fieldType: CustomFieldType.text,
+        fieldTypeId: 'member',
+        createdAt: DateTime(2026, 1, 1),
+      );
+      const existing = CustomFieldValue(
+        id: 'existing-value',
+        customFieldId: 'member-field',
+        memberId: memberId,
+        value: '{"memberIds":["missing"]}',
+      );
+
+      await tester.pumpWidget(
+        _subject(
+          repo: repo,
+          controller: controller,
+          showEditor: showEditor,
+          memberId: memberId,
+          fields: [field],
+          values: const [existing],
+          members: [
+            _member(id: memberId, name: 'Current', displayOrder: 0),
+            _member(id: 'bob', name: 'Bob', displayOrder: 1),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Unavailable member'), findsOneWidget);
+
+      await tester.tap(find.text('Select Headmates'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bob'));
+      await tester.tap(find.byTooltip('Confirm selected headmates'));
+      await tester.pumpAndSettle();
+
+      final failures = await controller.commit();
+      await tester.pump();
+
+      expect(failures, isEmpty);
+      expect(repo.upsertedValues, hasLength(1));
+      expect(
+        repo.upsertedValues.single.value,
+        '{"memberIds":["bob","missing"]}',
+      );
+    },
+  );
+
   testWidgets('member field clearing an existing value deletes the value row', (
     tester,
   ) async {
