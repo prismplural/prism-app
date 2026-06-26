@@ -12,6 +12,7 @@ import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
@@ -198,9 +199,68 @@ class SettingsNotifier extends AsyncNotifier<void> {
 
   Future<void> updateMemberNameDisplay(MemberNameDisplay value) async {
     state = await AsyncValue.guard(() async {
-      final repo = ref.read(systemSettingsRepositoryProvider);
-      await repo.updateMemberNameDisplay(value);
+      final primary = value == MemberNameDisplay.legacyName
+          ? MemberNamePrimary.canonicalName
+          : MemberNamePrimary.fullName;
+      await _updateMemberNamePresentation(primary: primary);
     });
+  }
+
+  Future<void> updateMemberNamePresentationPrimary(
+    MemberNamePrimary primary,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      await _updateMemberNamePresentation(primary: primary);
+    });
+  }
+
+  Future<void> updateMemberNamePresentationShowAlternate(
+    bool showAlternate,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      await _updateMemberNamePresentation(showAlternate: showAlternate);
+    });
+  }
+
+  Future<void> _updateMemberNamePresentation({
+    MemberNamePrimary? primary,
+    bool? showAlternate,
+  }) async {
+    var next = await _currentMemberNamePresentation();
+    if (primary != null) next = next.withPrimary(primary);
+    if (showAlternate != null) {
+      next = next.withShowAlternateName(showAlternate);
+    }
+
+    await ref
+        .read(appPreferenceRepositoryProvider)
+        .set(memberNamePresentationPreference, next.storageValue);
+
+    if (primary != null) {
+      final legacyValue = next.preferDisplayName
+          ? MemberNameDisplay.display
+          : MemberNameDisplay.legacyName;
+      await ref
+          .read(systemSettingsRepositoryProvider)
+          .updateMemberNameDisplay(legacyValue);
+    }
+  }
+
+  Future<MemberNamePresentation> _currentMemberNamePresentation() async {
+    final prefs = ref.read(appPreferenceRepositoryProvider);
+    final stored = await prefs.getStored(memberNamePresentationPreference);
+    final storedPresentation = stored == null
+        ? null
+        : MemberNamePresentation.tryParse(stored);
+    if (storedPresentation != null) return storedPresentation;
+
+    final loadedSettings = ref
+        .read(systemSettingsProvider)
+        .whenOrNull(data: (settings) => settings);
+    final settings =
+        loadedSettings ??
+        await ref.read(systemSettingsRepositoryProvider).getSettings();
+    return _legacyMemberNamePresentation(settings);
   }
 
   Future<void> updatePaletteSource(PaletteSource source) async {
@@ -906,14 +966,46 @@ final cornerStyleProvider = Provider<CornerStyle>((ref) {
   return CornerStyle.values[settings.cornerStyle.index];
 });
 
-/// Synced system-wide rule for which member name surfaces show (display name
-/// vs the canonical name). Defaults to [MemberNameDisplay.display] until
-/// settings load.
-final memberNameDisplayProvider = Provider<MemberNameDisplay>((ref) {
+MemberNamePresentation _legacyMemberNamePresentation(SystemSettings? settings) {
+  return MemberNamePresentation.fromLegacy(
+    settings?.memberNameDisplay ?? MemberNameDisplay.display,
+  );
+}
+
+/// Raw synced app preference row for member name presentation.
+///
+/// A missing, deleted, or invalid row stays nullable so the app can preserve the
+/// legacy system setting as the fallback instead of collapsing to a static
+/// preference default.
+final storedMemberNamePresentationProvider =
+    StreamProvider<MemberNamePresentation?>((ref) {
+      final repo = ref.watch(appPreferenceRepositoryProvider);
+      return repo
+          .watchStored(memberNamePresentationPreference)
+          .map(
+            (value) =>
+                value == null ? null : MemberNamePresentation.tryParse(value),
+          );
+    });
+
+/// Synced system-wide rule for how member names are presented.
+///
+/// Existing installs without an app-preference row derive their value from the
+/// legacy system setting so the UI does not change until the user edits it.
+final memberNamePresentationProvider = Provider<MemberNamePresentation>((ref) {
+  final legacy = _legacyMemberNamePresentation(
+    ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s),
+  );
   return ref
-          .watch(systemSettingsProvider)
-          .whenOrNull(data: (s) => s.memberNameDisplay) ??
-      MemberNameDisplay.display;
+      .watch(storedMemberNamePresentationProvider)
+      .maybeWhen(data: (stored) => stored ?? legacy, orElse: () => legacy);
+});
+
+/// Legacy two-state projection kept for older call sites and tests.
+final memberNameDisplayProvider = Provider<MemberNameDisplay>((ref) {
+  return ref.watch(memberNamePresentationProvider).preferDisplayName
+      ? MemberNameDisplay.display
+      : MemberNameDisplay.legacyName;
 });
 
 /// Whether appearance settings are synced across devices.

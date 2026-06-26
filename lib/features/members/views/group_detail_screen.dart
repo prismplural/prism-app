@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -185,7 +186,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final paneScope = ListDetailPaneScope.maybeOf(context);
     final canPopPane = paneScope?.canPopPane ?? false;
     final terms = watchTerminology(context, ref);
-    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
+    final namePresentation = ref.watch(memberNamePresentationProvider);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
     final allGroupsAsync = ref.watch(allGroupsProvider);
     final canAddSubGroup = allGroupsAsync.hasValue;
@@ -412,7 +413,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                       reorderIndex: index,
                       totalCount: visiblePairs.length,
                       sortMode: group.sortState.mode,
-                      preferDisplayName: preferDisplayName,
+                      namePresentation: namePresentation,
                       focusNode: _focusNodeFor(entry.id),
                       onMoveTo: (newIndex) =>
                           _moveTo(visiblePairs, index, newIndex),
@@ -1605,7 +1606,7 @@ class _GroupMemberTile extends ConsumerWidget {
     required this.reorderIndex,
     required this.totalCount,
     required this.sortMode,
-    required this.preferDisplayName,
+    required this.namePresentation,
     required this.focusNode,
     required this.onMoveTo,
   });
@@ -1619,9 +1620,8 @@ class _GroupMemberTile extends ConsumerWidget {
   final GroupSortMode sortMode;
 
   /// Hoisted from the parent `_GroupDetailBodyState.build` so the whole list
-  /// shares one `memberNamePreferDisplayProvider` watch instead of one per
-  /// visible row.
-  final bool preferDisplayName;
+  /// shares one name-presentation watch instead of one per visible row.
+  final MemberNamePresentation namePresentation;
 
   /// Per-entry focus node owned by the parent state. After a custom-action
   /// reorder, the parent requests focus on this node so screen-reader
@@ -1671,10 +1671,8 @@ class _GroupMemberTile extends ConsumerWidget {
           confirmDismiss: (_) => _confirmRemove(context, ref, member),
           child: MemberCard(
             member: member,
-            resolvedName: member.effectiveName(
-              preferDisplayName: preferDisplayName,
-            ),
-            subtitleName: preferDisplayName ? null : member.displayName,
+            resolvedName: primaryNameFor(member, namePresentation),
+            subtitleName: alternateNameFor(member, namePresentation),
             deferAvatarLookup: true,
             reorderIndex: reorderIndex,
             dragHandleHint: isManual

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -64,7 +65,7 @@ class _MemberTilePrefs {
     required this.showFrontButtons,
     required this.frontButtonBehavior,
     required this.frontingActionBusy,
-    required this.preferDisplayName,
+    required this.namePresentation,
   });
 
   final bool showPronouns;
@@ -72,9 +73,9 @@ class _MemberTilePrefs {
   final FrontStartBehavior frontButtonBehavior;
   final bool frontingActionBusy;
 
-  /// Display-name preference resolved once per build so each tile renders the
-  /// effective name without watching the setting itself.
-  final bool preferDisplayName;
+  /// Name presentation preference resolved once per build so each tile renders
+  /// names without watching the setting itself.
+  final MemberNamePresentation namePresentation;
 }
 
 /// Main member list screen.
@@ -643,13 +644,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
     final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
-    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
+    final namePresentation = ref.watch(memberNamePresentationProvider);
     final memberTilePrefs = _MemberTilePrefs(
       showPronouns: showPronouns,
       showFrontButtons: showFrontButtons,
       frontButtonBehavior: frontButtonBehavior,
       frontingActionBusy: frontingActionBusy,
-      preferDisplayName: preferDisplayName,
+      namePresentation: namePresentation,
     );
     final showGroups = ref.watch(membersShowGroupsProvider);
     final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
@@ -1267,8 +1268,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   }) {
     final theme = Theme.of(context);
     final actions = _memberContextActions(member, isFronting);
-    final resolvedName = member.effectiveName(
-      preferDisplayName: memberTilePrefs.preferDisplayName,
+    final resolvedName = primaryNameFor(
+      member,
+      memberTilePrefs.namePresentation,
     );
     final frontButtonLabel = switch (memberTilePrefs.frontButtonBehavior) {
       FrontStartBehavior.additive => context.l10n.memberFrontButtonAddSemantic(
@@ -1302,9 +1304,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       child: MemberCard(
         member: member,
         resolvedName: resolvedName,
-        subtitleName: memberTilePrefs.preferDisplayName
-            ? null
-            : member.displayName,
+        subtitleName: alternateNameFor(
+          member,
+          memberTilePrefs.namePresentation,
+        ),
         deferAvatarLookup: true,
         showPronouns: memberTilePrefs.showPronouns,
         selected: isDetailSelected(member.id),

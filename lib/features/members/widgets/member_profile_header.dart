@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/member_name_style.dart';
 import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
@@ -379,20 +381,9 @@ class _MemberHeaderMetadata extends ConsumerWidget {
     final birthday = _birthdayDisplay(context, member);
     final shadows = applyTextShadow ? _onImageShadows : null;
 
-    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
-    final primaryTitle = member.effectiveName(
-      preferDisplayName: preferDisplayName,
-    );
-    // Show the canonical name as a parenthetical only in legacy mode; in
-    // display mode the effective name already stands alone.
-    final fullName = member.displayName?.trim();
-    final secondaryTitle =
-        !preferDisplayName &&
-            fullName != null &&
-            fullName.isNotEmpty &&
-            fullName != member.name
-        ? fullName
-        : null;
+    final namePresentation = ref.watch(memberNamePresentationProvider);
+    final primaryTitle = primaryNameFor(member, namePresentation);
+    final secondaryTitle = alternateNameFor(member, namePresentation);
 
     final pronouns = member.pronouns?.trim();
     final hasPronouns = pronouns != null && pronouns.isNotEmpty;

@@ -908,10 +908,10 @@ abstract class AppLocalizations {
   /// **'Member names'**
   String get appearanceMemberNamesTitle;
 
-  /// Member name display option: show the display name
+  /// Member name display option: show the full name
   ///
   /// In en, this message translates to:
-  /// **'Display name'**
+  /// **'Full Name'**
   String get appearanceMemberNamesDisplay;
 
   /// Member name display option: show the canonical name
@@ -925,6 +925,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose which name to show for members across the app.'**
   String get appearanceMemberNamesDescription;
+
+  /// Toggle title for showing both full name and canonical name where space allows
+  ///
+  /// In en, this message translates to:
+  /// **'Show alternate name'**
+  String get appearanceMemberNamesShowAlternateTitle;
+
+  /// Toggle description for showing both full name and canonical name where space allows
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the other name beside the primary name where there is room.'**
+  String get appearanceMemberNamesShowAlternateDescription;
 
   /// Appearance settings section: Accent Color
   ///

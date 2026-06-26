@@ -456,7 +456,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appearanceMemberNamesTitle => 'Nombres de los miembros';
 
   @override
-  String get appearanceMemberNamesDisplay => 'Nombre para mostrar';
+  String get appearanceMemberNamesDisplay => 'Nombre completo';
 
   @override
   String get appearanceMemberNamesLegacy => 'Nombre';
@@ -464,6 +464,14 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get appearanceMemberNamesDescription =>
       'Elige qué nombre mostrar para los miembros en toda la app.';
+
+  @override
+  String get appearanceMemberNamesShowAlternateTitle =>
+      'Mostrar nombre alternativo';
+
+  @override
+  String get appearanceMemberNamesShowAlternateDescription =>
+      'Muestra el otro nombre junto al nombre principal cuando hay espacio.';
 
   @override
   String get appearanceAccentColor => 'Color de acento';

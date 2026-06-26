@@ -612,9 +612,9 @@
   "@appearanceMemberNamesTitle": {
     "description": "Appearance settings section: which member name to show"
   },
-  "appearanceMemberNamesDisplay": "Display name",
+  "appearanceMemberNamesDisplay": "Full Name",
   "@appearanceMemberNamesDisplay": {
-    "description": "Member name display option: show the display name"
+    "description": "Member name display option: show the full name"
   },
   "appearanceMemberNamesLegacy": "Name",
   "@appearanceMemberNamesLegacy": {
@@ -623,6 +623,14 @@
   "appearanceMemberNamesDescription": "Choose which name to show for members across the app.",
   "@appearanceMemberNamesDescription": {
     "description": "Description text for the member name display picker"
+  },
+  "appearanceMemberNamesShowAlternateTitle": "Show alternate name",
+  "@appearanceMemberNamesShowAlternateTitle": {
+    "description": "Toggle title for showing both full name and canonical name where space allows"
+  },
+  "appearanceMemberNamesShowAlternateDescription": "Shows the other name beside the primary name where there is room.",
+  "@appearanceMemberNamesShowAlternateDescription": {
+    "description": "Toggle description for showing both full name and canonical name where space allows"
   },
   "appearanceAccentColor": "Accent Color",
   "@appearanceAccentColor": {

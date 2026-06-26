@@ -44,9 +44,8 @@ class MemberCard extends StatelessWidget {
   /// Hosts resolve the effective name once at the list level and pass it here.
   final String? resolvedName;
 
-  /// Optional secondary label shown after the primary name (today's display
-  /// name). Rendered only when non-null and non-empty. Hosts pass null in
-  /// display mode (no secondary) and the member's display name in legacy mode.
+  /// Optional alternate name shown after the primary name. Rendered only when
+  /// non-null and non-empty.
   final String? subtitleName;
 
   final bool showPronouns;
@@ -81,6 +80,9 @@ class MemberCard extends StatelessWidget {
     final radius = BorderRadius.all(
       Radius.circular(PrismShapes.of(context).radius(14)),
     );
+    final semanticsLabel = secondary == null || secondary.isEmpty
+        ? primaryName
+        : '$primaryName, $secondary';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(
@@ -99,7 +101,7 @@ class MemberCard extends StatelessWidget {
         child: Semantics(
           button: true,
           enabled: onTap != null,
-          label: primaryName,
+          label: semanticsLabel,
           child: InkWell(
             onTap: onTap,
             borderRadius: radius,

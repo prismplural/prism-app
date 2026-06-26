@@ -46,12 +46,44 @@ class DriftAppPreferenceRepository
   }
 
   @override
+  Stream<T?> watchStored<T>(PreferenceDefinition<T> definition) {
+    _assertScope(definition);
+    final key = PreferenceEntityId.app(definition.key);
+    return _dao
+        .watchAppValue(key)
+        .map(
+          (row) => row == null
+              ? null
+              : decodeStoredPreferenceValue(
+                  definition: definition,
+                  valueType: row.valueType,
+                  valueJson: row.valueJson,
+                  isDeleted: row.isDeleted,
+                ),
+        );
+  }
+
+  @override
   Future<T> get<T>(PreferenceDefinition<T> definition) async {
     _assertScope(definition);
     final key = PreferenceEntityId.app(definition.key);
     final row = await _dao.getAppValue(key);
     if (row == null) return definition.defaultValue;
     return decodePreferenceValue(
+      definition: definition,
+      valueType: row.valueType,
+      valueJson: row.valueJson,
+      isDeleted: row.isDeleted,
+    );
+  }
+
+  @override
+  Future<T?> getStored<T>(PreferenceDefinition<T> definition) async {
+    _assertScope(definition);
+    final key = PreferenceEntityId.app(definition.key);
+    final row = await _dao.getAppValue(key);
+    if (row == null) return null;
+    return decodeStoredPreferenceValue(
       definition: definition,
       valueType: row.valueType,
       valueJson: row.valueJson,

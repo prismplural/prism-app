@@ -5,7 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -75,6 +77,175 @@ Future<ProviderContainer> makeContainerWithIgnore({
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  group('memberNamePresentationProvider', () {
+    ProviderContainer makeContainer({
+      required FakeSystemSettingsRepository settings,
+      required FakeAppPreferenceRepository prefs,
+      MemberNamePresentation? storedPresentation,
+    }) {
+      final container = ProviderContainer(
+        overrides: [
+          systemSettingsProvider.overrideWithValue(
+            AsyncValue.data(settings.settings),
+          ),
+          systemSettingsRepositoryProvider.overrideWithValue(settings),
+          appPreferenceRepositoryProvider.overrideWithValue(prefs),
+          storedMemberNamePresentationProvider.overrideWithValue(
+            AsyncValue.data(storedPresentation),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'falls back to legacy full-name setting when no app preference exists',
+      () async {
+        final settings = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            memberNameDisplay: domain.MemberNameDisplay.display,
+          );
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = makeContainer(settings: settings, prefs: prefs);
+
+        expect(
+          container.read(memberNamePresentationProvider),
+          MemberNamePresentation.fullName,
+        );
+        expect(container.read(memberNamePreferDisplayProvider), isTrue);
+      },
+    );
+
+    test(
+      'falls back to legacy name-with-full-name setting when no app preference exists',
+      () async {
+        final settings = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            memberNameDisplay: domain.MemberNameDisplay.legacyName,
+          );
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = makeContainer(settings: settings, prefs: prefs);
+
+        expect(
+          container.read(memberNamePresentationProvider),
+          MemberNamePresentation.nameWithFullName,
+        );
+        expect(container.read(memberNamePreferDisplayProvider), isFalse);
+        expect(
+          container.read(memberNameDisplayProvider),
+          domain.MemberNameDisplay.legacyName,
+        );
+      },
+    );
+
+    test('stored app preference overrides legacy system setting', () async {
+      final settings = FakeSystemSettingsRepository()
+        ..settings = const domain.SystemSettings(
+          memberNameDisplay: domain.MemberNameDisplay.display,
+        );
+      final prefs = FakeAppPreferenceRepository();
+      addTearDown(prefs.close);
+      final container = makeContainer(
+        settings: settings,
+        prefs: prefs,
+        storedPresentation: MemberNamePresentation.canonicalName,
+      );
+
+      expect(
+        container.read(memberNamePresentationProvider),
+        MemberNamePresentation.canonicalName,
+      );
+      expect(container.read(memberNamePreferDisplayProvider), isFalse);
+    });
+
+    test(
+      'primary updates write app preference and mirror legacy setting',
+      () async {
+        final settings = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            memberNameDisplay: domain.MemberNameDisplay.display,
+          );
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = makeContainer(settings: settings, prefs: prefs);
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateMemberNamePresentationPrimary(
+              MemberNamePrimary.canonicalName,
+            );
+
+        expect(
+          await prefs.getStored(memberNamePresentationPreference),
+          MemberNamePresentation.canonicalName.storageValue,
+        );
+        expect(
+          settings.settings.memberNameDisplay,
+          domain.MemberNameDisplay.legacyName,
+        );
+      },
+    );
+
+    test(
+      'alternate-only updates write app preference without changing legacy',
+      () async {
+        final settings = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            memberNameDisplay: domain.MemberNameDisplay.display,
+          );
+        final prefs = FakeAppPreferenceRepository();
+        addTearDown(prefs.close);
+        final container = makeContainer(settings: settings, prefs: prefs);
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateMemberNamePresentationShowAlternate(true);
+
+        expect(
+          await prefs.getStored(memberNamePresentationPreference),
+          MemberNamePresentation.fullNameWithName.storageValue,
+        );
+        expect(
+          settings.settings.memberNameDisplay,
+          domain.MemberNameDisplay.display,
+        );
+      },
+    );
+
+    test(
+      'alternate updates preserve stored primary before stream resolves',
+      () async {
+        final settings = FakeSystemSettingsRepository()
+          ..settings = const domain.SystemSettings(
+            memberNameDisplay: domain.MemberNameDisplay.display,
+          );
+        final prefs = FakeAppPreferenceRepository()
+          ..seed(
+            memberNamePresentationPreference,
+            MemberNamePresentation.canonicalName.storageValue,
+          );
+        addTearDown(prefs.close);
+        final container = makeContainer(settings: settings, prefs: prefs);
+
+        await container
+            .read(settingsNotifierProvider.notifier)
+            .updateMemberNamePresentationShowAlternate(true);
+
+        expect(
+          await prefs.getStored(memberNamePresentationPreference),
+          MemberNamePresentation.nameWithFullName.storageValue,
+        );
+        expect(
+          settings.settings.memberNameDisplay,
+          domain.MemberNameDisplay.display,
+        );
+      },
+    );
   });
 
   group('hideMemberCountsProvider', () {

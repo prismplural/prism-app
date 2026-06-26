@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/domain/models/system_settings.dart'
     hide CornerStyle;
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/features/settings/views/palette_settings_screen.dart';
@@ -47,6 +48,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
         data: (settings) {
           final selectedBrightness = ref.watch(themeBrightnessProvider);
           final selectedThemeStyle = ref.watch(themeStyleProvider);
+          final namePresentation = ref.watch(memberNamePresentationProvider);
           final effectiveSettings = settings.copyWith(
             themeBrightness: selectedBrightness,
             themeStyle: selectedThemeStyle,
@@ -126,23 +128,45 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               PrismSection(
                 title: context.l10n.appearanceMemberNamesTitle,
                 description: context.l10n.appearanceMemberNamesDescription,
-                child: PrismSegmentedControl<MemberNameDisplay>(
-                  segments: [
-                    PrismSegment(
-                      value: MemberNameDisplay.display,
-                      label: context.l10n.appearanceMemberNamesDisplay,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrismSegmentedControl<MemberNamePrimary>(
+                      segments: [
+                        PrismSegment(
+                          value: MemberNamePrimary.fullName,
+                          label: context.l10n.appearanceMemberNamesDisplay,
+                        ),
+                        PrismSegment(
+                          value: MemberNamePrimary.canonicalName,
+                          label: context.l10n.appearanceMemberNamesLegacy,
+                        ),
+                      ],
+                      selected: namePresentation.primary,
+                      onChanged: (value) {
+                        ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateMemberNamePresentationPrimary(value);
+                      },
                     ),
-                    PrismSegment(
-                      value: MemberNameDisplay.legacyName,
-                      label: context.l10n.appearanceMemberNamesLegacy,
+                    const SizedBox(height: 12),
+                    PrismSectionCard(
+                      child: PrismSwitchRow(
+                        title: context
+                            .l10n
+                            .appearanceMemberNamesShowAlternateTitle,
+                        subtitle: context
+                            .l10n
+                            .appearanceMemberNamesShowAlternateDescription,
+                        value: namePresentation.showAlternateName,
+                        onChanged: (value) {
+                          ref
+                              .read(settingsNotifierProvider.notifier)
+                              .updateMemberNamePresentationShowAlternate(value);
+                        },
+                      ),
                     ),
                   ],
-                  selected: ref.watch(memberNameDisplayProvider),
-                  onChanged: (value) {
-                    ref
-                        .read(settingsNotifierProvider.notifier)
-                        .updateMemberNameDisplay(value);
-                  },
                 ),
               ),
               if (selectedThemeStyle != ThemeStyle.materialYou)

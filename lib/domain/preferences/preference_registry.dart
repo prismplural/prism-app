@@ -102,6 +102,22 @@ const navBarExpandedLabelsFullPreference = PreferenceDefinition<bool>(
   introducedInSchemaVersion: 38,
 );
 
+const memberNamePresentationPreference = PreferenceDefinition<String>(
+  key: 'members.name_presentation',
+  scope: PreferenceScope.appSynced,
+  defaultValue: 'full_name',
+  codec: StringPreferenceCodec(
+    allowedValues: {
+      'full_name',
+      'full_name_with_name',
+      'name_with_full_name',
+      'name',
+    },
+  ),
+  introducedInAppVersion: '0.14.0',
+  introducedInSchemaVersion: 39,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideMemberCountsPreference,
   frontingReminderSuppressMinutesPreference,
@@ -110,5 +126,6 @@ final appPreferenceRegistry = PreferenceRegistry(const [
   forceCenteredSheetsPreference,
   typographyLetterSpacingPreference,
   navBarExpandedLabelsFullPreference,
+  memberNamePresentationPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);

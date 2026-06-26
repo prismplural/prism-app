@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 
@@ -48,5 +49,32 @@ void main() {
     // Shipped at schema v31; pin to the historical version so a later schema
     // bump doesn't break this (see the accessibility-prefs test above).
     expect(typographyLetterSpacingPreference.introducedInSchemaVersion, 31);
+  });
+
+  test('member name presentation preference is a synced app preference', () {
+    expect(
+      appPreferenceRegistry.definitions,
+      contains(memberNamePresentationPreference),
+    );
+    expect(memberNamePresentationPreference.key, 'members.name_presentation');
+    expect(memberNamePresentationPreference.scope, PreferenceScope.appSynced);
+    expect(
+      MemberNamePresentation.tryParse(
+        memberNamePresentationPreference.defaultValue,
+      ),
+      MemberNamePresentation.fullName,
+    );
+    for (final presentation in MemberNamePresentation.values) {
+      expect(
+        memberNamePresentationPreference.codec.isValid(
+          presentation.storageValue,
+        ),
+        isTrue,
+        reason: '${presentation.storageValue} should be an allowed value',
+      );
+    }
+    expect(memberNamePresentationPreference.codec.isValid('unknown'), isFalse);
+    expect(memberNamePresentationPreference.introducedInAppVersion, '0.14.0');
+    expect(memberNamePresentationPreference.introducedInSchemaVersion, 39);
   });
 }

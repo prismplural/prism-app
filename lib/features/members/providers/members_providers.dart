@@ -136,13 +136,11 @@ final activeMemberByIdProvider = Provider.autoDispose
       });
     });
 
-/// Whether members should be shown by their display name (vs the canonical
-/// `name`). Single source of truth for the [MemberNameDisplay] preference,
-/// resolved to a plain bool so surfaces read it once instead of each widget
-/// watching the setting. Defaults to true (mode `display`).
+/// Whether members should be shown by their full name (vs the canonical
+/// `name`). Resolved to a plain bool so primary-only surfaces read it once
+/// instead of each widget watching the full presentation preference.
 final memberNamePreferDisplayProvider = Provider<bool>((ref) {
-  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
-  return settings?.memberNameDisplay != MemberNameDisplay.legacyName;
+  return ref.watch(memberNamePresentationProvider).preferDisplayName;
 });
 
 /// Cached map of memberId → effective display name, derived from active members.
@@ -159,7 +157,9 @@ final memberNameMapProvider = Provider<Map<String, String>>((ref) {
   final members = ref.watch(activeMemberListProvider).value;
   if (members == null) return const {};
   final prefer = ref.watch(memberNamePreferDisplayProvider);
-  return {for (final m in members) m.id: m.effectiveName(preferDisplayName: prefer)};
+  return {
+    for (final m in members) m.id: m.effectiveName(preferDisplayName: prefer),
+  };
 });
 
 /// Member CRUD notifier.

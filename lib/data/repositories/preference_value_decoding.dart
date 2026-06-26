@@ -21,6 +21,26 @@ T decodePreferenceValue<T>({
   }
 }
 
+T? decodeStoredPreferenceValue<T>({
+  required PreferenceDefinition<T> definition,
+  required String valueType,
+  required String? valueJson,
+  required bool isDeleted,
+}) {
+  if (isDeleted ||
+      valueType != definition.codec.valueType ||
+      valueJson == null) {
+    return null;
+  }
+
+  try {
+    final value = definition.codec.decode(jsonDecode(valueJson));
+    return definition.codec.isValid(value) ? value : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 String encodePreferenceValue<T>(PreferenceDefinition<T> definition, T value) {
   definition.validate(value);
   return jsonEncode(definition.codec.encode(value));

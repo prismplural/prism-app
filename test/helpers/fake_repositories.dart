@@ -519,11 +519,25 @@ class FakeAppPreferenceRepository implements AppPreferenceRepository {
   }
 
   @override
+  Future<T?> getStored<T>(PreferenceDefinition<T> definition) async {
+    final value = _values[definition.key];
+    return value is T && definition.codec.isValid(value) ? value : null;
+  }
+
+  @override
   Stream<T> watch<T>(PreferenceDefinition<T> definition) async* {
     yield await get(definition);
     yield* _controllerFor(definition.key).stream.map((value) {
       if (value is T) return value;
       return definition.defaultValue;
+    });
+  }
+
+  @override
+  Stream<T?> watchStored<T>(PreferenceDefinition<T> definition) async* {
+    yield await getStored(definition);
+    yield* _controllerFor(definition.key).stream.map((value) {
+      return value is T && definition.codec.isValid(value) ? value : null;
     });
   }
 
@@ -537,7 +551,7 @@ class FakeAppPreferenceRepository implements AppPreferenceRepository {
   @override
   Future<void> reset<T>(PreferenceDefinition<T> definition) async {
     _values.remove(definition.key);
-    _controllerFor(definition.key).add(definition.defaultValue);
+    _controllerFor(definition.key).add(null);
   }
 
   StreamController<Object?> _controllerFor(String key) {
