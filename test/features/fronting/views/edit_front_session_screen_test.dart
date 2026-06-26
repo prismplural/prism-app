@@ -17,6 +17,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
@@ -28,6 +29,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_change_executor.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
@@ -81,6 +83,7 @@ Widget _buildSubject({
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
+      ..._memberNamePresentationOverrides(),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -88,6 +91,14 @@ Widget _buildSubject({
       home: Scaffold(body: EditFrontSessionScreen(sessionId: session.id)),
     ),
   );
+}
+
+List<Override> _memberNamePresentationOverrides() {
+  return [
+    memberNamePresentationProvider.overrideWithValue(
+      MemberNamePresentation.fullName,
+    ),
+  ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,6 +263,7 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
+            ..._memberNamePresentationOverrides(),
           ],
         );
 
@@ -342,6 +354,7 @@ void main() {
             systemSettingsProvider.overrideWith(
               (ref) => Stream.value(const SystemSettings()),
             ),
+            ..._memberNamePresentationOverrides(),
           ],
         );
 
@@ -450,6 +463,7 @@ void main() {
               systemSettingsProvider.overrideWith(
                 (ref) => Stream.value(const SystemSettings()),
               ),
+              ..._memberNamePresentationOverrides(),
               frontingSessionRepositoryProvider.overrideWithValue(repo),
               frontingChangeExecutorProvider.overrideWithValue(capturing),
             ],

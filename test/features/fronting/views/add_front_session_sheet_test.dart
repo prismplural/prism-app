@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
 
@@ -11,6 +12,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -111,6 +113,7 @@ Widget _buildSheetTrigger({
       ),
       if (fakeNotifier != null)
         frontingNotifierProvider.overrideWith(() => fakeNotifier),
+      ..._memberNamePresentationOverrides(),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -125,6 +128,14 @@ Widget _buildSheetTrigger({
       ),
     ),
   );
+}
+
+List<Override> _memberNamePresentationOverrides() {
+  return [
+    memberNamePresentationProvider.overrideWithValue(
+      MemberNamePresentation.fullName,
+    ),
+  ];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1172,6 +1183,7 @@ void main() {
             allGroupEntriesProvider.overrideWith(
               (ref) => Stream.value(const <MemberGroupEntry>[]),
             ),
+            ..._memberNamePresentationOverrides(),
           ],
         );
 
