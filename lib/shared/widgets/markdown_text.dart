@@ -98,6 +98,7 @@ class MarkdownText extends StatelessWidget {
       child: MarkdownBody(
         data: preserveBlankLines(applyPlainLineEscapes(normalizedData)),
         selectable: selectable,
+        fitContent: textAlign == null,
         styleSheet: sheet,
         softLineBreak: true,
         onTapLink: (_, href, _) => _launchSafeLink(href),

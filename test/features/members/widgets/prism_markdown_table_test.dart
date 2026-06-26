@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -33,12 +34,18 @@ Future<void> _pumpPrismMarkdown(
       ],
       child: MaterialApp(
         home: Scaffold(
-          body: SizedBox(width: 500, child: PrismMarkdownText(data: data)),
+          body: SizedBox(
+            key: _markdownHarnessKey,
+            width: 500,
+            child: PrismMarkdownText(data: data),
+          ),
         ),
       ),
     ),
   );
 }
+
+const _markdownHarnessKey = ValueKey('prism-markdown-test-harness');
 
 void main() {
   group('PrismMarkdownText alignment fences', () {
@@ -192,6 +199,37 @@ void main() {
       expect(border.bottom.color, const Color(0xFFFF8800));
       expect(border.left.color, const Color(0xFFFF8800));
     });
+
+    testWidgets('alignment fences position glyphs across the available width', (
+      tester,
+    ) async {
+      await _pumpPrismMarkdown(
+        tester,
+        'Default reference line\n\n'
+        ':::center\n'
+        'Centered marker line\n'
+        ':::\n\n'
+        ':::right\n'
+        'Right marker line\n'
+        ':::',
+      );
+      await tester.pump();
+
+      final harnessRect = tester.getRect(find.byKey(_markdownHarnessKey));
+      final defaultBounds = _glyphBoundsContaining(
+        tester,
+        'Default reference line',
+      );
+      final centeredBounds = _glyphBoundsContaining(
+        tester,
+        'Centered marker line',
+      );
+      final rightBounds = _glyphBoundsContaining(tester, 'Right marker line');
+
+      expect(defaultBounds.left, closeTo(harnessRect.left, 1));
+      expect(centeredBounds.center.dx, closeTo(harnessRect.center.dx, 1));
+      expect(rightBounds.right, closeTo(harnessRect.right, 1));
+    });
   });
 
   group('PrismMarkdownTable column widths', () {
@@ -344,6 +382,27 @@ bool _matchesAlignment(TextAlign? actual, TextAlign expected) {
     case TextAlign.justify:
       return actual == TextAlign.justify;
   }
+}
+
+Rect _glyphBoundsContaining(WidgetTester tester, String value) {
+  for (final element in find.byType(RichText).evaluate()) {
+    final widget = element.widget as RichText;
+    final plainText = widget.text.toPlainText();
+    final start = plainText.indexOf(value);
+    if (start < 0) continue;
+
+    final paragraph = element.renderObject! as RenderParagraph;
+    final boxes = paragraph.getBoxesForSelection(
+      TextSelection(baseOffset: start, extentOffset: start + value.length),
+    );
+    if (boxes.isEmpty) continue;
+
+    final box = boxes.first;
+    final topLeft = paragraph.localToGlobal(Offset(box.left, box.top));
+    final bottomRight = paragraph.localToGlobal(Offset(box.right, box.bottom));
+    return Rect.fromPoints(topLeft, bottomRight);
+  }
+  fail('Could not find glyph bounds for "$value".');
 }
 
 List<String> _allRenderedText(WidgetTester tester) {
