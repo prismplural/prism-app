@@ -7,8 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 
 import '../../helpers/prism_golden.dart';
@@ -189,8 +191,11 @@ Widget _headerScenario({
 
 List<Override> _providerOverrides() {
   return [
-    // Pin legacy mode so this golden keeps exercising the name + display-name
-    // secondary layout (display mode shows only the effective name).
+    // Pin Name + Full Name mode so this golden keeps exercising the secondary
+    // title layout. Full Name primary mode shows only the effective name.
+    memberNamePresentationProvider.overrideWithValue(
+      MemberNamePresentation.nameWithFullName,
+    ),
     memberNamePreferDisplayProvider.overrideWithValue(false),
     terminologySettingProvider.overrideWithValue((
       term: SystemTerminology.headmates,
