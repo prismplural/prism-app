@@ -25,6 +25,9 @@ class DriftAppPreferenceRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'app_preference_values';
 
   @override
@@ -93,53 +96,57 @@ class DriftAppPreferenceRepository
 
   @override
   Future<void> set<T>(PreferenceDefinition<T> definition, T value) async {
-    _assertScope(definition);
-    _assertCanWrite(definition);
-    final key = PreferenceEntityId.app(definition.key);
-    final valueJson = encodePreferenceValue(definition, value);
-    final existing = await _dao.getAppValue(key);
-    await _dao.upsertAppValue(
-      AppPreferenceValuesCompanion.insert(
-        key: key,
-        valueType: definition.codec.valueType,
-        valueJson: Value(valueJson),
-        isDeleted: const Value(false),
-      ),
-    );
-    final fields = _appPreferenceValueFields(
-      valueType: definition.codec.valueType,
-      valueJson: valueJson,
-      isDeleted: false,
-    );
-    if (existing == null || existing.isDeleted) {
-      await syncRecordCreate(_table, key, fields);
-    } else {
-      final previousFields = _appPreferenceValueFields(
-        valueType: existing.valueType,
-        valueJson: existing.valueJson,
-        isDeleted: existing.isDeleted,
+    await runSyncedWrite(() async {
+      _assertScope(definition);
+      _assertCanWrite(definition);
+      final key = PreferenceEntityId.app(definition.key);
+      final valueJson = encodePreferenceValue(definition, value);
+      final existing = await _dao.getAppValue(key);
+      await _dao.upsertAppValue(
+        AppPreferenceValuesCompanion.insert(
+          key: key,
+          valueType: definition.codec.valueType,
+          valueJson: Value(valueJson),
+          isDeleted: const Value(false),
+        ),
       );
-      final changedFields = diffSyncFields(previousFields, fields);
-      if (changedFields.isNotEmpty) {
-        await syncRecordUpdate(_table, key, changedFields);
+      final fields = _appPreferenceValueFields(
+        valueType: definition.codec.valueType,
+        valueJson: valueJson,
+        isDeleted: false,
+      );
+      if (existing == null || existing.isDeleted) {
+        await syncRecordCreate(_table, key, fields);
+      } else {
+        final previousFields = _appPreferenceValueFields(
+          valueType: existing.valueType,
+          valueJson: existing.valueJson,
+          isDeleted: existing.isDeleted,
+        );
+        final changedFields = diffSyncFields(previousFields, fields);
+        if (changedFields.isNotEmpty) {
+          await syncRecordUpdate(_table, key, changedFields);
+        }
       }
-    }
+    });
   }
 
   @override
   Future<void> reset<T>(PreferenceDefinition<T> definition) async {
-    _assertScope(definition);
-    _assertCanWrite(definition);
-    final key = PreferenceEntityId.app(definition.key);
-    await _dao.upsertAppValue(
-      AppPreferenceValuesCompanion.insert(
-        key: key,
-        valueType: definition.codec.valueType,
-        valueJson: const Value(null),
-        isDeleted: const Value(true),
-      ),
-    );
-    await syncRecordDelete(_table, key);
+    await runSyncedWrite(() async {
+      _assertScope(definition);
+      _assertCanWrite(definition);
+      final key = PreferenceEntityId.app(definition.key);
+      await _dao.upsertAppValue(
+        AppPreferenceValuesCompanion.insert(
+          key: key,
+          valueType: definition.codec.valueType,
+          valueJson: const Value(null),
+          isDeleted: const Value(true),
+        ),
+      );
+      await syncRecordDelete(_table, key);
+    });
   }
 
   static Map<String, dynamic> appPreferenceValueFields({

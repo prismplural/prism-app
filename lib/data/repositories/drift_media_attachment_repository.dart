@@ -16,6 +16,9 @@ class DriftMediaAttachmentRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'media_attachments';
 
   DriftMediaAttachmentRepository(this._dao, this._syncHandle);
@@ -35,15 +38,23 @@ class DriftMediaAttachmentRepository
 
   @override
   Future<void> create(domain.MediaAttachment attachment) async {
-    final companion = MediaAttachmentMapper.toCompanion(attachment);
-    await _dao.insertAttachment(companion);
-    await syncRecordCreate(_table, attachment.id, _attachmentFields(attachment));
+    await runSyncedWrite(() async {
+      final companion = MediaAttachmentMapper.toCompanion(attachment);
+      await _dao.insertAttachment(companion);
+      await syncRecordCreate(
+        _table,
+        attachment.id,
+        _attachmentFields(attachment),
+      );
+    });
   }
 
   @override
   Future<void> delete(String id) async {
-    await _dao.softDelete(id);
-    await syncRecordDelete(_table, id);
+    await runSyncedWrite(() async {
+      await _dao.softDelete(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   @override
@@ -53,39 +64,32 @@ class DriftMediaAttachmentRepository
   }
 
   @override
-  Stream<List<domain.MediaAttachment>> watchForMember(String memberId) =>
-      _dao.watchForMember(memberId).map(
-            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
-          );
+  Stream<List<domain.MediaAttachment>> watchForMember(String memberId) => _dao
+      .watchForMember(memberId)
+      .map((rows) => rows.map(MediaAttachmentMapper.toDomain).toList());
 
   @override
-  Stream<List<domain.MediaAttachment>> watchAllBioMedia() =>
-      _dao.watchAllBioMedia().map(
-            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
-          );
+  Stream<List<domain.MediaAttachment>> watchAllBioMedia() => _dao
+      .watchAllBioMedia()
+      .map((rows) => rows.map(MediaAttachmentMapper.toDomain).toList());
 
   @override
-  Stream<List<domain.MediaAttachment>> watchAllChatMedia() =>
-      _dao.watchAllChatMedia().map(
-            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
-          );
+  Stream<List<domain.MediaAttachment>> watchAllChatMedia() => _dao
+      .watchAllChatMedia()
+      .map((rows) => rows.map(MediaAttachmentMapper.toDomain).toList());
 
   @override
-  Stream<List<domain.MediaAttachment>> watchLibraryImages() =>
-      _dao.watchLibraryImages().map(
-            (rows) => rows.map(MediaAttachmentMapper.toDomain).toList(),
-          );
+  Stream<List<domain.MediaAttachment>> watchLibraryImages() => _dao
+      .watchLibraryImages()
+      .map((rows) => rows.map(MediaAttachmentMapper.toDomain).toList());
 
   @override
   Future<void> updateTag(String attachmentId, String tag) async {
-    await _dao.updateAttachment(
-      MediaAttachmentsCompanion(
-        id: Value(attachmentId),
-        tag: Value(tag),
-      ),
-    );
-    await syncRecordUpdate(_table, attachmentId, {
-      'tag': tag,
+    await runSyncedWrite(() async {
+      await _dao.updateAttachment(
+        MediaAttachmentsCompanion(id: Value(attachmentId), tag: Value(tag)),
+      );
+      await syncRecordUpdate(_table, attachmentId, {'tag': tag});
     });
   }
 
@@ -94,45 +98,47 @@ class DriftMediaAttachmentRepository
     String attachmentId,
     domain.MediaAttachment data,
   ) async {
-    await _dao.updateAttachment(
-      MediaAttachmentsCompanion(
-        id: Value(attachmentId),
-        mediaId: Value(data.mediaId),
-        encryptionKeyB64: Value(data.encryptionKeyB64),
-        contentHash: Value(data.contentHash),
-        plaintextHash: Value(data.plaintextHash),
-        mimeType: Value(data.mimeType),
-        sizeBytes: Value(data.sizeBytes),
-        width: Value(data.width),
-        height: Value(data.height),
-        blurhash: Value(data.blurhash),
-        sourceUrl: Value(data.sourceUrl),
-      ),
-    );
-    await syncRecordUpdate(_table, attachmentId, {
-      'media_id': data.mediaId,
-      'encryption_key_b64': data.encryptionKeyB64,
-      'content_hash': data.contentHash,
-      'plaintext_hash': data.plaintextHash,
-      'mime_type': data.mimeType,
-      'size_bytes': data.sizeBytes,
-      'width': data.width,
-      'height': data.height,
-      'blurhash': data.blurhash,
-      'source_url': data.sourceUrl,
+    await runSyncedWrite(() async {
+      await _dao.updateAttachment(
+        MediaAttachmentsCompanion(
+          id: Value(attachmentId),
+          mediaId: Value(data.mediaId),
+          encryptionKeyB64: Value(data.encryptionKeyB64),
+          contentHash: Value(data.contentHash),
+          plaintextHash: Value(data.plaintextHash),
+          mimeType: Value(data.mimeType),
+          sizeBytes: Value(data.sizeBytes),
+          width: Value(data.width),
+          height: Value(data.height),
+          blurhash: Value(data.blurhash),
+          sourceUrl: Value(data.sourceUrl),
+        ),
+      );
+      await syncRecordUpdate(_table, attachmentId, {
+        'media_id': data.mediaId,
+        'encryption_key_b64': data.encryptionKeyB64,
+        'content_hash': data.contentHash,
+        'plaintext_hash': data.plaintextHash,
+        'mime_type': data.mimeType,
+        'size_bytes': data.sizeBytes,
+        'width': data.width,
+        'height': data.height,
+        'blurhash': data.blurhash,
+        'source_url': data.sourceUrl,
+      });
     });
   }
 
   @override
   Future<void> softDeleteBioMedia(String attachmentId) async {
-    await _dao.updateAttachment(
-      MediaAttachmentsCompanion(
-        id: Value(attachmentId),
-        isDeleted: const Value(true),
-      ),
-    );
-    await syncRecordUpdate(_table, attachmentId, {
-      'is_deleted': true,
+    await runSyncedWrite(() async {
+      await _dao.updateAttachment(
+        MediaAttachmentsCompanion(
+          id: Value(attachmentId),
+          isDeleted: const Value(true),
+        ),
+      );
+      await syncRecordUpdate(_table, attachmentId, {'is_deleted': true});
     });
   }
 

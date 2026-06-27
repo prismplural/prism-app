@@ -25,6 +25,9 @@ class DriftMemberProfilePreferenceRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'member_profile_preference_values';
 
   @override
@@ -65,47 +68,51 @@ class DriftMemberProfilePreferenceRepository
     PreferenceDefinition<T> definition,
     T value,
   ) async {
-    _assertScope(definition);
-    _assertCanWrite(definition);
-    if (!await _dao.memberExists(memberId)) {
-      throw StateError('Cannot write preference for missing member $memberId.');
-    }
+    await runSyncedWrite(() async {
+      _assertScope(definition);
+      _assertCanWrite(definition);
+      if (!await _dao.memberExists(memberId)) {
+        throw StateError(
+          'Cannot write preference for missing member $memberId.',
+        );
+      }
 
-    final id = PreferenceEntityId.memberProfile(memberId, definition.key);
-    final valueJson = encodePreferenceValue(definition, value);
-    final existing = await _dao.getMemberProfileValue(id);
-    await _dao.upsertMemberProfileValue(
-      MemberProfilePreferenceValuesCompanion.insert(
-        id: id,
+      final id = PreferenceEntityId.memberProfile(memberId, definition.key);
+      final valueJson = encodePreferenceValue(definition, value);
+      final existing = await _dao.getMemberProfileValue(id);
+      await _dao.upsertMemberProfileValue(
+        MemberProfilePreferenceValuesCompanion.insert(
+          id: id,
+          memberId: memberId,
+          key: definition.key,
+          valueType: definition.codec.valueType,
+          valueJson: Value(valueJson),
+          isDeleted: const Value(false),
+        ),
+      );
+      final fields = _memberProfilePreferenceValueFields(
         memberId: memberId,
         key: definition.key,
         valueType: definition.codec.valueType,
-        valueJson: Value(valueJson),
-        isDeleted: const Value(false),
-      ),
-    );
-    final fields = _memberProfilePreferenceValueFields(
-      memberId: memberId,
-      key: definition.key,
-      valueType: definition.codec.valueType,
-      valueJson: valueJson,
-      isDeleted: false,
-    );
-    if (existing == null || existing.isDeleted) {
-      await syncRecordCreate(_table, id, fields);
-    } else {
-      final previousFields = _memberProfilePreferenceValueFields(
-        memberId: existing.memberId,
-        key: existing.key,
-        valueType: existing.valueType,
-        valueJson: existing.valueJson,
-        isDeleted: existing.isDeleted,
+        valueJson: valueJson,
+        isDeleted: false,
       );
-      final changedFields = diffSyncFields(previousFields, fields);
-      if (changedFields.isNotEmpty) {
-        await syncRecordUpdate(_table, id, changedFields);
+      if (existing == null || existing.isDeleted) {
+        await syncRecordCreate(_table, id, fields);
+      } else {
+        final previousFields = _memberProfilePreferenceValueFields(
+          memberId: existing.memberId,
+          key: existing.key,
+          valueType: existing.valueType,
+          valueJson: existing.valueJson,
+          isDeleted: existing.isDeleted,
+        );
+        final changedFields = diffSyncFields(previousFields, fields);
+        if (changedFields.isNotEmpty) {
+          await syncRecordUpdate(_table, id, changedFields);
+        }
       }
-    }
+    });
   }
 
   @override
@@ -113,35 +120,41 @@ class DriftMemberProfilePreferenceRepository
     String memberId,
     PreferenceDefinition<T> definition,
   ) async {
-    _assertScope(definition);
-    _assertCanWrite(definition);
-    if (!await _dao.memberExists(memberId)) {
-      throw StateError('Cannot reset preference for missing member $memberId.');
-    }
+    await runSyncedWrite(() async {
+      _assertScope(definition);
+      _assertCanWrite(definition);
+      if (!await _dao.memberExists(memberId)) {
+        throw StateError(
+          'Cannot reset preference for missing member $memberId.',
+        );
+      }
 
-    final id = PreferenceEntityId.memberProfile(memberId, definition.key);
-    await _dao.upsertMemberProfileValue(
-      MemberProfilePreferenceValuesCompanion.insert(
-        id: id,
-        memberId: memberId,
-        key: definition.key,
-        valueType: definition.codec.valueType,
-        valueJson: const Value(null),
-        isDeleted: const Value(true),
-      ),
-    );
-    await syncRecordDelete(_table, id);
+      final id = PreferenceEntityId.memberProfile(memberId, definition.key);
+      await _dao.upsertMemberProfileValue(
+        MemberProfilePreferenceValuesCompanion.insert(
+          id: id,
+          memberId: memberId,
+          key: definition.key,
+          valueType: definition.codec.valueType,
+          valueJson: const Value(null),
+          isDeleted: const Value(true),
+        ),
+      );
+      await syncRecordDelete(_table, id);
+    });
   }
 
   @override
   Future<void> resetAllForMember(String memberId) async {
-    final rows = await _dao.allMemberProfileValuesForMember(memberId);
-    if (rows.isEmpty) return;
+    await runSyncedWrite(() async {
+      final rows = await _dao.allMemberProfileValuesForMember(memberId);
+      if (rows.isEmpty) return;
 
-    await _dao.tombstoneAllMemberProfileValues(memberId);
-    for (final row in rows) {
-      await syncRecordDelete(_table, row.id);
-    }
+      await _dao.tombstoneAllMemberProfileValues(memberId);
+      for (final row in rows) {
+        await syncRecordDelete(_table, row.id);
+      }
+    });
   }
 
   static Map<String, dynamic> memberProfilePreferenceValueFields({

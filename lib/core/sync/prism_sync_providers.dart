@@ -2587,7 +2587,10 @@ Future<void> writeRuntimeDekCacheCore({
 /// to it orphaned intact DBs on the next cold boot. `db` is retained only for
 /// signature stability (a deliberate at-rest rekey could be reintroduced
 /// through it) and is otherwise unused.
-Future<void> cacheRuntimeKeys(ffi.PrismSyncHandle handle, AppDatabase db) async {
+Future<void> cacheRuntimeKeys(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) async {
   final runtimeDekAad = buildRuntimeDekAad(
     syncId: decodeStoredUtf8(
       await _safeReadValue('${_secureStorePrefix}sync_id'),
@@ -3502,6 +3505,17 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
           '[SYNC_STREAM] Applied ${event.changes.length} remote changes',
         );
       }
+    } else {
+      await drainRemoteDeliveriesAfterSyncCompletedEvent(
+        event,
+        strict: strictCoordinator.isStrict,
+        drain: () => drainRemoteDeliveries(
+          handle,
+          db: db,
+          syncAdapter: syncAdapter,
+          quarantine: quarantine,
+        ),
+      );
     }
     return event;
   });
@@ -3791,6 +3805,18 @@ final strictApplyCoordinatorProvider = Provider<StrictApplyCoordinator>((ref) {
 // coalesce instead of racing the same journal rows.
 // ---------------------------------------------------------------------------
 
+/// Drain durable consumer-delivery rows after a non-`RemoteChanges` completion.
+@visibleForTesting
+Future<void> drainRemoteDeliveriesAfterSyncCompletedEvent(
+  SyncEvent event, {
+  required bool strict,
+  required Future<DrainResult> Function() drain,
+}) async {
+  if (!event.isSyncCompleted || strict) return;
+  if (!shouldDrainForCompletedErrorKind(event.errorKind)) return;
+  await drain();
+}
+
 /// Apply a chunk of coalesced journal deliveries through the production
 /// [applyRemoteChanges] pipeline (chunked Drift transaction, per-row try/catch).
 /// Returns the number of rows applied. The deliveries arrive coalesced and
@@ -3821,6 +3847,58 @@ Future<int> applyConsumerDeliveries(
 }
 
 const int kConsumerDeliverySpillRepairBatchLimit = 500;
+
+/// Apply a journal chunk, quarantining non-strict poison rows instead of
+/// letting them wedge later deliveries.
+@visibleForTesting
+Future<int> applyConsumerDeliveriesHealingUnappliable(
+  AppDatabase db,
+  DriftSyncAdapter adapter,
+  SyncQuarantineService quarantine,
+  List<ConsumerDelivery> deliveries, {
+  bool strict = false,
+  void Function(int applied, int total)? onProgress,
+}) async {
+  final applied = await applyConsumerDeliveries(
+    db,
+    adapter,
+    deliveries,
+    strict: strict,
+    onProgress: onProgress,
+  );
+  if (strict || applied >= deliveries.length) {
+    return applied;
+  }
+
+  // Re-run per row to identify poison deliveries.
+  var healedApplied = 0;
+  final unappliable = <ConsumerDelivery>[];
+  for (final delivery in deliveries) {
+    final rowApplied = await applyConsumerDeliveries(
+      db,
+      adapter,
+      [delivery],
+      strict: false,
+    );
+    if (rowApplied >= 1) {
+      healedApplied += rowApplied;
+    } else {
+      unappliable.add(delivery);
+    }
+  }
+
+  if (unappliable.isNotEmpty) {
+    await quarantineConsumerDeliverySpill(quarantine, unappliable);
+    ErrorReportingService.instance.report(
+      'Routed ${unappliable.length} un-appliable consumer-delivery row(s) to '
+      'the spill-quarantine lane so the journal can advance: '
+      '${unappliable.map((d) => '${d.table}/${d.entityId}').join(', ')}',
+      severity: ErrorSeverity.warning,
+    );
+  }
+
+  return healedApplied + unappliable.length;
+}
 
 final _consumerDeliverySpillRepairsInFlight =
     LinkedHashMap<AppDatabase, Future<int>>.identity();
@@ -4010,9 +4088,10 @@ Future<DrainResult> drainRemoteDeliveries(
             ffi.ackConsumerDeliveries(handle: handle, upToId: upToId),
         applyChanges: (deliveries) async {
           final chunkBase = runningApplied;
-          final applied = await applyConsumerDeliveries(
+          final applied = await applyConsumerDeliveriesHealingUnappliable(
             db,
             syncAdapter.adapter,
+            quarantine,
             deliveries,
             strict: strict,
             onProgress: (chunkApplied, _) =>
@@ -4830,10 +4909,10 @@ class RevokeConfirmationResult {
   final RevokeConfirmation confirmation;
   final bool remoteWipe;
 
-  static const unknown =
-      RevokeConfirmationResult(RevokeConfirmation.unknown);
-  static const stillActive =
-      RevokeConfirmationResult(RevokeConfirmation.stillActive);
+  static const unknown = RevokeConfirmationResult(RevokeConfirmation.unknown);
+  static const stillActive = RevokeConfirmationResult(
+    RevokeConfirmation.stillActive,
+  );
 }
 
 /// Pure interpretation of a relay `list_devices` result for THIS device. Note
@@ -5609,7 +5688,9 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       // B), not the relay-controlled error/WS hint. A relay cannot flip it
       // without an admin signature over `remote_wipe == true` for this device.
       if (verifiedWipe) {
-        debugPrint('[SYNC] Device flagged for VERIFIED remote wipe — wiping sync data');
+        debugPrint(
+          '[SYNC] Device flagged for VERIFIED remote wipe — wiping sync data',
+        );
         await _wipeLocalData();
       }
       await _clearSyncCredentials();

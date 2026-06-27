@@ -25,6 +25,9 @@ class DriftFrontingSessionRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'fronting_sessions';
   static const _commentsTable = 'front_session_comments';
 
@@ -168,76 +171,77 @@ class DriftFrontingSessionRepository
 
   @override
   Future<void> createSession(domain.FrontingSession session) async {
-    final companion = FrontingSessionMapper.toCompanion(session);
-    await _dao.insertSession(companion);
-    await syncRecordCreate(_table, session.id, _sessionFields(session));
+    await runSyncedWrite(() async {
+      final companion = FrontingSessionMapper.toCompanion(session);
+      await _dao.insertSession(companion);
+      await syncRecordCreate(_table, session.id, _sessionFields(session));
+    });
   }
 
   @override
   Future<void> updateSession(domain.FrontingSession session) async {
-    final existingRow = await _dao.getSessionById(session.id);
-    if (existingRow == null) return;
-    // A tombstone is terminal: never flip is_deleted back to false on an
-    // existing row. In-place revival is unsyncable — is_deleted is absorbing
-    // in the merge layer (sender strips is_deleted=false, peers drop every
-    // non-delete op on a tombstoned entity), so a local un-delete leaves this
-    // device with a live row while every peer stays deleted. Recovery must
-    // re-create under a FRESH id, never resurrect a burned entity id.
-    if (existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getSessionById(session.id);
+      if (existingRow == null) return;
+      // Tombstoned rows must be recreated under a fresh id.
+      if (existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _sessionFieldsFromRow(existingRow),
-      _sessionFields(session),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _sessionFieldsFromRow(existingRow),
+        _sessionFields(session),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialSessionCompanion(changedFields);
-    await _dao.updateSessionById(session.id, companion);
-    await syncRecordUpdate(_table, session.id, changedFields);
+      final companion = _partialSessionCompanion(changedFields);
+      await _dao.updateSessionById(session.id, companion);
+      await syncRecordUpdate(_table, session.id, changedFields);
+    });
   }
 
   @override
   Future<void> endSession(String id, DateTime endTime) async {
-    // Read BEFORE the DAO write so the diff sees the pre-end state.
-    // Refetching after the write would over-emit columns endSession never
-    // touches (see read-after-write trap in the migration plan).
-    final existingRow = await _dao.getSessionById(id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      // Diff against the pre-end row.
+      final existingRow = await _dao.getSessionById(id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final endedDomain = FrontingSessionMapper.toDomain(
-      existingRow,
-    ).copyWith(endTime: endTime);
-    final changedFields = diffSyncFields(
-      _sessionFieldsFromRow(existingRow),
-      _sessionFields(endedDomain),
-    );
-    if (changedFields.isEmpty) return;
+      final endedDomain = FrontingSessionMapper.toDomain(
+        existingRow,
+      ).copyWith(endTime: endTime);
+      final changedFields = diffSyncFields(
+        _sessionFieldsFromRow(existingRow),
+        _sessionFields(endedDomain),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialSessionCompanion(changedFields);
-    await _dao.updateSessionById(id, companion);
-    await syncRecordUpdate(_table, id, changedFields);
+      final companion = _partialSessionCompanion(changedFields);
+      await _dao.updateSessionById(id, companion);
+      await syncRecordUpdate(_table, id, changedFields);
+    });
   }
 
   @override
   Future<void> deleteSession(String id) async {
-    int? epoch;
-    final pkDao = _pkSyncDao;
-    final existing = await _dao.getSessionById(id);
-    final isLinked =
-        existing != null &&
-        existing.pluralkitUuid != null &&
-        existing.pluralkitUuid!.isNotEmpty;
-    if (pkDao != null && isLinked) {
-      epoch = await pkDao.getLinkEpoch();
-    }
+    await runSyncedWrite(() async {
+      int? epoch;
+      final pkDao = _pkSyncDao;
+      final existing = await _dao.getSessionById(id);
+      final isLinked =
+          existing != null &&
+          existing.pluralkitUuid != null &&
+          existing.pluralkitUuid!.isNotEmpty;
+      if (pkDao != null && isLinked) {
+        epoch = await pkDao.getLinkEpoch();
+      }
 
-    await _softDeleteAttachedComments(id);
-    await _dao.softDeleteSession(id);
-    if (epoch != null) {
-      await _dao.stampDeleteIntent(id, epoch);
-    }
-    await syncRecordDelete(_table, id);
-    await _fanOutPkIdentityAliasDeletes(existing);
+      await _softDeleteAttachedComments(id);
+      await _dao.softDeleteSession(id);
+      if (epoch != null) {
+        await _dao.stampDeleteIntent(id, epoch);
+      }
+      await syncRecordDelete(_table, id);
+      await _fanOutPkIdentityAliasDeletes(existing);
+    });
   }
 
   /// Delete-only fan-out: plant terminal tombstones under every legacy entity
@@ -278,7 +282,12 @@ class DriftFrontingSessionRepository
         continue;
       }
       if (!seen.add(legacyEntityId)) continue;
-      if (!await isForbiddenAliasTarget(database, _table, legacyEntityId, pkUuid)) {
+      if (!await isForbiddenAliasTarget(
+        database,
+        _table,
+        legacyEntityId,
+        pkUuid,
+      )) {
         await syncRecordDelete(_table, legacyEntityId);
       }
       // Purge the now-dead alias (emitted or skipped) so they don't accumulate
@@ -305,14 +314,20 @@ class DriftFrontingSessionRepository
 
   @override
   Future<void> clearPluralKitLink(String id) async {
-    await _dao.clearPluralKitLinkRaw(id);
-    await syncRecordUpdate(_table, id, {'pluralkit_uuid': null});
+    await runSyncedWrite(() async {
+      await _dao.clearPluralKitLinkRaw(id);
+      await syncRecordUpdate(_table, id, {'pluralkit_uuid': null});
+    });
   }
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
-    await _dao.stampDeletePushStartedAt(id, timestampMs);
-    await syncRecordUpdate(_table, id, {'delete_push_started_at': timestampMs});
+    await runSyncedWrite(() async {
+      await _dao.stampDeletePushStartedAt(id, timestampMs);
+      await syncRecordUpdate(_table, id, {
+        'delete_push_started_at': timestampMs,
+      });
+    });
   }
 
   @override

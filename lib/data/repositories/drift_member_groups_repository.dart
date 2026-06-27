@@ -40,6 +40,9 @@ class DriftMemberGroupsRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _groupTable = 'member_groups';
   static const _entryTable = 'member_group_entries';
 
@@ -49,8 +52,7 @@ class DriftMemberGroupsRepository
     MemberRepository? memberRepository,
     @visibleForTesting TombstoneGate? tombstoneGate,
   }) : _memberRepository = memberRepository ?? const _NoopMemberRepository(),
-       _tombstoneGate =
-           tombstoneGate ?? TombstoneGate.forHandle(_syncHandle);
+       _tombstoneGate = tombstoneGate ?? TombstoneGate.forHandle(_syncHandle);
 
   @override
   Stream<List<domain.MemberGroup>> watchAllGroups() {
@@ -106,220 +108,231 @@ class DriftMemberGroupsRepository
 
   @override
   Future<void> createGroup(domain.MemberGroup group) async {
-    final normalized = _normalizeGroup(group);
-    final displayOrder = await _dao.nextDisplayOrder(normalized.parentGroupId);
-    final withOrder = normalized.copyWith(displayOrder: displayOrder);
-    final companion = MemberGroupMapper.toCompanion(withOrder);
-    await _dao.createGroup(companion);
-    final stored = await _requireGroupRow(withOrder.id);
-    await _syncGroupCreateIfAllowed(stored);
+    return runSyncedWrite(() async {
+      final normalized = _normalizeGroup(group);
+      final displayOrder = await _dao.nextDisplayOrder(
+        normalized.parentGroupId,
+      );
+      final withOrder = normalized.copyWith(displayOrder: displayOrder);
+      final companion = MemberGroupMapper.toCompanion(withOrder);
+      await _dao.createGroup(companion);
+      final stored = await _requireGroupRow(withOrder.id);
+      await _syncGroupCreateIfAllowed(stored);
+    });
   }
 
   @override
   Future<void> updateGroup(domain.MemberGroup group) async {
-    final normalized = _normalizeGroup(group);
-    // Read BEFORE the DAO write so the diff sees the pre-update state. The
-    // DAO's `updateGroup` does NOT filter active rows (member_groups_dao.dart
-    // :117), so the `existingRow.isDeleted` guard is load-bearing: without
-    // it, a stale caller could resurrect a tombstoned group.
-    final existingRow = await _dao.getGroupById(normalized.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    return runSyncedWrite(() async {
+      final normalized = _normalizeGroup(group);
+      // Read before write so the diff sees the old values.
+      final existingRow = await _dao.getGroupById(normalized.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _groupFieldsFromRow(existingRow),
-      _groupDomainFields(normalized),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _groupFieldsFromRow(existingRow),
+        _groupDomainFields(normalized),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialGroupCompanion(changedFields);
-    await _dao.updateGroup(normalized.id, companion);
+      final companion = _partialGroupCompanion(changedFields);
+      await _dao.updateGroup(normalized.id, companion);
 
-    // Preserve the existing PK-link gating + suppression + legacy alias
-    // emission semantics. We must re-read the row because
-    // `_groupEntityId(stored)` / `_syncLegacyPkGroupAliasDeletes(stored)`
-    // need post-write group identity (e.g. if a future writer ever flips
-    // pluralkit_uuid here). For now this is functionally equivalent to using
-    // `existingRow` since the patch never touches PK columns, but the
-    // re-read keeps the helper contract stable.
-    final stored = await _requireGroupRow(normalized.id);
-    if (await _dao.isGroupSyncSuppressed(stored.id)) return;
-    if (!await _shouldEmitPkBackedGroupSync(stored)) return;
-    await syncRecordUpdate(_groupTable, _groupEntityId(stored), changedFields);
-    await _syncLegacyPkGroupAliasDeletes(stored);
+      // Re-read so sync IDs and alias fan-out use the stored row.
+      final stored = await _requireGroupRow(normalized.id);
+      if (await _dao.isGroupSyncSuppressed(stored.id)) return;
+      if (!await _shouldEmitPkBackedGroupSync(stored)) return;
+      await syncRecordUpdate(
+        _groupTable,
+        _groupEntityId(stored),
+        changedFields,
+      );
+      await _syncLegacyPkGroupAliasDeletes(stored);
+    });
   }
 
   @override
   Future<void> reorderGroups(List<domain.MemberGroup> groups) async {
-    final changedGroups = <domain.MemberGroup>[];
-    final displayOrders = <String, int>{};
+    return runSyncedWrite(() async {
+      final changedGroups = <domain.MemberGroup>[];
+      final displayOrders = <String, int>{};
 
-    for (var i = 0; i < groups.length; i++) {
-      final group = groups[i];
-      if (group.displayOrder == i) continue;
-      final updated = group.copyWith(displayOrder: i);
-      changedGroups.add(updated);
-      displayOrders[updated.id] = i;
-    }
+      for (var i = 0; i < groups.length; i++) {
+        final group = groups[i];
+        if (group.displayOrder == i) continue;
+        final updated = group.copyWith(displayOrder: i);
+        changedGroups.add(updated);
+        displayOrders[updated.id] = i;
+      }
 
-    if (changedGroups.isEmpty) return;
+      if (changedGroups.isEmpty) return;
 
-    await _dao.bulkUpdateDisplayOrders(displayOrders);
-    for (final group in changedGroups) {
-      final stored = await _dao.getGroupById(group.id);
-      if (stored == null) continue;
-      await _syncGroupUpdateIfAllowed(stored, {
-        'display_order': group.displayOrder,
-      });
-    }
+      await _dao.bulkUpdateDisplayOrders(displayOrders);
+      for (final group in changedGroups) {
+        final stored = await _dao.getGroupById(group.id);
+        if (stored == null) continue;
+        await _syncGroupUpdateIfAllowed(stored, {
+          'display_order': group.displayOrder,
+        });
+      }
+    });
   }
 
   @override
   Future<void> deleteGroup(String groupId) async {
-    // Fetch entries before the delete so we can emit ops for them.
-    final entries = await _dao.entriesForGroup(groupId);
-    final group = await _dao.getGroupById(groupId);
-    final groupEntityId = _groupEntityId(group, fallbackId: groupId);
-    final membersById = <String, member_domain.Member>{};
-    for (final member in await _memberRepository.getMembersByIds(
-      entries.map((entry) => entry.memberId).toSet().toList(),
-    )) {
-      membersById[member.id] = member;
-    }
-    final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
-    await _dao.deleteGroup(groupId);
-    if (isSuppressed) return;
-    if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    final entryEntityIds = [
-      for (final entry in entries)
-        _entryEntityIdForDelete(
-          group: group,
-          entry: entry,
-          member: membersById[entry.memberId],
-        ),
-    ];
-    // Entry tombstones (coalesced) before the group tombstone, so peers see
-    // child deletes before the parent — the single group delete gets a later
-    // HLC than the bulk entry batch.
-    await syncRecordDeleteMulti(_entryTable, entryEntityIds);
-    await syncRecordDelete(_groupTable, groupEntityId);
-    await _syncLegacyPkGroupAliasDeletes(group);
-  }
-
-  @override
-  Future<void> promoteChildrenToRoot(String groupId) async {
-    final group = await _dao.getGroupById(groupId);
-    final groupEntityId = _groupEntityId(group, fallbackId: groupId);
-    final children = await _dao.getDirectChildrenOf(groupId);
-    final promotedModels = children.map((child) {
-      return MemberGroupMapper.toDomain(child).copyWith(parentGroupId: null);
-    }).toList();
-    final entries = await _dao.entriesForGroup(groupId);
-    final membersById = <String, member_domain.Member>{};
-    for (final member in await _memberRepository.getMembersByIds(
-      entries.map((entry) => entry.memberId).toSet().toList(),
-    )) {
-      membersById[member.id] = member;
-    }
-    final isDeletedGroupSuppressed = await _dao.isGroupSyncSuppressed(groupId);
-
-    await _dao.transaction(() async {
-      for (final promoted in promotedModels) {
-        await _dao.updateGroup(
-          promoted.id,
-          MemberGroupMapper.toCompanion(promoted),
-        );
+    return runSyncedWrite(() async {
+      // Fetch entries before the delete so we can emit ops for them.
+      final entries = await _dao.entriesForGroup(groupId);
+      final group = await _dao.getGroupById(groupId);
+      final groupEntityId = _groupEntityId(group, fallbackId: groupId);
+      final membersById = <String, member_domain.Member>{};
+      for (final member in await _memberRepository.getMembersByIds(
+        entries.map((entry) => entry.memberId).toSet().toList(),
+      )) {
+        membersById[member.id] = member;
       }
+      final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
       await _dao.deleteGroup(groupId);
-    });
-
-    for (final promoted in promotedModels) {
-      final stored = await _requireGroupRow(promoted.id);
-      await _syncGroupUpdateIfAllowed(stored, const <String, dynamic>{
-        'parent_group_id': null,
-      });
-    }
-    if (isDeletedGroupSuppressed) return;
-    if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    final entryEntityIds = [
-      for (final entry in entries)
-        _entryEntityIdForDelete(
-          group: group,
-          entry: entry,
-          member: membersById[entry.memberId],
-        ),
-    ];
-    // Entry tombstones (coalesced) before the group tombstone, so peers see
-    // child deletes before the parent — the single group delete gets a later
-    // HLC than the bulk entry batch.
-    await syncRecordDeleteMulti(_entryTable, entryEntityIds);
-    await syncRecordDelete(_groupTable, groupEntityId);
-    await _syncLegacyPkGroupAliasDeletes(group);
-  }
-
-  @override
-  Future<void> deleteGroupWithDescendants(String groupId) async {
-    // BFS to collect all descendant IDs (max 3 levels, so at most ~100 groups).
-    final allGroups = await _dao.getAllActiveGroups();
-    final byParent = <String, List<String>>{};
-    for (final g in allGroups) {
-      if (g.parentGroupId != null) {
-        byParent.putIfAbsent(g.parentGroupId!, () => []).add(g.id);
-      }
-    }
-    final toDelete = <String>{};
-    final queue = [groupId];
-    while (queue.isNotEmpty) {
-      final current = queue.removeLast();
-      toDelete.add(current);
-      queue.addAll(
-        (byParent[current] ?? []).where((id) => !toDelete.contains(id)),
-      );
-    }
-
-    // Pre-fetch entries for sync ops before the transaction deletes them.
-    final entriesByGroup = <String, List<domain.MemberGroupEntry>>{};
-    final groupRowsById = <String, MemberGroupRow?>{};
-    final suppressedByGroup = <String, bool>{};
-    final membersById = <String, member_domain.Member>{};
-    for (final id in toDelete) {
-      entriesByGroup[id] = (await _dao.entriesForGroup(
-        id,
-      )).map(MemberGroupEntryMapper.toDomain).toList();
-      groupRowsById[id] = await _dao.getGroupById(id);
-      suppressedByGroup[id] = await _dao.isGroupSyncSuppressed(id);
-    }
-    final memberIds = entriesByGroup.values
-        .expand((entries) => entries.map((entry) => entry.memberId))
-        .toSet()
-        .toList();
-    for (final member in await _memberRepository.getMembersByIds(memberIds)) {
-      membersById[member.id] = member;
-    }
-
-    await _dao.transaction(() async {
-      for (final id in toDelete) {
-        await _dao.deleteGroup(id);
-      }
-    });
-
-    for (final id in toDelete) {
-      if (suppressedByGroup[id] ?? false) continue;
-      if (!await _shouldEmitPkBackedGroupSync(groupRowsById[id])) continue;
-      final entryEntityIds = <String>[
-        for (final entry in entriesByGroup[id] ?? [])
+      if (isSuppressed) return;
+      if (!await _shouldEmitPkBackedGroupSync(group)) return;
+      final entryEntityIds = [
+        for (final entry in entries)
           _entryEntityIdForDelete(
-            group: groupRowsById[id],
+            group: group,
             entry: entry,
             member: membersById[entry.memberId],
           ),
       ];
+      // Entry tombstones (coalesced) before the group tombstone, so peers see
+      // child deletes before the parent — the single group delete gets a later
+      // HLC than the bulk entry batch.
       await syncRecordDeleteMulti(_entryTable, entryEntityIds);
-      await syncRecordDelete(
-        _groupTable,
-        _groupEntityId(groupRowsById[id], fallbackId: id),
+      await syncRecordDelete(_groupTable, groupEntityId);
+      await _syncLegacyPkGroupAliasDeletes(group);
+    });
+  }
+
+  @override
+  Future<void> promoteChildrenToRoot(String groupId) async {
+    return runSyncedWrite(() async {
+      final group = await _dao.getGroupById(groupId);
+      final groupEntityId = _groupEntityId(group, fallbackId: groupId);
+      final children = await _dao.getDirectChildrenOf(groupId);
+      final promotedModels = children.map((child) {
+        return MemberGroupMapper.toDomain(child).copyWith(parentGroupId: null);
+      }).toList();
+      final entries = await _dao.entriesForGroup(groupId);
+      final membersById = <String, member_domain.Member>{};
+      for (final member in await _memberRepository.getMembersByIds(
+        entries.map((entry) => entry.memberId).toSet().toList(),
+      )) {
+        membersById[member.id] = member;
+      }
+      final isDeletedGroupSuppressed = await _dao.isGroupSyncSuppressed(
+        groupId,
       );
-      await _syncLegacyPkGroupAliasDeletes(groupRowsById[id]);
-    }
+
+      await _dao.transaction(() async {
+        for (final promoted in promotedModels) {
+          await _dao.updateGroup(
+            promoted.id,
+            MemberGroupMapper.toCompanion(promoted),
+          );
+        }
+        await _dao.deleteGroup(groupId);
+      });
+
+      for (final promoted in promotedModels) {
+        final stored = await _requireGroupRow(promoted.id);
+        await _syncGroupUpdateIfAllowed(stored, const <String, dynamic>{
+          'parent_group_id': null,
+        });
+      }
+      if (isDeletedGroupSuppressed) return;
+      if (!await _shouldEmitPkBackedGroupSync(group)) return;
+      final entryEntityIds = [
+        for (final entry in entries)
+          _entryEntityIdForDelete(
+            group: group,
+            entry: entry,
+            member: membersById[entry.memberId],
+          ),
+      ];
+      // Entry tombstones (coalesced) before the group tombstone, so peers see
+      // child deletes before the parent — the single group delete gets a later
+      // HLC than the bulk entry batch.
+      await syncRecordDeleteMulti(_entryTable, entryEntityIds);
+      await syncRecordDelete(_groupTable, groupEntityId);
+      await _syncLegacyPkGroupAliasDeletes(group);
+    });
+  }
+
+  @override
+  Future<void> deleteGroupWithDescendants(String groupId) async {
+    return runSyncedWrite(() async {
+      // BFS to collect all descendant IDs (max 3 levels, so at most ~100 groups).
+      final allGroups = await _dao.getAllActiveGroups();
+      final byParent = <String, List<String>>{};
+      for (final g in allGroups) {
+        if (g.parentGroupId != null) {
+          byParent.putIfAbsent(g.parentGroupId!, () => []).add(g.id);
+        }
+      }
+      final toDelete = <String>{};
+      final queue = [groupId];
+      while (queue.isNotEmpty) {
+        final current = queue.removeLast();
+        toDelete.add(current);
+        queue.addAll(
+          (byParent[current] ?? []).where((id) => !toDelete.contains(id)),
+        );
+      }
+
+      // Pre-fetch entries for sync ops before the transaction deletes them.
+      final entriesByGroup = <String, List<domain.MemberGroupEntry>>{};
+      final groupRowsById = <String, MemberGroupRow?>{};
+      final suppressedByGroup = <String, bool>{};
+      final membersById = <String, member_domain.Member>{};
+      for (final id in toDelete) {
+        entriesByGroup[id] = (await _dao.entriesForGroup(
+          id,
+        )).map(MemberGroupEntryMapper.toDomain).toList();
+        groupRowsById[id] = await _dao.getGroupById(id);
+        suppressedByGroup[id] = await _dao.isGroupSyncSuppressed(id);
+      }
+      final memberIds = entriesByGroup.values
+          .expand((entries) => entries.map((entry) => entry.memberId))
+          .toSet()
+          .toList();
+      for (final member in await _memberRepository.getMembersByIds(memberIds)) {
+        membersById[member.id] = member;
+      }
+
+      await _dao.transaction(() async {
+        for (final id in toDelete) {
+          await _dao.deleteGroup(id);
+        }
+      });
+
+      for (final id in toDelete) {
+        if (suppressedByGroup[id] ?? false) continue;
+        if (!await _shouldEmitPkBackedGroupSync(groupRowsById[id])) continue;
+        final entryEntityIds = <String>[
+          for (final entry in entriesByGroup[id] ?? [])
+            _entryEntityIdForDelete(
+              group: groupRowsById[id],
+              entry: entry,
+              member: membersById[entry.memberId],
+            ),
+        ];
+        await syncRecordDeleteMulti(_entryTable, entryEntityIds);
+        await syncRecordDelete(
+          _groupTable,
+          _groupEntityId(groupRowsById[id], fallbackId: id),
+        );
+        await _syncLegacyPkGroupAliasDeletes(groupRowsById[id]);
+      }
+    });
   }
 
   @override
@@ -328,145 +341,110 @@ class DriftMemberGroupsRepository
     String memberId,
     String entryId,
   ) async {
-    final existing = await _dao.findEntry(groupId, memberId);
-    if (existing != null) return;
-    final group = await _requireGroupRow(groupId);
-    final member = await _memberRepository.getMemberById(memberId);
-    // PK push intent (step 3 of docs/plans/pk-group-membership-push.md): a
-    // PK-linked add (both group AND member have PK UUIDs) sets push_add so
-    // the orchestrator pushes it to PluralKit on the next sync. For
-    // non-PK-linked entries, pending_pk_op stays 'none' (nothing to push).
-    final isPkLinked =
-        (group.pluralkitUuid ?? '').isNotEmpty &&
-        (member?.pluralkitUuid ?? '').isNotEmpty;
-    final pendingPkOp = isPkLinked ? 'push_add' : 'none';
+    return runSyncedWrite(() async {
+      final existing = await _dao.findEntry(groupId, memberId);
+      if (existing != null) return;
+      final group = await _requireGroupRow(groupId);
+      final member = await _memberRepository.getMemberById(memberId);
+      // Queue a PK add only for fully PK-linked edges.
+      final isPkLinked =
+          (group.pluralkitUuid ?? '').isNotEmpty &&
+          (member?.pluralkitUuid ?? '').isNotEmpty;
+      final pendingPkOp = isPkLinked ? 'push_add' : 'none';
 
-    // Sanctioned revive: for a PK-linked re-add, the deterministic gen-0 sha id
-    // may be a peer tombstone burned in the CRDT — reviving it in place can
-    // never propagate (sender strips is_deleted=false, peers drop every op on
-    // the tombstoned entity). Consult the engine's tombstone state (the gate's
-    // read is source of truth even when the pruner hard-deleted the local row)
-    // and mint the lowest live incarnation id. A fresh add with no tombstone
-    // resolves to gen 0 (legacy id, unchanged). Non-PK entries use the random
-    // fallback id and skip the gate. Gate/mint reads run BEFORE the
-    // transaction; the create is emitted after commit.
-    final minted = isPkLinked
-        ? await _mintEntryIncarnation(
-            pkGroupUuid: group.pluralkitUuid,
-            pkMemberUuid: member?.pluralkitUuid,
-            fallbackId: entryId,
-          )
-        : MintedIncarnation(generation: 0, entityId: entryId);
-    final resolvedEntryId = minted.entityId;
-    final companion = MemberGroupEntriesCompanion(
-      id: Value(resolvedEntryId),
-      groupId: Value(groupId),
-      memberId: Value(memberId),
-      pkGroupUuid: Value(group.pluralkitUuid),
-      pkMemberUuid: Value(member?.pluralkitUuid),
-      isDeleted: const Value(false),
-      pendingPkOp: Value(pendingPkOp),
-      syncGeneration: Value(minted.generation),
-      // Local-only recency stamp: "row creation or latest local membership
-      // mutation". Must be EXPLICIT here — the upsertEntry revive path below is
-      // an insertOnConflictUpdate whose DO UPDATE writes only the companion, so
-      // `clientDefault` would NOT fire and a revived tombstone would keep its
-      // stale stamp, instantly "expiring" the fresh push_add under the
-      // age-based retry cap (and dropping it from the removal grace).
-      createdAt: Value(DateTime.now()),
-    );
+      // Re-adds over burned PK edge IDs mint a live incarnation.
+      final minted = isPkLinked
+          ? await _mintEntryIncarnation(
+              pkGroupUuid: group.pluralkitUuid,
+              pkMemberUuid: member?.pluralkitUuid,
+              fallbackId: entryId,
+            )
+          : MintedIncarnation(generation: 0, entityId: entryId);
+      final resolvedEntryId = minted.entityId;
+      final companion = MemberGroupEntriesCompanion(
+        id: Value(resolvedEntryId),
+        groupId: Value(groupId),
+        memberId: Value(memberId),
+        pkGroupUuid: Value(group.pluralkitUuid),
+        pkMemberUuid: Value(member?.pluralkitUuid),
+        isDeleted: const Value(false),
+        pendingPkOp: Value(pendingPkOp),
+        syncGeneration: Value(minted.generation),
+        // Revived entries need a fresh local mutation stamp.
+        createdAt: Value(DateTime.now()),
+      );
 
-    // Entry insert + parent sort_state update in one transaction so a mid-
-    // flight exception rolls both back. The two are independent sync
-    // records (read path tolerates partial peer arrival), emitted after
-    // commit.
-    MemberGroupEntryRow? stored;
-    bool parentOrderChanged = false;
-    await _dao.transaction(() async {
-      if (isPkLinked) {
-        // upsertEntry on the resolved incarnation id either inserts the fresh
-        // gen-N row or revives a prior soft-deleted row at this exact id (a
-        // tombstone with pending_pk_op=push_remove that is NOT burned in the
-        // CRDT). The companion's push_add intent overwrites whatever pending
-        // was queued — the user's revival intent wins, and the next push round
-        // restores the member to PK regardless of whether the prior remove
-        // already shipped.
-        await _dao.upsertEntry(companion);
-        if (minted.generation > 0) {
-          // Minting a NEW incarnation id (gen>0) leaves the burned gen-(N-1)
-          // row soft-deleted with its `pending_pk_op='push_remove'` orphaned —
-          // the upsert above wrote the NEW id, so it never reached that stale
-          // row. The push orchestrator pushes all add buckets before all remove
-          // buckets with no same-edge cross-row dedup, so the stale remove would
-          // fire AFTER this fresh add and remove the member from the user's real
-          // PluralKit group despite the re-add being the latest intent.
-          // Hard-delete the superseded same-edge soft-deleted rows so the minted
-          // live row is the only pending intent.
-          await _dao.hardDeleteSupersededEntryRowsForEdge(
-            groupId: groupId,
-            memberId: memberId,
-            keepId: resolvedEntryId,
+      // Keep entry insert and parent sort state atomic.
+      MemberGroupEntryRow? stored;
+      bool parentOrderChanged = false;
+      await _dao.transaction(() async {
+        if (isPkLinked) {
+          await _dao.upsertEntry(companion);
+          if (minted.generation > 0) {
+            // Drop stale same-edge remove intents superseded by this incarnation.
+            await _dao.hardDeleteSupersededEntryRowsForEdge(
+              groupId: groupId,
+              memberId: memberId,
+              keepId: resolvedEntryId,
+            );
+          }
+        } else {
+          await _dao.createEntry(companion);
+        }
+        stored = await _dao.findEntry(groupId, memberId);
+        if (stored != null) {
+          parentOrderChanged = await _appendEntryToManualOrder(
+            group,
+            stored!.id,
           );
         }
-      } else {
-        await _dao.createEntry(companion);
-      }
-      stored = await _dao.findEntry(groupId, memberId);
-      if (stored != null) {
-        parentOrderChanged = await _appendEntryToManualOrder(group, stored!.id);
+      });
+
+      final committedEntry = stored;
+      if (committedEntry == null) return;
+      await _syncEntryCreateIfAllowed(committedEntry, member: member);
+      if (parentOrderChanged) {
+        await _emitGroupSortStateUpdateIfAllowed(group.id);
       }
     });
-
-    final committedEntry = stored;
-    if (committedEntry == null) return;
-    await _syncEntryCreateIfAllowed(committedEntry, member: member);
-    if (parentOrderChanged) {
-      await _emitGroupSortStateUpdateIfAllowed(group.id);
-    }
   }
 
   @override
   Future<void> removeMemberFromGroup(String groupId, String memberId) async {
-    final entry = await _dao.findEntry(groupId, memberId);
-    if (entry == null) return;
-    final group = await _dao.getGroupById(groupId);
-    if (group == null) return;
-    final member = await _memberRepository.getMemberById(memberId);
-    // PK push intent (step 3 of docs/plans/pk-group-membership-push.md): a
-    // remove on a PK-linked entry queues push_remove so the orchestrator
-    // tells PluralKit on the next sync. For non-PK rows, pending stays 'none'.
-    // We always SOFT-delete (never hard-delete from this path); the orchestrator
-    // hard-deletes via guarded DELETE after a successful PK push. This is the
-    // TOCTOU-safe path: if a push_add for this row was already in flight, the
-    // soft-delete-with-push_remove queues a compensating remove that converges
-    // PK to the user's current intent regardless of when the in-flight add
-    // returned.
-    final isPkLinked =
-        (group.pluralkitUuid ?? '').isNotEmpty &&
-        (member?.pluralkitUuid ?? '').isNotEmpty;
-    final entryEntityId = _entryEntityIdForDelete(
-      group: group,
-      entry: entry,
-      member: member,
-    );
-    final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
-
-    // Tombstone + manualOrder prune in one transaction; sync emits after.
-    bool parentOrderChanged = false;
-    await _dao.transaction(() async {
-      await _dao.softDeleteEntryWithPendingOp(
-        entry.id,
-        pendingPkOp: isPkLinked ? 'push_remove' : 'none',
+    return runSyncedWrite(() async {
+      final entry = await _dao.findEntry(groupId, memberId);
+      if (entry == null) return;
+      final group = await _dao.getGroupById(groupId);
+      if (group == null) return;
+      final member = await _memberRepository.getMemberById(memberId);
+      // Queue a PK remove only for fully PK-linked edges.
+      final isPkLinked =
+          (group.pluralkitUuid ?? '').isNotEmpty &&
+          (member?.pluralkitUuid ?? '').isNotEmpty;
+      final entryEntityId = _entryEntityIdForDelete(
+        group: group,
+        entry: entry,
+        member: member,
       );
-      parentOrderChanged = await _removeEntryFromManualOrder(group, entry.id);
-    });
+      final isSuppressed = await _dao.isGroupSyncSuppressed(groupId);
 
-    if (parentOrderChanged) {
-      await _emitGroupSortStateUpdateIfAllowed(group.id);
-    }
-    if (isSuppressed) return;
-    if (!await _shouldEmitPkBackedGroupSync(group)) return;
-    await syncRecordDelete(_entryTable, entryEntityId);
+      // Keep the tombstone and manual order prune atomic.
+      bool parentOrderChanged = false;
+      await _dao.transaction(() async {
+        await _dao.softDeleteEntryWithPendingOp(
+          entry.id,
+          pendingPkOp: isPkLinked ? 'push_remove' : 'none',
+        );
+        parentOrderChanged = await _removeEntryFromManualOrder(group, entry.id);
+      });
+
+      if (parentOrderChanged) {
+        await _emitGroupSortStateUpdateIfAllowed(group.id);
+      }
+      if (isSuppressed) return;
+      if (!await _shouldEmitPkBackedGroupSync(group)) return;
+      await syncRecordDelete(_entryTable, entryEntityId);
+    });
   }
 
   @override
@@ -511,83 +489,82 @@ class DriftMemberGroupsRepository
     String groupId,
     List<String> orderedEntryIds,
   ) async {
-    final liveEntries = await _dao.entriesForGroup(groupId);
-    final liveIds = liveEntries.map((e) => e.id).toSet();
-    final suppliedIds = orderedEntryIds.toSet();
+    return runSyncedWrite(() async {
+      final liveEntries = await _dao.entriesForGroup(groupId);
+      final liveIds = liveEntries.map((e) => e.id).toSet();
+      final suppliedIds = orderedEntryIds.toSet();
 
-    final droppedIds = orderedEntryIds
-        .where((id) => !liveIds.contains(id))
-        .toList();
-    final appendedIds =
-        liveIds.where((id) => !suppliedIds.contains(id)).toList()..sort();
+      final droppedIds = orderedEntryIds
+          .where((id) => !liveIds.contains(id))
+          .toList();
+      final appendedIds =
+          liveIds.where((id) => !suppliedIds.contains(id)).toList()..sort();
 
-    // Stable dedupe of the supplied permutation (first occurrence wins).
-    // Duplicates in the input must NOT round-trip through the stored column
-    // — even if the read path dedupes for display, the raw list ships on
-    // the wire to peers. Track duplicates so we can flag the call as
-    // recovered (only exact permutations return `applied`).
-    final seen = <String>{};
-    final retainedSupplied = <String>[];
-    final duplicateIds = <String>[];
-    for (final id in orderedEntryIds) {
-      if (!liveIds.contains(id)) continue; // dropped, handled above
-      if (seen.add(id)) {
-        retainedSupplied.add(id);
-      } else {
-        duplicateIds.add(id);
+      // First occurrence wins; duplicates make this a repaired snapshot.
+      final seen = <String>{};
+      final retainedSupplied = <String>[];
+      final duplicateIds = <String>[];
+      for (final id in orderedEntryIds) {
+        if (!liveIds.contains(id)) continue; // dropped, handled above
+        if (seen.add(id)) {
+          retainedSupplied.add(id);
+        } else {
+          duplicateIds.add(id);
+        }
       }
-    }
-    final finalOrder = [...retainedSupplied, ...appendedIds];
+      final finalOrder = [...retainedSupplied, ...appendedIds];
 
-    final newState = GroupSortState(
-      mode: GroupSortMode.manual,
-      manualOrder: finalOrder,
-    );
-    final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
-    await _dao.updateGroupSortState(groupId, encoded);
+      final newState = GroupSortState(
+        mode: GroupSortMode.manual,
+        manualOrder: finalOrder,
+      );
+      final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
+      await _dao.updateGroupSortState(groupId, encoded);
 
-    final row = await _dao.getGroupById(groupId);
-    if (row != null) {
-      await _syncGroupUpdateIfAllowed(row, <String, dynamic>{
-        'sort_state': sanitizeSortStateForEmission(
-          row.sortState,
-          contextId: row.id,
-        ),
-      });
-    }
+      final row = await _dao.getGroupById(groupId);
+      if (row != null) {
+        await _syncGroupUpdateIfAllowed(row, <String, dynamic>{
+          'sort_state': sanitizeSortStateForEmission(
+            row.sortState,
+            contextId: row.id,
+          ),
+        });
+      }
 
-    // Duplicates surfaced via `droppedIds` (shared recovery indicator).
-    if (droppedIds.isEmpty && appendedIds.isEmpty && duplicateIds.isEmpty) {
-      return const SnapshotApplyResult.applied();
-    }
-    return SnapshotApplyResult.recovered(
-      droppedIds: [...droppedIds, ...duplicateIds],
-      appendedIds: appendedIds,
-    );
+      // Duplicate IDs use the same recovered result as dropped IDs.
+      if (droppedIds.isEmpty && appendedIds.isEmpty && duplicateIds.isEmpty) {
+        return const SnapshotApplyResult.applied();
+      }
+      return SnapshotApplyResult.recovered(
+        droppedIds: [...droppedIds, ...duplicateIds],
+        appendedIds: appendedIds,
+      );
+    });
   }
 
   @override
   Future<void> setGroupSortMode(String groupId, GroupSortMode mode) async {
-    final row = await _dao.getGroupById(groupId);
-    if (row == null) return;
+    return runSyncedWrite(() async {
+      final row = await _dao.getGroupById(groupId);
+      if (row == null) return;
 
-    // Corrupt-JSON fallback drops prior manualOrder; apply-time validation
-    // should keep this from happening in practice.
-    final current =
-        tryDecodeSortState(row.sortState) ?? GroupSortState.manualEmpty;
-    final newState = current.copyWith(mode: mode);
-    final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
-    await _dao.updateGroupSortState(groupId, encoded);
+      // Invalid snapshots reset manual order.
+      final current =
+          tryDecodeSortState(row.sortState) ?? GroupSortState.manualEmpty;
+      final newState = current.copyWith(mode: mode);
+      final encoded = MemberGroupMapper.encodeSortStateForColumn(newState);
+      await _dao.updateGroupSortState(groupId, encoded);
 
-    final refreshed = await _dao.getGroupById(groupId);
-    if (refreshed != null) {
-      await _syncGroupUpdateIfAllowed(refreshed, <String, dynamic>{
-        'sort_state': sanitizeSortStateForEmission(
-          refreshed.sortState,
-          contextId: refreshed.id,
-        ),
-      });
-    }
+      final refreshed = await _dao.getGroupById(groupId);
+      if (refreshed != null) {
+        await _syncGroupUpdateIfAllowed(refreshed, <String, dynamic>{
+          'sort_state': sanitizeSortStateForEmission(
+            refreshed.sortState,
+            contextId: refreshed.id,
+          ),
+        });
+      }
+    });
   }
 
   /// No-op outside manual mode. Must run inside `_dao.transaction(...)` —
@@ -720,7 +697,9 @@ class DriftMemberGroupsRepository
     if (group == null || pkGroupUuid.isEmpty) return;
     final db = _dao.attachedDatabase;
     final canonicalEntityId = _groupEntityId(group);
-    final aliases = await db.pkGroupSyncAliasesDao.getByPkGroupUuid(pkGroupUuid);
+    final aliases = await db.pkGroupSyncAliasesDao.getByPkGroupUuid(
+      pkGroupUuid,
+    );
     final legacyEntityIds = <String>{};
     for (final alias in aliases) {
       final legacyEntityId = alias.legacyEntityId.trim();

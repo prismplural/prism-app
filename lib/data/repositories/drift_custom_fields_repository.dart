@@ -76,24 +76,28 @@ class DriftCustomFieldsRepository
     // references from older builds — must use [createFieldFromImport] instead.
     await _validateDepth(field);
     final companion = CustomFieldMapper.toCompanion(field);
-    await _dao.createField(companion);
-    await syncRecordCreate(_fieldsTable, field.id, _fieldFields(field));
+    await runSyncedWrite(() async {
+      await _dao.createField(companion);
+      await syncRecordCreate(_fieldsTable, field.id, _fieldFields(field));
+    });
   }
 
   /// Creates a field at the end of its order scope.
   Future<void> createFieldAtEnd(domain.CustomField field) async {
     await _validateDepth(field);
     final companion = CustomFieldMapper.toCompanion(field);
-    final displayOrder = await _dao.createFieldAtEnd(
-      companion,
-      parentFieldId: field.parentFieldId,
-    );
-    final createdField = field.copyWith(displayOrder: displayOrder);
-    await syncRecordCreate(
-      _fieldsTable,
-      createdField.id,
-      _fieldFields(createdField),
-    );
+    await runSyncedWrite(() async {
+      final displayOrder = await _dao.createFieldAtEnd(
+        companion,
+        parentFieldId: field.parentFieldId,
+      );
+      final createdField = field.copyWith(displayOrder: displayOrder);
+      await syncRecordCreate(
+        _fieldsTable,
+        createdField.id,
+        _fieldFields(createdField),
+      );
+    });
   }
 
   @override
@@ -108,17 +112,19 @@ class DriftCustomFieldsRepository
     // would hit the PK UNIQUE constraint and roll back the whole import
     // transaction. Emit as a create so peers that applied the prior
     // tombstone re-materialize the row.
-    final existing = await _dao.getFieldByIdIncludingDeleted(field.id);
-    final companion = CustomFieldMapper.toCompanion(field);
-    if (existing == null) {
-      await _dao.createField(companion);
-    } else {
-      await _dao.resurrectField(
-        field.id,
-        companion.copyWith(isDeleted: const Value(false)),
-      );
-    }
-    await syncRecordCreate(_fieldsTable, field.id, _fieldFields(field));
+    await runSyncedWrite(() async {
+      final existing = await _dao.getFieldByIdIncludingDeleted(field.id);
+      final companion = CustomFieldMapper.toCompanion(field);
+      if (existing == null) {
+        await _dao.createField(companion);
+      } else {
+        await _dao.resurrectField(
+          field.id,
+          companion.copyWith(isDeleted: const Value(false)),
+        );
+      }
+      await syncRecordCreate(_fieldsTable, field.id, _fieldFields(field));
+    });
   }
 
   @override
@@ -130,16 +136,18 @@ class DriftCustomFieldsRepository
     // No parent validation here: importers legitimately replay historical
     // state including invalid parents. Render-layer promotion handles
     // display; validation lives in [createField] and [moveFieldToParent].
-    final existingRow = await _dao.getFieldById(field.id);
-    if (existingRow == null) return;
-    final prev = fieldFieldsFromRow(existingRow);
-    final next = _fieldFields(field);
-    final changed = diffSyncFields(prev, next);
-    if (changed.isEmpty) return;
-    final companion = _partialCustomFieldCompanion(changed);
-    final affected = await _dao.updateField(field.id, companion);
-    if (affected != 1) return;
-    await syncRecordUpdate(_fieldsTable, field.id, changed);
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getFieldById(field.id);
+      if (existingRow == null) return;
+      final prev = fieldFieldsFromRow(existingRow);
+      final next = _fieldFields(field);
+      final changed = diffSyncFields(prev, next);
+      if (changed.isEmpty) return;
+      final companion = _partialCustomFieldCompanion(changed);
+      final affected = await _dao.updateField(field.id, companion);
+      if (affected != 1) return;
+      await syncRecordUpdate(_fieldsTable, field.id, changed);
+    });
   }
 
   // ── Patch methods ──────────────────────────────────────────────────
@@ -211,21 +219,19 @@ class DriftCustomFieldsRepository
     String fieldId,
     Map<String, dynamic> changes,
   ) async {
-    if (changes.isEmpty) return;
-    final existingRow = await _dao.getFieldById(fieldId);
-    if (existingRow == null) return;
-    // Compare the patch keys against the on-disk values directly via
-    // `fieldFieldsFromRow` — going through the domain mapper would
-    // re-encode `type_config_json` through the codec and could surface
-    // ordering deltas that aren't real edits. `diffSyncFields` strips
-    // `is_deleted`; callers must not put that key in [changes] anyway.
-    final existingFields = fieldFieldsFromRow(existingRow);
-    final effective = diffSyncFields(existingFields, changes);
-    if (effective.isEmpty) return;
-    final companion = _partialCustomFieldCompanion(effective);
-    final affected = await _dao.updateField(fieldId, companion);
-    if (affected != 1) return;
-    await syncRecordUpdate(_fieldsTable, fieldId, effective);
+    await runSyncedWrite(() async {
+      if (changes.isEmpty) return;
+      final existingRow = await _dao.getFieldById(fieldId);
+      if (existingRow == null) return;
+      // Diff against stored sync fields to avoid domain re-encoding noise.
+      final existingFields = fieldFieldsFromRow(existingRow);
+      final effective = diffSyncFields(existingFields, changes);
+      if (effective.isEmpty) return;
+      final companion = _partialCustomFieldCompanion(effective);
+      final affected = await _dao.updateField(fieldId, companion);
+      if (affected != 1) return;
+      await syncRecordUpdate(_fieldsTable, fieldId, effective);
+    });
   }
 
   /// Validates the depth-1 cap: a field may have a parent, but that parent
@@ -264,43 +270,40 @@ class DriftCustomFieldsRepository
 
     if (displayOrders.isEmpty) return;
 
-    await _dao.bulkUpdateDisplayOrders(displayOrders);
-    for (final id in changedIds) {
-      await syncRecordUpdate(_fieldsTable, id, {
-        'display_order': displayOrders[id],
-      });
-    }
+    await runSyncedWrite(() async {
+      await _dao.bulkUpdateDisplayOrders(displayOrders);
+      for (final id in changedIds) {
+        await syncRecordUpdate(_fieldsTable, id, {
+          'display_order': displayOrders[id],
+        });
+      }
+    });
   }
 
   @override
   Future<void> deleteField(String id, {bool deleteChildren = false}) async {
-    final field = await getFieldById(id);
-    if (field == null) return; // idempotent
+    await runSyncedWrite(() async {
+      final field = await getFieldById(id);
+      if (field == null) return; // idempotent
 
-    if (field.fieldTypeId == kGroupFieldTypeId) {
-      // Fetch all active (non-deleted) fields to find children.
-      final allFields = await _allFieldsOnce();
-      final children = allFields.where((f) => f.parentFieldId == id).toList();
+      if (field.fieldTypeId == kGroupFieldTypeId) {
+        final allFields = await _allFieldsOnce();
+        final children = allFields.where((f) => f.parentFieldId == id).toList();
 
-      if (deleteChildren) {
-        // Soft-delete each child individually so each emits its own sync op.
-        for (final child in children) {
-          await _softDeleteField(child.id);
-        }
-      } else {
-        // Promote children to top level by clearing parent_field_id.
-        // Use the patch path: emits only parent_field_id (not the full row),
-        // so any concurrent edits from peers to name/typeConfig/etc. are
-        // preserved. `moveFieldToParent(id, null)` skips parent validation
-        // (validation only fires for non-null targets), so this cascade is
-        // safe to use for internal bookkeeping.
-        for (final child in children) {
-          await moveFieldToParent(child.id, null);
+        if (deleteChildren) {
+          for (final child in children) {
+            await _softDeleteField(child.id);
+          }
+        } else {
+          // Emit narrow parent clears for promoted children.
+          for (final child in children) {
+            await moveFieldToParent(child.id, null);
+          }
         }
       }
-    }
 
-    await _softDeleteField(id);
+      await _softDeleteField(id);
+    });
   }
 
   /// Fetch all active (non-deleted) fields once (no stream subscription).
@@ -319,12 +322,12 @@ class DriftCustomFieldsRepository
 
   @override
   Future<void> deleteAllFields() async {
-    final captured = await _dao.softDeleteAllCustomFieldData();
-    // FFI emissions live outside the transaction (can't be rolled back).
-    // Value tombstones first so peers see child deletes before parents — the
-    // two calls stay ordered (values get earlier HLCs than fields).
-    await syncRecordDeleteMulti(_valuesTable, captured.valueIds.toList());
-    await syncRecordDeleteMulti(_fieldsTable, captured.fieldIds.toList());
+    await runSyncedWrite(() async {
+      final captured = await _dao.softDeleteAllCustomFieldData();
+      // Values before fields preserves child-before-parent tombstone order.
+      await syncRecordDeleteMulti(_valuesTable, captured.valueIds.toList());
+      await syncRecordDeleteMulti(_fieldsTable, captured.fieldIds.toList());
+    });
   }
 
   // ── Values ─────────────────────────────────────────────────────────

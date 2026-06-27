@@ -17,6 +17,9 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'notes';
 
   DriftNotesRepository(this._dao, this._syncHandle);
@@ -66,31 +69,37 @@ class DriftNotesRepository with SyncRecordMixin implements NotesRepository {
 
   @override
   Future<void> createNote(domain.Note note) async {
-    final companion = NoteMapper.toCompanion(note);
-    await _dao.createNote(companion);
-    await syncRecordCreate(_table, note.id, _noteFields(note));
+    await runSyncedWrite(() async {
+      final companion = NoteMapper.toCompanion(note);
+      await _dao.createNote(companion);
+      await syncRecordCreate(_table, note.id, _noteFields(note));
+    });
   }
 
   @override
   Future<void> updateNote(domain.Note note) async {
-    final existingRow = await _dao.getNoteById(note.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getNoteById(note.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _noteFieldsFromRow(existingRow),
-      _noteFields(note),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _noteFieldsFromRow(existingRow),
+        _noteFields(note),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialNoteCompanion(changedFields);
-    await _dao.updateNote(note.id, companion);
-    await syncRecordUpdate(_table, note.id, changedFields);
+      final companion = _partialNoteCompanion(changedFields);
+      await _dao.updateNote(note.id, companion);
+      await syncRecordUpdate(_table, note.id, changedFields);
+    });
   }
 
   @override
   Future<void> deleteNote(String id) async {
-    await _dao.deleteNote(id);
-    await syncRecordDelete(_table, id);
+    await runSyncedWrite(() async {
+      await _dao.deleteNote(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   /// Visible-for-testing: builds the field map this repository hands to the

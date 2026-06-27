@@ -189,7 +189,15 @@ Future<DrainResult> runRemoteDeliveryDrain({
     // ack — otherwise an ack-then-crash would delete the journal row without a
     // Drift write or a quarantine row (silent loss). Apply first, then spill.
     if (toApply.isNotEmpty) {
-      rowsApplied += await applyChanges(toApply);
+      final appliedInChunk = await applyChanges(toApply);
+      if (appliedInChunk != toApply.length) {
+        throw StateError(
+          'Consumer-delivery drain applied $appliedInChunk of '
+          '${toApply.length} rows; refusing to ack a partially applied '
+          'journal chunk so undelivered rows survive for retry',
+        );
+      }
+      rowsApplied += appliedInChunk;
       for (final d in toApply) {
         touchedTables.add(d.table);
       }

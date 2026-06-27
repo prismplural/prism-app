@@ -201,17 +201,19 @@ class DriftMemberBoardPostsRepository
     // TOCTOU window: two overlapping `markInboxOpenedFor` calls could
     // each pass the pre-read freshness check, then race to write and
     // regress the local stamp. The conditional DAO update closes that.
-    final updatedIds = await _membersDao.setBoardLastReadAtIfOlder(
-      memberIds,
-      now,
-    );
-    if (updatedIds.isEmpty) return;
-    await withSyncBatch(() async {
-      for (final memberId in updatedIds) {
-        await syncRecordUpdate(_membersTable, memberId, {
-          'board_last_read_at': nowIso,
-        });
-      }
+    await runSyncedWrite(() async {
+      final updatedIds = await _membersDao.setBoardLastReadAtIfOlder(
+        memberIds,
+        now,
+      );
+      if (updatedIds.isEmpty) return;
+      await withSyncBatch(() async {
+        for (final memberId in updatedIds) {
+          await syncRecordUpdate(_membersTable, memberId, {
+            'board_last_read_at': nowIso,
+          });
+        }
+      });
     });
   }
 

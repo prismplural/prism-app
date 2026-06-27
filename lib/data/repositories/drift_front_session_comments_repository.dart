@@ -21,6 +21,9 @@ class DriftFrontSessionCommentsRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'front_session_comments';
 
   DriftFrontSessionCommentsRepository(this._dao, this._syncHandle);
@@ -80,31 +83,37 @@ class DriftFrontSessionCommentsRepository
 
   @override
   Future<void> createComment(domain.FrontSessionComment comment) async {
-    final companion = FrontSessionCommentMapper.toCompanion(comment);
-    await _dao.createComment(companion);
-    await syncRecordCreate(_table, comment.id, _commentFields(comment));
+    await runSyncedWrite(() async {
+      final companion = FrontSessionCommentMapper.toCompanion(comment);
+      await _dao.createComment(companion);
+      await syncRecordCreate(_table, comment.id, _commentFields(comment));
+    });
   }
 
   @override
   Future<void> updateComment(domain.FrontSessionComment comment) async {
-    final existingRow = await _dao.getCommentByIdRow(comment.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getCommentByIdRow(comment.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _commentFieldsFromRow(existingRow),
-      _commentFields(comment),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _commentFieldsFromRow(existingRow),
+        _commentFields(comment),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialCommentCompanion(changedFields);
-    await _dao.updateComment(comment.id, companion);
-    await syncRecordUpdate(_table, comment.id, changedFields);
+      final companion = _partialCommentCompanion(changedFields);
+      await _dao.updateComment(comment.id, companion);
+      await syncRecordUpdate(_table, comment.id, changedFields);
+    });
   }
 
   @override
   Future<void> deleteComment(String id) async {
-    await _dao.deleteComment(id);
-    await syncRecordDelete(_table, id);
+    await runSyncedWrite(() async {
+      await _dao.deleteComment(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   @override
@@ -112,10 +121,12 @@ class DriftFrontSessionCommentsRepository
     required String fromSessionId,
     required String toSessionId,
   }) async {
-    await _reparentComments(
-      fromSessionId: fromSessionId,
-      toSessionId: toSessionId,
-    );
+    await runSyncedWrite(() async {
+      await _reparentComments(
+        fromSessionId: fromSessionId,
+        toSessionId: toSessionId,
+      );
+    });
   }
 
   @override
@@ -124,11 +135,13 @@ class DriftFrontSessionCommentsRepository
     required String toSessionId,
     required DateTime atOrAfter,
   }) async {
-    await _reparentComments(
-      fromSessionId: fromSessionId,
-      toSessionId: toSessionId,
-      atOrAfter: atOrAfter,
-    );
+    await runSyncedWrite(() async {
+      await _reparentComments(
+        fromSessionId: fromSessionId,
+        toSessionId: toSessionId,
+        atOrAfter: atOrAfter,
+      );
+    });
   }
 
   // ---------------------------------------------------------------------------

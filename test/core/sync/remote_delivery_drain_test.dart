@@ -194,6 +194,52 @@ void main() {
       expect(result.chunksAcked, 0);
       expect(ackCalls, 0);
     });
+
+    test('partial non-strict apply does not ack the journal chunk', () async {
+      final journal = _FakeJournal();
+      journal.append(
+        table: 'members',
+        entityId: 'ok',
+        isDelete: false,
+        fieldName: 'name',
+        encodedValue: '"OK"',
+      );
+      journal.append(
+        table: 'members',
+        entityId: 'bad',
+        isDelete: false,
+        fieldName: 'name',
+        encodedValue: '"Bad"',
+      );
+
+      var ackCalls = 0;
+      await expectLater(
+        runRemoteDeliveryDrain(
+          take: journal.take,
+          ack: (upToId) async {
+            ackCalls++;
+            await journal.ack(upToId);
+          },
+          // Simulate a non-strict short apply.
+          applyChanges: (_) async => 1,
+          quarantineSpill: (_) async {},
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('refusing to ack'),
+          ),
+        ),
+      );
+
+      expect(ackCalls, 0, reason: 'partial apply must not ack');
+      expect(
+        journal.length,
+        2,
+        reason: 'the whole unacked chunk must survive for retry',
+      );
+    });
   });
 
   // ------------------------------------------------------------------
@@ -964,6 +1010,95 @@ void main() {
         );
       },
     );
+
+    test('a permanently un-appliable row does NOT wedge the journal: it is '
+        'quarantined and later good rows still apply and ack', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final adapter = buildSyncAdapterWithCompletion(db);
+      final quarantine = SyncQuarantineService(db.syncQuarantineDao);
+
+      final now = DateTime.utc(2026, 6, 10, 12).millisecondsSinceEpoch;
+      // Good row, poison row, then another good row.
+      final journal = _FakeJournal();
+      journal.append(
+        table: 'members',
+        entityId: 'good-before',
+        isDelete: false,
+        fieldName: 'name',
+        encodedValue: jsonEncode('Before'),
+      );
+      journal.append(
+        table: 'members',
+        entityId: 'good-before',
+        isDelete: false,
+        fieldName: 'created_at',
+        encodedValue: jsonEncode(now),
+      );
+      journal.append(
+        table: 'totally_unknown_table',
+        entityId: 'poison',
+        isDelete: false,
+        fieldName: 'whatever',
+        encodedValue: jsonEncode('x'),
+      );
+      journal.append(
+        table: 'members',
+        entityId: 'good-after',
+        isDelete: false,
+        fieldName: 'name',
+        encodedValue: jsonEncode('After'),
+      );
+      journal.append(
+        table: 'members',
+        entityId: 'good-after',
+        isDelete: false,
+        fieldName: 'created_at',
+        encodedValue: jsonEncode(now),
+      );
+
+      adapter.beginSyncBatch();
+      final result = await runRemoteDeliveryDrain(
+        take: journal.take,
+        ack: journal.ack,
+        applyChanges: (deliveries) => applyConsumerDeliveriesHealingUnappliable(
+          db,
+          adapter.adapter,
+          quarantine,
+          deliveries,
+        ),
+        quarantineSpill: (spill) =>
+            quarantineConsumerDeliverySpill(quarantine, spill),
+      );
+      await adapter.completeSyncBatch();
+
+      expect(
+        journal.length,
+        0,
+        reason: 'journal must not wedge behind a bad row',
+      );
+      expect(result.aborted, isFalse);
+
+      final before = await (db.select(
+        db.members,
+      )..where((t) => t.id.equals('good-before'))).getSingleOrNull();
+      final after = await (db.select(
+        db.members,
+      )..where((t) => t.id.equals('good-after'))).getSingleOrNull();
+      expect(before?.name, 'Before');
+      expect(
+        after?.name,
+        'After',
+        reason: 'a later good row must not be starved',
+      );
+
+      final quarantined = await db.syncQuarantineDao.getAll();
+      final poison = quarantined
+          .where((q) => q.entityType == 'totally_unknown_table')
+          .toList();
+      expect(poison, hasLength(1));
+      expect(poison.single.entityId, 'poison');
+    });
   });
 
   // ------------------------------------------------------------------

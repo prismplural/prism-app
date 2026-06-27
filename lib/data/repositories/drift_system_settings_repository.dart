@@ -22,6 +22,9 @@ class DriftSystemSettingsRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'system_settings';
   static const _settingsEntityId = 'singleton';
 
@@ -40,31 +43,28 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateSettings(domain.SystemSettings settings) async {
-    final existingRow = await _dao.getSettingsRow();
-    // Singletons have no "tombstoned" state to guard against — bail only
-    // when the row is genuinely absent. The settings table has an
-    // `is_deleted` column for parity with other tables, but no code path
-    // marks the singleton row deleted, so the additional `isDeleted` guard
-    // would be dead weight here.
-    if (existingRow == null) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getSettingsRow();
+      if (existingRow == null) return;
 
-    final changedDbFields = diffSyncFields(
-      _settingsDbFieldsFromRow(existingRow),
-      _settingsDbFields(settings),
-    );
-    final changedFields = diffSyncFields(
-      _settingsFieldsFromRow(existingRow),
-      _settingsFields(settings),
-    );
-
-    if (changedDbFields.isNotEmpty) {
-      await _dao.applyPartialSettings(
-        _partialSettingsCompanion(changedDbFields),
+      final changedDbFields = diffSyncFields(
+        _settingsDbFieldsFromRow(existingRow),
+        _settingsDbFields(settings),
       );
-    }
-    if (changedFields.isNotEmpty) {
-      await syncRecordUpdate(_table, _settingsEntityId, changedFields);
-    }
+      final changedFields = diffSyncFields(
+        _settingsFieldsFromRow(existingRow),
+        _settingsFields(settings),
+      );
+
+      if (changedDbFields.isNotEmpty) {
+        await _dao.applyPartialSettings(
+          _partialSettingsCompanion(changedDbFields),
+        );
+      }
+      if (changedFields.isNotEmpty) {
+        await syncRecordUpdate(_table, _settingsEntityId, changedFields);
+      }
+    });
   }
 
   // --- Field-level updates ---
@@ -73,32 +73,42 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateSystemName(String? name) async {
-    await _dao.updateSystemName(name);
-    await _syncField('system_name', name);
+    await runSyncedWrite(() async {
+      await _dao.updateSystemName(name);
+      await _syncField('system_name', name);
+    });
   }
 
   @override
   Future<void> updateSharingId(String? sharingId) async {
-    await _dao.updateSharingId(sharingId);
-    await _syncField('sharing_id', sharingId);
+    await runSyncedWrite(() async {
+      await _dao.updateSharingId(sharingId);
+      await _syncField('sharing_id', sharingId);
+    });
   }
 
   @override
   Future<void> updateAccentColorHex(String hex) async {
-    await _dao.updateAccentColorHex(hex);
-    await _syncFieldIfThemeEnabled('accent_color_hex', hex);
+    await runSyncedWrite(() async {
+      await _dao.updateAccentColorHex(hex);
+      await _syncFieldIfThemeEnabled('accent_color_hex', hex);
+    });
   }
 
   @override
   Future<void> updateCustomTerminology(String? value) async {
-    await _dao.updateCustomTerminology(value);
-    await _syncField('custom_terminology', value);
+    await runSyncedWrite(() async {
+      await _dao.updateCustomTerminology(value);
+      await _syncField('custom_terminology', value);
+    });
   }
 
   @override
   Future<void> updateCustomPluralTerminology(String? value) async {
-    await _dao.updateCustomPluralTerminology(value);
-    await _syncField('custom_plural_terminology', value);
+    await runSyncedWrite(() async {
+      await _dao.updateCustomPluralTerminology(value);
+      await _syncField('custom_plural_terminology', value);
+    });
   }
 
   @override
@@ -109,150 +119,195 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updatePaletteSeedColorHex(String hex) async {
-    await _dao.updatePaletteSeedColorHex(hex);
-    await _syncFieldIfThemeEnabled('palette_seed_color_hex', hex);
+    await runSyncedWrite(() async {
+      await _dao.updatePaletteSeedColorHex(hex);
+      await _syncFieldIfThemeEnabled('palette_seed_color_hex', hex);
+    });
   }
 
   // Bool fields
 
   @override
   Future<void> updateShowQuickFront(bool value) async {
-    await _dao.updateShowQuickFront(value);
-    await _syncField('show_quick_front', value);
+    await runSyncedWrite(() async {
+      await _dao.updateShowQuickFront(value);
+      await _syncField('show_quick_front', value);
+    });
   }
 
   @override
   Future<void> updateAutoPromoteLongFrontingSessions(bool value) async {
-    await _dao.updateAutoPromoteLongFrontingSessions(value);
-    await _syncField('auto_promote_long_fronting_sessions', value);
+    await runSyncedWrite(() async {
+      await _dao.updateAutoPromoteLongFrontingSessions(value);
+      await _syncField('auto_promote_long_fronting_sessions', value);
+    });
   }
 
   @override
   Future<void> updatePerMemberAccentColors(bool value) async {
-    await _dao.updatePerMemberAccentColors(value);
-    await _syncField('per_member_accent_colors', value);
+    await runSyncedWrite(() async {
+      await _dao.updatePerMemberAccentColors(value);
+      await _syncField('per_member_accent_colors', value);
+    });
   }
 
   @override
   Future<void> updateFrontingRemindersEnabled(bool value) async {
-    await _dao.updateFrontingRemindersEnabled(value);
-    await _syncField('fronting_reminders_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateFrontingRemindersEnabled(value);
+      await _syncField('fronting_reminders_enabled', value);
+    });
   }
 
   @override
   Future<void> updateChatEnabled(bool value) async {
-    await _dao.updateChatEnabled(value);
-    await _syncField('chat_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateChatEnabled(value);
+      await _syncField('chat_enabled', value);
+    });
   }
 
   @override
   Future<void> updatePollsEnabled(bool value) async {
-    await _dao.updatePollsEnabled(value);
-    await _syncField('polls_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updatePollsEnabled(value);
+      await _syncField('polls_enabled', value);
+    });
   }
 
   @override
   Future<void> updateHabitsEnabled(bool value) async {
-    await _dao.updateHabitsEnabled(value);
-    await _syncField('habits_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateHabitsEnabled(value);
+      await _syncField('habits_enabled', value);
+    });
   }
 
   @override
   Future<void> updateSleepTrackingEnabled(bool value) async {
-    await _dao.updateSleepTrackingEnabled(value);
-    await _syncField('sleep_tracking_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateSleepTrackingEnabled(value);
+      await _syncField('sleep_tracking_enabled', value);
+    });
   }
 
   @override
   Future<void> updateGifSearchEnabled(bool value) async {
-    await _dao.updateGifSearchEnabled(value);
-    await _syncField('gif_search_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateGifSearchEnabled(value);
+      await _syncField('gif_search_enabled', value);
+    });
   }
 
   @override
   Future<void> updateVoiceNotesEnabled(bool value) async {
-    await _dao.updateVoiceNotesEnabled(value);
-    await _syncField('voice_notes_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateVoiceNotesEnabled(value);
+      await _syncField('voice_notes_enabled', value);
+    });
   }
 
   @override
   Future<void> updateSleepSuggestionEnabled(bool value) async {
-    await _dao.updateSleepSuggestionEnabled(value);
-    await _syncField('sleep_suggestion_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateSleepSuggestionEnabled(value);
+      await _syncField('sleep_suggestion_enabled', value);
+    });
   }
 
   @override
   Future<void> updateSleepSuggestionTime(int hour, int minute) async {
-    await _dao.updateSleepSuggestionTime(hour, minute);
-    await syncRecordUpdate(_table, _settingsEntityId, {
-      'sleep_suggestion_hour': hour,
-      'sleep_suggestion_minute': minute,
+    await runSyncedWrite(() async {
+      await _dao.updateSleepSuggestionTime(hour, minute);
+      await syncRecordUpdate(_table, _settingsEntityId, {
+        'sleep_suggestion_hour': hour,
+        'sleep_suggestion_minute': minute,
+      });
     });
   }
 
   @override
   Future<void> updateWakeSuggestionEnabled(bool value) async {
-    await _dao.updateWakeSuggestionEnabled(value);
-    await _syncField('wake_suggestion_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateWakeSuggestionEnabled(value);
+      await _syncField('wake_suggestion_enabled', value);
+    });
   }
 
   @override
   Future<void> updateWakeSuggestionAfterHours(double hours) async {
-    await _dao.updateWakeSuggestionAfterHours(hours);
-    await _syncField('wake_suggestion_after_hours', hours);
+    await runSyncedWrite(() async {
+      await _dao.updateWakeSuggestionAfterHours(hours);
+      await _syncField('wake_suggestion_after_hours', hours);
+    });
   }
 
   @override
   Future<void> updateLocaleOverride(String? value) async {
-    await _dao.updateLocaleOverride(value);
-    await _syncField('locale_override', value);
+    await runSyncedWrite(() async {
+      await _dao.updateLocaleOverride(value);
+      await _syncField('locale_override', value);
+    });
   }
 
   @override
   Future<void> updateChatLogsFront(bool value) async {
-    await _dao.updateChatLogsFront(value);
-    await _syncField('chat_logs_front', value);
+    await runSyncedWrite(() async {
+      await _dao.updateChatLogsFront(value);
+      await _syncField('chat_logs_front', value);
+    });
   }
 
   @override
   Future<void> updateHabitsBadgeEnabled(bool value) async {
-    await _dao.updateHabitsBadgeEnabled(value);
-    await _syncField('habits_badge_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateHabitsBadgeEnabled(value);
+      await _syncField('habits_badge_enabled', value);
+    });
   }
 
   @override
   Future<void> updateNotesEnabled(bool value) async {
-    await _dao.updateNotesEnabled(value);
-    await _syncField('notes_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateNotesEnabled(value);
+      await _syncField('notes_enabled', value);
+    });
   }
 
   @override
   Future<void> updateBoardsEnabled(bool value) async {
-    await _dao.updateBoardsEnabled(value);
-    await _syncField('boards_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateBoardsEnabled(value);
+      await _syncField('boards_enabled', value);
+    });
   }
 
   @override
   Future<void> updateBioMarkdownEnabled(bool value) async {
-    await _dao.updateBioMarkdownEnabled(value);
-    await _syncField('bio_markdown_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateBioMarkdownEnabled(value);
+      await _syncField('bio_markdown_enabled', value);
+    });
   }
 
   @override
   Future<void> updateSpBoardsBackfilledAt(DateTime? value) async {
-    await _dao.updateSpBoardsBackfilledAt(value);
-    // sp_boards_backfilled_at is a CRDT LWW field — sync it so a peer that
-    // completes the backfill before us can abort our run via sentinel check.
-    await _syncField(
-      'sp_boards_backfilled_at',
-      value?.toUtc().toIso8601String(),
-    );
+    await runSyncedWrite(() async {
+      await _dao.updateSpBoardsBackfilledAt(value);
+      // Sync the backfill sentinel so peers can abort duplicate runs.
+      await _syncField(
+        'sp_boards_backfilled_at',
+        value?.toUtc().toIso8601String(),
+      );
+    });
   }
 
   @override
   Future<void> updateSyncThemeEnabled(bool value) async {
-    await _dao.updateSyncThemeEnabled(value);
-    await _syncField('sync_theme_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateSyncThemeEnabled(value);
+      await _syncField('sync_theme_enabled', value);
+    });
   }
 
   @override
@@ -265,86 +320,112 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateTerminology(domain.SystemTerminology value) async {
-    await _dao.updateTerminology(value.index);
-    await _syncField('terminology', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateTerminology(value.index);
+      await _syncField('terminology', value.index);
+    });
   }
 
   @override
   Future<void> updateThemeMode(domain.AppThemeMode value) async {
-    await _dao.updateThemeMode(value.index);
-    await _syncField('theme_mode', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateThemeMode(value.index);
+      await _syncField('theme_mode', value.index);
+    });
   }
 
   @override
   Future<void> updateThemeBrightness(domain.ThemeBrightness value) async {
-    await _dao.updateThemeBrightness(value.index);
-    await _syncFieldIfThemeEnabled('theme_brightness', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateThemeBrightness(value.index);
+      await _syncFieldIfThemeEnabled('theme_brightness', value.index);
+    });
   }
 
   @override
   Future<void> updateThemeStyle(domain.ThemeStyle value) async {
-    await _dao.updateThemeStyle(value.index);
-    await _syncFieldIfThemeEnabled('theme_style', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateThemeStyle(value.index);
+      await _syncFieldIfThemeEnabled('theme_style', value.index);
+    });
   }
 
   @override
   Future<void> updateCornerStyle(domain.CornerStyle value) async {
-    await _dao.updateThemeCornerStyle(value.index);
-    await _syncFieldIfThemeEnabled('theme_corner_style', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateThemeCornerStyle(value.index);
+      await _syncFieldIfThemeEnabled('theme_corner_style', value.index);
+    });
   }
 
   @override
   Future<void> updateMemberNameDisplay(domain.MemberNameDisplay value) async {
-    await _dao.updateMemberNameDisplay(value);
-    await _syncField('member_name_display', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateMemberNameDisplay(value);
+      await _syncField('member_name_display', value.index);
+    });
   }
 
   @override
   Future<void> updatePaletteSource(domain.PaletteSource value) async {
-    await _dao.updatePaletteSource(value.index);
-    await _syncFieldIfThemeEnabled('palette_source', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updatePaletteSource(value.index);
+      await _syncFieldIfThemeEnabled('palette_source', value.index);
+    });
   }
 
   @override
   Future<void> updatePaletteMood(domain.PaletteMood value) async {
-    await _dao.updatePaletteMood(value.index);
-    await _syncFieldIfThemeEnabled('palette_mood', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updatePaletteMood(value.index);
+      await _syncFieldIfThemeEnabled('palette_mood', value.index);
+    });
   }
 
   @override
   Future<void> updatePaletteContrast(domain.PaletteContrast value) async {
-    await _dao.updatePaletteContrast(value.index);
-    await _syncFieldIfThemeEnabled('palette_contrast', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updatePaletteContrast(value.index);
+      await _syncFieldIfThemeEnabled('palette_contrast', value.index);
+    });
   }
 
   @override
   Future<void> updateTimingMode(domain.FrontingTimingMode value) async {
-    await _dao.updateTimingMode(value.index);
-    await _syncField('timing_mode', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateTimingMode(value.index);
+      await _syncField('timing_mode', value.index);
+    });
   }
 
   @override
   Future<void> updateFrontingListViewMode(
     domain.FrontingListViewMode value,
   ) async {
-    await _dao.updateFrontingListViewMode(value.index);
-    await _syncField('fronting_list_view_mode', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateFrontingListViewMode(value.index);
+      await _syncField('fronting_list_view_mode', value.index);
+    });
   }
 
   @override
   Future<void> updateAddFrontDefaultBehavior(
     domain.FrontStartBehavior value,
   ) async {
-    await _dao.updateAddFrontDefaultBehavior(value.index);
-    await _syncField('add_front_default_behavior', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateAddFrontDefaultBehavior(value.index);
+      await _syncField('add_front_default_behavior', value.index);
+    });
   }
 
   @override
   Future<void> updateQuickFrontDefaultBehavior(
     domain.FrontStartBehavior value,
   ) async {
-    await _dao.updateQuickFrontDefaultBehavior(value.index);
-    await _syncField('quick_front_default_behavior', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateQuickFrontDefaultBehavior(value.index);
+      await _syncField('quick_front_default_behavior', value.index);
+    });
   }
 
   @override
@@ -394,20 +475,26 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateFrontingReminderIntervalMinutes(int value) async {
-    await _dao.updateFrontingReminderIntervalMinutes(value);
-    await _syncField('fronting_reminder_interval_minutes', value);
+    await runSyncedWrite(() async {
+      await _dao.updateFrontingReminderIntervalMinutes(value);
+      await _syncField('fronting_reminder_interval_minutes', value);
+    });
   }
 
   @override
   Future<void> updateQuickSwitchThresholdSeconds(int value) async {
-    await _dao.updateQuickSwitchThresholdSeconds(value);
-    await _syncField('quick_switch_threshold_seconds', value);
+    await runSyncedWrite(() async {
+      await _dao.updateQuickSwitchThresholdSeconds(value);
+      await _syncField('quick_switch_threshold_seconds', value);
+    });
   }
 
   @override
   Future<void> updateIdentityGeneration(int value) async {
-    await _dao.updateIdentityGeneration(value);
-    await _syncField('identity_generation', value);
+    await runSyncedWrite(() async {
+      await _dao.updateIdentityGeneration(value);
+      await _syncField('identity_generation', value);
+    });
   }
 
   // Multi-field updates
@@ -419,17 +506,19 @@ class DriftSystemSettingsRepository
     String? customPluralTerminology,
     bool useEnglish = false,
   }) async {
-    await _dao.updateTerminologyFields(
-      terminology: terminology.index,
-      customTerminology: customTerminology,
-      customPluralTerminology: customPluralTerminology,
-      useEnglish: useEnglish,
-    );
-    await syncRecordUpdate(_table, _settingsEntityId, {
-      'terminology': terminology.index,
-      'custom_terminology': customTerminology,
-      'custom_plural_terminology': customPluralTerminology,
-      'terminology_use_english': useEnglish,
+    await runSyncedWrite(() async {
+      await _dao.updateTerminologyFields(
+        terminology: terminology.index,
+        customTerminology: customTerminology,
+        customPluralTerminology: customPluralTerminology,
+        useEnglish: useEnglish,
+      );
+      await syncRecordUpdate(_table, _settingsEntityId, {
+        'terminology': terminology.index,
+        'custom_terminology': customTerminology,
+        'custom_plural_terminology': customPluralTerminology,
+        'terminology_use_english': useEnglish,
+      });
     });
   }
 
@@ -438,13 +527,15 @@ class DriftSystemSettingsRepository
     required bool enabled,
     required int intervalMinutes,
   }) async {
-    await _dao.updateFrontingReminders(
-      enabled: enabled,
-      intervalMinutes: intervalMinutes,
-    );
-    await syncRecordUpdate(_table, _settingsEntityId, {
-      'fronting_reminders_enabled': enabled,
-      'fronting_reminder_interval_minutes': intervalMinutes,
+    await runSyncedWrite(() async {
+      await _dao.updateFrontingReminders(
+        enabled: enabled,
+        intervalMinutes: intervalMinutes,
+      );
+      await syncRecordUpdate(_table, _settingsEntityId, {
+        'fronting_reminders_enabled': enabled,
+        'fronting_reminder_interval_minutes': intervalMinutes,
+      });
     });
   }
 
@@ -456,69 +547,83 @@ class DriftSystemSettingsRepository
     bool? sleepTrackingEnabled,
     bool? gifSearchEnabled,
   }) async {
-    await _dao.updateFeatureToggles(
-      chatEnabled: chatEnabled,
-      pollsEnabled: pollsEnabled,
-      habitsEnabled: habitsEnabled,
-      sleepTrackingEnabled: sleepTrackingEnabled,
-      gifSearchEnabled: gifSearchEnabled,
-    );
-    final syncFields = <String, dynamic>{};
-    if (chatEnabled != null) syncFields['chat_enabled'] = chatEnabled;
-    if (pollsEnabled != null) syncFields['polls_enabled'] = pollsEnabled;
-    if (habitsEnabled != null) syncFields['habits_enabled'] = habitsEnabled;
-    if (sleepTrackingEnabled != null) {
-      syncFields['sleep_tracking_enabled'] = sleepTrackingEnabled;
-    }
-    if (gifSearchEnabled != null) {
-      syncFields['gif_search_enabled'] = gifSearchEnabled;
-    }
-    if (syncFields.isNotEmpty) {
-      await syncRecordUpdate(_table, _settingsEntityId, syncFields);
-    }
+    await runSyncedWrite(() async {
+      await _dao.updateFeatureToggles(
+        chatEnabled: chatEnabled,
+        pollsEnabled: pollsEnabled,
+        habitsEnabled: habitsEnabled,
+        sleepTrackingEnabled: sleepTrackingEnabled,
+        gifSearchEnabled: gifSearchEnabled,
+      );
+      final syncFields = <String, dynamic>{};
+      if (chatEnabled != null) syncFields['chat_enabled'] = chatEnabled;
+      if (pollsEnabled != null) syncFields['polls_enabled'] = pollsEnabled;
+      if (habitsEnabled != null) syncFields['habits_enabled'] = habitsEnabled;
+      if (sleepTrackingEnabled != null) {
+        syncFields['sleep_tracking_enabled'] = sleepTrackingEnabled;
+      }
+      if (gifSearchEnabled != null) {
+        syncFields['gif_search_enabled'] = gifSearchEnabled;
+      }
+      if (syncFields.isNotEmpty) {
+        await syncRecordUpdate(_table, _settingsEntityId, syncFields);
+      }
+    });
   }
 
   // Phase 3: Synced settings
 
   @override
   Future<void> updateRemindersEnabled(bool value) async {
-    await _dao.updateRemindersEnabled(value);
-    await _syncField('reminders_enabled', value);
+    await runSyncedWrite(() async {
+      await _dao.updateRemindersEnabled(value);
+      await _syncField('reminders_enabled', value);
+    });
   }
 
   @override
   Future<void> updateSystemDescription(String? value) async {
-    await _dao.updateSystemDescription(value);
-    await _syncField('system_description', value);
+    await runSyncedWrite(() async {
+      await _dao.updateSystemDescription(value);
+      await _syncField('system_description', value);
+    });
   }
 
   @override
   Future<void> updateSystemColor(String? colorHex) async {
-    await _dao.updateSystemColor(colorHex);
-    await _syncField('system_color', colorHex);
+    await runSyncedWrite(() async {
+      await _dao.updateSystemColor(colorHex);
+      await _syncField('system_color', colorHex);
+    });
   }
 
   @override
   Future<void> updatePkGroupSyncV2Enabled(bool value) async {
-    final settings = await getSettings();
-    if (settings.pkGroupSyncV2Enabled == value) return;
-    await _dao.updatePkGroupSyncV2Enabled(value);
-    await _syncField('pk_group_sync_v2_enabled', value);
+    await runSyncedWrite(() async {
+      final settings = await getSettings();
+      if (settings.pkGroupSyncV2Enabled == value) return;
+      await _dao.updatePkGroupSyncV2Enabled(value);
+      await _syncField('pk_group_sync_v2_enabled', value);
+    });
   }
 
   @override
   Future<void> updateSystemTag(String? value) async {
-    await _dao.updateSystemTag(value);
-    await _syncField('system_tag', value);
+    await runSyncedWrite(() async {
+      await _dao.updateSystemTag(value);
+      await _syncField('system_tag', value);
+    });
   }
 
   @override
   Future<void> updateSystemAvatarData(Uint8List? value) async {
-    await _dao.updateSystemAvatarData(value);
-    await _syncField(
-      'system_avatar_data',
-      value != null ? base64Encode(value) : null,
-    );
+    await runSyncedWrite(() async {
+      await _dao.updateSystemAvatarData(value);
+      await _syncField(
+        'system_avatar_data',
+        value != null ? base64Encode(value) : null,
+      );
+    });
   }
 
   // Phase 3: Device-local settings (no sync)
@@ -562,29 +667,35 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateNavBarItems(List<String> items) async {
-    final encoded = SystemSettingsMapper.encodeNavBarItems(items);
-    await _dao.updateNavBarItems(encoded);
-    await _syncFieldIfNavEnabled('nav_bar_items', encoded);
+    await runSyncedWrite(() async {
+      final encoded = SystemSettingsMapper.encodeNavBarItems(items);
+      await _dao.updateNavBarItems(encoded);
+      await _syncFieldIfNavEnabled('nav_bar_items', encoded);
+    });
   }
 
   @override
   Future<void> updateNavBarOverflowItems(List<String> items) async {
-    final encoded = SystemSettingsMapper.encodeNavBarItems(items);
-    await _dao.updateNavBarOverflowItems(encoded);
-    await _syncFieldIfNavEnabled('nav_bar_overflow_items', encoded);
+    await runSyncedWrite(() async {
+      final encoded = SystemSettingsMapper.encodeNavBarItems(items);
+      await _dao.updateNavBarOverflowItems(encoded);
+      await _syncFieldIfNavEnabled('nav_bar_overflow_items', encoded);
+    });
   }
 
   @override
   Future<void> updateSyncNavigationEnabled(bool value) async {
-    await _dao.updateSyncNavigationEnabled(value);
-    if (!value) {
-      await _syncField('sync_navigation_enabled', false);
-      return;
-    }
-    final row = await _dao.getSettings();
-    await syncRecordUpdate(_table, _settingsEntityId, {
-      'sync_navigation_enabled': true,
-      ..._navigationLayoutFieldsFromRow(row),
+    await runSyncedWrite(() async {
+      await _dao.updateSyncNavigationEnabled(value);
+      if (!value) {
+        await _syncField('sync_navigation_enabled', false);
+        return;
+      }
+      final row = await _dao.getSettings();
+      await syncRecordUpdate(_table, _settingsEntityId, {
+        'sync_navigation_enabled': true,
+        ..._navigationLayoutFieldsFromRow(row),
+      });
     });
   }
 
@@ -592,21 +703,30 @@ class DriftSystemSettingsRepository
   Future<void> updateNavBarLabelDisplayMode(
     domain.NavBarLabelDisplayMode value,
   ) async {
-    await _dao.updateNavBarLabelDisplayMode(value.index);
-    await _syncFieldIfNavEnabled('nav_bar_label_display_mode', value.index);
+    await runSyncedWrite(() async {
+      await _dao.updateNavBarLabelDisplayMode(value.index);
+      await _syncFieldIfNavEnabled('nav_bar_label_display_mode', value.index);
+    });
   }
 
   @override
   Future<void> updateNavBarRevealLabelsWhenExpanded(bool value) async {
-    await _dao.updateNavBarRevealLabelsWhenExpanded(value);
-    await _syncFieldIfNavEnabled('nav_bar_reveal_labels_when_expanded', value);
+    await runSyncedWrite(() async {
+      await _dao.updateNavBarRevealLabelsWhenExpanded(value);
+      await _syncFieldIfNavEnabled(
+        'nav_bar_reveal_labels_when_expanded',
+        value,
+      );
+    });
   }
 
   @override
   Future<void> updateChatBadgePreferences(Map<String, String> prefs) async {
-    final encoded = SystemSettingsMapper.encodeBadgePrefs(prefs);
-    await _dao.updateChatBadgePreferences(encoded);
-    await _syncField('chat_badge_preferences', encoded);
+    await runSyncedWrite(() async {
+      final encoded = SystemSettingsMapper.encodeBadgePrefs(prefs);
+      await _dao.updateChatBadgePreferences(encoded);
+      await _syncField('chat_badge_preferences', encoded);
+    });
   }
 
   // Device-local sleep quality default (no sync)

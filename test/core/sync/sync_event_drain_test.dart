@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
+import 'package:prism_plurality/core/sync/remote_delivery_drain.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 
 /// Stub quarantine service that returns false without touching the DB.
@@ -38,6 +39,21 @@ class _FakeQuarantineService implements SyncQuarantineService {
 /// `debugDrainDebounceOverride` to keep tests fast.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  SyncEvent completedEvent({String? errorKind, String? errorMessage}) {
+    return SyncEvent('SyncCompleted', {
+      'type': 'SyncCompleted',
+      'result': {
+        'pulled': 0,
+        'merged': 0,
+        'pushed': 0,
+        'pruned': 0,
+        'duration_ms': 0,
+        'error': errorMessage,
+        'error_kind': errorKind,
+      },
+    });
+  }
+
   // ------------------------------------------------------------------
   // Pure predicate
   // ------------------------------------------------------------------
@@ -71,6 +87,56 @@ void main() {
     test('unknown future kind drains conservatively', () {
       expect(shouldDrainForCompletedErrorKind('NeverBeforeSeen'), isTrue);
     });
+
+    test(
+      'consumer-delivery journal drains after successful SyncCompleted',
+      () async {
+        var drainCount = 0;
+        await drainRemoteDeliveriesAfterSyncCompletedEvent(
+          completedEvent(),
+          strict: false,
+          drain: () async {
+            drainCount++;
+            return const DrainResult(
+              rowsApplied: 0,
+              rowsSpilled: 0,
+              chunksAcked: 0,
+              aborted: false,
+            );
+          },
+        );
+        expect(drainCount, 1);
+      },
+    );
+
+    test(
+      'consumer-delivery journal drain skips strict and auth failures',
+      () async {
+        var drainCount = 0;
+        Future<DrainResult> drain() async {
+          drainCount++;
+          return const DrainResult(
+            rowsApplied: 0,
+            rowsSpilled: 0,
+            chunksAcked: 0,
+            aborted: false,
+          );
+        }
+
+        await drainRemoteDeliveriesAfterSyncCompletedEvent(
+          completedEvent(),
+          strict: true,
+          drain: drain,
+        );
+        await drainRemoteDeliveriesAfterSyncCompletedEvent(
+          completedEvent(errorKind: 'Auth', errorMessage: 'revoked'),
+          strict: false,
+          drain: drain,
+        );
+
+        expect(drainCount, 0);
+      },
+    );
   });
 
   // ------------------------------------------------------------------
@@ -148,21 +214,6 @@ void main() {
     debugQueryPendingOpsOverride = null;
     debugRevokeConfirmationOverride = null;
   });
-
-  SyncEvent completedEvent({String? errorKind, String? errorMessage}) {
-    return SyncEvent('SyncCompleted', {
-      'type': 'SyncCompleted',
-      'result': {
-        'pulled': 0,
-        'merged': 0,
-        'pushed': 0,
-        'pruned': 0,
-        'duration_ms': 0,
-        'error': errorMessage,
-        'error_kind': errorKind,
-      },
-    });
-  }
 
   test('drain fires on SyncCompleted success after debounce', () async {
     final ctx = bindContainer();

@@ -390,9 +390,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     // — so normalizing inline here ANR'd a Simply Plural import. `normalizeBatch`
     // runs the same routine off the main isolate; an undecodable member still
     // throws, aborting the batch as before.
-    final normalized = await AvatarNormalizer.normalizeBatch(
-      [for (final member in membersWithBytes) member.avatarImageData],
-    );
+    final normalized = await AvatarNormalizer.normalizeBatch([
+      for (final member in membersWithBytes) member.avatarImageData,
+    ]);
 
     // The DAO writes ONLY `avatar_image_data` for each row (see
     // `MembersDao.batchUpdateAvatars`). Emit a one-field patch per member
@@ -425,12 +425,14 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     }
     if (bytesById.isEmpty) return;
 
-    await _dao.batchUpdateAvatars(bytesById);
-    for (final id in normalizedIds) {
-      await syncRecordUpdate(_table, id, {
-        'avatar_image_data': base64Encode(bytesById[id]!),
-      });
-    }
+    await runSyncedWrite(() async {
+      await _dao.batchUpdateAvatars(bytesById);
+      for (final id in normalizedIds) {
+        await syncRecordUpdate(_table, id, {
+          'avatar_image_data': base64Encode(bytesById[id]!),
+        });
+      }
+    });
   }
 
   /// Reorder members with one database write, then emit the corresponding
@@ -449,12 +451,14 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
     if (changedMembers.isEmpty) return;
 
-    await _dao.bulkUpdateDisplayOrders(displayOrders);
-    for (final member in changedMembers) {
-      await syncRecordUpdate(_table, member.id, {
-        'display_order': member.displayOrder,
-      });
-    }
+    await runSyncedWrite(() async {
+      await _dao.bulkUpdateDisplayOrders(displayOrders);
+      for (final member in changedMembers) {
+        await syncRecordUpdate(_table, member.id, {
+          'display_order': member.displayOrder,
+        });
+      }
+    });
   }
 
   @override
@@ -519,9 +523,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   /// missed delete batch is recoverable by deleting again. Pre-fix redirects
   /// recorded no alias, so an already-diverged fleet isn't auto-repaired —
   /// delete again on the surviving device.
-  Future<void> _fanOutPkIdentityAliasDeletes(
-    db.Member? deletedRow,
-  ) async {
+  Future<void> _fanOutPkIdentityAliasDeletes(db.Member? deletedRow) async {
     if (deletedRow == null) return;
     final pkUuid = deletedRow.pluralkitUuid?.trim();
     final pkId = deletedRow.pluralkitId?.trim();
@@ -548,7 +550,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
         continue;
       }
       if (!seen.add(legacyEntityId)) continue;
-      if (!await isForbiddenAliasTarget(database, _table, legacyEntityId, pkUuid)) {
+      if (!await isForbiddenAliasTarget(
+        database,
+        _table,
+        legacyEntityId,
+        pkUuid,
+      )) {
         await syncRecordDelete(_table, legacyEntityId);
       }
       // The logical entity is gone, so this alias is dead weight. Purge it
@@ -672,21 +679,24 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<void> clearPluralKitLink(String id) async {
-    await _dao.clearPluralKitLinkRaw(id);
-    // Plan 02 R3: emit a CRDT op so peers converge. We deliberately send
-    // only the changed fields (no full re-write) — recordUpdate is the
-    // right channel; recordDelete has already been emitted for the
-    // tombstone.
-    await syncRecordUpdate(_table, id, {
-      'pluralkit_id': null,
-      'pluralkit_uuid': null,
+    await runSyncedWrite(() async {
+      await _dao.clearPluralKitLinkRaw(id);
+      // Narrow update; the tombstone was already emitted.
+      await syncRecordUpdate(_table, id, {
+        'pluralkit_id': null,
+        'pluralkit_uuid': null,
+      });
     });
   }
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
-    await _dao.stampDeletePushStartedAt(id, timestampMs);
-    await syncRecordUpdate(_table, id, {'delete_push_started_at': timestampMs});
+    await runSyncedWrite(() async {
+      await _dao.stampDeletePushStartedAt(id, timestampMs);
+      await syncRecordUpdate(_table, id, {
+        'delete_push_started_at': timestampMs,
+      });
+    });
   }
 
   @override

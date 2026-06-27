@@ -25,6 +25,9 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _pollsDao.attachedDatabase;
+
   static const _pollTable = 'polls';
   static const _pollOptionTable = 'poll_options';
   static const _pollVoteTable = 'poll_votes';
@@ -83,43 +86,47 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
 
   @override
   Future<void> createPoll(domain.Poll poll) async {
-    final companion = PollMapper.toCompanion(poll);
-    await _pollsDao.insertPoll(companion);
-    await syncRecordCreate(_pollTable, poll.id, _pollFields(poll));
-    for (final option in poll.options) {
-      await _optionsDao.insertOption(
-        PollOptionMapper.toCompanion(option, poll.id),
-      );
-      await syncRecordCreate(
-        _pollOptionTable,
-        option.id,
-        _pollOptionFields(option, poll.id),
-      );
-    }
+    await runSyncedWrite(() async {
+      final companion = PollMapper.toCompanion(poll);
+      await _pollsDao.insertPoll(companion);
+      await syncRecordCreate(_pollTable, poll.id, _pollFields(poll));
+      for (final option in poll.options) {
+        await _optionsDao.insertOption(
+          PollOptionMapper.toCompanion(option, poll.id),
+        );
+        await syncRecordCreate(
+          _pollOptionTable,
+          option.id,
+          _pollOptionFields(option, poll.id),
+        );
+      }
+    });
   }
 
   @override
   Future<void> updatePoll(domain.Poll poll) async {
-    final existingRow = await _pollsDao.getPollById(poll.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _pollsDao.getPollById(poll.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _pollFieldsFromRow(existingRow),
-      _pollFields(poll),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _pollFieldsFromRow(existingRow),
+        _pollFields(poll),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialPollCompanion(changedFields);
-    await _pollsDao.updatePoll(
-      companion.copyWith(id: Value(poll.id)),
-    );
-    await syncRecordUpdate(_pollTable, poll.id, changedFields);
+      final companion = _partialPollCompanion(changedFields);
+      await _pollsDao.updatePoll(companion.copyWith(id: Value(poll.id)));
+      await syncRecordUpdate(_pollTable, poll.id, changedFields);
+    });
   }
 
   @override
   Future<void> deletePoll(String id) async {
-    await _pollsDao.softDeletePoll(id);
-    await syncRecordDelete(_pollTable, id);
+    await runSyncedWrite(() async {
+      await _pollsDao.softDeletePoll(id);
+      await syncRecordDelete(_pollTable, id);
+    });
   }
 
   @override
@@ -132,20 +139,22 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
     // map and produce an empty patch. Compute the diff on the pre-write row
     // against a domain object representing the closed state, then write the
     // partial companion and emit the patch.
-    final existingRow = await _pollsDao.getPollById(id);
-    if (existingRow == null || existingRow.isDeleted) return;
-    if (existingRow.isClosed) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _pollsDao.getPollById(id);
+      if (existingRow == null || existingRow.isDeleted) return;
+      if (existingRow.isClosed) return;
 
-    final previousFields = _pollFieldsFromRow(existingRow);
-    final closedRow = existingRow.copyWith(isClosed: true);
-    final closedFields = _pollFieldsFromRow(closedRow);
+      final previousFields = _pollFieldsFromRow(existingRow);
+      final closedRow = existingRow.copyWith(isClosed: true);
+      final closedFields = _pollFieldsFromRow(closedRow);
 
-    final changedFields = diffSyncFields(previousFields, closedFields);
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(previousFields, closedFields);
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialPollCompanion(changedFields);
-    await _pollsDao.updatePoll(companion.copyWith(id: Value(id)));
-    await syncRecordUpdate(_pollTable, id, changedFields);
+      final companion = _partialPollCompanion(changedFields);
+      await _pollsDao.updatePoll(companion.copyWith(id: Value(id)));
+      await syncRecordUpdate(_pollTable, id, changedFields);
+    });
   }
 
   // Options
@@ -182,19 +191,23 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
 
   @override
   Future<void> createOption(domain.PollOption option, String pollId) async {
-    final companion = PollOptionMapper.toCompanion(option, pollId);
-    await _optionsDao.insertOption(companion);
-    await syncRecordCreate(
-      _pollOptionTable,
-      option.id,
-      _pollOptionFields(option, pollId),
-    );
+    await runSyncedWrite(() async {
+      final companion = PollOptionMapper.toCompanion(option, pollId);
+      await _optionsDao.insertOption(companion);
+      await syncRecordCreate(
+        _pollOptionTable,
+        option.id,
+        _pollOptionFields(option, pollId),
+      );
+    });
   }
 
   @override
   Future<void> deleteOption(String id) async {
-    await _optionsDao.softDeleteOption(id);
-    await syncRecordDelete(_pollOptionTable, id);
+    await runSyncedWrite(() async {
+      await _optionsDao.softDeleteOption(id);
+      await syncRecordDelete(_pollOptionTable, id);
+    });
   }
 
   // Votes
@@ -231,19 +244,23 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
 
   @override
   Future<void> castVote(domain.PollVote vote, String optionId) async {
-    final companion = PollVoteMapper.toCompanion(vote, optionId);
-    await _votesDao.insertVote(companion);
-    await syncRecordCreate(
-      _pollVoteTable,
-      vote.id,
-      _pollVoteFields(vote, optionId),
-    );
+    await runSyncedWrite(() async {
+      final companion = PollVoteMapper.toCompanion(vote, optionId);
+      await _votesDao.insertVote(companion);
+      await syncRecordCreate(
+        _pollVoteTable,
+        vote.id,
+        _pollVoteFields(vote, optionId),
+      );
+    });
   }
 
   @override
   Future<void> removeVote(String id) async {
-    await _votesDao.softDeleteVote(id);
-    await syncRecordDelete(_pollVoteTable, id);
+    await runSyncedWrite(() async {
+      await _votesDao.softDeleteVote(id);
+      await syncRecordDelete(_pollVoteTable, id);
+    });
   }
 
   /// Visible-for-testing: builds the field map this repository hands to the

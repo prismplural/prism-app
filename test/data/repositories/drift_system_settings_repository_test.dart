@@ -340,4 +340,89 @@ void main() {
       expect(captured.single.fields.containsKey('is_deleted'), isFalse);
     });
   });
+
+  group('multi-field updates', () {
+    test(
+      'updateTerminologyFields persists values and emits one update op',
+      () async {
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.updateTerminologyFields(
+          terminology: SystemTerminology.custom,
+          customTerminology: 'crewmate',
+          customPluralTerminology: 'crew',
+          useEnglish: true,
+        );
+
+        final settings = await repo.getSettings();
+        expect(settings.terminology, SystemTerminology.custom);
+        expect(settings.customTerminology, 'crewmate');
+        expect(settings.customPluralTerminology, 'crew');
+        expect(settings.terminologyUseEnglish, isTrue);
+        expect(captured, hasLength(1));
+        expect(captured.single.opType, SyncRecordOpType.update);
+        expect(captured.single.table, 'system_settings');
+        expect(captured.single.entityId, 'singleton');
+        expect(captured.single.fields, {
+          'terminology': SystemTerminology.custom.index,
+          'custom_terminology': 'crewmate',
+          'custom_plural_terminology': 'crew',
+          'terminology_use_english': true,
+        });
+      },
+    );
+
+    test(
+      'updateFrontingReminders persists values and emits one update op',
+      () async {
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        await repo.updateFrontingReminders(enabled: true, intervalMinutes: 45);
+
+        final settings = await repo.getSettings();
+        expect(settings.frontingRemindersEnabled, isTrue);
+        expect(settings.frontingReminderIntervalMinutes, 45);
+        expect(captured, hasLength(1));
+        expect(captured.single.opType, SyncRecordOpType.update);
+        expect(captured.single.table, 'system_settings');
+        expect(captured.single.entityId, 'singleton');
+        expect(captured.single.fields, {
+          'fronting_reminders_enabled': true,
+          'fronting_reminder_interval_minutes': 45,
+        });
+      },
+    );
+
+    test('updateFeatureToggles emits only provided feature fields', () async {
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await repo.updateFeatureToggles(
+        chatEnabled: false,
+        pollsEnabled: true,
+        sleepTrackingEnabled: false,
+      );
+
+      final settings = await repo.getSettings();
+      expect(settings.chatEnabled, isFalse);
+      expect(settings.pollsEnabled, isTrue);
+      expect(settings.habitsEnabled, isTrue);
+      expect(settings.sleepTrackingEnabled, isFalse);
+      expect(settings.gifSearchEnabled, isTrue);
+      expect(captured, hasLength(1));
+      expect(captured.single.opType, SyncRecordOpType.update);
+      expect(captured.single.table, 'system_settings');
+      expect(captured.single.entityId, 'singleton');
+      expect(captured.single.fields, {
+        'chat_enabled': false,
+        'polls_enabled': true,
+        'sleep_tracking_enabled': false,
+      });
+    });
+  });
 }

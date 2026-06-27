@@ -20,6 +20,9 @@ class DriftConversationCategoriesRepository
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _table = 'conversation_categories';
 
   DriftConversationCategoriesRepository(this._dao, this._syncHandle);
@@ -39,31 +42,37 @@ class DriftConversationCategoriesRepository
 
   @override
   Future<void> create(domain.ConversationCategory category) async {
-    final companion = ConversationCategoryMapper.toCompanion(category);
-    await _dao.create(companion);
-    await syncRecordCreate(_table, category.id, _fields(category));
+    await runSyncedWrite(() async {
+      final companion = ConversationCategoryMapper.toCompanion(category);
+      await _dao.create(companion);
+      await syncRecordCreate(_table, category.id, _fields(category));
+    });
   }
 
   @override
   Future<void> update(domain.ConversationCategory category) async {
-    final existingRow = await _dao.getByIdRow(category.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getByIdRow(category.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _categoryFieldsFromRow(existingRow),
-      _fields(category),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _categoryFieldsFromRow(existingRow),
+        _fields(category),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialCategoryCompanion(changedFields);
-    await _dao.updateCategory(category.id, companion);
-    await syncRecordUpdate(_table, category.id, changedFields);
+      final companion = _partialCategoryCompanion(changedFields);
+      await _dao.updateCategory(category.id, companion);
+      await syncRecordUpdate(_table, category.id, changedFields);
+    });
   }
 
   @override
   Future<void> delete(String id) async {
-    await _dao.softDelete(id);
-    await syncRecordDelete(_table, id);
+    await runSyncedWrite(() async {
+      await _dao.softDelete(id);
+      await syncRecordDelete(_table, id);
+    });
   }
 
   /// Visible-for-testing: builds the field map this repository hands to the

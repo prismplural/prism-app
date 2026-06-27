@@ -20,6 +20,9 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
+  @override
+  db.AppDatabase get syncOutboxDatabase => _dao.attachedDatabase;
+
   static const _habitTable = 'habits';
   static const _completionTable = 'habit_completions';
 
@@ -60,36 +63,42 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
 
   @override
   Future<void> createHabit(domain.Habit habit) async {
-    final companion = HabitMapper.toCompanion(habit);
-    await _dao.createHabit(companion);
-    await syncRecordCreate(_habitTable, habit.id, _habitFields(habit));
+    await runSyncedWrite(() async {
+      final companion = HabitMapper.toCompanion(habit);
+      await _dao.createHabit(companion);
+      await syncRecordCreate(_habitTable, habit.id, _habitFields(habit));
+    });
   }
 
   @override
   Future<void> updateHabit(domain.Habit habit) async {
-    final existingRow = await _dao.getHabitByIdRow(habit.id);
-    if (existingRow == null || existingRow.isDeleted) return;
+    await runSyncedWrite(() async {
+      final existingRow = await _dao.getHabitByIdRow(habit.id);
+      if (existingRow == null || existingRow.isDeleted) return;
 
-    final changedFields = diffSyncFields(
-      _habitFieldsFromRow(existingRow),
-      _habitFields(habit),
-    );
-    if (changedFields.isEmpty) return;
+      final changedFields = diffSyncFields(
+        _habitFieldsFromRow(existingRow),
+        _habitFields(habit),
+      );
+      if (changedFields.isEmpty) return;
 
-    final companion = _partialHabitCompanion(changedFields);
-    final affected = await _dao.updateHabitById(habit.id, companion);
-    if (affected != 1) return;
+      final companion = _partialHabitCompanion(changedFields);
+      final affected = await _dao.updateHabitById(habit.id, companion);
+      if (affected != 1) return;
 
-    await syncRecordUpdate(_habitTable, habit.id, changedFields);
+      await syncRecordUpdate(_habitTable, habit.id, changedFields);
+    });
   }
 
   @override
   Future<void> deleteHabit(String id) async {
-    final completions = await _dao.deleteHabit(id);
-    for (final completion in completions) {
-      await syncRecordDelete(_completionTable, completion.id);
-    }
-    await syncRecordDelete(_habitTable, id);
+    await runSyncedWrite(() async {
+      final completions = await _dao.deleteHabit(id);
+      for (final completion in completions) {
+        await syncRecordDelete(_completionTable, completion.id);
+      }
+      await syncRecordDelete(_habitTable, id);
+    });
   }
 
   @override
@@ -97,21 +106,23 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
     String id,
     Map<String, dynamic> changedFields,
   ) async {
-    final existingRow = await _dao.getHabitByIdRow(id);
-    if (existingRow == null || existingRow.isDeleted) return 0;
+    return await runSyncedWrite(() async {
+      final existingRow = await _dao.getHabitByIdRow(id);
+      if (existingRow == null || existingRow.isDeleted) return 0;
 
-    final patch = diffSyncFields(
-      _habitFieldsFromRow(existingRow),
-      _knownHabitFields(changedFields),
-    );
-    if (patch.isEmpty) return 1; // no-op success for an active row
+      final patch = diffSyncFields(
+        _habitFieldsFromRow(existingRow),
+        _knownHabitFields(changedFields),
+      );
+      if (patch.isEmpty) return 1; // no-op success for an active row
 
-    final companion = _partialHabitCompanion(patch);
-    final affected = await _dao.updateHabitById(id, companion);
-    if (affected != 1) return affected;
+      final companion = _partialHabitCompanion(patch);
+      final affected = await _dao.updateHabitById(id, companion);
+      if (affected != 1) return affected;
 
-    await syncRecordUpdate(_habitTable, id, patch);
-    return affected;
+      await syncRecordUpdate(_habitTable, id, patch);
+      return affected;
+    });
   }
 
   @override
@@ -164,23 +175,27 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
 
   @override
   Future<int> createCompletion(domain.HabitCompletion completion) async {
-    final companion = HabitCompletionMapper.toCompanion(completion);
-    final affected = await _dao.createCompletion(companion);
-    if (affected != 1) return affected;
-    await syncRecordCreate(
-      _completionTable,
-      completion.id,
-      _completionFields(completion),
-    );
-    return affected;
+    return await runSyncedWrite(() async {
+      final companion = HabitCompletionMapper.toCompanion(completion);
+      final affected = await _dao.createCompletion(companion);
+      if (affected != 1) return affected;
+      await syncRecordCreate(
+        _completionTable,
+        completion.id,
+        _completionFields(completion),
+      );
+      return affected;
+    });
   }
 
   @override
   Future<int> deleteCompletion(String id) async {
-    final affected = await _dao.deleteCompletion(id);
-    if (affected != 1) return affected;
-    await syncRecordDelete(_completionTable, id);
-    return affected;
+    return await runSyncedWrite(() async {
+      final affected = await _dao.deleteCompletion(id);
+      if (affected != 1) return affected;
+      await syncRecordDelete(_completionTable, id);
+      return affected;
+    });
   }
 
   @override
@@ -195,21 +210,23 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
     String id,
     Map<String, dynamic> changedFields,
   ) async {
-    final existingRow = await _dao.getCompletionByIdRow(id);
-    if (existingRow == null || existingRow.isDeleted) return 0;
+    return await runSyncedWrite(() async {
+      final existingRow = await _dao.getCompletionByIdRow(id);
+      if (existingRow == null || existingRow.isDeleted) return 0;
 
-    final patch = diffSyncFields(
-      _completionFieldsFromRow(existingRow),
-      _knownCompletionFields(changedFields),
-    );
-    if (patch.isEmpty) return 1; // no-op success for an active row
+      final patch = diffSyncFields(
+        _completionFieldsFromRow(existingRow),
+        _knownCompletionFields(changedFields),
+      );
+      if (patch.isEmpty) return 1; // no-op success for an active row
 
-    final companion = _partialCompletionCompanion(patch);
-    final affected = await _dao.updateCompletionById(id, companion);
-    if (affected != 1) return affected;
+      final companion = _partialCompletionCompanion(patch);
+      final affected = await _dao.updateCompletionById(id, companion);
+      if (affected != 1) return affected;
 
-    await syncRecordUpdate(_completionTable, id, patch);
-    return affected;
+      await syncRecordUpdate(_completionTable, id, patch);
+      return affected;
+    });
   }
 
   db.HabitsCompanion _partialHabitCompanion(Map<String, dynamic> fields) {
