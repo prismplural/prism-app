@@ -7881,6 +7881,44 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementPreviewHabitCompletions => 'Habit Completions';
 
   @override
+  String get dataManagementPreviewMemberGroups => 'Member Groups';
+
+  @override
+  String get dataManagementPreviewMemberGroupEntries => 'Member Group Entries';
+
+  @override
+  String get dataManagementPreviewCustomFields => 'Custom Fields';
+
+  @override
+  String get dataManagementPreviewCustomFieldValues => 'Custom Field Values';
+
+  @override
+  String get dataManagementPreviewNotes => 'Notes';
+
+  @override
+  String get dataManagementPreviewFrontSessionComments =>
+      'Front Session Comments';
+
+  @override
+  String get dataManagementPreviewConversationCategories =>
+      'Conversation Categories';
+
+  @override
+  String get dataManagementPreviewReminders => 'Reminders';
+
+  @override
+  String get dataManagementPreviewFriends => 'Friends';
+
+  @override
+  String get dataManagementPreviewMediaAttachments => 'Media Attachments';
+
+  @override
+  String get dataManagementPreviewMemberBoardPosts => 'Member Board Posts';
+
+  @override
+  String get dataManagementPreviewAppPreferences => 'App Preferences';
+
+  @override
   String get dataManagementPreviewTotal => 'Total';
 
   @override

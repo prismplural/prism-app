@@ -209,7 +209,14 @@ void main() {
       );
       await sourcePrefs.set(navBarExpandedLabelsFullPreference, true);
 
-      await _roundtrip(exportService, importService);
+      final export = await exportService.buildExport();
+      final jsonStr = const JsonEncoder().convert(export.toJson());
+      final preview = importService.parsePreview(jsonStr);
+      expect(preview.appPreferences, 1);
+
+      final result = await importService.importData(jsonStr);
+      expect(result.appPreferencesCreated, 1);
+      expect(result.totalRecordsCreated, preview.totalRecords);
 
       final targetPrefs = DriftAppPreferenceRepository(
         targetDb.preferenceValuesDao,

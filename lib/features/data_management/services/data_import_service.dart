@@ -153,6 +153,7 @@ class ImportResult {
     this.friendsCreated = 0,
     this.mediaAttachmentsCreated = 0,
     this.memberBoardPostsCreated = 0,
+    this.appPreferencesCreated = 0,
     this.legacyPkShortIdsSkipped = 0,
     this.legacyCorruptCoFronterRows = const [],
     this.unknownSentinelCreated = false,
@@ -182,6 +183,7 @@ class ImportResult {
   final int friendsCreated;
   final int mediaAttachmentsCreated;
   final int memberBoardPostsCreated;
+  final int appPreferencesCreated;
 
   // -- PRISM1 rescue-importer diagnostics (Phase 5D, spec §4.7) ---------
   //
@@ -234,7 +236,8 @@ class ImportResult {
       remindersCreated +
       friendsCreated +
       mediaAttachmentsCreated +
-      memberBoardPostsCreated;
+      memberBoardPostsCreated +
+      appPreferencesCreated;
 }
 
 class DataImportService {
@@ -1809,6 +1812,7 @@ class DataImportService {
         // 7b. App preferences (key-value rows). Route known prefs through the
         // repository so the restore emits sync ops like every other entity;
         // unknown keys fall back to a raw, non-syncing upsert.
+        var appPreferencesCreated = 0;
         for (final pref in export.appPreferences) {
           if (pref.key.isEmpty) continue;
           final definition = _syncedAppPreferenceForRowKey(pref.key);
@@ -1842,6 +1846,7 @@ class DataImportService {
               ),
             );
           }
+          appPreferencesCreated++;
         }
 
         // 8. Import habits
@@ -2366,8 +2371,9 @@ class DataImportService {
                   body: p.body,
                   createdAt: DateTime.parse(p.createdAt),
                   writtenAt: DateTime.parse(p.writtenAt),
-                  editedAt:
-                      p.editedAt != null ? DateTime.parse(p.editedAt!) : null,
+                  editedAt: p.editedAt != null
+                      ? DateTime.parse(p.editedAt!)
+                      : null,
                   isDeleted: p.isDeleted,
                 ),
               ),
@@ -2409,6 +2415,7 @@ class DataImportService {
           friendsCreated: friendsCreated,
           mediaAttachmentsCreated: mediaAttachmentsCreated,
           memberBoardPostsCreated: memberBoardPostsCreated,
+          appPreferencesCreated: appPreferencesCreated,
           legacyPkShortIdsSkipped: legacyPkShortIdsSkipped,
           legacyCorruptCoFronterRows: List.unmodifiable(
             legacyCorruptCoFronterRows,

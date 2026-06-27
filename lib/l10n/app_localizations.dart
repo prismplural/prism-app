@@ -12775,6 +12775,78 @@ abstract class AppLocalizations {
   /// **'Habit Completions'**
   String get dataManagementPreviewHabitCompletions;
 
+  /// Import preview row label for member groups
+  ///
+  /// In en, this message translates to:
+  /// **'Member Groups'**
+  String get dataManagementPreviewMemberGroups;
+
+  /// Import preview row label for member group membership records
+  ///
+  /// In en, this message translates to:
+  /// **'Member Group Entries'**
+  String get dataManagementPreviewMemberGroupEntries;
+
+  /// Import preview row label for custom fields
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Fields'**
+  String get dataManagementPreviewCustomFields;
+
+  /// Import preview row label for custom field values
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Field Values'**
+  String get dataManagementPreviewCustomFieldValues;
+
+  /// Import preview row label for notes
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get dataManagementPreviewNotes;
+
+  /// Import preview row label for front session comments
+  ///
+  /// In en, this message translates to:
+  /// **'Front Session Comments'**
+  String get dataManagementPreviewFrontSessionComments;
+
+  /// Import preview row label for conversation categories
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation Categories'**
+  String get dataManagementPreviewConversationCategories;
+
+  /// Import preview row label for reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get dataManagementPreviewReminders;
+
+  /// Import preview row label for friend records
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get dataManagementPreviewFriends;
+
+  /// Import preview row label for media attachments
+  ///
+  /// In en, this message translates to:
+  /// **'Media Attachments'**
+  String get dataManagementPreviewMediaAttachments;
+
+  /// Import preview row label for member board posts
+  ///
+  /// In en, this message translates to:
+  /// **'Member Board Posts'**
+  String get dataManagementPreviewMemberBoardPosts;
+
+  /// Import preview row label for app preferences
+  ///
+  /// In en, this message translates to:
+  /// **'App Preferences'**
+  String get dataManagementPreviewAppPreferences;
+
   /// Import preview row label for total records
   ///
   /// In en, this message translates to:

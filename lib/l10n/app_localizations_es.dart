@@ -8003,6 +8003,48 @@ class AppLocalizationsEs extends AppLocalizations {
       'Completaciones de hábitos';
 
   @override
+  String get dataManagementPreviewMemberGroups => 'Grupos de miembros';
+
+  @override
+  String get dataManagementPreviewMemberGroupEntries =>
+      'Membresías de grupos de miembros';
+
+  @override
+  String get dataManagementPreviewCustomFields => 'Campos personalizados';
+
+  @override
+  String get dataManagementPreviewCustomFieldValues =>
+      'Valores de campos personalizados';
+
+  @override
+  String get dataManagementPreviewNotes => 'Notas';
+
+  @override
+  String get dataManagementPreviewFrontSessionComments =>
+      'Comentarios de sesiones al frente';
+
+  @override
+  String get dataManagementPreviewConversationCategories =>
+      'Categorías de conversación';
+
+  @override
+  String get dataManagementPreviewReminders => 'Recordatorios';
+
+  @override
+  String get dataManagementPreviewFriends => 'Amistades';
+
+  @override
+  String get dataManagementPreviewMediaAttachments =>
+      'Archivos multimedia adjuntos';
+
+  @override
+  String get dataManagementPreviewMemberBoardPosts =>
+      'Publicaciones del tablero de miembros';
+
+  @override
+  String get dataManagementPreviewAppPreferences => 'Preferencias de la app';
+
+  @override
   String get dataManagementPreviewTotal => 'Total';
 
   @override

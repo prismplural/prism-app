@@ -367,40 +367,8 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _previewRow(
-                context.l10n.dataManagementPreviewMembers(terms.plural),
-                p.headmates,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewFrontSessions,
-                p.frontSessions,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewSleepSessions,
-                p.sleepSessions,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewConversations,
-                p.conversations,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewMessages,
-                p.messages,
-              ),
-              _previewRow(context.l10n.dataManagementPreviewPolls, p.polls),
-              _previewRow(
-                context.l10n.dataManagementPreviewPollOptions,
-                p.pollOptions,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewSettings,
-                p.systemSettings,
-              ),
-              _previewRow(context.l10n.dataManagementPreviewHabits, p.habits),
-              _previewRow(
-                context.l10n.dataManagementPreviewHabitCompletions,
-                p.habitCompletions,
-              ),
+              for (final row in _previewCountRows(p, terms.plural))
+                _previewRow(row.label, row.count),
               const Divider(),
               _previewRow(
                 context.l10n.dataManagementPreviewTotal,
@@ -435,20 +403,92 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     );
   }
 
+  List<({String label, int count})> _previewCountRows(
+    ImportPreview p,
+    String membersPlural,
+  ) => [
+    (
+      label: context.l10n.dataManagementPreviewMembers(membersPlural),
+      count: p.headmates,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewFrontSessions,
+      count: p.frontSessions,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewSleepSessions,
+      count: p.sleepSessions,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewConversations,
+      count: p.conversations,
+    ),
+    (label: context.l10n.dataManagementPreviewMessages, count: p.messages),
+    (label: context.l10n.dataManagementPreviewPolls, count: p.polls),
+    (
+      label: context.l10n.dataManagementPreviewPollOptions,
+      count: p.pollOptions,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewSettings,
+      count: p.systemSettings,
+    ),
+    (label: context.l10n.dataManagementPreviewHabits, count: p.habits),
+    (
+      label: context.l10n.dataManagementPreviewHabitCompletions,
+      count: p.habitCompletions,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMemberGroups,
+      count: p.memberGroups,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMemberGroupEntries,
+      count: p.memberGroupEntries,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewCustomFields,
+      count: p.customFields,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewCustomFieldValues,
+      count: p.customFieldValues,
+    ),
+    (label: context.l10n.dataManagementPreviewNotes, count: p.notes),
+    (
+      label: context.l10n.dataManagementPreviewFrontSessionComments,
+      count: p.frontSessionComments,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewConversationCategories,
+      count: p.conversationCategories,
+    ),
+    (label: context.l10n.dataManagementPreviewReminders, count: p.reminders),
+    (label: context.l10n.dataManagementPreviewFriends, count: p.friends),
+    (
+      label: context.l10n.dataManagementPreviewMediaAttachments,
+      count: p.mediaAttachments,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMemberBoardPosts,
+      count: p.memberBoardPosts,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewAppPreferences,
+      count: p.appPreferences,
+    ),
+  ];
+
   Widget _previewRow(String label, int count, {bool bold = false}) {
+    final style = bold ? const TextStyle(fontWeight: FontWeight.bold) : null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null,
-          ),
-          Text(
-            count.toString(),
-            style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null,
-          ),
+          Expanded(child: Text(label, style: style)),
+          const SizedBox(width: 16),
+          Text(count.toString(), textAlign: TextAlign.end, style: style),
         ],
       ),
     );
@@ -504,46 +544,8 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _previewRow(
-                context.l10n.dataManagementPreviewMembers(terms.plural),
-                r.membersCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewFrontSessions,
-                r.frontSessionsCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewSleepSessions,
-                r.sleepSessionsCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewConversations,
-                r.conversationsCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewMessages,
-                r.messagesCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewPolls,
-                r.pollsCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewPollOptions,
-                r.pollOptionsCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewSettings,
-                r.settingsUpdated ? 1 : 0,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewHabits,
-                r.habitsCreated,
-              ),
-              _previewRow(
-                context.l10n.dataManagementPreviewHabitCompletions,
-                r.habitCompletionsCreated,
-              ),
+              for (final row in _resultCountRows(r, terms.plural))
+                _previewRow(row.label, row.count),
               const Divider(),
               _previewRow(
                 context.l10n.dataManagementPreviewTotalCreated,
@@ -572,6 +574,88 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
       ],
     );
   }
+
+  List<({String label, int count})> _resultCountRows(
+    ImportResult r,
+    String membersPlural,
+  ) => [
+    (
+      label: context.l10n.dataManagementPreviewMembers(membersPlural),
+      count: r.membersCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewFrontSessions,
+      count: r.frontSessionsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewSleepSessions,
+      count: r.sleepSessionsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewConversations,
+      count: r.conversationsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMessages,
+      count: r.messagesCreated,
+    ),
+    (label: context.l10n.dataManagementPreviewPolls, count: r.pollsCreated),
+    (
+      label: context.l10n.dataManagementPreviewPollOptions,
+      count: r.pollOptionsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewSettings,
+      count: r.settingsUpdated ? 1 : 0,
+    ),
+    (label: context.l10n.dataManagementPreviewHabits, count: r.habitsCreated),
+    (
+      label: context.l10n.dataManagementPreviewHabitCompletions,
+      count: r.habitCompletionsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMemberGroups,
+      count: r.memberGroupsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMemberGroupEntries,
+      count: r.memberGroupEntriesCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewCustomFields,
+      count: r.customFieldsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewCustomFieldValues,
+      count: r.customFieldValuesCreated,
+    ),
+    (label: context.l10n.dataManagementPreviewNotes, count: r.notesCreated),
+    (
+      label: context.l10n.dataManagementPreviewFrontSessionComments,
+      count: r.frontSessionCommentsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewConversationCategories,
+      count: r.conversationCategoriesCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewReminders,
+      count: r.remindersCreated,
+    ),
+    (label: context.l10n.dataManagementPreviewFriends, count: r.friendsCreated),
+    (
+      label: context.l10n.dataManagementPreviewMediaAttachments,
+      count: r.mediaAttachmentsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewMemberBoardPosts,
+      count: r.memberBoardPostsCreated,
+    ),
+    (
+      label: context.l10n.dataManagementPreviewAppPreferences,
+      count: r.appPreferencesCreated,
+    ),
+  ];
 
   Widget _importWarning(ThemeData theme, String text) {
     return Container(
