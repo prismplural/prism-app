@@ -67,6 +67,41 @@ class SyncEvent {
   /// The epoch an [isEphemeralMessage] was sealed under.
   int get ephemeralEpochId => (data['epoch_id'] as num?)?.toInt() ?? 0;
 
+  /// A specific paired device's inbound batches are repeatedly failing to apply
+  /// on this device — a transient sender-resolution stall or a conversion to a
+  /// durable quarantine — while this device's own push to the group still
+  /// succeeds. This is the asymmetric one-way-sync symptom ("sync says done but
+  /// a peer's changes aren't showing up"). Diagnostic only: nothing is applied
+  /// unverified. See [pullSenderId] / [pullSenderReason] /
+  /// [pullSenderLiveStallCount] / [pullSenderQuarantinedBatchCount].
+  bool get isPullSenderStalled => type == 'PullSenderStalled';
+
+  /// A previously stalled/quarantined peer became resolvable again: Phase 0b
+  /// replay applied [pullSenderReplayedBatchCount] of its quarantined batches and
+  /// the sender's degraded-liveness state was cleared. The inverse of
+  /// [isPullSenderStalled].
+  bool get isPullSenderRecovered => type == 'PullSenderRecovered';
+
+  /// The paired device an [isPullSenderStalled] / [isPullSenderRecovered] event
+  /// concerns.
+  String get pullSenderId => data['sender_device_id'] as String? ?? '';
+
+  /// The stall/quarantine reason: `'sender_unresolved'` or
+  /// `'stale_key_generation'`.
+  String get pullSenderReason => data['reason'] as String? ?? '';
+
+  /// How many live sync cycles have stalled on this sender/reason.
+  int get pullSenderLiveStallCount =>
+      (data['live_stall_count'] as num?)?.toInt() ?? 0;
+
+  /// How many of this sender's batches have converted to a durable quarantine.
+  int get pullSenderQuarantinedBatchCount =>
+      (data['quarantined_batch_count'] as num?)?.toInt() ?? 0;
+
+  /// How many quarantined batches were replayed on an [isPullSenderRecovered].
+  int get pullSenderReplayedBatchCount =>
+      (data['replayed_batch_count'] as num?)?.toInt() ?? 0;
+
   /// Structured error-kind string as emitted by the Rust FFI (pascal-case).
   ///
   /// Populated on `SyncCompleted` events whose `result.error` is set, and

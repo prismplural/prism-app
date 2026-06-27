@@ -3407,6 +3407,20 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       debugPrint(
         '[SYNC_STREAM] Event type=${event.type}, changes=${event.changes.length}',
       );
+      // Surface the asymmetric one-way-sync symptom for support diagnostics: a
+      // peer's inbound batches keep failing to apply while our push still runs.
+      if (event.isPullSenderStalled) {
+        debugPrint(
+          '[SYNC_LIVENESS] inbound stalled from ${event.pullSenderId} '
+          '(${event.pullSenderReason}): ${event.pullSenderLiveStallCount} live stalls, '
+          '${event.pullSenderQuarantinedBatchCount} quarantined — our push still runs',
+        );
+      } else if (event.isPullSenderRecovered) {
+        debugPrint(
+          '[SYNC_LIVENESS] inbound recovered from ${event.pullSenderId} '
+          '(${event.pullSenderReason}): replayed ${event.pullSenderReplayedBatchCount}',
+        );
+      }
     }
     if (event.isRemoteChanges) {
       final strict = strictCoordinator.isStrict;
