@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/services/fronting_migration_breadcrumb_log.dart';
@@ -66,6 +67,35 @@ class SyncDebugScreen extends ConsumerWidget {
             ..writeln();
         }
       }
+
+      // Cumulative inbound pull-liveness state: a nonempty list is the
+      // asymmetric one-way symptom (a peer's changes aren't applying while our
+      // push still runs). Snapshotted from Rust at copy time.
+      final handle = ref.read(prismSyncHandleProvider).value;
+      if (handle != null) {
+        try {
+          final healthJson = await ffi.listPullSenderHealth(handle: handle);
+          final health = jsonDecode(healthJson) as List<dynamic>;
+          buffer
+            ..writeln('Pull sender health (${health.length} entries)')
+            ..writeln();
+          if (health.isEmpty) {
+            buffer
+              ..writeln('(none — inbound liveness healthy)')
+              ..writeln();
+          } else {
+            for (final row in health) {
+              buffer.writeln(encoder.convert(row));
+            }
+            buffer.writeln();
+          }
+        } catch (e) {
+          buffer
+            ..writeln('Pull sender health: unavailable ($e)')
+            ..writeln();
+        }
+      }
+
       await Clipboard.setData(ClipboardData(text: buffer.toString()));
       if (!context.mounted) return;
       PrismToast.show(

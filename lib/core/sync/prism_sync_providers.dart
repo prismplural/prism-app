@@ -3600,6 +3600,15 @@ class SyncEventLogEntry {
     if (event.isEphemeralMessage) {
       return 'Ephemeral ${event.ephemeralKind} for ${event.ephemeralMediaId}';
     }
+    if (event.isPullSenderStalled) {
+      return 'Inbound stalled from ${event.pullSenderId} '
+          '(${event.pullSenderReason}): ${event.pullSenderLiveStallCount} live stalls, '
+          '${event.pullSenderQuarantinedBatchCount} quarantined';
+    }
+    if (event.isPullSenderRecovered) {
+      return 'Inbound recovered from ${event.pullSenderId} '
+          '(${event.pullSenderReason}): replayed ${event.pullSenderReplayedBatchCount}';
+    }
     return event.type;
   }
 }

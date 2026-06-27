@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 
 /// The one-way-sync-liveness events (`PullSenderStalled` / `PullSenderRecovered`)
@@ -47,6 +48,38 @@ void main() {
       expect(e.pullSenderLiveStallCount, 0);
       expect(e.pullSenderQuarantinedBatchCount, 0);
       expect(e.pullSenderReplayedBatchCount, 0);
+    });
+  });
+
+  group('debug-log summary lines', () {
+    SyncEventLogEntry entry(Map<String, dynamic> json) =>
+        SyncEventLogEntry(timestamp: DateTime(2026), event: SyncEvent.fromJson(json));
+
+    test('PullSenderStalled summary names the peer, reason, and counts', () {
+      final summary = entry({
+        'type': 'PullSenderStalled',
+        'sender_device_id': 'device-bbb',
+        'reason': 'sender_unresolved',
+        'live_stall_count': 3,
+        'quarantined_batch_count': 1,
+        'last_error': 'x',
+      }).summary;
+      expect(summary, contains('device-bbb'));
+      expect(summary, contains('sender_unresolved'));
+      expect(summary, contains('3 live stalls'));
+      expect(summary, contains('1 quarantined'));
+    });
+
+    test('PullSenderRecovered summary names the peer and replay count', () {
+      final summary = entry({
+        'type': 'PullSenderRecovered',
+        'sender_device_id': 'device-bbb',
+        'reason': 'stale_key_generation',
+        'replayed_batch_count': 2,
+      }).summary;
+      expect(summary, contains('recovered'));
+      expect(summary, contains('device-bbb'));
+      expect(summary, contains('replayed 2'));
     });
   });
 }
