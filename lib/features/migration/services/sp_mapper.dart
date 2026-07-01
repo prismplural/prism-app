@@ -335,25 +335,20 @@ class SpMapper {
   ) {
     // Pre-assign Prism IDs so mention rewriting can resolve forward refs.
     //
-    // F18 (deferred, audit 2026-06-27): unlike SP *sessions* (deterministic
-    // `_sessionIdMap[id] ?? deriveSpSessionId(id)`), members get a RANDOM
-    // `_newId()`, so two devices importing the same SP file before they sync
-    // mint different local ids and — having no pluralkit identity for the apply
-    // layer to merge on — produce duplicate members. The fix is to mirror
-    // sessions: `_memberIdMap[sp.id] ?? deriveSpMemberId(sp.id)` (a new v5
-    // namespace). Existing data is unaffected (sp_id_map reuse), and fresh
-    // concurrent imports would converge. Deferred here because it rewrites every
-    // member id in the byte-stable sp_import parity goldens for a LOW finding
-    // that only covers the fresh-both-devices case (a device that already
-    // imported still diverges). Track with the SP-import dedup effort.
+    // F18: derive the member id deterministically from the SP `_id` (like
+    // deriveSpSessionId) not a random `_newId()`, so two devices importing the
+    // same SP file before syncing converge on one CRDT row instead of minting
+    // duplicates the identity-agnostic engine can't merge. `_memberIdMap` is
+    // seeded from persisted sp_id_map, so the `??` only fires for unseen members.
     for (final sp in spMembers) {
-      _memberIdMap[sp.id] = _memberIdMap[sp.id] ?? _newId();
+      _memberIdMap[sp.id] = _memberIdMap[sp.id] ?? deriveSpMemberId(sp.id);
     }
     for (final cf in customFronts) {
       final disposition =
           _cfDispositionById[cf.id] ?? CfDisposition.importAsMember;
       if (disposition != CfDisposition.importAsMember) continue;
-      _memberIdMap[cf.id] = _memberIdMap[cf.id] ?? _newId();
+      // F18: same deterministic derivation for custom fronts imported as members.
+      _memberIdMap[cf.id] = _memberIdMap[cf.id] ?? deriveSpMemberId(cf.id);
     }
 
     final members = <domain.Member>[];

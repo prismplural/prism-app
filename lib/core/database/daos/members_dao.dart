@@ -236,7 +236,13 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   /// is correct here — re-using the per-row `insertMember` policy.
   Future<void> batchInsertMembers(List<MembersCompanion> rows) async {
     if (rows.isEmpty) return;
-    await batch((b) => b.insertAll(members, rows));
+    // insertOrIgnore, not plain insert: SP member ids are now deterministic (v5
+    // from the SP _id), so a re-import after sp_id_map was cleared can re-derive
+    // an already-present id. Ignore the dup (same member) rather than aborting
+    // the whole import; a no-op for random-id rows that never collided.
+    await batch(
+      (b) => b.insertAll(members, rows, mode: InsertMode.insertOrIgnore),
+    );
   }
 
   /// Bulk-update `boardLastReadAt` per (memberId, readAt) pair in a single

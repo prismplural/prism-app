@@ -1277,4 +1277,32 @@ void main() {
       expect(result.members.first.createdAt, isNot(equals(expectedCreatedAt)));
     });
   });
+
+  group('F18: deterministic SP member ids', () {
+    test('two independent imports of the same SP member converge on one id', () {
+      final data = _makeExportData(members: [_memberA]);
+      final r1 = SpMapper().mapAll(data);
+      final r2 = SpMapper().mapAll(data);
+      expect(r1.members.single.id, r2.members.single.id,
+          reason: 'fresh imports on two devices must mint the SAME local id so '
+              'they converge on one CRDT row');
+      expect(r1.members.single.id, deriveSpMemberId('sp-a'),
+          reason: 'derived from the SP _id, not a random uuid');
+    });
+
+    test('an already-mapped SP member keeps its original id (sp_id_map reuse)',
+        () {
+      final data = _makeExportData(members: [_memberA]);
+      // A prior import assigned a random id, persisted in sp_id_map and seeded
+      // back as existingMappings — deterministic-id must NOT override it.
+      final mapper = SpMapper(
+        existingMappings: {
+          'member': {'sp-a': 'legacy-random-id'},
+        },
+      );
+      final result = mapper.mapAll(data);
+      expect(result.members.single.id, 'legacy-random-id',
+          reason: 'existing mapping wins; det-id only mints for unseen members');
+    });
+  });
 }

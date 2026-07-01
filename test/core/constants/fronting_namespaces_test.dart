@@ -22,6 +22,7 @@ void main() {
       'migrationFrontingNamespace': migrationFrontingNamespace,
       'splitNamespace': splitNamespace,
       'gapFillerNamespace': gapFillerNamespace,
+      'spMemberNamespace': spMemberNamespace,
     }.entries) {
       test('${entry.key} (${entry.value}) — v5 succeeds', () {
         // If the namespace is invalid, Uuid().v5() throws FormatException.
@@ -54,6 +55,28 @@ void main() {
         deriveSpFrontCommentId('foo'),
         '99eb9b3a-7006-580c-a6e5-627294c911c8',
       );
+    });
+
+    test('deriveSpMemberId is deterministic (F18 convergence)', () {
+      expect(
+        deriveSpMemberId('foo'),
+        '78395a25-d7a4-5a0d-bfd0-e2517343c78b',
+      );
+    });
+
+    test('spMemberNamespace is distinct from every other namespace', () {
+      final all = <String>[
+        pkFrontingNamespace,
+        spFrontingNamespace,
+        spFrontCommentNamespace,
+        migrationFrontingNamespace,
+        splitNamespace,
+        gapFillerNamespace,
+        sleepRecoveryNamespace,
+        spMemberNamespace,
+      ];
+      expect(all.toSet().length, all.length,
+          reason: 'a reused namespace would cross-collide id spaces');
     });
 
     test('deriveMigrationFanoutSessionId is deterministic', () {

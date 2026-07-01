@@ -159,3 +159,22 @@ const String sleepRecoveryNamespace = 'a539d4f4-1277-4c1a-91da-b00c2ab5977d';
 /// they agree byte-for-byte.
 String deriveSleepRecoverySessionId(String tombstoneId) =>
     const Uuid().v5(sleepRecoveryNamespace, tombstoneId);
+
+/// Namespace for Simply Plural–imported MEMBER ids (audit F18).
+///
+/// Key format: the SP member `_id` string from the source export.
+/// SP members historically got a random v4 id, so two devices importing the
+/// same SP file before they synced minted different ids and — the engine has no
+/// SP-identity column — produced duplicate members. Deriving the id from the SP
+/// `_id` (mirroring [deriveSpSessionId]) makes concurrent fresh imports converge
+/// on one CRDT row. Already-imported members keep their original id via
+/// `sp_id_map` reuse (`_memberIdMap` seeding), so this only mints for members
+/// never seen on this device.
+///
+/// ⚠️ IMMUTABLE FOREVER. Once shipped, this value MUST NEVER change.
+const String spMemberNamespace = 'c4be8209-4590-489e-aebe-ce80ade382be';
+
+/// Canonical SP member id derivation. Route every SP member-create site through
+/// this helper so independent imports of the same SP `_id` agree byte-for-byte.
+String deriveSpMemberId(String spMemberId) =>
+    const Uuid().v5(spMemberNamespace, spMemberId);
