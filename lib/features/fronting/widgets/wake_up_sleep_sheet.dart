@@ -170,7 +170,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     final morningCountsAsync = ref.watch(morningFrontingCountsProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
@@ -332,6 +332,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                         : null,
                                     child: Center(
                                       child: MemberAvatar(
+                                        memberId: member.id,
                                         avatarImageData: member.avatarImageData,
                                         memberName: memberName,
                                         emoji: member.emoji,
@@ -339,6 +340,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                                             member.customColorEnabled,
                                         customColorHex: member.customColorHex,
                                         size: 56,
+                                        deferAvatarLookup: true,
                                       ),
                                     ),
                                   ),

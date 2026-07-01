@@ -29,8 +29,11 @@ class _FakeLastUsed extends LastUsedSpeakingAsMemberNotifier {
 Member _member(String id) =>
     Member(id: id, name: id, createdAt: DateTime(2026, 5, 7));
 
-FrontingSession _session(String memberId, DateTime start) =>
-    FrontingSession(id: 'session-$memberId', memberId: memberId, startTime: start);
+FrontingSession _session(String memberId, DateTime start) => FrontingSession(
+  id: 'session-$memberId',
+  memberId: memberId,
+  startTime: start,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +50,7 @@ void main() {
       overrides: [
         activeSessionsProvider.overrideWithValue(AsyncValue.data(sessions)),
         activeMembersProvider.overrideWithValue(AsyncValue.data(members)),
+        activeMemberListProvider.overrideWithValue(AsyncValue.data(members)),
         chatLogsFrontProvider.overrideWithValue(false),
         composerDefaultMemberProvider.overrideWith(() => _FakeMode(mode)),
         lastUsedSpeakingAsMemberProvider.overrideWith(
@@ -60,19 +64,22 @@ void main() {
     return container;
   }
 
-  test('latestFronter mode keeps the legacy most-recent-front default', () async {
-    final container = await makeContainer(
-      mode: ComposerDefaultMember.latestFronter,
-      lastUsed: 'alice',
-      sessions: [
-        _session('alice', DateTime(2026, 5, 7, 10)),
-        _session('bob', DateTime(2026, 5, 7, 11)),
-      ],
-      members: [_member('alice'), _member('bob')],
-    );
-    // bob fronted last — latestFronter ignores lastUsed='alice'.
-    expect(container.read(speakingAsProvider), 'bob');
-  });
+  test(
+    'latestFronter mode keeps the legacy most-recent-front default',
+    () async {
+      final container = await makeContainer(
+        mode: ComposerDefaultMember.latestFronter,
+        lastUsed: 'alice',
+        sessions: [
+          _session('alice', DateTime(2026, 5, 7, 10)),
+          _session('bob', DateTime(2026, 5, 7, 11)),
+        ],
+        members: [_member('alice'), _member('bob')],
+      );
+      // bob fronted last — latestFronter ignores lastUsed='alice'.
+      expect(container.read(speakingAsProvider), 'bob');
+    },
+  );
 
   test('lastUsed mode returns the remembered member when selectable', () async {
     final container = await makeContainer(
@@ -88,17 +95,19 @@ void main() {
     expect(container.read(speakingAsProvider), 'alice');
   });
 
-  test('lastUsed mode falls back to fronter when remembered member is stale',
-      () async {
-    final container = await makeContainer(
-      mode: ComposerDefaultMember.lastUsed,
-      lastUsed: 'ghost', // not in active members
-      sessions: [_session('bob', DateTime(2026, 5, 7, 11))],
-      members: [_member('bob')],
-    );
-    // Never returns null (would trip the viewer gate) — falls to the fronter.
-    expect(container.read(speakingAsProvider), 'bob');
-  });
+  test(
+    'lastUsed mode falls back to fronter when remembered member is stale',
+    () async {
+      final container = await makeContainer(
+        mode: ComposerDefaultMember.lastUsed,
+        lastUsed: 'ghost', // not in active members
+        sessions: [_session('bob', DateTime(2026, 5, 7, 11))],
+        members: [_member('bob')],
+      );
+      // Never returns null (would trip the viewer gate) — falls to the fronter.
+      expect(container.read(speakingAsProvider), 'bob');
+    },
+  );
 
   test(
     'lastUsed mode does not trust the stored id while the roster is loading',
@@ -112,6 +121,9 @@ void main() {
           ),
           // Roster still loading → activeMemberIds is null.
           activeMembersProvider.overrideWithValue(const AsyncValue.loading()),
+          activeMemberListProvider.overrideWithValue(
+            const AsyncValue.loading(),
+          ),
           chatLogsFrontProvider.overrideWithValue(false),
           composerDefaultMemberProvider.overrideWith(
             () => _FakeMode(ComposerDefaultMember.lastUsed),
@@ -140,21 +152,23 @@ void main() {
     expect(container.read(speakingAsProvider), 'bob');
   });
 
-  test('askEachTime mode resolves to a safe fronter default (non-null)',
-      () async {
-    final container = await makeContainer(
-      mode: ComposerDefaultMember.askEachTime,
-      lastUsed: 'alice',
-      sessions: [
-        _session('alice', DateTime(2026, 5, 7, 10)),
-        _session('bob', DateTime(2026, 5, 7, 11)),
-      ],
-      members: [_member('alice'), _member('bob')],
-    );
-    // The picker prompt is driven by the UI; the resolved default stays the
-    // safe fronter so the viewer gate never sees null.
-    expect(container.read(speakingAsProvider), 'bob');
-  });
+  test(
+    'askEachTime mode resolves to a safe fronter default (non-null)',
+    () async {
+      final container = await makeContainer(
+        mode: ComposerDefaultMember.askEachTime,
+        lastUsed: 'alice',
+        sessions: [
+          _session('alice', DateTime(2026, 5, 7, 10)),
+          _session('bob', DateTime(2026, 5, 7, 11)),
+        ],
+        members: [_member('alice'), _member('bob')],
+      );
+      // The picker prompt is driven by the UI; the resolved default stays the
+      // safe fronter so the viewer gate never sees null.
+      expect(container.read(speakingAsProvider), 'bob');
+    },
+  );
 
   test(
     'latestFronter mode clears explicit selection when fronting sessions change',
@@ -165,7 +179,18 @@ void main() {
         overrides: [
           activeSessionsProvider.overrideWith((ref) => sessions.stream),
           activeMembersProvider.overrideWithValue(
-            AsyncValue.data([_member('alice'), _member('bob'), _member('carol')]),
+            AsyncValue.data([
+              _member('alice'),
+              _member('bob'),
+              _member('carol'),
+            ]),
+          ),
+          activeMemberListProvider.overrideWithValue(
+            AsyncValue.data([
+              _member('alice'),
+              _member('bob'),
+              _member('carol'),
+            ]),
           ),
           chatLogsFrontProvider.overrideWithValue(false),
           composerDefaultMemberProvider.overrideWith(
@@ -181,14 +206,11 @@ void main() {
 
       // Start: alice and bob fronting, bob started later.
       final bobSelected = Completer<void>();
-      final sub = container.listen<String?>(
-        speakingAsProvider,
-        (prev, next) {
-          if (next == 'bob' && !bobSelected.isCompleted) {
-            bobSelected.complete();
-          }
-        },
-      );
+      final sub = container.listen<String?>(speakingAsProvider, (prev, next) {
+        if (next == 'bob' && !bobSelected.isCompleted) {
+          bobSelected.complete();
+        }
+      });
       sessions.add([
         _session('alice', DateTime(2026, 5, 7, 10)),
         _session('bob', DateTime(2026, 5, 7, 11)),
@@ -203,14 +225,11 @@ void main() {
       // Fronting sessions change: carol starts fronting, alice and bob end.
       // latestFronter mode should clear the stale explicit selection.
       final carolSelected = Completer<void>();
-      container.listen<String?>(
-        speakingAsProvider,
-        (prev, next) {
-          if (next == 'carol' && !carolSelected.isCompleted) {
-            carolSelected.complete();
-          }
-        },
-      );
+      container.listen<String?>(speakingAsProvider, (prev, next) {
+        if (next == 'carol' && !carolSelected.isCompleted) {
+          carolSelected.complete();
+        }
+      });
       sessions.add([_session('carol', DateTime(2026, 5, 7, 12))]);
       await carolSelected.future;
       sub.close();

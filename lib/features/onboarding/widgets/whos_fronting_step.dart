@@ -24,7 +24,7 @@ class WhosFrontingStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Onboarding picker: hide the Unknown sentinel — users are picking their
     // own members, not the system placeholder.
-    final membersAsync = ref.watch(userVisibleAllMembersProvider);
+    final membersAsync = ref.watch(userVisibleAllMemberListProvider);
     final activeSessions =
         ref
             .watch(activeSessionsProvider)
@@ -179,33 +179,15 @@ class WhosFrontingStep extends ConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Avatar/Emoji circle
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: isDark ? 0.15 : 0.08,
-                                ),
-                              ),
-                              child: member.avatarImageData != null
-                                  ? ClipOval(
-                                      child: Image.memory(
-                                        member.avatarImageData!,
-                                        fit: BoxFit.cover,
-                                        width: 52,
-                                        height: 52,
-                                        semanticLabel: context.l10n
-                                            .memberAvatarSemantics(member.name),
-                                      ),
-                                    )
-                                  : Center(
-                                      child: Text(
-                                        member.emoji,
-                                        style: const TextStyle(fontSize: 24),
-                                      ),
-                                    ),
+                            MemberAvatar(
+                              memberId: member.id,
+                              avatarImageData: member.avatarImageData,
+                              memberName: member.name,
+                              emoji: member.emoji,
+                              customColorEnabled: member.customColorEnabled,
+                              customColorHex: member.customColorHex,
+                              size: 52,
+                              deferAvatarLookup: true,
                             ),
                             const SizedBox(height: 8),
                             // Name
@@ -360,12 +342,14 @@ class _LargeSystemSearchTrigger extends ConsumerWidget {
             children: [
               if (selectedMember != null)
                 MemberAvatar(
+                  memberId: selectedMember.id,
                   memberName: selectedName!,
                   emoji: selectedMember.emoji,
                   avatarImageData: selectedMember.avatarImageData,
                   customColorEnabled: selectedMember.customColorEnabled,
                   customColorHex: selectedMember.customColorHex,
                   size: 28,
+                  deferAvatarLookup: true,
                 )
               else
                 Icon(

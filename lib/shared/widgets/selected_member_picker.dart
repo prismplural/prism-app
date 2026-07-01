@@ -46,7 +46,7 @@ class SelectedMemberPicker extends ConsumerWidget {
       );
     }
 
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     return membersAsync.when(
       loading: () => const SizedBox(height: 56, child: PrismLoadingState()),
       error: (e, _) => Text(context.l10n.errorWithDetail(e)),
@@ -140,7 +140,7 @@ class SelectedMultiMemberPicker extends ConsumerWidget {
       );
     }
 
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     return membersAsync.when(
       loading: () => const SizedBox(height: 56, child: PrismLoadingState()),
       error: (e, _) => Text(context.l10n.errorWithDetail(e)),
@@ -281,12 +281,14 @@ class _SelectedMemberTile extends StatelessWidget {
             child: Row(
               children: [
                 MemberAvatar(
+                  memberId: member.id,
                   avatarImageData: member.avatarImageData,
                   memberName: member.effectiveName(preferDisplayName: prefer),
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
                   size: 40,
+                  deferAvatarLookup: true,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

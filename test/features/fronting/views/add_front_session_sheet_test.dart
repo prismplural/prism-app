@@ -97,6 +97,7 @@ Widget _buildSheetTrigger({
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),
@@ -1165,6 +1166,9 @@ void main() {
           overrides: [
             databaseProvider.overrideWithValue(db),
             activeMembersProvider.overrideWith(
+              (ref) => Stream.value(<Member>[alice]),
+            ),
+            activeMemberListProvider.overrideWith(
               (ref) => Stream.value(<Member>[alice]),
             ),
             activeSessionsProvider.overrideWith(

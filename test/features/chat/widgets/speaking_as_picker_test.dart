@@ -52,6 +52,7 @@ Widget _buildSubject({required List<Member> members, String? speakingAs}) {
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),

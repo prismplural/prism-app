@@ -42,7 +42,7 @@ class SpeakingAsPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     final terms = watchTerminology(context, ref);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
@@ -96,19 +96,23 @@ class SpeakingAsPicker extends ConsumerWidget {
                 );
               }
               final member = authorOptions[index - 1];
-              final memberName = member.effectiveName(preferDisplayName: prefer);
+              final memberName = member.effectiveName(
+                preferDisplayName: prefer,
+              );
               return PrismChip(
                 label: memberName,
                 selected: member.id == speakingAs,
                 onTap: () =>
                     ref.read(speakingAsProvider.notifier).setMember(member.id),
                 avatar: MemberAvatar(
+                  memberId: member.id,
                   avatarImageData: member.avatarImageData,
                   memberName: memberName,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
                   size: 24,
+                  deferAvatarLookup: true,
                 ),
                 selectedColor:
                     member.customColorEnabled && member.customColorHex != null

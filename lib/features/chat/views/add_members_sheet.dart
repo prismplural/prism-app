@@ -47,7 +47,7 @@ class AddMembersSheet {
       return null;
     }
 
-    final allMembers = container.read(activeMembersProvider).value ?? [];
+    final allMembers = container.read(activeMemberListProvider).value ?? [];
     final speakingAs = container.read(speakingAsProvider);
     String? speakingAsName;
     if (speakingAs != null) {
@@ -87,7 +87,7 @@ class _AddMembersContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Non-fronting picker: hide the Unknown sentinel — you don't add the
     // placeholder member to a conversation.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final terms = watchTerminology(context, ref);
 
     final existingIds = conversation.participantIds.toSet();

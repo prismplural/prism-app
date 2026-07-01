@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 class AddMembersStep extends ConsumerWidget {
@@ -24,7 +25,7 @@ class AddMembersStep extends ConsumerWidget {
     // Member-management surface: hide the Unknown sentinel from the
     // onboarding members list (it shouldn't exist this early anyway, but
     // belt-and-suspenders).
-    final membersAsync = ref.watch(userVisibleAllMembersProvider);
+    final membersAsync = ref.watch(userVisibleAllMemberListProvider);
     final members = membersAsync.value ?? [];
     final onboarding = ref.watch(onboardingProvider);
     final terms = resolveTerminology(
@@ -78,38 +79,15 @@ class AddMembersStep extends ConsumerWidget {
                           ),
                           child: Row(
                             children: [
-                              // Avatar/Emoji
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isDark
-                                      ? AppColors.warmWhite.withValues(
-                                          alpha: 0.15,
-                                        )
-                                      : AppColors.warmBlack.withValues(
-                                          alpha: 0.08,
-                                        ),
-                                ),
-                                child: member.avatarImageData != null
-                                    ? ClipOval(
-                                        child: Image.memory(
-                                          member.avatarImageData!,
-                                          fit: BoxFit.cover,
-                                          width: 40,
-                                          height: 40,
-                                          semanticLabel:
-                                              // raw-name-ok: avatar label only.
-                                              '${member.name} avatar',
-                                        ),
-                                      )
-                                    : Center(
-                                        child: Text(
-                                          member.emoji,
-                                          style: const TextStyle(fontSize: 20),
-                                        ),
-                                      ),
+                              MemberAvatar(
+                                memberId: member.id,
+                                avatarImageData: member.avatarImageData,
+                                memberName: member.name,
+                                emoji: member.emoji,
+                                customColorEnabled: member.customColorEnabled,
+                                customColorHex: member.customColorHex,
+                                size: 40,
+                                deferAvatarLookup: true,
                               ),
                               const SizedBox(width: 12),
                               // Name + pronouns

@@ -40,7 +40,7 @@ final allMemberListProvider = StreamProvider<List<Member>>((ref) {
   try {
     final repo = ref.watch(memberRepositoryProvider);
     if (repo is DriftMemberRepository) return repo.watchAllMembersForList();
-    return repo.watchAllMembers();
+    return _streamFromMemberAsync(ref.watch(allMembersProvider));
   } catch (_) {
     return _streamFromMemberAsync(ref.watch(allMembersProvider));
   }
@@ -51,7 +51,7 @@ final activeMemberListProvider = StreamProvider<List<Member>>((ref) {
   try {
     final repo = ref.watch(memberRepositoryProvider);
     if (repo is DriftMemberRepository) return repo.watchActiveMembersForList();
-    return repo.watchActiveMembers();
+    return _streamFromMemberAsync(ref.watch(activeMembersProvider));
   } catch (_) {
     return _streamFromMemberAsync(ref.watch(activeMembersProvider));
   }
@@ -65,14 +65,25 @@ Stream<List<Member>> _streamFromMemberAsync(AsyncValue<List<Member>> async) {
   );
 }
 
-/// Active members with the Unknown sentinel filtered out.
+/// Watches the lightweight member shape needed by PluralKit auto-push diffing.
 ///
-/// Use this on member-management surfaces (members list, system management,
-/// system info, settings) where the sentinel would confuse users — it's a
-/// system-internal placeholder, not a real headmate. Fronting pickers,
-/// chat/poll/reminder selection, and analytics keep using
-/// [activeMembersProvider]/[allMembersProvider] so the sentinel resolves
-/// normally for sessions attributed to it.
+/// The AppShell listener only compares PK text/profile fields. It must not keep
+/// avatar/header/banner blobs live for every member on large systems.
+final pkSyncRelevantMembersProvider = StreamProvider<List<Member>>((ref) {
+  try {
+    final repo = ref.watch(memberRepositoryProvider);
+    if (repo is DriftMemberRepository) return repo.watchAllMembersForPkSync();
+    return _streamFromMemberAsync(ref.watch(allMembersProvider));
+  } catch (_) {
+    return _streamFromMemberAsync(ref.watch(allMembersProvider));
+  }
+});
+
+/// Full active members with the Unknown sentinel filtered out.
+///
+/// Prefer [userVisibleMemberListProvider] on list/picker surfaces. Use this
+/// only when the consumer needs full columns such as bios or inline image
+/// bytes.
 final userVisibleMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
   final async = ref.watch(activeMembersProvider);
   return async.whenData(
@@ -80,11 +91,11 @@ final userVisibleMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
   );
 });
 
-/// All members (active + inactive) with the Unknown sentinel filtered out.
+/// Full members (active + inactive) with the Unknown sentinel filtered out.
 ///
-/// Mirrors [userVisibleMembersProvider] but for management surfaces that show
-/// inactive members too (e.g., the "show inactive" toggle on the members
-/// list). Same rule: never display the sentinel as a manageable headmate.
+/// Prefer [userVisibleAllMemberListProvider] on management/list surfaces. Use
+/// this only when the consumer needs full columns such as bios or inline image
+/// bytes.
 final userVisibleAllMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
   final async = ref.watch(allMembersProvider);
   return async.whenData(

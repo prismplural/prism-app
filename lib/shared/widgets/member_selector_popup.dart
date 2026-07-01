@@ -258,12 +258,14 @@ class MemberSelectorPopup extends StatelessWidget {
           dense: true,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           leading: MemberAvatar(
+            memberId: member.id,
             avatarImageData: member.avatarImageData,
             memberName: name,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
             size: avatarSize,
+            deferAvatarLookup: true,
           ),
           selected: isSelected,
           title: Text(

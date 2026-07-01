@@ -92,7 +92,7 @@ final currentFrontCanManageConversationProvider = Provider.autoDispose
       final activeSessions =
           ref.watch(activeSessionsProvider).value ?? const <FrontingSession>[];
       final activeMembers =
-          ref.watch(activeMembersProvider).value ?? const <Member>[];
+          ref.watch(activeMemberListProvider).value ?? const <Member>[];
       return currentFrontCanManageConversation(
         conversation,
         activeSessions: activeSessions,
@@ -102,7 +102,7 @@ final currentFrontCanManageConversationProvider = Provider.autoDispose
 
 final currentChatViewerProvider = Provider<Member?>((ref) {
   final speakingAs = ref.watch(speakingAsProvider);
-  final members = ref.watch(activeMembersProvider).value;
+  final members = ref.watch(activeMemberListProvider).value;
   return findCurrentChatViewer(members, speakingAs);
 });
 
@@ -242,7 +242,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
     // at the wheel right now." A null default would fall through to the
     // anonymous viewer gate and expose every group chat on the device.
     final activeSessions = ref.watch(activeSessionsProvider);
-    final activeMembers = ref.watch(activeMembersProvider);
+    final activeMembers = ref.watch(activeMemberListProvider);
     final sessions = activeSessions.value ?? [];
     final activeMemberIds = activeMembers.value?.map((m) => m.id).toSet();
 
@@ -322,7 +322,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
   /// `false` for automatic seeding so "last used" only reflects explicit picks.
   void setMember(String? memberId, {bool recordLastUsed = true}) {
     final activeMemberIds = ref
-        .read(activeMembersProvider)
+        .read(activeMemberListProvider)
         .value
         ?.map((m) => m.id)
         .toSet();
@@ -430,7 +430,7 @@ class ChatNotifier extends AsyncNotifier<void> {
     Conversation conversation,
   ) async {
     final activeSessions = await ref.read(activeSessionsProvider.future);
-    final activeMembers = await ref.read(activeMembersProvider.future);
+    final activeMembers = await ref.read(activeMemberListProvider.future);
     final canTransfer = currentFrontCanManageConversation(
       conversation,
       activeSessions: activeSessions,
@@ -823,10 +823,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       if (member != null && !member.isDeleted) {
         final prefer = ref.read(memberNamePreferDisplayProvider);
         final name = member.effectiveName(preferDisplayName: prefer);
-        await _sendSystemMessage(
-          conversationId,
-          '$name left the conversation',
-        );
+        await _sendSystemMessage(conversationId, '$name left the conversation');
       }
     });
   }
@@ -871,7 +868,7 @@ class ChatNotifier extends AsyncNotifier<void> {
             .read(conversationRepositoryProvider)
             .getConversationById(message.conversationId);
         if (conversation == null) return;
-        final activeMembers = await ref.read(activeMembersProvider.future);
+        final activeMembers = await ref.read(activeMemberListProvider.future);
         final validIds = chatAuthorCandidateIds(
           conversation,
           activeMembers,

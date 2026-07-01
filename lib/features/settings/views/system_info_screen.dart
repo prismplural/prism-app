@@ -207,7 +207,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     final settingsAsync = ref.watch(systemSettingsProvider);
     // System info shows member count + avatar cluster — exclude the Unknown
     // sentinel so it doesn't appear as a manageable headmate.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final hideMemberCountsAsync = ref.watch(hideMemberCountsProvider);
     final terms = watchTerminology(context, ref);
 
@@ -529,11 +529,13 @@ class _AvatarCluster extends StatelessWidget {
 
     if (visible.length == 1) {
       return MemberAvatar(
+        memberId: visible[0].id,
         avatarImageData: visible[0].avatarImageData,
         emoji: visible[0].emoji,
         customColorEnabled: visible[0].customColorEnabled,
         customColorHex: visible[0].customColorHex,
         size: _clusterSize,
+        deferAvatarLookup: true,
       );
     }
 
@@ -549,11 +551,13 @@ class _AvatarCluster extends StatelessWidget {
             left: (_clusterSize - _avatarSize) / 2,
             top: (_clusterSize - _avatarSize) / 2,
             child: MemberAvatar(
+              memberId: center.id,
               avatarImageData: center.avatarImageData,
               emoji: center.emoji,
               customColorEnabled: center.customColorEnabled,
               customColorHex: center.customColorHex,
               size: _avatarSize,
+              deferAvatarLookup: true,
             ),
           ),
           for (int i = 0; i < ring.length; i++)
@@ -601,11 +605,13 @@ class _AvatarCluster extends StatelessWidget {
       left: cx,
       top: cy,
       child: MemberAvatar(
+        memberId: member.id,
         avatarImageData: member.avatarImageData,
         emoji: member.emoji,
         customColorEnabled: member.customColorEnabled,
         customColorHex: member.customColorHex,
         size: _avatarSize,
+        deferAvatarLookup: true,
       ),
     );
   }

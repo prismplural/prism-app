@@ -1,7 +1,10 @@
 // Manual pre-release benchmark — measures frame timing across screens.
 //
 // Run on a real device in profile mode:
-//   flutter test integration_test/stress_benchmark_test.dart --profile
+//   flutter drive \
+//     --driver=test_driver/integration_test.dart \
+//     --target=integration_test/stress_benchmark_test.dart \
+//     --profile
 //
 // For stress testing, seed data via the debug screen first, then run this
 // benchmark. The traceAction calls produce timeline traces that can be
@@ -23,6 +26,10 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
 const _preRepairReplyQuotes = bool.fromEnvironment(
   'PRISM_BENCHMARK_PRE_REPAIR_REPLY_QUOTES',
+);
+const _presetName = String.fromEnvironment(
+  'PRISM_STRESS_PRESET',
+  defaultValue: 'reportedLarge',
 );
 
 void main() {
@@ -119,6 +126,7 @@ void main() {
 }
 
 Future<void> _ensureStressFixture() async {
+  final preset = _stressPreset();
   final probe = await probeAppDatabaseStartup();
   if (probe.state != DbStartupState.ready || probe.keyInMemory == null) {
     // ignore: avoid_print
@@ -135,20 +143,17 @@ Future<void> _ensureStressFixture() async {
     final db = container.read(databaseProvider);
     var counts = await _readStressCounts(db);
 
-    if (counts.members != StressPreset.reportedLarge.members ||
-        counts.groups != StressPreset.reportedLarge.groups) {
+    if (counts.members != preset.members || counts.groups != preset.groups) {
       final started = DateTime.now();
       final generator = StressDataGenerator(db);
       await generator.clearStressData();
-      await for (final progress in generator.generate(
-        StressPreset.reportedLarge,
-      )) {
+      await for (final progress in generator.generate(preset)) {
         final percent = (progress.fraction * 100).toStringAsFixed(1);
         // ignore: avoid_print
         print('[stress-seed] ${progress.phase}: $percent%');
       }
       await db.systemSettingsDao.updateSystemName(
-        'Prism ${StressPreset.reportedLarge.label} Fixture',
+        'Prism ${preset.label} Fixture',
       );
       await db.systemSettingsDao.updateHasCompletedOnboarding(true);
       await db.systemSettingsDao.updateBoardsEnabled(true);
@@ -182,6 +187,16 @@ Future<void> _ensureStressFixture() async {
   } finally {
     container.dispose();
   }
+}
+
+StressPreset _stressPreset() {
+  return switch (_presetName) {
+    'reportedLarge' => StressPreset.reportedLarge,
+    'heavy5k' => StressPreset.heavyFiveThousand,
+    'huge' => StressPreset.huge,
+    'massive' => StressPreset.massive,
+    _ => throw ArgumentError('Unknown PRISM_STRESS_PRESET: $_presetName'),
+  };
 }
 
 Future<_StressCounts> _readStressCounts(dynamic db) async {

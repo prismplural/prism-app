@@ -145,7 +145,7 @@ class _SystemManagementScreenState
     final theme = Theme.of(context);
     final l10n = context.l10n;
     // System management is a user-facing list — hide the Unknown sentinel.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleAllMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return PrismPageScaffold(

@@ -588,7 +588,9 @@ FrontingAnalytics computeAnalyticsFromRows(
           ? g.startMicros
           : s.startMicros;
       final overlapEnd = g.endMicros < s.endMicros ? g.endMicros : s.endMicros;
-      if (overlapEnd > overlapStart) sleepCoveredGap += overlapEnd - overlapStart;
+      if (overlapEnd > overlapStart) {
+        sleepCoveredGap += overlapEnd - overlapStart;
+      }
       if (g.endMicros < s.endMicros) {
         gi++;
       } else {
@@ -919,7 +921,7 @@ final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
 ) async {
   final current = await ref.watch(frontingAnalyticsProvider.future);
   final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
-  final members = await ref.watch(allMembersProvider.future);
+  final members = await ref.watch(allMemberListProvider.future);
   final terms = ref.watch(terminologySettingProvider);
   final names = <String, String>{for (final m in members) m.id: m.name};
   final englishTerms = _analyticsTerms(

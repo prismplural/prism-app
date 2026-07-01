@@ -29,6 +29,9 @@ void main() {
           activeMembersProvider.overrideWithValue(
             AsyncValue.data(<Member>[activeMember]),
           ),
+          activeMemberListProvider.overrideWithValue(
+            AsyncValue.data(<Member>[activeMember]),
+          ),
           chatLogsFrontProvider.overrideWithValue(false),
         ],
       );
@@ -55,7 +58,7 @@ void main() {
         createdAt: DateTime(2026, 5, 7),
         isActive: true,
       );
-      final activeMembers = StreamController<List<Member>>();
+      final activeMembers = StreamController<List<Member>>.broadcast();
       addTearDown(activeMembers.close);
 
       final container = ProviderContainer(
@@ -64,6 +67,7 @@ void main() {
             const AsyncValue.data(<FrontingSession>[]),
           ),
           activeMembersProvider.overrideWith((ref) => activeMembers.stream),
+          activeMemberListProvider.overrideWith((ref) => activeMembers.stream),
           chatLogsFrontProvider.overrideWithValue(false),
         ],
       );
@@ -83,7 +87,7 @@ void main() {
       addTearDown(subscription.close);
 
       activeMembers.add([activeMember, removedMember]);
-      await container.read(activeMembersProvider.future);
+      await container.read(activeMemberListProvider.future);
 
       container.read(speakingAsProvider.notifier).setMember(removedMember.id);
       expect(container.read(speakingAsProvider), removedMember.id);
@@ -114,6 +118,7 @@ void main() {
       overrides: [
         activeSessionsProvider.overrideWithValue(AsyncValue.data(sessions)),
         activeMembersProvider.overrideWithValue(AsyncValue.data(members)),
+        activeMemberListProvider.overrideWithValue(AsyncValue.data(members)),
         chatLogsFrontProvider.overrideWithValue(false),
       ],
     );
@@ -160,8 +165,7 @@ void main() {
       expect(container.read(speakingAsProvider), 'alice');
     });
 
-    test('zero fronters -> null (chat screen renders pick-speaker banner)',
-        () {
+    test('zero fronters -> null (chat screen renders pick-speaker banner)', () {
       final container = makeContainer(
         sessions: const [],
         members: [member('alice')],
@@ -171,20 +175,17 @@ void main() {
       expect(container.read(speakingAsProvider), isNull);
     });
 
-    test(
-      'most-recent fronter is not active -> falls through, no default',
-      () {
-        final container = makeContainer(
-          sessions: [
-            session(memberId: 'paused', startTime: DateTime(2026, 5, 7, 11)),
-          ],
-          members: [member('alice')], // paused is not in active members
-        );
-        addTearDown(container.dispose);
+    test('most-recent fronter is not active -> falls through, no default', () {
+      final container = makeContainer(
+        sessions: [
+          session(memberId: 'paused', startTime: DateTime(2026, 5, 7, 11)),
+        ],
+        members: [member('alice')], // paused is not in active members
+      );
+      addTearDown(container.dispose);
 
-        expect(container.read(speakingAsProvider), isNull);
-      },
-    );
+      expect(container.read(speakingAsProvider), isNull);
+    });
 
     test('explicit selection overrides the most-recent default', () {
       final container = makeContainer(
@@ -215,6 +216,9 @@ void main() {
           const AsyncValue.data(<FrontingSession>[]),
         ),
         activeMembersProvider.overrideWithValue(
+          AsyncValue.data(<Member>[activeMember]),
+        ),
+        activeMemberListProvider.overrideWithValue(
           AsyncValue.data(<Member>[activeMember]),
         ),
         chatLogsFrontProvider.overrideWithValue(false),

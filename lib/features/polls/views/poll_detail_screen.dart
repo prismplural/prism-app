@@ -105,7 +105,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     // Auto-select voting-as member: prefer current fronter, fall back to first active member.
     // Non-fronting picker: filter out the Unknown sentinel so the auto-default
     // never lands on the placeholder.
-    ref.listenManual(userVisibleMembersProvider, (_, next) {
+    ref.listenManual(userVisibleMemberListProvider, (_, next) {
       _queueDefaultVotingAs(next.value);
     }, fireImmediately: true);
     ref.listenManual<String?>(votingAsProvider, (_, next) {
@@ -281,7 +281,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   bool get _shouldShowResults {
     if (_isSubmitting) return false;
     if (_isClosed) return true;
-    final members = ref.read(activeMembersProvider).value;
+    final members = ref.read(activeMemberListProvider).value;
     if (members == null || members.isEmpty) return false;
     final memberIds = members.map((m) => m.id).toSet();
     for (final option in widget.options) {
@@ -392,9 +392,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
     // Non-fronting picker: hide the Unknown sentinel from the vote-as picker.
-    // The lookup at _shouldShowResults intentionally keeps activeMembersProvider
+    // The lookup at _shouldShowResults keeps the active list provider
     // so existing votes attributed to the sentinel still resolve.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final votingAs = ref.watch(votingAsProvider);
     final hasCurrentMemberVoted = _hasCurrentMemberVoted;
     final hasPendingVoteChanges = _hasPendingVoteChanges;
@@ -673,12 +673,14 @@ class _VotingAsChipRow extends ConsumerWidget {
               clipBehavior: Clip.none,
               children: [
                 MemberAvatar(
+                  memberId: member.id,
                   avatarImageData: member.avatarImageData,
                   memberName: memberName,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
                   size: 24,
+                  deferAvatarLookup: true,
                 ),
                 if (voted)
                   Positioned(

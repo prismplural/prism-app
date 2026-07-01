@@ -128,7 +128,7 @@ class _CreateConversationSheetState
           ? _selectedMemberIds.first
           : null;
       final visibleMemberIds = ref
-          .read(userVisibleMembersProvider)
+          .read(userVisibleMemberListProvider)
           .value
           ?.map((member) => member.id)
           .toSet();
@@ -279,12 +279,12 @@ class _CreateConversationSheetState
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
     // Participant selection still hides the Unknown author placeholder.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     ref.listen<String?>(speakingAsProvider, (_, next) {
       if (_isGroupChat) return;
       final visibleMemberIds = ref
-          .read(userVisibleMembersProvider)
+          .read(userVisibleMemberListProvider)
           .value
           ?.map((member) => member.id)
           .toSet();
@@ -292,7 +292,10 @@ class _CreateConversationSheetState
         setState(() {});
       }
     });
-    ref.listen<AsyncValue<List<Member>>>(userVisibleMembersProvider, (_, next) {
+    ref.listen<AsyncValue<List<Member>>>(userVisibleMemberListProvider, (
+      _,
+      next,
+    ) {
       if (_isGroupChat) return;
       final visibleMemberIds = next.value?.map((member) => member.id).toSet();
       if (visibleMemberIds == null) return;
@@ -376,7 +379,7 @@ class _CreateConversationSheetState
                 _normalizeDmSelectionFor(
                   ref.read(speakingAsProvider),
                   eligibleMemberIds: ref
-                      .read(userVisibleMembersProvider)
+                      .read(userVisibleMemberListProvider)
                       .value
                       ?.map((member) => member.id)
                       .toSet(),

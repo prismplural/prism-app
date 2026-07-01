@@ -104,7 +104,7 @@ class _ReminderTile extends ConsumerWidget {
     String? targetName;
     final targetId = reminder.targetMemberId;
     if (targetId != null) {
-      final members = ref.watch(allMembersProvider).value;
+      final members = ref.watch(allMemberListProvider).value;
       if (members != null) {
         for (final m in members) {
           if (m.id == targetId) {

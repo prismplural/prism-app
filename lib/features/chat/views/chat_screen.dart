@@ -176,7 +176,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     // Don't seed the default conversation creator as the Unknown sentinel —
     // pick from real, user-visible members only.
-    final members = ref.read(userVisibleMembersProvider).value;
+    final members = ref.read(userVisibleMemberListProvider).value;
     if (members == null || members.isEmpty) return;
 
     final terms = readTerminology(context, ref);
@@ -418,7 +418,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final speakingAs = ref.watch(speakingAsProvider);
     final speakingAsMember = ref.watch(currentChatViewerProvider);
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
-    ref.watch(activeMembersProvider);
+    ref.watch(activeMemberListProvider);
 
     // Honour a one-shot request to open a specific conversation, applied after
     // layout so we know whether this screen is currently two-pane.
@@ -926,7 +926,7 @@ class _ChatMemberSelectorButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     final terms = watchTerminology(context, ref);
 
@@ -999,12 +999,14 @@ class _ChatMemberSelectorTrigger extends StatelessWidget {
         children: [
           if (member != null)
             MemberAvatar(
+              memberId: member.id,
               avatarImageData: member.avatarImageData,
               memberName: member.name,
               emoji: member.emoji,
               customColorEnabled: member.customColorEnabled,
               customColorHex: member.customColorHex,
               size: hitSize,
+              deferAvatarLookup: true,
             )
           else
             Container(

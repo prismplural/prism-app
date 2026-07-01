@@ -51,6 +51,49 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
     board_last_read_at
   ''';
 
+  static const _memberPkSyncColumns = '''
+    id,
+    name,
+    pronouns,
+    emoji,
+    NULL AS age,
+    bio,
+    NULL AS avatar_image_data,
+    pk_avatar_cached_url,
+    is_active,
+    created_at,
+    display_order,
+    is_admin,
+    custom_color_enabled,
+    custom_color_hex,
+    parent_system_id,
+    pluralkit_uuid,
+    pluralkit_id,
+    pluralkit_display_name,
+    display_name,
+    birthday,
+    proxy_tags_json,
+    pk_banner_url,
+    profile_header_source,
+    profile_header_layout,
+    profile_header_visible,
+    name_style_font,
+    name_style_bold,
+    name_style_italic,
+    name_style_color_mode,
+    name_style_color_hex,
+    NULL AS profile_header_image_data,
+    NULL AS pk_banner_image_data,
+    pk_banner_cached_url,
+    pluralkit_sync_ignored,
+    markdown_enabled,
+    is_deleted,
+    delete_intent_epoch,
+    delete_push_started_at,
+    is_always_fronting,
+    board_last_read_at
+  ''';
+
   Future<List<Member>> getAllMembers() =>
       (select(members)
             ..where((m) => m.isDeleted.equals(false))
@@ -82,6 +125,18 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
 
   Stream<List<Member>> watchActiveMembersForList() =>
       _watchMemberListRows('is_active = 1 AND is_deleted = 0');
+
+  Stream<List<Member>> watchAllMembersForPkSync() {
+    return customSelect(
+      '''
+      SELECT $_memberPkSyncColumns
+      FROM members
+      WHERE is_deleted = 0
+      ORDER BY display_order ASC
+      ''',
+      readsFrom: {members},
+    ).watch().map((rows) => rows.map((row) => members.map(row.data)).toList());
+  }
 
   Stream<List<Member>> watchQuickFrontMembersForList({
     int recentLimit = 50,

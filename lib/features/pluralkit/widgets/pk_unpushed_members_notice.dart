@@ -57,7 +57,7 @@ class _PluralKitUnpushedMembersNoticeBannerState
     // controller itself does not subscribe — this is the only activation
     // point.
     ref.listenManual<AsyncValue<List<Member>>>(
-      allMembersProvider,
+      pkSyncRelevantMembersProvider,
       (_, _) => _recompute(),
     );
     ref.listenManual<PluralKitSyncState>(
@@ -68,10 +68,7 @@ class _PluralKitUnpushedMembersNoticeBannerState
       pkSyncDirectionProvider,
       (_, _) => _recompute(),
     );
-    ref.listenManual<PkSyncMode>(
-      pkSyncModeProvider,
-      (_, _) => _recompute(),
-    );
+    ref.listenManual<PkSyncMode>(pkSyncModeProvider, (_, _) => _recompute());
     // Fire once eagerly so the banner picks up the initial state even if no
     // input changes after mount.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,7 +78,7 @@ class _PluralKitUnpushedMembersNoticeBannerState
 
   void _recompute() {
     if (!mounted) return;
-    final membersAsync = ref.read(allMembersProvider);
+    final membersAsync = ref.read(pkSyncRelevantMembersProvider);
     final members = membersAsync.value;
     if (members == null) return; // wait for first emission
 
@@ -303,9 +300,7 @@ class _PkUnpushedMembersReviewSheetState
 
   Future<void> _dismissNotice(PkUnpushedMembersNotice notice) {
     return _runBusyAction(() async {
-      await ref
-          .read(pkUnpushedMembersNoticeProvider.notifier)
-          .dismiss(notice);
+      await ref.read(pkUnpushedMembersNoticeProvider.notifier).dismiss(notice);
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
@@ -353,9 +348,11 @@ class _PkUnpushedMemberRow extends ConsumerWidget {
           Row(
             children: [
               MemberAvatar(
+                memberId: memberRef.memberId,
                 avatarImageData: memberRef.avatarImageData,
                 memberName: memberRef.label,
                 size: 40,
+                deferAvatarLookup: true,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -372,7 +369,8 @@ class _PkUnpushedMemberRow extends ConsumerWidget {
                     ),
                     if (memberRef.displayName != null &&
                         memberRef.displayName!.trim().isNotEmpty &&
-                        memberRef.displayName!.trim() != memberRef.memberName.trim())
+                        memberRef.displayName!.trim() !=
+                            memberRef.memberName.trim())
                       Text(
                         memberRef.memberName,
                         maxLines: 1,

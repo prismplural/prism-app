@@ -713,7 +713,7 @@ class _BoardsMemberFilterButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final members = membersAsync.value ?? const <Member>[];
     final filterId = ref.watch(inboxViewFilterProvider);
     final terms = watchTerminology(context, ref);
@@ -745,12 +745,14 @@ class _BoardsMemberFilterButton extends ConsumerWidget {
         children: [
           if (currentMember != null)
             MemberAvatar(
+              memberId: currentMember.id,
               avatarImageData: currentMember.avatarImageData,
               memberName: currentMemberName,
               emoji: currentMember.emoji,
               customColorEnabled: currentMember.customColorEnabled,
               customColorHex: currentMember.customColorHex,
               size: avatarSize,
+              deferAvatarLookup: true,
             )
           else
             Container(

@@ -94,6 +94,12 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
     );
   }
 
+  Stream<List<domain.Member>> watchAllMembersForPkSync() {
+    return _dao.watchAllMembersForPkSync().map(
+      (rows) => rows.map(MemberMapper.toDomain).toList(),
+    );
+  }
+
   Stream<List<domain.Member>> watchQuickFrontMembersForList({
     int recentLimit = 50,
     int suggestionLimit = 12,
@@ -728,9 +734,7 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   Future<void> clearCreatePushStartedAt(String id) async {
     await runSyncedWrite(() async {
       await _dao.clearCreatePushStartedAt(id);
-      await syncRecordUpdate(_table, id, {
-        'create_push_started_at': null,
-      });
+      await syncRecordUpdate(_table, id, {'create_push_started_at': null});
     });
   }
 

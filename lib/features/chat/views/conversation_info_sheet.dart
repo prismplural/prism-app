@@ -340,7 +340,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     // restrict to the explicit participants list.
     final List<Member> candidates;
     if (conversation.includesAllMembers) {
-      final all = await ref.read(activeMembersProvider.future);
+      final all = await ref.read(activeMemberListProvider.future);
       candidates = all
           .where(
             (m) =>
@@ -682,7 +682,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     final canToggleEveryone = _isEditing && permissions.canManage;
     final activeRealMembers =
         ref
-            .watch(activeMembersProvider)
+            .watch(activeMemberListProvider)
             .value
             ?.where((m) => !m.isDeleted && m.id != unknownSentinelMemberId)
             .toList(growable: false) ??
@@ -823,12 +823,14 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             return Column(
               children: [
                 MemberAvatar(
+                  memberId: member.id,
                   avatarImageData: member.avatarImageData,
                   memberName: name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
                   size: 72,
+                  deferAvatarLookup: true,
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -1047,12 +1049,14 @@ class _ParticipantTile extends ConsumerWidget {
 
         final tile = PrismListRow(
           leading: MemberAvatar(
+            memberId: member.id,
             avatarImageData: member.avatarImageData,
             memberName: memberName,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
             size: 40,
+            deferAvatarLookup: true,
           ),
           title: Row(
             children: [

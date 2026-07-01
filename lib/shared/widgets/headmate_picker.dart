@@ -47,7 +47,7 @@ class HeadmatePicker extends ConsumerWidget {
     // members. When [includeUnknown] is true the sheet still surfaces an
     // explicit "Unknown" specialRow below — selecting it returns null
     // (rather than the sentinel id), which is what callers expect.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
 
     return membersAsync.when(
       loading: () => const SizedBox(height: 56, child: PrismLoadingState()),

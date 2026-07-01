@@ -766,7 +766,7 @@ class _ConversationTile extends ConsumerWidget {
         conversation.emoji ??
         context.l10n.memberConversationFallback;
 
-    final allMembersAsync = ref.watch(allMembersProvider);
+    final allMembersAsync = ref.watch(allMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     final participantsSubtitle = allMembersAsync.whenOrNull(
       data: (members) {

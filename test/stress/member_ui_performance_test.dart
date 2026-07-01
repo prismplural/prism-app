@@ -20,6 +20,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 
 const _memberUiPreset = StressPreset(
   label: 'Member UI Performance',
@@ -159,6 +160,80 @@ void main() {
       }, budgetMs: 600);
     },
   );
+
+  test('pk sync member provider keeps image blobs out of AppShell', () async {
+    final fullMembers = await memberRepo.getAllMembers();
+    final mediaMember = fullMembers.firstWhere(
+      (member) =>
+          member.avatarImageData != null &&
+          member.profileHeaderImageData != null &&
+          member.bio != null,
+    );
+
+    final pkSyncMembers = await memberRepo.watchAllMembersForPkSync().first;
+    final pkSyncMember = pkSyncMembers.firstWhere(
+      (member) => member.id == mediaMember.id,
+    );
+
+    expect(pkSyncMembers, hasLength(fullMembers.length));
+    expect(pkSyncMember.bio, mediaMember.bio);
+    expect(pkSyncMember.pronouns, mediaMember.pronouns);
+    expect(pkSyncMember.pluralkitId, mediaMember.pluralkitId);
+    expect(pkSyncMember.pluralkitDisplayName, mediaMember.pluralkitDisplayName);
+    expect(
+      pkSyncMembers.any((member) => member.avatarImageData != null),
+      isFalse,
+    );
+    expect(
+      pkSyncMembers.any((member) => member.profileHeaderImageData != null),
+      isFalse,
+    );
+    expect(
+      pkSyncMembers.any((member) => member.pkBannerImageData != null),
+      isFalse,
+    );
+  });
+
+  test('light list members still hydrate avatar bytes by id', () async {
+    final fullMembers = await memberRepo.getAllMembers();
+    final mediaMember = fullMembers.firstWhere(
+      (member) => member.avatarImageData != null,
+    );
+
+    final listMembers = await memberRepo.watchAllMembersForList().first;
+    final listMember = listMembers.firstWhere(
+      (member) => member.id == mediaMember.id,
+    );
+    expect(listMember.avatarImageData, isNull);
+
+    final container = ProviderContainer(
+      overrides: [databaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(container.dispose);
+
+    final avatarProvider = memberAvatarImageDataProvider(mediaMember.id);
+    final avatarSubscription = container.listen(
+      avatarProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(avatarSubscription.close);
+
+    final hydratedBytes = await container.read(avatarProvider.future);
+    expect(hydratedBytes, isNotNull);
+    expect(hydratedBytes, orderedEquals(mediaMember.avatarImageData!));
+
+    final missingProvider = memberAvatarImageDataProvider('missing-member');
+    final missingSubscription = container.listen(
+      missingProvider,
+      (_, _) {},
+      fireImmediately: true,
+    );
+    addTearDown(missingSubscription.close);
+
+    final missingBytes = await container.read(missingProvider.future);
+    expect(missingBytes, isNull);
+  });
 
   test('large member and group reorder writes stay bounded', () async {
     final members = await memberRepo.getAllMembers();

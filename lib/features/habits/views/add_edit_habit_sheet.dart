@@ -148,7 +148,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     // Non-fronting picker: hide the Unknown sentinel — you don't assign a
     // habit to the placeholder member. (Habit *completions* are still allowed
     // to attribute to "Unknown" via the HeadmatePicker on the complete-sheet.)
-    final membersAsync = ref.watch(userVisibleAllMembersProvider);
+    final membersAsync = ref.watch(userVisibleAllMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final canSave = _nameController.text.trim().isNotEmpty;

@@ -8,6 +8,7 @@ import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -365,9 +366,8 @@ double navBarEffectiveLabelVisibility({
   return switch (labelVisibility) {
     NavBarLabelVisibility.always => 1.0,
     NavBarLabelVisibility.never => 0.0,
-    NavBarLabelVisibility.whenExpanded => expandProgress
-        .clamp(0.0, 1.0)
-        .toDouble(),
+    NavBarLabelVisibility.whenExpanded =>
+      expandProgress.clamp(0.0, 1.0).toDouble(),
   };
 }
 
@@ -530,8 +530,7 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
   // Labels only occupy the collapsed bar when always-visible; otherwise the
   // collapsed bar is icons-only and reveal happens on expand, so row heights
   // are measured without label text (matching the icons-only geometry).
-  final showCollapsedLabels =
-      labelVisibility == NavBarLabelVisibility.always;
+  final showCollapsedLabels = labelVisibility == NavBarLabelVisibility.always;
   final visualPrimaryLabels = showCollapsedLabels
       ? primaryLabels.take(spec.collapsedPrimaryCount).toList()
       : const <String>[];
@@ -995,7 +994,7 @@ class _AppShellState extends ConsumerState<AppShell>
     // Push edits to linked PK members when their sync-relevant fields change.
     // Fire-and-forget; the notifier no-ops when PK isn't connected, direction
     // is pull-only, or the member isn't linked.
-    ref.listen(allMembersProvider, (prev, next) {
+    ref.listen(pkSyncRelevantMembersProvider, (prev, next) {
       final prevList = prev?.value;
       final nextList = next.value;
       if (prevList == null || nextList == null) return;
@@ -1006,7 +1005,13 @@ class _AppShellState extends ConsumerState<AppShell>
         final before = prevById[m.id];
         if (before == null) continue; // newly inserted — handled by imports
         if (_pkSyncRelevantFieldsEqual(before, m)) continue;
-        pkSync.pushMemberUpdate(m);
+        unawaited(() async {
+          final fullMember = await ref
+              .read(memberRepositoryProvider)
+              .getMemberById(m.id);
+          if (!mounted || fullMember == null) return;
+          await pkSync.pushMemberUpdate(fullMember);
+        }());
       }
     });
 
@@ -1541,8 +1546,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final showLabels =
-        widget.labelVisibility == NavBarLabelVisibility.always;
+    final showLabels = widget.labelVisibility == NavBarLabelVisibility.always;
 
     if (!_needsOverflow) {
       return _buildSimpleBar(
@@ -1847,8 +1851,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         rowHeight: widget.rowHeight,
         showLabel: showLabels,
         labelVisibility: labelVisibility,
-        prominentIcon:
-            widget.labelVisibility != NavBarLabelVisibility.always,
+        prominentIcon: widget.labelVisibility != NavBarLabelVisibility.always,
         showItemPill: true,
         onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
       ),

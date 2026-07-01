@@ -83,7 +83,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     final availableForSearch =
@@ -203,12 +203,14 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                       );
                       return PrismCheckboxRow(
                         leading: MemberAvatar(
+                          memberId: member.id,
                           avatarImageData: member.avatarImageData,
                           memberName: memberName,
                           emoji: member.emoji,
                           customColorEnabled: member.customColorEnabled,
                           customColorHex: member.customColorHex,
                           size: 40,
+                          deferAvatarLookup: true,
                         ),
                         title: Text(memberName),
                         subtitle: member.pronouns != null

@@ -225,7 +225,11 @@ Widget _buildSubject({
       ),
       activeSessionsProvider.overrideWithValue(AsyncValue.data(activeSessions)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
       userVisibleMembersProvider.overrideWith(
+        (ref) => AsyncValue.data(members),
+      ),
+      userVisibleMemberListProvider.overrideWith(
         (ref) => AsyncValue.data(members),
       ),
       allGroupsProvider.overrideWith(

@@ -185,8 +185,7 @@ class _EditFrontSessionScreenState
       // coFronterIds omitted — each session is one member's continuous
       // presence; co-fronting is emergent overlap, not a field.
       notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-      clearNotes:
-          trimmedNotes.isEmpty && (original.notes?.isNotEmpty ?? false),
+      clearNotes: trimmedNotes.isEmpty && (original.notes?.isNotEmpty ?? false),
       confidenceIndex: _confidence?.index,
     );
 
@@ -308,7 +307,7 @@ class _EditFrontSessionScreenState
     final theme = Theme.of(context);
     final termPlural = watchTerminology(context, ref).plural;
     final sessionAsync = ref.watch(sessionByIdProvider(widget.sessionId));
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
     return ListenableBuilder(
@@ -479,12 +478,14 @@ class _FronterPickerRow extends StatelessWidget {
           children: [
             if (member != null) ...[
               MemberAvatar(
+                memberId: member.id,
                 memberName: member.effectiveName(preferDisplayName: prefer),
                 emoji: member.emoji,
                 avatarImageData: member.avatarImageData,
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
                 size: 36,
+                deferAvatarLookup: true,
               ),
               const SizedBox(width: 12),
               Expanded(

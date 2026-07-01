@@ -74,6 +74,7 @@ Widget _buildSubject({
         session.id,
       ).overrideWith((ref) => Stream.value(session)),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),
@@ -254,6 +255,9 @@ void main() {
             activeMembersProvider.overrideWith(
               (ref) => Stream.value(<Member>[alice]),
             ),
+            activeMemberListProvider.overrideWith(
+              (ref) => Stream.value(<Member>[alice]),
+            ),
             allGroupsProvider.overrideWith(
               (ref) => Stream.value(const <MemberGroup>[]),
             ),
@@ -343,6 +347,9 @@ void main() {
               first.id,
             ).overrideWith((ref) => Stream.value(first)),
             activeMembersProvider.overrideWith(
+              (ref) => Stream.value(<Member>[alice]),
+            ),
+            activeMemberListProvider.overrideWith(
               (ref) => Stream.value(<Member>[alice]),
             ),
             allGroupsProvider.overrideWith(
@@ -452,6 +459,9 @@ void main() {
                 originalSession.id,
               ).overrideWith((ref) => Stream.value(originalSession)),
               activeMembersProvider.overrideWith(
+                (ref) => Stream.value(members),
+              ),
+              activeMemberListProvider.overrideWith(
                 (ref) => Stream.value(members),
               ),
               allGroupsProvider.overrideWith(

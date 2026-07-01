@@ -151,7 +151,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final terms = watchTerminology(context, ref);
     // System card displays member count + avatar stack — exclude the Unknown
     // sentinel so it doesn't inflate the count or appear in the stack.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final hideMemberCounts =
         ref
             .watch(hideMemberCountsProvider)
@@ -635,11 +635,13 @@ class _AvatarCluster extends StatelessWidget {
 
     if (visible.length == 1) {
       return MemberAvatar(
+        memberId: visible[0].id,
         avatarImageData: visible[0].avatarImageData,
         emoji: visible[0].emoji,
         customColorEnabled: visible[0].customColorEnabled,
         customColorHex: visible[0].customColorHex,
         size: _clusterSize,
+        deferAvatarLookup: true,
       );
     }
 
@@ -657,11 +659,13 @@ class _AvatarCluster extends StatelessWidget {
             left: (_clusterSize - _avatarSize) / 2,
             top: (_clusterSize - _avatarSize) / 2,
             child: MemberAvatar(
+              memberId: center.id,
               avatarImageData: center.avatarImageData,
               emoji: center.emoji,
               customColorEnabled: center.customColorEnabled,
               customColorHex: center.customColorHex,
               size: _avatarSize,
+              deferAvatarLookup: true,
             ),
           ),
           // Ring avatars
@@ -710,11 +714,13 @@ class _AvatarCluster extends StatelessWidget {
       left: cx,
       top: cy,
       child: MemberAvatar(
+        memberId: member.id,
         avatarImageData: member.avatarImageData,
         emoji: member.emoji,
         customColorEnabled: member.customColorEnabled,
         customColorHex: member.customColorHex,
         size: _avatarSize,
+        deferAvatarLookup: true,
       ),
     );
   }

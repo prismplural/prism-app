@@ -1,15 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 // Regression coverage for the home-view avatar flicker during PluralKit sync.
 //
@@ -24,7 +28,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 // Fix: every member-rendering Image.memory call uses `gaplessPlayback: true`,
 // so the previous image stays painted across the ImageProvider swap.
 
-Widget _wrap(Widget child) {
+Widget _wrap(Widget child, {List<Override> overrides = const []}) {
   return ProviderScope(
     overrides: [
       terminologySettingProvider.overrideWithValue((
@@ -33,6 +37,7 @@ Widget _wrap(Widget child) {
         customPlural: null,
         useEnglish: false,
       )),
+      ...overrides,
     ],
     child: MaterialApp(
       theme: ThemeData.light().copyWith(extensions: [PrismShapes.rounded]),
@@ -54,7 +59,11 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _wrap(
-          MemberAvatar(avatarImageData: _pngBytes(), memberName: 'Alex', size: 64),
+          MemberAvatar(
+            avatarImageData: _pngBytes(),
+            memberName: 'Alex',
+            size: 64,
+          ),
         ),
       );
 
@@ -94,7 +103,8 @@ void main() {
       expect(
         images,
         isNotEmpty,
-        reason: 'GroupMemberAvatar should render Image widgets when bytes are provided',
+        reason:
+            'GroupMemberAvatar should render Image widgets when bytes are provided',
       );
       for (final image in images) {
         expect(
@@ -147,6 +157,47 @@ void main() {
         // does NOT call _replaceImage(info: null) on the provider swap.
         final image = tester.widget<Image>(find.byType(Image));
         expect(image.gaplessPlayback, isTrue);
+      },
+    );
+
+    testWidgets(
+      'deferred avatar hydration keeps size stable while bytes arrive',
+      (tester) async {
+        final streamController = StreamController<Uint8List?>();
+        addTearDown(streamController.close);
+
+        await tester.pumpWidget(
+          _wrap(
+            const MemberAvatar(
+              memberId: 'alex',
+              memberName: 'Alex',
+              emoji: '🌟',
+              size: 48,
+              deferAvatarLookup: true,
+            ),
+            overrides: [
+              memberAvatarImageDataProvider.overrideWith(
+                (ref, memberId) => streamController.stream,
+              ),
+            ],
+          ),
+        );
+
+        expect(find.byType(Image), findsNothing);
+        final beforeSize = tester.getSize(find.byType(TintedGlassSurface));
+
+        streamController.add(_pngBytes());
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(Image), findsOneWidget);
+        final afterSize = tester.getSize(find.byType(TintedGlassSurface));
+        expect(afterSize, beforeSize);
+        expect(afterSize, const Size(48, 48));
+        expect(
+          tester.widget<Image>(find.byType(Image)).gaplessPlayback,
+          isTrue,
+        );
       },
     );
   });

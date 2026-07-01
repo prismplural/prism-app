@@ -157,7 +157,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     final canSave = _canSave;
     // Non-fronting picker: hide the Unknown sentinel — you don't set a
     // reminder for the placeholder member.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
 
     return ListenableBuilder(
       listenable: Listenable.merge([_nameController, _messageController]),
@@ -410,8 +410,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                                   )
                                 : Icon(AppIcons.peopleOutline),
                             title: Text(
-                              selectedName ??
-                                  context.l10n.remindersTargetAny,
+                              selectedName ?? context.l10n.remindersTargetAny,
                             ),
                             subtitle: selectedMember != null
                                 ? Text(context.l10n.remindersTargetLabel)

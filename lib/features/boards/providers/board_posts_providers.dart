@@ -145,11 +145,10 @@ class MemberBoardLimitNotifier extends Notifier<int> {
   void loadMore() => state = state + boardPostsPageSize;
 }
 
-final memberBoardLimitProvider =
-    NotifierProvider.autoDispose
-        .family<MemberBoardLimitNotifier, int, String>(
-          (_) => MemberBoardLimitNotifier(),
-        );
+final memberBoardLimitProvider = NotifierProvider.autoDispose
+    .family<MemberBoardLimitNotifier, int, String>(
+      (_) => MemberBoardLimitNotifier(),
+    );
 
 // ---------------------------------------------------------------------------
 // Public timeline feed
@@ -168,13 +167,13 @@ final publicBoardFeedProvider =
 // ---------------------------------------------------------------------------
 
 /// Member IDs that are *currently fronting* (i.e. have an open
-/// fronting_session). Distinct from `activeMembersProvider`, which lists
+/// fronting_session). Distinct from `activeMemberListProvider`, which lists
 /// every non-archived member in the system. Inbox visibility hangs on
 /// this — only posts addressed to a current fronter should appear.
 final currentFronterMemberIdsProvider = Provider<List<String>>((ref) {
   final sessions = ref.watch(activeSessionsProvider).value ?? const [];
   final activeMemberIds = ref
-      .watch(activeMembersProvider)
+      .watch(activeMemberListProvider)
       .value
       ?.map((member) => member.id)
       .toSet();
@@ -194,7 +193,7 @@ final currentFronterMemberIdsProvider = Provider<List<String>>((ref) {
 final currentFronterMembersProvider = Provider<List<Member>>((ref) {
   final fronterIds = ref.watch(currentFronterMemberIdsProvider);
   if (fronterIds.isEmpty) return const [];
-  final allMembers = ref.watch(activeMembersProvider).value ?? const [];
+  final allMembers = ref.watch(activeMemberListProvider).value ?? const [];
   final byId = {for (final m in allMembers) m.id: m};
   return [
     for (final id in fronterIds)
@@ -486,7 +485,7 @@ class MemberBoardPostNotifier extends AsyncNotifier<void> {
   /// Snapshots the fronter list at call time — a fronter de-fronting between
   /// dispatch and execution does not get marked-read after the fact.
   Future<void> markInboxOpenedFor(List<String> activeFronterIds) async {
-    // Snapshot immediately per the contract — do NOT re-read activeMembersProvider.
+    // Snapshot immediately per the contract — do not re-read the roster.
     final snapshot = List<String>.unmodifiable(activeFronterIds);
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberBoardPostsRepositoryProvider);

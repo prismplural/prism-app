@@ -131,7 +131,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         (match != null && match.strippedText.isNotEmpty
             ? match.memberId
             : null);
-    final members = ref.read(activeMembersProvider).value;
+    final members = ref.read(activeMemberListProvider).value;
     final speakingAsMember = findCurrentChatViewer(members, speakingAs);
     final permissions = conversationPermissionsForViewer(
       conversation,
@@ -367,7 +367,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     var activeMembers = const <Member>[];
     if (conversationIncludesImplicitMembers(conversation)) {
       try {
-        activeMembers = await ref.read(activeMembersProvider.future);
+        activeMembers = await ref.read(activeMemberListProvider.future);
       } catch (error) {
         if (mounted) {
           PrismToast.error(
@@ -561,7 +561,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       // Re-verify the match target is still authorable — active membership
       // can change between build and the send path.
       final freshMembers =
-          ref.read(activeMembersProvider).value ?? const <Member>[];
+          ref.read(activeMemberListProvider).value ?? const <Member>[];
       final stillValid = freshMembers.any(
         (m) => m.id == match.memberId && !m.isDeleted && m.isActive,
       );
@@ -782,7 +782,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final conversationAsync = ref.watch(
       conversationByIdProvider(widget.conversationId),
     );
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     final replyingTo = ref.watch(replyingToProvider(widget.conversationId));
     final useProxyTags =
         ref
@@ -936,12 +936,14 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     child: currentMember != null
                         ? MemberAvatar(
                             avatarImageData: currentMember.avatarImageData,
+                            memberId: currentMember.id,
                             memberName: currentMemberName,
                             emoji: currentMember.emoji,
                             customColorEnabled:
                                 currentMember.customColorEnabled,
                             customColorHex: currentMember.customColorHex,
                             size: inputHeight,
+                            deferAvatarLookup: true,
                           )
                         : TintedGlassSurface.circle(
                             size: inputHeight,
@@ -1718,12 +1720,14 @@ class _ProxyTagAuthorChip extends ConsumerWidget {
       child: Row(
         children: [
           MemberAvatar(
+            memberId: member.id,
             avatarImageData: member.avatarImageData,
             memberName: effectiveName,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,
             size: 24,
+            deferAvatarLookup: true,
           ),
           const SizedBox(width: 8),
           Expanded(

@@ -102,6 +102,9 @@ Widget _buildBoardsScreen({
       ),
       speakingAsProvider.overrideWith(_FakeSpeakingAsNotifier.new),
       activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
+      activeMemberListProvider.overrideWith(
+        (ref) => Stream.value(activeMembers),
+      ),
       currentFronterMemberIdsProvider.overrideWith(
         (ref) => fronters.map((m) => m.id).toList(growable: false),
       ),

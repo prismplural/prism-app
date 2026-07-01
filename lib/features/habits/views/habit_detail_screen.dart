@@ -67,7 +67,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final statsAsync = ref.watch(
       habitStatsProvider((habitId: widget.habitId, timeframe: _timeframe)),
     );
-    final membersAsync = ref.watch(allMembersProvider);
+    final membersAsync = ref.watch(allMemberListProvider);
     final today = ref.watch(currentDateProvider);
 
     final completions = completionsAsync.value ?? [];
@@ -575,12 +575,14 @@ class _CompletionTile extends ConsumerWidget {
     final tileContent = PrismListRow(
       leading: member != null
           ? MemberAvatar(
+              memberId: member.id,
               emoji: member.emoji,
               memberName: memberName,
               customColorEnabled: member.customColorEnabled,
               customColorHex: member.customColorHex,
               avatarImageData: member.avatarImageData,
               size: 36,
+              deferAvatarLookup: true,
             )
           : Icon(AppIcons.checkCircle, color: Colors.green),
       title: Text(_formatDate(context, completion.completedAt)),

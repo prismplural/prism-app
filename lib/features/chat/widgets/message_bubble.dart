@@ -166,10 +166,12 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final authorId = widget.message.authorId;
     if (perms.canChangeMessageAuthor(authorId) &&
         !widget.message.isSystemMessage) {
-      final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
+      final activeMembers =
+          ref.watch(activeMemberListProvider).value ?? const [];
       // Pass currentAuthor so a departed-author DM still surfaces the action.
-      final currentAuthor =
-          (authorId != null) ? (widget.authorMap?[authorId]) : null;
+      final currentAuthor = (authorId != null)
+          ? (widget.authorMap?[authorId])
+          : null;
       final candidateIds = chatAuthorCandidateIds(
         perms.conversation,
         activeMembers,
@@ -431,6 +433,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     return MemberAvatar(
+      memberId: authorId,
       avatarImageData: author?.avatarImageData,
       memberName: author?.effectiveName(preferDisplayName: prefer),
       emoji: author?.emoji ?? '?',
@@ -438,6 +441,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       customColorHex: author?.customColorHex,
       size: size,
       opacity: isDeparted ? 0.5 : 1.0,
+      deferAvatarLookup: true,
     );
   }
 
@@ -530,9 +534,10 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                                 // the denormalized replyToAuthorId when the
                                 // parent is unknown or a system message.
                                 final replyToId = widget.message.replyToId!;
-                                final bool parentKnown = widget
-                                        .messageAuthorMap
-                                        ?.containsKey(replyToId) ??
+                                final bool parentKnown =
+                                    widget.messageAuthorMap?.containsKey(
+                                      replyToId,
+                                    ) ??
                                     false;
                                 final String? liveAuthorId = parentKnown
                                     ? widget.messageAuthorMap![replyToId]
@@ -631,10 +636,11 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                               imgElementBuilder: BioImageElementBuilder(
                                 library:
                                     ref.watch(imageLibraryProvider).value ??
-                                        const [],
+                                    const [],
                               ),
-                              imageLibraryVersion:
-                                  ref.watch(imageLibraryVersionProvider),
+                              imageLibraryVersion: ref.watch(
+                                imageLibraryVersionProvider,
+                              ),
                             ),
                           ),
                         ..._buildAttachments(context, theme, authorColor),
@@ -664,16 +670,19 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final perms = widget.permissions;
     final authorId = widget.message.authorId;
     final cheapGate =
-        perms.canChangeMessageAuthor(authorId) && !widget.message.isSystemMessage;
+        perms.canChangeMessageAuthor(authorId) &&
+        !widget.message.isSystemMessage;
 
     Widget buildFinalWidget(Widget content) {
       if (!cheapGate) return content;
 
       // Only read activeMembers / terminology once the cheap gate passes —
       // avoids per-bubble subscriptions in chats where the action can't run.
-      final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
-      final currentAuthor =
-          (authorId != null) ? (widget.authorMap?[authorId]) : null;
+      final activeMembers =
+          ref.watch(activeMemberListProvider).value ?? const [];
+      final currentAuthor = (authorId != null)
+          ? (widget.authorMap?[authorId])
+          : null;
       final candidateIds = chatAuthorCandidateIds(
         perms.conversation,
         activeMembers,
@@ -719,39 +728,43 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     if (disableAnimations) {
       if (widget.isHighlighted) {
-        return buildFinalWidget(Stack(
-          children: [
-            Positioned.fill(
-              child: ColoredBox(
-                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        return buildFinalWidget(
+          Stack(
+            children: [
+              Positioned.fill(
+                child: ColoredBox(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                ),
               ),
-            ),
-            slideWidget,
-          ],
-        ));
+              slideWidget,
+            ],
+          ),
+        );
       }
       return buildFinalWidget(slideWidget);
     }
 
     if (!widget.isHighlighted) return buildFinalWidget(slideWidget);
 
-    return buildFinalWidget(Stack(
-      children: [
-        Positioned.fill(
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0.08, end: 0.0),
-            duration: const Duration(milliseconds: 1200),
-            curve: Curves.easeOut,
-            builder: (context, value, child) => ColoredBox(
-              color: theme.colorScheme.primary.withValues(alpha: value),
-              child: child,
+    return buildFinalWidget(
+      Stack(
+        children: [
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.08, end: 0.0),
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOut,
+              builder: (context, value, child) => ColoredBox(
+                color: theme.colorScheme.primary.withValues(alpha: value),
+                child: child,
+              ),
+              child: const SizedBox.expand(),
             ),
-            child: const SizedBox.expand(),
           ),
-        ),
-        slideWidget,
-      ],
-    ));
+          slideWidget,
+        ],
+      ),
+    );
   }
 
   /// Build media attachment widgets for this message.

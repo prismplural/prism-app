@@ -123,7 +123,7 @@ class _PkUnmappedFrontersReviewSheetState
         .watch(pkUnmappedFrontersNoticeProvider)
         .whenOrNull(data: (state) => state.currentNotice);
     final blocked = ref.watch(frontingMigrationWritesBlockedProvider);
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final theme = Theme.of(context);
     final members =
         membersAsync.whenOrNull(data: (members) => members) ?? const <Member>[];

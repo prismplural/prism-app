@@ -309,7 +309,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
       customPlural: terminology.customPlural,
       useEnglish: terminology.useEnglish,
     );
-    final members = ref.read(userVisibleMembersProvider).value ?? [];
+    final members = ref.read(userVisibleMemberListProvider).value ?? [];
 
     final result = await MemberSearchSheet.showSingle(
       context,
@@ -361,7 +361,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 
     // Ask each time: prompt only with multiple co-fronters.
     if (mode == ComposerDefaultMember.askEachTime && fronterIds.length > 1) {
-      final allMembers = ref.read(userVisibleMembersProvider).value ?? [];
+      final allMembers = ref.read(userVisibleMemberListProvider).value ?? [];
       final coFronters = allMembers
           .where((m) => fronterIds.contains(m.id))
           .toList();
@@ -417,7 +417,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
       customPlural: terminology.customPlural,
       useEnglish: terminology.useEnglish,
     );
-    final members = ref.read(userVisibleMembersProvider).value ?? [];
+    final members = ref.read(userVisibleMemberListProvider).value ?? [];
     final groups = readMemberSearchGroups(ref, members);
     final fronterIds =
         ref

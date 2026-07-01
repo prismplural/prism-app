@@ -18,7 +18,7 @@ class CompleteStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final onboarding = ref.watch(onboardingProvider);
     final members = ref
-        .watch(userVisibleMembersProvider)
+        .watch(userVisibleMemberListProvider)
         .value
         ?.take(_maxDisplayMembers)
         .toList(growable: false);
@@ -237,6 +237,7 @@ class _CloudAvatar extends StatelessWidget {
       width: size,
       height: size,
       child: MemberAvatar(
+        memberId: member.id,
         avatarImageData: member.avatarImageData,
         memberName: member.name,
         emoji: member.emoji,
@@ -245,6 +246,7 @@ class _CloudAvatar extends StatelessWidget {
         size: size,
         opacity: placement.opacity,
         showBorder: true,
+        deferAvatarLookup: true,
       ),
     );
   }

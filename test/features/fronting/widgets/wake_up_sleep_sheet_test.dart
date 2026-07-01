@@ -74,6 +74,9 @@ Widget _buildSubject({List<Member>? members, _FakeFrontingNotifier? notifier}) {
       activeMembersProvider.overrideWith(
         (ref) => Stream.value(members ?? _fiveMembers()),
       ),
+      activeMemberListProvider.overrideWith(
+        (ref) => Stream.value(members ?? _fiveMembers()),
+      ),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),
       ),

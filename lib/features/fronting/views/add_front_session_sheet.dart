@@ -261,7 +261,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final membersAsync = ref.watch(activeMembersProvider);
+    final membersAsync = ref.watch(activeMemberListProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
     // Per-member model: each session is one member's continuous presence.
@@ -582,6 +582,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
             Opacity(
               opacity: isFronting && !isSelected ? 0.5 : 1.0,
               child: MemberAvatar(
+                memberId: member.id,
                 avatarImageData: member.avatarImageData,
                 memberName: memberName,
                 emoji: member.emoji,
@@ -591,6 +592,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
                 tintOverride: isFronting
                     ? AppColors.fronting(theme.brightness)
                     : null,
+                deferAvatarLookup: true,
               ),
             ),
             const SizedBox(height: 6),

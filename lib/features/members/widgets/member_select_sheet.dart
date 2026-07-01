@@ -77,7 +77,7 @@ class MemberSelectSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Non-fronting picker: hide the Unknown sentinel — it's a system-internal
     // placeholder, not a selectable headmate.
-    final membersAsync = ref.watch(userVisibleMembersProvider);
+    final membersAsync = ref.watch(userVisibleMemberListProvider);
     final settingsAsync = ref.watch(systemSettingsProvider);
     final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final l10n = context.l10n;
@@ -186,6 +186,7 @@ class MemberSelectSheet extends ConsumerWidget {
                         return PrismListRow(
                           selected: isSelected,
                           leading: MemberAvatar(
+                            memberId: member.id,
                             avatarImageData: member.avatarImageData,
                             memberName: member.effectiveName(
                               preferDisplayName: preferDisplayName,
@@ -194,6 +195,7 @@ class MemberSelectSheet extends ConsumerWidget {
                             customColorEnabled: member.customColorEnabled,
                             customColorHex: member.customColorHex,
                             size: 36,
+                            deferAvatarLookup: true,
                           ),
                           title: Text(
                             member.effectiveName(
