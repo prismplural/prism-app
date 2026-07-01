@@ -183,6 +183,61 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('show() keeps the last row above bottom system navigation', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 800);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 48);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewPadding);
+
+      final manyMembers = [
+        for (var i = 0; i < 20; i++)
+          _member(id: 'member-$i', name: 'Member $i'),
+      ];
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeMembersProvider.overrideWith(
+              (ref) => Stream.value(manyMembers),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            systemSettingsProvider.overrideWithValue(
+              const AsyncValue.data(SystemSettings()),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => MemberSelectSheet.show(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView), const Offset(0, -1200));
+      await tester.pumpAndSettle();
+
+      final lastRow = find.widgetWithText(PrismListRow, 'Member 19');
+      expect(lastRow, findsOneWidget);
+      expect(tester.getBottomLeft(lastRow).dy, lessThanOrEqualTo(800 - 48));
+    });
+
     testWidgets('show() waits for terminology settings before showing title', (
       tester,
     ) async {

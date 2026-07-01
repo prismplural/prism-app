@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_fronter_choice_card.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
@@ -156,8 +157,7 @@ List<FronterChoiceOption> computeOptions({
 
   // Find the option matching the preferred kind; fall back to first.
   final recommendedIndex = deduped.indexWhere((o) => o.kind == preferredKind);
-  final effectiveRecommendedIdx =
-      recommendedIndex >= 0 ? recommendedIndex : 0;
+  final effectiveRecommendedIdx = recommendedIndex >= 0 ? recommendedIndex : 0;
 
   return List.unmodifiable([
     for (int i = 0; i < deduped.length; i++)
@@ -243,21 +243,28 @@ class PkWhoIsFrontingSheet extends StatelessWidget {
   /// (setMembers / keepMembers / leaveNoneFronting / matchPkNone) the title IS
   /// the action label — the subtitle is empty because the label is
   /// self-explanatory.
-  String _title(BuildContext context, FronterChoiceOption option, Map<String, String> nameMap) {
+  String _title(
+    BuildContext context,
+    FronterChoiceOption option,
+    Map<String, String> nameMap,
+  ) {
     final l10n = context.l10n;
-    final names = option.resolvedLocalIds
-        .map((id) => nameMap[id] ?? id)
-        .toList()
-      ..sort();
+    final names =
+        option.resolvedLocalIds.map((id) => nameMap[id] ?? id).toList()..sort();
     final joined = names.join(', ');
 
     return switch (option.kind) {
       FronterChoiceKind.usePrism => l10n.pluralkitWhosFrontingUsePrism,
       FronterChoiceKind.usePk => l10n.pluralkitWhosFrontingUsePk,
       FronterChoiceKind.cofront => l10n.pluralkitWhosFrontingCofront,
-      FronterChoiceKind.setMembers => l10n.pluralkitWhosFrontingSetMembers(joined),
-      FronterChoiceKind.keepMembers => l10n.pluralkitWhosFrontingKeepMembers(joined),
-      FronterChoiceKind.leaveNoneFronting => l10n.pluralkitWhosFrontingNoneFronting,
+      FronterChoiceKind.setMembers => l10n.pluralkitWhosFrontingSetMembers(
+        joined,
+      ),
+      FronterChoiceKind.keepMembers => l10n.pluralkitWhosFrontingKeepMembers(
+        joined,
+      ),
+      FronterChoiceKind.leaveNoneFronting =>
+        l10n.pluralkitWhosFrontingNoneFronting,
       FronterChoiceKind.matchPkNone => l10n.pluralkitWhosFrontingMatchPkNone,
     };
   }
@@ -271,10 +278,8 @@ class PkWhoIsFrontingSheet extends StatelessWidget {
     FronterChoiceOption option,
     Map<String, String> nameMap,
   ) {
-    final names = option.resolvedLocalIds
-        .map((id) => nameMap[id] ?? id)
-        .toList()
-      ..sort();
+    final names =
+        option.resolvedLocalIds.map((id) => nameMap[id] ?? id).toList()..sort();
     final joined = names.join(', ');
 
     return switch (option.kind) {
@@ -292,6 +297,7 @@ class PkWhoIsFrontingSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
+    final bottomInset = modalBottomInsetOf(context);
 
     final localIds = {for (final e in localFronters) e.id};
     final pkIds = {for (final e in pkFronters) e.id};
@@ -303,7 +309,7 @@ class PkWhoIsFrontingSheet extends StatelessWidget {
     final nameMap = _buildNameMap();
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -331,7 +337,8 @@ class PkWhoIsFrontingSheet extends StatelessWidget {
               title: _title(context, options[i], nameMap),
               subtitle: _subtitle(context, options[i], nameMap),
               recommended: options[i].recommended,
-              onTap: () => onResult(Set.unmodifiable(options[i].resolvedLocalIds)),
+              onTap: () =>
+                  onResult(Set.unmodifiable(options[i].resolvedLocalIds)),
             ),
           ],
           const SizedBox(height: 16),

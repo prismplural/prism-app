@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_recovery_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 FrontingSession _sleep(String id) => FrontingSession(
   id: id,
@@ -86,6 +87,22 @@ void main() {
       find.text('2 deleted sleep sessions can be restored'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('actions clear bottom system navigation', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 48);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewPadding);
+
+    await tester.pumpWidget(_host(_FakeSleepNotifier(Completer<int>())));
+    await _openSheet(tester);
+
+    final cancelButton = find.widgetWithText(PrismButton, 'Cancel');
+    expect(cancelButton, findsOneWidget);
+    expect(tester.getBottomLeft(cancelButton).dy, lessThanOrEqualTo(800 - 48));
   });
 
   testWidgets('a load failure closes the sheet instead of hanging', (

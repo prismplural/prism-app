@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -140,6 +141,7 @@ class _MemberGroupPickerListState extends ConsumerState<MemberGroupPickerList> {
         : true;
     final terms = showCounts ? watchTerminology(context, ref) : null;
     final filtered = _filterGroups(flatGroups, groupTree);
+    final bottomInset = modalBottomInsetOf(context);
 
     return CustomScrollView(
       controller: widget.scrollController,
@@ -187,6 +189,8 @@ class _MemberGroupPickerListState extends ConsumerState<MemberGroupPickerList> {
               );
             }, childCount: filtered.length),
           ),
+        if (bottomInset > 0)
+          SliverToBoxAdapter(child: SizedBox(height: bottomInset)),
       ],
     );
   }

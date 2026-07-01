@@ -1134,6 +1134,51 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'PrismSheet.showFullScreen shrinks its viewport above bottom system navigation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 800));
+      const navigationHeight = 48.0;
+      tester.view.viewPadding = FakeViewPadding(
+        bottom: navigationHeight * tester.view.devicePixelRatio,
+      );
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(tester.view.resetViewPadding);
+
+      const bodyKey = Key('navigation-sheet-body');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                PrismSheet.showFullScreen(
+                  context: context,
+                  builder: (_, scrollController) => SizedBox.expand(
+                    key: bodyKey,
+                    child: ListView(
+                      controller: scrollController,
+                      children: const [Text('Body')],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getBottomLeft(find.byKey(bodyKey)).dy,
+        800 - navigationHeight,
+      );
+    },
+  );
 }
 
 class _AccessibilityPreferenceWarmup extends ConsumerWidget {

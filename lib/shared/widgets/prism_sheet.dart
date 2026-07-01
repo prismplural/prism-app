@@ -455,23 +455,22 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
       snapSizes: const [1.0],
       shouldCloseOnMinExtent: false,
       builder: (sheetContext, scrollController) {
-        // showModalBottomSheet does not resize the route around the
-        // keyboard, and DraggableScrollableSheet always claims the full
-        // parent height — so without this padding, the sheet's viewport
-        // extends behind the keyboard and Scrollable.ensureVisible (which
-        // EditableText calls on focus) thinks fields hidden behind the
-        // keyboard are already on-screen. Shrinking the viewport by
-        // viewInsets.bottom lets the focused field auto-scroll above the
-        // keyboard.
+        // DraggableScrollableSheet keeps the full route height, so shrink the
+        // sheet around the keyboard or bottom system navigation before
+        // building scrollable content.
+        final mediaQuery = MediaQuery.of(sheetContext);
+        final bottomInset = modalBottomInsetOf(sheetContext);
+
         return AnimatedPadding(
           duration: const Duration(milliseconds: 100),
           curve: Curves.decelerate,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
-          child: MediaQuery.removeViewInsets(
-            context: sheetContext,
-            removeBottom: true,
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: MediaQuery(
+            data: mediaQuery.copyWith(
+              padding: mediaQuery.padding.copyWith(bottom: 0),
+              viewInsets: mediaQuery.viewInsets.copyWith(bottom: 0),
+              viewPadding: mediaQuery.viewPadding.copyWith(bottom: 0),
+            ),
             child: widget.builder(sheetContext, scrollController),
           ),
         );

@@ -490,6 +490,37 @@ void main() {
       expect(find.byType(PrismSheetTopBar), findsOneWidget);
     });
 
+    testWidgets(
+      'modal list keeps the last row above bottom system navigation',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 800);
+        tester.view.viewPadding = const FakeViewPadding(bottom: 48);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetViewPadding);
+
+        final manyMembers = [
+          for (var i = 0; i < 24; i++)
+            _member(id: 'member-$i', name: 'Member $i'),
+        ];
+
+        await tester.pumpWidget(_buildSingleShowWidget(members: manyMembers));
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.drag(
+          find.byType(CustomScrollView),
+          const Offset(0, -2000),
+        );
+        await tester.pumpAndSettle();
+
+        final lastRow = find.byKey(const ValueKey('member-23'));
+        expect(lastRow, findsOneWidget);
+        expect(tester.getBottomLeft(lastRow).dy, lessThanOrEqualTo(800 - 48));
+      },
+    );
+
     testWidgets('cleared result from caller-provided clear row', (
       tester,
     ) async {

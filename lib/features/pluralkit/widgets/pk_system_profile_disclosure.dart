@@ -4,6 +4,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// First-pull PluralKit system profile disclosure.
@@ -100,6 +101,7 @@ class _PkSystemProfileDisclosureSheetState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final theme = Theme.of(context);
+    final bottomInset = modalBottomInsetOf(context);
 
     final rows = <Widget>[];
     if (_hasName) {
@@ -152,7 +154,7 @@ class _PkSystemProfileDisclosureSheetState
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

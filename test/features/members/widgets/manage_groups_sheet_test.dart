@@ -118,6 +118,31 @@ void main() {
     expect(find.text('Groups'), findsOneWidget);
   });
 
+  testWidgets('list keeps the last row above bottom system navigation', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 800);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 48);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewPadding);
+
+    final groups = [for (var i = 0; i < 24; i++) _group('group-$i')];
+
+    await tester.pumpWidget(
+      _harness(groups: groups, entries: const [], memberGroups: const []),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    final lastRow = find.byKey(const ValueKey('group-23'));
+    expect(lastRow, findsOneWidget);
+    expect(tester.getBottomLeft(lastRow).dy, lessThanOrEqualTo(800 - 48));
+  });
+
   testWidgets(
     'searching a parent group reveals its whole subtree; searching a child '
     'shows only the child',

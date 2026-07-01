@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/member_filter.dart';
 import 'package:prism_plurality/shared/utils/member_picker_order.dart';
+import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -364,6 +365,7 @@ class _MemberSearchSheetState extends ConsumerState<MemberSearchSheet> {
     _preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final filtered = _filteredMembers;
     final hasGroups = widget.groups.isNotEmpty;
+    final bottomInset = modalBottomInsetOf(context);
     final title = widget.multiSelect
         ? l10n.memberSelectedCount(_selectedIds.length)
         : widget.title ?? l10n.selectMembers(widget.termPlural);
@@ -417,6 +419,8 @@ class _MemberSearchSheetState extends ConsumerState<MemberSearchSheet> {
           SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState())
         else
           ..._buildListSlivers(filtered),
+        if (bottomInset > 0)
+          SliverToBoxAdapter(child: SizedBox(height: bottomInset)),
       ],
     );
 
@@ -639,9 +643,7 @@ class _MemberSearchSheetState extends ConsumerState<MemberSearchSheet> {
         size: 36,
         deferAvatarLookup: true,
       ),
-      title: Text(
-        member.effectiveName(preferDisplayName: _preferDisplayName),
-      ),
+      title: Text(member.effectiveName(preferDisplayName: _preferDisplayName)),
       subtitle: _buildMemberSubtitle(member),
       trailing: trailing,
       onTap: () {
