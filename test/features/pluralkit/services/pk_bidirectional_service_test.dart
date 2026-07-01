@@ -550,10 +550,10 @@ void main() {
       expect(summary.membersPushed, 1);
     });
 
-    test('F5 safety: a FAILED POST releases the lease (no phantom orphan to '
-        'adopt later)', () async {
-      // The POST never reaches PK and mints no member; leaving the lease set
-      // would falsely authorize adopting an unrelated same-named PK member.
+    test('F5 safety: a transport-failed POST KEEPS the lease (the create may '
+        'have landed; F5 resolves it next sync)', () async {
+      // Non-idempotent POST: the create may have landed before the error, so
+      // keep the lease for the F5 stale-lease path rather than re-POSTing.
       fakeClient.createError = Exception('simulated transport failure');
       final local = _localMember(id: 'local-1', name: 'Pending');
       await fakeRepo.createMember(local);
@@ -570,10 +570,70 @@ void main() {
 
       expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue,
           reason: 'the POST was attempted and threw');
+      expect(
+        fakeRepo.calls.any((c) => c.method == 'clearCreatePushStartedAt'),
+        isFalse,
+        reason: 'an ambiguous failure must not release the lease',
+      );
       final after = await fakeRepo.getMemberById('local-1');
-      expect(after!.createPushStartedAt, isNull,
-          reason: 'a failed POST must release the lease, not leave it set');
+      expect(after!.createPushStartedAt, isNotNull,
+          reason: 'the lease is kept for the F5 stale-lease path');
       expect(after.pluralkitUuid, isNull, reason: 'the member stays unlinked');
+    });
+
+    test('F5 safety: a 4xx-rejected POST releases the lease (server refused; no '
+        'PK member exists)', () async {
+      // A definite client rejection means PK received and refused the create —
+      // no orphan exists, so release the lease and let the next sync re-POST.
+      fakeClient.createError = const PluralKitApiError(400, 'bad request');
+      final local = _localMember(id: 'local-1', name: 'Pending');
+      await fakeRepo.createMember(local);
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(
+        fakeRepo.calls.any((c) => c.method == 'clearCreatePushStartedAt'),
+        isTrue,
+        reason: 'a definite 4xx rejection releases the lease',
+      );
+      final after = await fakeRepo.getMemberById('local-1');
+      expect(after!.createPushStartedAt, isNull);
+      expect(after.pluralkitUuid, isNull, reason: 'the member stays unlinked');
+    });
+
+    test('F5 safety: a 5xx-failed POST KEEPS the lease (server error may have '
+        'created the member)', () async {
+      // A 5xx is ambiguous for a non-idempotent POST — the create may have
+      // landed. Keep the lease so F5 adopts any orphan instead of duplicating.
+      fakeClient.createError = const PluralKitApiError(502, 'bad gateway');
+      final local = _localMember(id: 'local-1', name: 'Pending');
+      await fakeRepo.createMember(local);
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(
+        fakeRepo.calls.any((c) => c.method == 'clearCreatePushStartedAt'),
+        isFalse,
+        reason: 'a 5xx is ambiguous — keep the lease for F5',
+      );
+      final after = await fakeRepo.getMemberById('local-1');
+      expect(after!.createPushStartedAt, isNotNull);
     });
 
     test('F5 safety: adoption does not steal a soft-deleted same-named '

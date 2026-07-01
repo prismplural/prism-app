@@ -2521,9 +2521,21 @@ DriftSyncEntity _membersEntity(
             // id) before this member op arrived — the engine does not order
             // cross-table changes causally. Back-fill those sessions onto the
             // winner so the fronter doesn't dangle (the forward case is handled
-            // by _remapFrontingMemberIdForApply). Local-only, and can't collide:
-            // PK session ids are deterministic, so an already-remapped row is the
-            // same id.
+            // by _remapFrontingMemberIdForApply). Local-only.
+            //
+            // F1 (collision): the rewrite trips the composite
+            // idx_fronting_sessions_pluralkit_uuid_member_id if a rescue/legacy
+            // row already holds (uuid, targetId). Fold that loser first (null its
+            // uuid, mirroring the forward dedup); the index has no is_deleted
+            // filter, so the EXISTS covers every row the rewrite could collide.
+            await db.customStatement(
+              'UPDATE fronting_sessions SET pluralkit_uuid = NULL '
+              'WHERE member_id = ? AND pluralkit_uuid IS NOT NULL '
+              'AND EXISTS (SELECT 1 FROM fronting_sessions w '
+              'WHERE w.pluralkit_uuid = fronting_sessions.pluralkit_uuid '
+              'AND w.member_id = ? AND w.id != fronting_sessions.id)',
+              [id, targetId],
+            );
             await (db.update(
               db.frontingSessions,
             )..where((t) => t.memberId.equals(id))).write(

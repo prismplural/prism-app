@@ -3212,8 +3212,8 @@ class PluralKitSyncService {
       // almost certainly the same person under a non-PK row (Simply-Plural-then-
       // PK-file). Adopt it via the update path below rather than duplicating.
       // Ambiguous (>1) or no match falls through to create. Runs AFTER the
-      // skipped-uuid guard so a user-excluded PK member never adopts. File-import
-      // only; the token path name-matches via the mapping screen.
+      // skipped-uuid guard so a user-excluded PK member never adopts. Both the
+      // file-import and incremental (after-setup, F14) paths name-match here.
       if (localMember == null && matchUnlinkedByName) {
         final adopt = _uniqueUnlinkedNameMatch(
           pk.name,

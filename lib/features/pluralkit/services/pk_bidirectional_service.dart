@@ -287,7 +287,6 @@ class PkBidirectionalService {
 
     // Process local members that have no PK counterpart
     if (direction.pushEnabled) {
-      final now = DateTime.now();
       // PK uuids already claimed by some local member, so an ORPHANED PK member
       // (created by a prior interrupted push whose link-back never landed) is
       // recognizable for F5 adoption below.
@@ -305,6 +304,10 @@ class PkBidirectionalService {
         if (u.isNotEmpty) linkedPkUuids.add(u);
       }
       for (final local in localMembers) {
+        // F4: capture `now` per-member — under rate-limiting many creates can
+        // span minutes, so a loop-hoisted `now` would stamp later members with
+        // an already-aged lease, silently shrinking their takeover window.
+        final now = DateTime.now();
         if (hasPluralKitLink(local)) continue;
         // User picked Keep local via the push-on-create dialog or banner;
         // respect their durable preference.
@@ -383,24 +386,28 @@ class PkBidirectionalService {
                 recordPushSkip("'$localName': $field $reason."),
           );
         } catch (e) {
-          // POST failed, so NO PK member was created. Release the lease — a
-          // lingering lease would falsely read as an F5 orphan and let a later
-          // sync adopt an unrelated same-named member (silent wrong-identity
-          // merge). The lease is kept ONLY when the POST succeeds but link-back
-          // fails (the real orphan case, below).
-          // F16: isolate the clear so it can't mask the POST error's
-          // classification (or the auth/rate rethrow) below; a failed clear
-          // leaves a stale lease the F5 path resolves next sync.
-          try {
-            await memberRepository.clearCreatePushStartedAt(local.id);
-          } on PluralKitAuthError {
-            rethrow;
-          } on PluralKitRateLimitError {
-            rethrow;
-          } catch (clearError) {
-            recordPushSkip(
-              "'$localName': create lease clear failed ($clearError).",
-            );
+          // F4: clear the lease only on a definite 4xx — the server refused the
+          // create, so no PK member exists. Keep it on transport/5xx: the POST
+          // may have landed, and clearing would re-POST a duplicate next sync
+          // (the pre-F4 bug); the F5 stale-lease path adopts the orphan if it
+          // landed, re-POSTs if not. Auth/rate keep the lease and rethrow below.
+          final definiteRejection =
+              e is PluralKitApiError &&
+              e is! PluralKitAuthError &&
+              e is! PluralKitRateLimitError &&
+              e.statusCode >= 400 &&
+              e.statusCode < 500;
+          if (definiteRejection) {
+            // F16: isolate the clear so it can't mask the POST error's
+            // classification below; a failed clear leaves a stale lease the F5
+            // path resolves next sync.
+            try {
+              await memberRepository.clearCreatePushStartedAt(local.id);
+            } catch (clearError) {
+              recordPushSkip(
+                "'$localName': create lease clear failed ($clearError).",
+              );
+            }
           }
           if (e is PluralKitAuthError || e is PluralKitRateLimitError) {
             // Global condition — see the linked-member loop above.
