@@ -116,9 +116,10 @@ class PkBidirectionalService {
       var local = localByPkUuid[pk.uuid] ?? localByPkId[pk.id];
 
       if (local == null) {
-        // New member on PK, not in Prism — pull if direction allows
+        // New member on PK, not in Prism. The caller's pull step
+        // (_importMembers over the unseen set, F14) creates these BEFORE this
+        // pass runs against the pre-create snapshot, so here we only count it.
         if (direction.pullEnabled) {
-          // Pulling is handled by the existing import flow; just count it.
           pulled++;
         } else {
           skipped++;

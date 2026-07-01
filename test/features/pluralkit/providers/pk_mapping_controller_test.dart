@@ -379,6 +379,48 @@ void main() {
   );
 
   test(
+    'F13: an ambiguous-name PK member defaults to Skip, not Import',
+    () async {
+      // Two local "Alex" rows make the incoming PK "Alex" ambiguous — there's
+      // no safe automatic local to link, and auto-importing would duplicate an
+      // existing same-name person.
+      repo = _FakeMemberRepo([
+        _local('alex-1', 'Alex'),
+        _local('alex-2', 'Alex'),
+      ]);
+      client = _FakeClient([
+        const PKMember(id: 'aaaaa', uuid: 'pk-alex', name: 'Alex'),
+        const PKMember(id: 'ddddd', uuid: 'pk-dana', name: 'Dana'),
+      ]);
+      syncService = PluralKitSyncService(
+        memberRepository: repo,
+        frontingSessionRepository: _NoopFrontingSessionRepo(),
+        syncDao: PluralKitSyncDao(db),
+        bus: PkSyncEventBus(),
+        clientFactory: (_) => client,
+        tokenOverride: 'fake',
+      );
+      await syncService.setToken('fake');
+      await syncService.confirmDirection();
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          memberRepositoryProvider.overrideWithValue(repo),
+          pluralKitSyncServiceProvider.overrideWithValue(syncService),
+        ],
+      );
+
+      final state = await container.read(pkMappingControllerProvider.future);
+
+      // Ambiguous → Skip (no silent auto-Import duplicate).
+      expect(state.decisionsByPkUuid['pk-alex'], isA<PkSkipDecision>());
+      // A genuine no-match still defaults to Import.
+      expect(state.decisionsByPkUuid['pk-dana'], isA<PkImportDecision>());
+    },
+  );
+
+  test(
     'build: excludes PK members whose identity is held by a deleted local row',
     () async {
       repo = _FakeMemberRepo([

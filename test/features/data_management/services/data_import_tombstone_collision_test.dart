@@ -596,5 +596,84 @@ void main() {
         expect(parent.isDeleted, isFalse);
       },
     );
+
+    // F12: a session referencing an exported member that was SKIPPED (its PK
+    // identity already lives locally under a different id) must be remapped onto
+    // the local holder, not left dangling / dropped.
+    test(
+        'F12: legacy PK session for a skipped member is remapped onto the local '
+        'holder instead of being dropped', () async {
+      await db.into(db.members).insert(
+            MembersCompanion.insert(
+              id: 'local-id',
+              name: 'Alice',
+              createdAt: DateTime(2026, 1, 1),
+              pluralkitUuid: const drift.Value('m1'),
+            ),
+          );
+
+      final json = _exportJson(
+        headmates: [
+          _headmateJson(id: 'export-id', name: 'Alice', pluralkitUuid: 'm1'),
+        ],
+        frontSessions: [
+          _frontJson(
+            id: 'sess-1',
+            headmateId: 'export-id',
+            pluralkitUuid: 'switch-X',
+          ),
+        ],
+      );
+      final result = await importService.importData(json);
+
+      expect(result.membersCreated, 0, reason: 'member skipped (PK collision)');
+      expect(result.frontSessionsCreated, 1,
+          reason: 'F12: session lands rather than being dropped as unresolvable');
+      final live = await (db.select(db.frontingSessions)
+            ..where((s) => s.isDeleted.equals(false)))
+          .get();
+      expect(live, hasLength(1));
+      expect(live.single.memberId, 'local-id',
+          reason: 'remapped onto the local holder, not dangling export-id');
+    });
+
+    test(
+        'F12: new-shape session for a skipped member is remapped onto the local '
+        'holder', () async {
+      await db.into(db.members).insert(
+            MembersCompanion.insert(
+              id: 'local-id',
+              name: 'Bob',
+              createdAt: DateTime(2026, 1, 1),
+              pluralkitUuid: const drift.Value('m2'),
+            ),
+          );
+
+      final json = _exportJson(
+        headmates: [
+          _headmateJson(id: 'export-id', name: 'Bob', pluralkitUuid: 'm2'),
+        ],
+        frontSessions: [
+          {
+            'id': 'sess-2',
+            'startTime': DateTime(2026, 4, 25, 11).toUtc().toIso8601String(),
+            'memberId': 'export-id', // new-shape marker
+            'sessionType': 0,
+          },
+        ],
+      );
+      final result = await importService.importData(json);
+
+      expect(result.membersCreated, 0);
+      expect(result.frontSessionsCreated, 1);
+      final live = await (db.select(db.frontingSessions)
+            ..where((s) => s.isDeleted.equals(false)))
+          .get();
+      expect(live, hasLength(1));
+      expect(live.single.id, 'sess-2',
+          reason: 'new-shape keeps the export session id');
+      expect(live.single.memberId, 'local-id',
+          reason: 'F12: remapped onto the local holder, not dangling export-id');
+    });
   });
 }

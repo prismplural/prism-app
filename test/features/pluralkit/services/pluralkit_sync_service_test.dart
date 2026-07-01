@@ -1899,6 +1899,113 @@ void main() {
       expect(members.map((m) => m.name), ['Imported']);
     });
 
+    test('F14: incremental sync creates a PK member added after setup',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository();
+      final frontRepo = FakeFrontingSessionRepository();
+      final fakeClient = FakePluralKitClient()
+        ..membersToReturn = const [
+          PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+        ]
+        ..switchesToReturn = const [];
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: frontRepo,
+      );
+
+      await service.setToken('valid-token');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+
+      // First sync: lastSyncDate is null → full import. Creates Alice and stamps
+      // lastSyncDate so the NEXT call takes the incremental branch.
+      await service.syncRecentData(direction: PkSyncDirection.pullOnly);
+      expect(service.state.lastSyncDate, isNotNull,
+          reason: 'first sync stamps lastSyncDate → next is incremental');
+      expect(
+        (await memberRepo.getAllMembers()).map((m) => m.name),
+        ['Alice'],
+      );
+
+      // A brand-new PK member appears after setup.
+      fakeClient.membersToReturn = const [
+        PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+        PKMember(id: 'bbbbb', uuid: 'pk-bob', name: 'Bob'),
+      ];
+
+      // Incremental sync must CREATE Bob (previously only counted as "pulled").
+      await service.syncRecentData(direction: PkSyncDirection.pullOnly);
+
+      final members = await memberRepo.getAllMembers();
+      expect(members.map((m) => m.pluralkitUuid), containsAll(['pk-alice', 'pk-bob']),
+          reason: 'F14: the after-setup PK member is created by incremental sync');
+      expect(members.where((m) => m.name == 'Bob'), hasLength(1));
+    });
+
+    test(
+        'F14: incremental adopts a same-name unlinked local instead of '
+        'duplicating (converges with the file-import path)', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = FakeMemberRepository();
+      final frontRepo = FakeFrontingSessionRepository();
+      // A pre-existing unlinked local "Bob" (e.g. from a Simply Plural import).
+      await memberRepo.createMember(
+        domain.Member(
+          id: 'local-bob',
+          name: 'Bob',
+          createdAt: DateTime.utc(2026, 1, 1),
+        ),
+      );
+      final fakeClient = FakePluralKitClient()
+        ..membersToReturn = const [
+          PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+        ]
+        ..switchesToReturn = const [];
+      final service = _makeService(
+        fakeClient: fakeClient,
+        db: db,
+        memberRepo: memberRepo,
+        sessionRepo: frontRepo,
+      );
+
+      await service.setToken('valid-token');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+
+      // First sync stamps lastSyncDate; no PK "Bob" yet so local-bob is untouched.
+      await service.syncRecentData(direction: PkSyncDirection.pullOnly);
+      expect(
+        (await memberRepo.getMemberById('local-bob'))?.pluralkitUuid,
+        isNull,
+        reason: 'local Bob stays unlinked until a same-name PK member appears',
+      );
+
+      // PK adds "Bob" whose name matches the existing unlinked local.
+      fakeClient.membersToReturn = const [
+        PKMember(id: 'aaaaa', uuid: 'pk-alice', name: 'Alice'),
+        PKMember(id: 'bbbbb', uuid: 'pk-bob', name: 'Bob'),
+      ];
+
+      await service.syncRecentData(direction: PkSyncDirection.pullOnly);
+
+      final bobs = (await memberRepo.getAllMembers())
+          .where((m) => m.name == 'Bob')
+          .toList();
+      expect(bobs, hasLength(1),
+          reason: 'F14: adopts the unlinked local Bob — no duplicate');
+      expect(bobs.single.id, 'local-bob',
+          reason: 'the pre-existing local is adopted (same id both devices)');
+      expect(bobs.single.pluralkitUuid, 'pk-bob',
+          reason: 'now linked to the new PK identity');
+    });
+
     test('pull-capable first sync triggers performFullImport', () async {
       final db = _makeDb();
       addTearDown(db.close);

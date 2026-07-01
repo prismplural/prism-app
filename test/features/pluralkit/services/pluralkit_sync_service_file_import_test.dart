@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
@@ -188,5 +189,124 @@ void main() {
     final members = await db.membersDao.getAllMembers();
     expect(members, hasLength(1));
     expect(members.single.name, 'Bob');
+  });
+
+  // ---------------------------------------------------------------------------
+  // I1: file import dedups against unlinked same-name locals (the
+  // Simply-Plural-then-PK-file megasystem duplication path).
+  // ---------------------------------------------------------------------------
+
+  Future<void> seedLocal(
+    String id,
+    String name, {
+    String? pluralkitUuid,
+    bool ignored = false,
+  }) =>
+      memberRepo.createMember(
+        domain.Member(
+          id: id,
+          name: name,
+          createdAt: DateTime.utc(2026, 1, 1),
+          pluralkitUuid: pluralkitUuid,
+          pluralkitSyncIgnored: ignored,
+        ),
+      );
+
+  test('I1: links an unlinked same-name local instead of duplicating it',
+      () async {
+    await seedLocal('local-alice', 'Alice'); // e.g. from an SP import, no PK link
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [PKMember(id: 'aaaaa', uuid: 'u-alice', name: 'Alice')],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final members = await db.membersDao.getAllMembers();
+    expect(members, hasLength(1), reason: 'I1: no duplicate Alice created');
+    expect(members.single.id, 'local-alice',
+        reason: 'adopted the existing local row, not a fresh uuid');
+    expect(members.single.pluralkitUuid, 'u-alice',
+        reason: 'the local is now linked to the PK identity');
+  });
+
+  test('I1: matches case-insensitively when the exact case differs', () async {
+    await seedLocal('local-sam', 'sam');
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [PKMember(id: 'sssss', uuid: 'u-sam', name: 'Sam')],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final members = await db.membersDao.getAllMembers();
+    expect(members, hasLength(1));
+    expect(members.single.id, 'local-sam');
+    expect(members.single.pluralkitUuid, 'u-sam');
+  });
+
+  test('I1: an AMBIGUOUS same-name match is not auto-adopted — creates fresh',
+      () async {
+    await seedLocal('alex-1', 'Alex');
+    await seedLocal('alex-2', 'Alex');
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [PKMember(id: 'aaaaa', uuid: 'u-alex', name: 'Alex')],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final members = await db.membersDao.getAllMembers();
+    expect(members, hasLength(3),
+        reason: 'ambiguous → no guess; the PK member is a NEW row');
+    final linked = members.where((m) => m.pluralkitUuid == 'u-alex').toList();
+    expect(linked, hasLength(1));
+    expect(const ['alex-1', 'alex-2'], isNot(contains(linked.single.id)),
+        reason: 'neither existing Alex was arbitrarily linked');
+  });
+
+  test('I1: does not adopt a same-name local already linked to another PK id',
+      () async {
+    await seedLocal('linked-bob', 'Bob', pluralkitUuid: 'u-other');
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [PKMember(id: 'bbbbb', uuid: 'u-bob', name: 'Bob')],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final members = await db.membersDao.getAllMembers();
+    expect(members, hasLength(2),
+        reason: 'the PK-linked local is off-limits; PK Bob is a new row');
+    expect(members.firstWhere((m) => m.id == 'linked-bob').pluralkitUuid,
+        'u-other');
+    expect(members.where((m) => m.pluralkitUuid == 'u-bob'), hasLength(1));
+  });
+
+  test('I1: does not adopt a same-name local the user marked keep-local',
+      () async {
+    await seedLocal('ignored-cleo', 'Cleo', ignored: true);
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [PKMember(id: 'ccccc', uuid: 'u-cleo', name: 'Cleo')],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final members = await db.membersDao.getAllMembers();
+    expect(members, hasLength(2),
+        reason: 'a keep-local (ignored) member must not be silently re-linked');
+    expect(members.firstWhere((m) => m.id == 'ignored-cleo').pluralkitUuid,
+        isNull);
   });
 }

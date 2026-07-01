@@ -2,7 +2,18 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/utils/pk_link_utils.dart';
 
-enum PkMatchConfidence { exact, caseInsensitive, none }
+enum PkMatchConfidence {
+  exact,
+  caseInsensitive,
+
+  /// F13: the name matches more than one candidate on either side — no safe
+  /// automatic choice. Distinct from [none] so the caller defaults it to a user
+  /// decision rather than silently importing a duplicate.
+  ambiguous,
+
+  /// No candidate matched at all — safe to default to "import as new".
+  none,
+}
 
 class PkMatchSuggestion {
   final PKMember pkMember;
@@ -24,7 +35,8 @@ class PkMemberMatcher {
   /// Confidence:
   /// - `exact`: names match exactly (after trim), unique on both sides
   /// - `caseInsensitive`: names match case-insensitively (after trim), unique on both sides
-  /// - `none`: no match, or ambiguous (multiple candidates on either side)
+  /// - `ambiguous`: multiple candidates on either side — needs a user decision
+  /// - `none`: no candidate matched at all — safe to default to import-as-new
   ///
   /// Members already linked by either PK UUID or short ID are excluded from
   /// candidacy — they're considered already-mapped.
@@ -68,7 +80,7 @@ class PkMemberMatcher {
           PkMatchSuggestion(
             pkMember: pk,
             suggestedLocal: null,
-            confidence: PkMatchConfidence.none,
+            confidence: PkMatchConfidence.ambiguous,
           ),
         );
         continue;
@@ -90,7 +102,7 @@ class PkMemberMatcher {
           PkMatchSuggestion(
             pkMember: pk,
             suggestedLocal: null,
-            confidence: PkMatchConfidence.none,
+            confidence: PkMatchConfidence.ambiguous,
           ),
         );
         continue;
@@ -112,7 +124,7 @@ class PkMemberMatcher {
           PkMatchSuggestion(
             pkMember: pk,
             suggestedLocal: null,
-            confidence: PkMatchConfidence.none,
+            confidence: PkMatchConfidence.ambiguous,
           ),
         );
         continue;

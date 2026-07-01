@@ -347,6 +347,13 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
           pkMember: s.pkMember,
         );
         consumedLocalIds.add(s.suggestedLocal!.id);
+      } else if (s.confidence == PkMatchConfidence.ambiguous) {
+        // F13: a name matching more than one candidate has no safe automatic
+        // choice, so default to Skip rather than Import (which would duplicate an
+        // existing same-name person). The user picks Link/Import from the row.
+        pkDecisions[s.pkMember.uuid] = PkSkipDecision(
+          pkMemberUuid: s.pkMember.uuid,
+        );
       } else {
         pkDecisions[s.pkMember.uuid] = PkImportDecision(pkMember: s.pkMember);
       }

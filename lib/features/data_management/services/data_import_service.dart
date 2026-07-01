@@ -564,6 +564,23 @@ class DataImportService {
             if (m.pluralkitId != null && m.pluralkitId!.isNotEmpty)
               m.pluralkitId!,
         };
+        // F12: when an exported member is SKIPPED below because its PK identity
+        // already exists locally (under a DIFFERENT local id), any session that
+        // referenced the exported id would dangle — the import-path analogue of
+        // F1. Record export-id → existing-local-id and remap session member
+        // refs through it. The members uuid index covers tombstones, so each PK
+        // identity has exactly one holder — the map is unambiguous.
+        final localIdByPkUuid = <String, String>{
+          for (final m in allMemberRows)
+            if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty)
+              m.pluralkitUuid!: m.id,
+        };
+        final localIdByPkId = <String, String>{
+          for (final m in allMemberRows)
+            if (m.pluralkitId != null && m.pluralkitId!.isNotEmpty)
+              m.pluralkitId!: m.id,
+        };
+        final exportMemberIdToLocal = <String, String>{};
         // Members eligible for the second-pass parentSystemId update \u2014 only
         // active rows we either already had or just created. Tombstones are
         // excluded so the second pass can't accidentally revive a deletion.
@@ -579,6 +596,8 @@ class DataImportService {
           if (h.pluralkitUuid != null &&
               h.pluralkitUuid!.isNotEmpty &&
               existingMemberPkUuids.contains(h.pluralkitUuid)) {
+            final localId = localIdByPkUuid[h.pluralkitUuid!];
+            if (localId != null) exportMemberIdToLocal[h.id] = localId;
             debugPrint(
               '[Import] Skipped member ${h.id}: pluralkitUuid='
               '${h.pluralkitUuid} collides with an existing local member.',
@@ -588,6 +607,8 @@ class DataImportService {
           if (h.pluralkitId != null &&
               h.pluralkitId!.isNotEmpty &&
               existingMemberPkIds.contains(h.pluralkitId)) {
+            final localId = localIdByPkId[h.pluralkitId!];
+            if (localId != null) exportMemberIdToLocal[h.id] = localId;
             debugPrint(
               '[Import] Skipped member ${h.id}: pluralkitId=${h.pluralkitId} '
               'collides with an existing local member.',
@@ -839,7 +860,10 @@ class DataImportService {
           String contextTag,
         ) async {
           final normalized = normalizeMemberId(raw);
-          if (normalized != null) return normalized;
+          // F12: remap a skipped export member id onto its local holder (above).
+          if (normalized != null) {
+            return exportMemberIdToLocal[normalized] ?? normalized;
+          }
           final sentinelId = await ensureUnknownSentinel();
           debugPrint(
             '[Import][rescue] $contextTag routed to Unknown sentinel '
@@ -1128,8 +1152,13 @@ class DataImportService {
                 // we can't derive a stable id without it; counted as
                 // skipped per the existing PK short-id-without-mapping
                 // pattern.
+                // F12: remap a skipped export member id onto its local holder
+                // before deriving — otherwise _pkUuidForLocalMemberId can't find
+                // the (skipped) export id and the entire session is dropped.
+                final headmateLocalId =
+                    exportMemberIdToLocal[s.headmateId!] ?? s.headmateId!;
                 final memberPkUuid = await _pkUuidForLocalMemberId(
-                  s.headmateId!,
+                  headmateLocalId,
                 );
                 if (memberPkUuid == null) {
                   debugPrint(
@@ -1141,7 +1170,7 @@ class DataImportService {
                   legacyPkShortIdsSkipped++;
                   legacySessionParents[s.id] = _LegacyParentInfo(
                     sessionId: null,
-                    memberId: s.headmateId,
+                    memberId: headmateLocalId,
                     startTime: start,
                     endTime: end,
                   );
@@ -1155,19 +1184,17 @@ class DataImportService {
                   id: derivedId,
                   startTime: start,
                   endTime: end,
-                  memberId: s.headmateId,
+                  memberId: headmateLocalId,
                   notes: s.notes,
                   confidence: conf,
                   pluralkitUuid: s.pluralkitUuid,
                   sessionType: SessionType.normal,
                 );
                 if (created) frontSessionsCreated++;
-                if (s.headmateId != null) {
-                  legacyTouchedMemberIds.add(s.headmateId!);
-                }
+                legacyTouchedMemberIds.add(headmateLocalId);
                 legacySessionParents[s.id] = _LegacyParentInfo(
                   sessionId: derivedId,
-                  memberId: s.headmateId,
+                  memberId: headmateLocalId,
                   startTime: start,
                   endTime: end,
                 );

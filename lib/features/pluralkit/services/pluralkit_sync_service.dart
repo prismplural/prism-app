@@ -1668,6 +1668,10 @@ class PluralKitSyncService {
       await _importMembers(
         null,
         export.members,
+        // I1: file import skips the interactive mapping screen (the only place
+        // name-matching ran), so an unlinked same-name local would otherwise be
+        // duplicated. Match it here instead.
+        matchUnlinkedByName: true,
         onProgress: (current, total, name) {
           // Member import phase occupies 0.05 → 0.40 of the overall progress
           // bar for file imports. current=1 (i=0) maps to 0.05; current=total
@@ -1826,7 +1830,9 @@ class PluralKitSyncService {
       }
 
       progress(0.05, 'Importing ${export.members.length} members...');
-      await _importMembers(null, export.members);
+      // I1: file import path — name-match unlinked same-name locals (see the
+      // importFromFile call site).
+      await _importMembers(null, export.members, matchUnlinkedByName: true);
 
       // Local capture: `_groupsImporter` is mutable, so the null check no
       // longer type-promotes the field itself.
@@ -2104,6 +2110,36 @@ class PluralKitSyncService {
           for (final m in allMembers)
             if (hasPluralKitLink(m)) m.id: m.name,
         };
+
+        // F14: the bidirectional PUSH path counts a never-seen PK member as
+        // "pulled" but never creates it, so a member added on PK after setup
+        // silently never appeared until a manual full import. Create the unseen
+        // ones up front through the full importer, so the bidirectional pass
+        // below (which still reads the pre-create snapshot) treats them as pulled.
+        if (direction.pullEnabled) {
+          final linkedUuids = <String>{
+            for (final m in allMembers)
+              if (m.pluralkitUuid != null && m.pluralkitUuid!.trim().isNotEmpty)
+                m.pluralkitUuid!.trim(),
+          };
+          final linkedIds = <String>{
+            for (final m in allMembers)
+              if (m.pluralkitId != null && m.pluralkitId!.trim().isNotEmpty)
+                m.pluralkitId!.trim(),
+          };
+          final unseen = pkMembers
+              .where((pk) =>
+                  !linkedUuids.contains(pk.uuid.trim()) &&
+                  !linkedIds.contains(pk.id.trim()))
+              .toList();
+          if (unseen.isNotEmpty) {
+            // matchUnlinkedByName: an after-setup PK member skips the mapping
+            // screen, so dedup it against a same-name unlinked local here — so
+            // this device adopts the SAME shared local the file-import path (I1)
+            // adopts, instead of minting a random id that diverges cross-device.
+            await _importMembers(client, unseen, matchUnlinkedByName: true);
+          }
+        }
 
         final biService = PkBidirectionalService(
           bannerCacheService: _bannerCacheService,
@@ -3045,6 +3081,7 @@ class PluralKitSyncService {
     PluralKitClient? client,
     List<PKMember> pkMembers, {
     void Function(int current, int total, String memberName)? onProgress,
+    bool matchUnlinkedByName = false,
   }) async {
     final existing = await _memberRepository.getAllMembersIncludingDeleted();
     final skippedPkUuids = await _appliedPkSkipUuids();
@@ -3057,6 +3094,13 @@ class PluralKitSyncService {
     // from an interrupted push — adopt it rather than minting a local
     // duplicate. Mirrors the incremental adoption in PkBidirectionalService.
     final attemptedCreateByName = <String, domain.Member>{};
+    // I1 (file import only): active, unlinked, non-ignored locals with NO create
+    // lease — keyed by exact and lower-cased name for unique-match adoption. A
+    // lease-bearing local is F5's domain (attemptedCreateByName, above) — the
+    // `createPushStartedAt == null` filter keeps the two pools DISJOINT so the
+    // name gate never steps on F5's fresh-lease skip.
+    final unlinkedByExactName = <String, List<domain.Member>>{};
+    final unlinkedByLowerName = <String, List<domain.Member>>{};
     for (final m in existing) {
       final pkUuid = m.pluralkitUuid?.trim();
       if (pkUuid != null && pkUuid.isNotEmpty) {
@@ -3066,16 +3110,23 @@ class PluralKitSyncService {
       if (pkId != null && pkId.isNotEmpty) {
         byPkId[pkId] = m;
       }
-      if (!m.isDeleted &&
+      final unlinked = !m.isDeleted &&
           !m.pluralkitSyncIgnored &&
           (pkUuid == null || pkUuid.isEmpty) &&
-          (pkId == null || pkId.isEmpty) &&
-          m.createPushStartedAt != null) {
+          (pkId == null || pkId.isEmpty);
+      if (unlinked && m.createPushStartedAt != null) {
         // Exclude user-excluded ("keep local") members: adopting one would
         // re-link it AND force pluralkit_sync_ignored back to false, silently
         // undoing the user's choice. Mirrors the bidirectional path's guard.
         final name = m.name.trim();
         if (name.isNotEmpty) attemptedCreateByName[name] = m;
+      }
+      if (matchUnlinkedByName && unlinked && m.createPushStartedAt == null) {
+        final name = m.name.trim();
+        if (name.isNotEmpty) {
+          (unlinkedByExactName[name] ??= <domain.Member>[]).add(m);
+          (unlinkedByLowerName[name.toLowerCase()] ??= <domain.Member>[]).add(m);
+        }
       }
     }
     final nowMsForCreateLease = DateTime.now().millisecondsSinceEpoch;
@@ -3155,6 +3206,31 @@ class PluralKitSyncService {
           'because mapping marked this PK member as skipped.',
         );
         continue;
+      }
+      // I1: with no PK-identity match, a UNIQUE same-name unlinked local is
+      // almost certainly the same person under a non-PK row (Simply-Plural-then-
+      // PK-file). Adopt it via the update path below rather than duplicating.
+      // Ambiguous (>1) or no match falls through to create. Runs AFTER the
+      // skipped-uuid guard so a user-excluded PK member never adopts. File-import
+      // only; the token path name-matches via the mapping screen.
+      if (localMember == null && matchUnlinkedByName) {
+        final adopt = _uniqueUnlinkedNameMatch(
+          pk.name,
+          unlinkedByExactName,
+          unlinkedByLowerName,
+        );
+        if (adopt != null) {
+          _dropNameMatchCandidate(
+            adopt,
+            unlinkedByExactName,
+            unlinkedByLowerName,
+          );
+          localMember = adopt;
+          debugPrint(
+            '[PK_SVC] _importMembers: I1 name-adopted local ${adopt.id} '
+            '("${adopt.name}") for PK ${pk.name} (${pk.uuid}) — no duplicate.',
+          );
+        }
       }
 
       try {
@@ -3299,6 +3375,37 @@ class PluralKitSyncService {
       '[PK_SVC] _importMembers: done — created=$created updated=$updated '
       'skipped=$skipped failures=$failures (input=${pkMembers.length})',
     );
+  }
+
+  /// I1: the single unlinked local uniquely matching [pkName] (unique exact
+  /// name, else unique case-insensitive), or null. An ambiguous (>1 same-name)
+  /// match returns null so the caller creates fresh rather than guessing — the
+  /// F13 "needs a user decision" stance, applied silently (no UI on the file path).
+  static domain.Member? _uniqueUnlinkedNameMatch(
+    String pkName,
+    Map<String, List<domain.Member>> byExactName,
+    Map<String, List<domain.Member>> byLowerName,
+  ) {
+    final name = pkName.trim();
+    if (name.isEmpty) return null;
+    final exact = byExactName[name];
+    if (exact != null && exact.length == 1) return exact.first;
+    if (exact != null && exact.length > 1) return null;
+    final lower = byLowerName[name.toLowerCase()];
+    if (lower != null && lower.length == 1) return lower.first;
+    return null;
+  }
+
+  /// Remove an adopted candidate from both name pools so a later same-name PK
+  /// member can't adopt the (now-linked) same local twice.
+  static void _dropNameMatchCandidate(
+    domain.Member m,
+    Map<String, List<domain.Member>> byExactName,
+    Map<String, List<domain.Member>> byLowerName,
+  ) {
+    final name = m.name.trim();
+    byExactName[name]?.remove(m);
+    byLowerName[name.toLowerCase()]?.remove(m);
   }
 
   // -- Phase 4B: diff sweep -------------------------------------------------

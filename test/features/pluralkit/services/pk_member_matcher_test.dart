@@ -60,7 +60,7 @@ void main() {
     expect(suggestions.first.confidence, PkMatchConfidence.exact);
   });
 
-  test('multiple PK with same name → all none (ambiguous)', () {
+  test('multiple PK with same name → all ambiguous (F13)', () {
     final locals = [_local(id: 'l1', name: 'Alice')];
     final pk = [
       _pk(id: 'pk1', name: 'Alice'),
@@ -70,12 +70,12 @@ void main() {
     final suggestions = matcher.suggest(locals, pk);
     expect(suggestions, hasLength(2));
     for (final s in suggestions) {
-      expect(s.confidence, PkMatchConfidence.none);
+      expect(s.confidence, PkMatchConfidence.ambiguous);
       expect(s.suggestedLocal, isNull);
     }
   });
 
-  test('multiple locals with same name → none', () {
+  test('multiple locals with same name → ambiguous (F13)', () {
     final locals = [
       _local(id: 'l1', name: 'Alice'),
       _local(id: 'l2', name: 'Alice'),
@@ -83,7 +83,7 @@ void main() {
     final pk = [_pk(id: 'pk1', name: 'Alice')];
 
     final suggestions = matcher.suggest(locals, pk);
-    expect(suggestions.first.confidence, PkMatchConfidence.none);
+    expect(suggestions.first.confidence, PkMatchConfidence.ambiguous);
     expect(suggestions.first.suggestedLocal, isNull);
   });
 
@@ -138,11 +138,12 @@ void main() {
     expect(byPkId['pk2']!.confidence, PkMatchConfidence.caseInsensitive);
     expect(byPkId['pk2']!.suggestedLocal?.id, 'l2');
 
+    // Dave matches nothing → genuine no-candidate stays none.
     expect(byPkId['pk3']!.confidence, PkMatchConfidence.none);
 
     // Charlie is ambiguous on PK side.
-    expect(byPkId['pk4']!.confidence, PkMatchConfidence.none);
-    expect(byPkId['pk5']!.confidence, PkMatchConfidence.none);
+    expect(byPkId['pk4']!.confidence, PkMatchConfidence.ambiguous);
+    expect(byPkId['pk5']!.confidence, PkMatchConfidence.ambiguous);
   });
 
   test('empty inputs', () {

@@ -334,6 +334,18 @@ class SpMapper {
     Map<String, String> avatarUrls,
   ) {
     // Pre-assign Prism IDs so mention rewriting can resolve forward refs.
+    //
+    // F18 (deferred, audit 2026-06-27): unlike SP *sessions* (deterministic
+    // `_sessionIdMap[id] ?? deriveSpSessionId(id)`), members get a RANDOM
+    // `_newId()`, so two devices importing the same SP file before they sync
+    // mint different local ids and — having no pluralkit identity for the apply
+    // layer to merge on — produce duplicate members. The fix is to mirror
+    // sessions: `_memberIdMap[sp.id] ?? deriveSpMemberId(sp.id)` (a new v5
+    // namespace). Existing data is unaffected (sp_id_map reuse), and fresh
+    // concurrent imports would converge. Deferred here because it rewrites every
+    // member id in the byte-stable sp_import parity goldens for a LOW finding
+    // that only covers the fresh-both-devices case (a device that already
+    // imported still diverges). Track with the SP-import dedup effort.
     for (final sp in spMembers) {
       _memberIdMap[sp.id] = _memberIdMap[sp.id] ?? _newId();
     }
