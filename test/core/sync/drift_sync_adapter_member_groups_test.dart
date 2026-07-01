@@ -2448,6 +2448,184 @@ void main() {
       },
     );
   });
+
+  group('F8/F9/F11 group-entry apply hardening', () {
+    test(
+        'F9: a duplicate non-PK (group, member) edge under a different id '
+        'collapses instead of tripping the unique index', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+
+      await entriesEntity.applyFields('entry-A', {
+        'group_id': 'group-1',
+        'member_id': 'member-1',
+        'is_deleted': false,
+      });
+      // A second device adds the SAME (group, member) under a different id.
+      // Without the collapse this trips idx_member_group_entries_unique and
+      // poison-pills the op.
+      await entriesEntity.applyFields('entry-B', {
+        'group_id': 'group-1',
+        'member_id': 'member-1',
+        'is_deleted': false,
+      });
+
+      final active = await (db.select(db.memberGroupEntries)
+            ..where((t) =>
+                t.groupId.equals('group-1') &
+                t.memberId.equals('member-1') &
+                t.isDeleted.equals(false)))
+          .get();
+      expect(active, hasLength(1),
+          reason: 'F9: the duplicate edge collapses to one active row');
+    });
+
+    test(
+        'F9: the collapse resolver tolerates pre-existing duplicate active '
+        'edges (the missing entries-unique-index window)', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      // Recreate the window: drop the uniqueness index, then plant two ACTIVE
+      // duplicate edges (the apply path itself would collapse them, so insert
+      // directly).
+      await db.customStatement(
+          'DROP INDEX IF EXISTS idx_member_group_entries_unique');
+      for (final id in ['edge-a', 'edge-b']) {
+        await db.into(db.memberGroupEntries).insert(
+              MemberGroupEntriesCompanion.insert(
+                id: id,
+                groupId: 'group-1',
+                memberId: 'member-1',
+              ),
+            );
+      }
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      // A third op for the same edge must not throw a StateError via the
+      // collapse resolver; it folds onto the lowest-id active duplicate.
+      await entriesEntity.applyFields('edge-c', {
+        'group_id': 'group-1',
+        'member_id': 'member-1',
+        'is_deleted': false,
+      });
+
+      final activeIds = (await (db.select(db.memberGroupEntries)
+                ..where((t) =>
+                    t.groupId.equals('group-1') &
+                    t.memberId.equals('member-1') &
+                    t.isDeleted.equals(false)))
+              .get())
+          .map((r) => r.id)
+          .toSet();
+      expect(activeIds, isNot(contains('edge-c')),
+          reason: 'collapsed onto an existing active edge, not a new row');
+      expect(activeIds, contains('edge-a'),
+          reason: 'the lowest-id active duplicate is the collapse target');
+    });
+
+    test(
+        'F8: a duplicate active pluralkit_uuid does not poison-pill the '
+        'group-entry resolver', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+      final now = DateTime.utc(2026, 4, 18, 12);
+
+      // Recreate the duplicate-uuid window: drop the backstop index, then insert
+      // two ACTIVE members sharing one pluralkit_uuid.
+      await db
+          .customStatement('DROP INDEX IF EXISTS idx_members_pluralkit_uuid');
+      for (final id in ['member-a', 'member-b']) {
+        await db.into(db.members).insert(
+              MembersCompanion.insert(
+                id: id,
+                name: id,
+                createdAt: now,
+                pluralkitUuid: const Value('dup-uuid'),
+              ),
+            );
+      }
+      await db.into(db.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: 'group-local',
+              name: 'Core',
+              createdAt: now,
+              pluralkitUuid: const Value('pk-group-1'),
+            ),
+          );
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      // Must not throw a StateError (getSingleOrNull over two rows); resolves
+      // to the lowest-id active holder.
+      await entriesEntity.applyFields('entry-dup', {
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'dup-uuid',
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(db.memberGroupEntries)
+            ..where((t) => t.id.equals('entry-dup')))
+          .getSingleOrNull();
+      expect(row, isNotNull, reason: 'F8: the entry applied without a throw');
+      expect(row!.memberId, 'member-a', reason: 'lowest-id active holder');
+    });
+
+    test(
+        'F11: a group-entry prefers the ACTIVE holder over a soft-deleted '
+        'duplicate of the same pluralkit_uuid', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+      final now = DateTime.utc(2026, 4, 18, 12);
+
+      // Active and soft-deleted members sharing one uuid (the dup window).
+      await db
+          .customStatement('DROP INDEX IF EXISTS idx_members_pluralkit_uuid');
+      await db.into(db.members).insert(
+            MembersCompanion.insert(
+              id: 'aaa-deleted',
+              name: 'Gone',
+              createdAt: now,
+              pluralkitUuid: const Value('pk-member-1'),
+              isDeleted: const Value(true),
+            ),
+          );
+      await db.into(db.members).insert(
+            MembersCompanion.insert(
+              id: 'zzz-active',
+              name: 'Live',
+              createdAt: now,
+              pluralkitUuid: const Value('pk-member-1'),
+            ),
+          );
+      await db.into(db.memberGroups).insert(
+            MemberGroupsCompanion.insert(
+              id: 'group-local',
+              name: 'Core',
+              createdAt: now,
+              pluralkitUuid: const Value('pk-group-1'),
+            ),
+          );
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+      await entriesEntity.applyFields('entry-prefer-active', {
+        'pk_group_uuid': 'pk-group-1',
+        'pk_member_uuid': 'pk-member-1',
+        'is_deleted': false,
+      });
+
+      final row = await (db.select(db.memberGroupEntries)
+            ..where((t) => t.id.equals('entry-prefer-active')))
+          .getSingleOrNull();
+      expect(row, isNotNull);
+      // Lower id is 'aaa-deleted', but the active member must win.
+      expect(row!.memberId, 'zzz-active',
+          reason: 'F11: the membership attaches to the live member, not the '
+              'soft-deleted duplicate');
+    });
+  });
 }
 
 DriftSyncEntity _entityFor(AppDatabase db, String tableName) {

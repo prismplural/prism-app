@@ -1006,9 +1006,22 @@ Future<String?> _resolveLocalMemberIdByPkUuid(
   AppDatabase db,
   String pkMemberUuid,
 ) async {
-  final row = await (db.select(
-    db.members,
-  )..where((t) => t.pluralkitUuid.equals(pkMemberUuid))).getSingleOrNull();
+  // F8: order + limit(1), not getSingleOrNull — two rows transiently sharing a
+  // pluralkit_uuid (missing-index window) would throw and poison-pill every
+  // group-entry op for this member.
+  // F11: prefer an active holder (is_deleted asc) so the membership lands on the
+  // live member, not a soft-deleted duplicate; fall back to a deleted holder so
+  // a tombstone of a just-soft-deleted entry still resolves (else the delete
+  // strands). (is_deleted, id) order is stable across devices.
+  final row =
+      await (db.select(db.members)
+            ..where((t) => t.pluralkitUuid.equals(pkMemberUuid))
+            ..orderBy([
+              (t) => OrderingTerm.asc(t.isDeleted),
+              (t) => OrderingTerm.asc(t.id),
+            ])
+            ..limit(1))
+          .getSingleOrNull();
   return row?.id;
 }
 
@@ -1388,12 +1401,20 @@ Future<MemberGroupEntryRow?> _activeMemberGroupEntryByResolvedRefs(
   required String groupId,
   required String memberId,
 }) {
-  return (db.select(db.memberGroupEntries)..where(
-        (t) =>
-            t.groupId.equals(groupId) &
-            t.memberId.equals(memberId) &
-            t.isDeleted.equals(false),
-      ))
+  // order + limit(1), not bare getSingleOrNull: the ≤1-row guarantee rests on
+  // idx_member_group_entries_unique, which a renumbered/divergent DB can boot
+  // without (see F20 re-ensure), and two active duplicate edges would then throw
+  // and poison-pill the F8/F9 collapse. Lowest-id is stable; the collapse folds
+  // the other duplicate on the next op.
+  return (db.select(db.memberGroupEntries)
+        ..where(
+          (t) =>
+              t.groupId.equals(groupId) &
+              t.memberId.equals(memberId) &
+              t.isDeleted.equals(false),
+        )
+        ..orderBy([(t) => OrderingTerm.asc(t.id)])
+        ..limit(1))
       .getSingleOrNull();
 }
 
@@ -1602,6 +1623,21 @@ Future<bool> _applyMemberGroupEntryFields(
     }
     if (activeLogicalRow != null) {
       targetRowGeneration = activeLogicalRow.syncGeneration;
+    }
+  } else {
+    // F9: two devices can add the same non-PK (group, member) edge under
+    // different random ids. If an active row already holds this edge, redirect
+    // the write onto it so the partial unique index `(group_id, member_id) WHERE
+    // is_deleted = 0` isn't violated — an uncaught SQLITE_CONSTRAINT_UNIQUE would
+    // poison-pill the batch. Otherwise insert fresh under the incoming id.
+    final activeRow = await _activeMemberGroupEntryByResolvedRefs(
+      db,
+      groupId: resolvedGroupId,
+      memberId: resolvedMemberId,
+    );
+    if (activeRow != null && activeRow.id != targetId) {
+      targetId = activeRow.id;
+      targetRowGeneration = activeRow.syncGeneration;
     }
   }
 

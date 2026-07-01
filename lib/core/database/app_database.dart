@@ -179,6 +179,21 @@ class AppDatabase extends _$AppDatabase {
       // are missing. No-op for correctly-migrated and fresh databases.
       await _reconcileExpectedColumns();
       await _createFirstRenderIndexes();
+      // F20: re-ensure the PK uniqueness backstop indexes idempotently. A DB
+      // that reached currentSchemaVersion via renumbered migrations can have its
+      // columns healed but these indexes absent (migrations don't re-run when
+      // from == to), leaving the duplicate-uuid window open. Guarded: on a DB
+      // that ALREADY holds duplicate active rows the UNIQUE create throws — don't
+      // brick boot (the resolver tolerates transient duplicates); the index just
+      // stays absent until those rows are reconciled.
+      try {
+        await _createPkUniqueIndexes();
+      } catch (e) {
+        debugPrint(
+          '[DB] PK uniqueness index re-ensure skipped '
+          '(likely pre-existing duplicate): $e',
+        );
+      }
     },
   );
 
@@ -1502,17 +1517,18 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Members + member_groups indexes have the same shape from v2 onward, EXCEPT
   /// `idx_members_pluralkit_id`, which narrows to active-only (`is_deleted = 0`)
-  /// at v40 — short ids are user-recyclable under PK Premium, so a soft-deleted
-  /// tombstone retaining a recycled short id must not block a different live
-  /// member that now owns it. `idx_members_pluralkit_uuid` deliberately still
-  /// covers tombstones (uuid is stable identity; tombstone collision protection
-  /// is valuable and PK delete-push needs the linked uuid). The v39→v40
-  /// migration drops/recreates the short-id index into the active-only shape.
+  /// at v40 — short ids are user-recyclable, so a tombstone retaining a recycled
+  /// short id must not block a live member that now owns it. The uuid index still
+  /// covers tombstones (uuid is stable identity; PK delete-push needs it).
   /// Fronting-sessions indexes differ between v2 (single-column on `pluralkit_uuid`)
   /// and v7 (composite + orphan); each migration path or fresh-install call site
   /// adds the right fronting variant explicitly.  Putting fronting indexes in the
   /// shared helper would crash a v1→v7 upgrade with duplicate `(uuid, NULL)` rows
   /// at the v1→v2 step, before v6→v7 detect-and-refuse can run.
+  // Best-effort backstop, also re-run from beforeOpen (F20). `IF NOT EXISTS`
+  // skips by NAME, so this heals an ABSENT index but not a wrong-SHAPE one (a
+  // same-named covering index from a pre-narrowing branch persists); that
+  // residual is a recoverable constraint error, not data loss, so out of scope.
   Future<void> _createPkUniqueIndexes() async {
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_uuid '
@@ -1530,6 +1546,13 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_groups_pluralkit_id '
       'ON member_groups(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+    );
+    // The (group_id, member_id) edge uniqueness the apply-layer collapse relies
+    // on (idx_member_group_entries_unique) — re-ensured here so the F8/F9 entry
+    // resolvers keep their ≤1-row guarantee on a renumbered DB.
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_group_entries_unique '
+      'ON member_group_entries (group_id, member_id) WHERE is_deleted = 0',
     );
   }
 
