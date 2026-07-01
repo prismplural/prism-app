@@ -71,7 +71,10 @@ void main() {
 
     expect(find.byType(QrImageView), findsNothing);
     expect(find.text('Too large for a QR code'), findsOneWidget);
-    expect(find.text('Copy the text to import'), findsOneWidget);
+    expect(
+      find.textContaining('Copy the text to import', findRichText: true),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders in dark mode without error', (tester) async {
@@ -109,6 +112,32 @@ void main() {
     expect(qrEccForCodeLength(2954), isNull);
   });
 
+  testWidgets('dense QR codes keep enough pixels per module when exported', (
+    tester,
+  ) async {
+    final code = 'PF1:${List.filled(1180, 'A').join()}';
+    final ecc = qrEccForCodeLength(code.length);
+    expect(ecc, QrErrorCorrectLevel.H);
+    final qr = QrCode.fromData(data: code, errorCorrectLevel: ecc!);
+
+    await tester.pumpWidget(
+      host(
+        BrandedTemplateCard(
+          name: 'Dense template',
+          code: code,
+          fieldCount: 19,
+          typeLabels: const ['Slider'],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final view = tester.widget<QrImageView>(find.byType(QrImageView));
+    final qrPixelsAtDefaultExport =
+        (view.size! - view.padding.horizontal) * 3 / qr.moduleCount;
+    expect(qrPixelsAtDefaultExport, greaterThanOrEqualTo(5));
+  });
+
   testWidgets('captureBrandedTemplateCardPng embeds the code in the PNG', (
     tester,
   ) async {
@@ -128,95 +157,121 @@ void main() {
 
     Uint8List? png;
     await tester.runAsync(() async {
-      png = await captureBrandedTemplateCardPng(key, code: 'PF1:cap', pixelRatio: 1);
+      png = await captureBrandedTemplateCardPng(
+        key,
+        code: 'PF1:cap',
+        pixelRatio: 1,
+      );
     });
 
     expect(png, isNotNull);
     expect(readTemplateFromPng(png!), 'PF1:cap');
   });
 
-  testWidgets('image round-trip: a real template renders, reads back, and decodes intact', (
-    tester,
-  ) async {
-    // Build a real template (choice with colors + scale), encode it, render the
-    // card to a PNG, then read the embedded code back out and decode it — the
-    // full "share an image → import it" loop on genuinely rendered bytes.
-    final now = DateTime(2026, 1, 1);
-    CustomField field(
-      String id,
-      String name,
-      String typeId,
-      CustomFieldType type, {
-      String? parent,
-      CustomFieldTypeConfig? config,
-    }) => CustomField(
-      id: id,
-      name: name,
-      fieldType: type,
-      createdAt: now,
-      fieldTypeId: typeId,
-      parentFieldId: parent,
-      typeConfig: config,
-    );
+  testWidgets(
+    'image round-trip: a real template renders, reads back, and decodes intact',
+    (tester) async {
+      // Build a real template (choice with colors + scale), encode it, render the
+      // card to a PNG, then read the embedded code back out and decode it — the
+      // full "share an image → import it" loop on genuinely rendered bytes.
+      final now = DateTime(2026, 1, 1);
+      CustomField field(
+        String id,
+        String name,
+        String typeId,
+        CustomFieldType type, {
+        String? parent,
+        CustomFieldTypeConfig? config,
+      }) => CustomField(
+        id: id,
+        name: name,
+        fieldType: type,
+        createdAt: now,
+        fieldTypeId: typeId,
+        parentFieldId: parent,
+        typeConfig: config,
+      );
 
-    final template = FieldTemplate.fromDomain([
-      field('g', 'Stats', 'group', CustomFieldType.text,
-          config: const GroupConfig()),
-      field('c', 'Mood', 'choice', CustomFieldType.choice, parent: 'g',
-          config: const ChoiceConfig(options: [
-            ChoiceOption(id: 'o1', label: 'Happy', colorHex: '#ff0000'),
-            ChoiceOption(id: 'o2', label: 'Sad', colorHex: '#0000ff'),
-          ])),
-      field('s', 'Energy', 'scale', CustomFieldType.text, parent: 'g',
-          config: const ScaleConfig(emoji: '⚡', steps: 7)),
-    ]);
-    final code = const FieldTemplateCodec().encode(template);
-
-    final key = GlobalKey();
-    await tester.pumpWidget(
-      host(
-        BrandedTemplateCard(
-          boundaryKey: key,
-          name: 'Stats',
-          code: code,
-          fieldCount: 2,
-          typeLabels: const ['Choice', 'Rating'],
+      final template = FieldTemplate.fromDomain([
+        field(
+          'g',
+          'Stats',
+          'group',
+          CustomFieldType.text,
+          config: const GroupConfig(),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+        field(
+          'c',
+          'Mood',
+          'choice',
+          CustomFieldType.choice,
+          parent: 'g',
+          config: const ChoiceConfig(
+            options: [
+              ChoiceOption(id: 'o1', label: 'Happy', colorHex: '#ff0000'),
+              ChoiceOption(id: 'o2', label: 'Sad', colorHex: '#0000ff'),
+            ],
+          ),
+        ),
+        field(
+          's',
+          'Energy',
+          'scale',
+          CustomFieldType.text,
+          parent: 'g',
+          config: const ScaleConfig(emoji: '⚡', steps: 7),
+        ),
+      ]);
+      final code = const FieldTemplateCodec().encode(template);
 
-    Uint8List? png;
-    await tester.runAsync(() async {
-      png = await captureBrandedTemplateCardPng(key, code: code);
-    });
-    expect(png, isNotNull);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        host(
+          BrandedTemplateCard(
+            boundaryKey: key,
+            name: 'Stats',
+            code: code,
+            fieldCount: 2,
+            typeLabels: const ['Choice', 'Rating'],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    // Read the code back out of the rendered image bytes and decode it.
-    final recovered = readTemplateFromPng(png!);
-    expect(recovered, code);
-    final decoded = const FieldTemplateCodec().decode(recovered!);
+      Uint8List? png;
+      await tester.runAsync(() async {
+        png = await captureBrandedTemplateCardPng(key, code: code);
+      });
+      expect(png, isNotNull);
 
-    expect(
-      decoded.entries.map((e) => e.name).toList(),
-      ['Stats', 'Mood', 'Energy'],
-    );
-    expect(
-      decoded.entries.map((e) => e.fieldTypeId).toList(),
-      ['group', 'choice', 'scale'],
-    );
+      // Read the code back out of the rendered image bytes and decode it.
+      final recovered = readTemplateFromPng(png!);
+      expect(recovered, code);
+      final decoded = const FieldTemplateCodec().decode(recovered!);
 
-    // Restored configs survive the whole loop, not just the names.
-    final fields = decoded.toDomainFields();
-    final choice = fields.firstWhere((f) => f.fieldTypeId == 'choice');
-    final choiceConfig = choice.typeConfig as ChoiceConfig;
-    expect(
-      choiceConfig.options.map((o) => o.label).toList(),
-      ['Happy', 'Sad'],
-    );
-    expect(choiceConfig.options.first.colorHex, '#ff0000');
-    final scale = fields.firstWhere((f) => f.fieldTypeId == 'scale');
-    expect((scale.typeConfig as ScaleConfig).emoji, '⚡');
-    expect((scale.typeConfig as ScaleConfig).steps, 7);
-  });
+      expect(decoded.entries.map((e) => e.name).toList(), [
+        'Stats',
+        'Mood',
+        'Energy',
+      ]);
+      expect(decoded.entries.map((e) => e.fieldTypeId).toList(), [
+        'group',
+        'choice',
+        'scale',
+      ]);
+
+      // Restored configs survive the whole loop, not just the names.
+      final fields = decoded.toDomainFields();
+      final choice = fields.firstWhere((f) => f.fieldTypeId == 'choice');
+      final choiceConfig = choice.typeConfig as ChoiceConfig;
+      expect(choiceConfig.options.map((o) => o.label).toList(), [
+        'Happy',
+        'Sad',
+      ]);
+      expect(choiceConfig.options.first.colorHex, '#ff0000');
+      final scale = fields.firstWhere((f) => f.fieldTypeId == 'scale');
+      expect((scale.typeConfig as ScaleConfig).emoji, '⚡');
+      expect((scale.typeConfig as ScaleConfig).steps, 7);
+    },
+  );
 }

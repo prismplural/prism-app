@@ -11,7 +11,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Logical width of the rendered card. Fixed so the captured PNG is consistent
 /// regardless of the surrounding layout.
-const double _kCardWidth = 380;
+const double _kCardWidth = 640;
+const double _kQrImageSize = 340;
 
 const String _kLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
 
@@ -164,45 +165,20 @@ class BrandedTemplateCard extends StatelessWidget {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _MarkChip(color: c.brand),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'prismplural.com',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: c.brand,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              // No QR means scanning isn't possible — point at
-                              // the code text instead.
-                              ecc != null
-                                  ? l10n.fieldTemplateCardScanHint
-                                  : l10n.fieldTemplateCardCopyHint,
-                              style: TextStyle(fontSize: 12, color: c.muted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // The full code can't fit legibly on a fixed card, so it
-                      // isn't printed — the QR and the embedded tEXt chunk carry
-                      // it. When it's too long for a QR, say so.
-                      ecc != null
-                          ? _QrBox(code: code, ecc: ecc, name: name)
-                          : _NoQrNote(palette: c),
-                    ],
+                  const SizedBox(height: 28),
+                  // QR/metadata carry the code; oversized payloads fall back.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ecc != null
+                        ? _QrBox(code: code, ecc: ecc, name: name)
+                        : _NoQrNote(palette: c),
+                  ),
+                  const SizedBox(height: 18),
+                  _FooterLine(
+                    palette: c,
+                    hint: ecc != null
+                        ? l10n.fieldTemplateCardScanHint
+                        : l10n.fieldTemplateCardCopyHint,
                   ),
                 ],
               ),
@@ -268,21 +244,75 @@ class _TypeChip extends StatelessWidget {
 }
 
 class _MarkChip extends StatelessWidget {
-  const _MarkChip({required this.color});
+  const _MarkChip({
+    required this.color,
+    this.size = 40,
+    this.imageSize = 24,
+    this.borderRadius = 11,
+  });
 
   final Color color;
+  final double size;
+  final double imageSize;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
       alignment: Alignment.center,
-      child: Image.asset(_kLogoAsset, width: 24, height: 24),
+      child: Image.asset(_kLogoAsset, width: imageSize, height: imageSize),
+    );
+  }
+}
+
+class _FooterLine extends StatelessWidget {
+  const _FooterLine({required this.palette, required this.hint});
+
+  final _CardPalette palette;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _MarkChip(
+          color: palette.brand,
+          size: 26,
+          imageSize: 16,
+          borderRadius: 7,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: RichText(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              style: TextStyle(
+                fontFamily: DefaultTextStyle.of(context).style.fontFamily,
+                fontSize: 14,
+                height: 1.2,
+                color: palette.muted,
+              ),
+              children: [
+                TextSpan(
+                  text: 'prismplural.com',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: palette.brand,
+                  ),
+                ),
+                TextSpan(text: '  $hint'),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -309,7 +339,8 @@ class _QrBox extends StatelessWidget {
           data: code,
           version: QrVersions.auto,
           errorCorrectionLevel: ecc,
-          size: 122,
+          size: _kQrImageSize,
+          padding: const EdgeInsets.all(16),
           backgroundColor: Colors.white,
           // The card carries the mark beside the QR; an overlay would force
           // ECC-H and cost capacity, so the code stays unobstructed.
