@@ -3093,12 +3093,11 @@ class PluralKitSyncService {
     // import that isn't otherwise linked is very likely the orphaned create
     // from an interrupted push — adopt it rather than minting a local
     // duplicate. Mirrors the incremental adoption in PkBidirectionalService.
-    final attemptedCreateByName = <String, domain.Member>{};
-    // I1 (file import only): active, unlinked, non-ignored locals with NO create
-    // lease — keyed by exact and lower-cased name for unique-match adoption. A
-    // lease-bearing local is F5's domain (attemptedCreateByName, above) — the
-    // `createPushStartedAt == null` filter keeps the two pools DISJOINT so the
-    // name gate never steps on F5's fresh-lease skip.
+    final attemptedCreateByName = <String, List<domain.Member>>{};
+    // I1 (file import only): unlinked, non-ignored locals with NO create lease,
+    // keyed by exact and lower-cased name for unique-match adoption. The
+    // `createPushStartedAt == null` filter keeps this pool DISJOINT from F5's
+    // (attemptedCreateByName), so the name gate never steps on F5's lease skip.
     final unlinkedByExactName = <String, List<domain.Member>>{};
     final unlinkedByLowerName = <String, List<domain.Member>>{};
     for (final m in existing) {
@@ -3115,11 +3114,14 @@ class PluralKitSyncService {
           (pkUuid == null || pkUuid.isEmpty) &&
           (pkId == null || pkId.isEmpty);
       if (unlinked && m.createPushStartedAt != null) {
-        // Exclude user-excluded ("keep local") members: adopting one would
-        // re-link it AND force pluralkit_sync_ignored back to false, silently
-        // undoing the user's choice. Mirrors the bidirectional path's guard.
+        // (unlinked already excludes "keep local" members, so adopting can't
+        // silently undo pluralkit_sync_ignored.) A LIST, not last-write-wins:
+        // two same-name interrupted creates each deserve to adopt their orphan,
+        // else one strands as a dup.
         final name = m.name.trim();
-        if (name.isNotEmpty) attemptedCreateByName[name] = m;
+        if (name.isNotEmpty) {
+          (attemptedCreateByName[name] ??= <domain.Member>[]).add(m);
+        }
       }
       if (matchUnlinkedByName && unlinked && m.createPushStartedAt == null) {
         final name = m.name.trim();
@@ -3310,23 +3312,30 @@ class PluralKitSyncService {
           await _memberRepository.applyPluralKitLink(localMember.id, patch);
           updated++;
         } else {
-          // F5: adopt an orphaned create instead of duplicating it. A local
-          // member this fleet tried to create (create lease set) whose name
-          // matches this unlinked PK member is very likely the orphaned create
-          // from an interrupted push. A FRESH lease means a peer is mid-POST
-          // right now — skip (don't duplicate the in-flight create); a STALE
-          // lease means the prior attempt is abandoned — adopt the orphan.
-          final attempted = attemptedCreateByName[pk.name.trim()];
-          if (attempted != null) {
-            attemptedCreateByName.remove(pk.name.trim());
-            final leaseMs = attempted.createPushStartedAt;
-            final leaseFresh = leaseMs != null &&
-                (nowMsForCreateLease - leaseMs) <
-                    _createPushTakeoverThreshold.inMilliseconds;
-            if (leaseFresh) {
+          // F5: a same-name lease-bearing local is likely the orphaned create
+          // from an interrupted push — adopt it instead of duplicating (see the
+          // attemptedCreateByName pool above).
+          final attemptedList = attemptedCreateByName[pk.name.trim()];
+          if (attemptedList != null && attemptedList.isNotEmpty) {
+            // Prefer a STALE-lease candidate; a fresh lease means a peer is mid-
+            // POST right now. Pop the adopted one so a second same-name orphan
+            // adopts a different candidate rather than duplicating.
+            final staleIdx = attemptedList.indexWhere((m) {
+              final leaseMs = m.createPushStartedAt;
+              return leaseMs == null ||
+                  (nowMsForCreateLease - leaseMs) >=
+                      _createPushTakeoverThreshold.inMilliseconds;
+            });
+            if (staleIdx < 0) {
+              // Every candidate has a fresh lease (a peer is mid-POST). Consume
+              // one before skipping so a SECOND distinct same-name PK member
+              // still falls through to create rather than being skipped against
+              // the same already-claimed local.
+              attemptedList.removeAt(0);
               skipped++;
               continue;
             }
+            final attempted = attemptedList.removeAt(staleIdx);
             await _memberRepository.applyPluralKitLink(attempted.id, {
               'pluralkit_uuid': pk.uuid,
               'pluralkit_id': pk.id,

@@ -283,6 +283,17 @@ class PkBidirectionalService {
         final localName = local.name;
         // F4: stamp the synced lease BEFORE the POST so a peer syncing in this
         // window backs off and does not also mint a PK member.
+        //
+        // Deliberately re-stamps `now` on a retry (unlike the delete lease's
+        // stamp-if-null at _runSwitchDeletions): for CREATE the re-stamp IS the
+        // backoff — a stale-lease retry that re-POSTs gets a fresh 10-min window
+        // before the next attempt. Mirroring delete's stamp-if-null here would
+        // REMOVE that backoff (a stale lease would re-POST every sync), so the
+        // asymmetry is correct, not a livelock to "fix". The one genuine residual
+        // — repeated orphan creation when a POST succeeds, the link-back keeps
+        // failing, AND the local was renamed so _findAdoptableOrphan (exact-name)
+        // can't reclaim the orphan — needs a "this fleet already POSTed" signal
+        // distinct from the lease, not a lease-stamp tweak. Narrow; left as-is.
         await memberRepository.stampCreatePushStartedAt(
           local.id,
           now.millisecondsSinceEpoch,

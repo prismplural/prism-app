@@ -309,4 +309,82 @@ void main() {
     expect(members.firstWhere((m) => m.id == 'ignored-cleo').pluralkitUuid,
         isNull);
   });
+
+  test(
+      'F5: two same-name STALE-lease locals each adopt their own orphan '
+      '(no last-write-wins duplicate)', () async {
+    // Two interrupted create attempts for same-named members: both carry a
+    // stale create lease (2026-01-01 is far older than the 10-min takeover).
+    // A file import bringing both PK orphans must link BOTH locals — the old
+    // last-write-wins Map stranded one as a duplicate.
+    final staleLease = DateTime.utc(2026, 1, 1).millisecondsSinceEpoch;
+    for (final id in ['local-alex-1', 'local-alex-2']) {
+      await memberRepo.createMember(
+        domain.Member(
+          id: id,
+          name: 'Alex',
+          createdAt: DateTime.utc(2026, 1, 1),
+          createPushStartedAt: staleLease,
+        ),
+      );
+    }
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [
+        PKMember(id: 'a1111', uuid: 'pk-alex-1', name: 'Alex'),
+        PKMember(id: 'a2222', uuid: 'pk-alex-2', name: 'Alex'),
+      ],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final alexes = (await db.membersDao.getAllMembers())
+        .where((m) => m.name == 'Alex')
+        .toList();
+    expect(alexes, hasLength(2),
+        reason: 'F5: both locals adopted — no stranded duplicate minted');
+    expect(alexes.map((m) => m.id).toSet(), {'local-alex-1', 'local-alex-2'},
+        reason: 'the two pre-existing locals were adopted, not new rows');
+    expect(alexes.map((m) => m.pluralkitUuid).toSet(),
+        {'pk-alex-1', 'pk-alex-2'});
+  });
+
+  test(
+      'F5: an all-fresh same-name pool still lets a DISTINCT second PK member '
+      'be created (fresh candidate consumed on skip)', () async {
+    // One local "Alex" with a FRESH lease (a peer is mid-POST). Two DISTINCT PK
+    // "Alex" arrive: the first matches+skips (the peer's in-flight create), the
+    // second — a genuinely different member — must still be created, not
+    // skipped against the same already-claimed local.
+    final freshLease = DateTime.now().millisecondsSinceEpoch;
+    await memberRepo.createMember(
+      domain.Member(
+        id: 'local-alex',
+        name: 'Alex',
+        createdAt: DateTime.utc(2026, 1, 1),
+        createPushStartedAt: freshLease,
+      ),
+    );
+
+    const export = PkFileExport(
+      system: PKSystem(id: 'sys1'),
+      members: [
+        PKMember(id: 'a1111', uuid: 'pk-alex-1', name: 'Alex'),
+        PKMember(id: 'a2222', uuid: 'pk-alex-2', name: 'Alex'),
+      ],
+      groups: [],
+      switches: [],
+    );
+    await makeService().importFromFile(export);
+
+    final alexes = (await db.membersDao.getAllMembers())
+        .where((m) => m.name == 'Alex')
+        .toList();
+    expect(alexes, hasLength(2),
+        reason: 'the fresh local is skipped (claimed by the peer) but the '
+            'distinct second PK Alex is still created');
+    expect(alexes.where((m) => m.pluralkitUuid == 'pk-alex-2'), hasLength(1));
+  });
 }

@@ -679,6 +679,8 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<void> clearPluralKitLink(String id) async {
+    // Capture the identity BEFORE clearing so we can GC its inbound aliases.
+    final existing = await _dao.getMemberById(id);
     await runSyncedWrite(() async {
       await _dao.clearPluralKitLinkRaw(id);
       // Narrow update; the tombstone was already emitted.
@@ -686,6 +688,19 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
         'pluralkit_id': null,
         'pluralkit_uuid': null,
       });
+      // LOCAL-ONLY GC of inbound aliases that redirected onto this member's now-
+      // cleared PK identity (no sync emission). NOT the delete-path fan-out — an
+      // unlink must not tombstone the legacy ids, the member lives on.
+      // Keyed on uuid ONLY: short ids are user-reassignable under Premium, so a
+      // pluralkit_id match could purge a different live member's alias; members
+      // aliases never set member_id. A pk_id-only member is simply not GC'd.
+      final pkUuid = existing?.pluralkitUuid?.trim();
+      if (pkUuid != null && pkUuid.isNotEmpty) {
+        await _dao.attachedDatabase.pkIdentitySyncAliasesDao.deleteByIdentity(
+          _table,
+          pkUuid: pkUuid,
+        );
+      }
     });
   }
 
