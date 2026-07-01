@@ -28,6 +28,7 @@ import 'package:prism_plurality/features/members/views/member_custom_field_group
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/natural_text_sort.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
@@ -168,25 +169,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     // Read the display preference once for the alphabetical sorts below so the
     // comparators resolve effective names without per-row watches.
     final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
-    // Compares by effective name in [direction]; ties fall back to the
-    // canonical name then id (always ascending) so order is deterministic.
-    int compareByEffectiveName(Member a, Member b, {required int direction}) {
-      final byName =
-          direction *
-          a
-              .effectiveName(preferDisplayName: preferDisplayName)
-              .toLowerCase()
-              .compareTo(
-                b
-                    .effectiveName(preferDisplayName: preferDisplayName)
-                    .toLowerCase(),
-              );
-      if (byName != 0) return byName;
-      final byCanonical = a.name.compareTo(b.name);
-      if (byCanonical != 0) return byCanonical;
-      return a.id.compareTo(b.id);
-    }
-
     final entries = <Widget Function(BuildContext, VoidCallback)>[
       (ctx, close) {
         final theme = Theme.of(ctx);
@@ -266,9 +248,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           label: ctx.l10n.memberSortNameAZ,
           onTap: () {
             close();
-            _reorderBy(
+            _reorderByEffectiveName(
               availableMembers,
-              (a, b) => compareByEffectiveName(a, b, direction: 1),
+              preferDisplayName: preferDisplayName,
+              direction: 1,
             );
           },
         ),
@@ -278,9 +261,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           label: ctx.l10n.memberSortNameZA,
           onTap: () {
             close();
-            _reorderBy(
+            _reorderByEffectiveName(
               availableMembers,
-              (a, b) => compareByEffectiveName(a, b, direction: -1),
+              preferDisplayName: preferDisplayName,
+              direction: -1,
             );
           },
         ),
@@ -498,6 +482,30 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     int Function(Member a, Member b) compare,
   ) async {
     final sorted = [...members]..sort(compare);
+    _applySortedMembers(sorted);
+  }
+
+  Future<void> _reorderByEffectiveName(
+    List<Member> members, {
+    required bool preferDisplayName,
+    required int direction,
+  }) async {
+    final sorted = sortedByNaturalText<Member>(
+      members,
+      text: (member) =>
+          member.effectiveName(preferDisplayName: preferDisplayName),
+      id: (member) => member.id,
+      direction: direction,
+      tieBreak: (left, right) {
+        final byCanonical = compareNaturalText(left.name, right.name);
+        if (byCanonical != 0) return byCanonical;
+        return left.id.compareTo(right.id);
+      },
+    );
+    _applySortedMembers(sorted);
+  }
+
+  void _applySortedMembers(List<Member> sorted) {
     _setOptimisticMembers(sorted);
     unawaited(
       ref.read(membersNotifierProvider.notifier).reorderMembers(sorted),

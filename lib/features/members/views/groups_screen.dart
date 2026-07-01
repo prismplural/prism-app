@@ -32,6 +32,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/natural_text_sort.dart';
 import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -466,7 +467,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           unawaited(
             _reorderSiblingGroupsBy(
               groups,
-              (a, b) => _compareText(a.name, b.name, a.id, b.id),
+              (siblings) => sortedByNaturalText<MemberGroup>(
+                siblings,
+                text: (group) => group.name,
+                id: (group) => group.id,
+              ),
             ),
           );
         },
@@ -481,7 +486,12 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           unawaited(
             _reorderSiblingGroupsBy(
               groups,
-              (a, b) => _compareText(b.name, a.name, a.id, b.id),
+              (siblings) => sortedByNaturalText<MemberGroup>(
+                siblings,
+                text: (group) => group.name,
+                id: (group) => group.id,
+                direction: -1,
+              ),
             ),
           );
         },
@@ -494,11 +504,15 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         onTap: () {
           close();
           unawaited(
-            _reorderSiblingGroupsBy(groups, (a, b) {
-              final created = b.createdAt.compareTo(a.createdAt);
-              if (created != 0) return created;
-              return a.id.compareTo(b.id);
-            }),
+            _reorderSiblingGroupsBy(
+              groups,
+              (siblings) => [...siblings]
+                ..sort((a, b) {
+                  final created = b.createdAt.compareTo(a.createdAt);
+                  if (created != 0) return created;
+                  return a.id.compareTo(b.id);
+                }),
+            ),
           );
         },
       ),
@@ -544,12 +558,6 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     );
   }
 
-  int _compareText(String left, String right, String leftId, String rightId) {
-    final text = left.toLowerCase().compareTo(right.toLowerCase());
-    if (text != 0) return text;
-    return leftId.compareTo(rightId);
-  }
-
   bool _hasSortableSiblings(List<MemberGroup> groups) {
     final counts = <String?, int>{};
     for (final group in groups) {
@@ -562,7 +570,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   Future<void> _reorderSiblingGroupsBy(
     List<MemberGroup> groups,
-    int Function(MemberGroup a, MemberGroup b) compare,
+    List<MemberGroup> Function(List<MemberGroup> siblings) sortSiblings,
   ) async {
     final scope = await _resolveGroupSortScope(groups);
     if (scope == null) return;
@@ -579,7 +587,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       }
       final siblings = entry.value;
       if (siblings.length < 2) continue;
-      final sorted = [...siblings]..sort(compare);
+      final sorted = sortSiblings(siblings);
       await notifier.reorderGroups(sorted);
     }
 

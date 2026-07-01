@@ -101,10 +101,7 @@ void main() {
       expect(sections, hasLength(1));
       expect(sections.single.group.id, 'a');
       expect(sections.single.depth, 0);
-      expect(
-        list.whereType<MemberRowItem>().map((e) => e.member.id),
-        ['m1'],
-      );
+      expect(list.whereType<MemberRowItem>().map((e) => e.member.id), ['m1']);
     });
 
     test('cyclic tree map terminates (visitGroup cycle guard)', () {
@@ -1075,6 +1072,52 @@ void main() {
           'e1',
           'e2',
         ]);
+      },
+    );
+
+    test(
+      'nameAsc and nameDesc sort embedded numbers by numeric value',
+      () async {
+        final entries = [
+          entryWith(id: 'e100', groupId: 'g', memberId: 'm100'),
+          entryWith(id: 'e49', groupId: 'g', memberId: 'm49'),
+          entryWith(id: 'e2', groupId: 'g', memberId: 'm2'),
+          entryWith(id: 'e10', groupId: 'g', memberId: 'm10'),
+        ];
+        final members = [
+          memberWith(id: 'm100', name: 'Member 100'),
+          memberWith(id: 'm49', name: 'Member 49'),
+          memberWith(id: 'm2', name: 'Member 2'),
+          memberWith(id: 'm10', name: 'Member 10'),
+        ];
+
+        final cAsc = container(
+          group: groupWith(
+            id: 'g',
+            sortState: GroupSortState.locked(GroupSortMode.nameAsc),
+          ),
+          entries: entries,
+          members: members,
+        );
+        await pumpStreams(cAsc, 'g');
+        expect(
+          cAsc.read(sortedGroupMembersProvider('g')).map((p) => p.$2.name),
+          ['Member 2', 'Member 10', 'Member 49', 'Member 100'],
+        );
+
+        final cDesc = container(
+          group: groupWith(
+            id: 'g',
+            sortState: GroupSortState.locked(GroupSortMode.nameDesc),
+          ),
+          entries: entries,
+          members: members,
+        );
+        await pumpStreams(cDesc, 'g');
+        expect(
+          cDesc.read(sortedGroupMembersProvider('g')).map((p) => p.$2.name),
+          ['Member 100', 'Member 49', 'Member 10', 'Member 2'],
+        );
       },
     );
 

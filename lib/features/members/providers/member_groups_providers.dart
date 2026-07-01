@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/members/providers/members_batch_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/utils/natural_text_sort.dart';
 
 // ── Stream providers ──────────────────────────────────────────────────────────
 
@@ -308,20 +309,19 @@ List<(MemberGroupEntry, Member)> _sortGroupMemberPairs({
       return [...indexed, ...unindexed];
 
     case GroupSortMode.nameAsc:
-      pairs.sort((a, b) {
-        final cmp = a.$2.name.toLowerCase().compareTo(b.$2.name.toLowerCase());
-        if (cmp != 0) return cmp;
-        return a.$2.id.compareTo(b.$2.id);
-      });
-      return pairs;
+      return sortedByNaturalText<(MemberGroupEntry, Member)>(
+        pairs,
+        text: (pair) => pair.$2.name,
+        id: (pair) => pair.$2.id,
+      );
 
     case GroupSortMode.nameDesc:
-      pairs.sort((a, b) {
-        final cmp = b.$2.name.toLowerCase().compareTo(a.$2.name.toLowerCase());
-        if (cmp != 0) return cmp;
-        return a.$2.id.compareTo(b.$2.id);
-      });
-      return pairs;
+      return sortedByNaturalText<(MemberGroupEntry, Member)>(
+        pairs,
+        text: (pair) => pair.$2.name,
+        id: (pair) => pair.$2.id,
+        direction: -1,
+      );
 
     case GroupSortMode.recentDesc:
       pairs.sort((a, b) {

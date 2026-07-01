@@ -47,6 +47,7 @@ import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/natural_text_sort.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/features/members/providers/group_display_prefs_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -574,6 +575,23 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     int Function(MemberGroup a, MemberGroup b) compare,
   ) async {
     final sorted = [...subGroups]..sort(compare);
+    await _applySubGroupOrder(sorted);
+  }
+
+  Future<void> _sortSubGroupsNaturally(
+    List<MemberGroup> subGroups, {
+    required int direction,
+  }) async {
+    final sorted = sortedByNaturalText<MemberGroup>(
+      subGroups,
+      text: (group) => group.name,
+      id: (group) => group.id,
+      direction: direction,
+    );
+    await _applySubGroupOrder(sorted);
+  }
+
+  Future<void> _applySubGroupOrder(List<MemberGroup> sorted) async {
     await ref.read(groupNotifierProvider.notifier).reorderGroups(sorted);
     Haptics.selection();
     if (!mounted) return;
@@ -684,12 +702,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
               label: dialogContext.l10n.memberSortNameAZ,
               onTap: () {
                 Navigator.of(dialogContext).pop();
-                unawaited(
-                  _sortSubGroupsBy(
-                    subGroups,
-                    (a, b) => _compareText(a.name, b.name, a.id, b.id),
-                  ),
-                );
+                unawaited(_sortSubGroupsNaturally(subGroups, direction: 1));
               },
             ),
             _sortDialogRow(
@@ -698,12 +711,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
               label: dialogContext.l10n.memberSortNameZA,
               onTap: () {
                 Navigator.of(dialogContext).pop();
-                unawaited(
-                  _sortSubGroupsBy(
-                    subGroups,
-                    (a, b) => _compareText(b.name, a.name, a.id, b.id),
-                  ),
-                );
+                unawaited(_sortSubGroupsNaturally(subGroups, direction: -1));
               },
             ),
             _sortDialogRow(
@@ -921,12 +929,6 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         onSecondaryTap: () => _optionsPopupKey.currentState?.show(),
       ),
     );
-  }
-
-  int _compareText(String left, String right, String leftId, String rightId) {
-    final text = left.toLowerCase().compareTo(right.toLowerCase());
-    if (text != 0) return text;
-    return leftId.compareTo(rightId);
   }
 
   Widget _sectionHeader(BuildContext context, String label) {

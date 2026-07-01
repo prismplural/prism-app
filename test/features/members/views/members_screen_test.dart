@@ -47,10 +47,11 @@ Member _member(
   String id, {
   int displayOrder = 0,
   String? pronouns,
+  String? name,
   bool isActive = true,
 }) => Member(
   id: id,
-  name: 'Member $id',
+  name: name ?? 'Member $id',
   pronouns: pronouns,
   displayOrder: displayOrder,
   createdAt: DateTime(2024),
@@ -840,9 +841,14 @@ void main() {
     'members screen follows shared show-inactive state before grouped reorder',
     (tester) async {
       final membersNotifier = _FakeMembersNotifier();
-      final alice = _member('alice');
-      final bob = _member('bob', displayOrder: 2);
-      final inactive = _member('zara', displayOrder: 1, isActive: false);
+      final one = _member('one', name: 'Member 1');
+      final hundred = _member('hundred', displayOrder: 2, name: 'Member 100');
+      final inactive = _member(
+        'forty-nine',
+        displayOrder: 1,
+        name: 'Member 49',
+        isActive: false,
+      );
       final group = _group('crew', 'Crew');
 
       await tester.pumpWidget(
@@ -850,20 +856,20 @@ void main() {
           settings: const SystemSettings(
             membersListViewMode: MembersListViewMode.groupedSections,
           ),
-          members: [alice, inactive, bob],
+          members: [one, inactive, hundred],
           groups: [group],
           entries: const [
+            MemberGroupEntry(id: 'entry-one', groupId: 'crew', memberId: 'one'),
             MemberGroupEntry(
-              id: 'entry-alice',
+              id: 'entry-forty-nine',
               groupId: 'crew',
-              memberId: 'alice',
+              memberId: 'forty-nine',
             ),
             MemberGroupEntry(
-              id: 'entry-zara',
+              id: 'entry-hundred',
               groupId: 'crew',
-              memberId: 'zara',
+              memberId: 'hundred',
             ),
-            MemberGroupEntry(id: 'entry-bob', groupId: 'crew', memberId: 'bob'),
           ],
           membersNotifier: membersNotifier,
         ),
@@ -877,7 +883,7 @@ void main() {
       scope.read(showInactiveMembersProvider.notifier).set(true);
       await tester.pumpAndSettle();
 
-      expect(find.text('Member zara'), findsOneWidget);
+      expect(find.text('Member 49'), findsOneWidget);
 
       await tester.tap(find.byIcon(AppIcons.moreVert));
       await tester.pumpAndSettle();
@@ -888,7 +894,7 @@ void main() {
       expect(membersNotifier.reorderedSequences, hasLength(1));
       expect(
         membersNotifier.reorderedSequences.single.map((member) => member.id),
-        ['alice', 'bob', 'zara'],
+        ['one', 'forty-nine', 'hundred'],
       );
     },
   );
