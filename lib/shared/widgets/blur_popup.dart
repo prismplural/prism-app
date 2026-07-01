@@ -325,10 +325,9 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
             onLongPress: widget.trigger == BlurPopupTrigger.longPress
                 ? _handleLongPress
                 : null,
-            onSecondaryTapDown:
-                widget.trigger != BlurPopupTrigger.manual
-                    ? _handleSecondaryTapDown
-                    : null,
+            onSecondaryTapDown: widget.trigger != BlurPopupTrigger.manual
+                ? _handleSecondaryTapDown
+                : null,
             behavior: widget.trigger == BlurPopupTrigger.manual
                 ? null
                 : HitTestBehavior.opaque,
@@ -523,13 +522,15 @@ class _BlurPopupContent extends StatelessWidget {
 
     const gap = 8.0;
     const edgePadding = 12.0;
+    final availableWidth = math.max(0.0, visibleBounds.width - edgePadding * 2);
+    final effectiveWidth = math.min(width, availableWidth);
 
     // Horizontal: center on anchor, clamped to screen edges.
-    var left = anchorOffset.dx + (anchorSize.width / 2) - (width / 2);
+    var left = anchorOffset.dx + (anchorSize.width / 2) - (effectiveWidth / 2);
     left = _clampToRange(
       left,
       visibleBounds.left + edgePadding,
-      visibleBounds.right - width - edgePadding,
+      visibleBounds.right - effectiveWidth - edgePadding,
     );
 
     // Vertical position — use bottom-anchored positioning for "up" so the
@@ -568,7 +569,7 @@ class _BlurPopupContent extends StatelessWidget {
           left: left,
           top: top,
           bottom: bottom,
-          width: width,
+          width: effectiveWidth,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: effectiveMaxHeight),
             child: ClipRRect(

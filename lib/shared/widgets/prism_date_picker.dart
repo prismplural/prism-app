@@ -6,6 +6,11 @@ const double _pickerHorizontalMargin = 16;
 const double _pickerVerticalGap = 10;
 const double _estimatedPickerHeight = 380;
 
+double _clampToRange(double value, double lower, double upper) {
+  if (upper < lower) return lower;
+  return value.clamp(lower, upper).toDouble();
+}
+
 /// Shows a calendar dropdown anchored to the calling widget.
 ///
 /// Pass [anchorContext] from a [Builder] that wraps the trigger widget so the
@@ -156,21 +161,42 @@ class _AnchoredDatePickerRoute extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final screenSize = mediaQuery.size;
-    final safeArea = mediaQuery.padding;
-    final width = (screenSize.width - _pickerHorizontalMargin * 2).clamp(
-      0.0,
-      _pickerWidth,
+    final overlayRenderBox =
+        Overlay.maybeOf(context)?.context.findRenderObject() as RenderBox?;
+    final screenSize = overlayRenderBox?.size ?? mediaQuery.size;
+    final overlayOrigin = overlayRenderBox != null && overlayRenderBox.attached
+        ? overlayRenderBox.localToGlobal(Offset.zero)
+        : Offset.zero;
+    final view = View.of(context);
+    final viewSize = Size(
+      view.physicalSize.width / view.devicePixelRatio,
+      view.physicalSize.height / view.devicePixelRatio,
     );
-    final anchorRect = _anchorRect();
-    final topLimit = safeArea.top + _pickerHorizontalMargin;
-    final bottomLimit =
-        screenSize.height - safeArea.bottom - _pickerHorizontalMargin;
+    final safeBounds = _overlaySafeBounds(
+      overlaySize: screenSize,
+      overlayGlobalOrigin: overlayOrigin,
+      viewSize: viewSize,
+      safeArea: mediaQuery.padding,
+    );
+    final leftLimit = safeBounds.left + _pickerHorizontalMargin;
+    final rightLimit = (safeBounds.right - _pickerHorizontalMargin)
+        .clamp(leftLimit, double.infinity)
+        .toDouble();
+    final availableWidth = (rightLimit - leftLimit)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+    final width = availableWidth.clamp(0.0, _pickerWidth).toDouble();
+    final anchorRect = _anchorRect(overlayRenderBox);
+    final topLimit = safeBounds.top + _pickerHorizontalMargin;
+    final bottomLimit = (safeBounds.bottom - _pickerHorizontalMargin)
+        .clamp(topLimit, double.infinity)
+        .toDouble();
     final left = anchorRect == null
-        ? (screenSize.width - width) / 2
-        : (anchorRect.center.dx - width / 2).clamp(
-            _pickerHorizontalMargin + safeArea.left,
-            screenSize.width - width - _pickerHorizontalMargin - safeArea.right,
+        ? leftLimit + (availableWidth - width) / 2
+        : _clampToRange(
+            anchorRect.center.dx - width / 2,
+            leftLimit,
+            rightLimit - width,
           );
     final position = _positionPicker(
       anchorRect: anchorRect,
@@ -219,10 +245,36 @@ class _AnchoredDatePickerRoute extends StatelessWidget {
     );
   }
 
-  Rect? _anchorRect() {
+  Rect _overlaySafeBounds({
+    required Size overlaySize,
+    required Offset overlayGlobalOrigin,
+    required Size viewSize,
+    required EdgeInsets safeArea,
+  }) {
+    final overlayRect = overlayGlobalOrigin & overlaySize;
+    final safeRight = (viewSize.width - safeArea.right)
+        .clamp(safeArea.left, double.infinity)
+        .toDouble();
+    final safeBottom = (viewSize.height - safeArea.bottom)
+        .clamp(safeArea.top, double.infinity)
+        .toDouble();
+    final viewSafeRect = Rect.fromLTRB(
+      safeArea.left,
+      safeArea.top,
+      safeRight,
+      safeBottom,
+    );
+    final clipped = overlayRect.intersect(viewSafeRect);
+    if (clipped.isEmpty) return Offset.zero & overlaySize;
+    return clipped.shift(-overlayGlobalOrigin);
+  }
+
+  Rect? _anchorRect(RenderBox? overlayRenderBox) {
     final renderBox = anchorRenderBox;
     if (renderBox == null || !renderBox.hasSize) return null;
-    final origin = renderBox.localToGlobal(Offset.zero);
+    final origin = overlayRenderBox != null && overlayRenderBox.attached
+        ? renderBox.localToGlobal(Offset.zero, ancestor: overlayRenderBox)
+        : renderBox.localToGlobal(Offset.zero);
     return origin & renderBox.size;
   }
 

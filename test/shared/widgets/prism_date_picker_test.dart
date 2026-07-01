@@ -5,6 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 
 void main() {
+  Finder pickerViewport() => find
+      .ancestor(
+        of: find.byType(CalendarDatePicker).first,
+        matching: find.byType(SingleChildScrollView),
+      )
+      .first;
+
   testWidgets('clamps the initial date inside the picker bounds', (
     tester,
   ) async {
@@ -128,6 +135,150 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(pickerRect.bottom, lessThanOrEqualTo(568 - 16));
+  });
+
+  testWidgets('picker stays inside a nested wide-layout navigator', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const paneKey = Key('nested-date-picker-pane');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              key: paneKey,
+              width: 320,
+              height: 600,
+              child: Navigator(
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (context) => Scaffold(
+                    body: Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 120, right: 8),
+                        child: Builder(
+                          builder: (anchorContext) => TextButton(
+                            onPressed: () {
+                              unawaited(
+                                showPrismDatePicker(
+                                  context: context,
+                                  anchorContext: anchorContext,
+                                  initialDate: DateTime(2000, 12, 15),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime(2100),
+                                ),
+                              );
+                            },
+                            child: const Text('Open picker'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open picker'));
+    await tester.pumpAndSettle();
+
+    final pickerRect = tester.getRect(pickerViewport());
+    final paneRect = tester.getRect(find.byKey(paneKey));
+
+    expect(tester.takeException(), isNull);
+    expect(pickerRect.left, greaterThanOrEqualTo(paneRect.left + 16));
+    expect(pickerRect.right, lessThanOrEqualTo(paneRect.right - 16));
+    expect(pickerRect.top, greaterThanOrEqualTo(paneRect.top + 16));
+    expect(pickerRect.bottom, lessThanOrEqualTo(paneRect.bottom - 16));
+  });
+
+  testWidgets('nested picker ignores safe area insets outside its pane', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    const paneKey = Key('nested-date-picker-safe-area-pane');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(padding: const EdgeInsets.only(left: 44, bottom: 34)),
+            child: child!,
+          );
+        },
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              key: paneKey,
+              width: 320,
+              height: 500,
+              child: Navigator(
+                onGenerateRoute: (_) => MaterialPageRoute<void>(
+                  builder: (context) => Scaffold(
+                    body: Align(
+                      alignment: Alignment.topLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 120, left: 8),
+                        child: Builder(
+                          builder: (anchorContext) => TextButton(
+                            onPressed: () {
+                              unawaited(
+                                showPrismDatePicker(
+                                  context: context,
+                                  anchorContext: anchorContext,
+                                  initialDate: DateTime(2000, 12, 15),
+                                  firstDate: DateTime(1900),
+                                  lastDate: DateTime(2100),
+                                ),
+                              );
+                            },
+                            child: const Text('Open picker'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open picker'));
+    await tester.pumpAndSettle();
+
+    final pickerRect = tester.getRect(pickerViewport());
+    final paneRect = tester.getRect(find.byKey(paneKey));
+
+    expect(tester.takeException(), isNull);
+    expect(pickerRect.left, lessThanOrEqualTo(paneRect.left + 20));
+    expect(pickerRect.right, lessThanOrEqualTo(paneRect.right - 16));
+    expect(pickerRect.top, greaterThanOrEqualTo(paneRect.top + 16));
+    expect(pickerRect.bottom, lessThanOrEqualTo(paneRect.bottom - 16));
   });
 
   testWidgets('full date year navigation waits for day selection', (

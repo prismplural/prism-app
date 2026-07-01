@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -204,6 +203,45 @@ void main() {
     },
   );
 
+  testWidgets('BlurPopupAnchor shrinks oversized popups to window edges', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    const popupRowKey = Key('oversized-popup-row');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en'), Locale('es')],
+        home: Scaffold(
+          body: Center(
+            child: BlurPopupAnchor(
+              width: 500,
+              maxHeight: 200,
+              itemCount: 1,
+              itemBuilder: (context, index, close) => const SizedBox(
+                key: popupRowKey,
+                height: 44,
+                child: Center(child: Text('Popup item')),
+              ),
+              child: const Text('Anchor'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Anchor'));
+    await tester.pumpAndSettle();
+
+    final popupRect = tester.getRect(find.byKey(popupRowKey));
+
+    expect(popupRect.left, greaterThanOrEqualTo(12));
+    expect(popupRect.right, lessThanOrEqualTo(320 - 12));
+  });
+
   testWidgets('BlurPopupAnchor dismisses before route pop on system back', (
     tester,
   ) async {
@@ -398,9 +436,7 @@ void main() {
       expect(find.text('Popup item'), findsOneWidget);
     });
 
-    testWidgets('does NOT open popup on manual-trigger anchor', (
-      tester,
-    ) async {
+    testWidgets('does NOT open popup on manual-trigger anchor', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
