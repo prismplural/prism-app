@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 import '../../../helpers/bio_image_test_utils.dart';
 import '../../../helpers/fake_repositories.dart';
@@ -90,7 +91,120 @@ Widget _buildMemberEditor({
   );
 }
 
+Widget _buildMemberEditorSheetHost({required Member member}) {
+  final repo = FakeMemberRepository()..seed([member]);
+
+  return ProviderScope(
+    overrides: [
+      verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+      memberRepositoryProvider.overrideWithValue(repo),
+      frontingSessionRepositoryProvider.overrideWithValue(
+        FakeFrontingSessionRepository(),
+      ),
+      customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
+      memberCustomFieldValuesProvider.overrideWith(
+        (ref, memberId) => Stream<List<CustomFieldValue>>.value(const []),
+      ),
+      memberAvatarImageDataProvider.overrideWith(
+        (ref, memberId) => Stream.value(null),
+      ),
+      terminologySettingProvider.overrideWithValue((
+        term: SystemTerminology.members,
+        customSingular: null,
+        customPlural: null,
+        useEnglish: false,
+      )),
+      memberNamePreferDisplayProvider.overrideWithValue(false),
+      pluralKitSyncProvider.overrideWith(_DisconnectedPkNotifier.new),
+      pkSyncDirectionProvider.overrideWith(_PushDisabledNotifier.new),
+    ],
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () {
+              PrismSheet.showFullScreen<void>(
+                context: context,
+                builder: (context, scrollController) => AddEditMemberSheet(
+                  member: member,
+                  scrollController: scrollController,
+                ),
+              );
+            },
+            child: const Text('Open editor'),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
+  testWidgets(
+    'member editor sheet prompts when swipe-dismissed after form scrolling',
+    (tester) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(390, 800);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final member = Member(
+        id: 'member-1',
+        name: 'Aster',
+        createdAt: DateTime(2026, 1, 1),
+      );
+
+      await tester.pumpWidget(_buildMemberEditorSheetHost(member: member));
+      await tester.pump();
+
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Name *'), findsOneWidget);
+
+      await tester.enterText(find.byType(EditableText).first, 'Edited Aster');
+      await tester.pump();
+
+      Future<void> dragScrolledSheetAway() async {
+        await tester.dragFrom(const Offset(195, 280), const Offset(0, 140));
+        await tester.pump(const Duration(milliseconds: 250));
+
+        await tester.drag(
+          find.byKey(const PageStorageKey<String>('member-edit-main')),
+          const Offset(0, -520),
+        );
+        await tester.pump();
+
+        await tester.dragFrom(const Offset(195, 720), const Offset(0, 760));
+        await tester.pumpAndSettle();
+      }
+
+      await dragScrolledSheetAway();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(find.text('Edited Aster'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(find.text('Edited Aster'), findsOneWidget);
+
+      await dragScrolledSheetAway();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+      expect(find.text('Edited Aster'), findsOneWidget);
+
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edited Aster'), findsNothing);
+    },
+  );
+
   testWidgets(
     'member editor defers custom field value stream until the custom field view opens',
     (tester) async {

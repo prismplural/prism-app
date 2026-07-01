@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -386,6 +388,7 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
   bool _popping = false;
 
   static const double _kDragDismissThreshold = 0.3;
+  static const double _kDragDismissTolerance = 0.001;
 
   @override
   void initState() {
@@ -396,9 +399,8 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
   }
 
   void _onSizeChanged() {
-    // Keep top-edge overscroll below the dismiss line; snapSizes returns
-    // shallow dips to full height on release.
-    if (!_popping && _controller.size < _kDragDismissThreshold) {
+    if (!_popping &&
+        _controller.size <= _kDragDismissThreshold + _kDragDismissTolerance) {
       _popping = true;
       _tryDismissFromDrag();
     }
@@ -406,11 +408,15 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
 
   Future<void> _tryDismissFromDrag() async {
     if (widget.dismissController.hasUnsavedChanges) {
-      await _restoreSheet();
+      _restoreSheet();
       if (!mounted) return;
       final shouldDiscard = await widget.dismissController
           .confirmDiscardIfNeeded();
-      if (shouldDiscard && mounted) Navigator.of(context).pop();
+      if (shouldDiscard && mounted) {
+        Navigator.of(context).pop();
+      } else if (mounted) {
+        _restoreSheet();
+      }
       if (mounted) _popping = false;
       return;
     }
@@ -418,12 +424,14 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
     Navigator.of(context).pop();
   }
 
-  Future<void> _restoreSheet() async {
+  void _restoreSheet() {
     if (_controller.isAttached) {
-      await _controller.animateTo(
-        1.0,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
+      unawaited(
+        _controller.animateTo(
+          1.0,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        ),
       );
     }
   }
@@ -440,7 +448,7 @@ class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
     return DraggableScrollableSheet(
       controller: _controller,
       initialChildSize: 1.0,
-      minChildSize: widget.isDismissible ? 0.0 : 1.0,
+      minChildSize: widget.isDismissible ? _kDragDismissThreshold : 1.0,
       maxChildSize: 1.0,
       expand: false,
       snap: true,

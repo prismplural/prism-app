@@ -824,6 +824,98 @@ void main() {
       expect(find.text('Dirty full sheet'), findsOneWidget);
       expect(find.text('Swipe content'), findsOneWidget);
       expect(find.text('Discard changes?'), findsNothing);
+
+      await tester.drag(find.text('Swipe content'), const Offset(0, 700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dirty full sheet'), findsNothing);
+      expect(find.text('Swipe content'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'dirty full-screen sheets restore after canceling a held drag dismissal',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  onPressed: () {
+                    PrismSheet.showFullScreen<void>(
+                      context: context,
+                      builder: (context, scrollController) =>
+                          UnsavedChangesGuard<void>(
+                            hasUnsavedChanges: true,
+                            child: Column(
+                              children: [
+                                const PrismSheetTopBar(
+                                  title: 'Held dirty sheet',
+                                ),
+                                Expanded(
+                                  child: ListView(
+                                    controller: scrollController,
+                                    children: const [
+                                      SizedBox(
+                                        height: 900,
+                                        child: Center(
+                                          child: Text('Held drag content'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      final fullHeightTitleTop = tester
+          .getTopLeft(find.text('Held dirty sheet'))
+          .dy;
+
+      final drag = await tester.startGesture(const Offset(400, 500));
+      await drag.moveBy(const Offset(0, 520));
+      await tester.pump(const Duration(milliseconds: 250));
+      await drag.up();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Held dirty sheet')).dy,
+        lessThan(fullHeightTitleTop + 48),
+      );
+
+      await tester.drag(find.text('Held drag content'), const Offset(0, 700));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Discard changes?'), findsOneWidget);
+
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Held dirty sheet'), findsNothing);
     },
   );
 
