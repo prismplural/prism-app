@@ -20,6 +20,7 @@ const _allowedMimeTypes = {
   'image/jpeg',
   'image/png',
   'image/webp',
+  'image/avif',
   'image/heic',
   'image/heif',
   // GIF is a raster format (the SVG/XML magic-byte check below still guards
@@ -71,7 +72,7 @@ String normalizeImageUrl(String raw) {
 }
 
 /// Returns `true` if [data]'s leading bytes match a supported raster image
-/// magic number (JPEG, PNG, GIF, WebP, HEIC/HEIF). Used as a fallback when a
+/// magic number (JPEG, PNG, GIF, WebP, AVIF, HEIC/HEIF). Used as a fallback when a
 /// host serves a valid image under a wrong/absent `Content-Type` such as
 /// `application/octet-stream` or the non-standard `image/jpg`.
 bool _looksLikeRasterImage(Uint8List d) {
@@ -91,11 +92,7 @@ bool _looksLikeRasterImage(Uint8List d) {
     return true;
   }
   // GIF: "GIF8"
-  if (n >= 4 &&
-      d[0] == 0x47 &&
-      d[1] == 0x49 &&
-      d[2] == 0x46 &&
-      d[3] == 0x38) {
+  if (n >= 4 && d[0] == 0x47 && d[1] == 0x49 && d[2] == 0x46 && d[3] == 0x38) {
     return true;
   }
   // WebP: "RIFF" .... "WEBP"
@@ -110,13 +107,10 @@ bool _looksLikeRasterImage(Uint8List d) {
       d[11] == 0x50) {
     return true;
   }
-  // HEIC/HEIF (ISO-BMFF): bytes 4..7 == "ftyp", brand at 8..11 in a known set.
-  if (n >= 12 &&
-      d[4] == 0x66 &&
-      d[5] == 0x74 &&
-      d[6] == 0x79 &&
-      d[7] == 0x70) {
+  // AVIF/HEIC/HEIF (ISO-BMFF): bytes 4..7 == "ftyp", brand at 8..11 in a known set.
+  if (n >= 12 && d[4] == 0x66 && d[5] == 0x74 && d[6] == 0x79 && d[7] == 0x70) {
     const heifBrands = {
+      'avif',
       'heic',
       'heix',
       'hevc',
@@ -467,7 +461,8 @@ bool _looksLikeMarkup(Uint8List data) {
   while (i < data.length) {
     final b = data[i];
     // ASCII whitespace: space, tab, LF, CR, FF, VT.
-    final isWs = b == 0x20 ||
+    final isWs =
+        b == 0x20 ||
         b == 0x09 ||
         b == 0x0A ||
         b == 0x0D ||
@@ -524,7 +519,8 @@ Future<Uint8List?> fetchRemoteImageBytes(
 /// extra page fetch + parse is worth it. Bulk callers (avatar / bio import) must
 /// not pay that cost (or take on the adversarial-HTML parse surface) for every
 /// failed URL, so they keep the default.
-Future<({Uint8List? bytes, RemoteImageFetchError? error})> fetchRemoteImageResult(
+Future<({Uint8List? bytes, RemoteImageFetchError? error})>
+fetchRemoteImageResult(
   String url, {
   http.Client? client,
   Duration timeout = const Duration(seconds: 10),
@@ -558,16 +554,17 @@ Future<({Uint8List? bytes, RemoteImageFetchError? error})> fetchRemoteImageResul
 
     // Link-preview fallback: the URL was a web page, not a direct image. Pull
     // its og:image and fetch THAT through the same guards (one hop only).
-    if (followLinkPreview &&
-        direct.error == RemoteImageFetchError.notAnImage) {
+    if (followLinkPreview && direct.error == RemoteImageFetchError.notAnImage) {
       final previewUri = await _resolveLinkPreviewImage(
         uri,
         client: effective,
         timeout: timeout,
       );
       if (previewUri != null) {
-        _log('following og:image "${previewUri.host}" from page '
-            '"${uri.host}"');
+        _log(
+          'following og:image "${previewUri.host}" from page '
+          '"${uri.host}"',
+        );
         final viaPreview = await _runImageAttempts(
           previewUri,
           client: effective,
@@ -762,8 +759,13 @@ Future<({String html, Uri finalUri})?> _fetchTextHead(
         if (bytes.length >= maxBytes) break; // the <head> is all we need
       }
       if (bytes.isEmpty) return null;
-      final slice = bytes.length > maxBytes ? bytes.sublist(0, maxBytes) : bytes;
-      return (html: utf8.decode(slice, allowMalformed: true), finalUri: currentUri);
+      final slice = bytes.length > maxBytes
+          ? bytes.sublist(0, maxBytes)
+          : bytes;
+      return (
+        html: utf8.decode(slice, allowMalformed: true),
+        finalUri: currentUri,
+      );
     }
     return null;
   } on TimeoutException {
@@ -807,7 +809,8 @@ String? _extractPreviewImageUrl(String html) {
     final tag = m.group(0)!;
     final prop = propAttr.firstMatch(tag)?.group(1)?.trim().toLowerCase();
     if (prop == null) continue;
-    final isOg = prop == 'og:image' ||
+    final isOg =
+        prop == 'og:image' ||
         prop == 'og:image:url' ||
         prop == 'og:image:secure_url';
     final isTwitter = prop == 'twitter:image' || prop == 'twitter:image:src';
@@ -829,7 +832,8 @@ String? _extractPreviewImageUrl(String html) {
   );
   for (final m in linkTag.allMatches(region)) {
     final tag = m.group(0)!;
-    if (relAttr.firstMatch(tag)?.group(1)?.trim().toLowerCase() != 'image_src') {
+    if (relAttr.firstMatch(tag)?.group(1)?.trim().toLowerCase() !=
+        'image_src') {
       continue;
     }
     final href = hrefAttr.firstMatch(tag)?.group(1)?.trim();
@@ -941,8 +945,10 @@ _fetchRemoteImageBytesOnce(
         int.tryParse(response.headers['content-length'] ?? '');
     if (contentLength != null && contentLength > maxBytes) {
       response.stream.drain<void>().ignore();
-      _log('declared length $contentLength exceeds $maxBytes for '
-          '"${currentUri.host}"');
+      _log(
+        'declared length $contentLength exceeds $maxBytes for '
+        '"${currentUri.host}"',
+      );
       return _miss(RemoteImageFetchError.tooLarge);
     }
 
@@ -964,14 +970,18 @@ _fetchRemoteImageBytesOnce(
         final probe = _assembleProbe(chunks);
         // Reject SVG/XML/HTML even under a trusted image/* type.
         if (_looksLikeMarkup(probe)) {
-          _log('content sniffed as markup (SVG/XML/HTML) for '
-              '"${currentUri.host}"');
+          _log(
+            'content sniffed as markup (SVG/XML/HTML) for '
+            '"${currentUri.host}"',
+          );
           return _miss(RemoteImageFetchError.notAnImage);
         }
         // Untrusted type: require the bytes to actually be a known raster image.
         if (!contentTypeTrusted && !_looksLikeRasterImage(probe)) {
-          _log('content-type "$mimeType" not an image and bytes do not sniff '
-              'as one for "${currentUri.host}"');
+          _log(
+            'content-type "$mimeType" not an image and bytes do not sniff '
+            'as one for "${currentUri.host}"',
+          );
           return _miss(RemoteImageFetchError.notAnImage);
         }
       }

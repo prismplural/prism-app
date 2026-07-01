@@ -28,6 +28,60 @@ void main() {
       expect(bytes, body);
     });
 
+    test('returns bytes for AVIF image responses', () async {
+      final body = _avifHeader();
+      final client = MockClient((request) async {
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'image/avif'},
+        );
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/banner.avif',
+        client: client,
+      );
+
+      expect(bytes, body);
+    });
+
+    test('sniffs AVIF bytes when content type is generic', () async {
+      final body = _avifHeader();
+      final client = MockClient((request) async {
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'application/octet-stream'},
+        );
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/banner',
+        client: client,
+      );
+
+      expect(bytes, body);
+    });
+
+    test('does not sniff animated AVIF as a supported still image', () async {
+      final body = _avisHeader();
+      final client = MockClient((request) async {
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'application/octet-stream'},
+        );
+      });
+
+      final bytes = await fetchRemoteImageBytes(
+        'https://example.com/banner',
+        client: client,
+      );
+
+      expect(bytes, isNull);
+    });
+
     test('returns null for non-image MIME types', () async {
       final client = MockClient((request) async {
         return http.Response.bytes(
@@ -247,11 +301,19 @@ void main() {
         normalizeImageUrl('  files.catbox.moe/abc.png  '),
         'https://files.catbox.moe/abc.png',
       );
-      expect(normalizeImageUrl('//cdn.example.com/a.png'),
-          'https://cdn.example.com/a.png');
+      expect(
+        normalizeImageUrl('//cdn.example.com/a.png'),
+        'https://cdn.example.com/a.png',
+      );
       // Already-schemed URLs are left untouched (so http:// can be rejected).
-      expect(normalizeImageUrl('https://example.com/a.png'), 'https://example.com/a.png');
-      expect(normalizeImageUrl('http://example.com/a.png'), 'http://example.com/a.png');
+      expect(
+        normalizeImageUrl('https://example.com/a.png'),
+        'https://example.com/a.png',
+      );
+      expect(
+        normalizeImageUrl('http://example.com/a.png'),
+        'http://example.com/a.png',
+      );
       expect(normalizeImageUrl(''), '');
     });
 
@@ -260,8 +322,11 @@ void main() {
       Uri? seen;
       final client = MockClient((request) async {
         seen = request.url;
-        return http.Response.bytes(body, 200,
-            headers: {'content-type': 'image/png'});
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'image/png'},
+        );
       });
 
       final bytes = await fetchRemoteImageBytes(
@@ -278,8 +343,11 @@ void main() {
     test('accepts a real image served as application/octet-stream', () async {
       final body = _png([9, 9, 9, 9]);
       final client = MockClient((request) async {
-        return http.Response.bytes(body, 200,
-            headers: {'content-type': 'application/octet-stream'});
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'application/octet-stream'},
+        );
       });
 
       final bytes = await fetchRemoteImageBytes(
@@ -293,12 +361,18 @@ void main() {
     test('accepts a JPEG served as the non-standard image/jpg', () async {
       final body = _jpeg([4, 5, 6]);
       final client = MockClient((request) async {
-        return http.Response.bytes(body, 200,
-            headers: {'content-type': 'image/jpg'});
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'image/jpg'},
+        );
       });
 
       expect(
-        await fetchRemoteImageBytes('https://example.com/p.jpg', client: client),
+        await fetchRemoteImageBytes(
+          'https://example.com/p.jpg',
+          client: client,
+        ),
         body,
       );
     });
@@ -306,12 +380,18 @@ void main() {
     test('accepts a real image even when labeled text/html', () async {
       final body = _png([1]);
       final client = MockClient((request) async {
-        return http.Response.bytes(body, 200,
-            headers: {'content-type': 'text/html'});
+        return http.Response.bytes(
+          body,
+          200,
+          headers: {'content-type': 'text/html'},
+        );
       });
 
       expect(
-        await fetchRemoteImageBytes('https://example.com/weird', client: client),
+        await fetchRemoteImageBytes(
+          'https://example.com/weird',
+          client: client,
+        ),
         body,
       );
     });
@@ -338,8 +418,11 @@ void main() {
     // ── Distinct failure reasons drive the UI message ───────────────────────
     test('reports notAnImage for a web page (text/html)', () async {
       final client = MockClient((request) async {
-        return http.Response('<!doctype html><html></html>', 200,
-            headers: {'content-type': 'text/html'});
+        return http.Response(
+          '<!doctype html><html></html>',
+          200,
+          headers: {'content-type': 'text/html'},
+        );
       });
 
       final result = await fetchRemoteImageResult(
@@ -363,7 +446,9 @@ void main() {
       final client = _StreamingClient(
         statusCode: 200,
         headers: {'content-type': 'image/jpeg', 'content-length': '2048'},
-        chunks: [Uint8List.fromList([1])],
+        chunks: [
+          Uint8List.fromList([1]),
+        ],
       );
       final result = await fetchRemoteImageResult(
         'https://example.com/big.jpg',
@@ -408,8 +493,11 @@ void main() {
             );
           case '/real.png':
             imageHits++;
-            return http.Response.bytes(image, 200,
-                headers: {'content-type': 'image/png'});
+            return http.Response.bytes(
+              image,
+              200,
+              headers: {'content-type': 'image/png'},
+            );
         }
         return http.Response('nope', 404);
       });
@@ -435,8 +523,11 @@ void main() {
             headers: {'content-type': 'text/html'},
           );
         }
-        return http.Response.bytes(image, 200,
-            headers: {'content-type': 'image/jpeg'});
+        return http.Response.bytes(
+          image,
+          200,
+          headers: {'content-type': 'image/jpeg'},
+        );
       });
 
       final result = await fetchRemoteImageResult(
@@ -459,8 +550,11 @@ void main() {
           );
         }
         imageReq = request.url;
-        return http.Response.bytes(image, 200,
-            headers: {'content-type': 'image/png'});
+        return http.Response.bytes(
+          image,
+          200,
+          headers: {'content-type': 'image/png'},
+        );
       });
 
       final result = await fetchRemoteImageResult(
@@ -505,8 +599,11 @@ void main() {
           );
         }
         imageHits++;
-        return http.Response.bytes(_png([1]), 200,
-            headers: {'content-type': 'image/png'});
+        return http.Response.bytes(
+          _png([1]),
+          200,
+          headers: {'content-type': 'image/png'},
+        );
       });
 
       final result = await fetchRemoteImageResult(
@@ -521,7 +618,8 @@ void main() {
 
     // ── Preview-metadata extraction ─────────────────────────────────────────
     test('extractPreviewImageUrl prefers og:image and decodes entities', () {
-      const html = '<html><head>'
+      const html =
+          '<html><head>'
           '<meta name="twitter:image" content="https://e.com/tw.png">'
           '<meta content="https://e.com/og.png?a=1&amp;b=2" property="og:image">'
           '</head><body><img src="https://e.com/body.png"></body></html>';
@@ -531,8 +629,7 @@ void main() {
       );
     });
 
-    test('extractPreviewImageUrl falls back to twitter:image then image_src',
-        () {
+    test('extractPreviewImageUrl falls back to twitter:image then image_src', () {
       expect(
         extractPreviewImageUrlForTesting(
           '<head><meta name="twitter:image" content="https://e.com/t.png"></head>',
@@ -551,20 +648,23 @@ void main() {
       );
     });
 
-    test('extractPreviewImageUrl ignores og:image structured sub-properties',
-        () {
-      // og:image:width appears BEFORE og:image; a substring match would return
-      // "640". Exact-property matching must return the real image URL.
-      const html = '<head>'
-          '<meta property="og:image:width" content="640">'
-          '<meta property="og:image:height" content="480">'
-          '<meta property="og:image" content="https://e.com/real.png">'
-          '</head>';
-      expect(
-        extractPreviewImageUrlForTesting(html),
-        'https://e.com/real.png',
-      );
-    });
+    test(
+      'extractPreviewImageUrl ignores og:image structured sub-properties',
+      () {
+        // og:image:width appears BEFORE og:image; a substring match would return
+        // "640". Exact-property matching must return the real image URL.
+        const html =
+            '<head>'
+            '<meta property="og:image:width" content="640">'
+            '<meta property="og:image:height" content="480">'
+            '<meta property="og:image" content="https://e.com/real.png">'
+            '</head>';
+        expect(
+          extractPreviewImageUrlForTesting(html),
+          'https://e.com/real.png',
+        );
+      },
+    );
 
     test('extractPreviewImageUrl is bounded against adversarial HTML', () {
       // ~150KB of unterminated <meta with no '>' must not drive quadratic
@@ -576,31 +676,40 @@ void main() {
       final sw = Stopwatch()..start();
       final result = extractPreviewImageUrlForTesting(html);
       sw.stop();
-      expect(sw.elapsedMilliseconds, lessThan(3000),
-          reason: 'extraction must stay bounded on adversarial input');
+      expect(
+        sw.elapsedMilliseconds,
+        lessThan(3000),
+        reason: 'extraction must stay bounded on adversarial input',
+      );
       expect(result, isNull);
     });
 
-    test('rejects BOM-prefixed SVG even under a trusted image/* type', () async {
-      // EF BB BF (UTF-8 BOM) + "<svg" — a naive trimLeft() would miss the BOM
-      // and accept it. The markup sniff fires regardless of content-type.
-      final body = Uint8List.fromList([
-        0xEF, 0xBB, 0xBF, //
-        ...'<svg xmlns="http://www.w3.org/2000/svg"></svg>'.codeUnits,
-      ]);
-      final client = MockClient((request) async {
-        return http.Response.bytes(body, 200,
-            headers: {'content-type': 'image/png'}); // trusted, but lying
-      });
+    test(
+      'rejects BOM-prefixed SVG even under a trusted image/* type',
+      () async {
+        // EF BB BF (UTF-8 BOM) + "<svg" — a naive trimLeft() would miss the BOM
+        // and accept it. The markup sniff fires regardless of content-type.
+        final body = Uint8List.fromList([
+          0xEF, 0xBB, 0xBF, //
+          ...'<svg xmlns="http://www.w3.org/2000/svg"></svg>'.codeUnits,
+        ]);
+        final client = MockClient((request) async {
+          return http.Response.bytes(
+            body,
+            200,
+            headers: {'content-type': 'image/png'},
+          ); // trusted, but lying
+        });
 
-      final result = await fetchRemoteImageResult(
-        'https://example.com/sneaky.png',
-        client: client,
-      );
+        final result = await fetchRemoteImageResult(
+          'https://example.com/sneaky.png',
+          client: client,
+        );
 
-      expect(result.bytes, isNull);
-      expect(result.error, RemoteImageFetchError.notAnImage);
-    });
+        expect(result.bytes, isNull);
+        expect(result.error, RemoteImageFetchError.notAnImage);
+      },
+    );
 
     test('pinned HTTPS connections are upgraded to TLS', () async {
       final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
@@ -719,10 +828,48 @@ void main() {
   });
 }
 
+Uint8List _avifHeader() => Uint8List.fromList([
+  0x00,
+  0x00,
+  0x00,
+  0x20,
+  0x66,
+  0x74,
+  0x79,
+  0x70,
+  0x61,
+  0x76,
+  0x69,
+  0x66,
+]);
+
+Uint8List _avisHeader() => Uint8List.fromList([
+  0x00,
+  0x00,
+  0x00,
+  0x20,
+  0x66,
+  0x74,
+  0x79,
+  0x70,
+  0x61,
+  0x76,
+  0x69,
+  0x73,
+]);
+
 /// A minimal PNG payload: the 8-byte signature followed by [trailer].
-Uint8List _png(List<int> trailer) => Uint8List.fromList(
-      [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ...trailer],
-    );
+Uint8List _png(List<int> trailer) => Uint8List.fromList([
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  ...trailer,
+]);
 
 /// A minimal JPEG payload: SOI + APP0 marker bytes followed by [trailer].
 Uint8List _jpeg(List<int> trailer) =>

@@ -6,6 +6,14 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+typedef ImageEncoder =
+    Future<(Uint8List, String)> Function({
+      required List<int> imageBytes,
+      required int maxWidth,
+      required int maxHeight,
+      required int quality,
+    });
+
 class CompressedImage {
   final Uint8List bytes;
   final int width;
@@ -25,12 +33,17 @@ class CompressedImage {
 }
 
 class ImageCompressionService {
+  ImageCompressionService({ImageEncoder? encodeImage})
+    : _encodeImage = encodeImage ?? ffi.encodeImage;
+
   static const _maxDimension = 2048;
   static const _quality = 85;
   static const _thumbnailMaxDimension = 300;
   static const _maxAnimatedBytes = 5 * 1024 * 1024; // 5 MB
   static const _gifTinyDelayThresholdCentiseconds = 1;
   static const _gifBrowserMinimumDelayCentiseconds = 10;
+
+  final ImageEncoder _encodeImage;
 
   Future<CompressedImage> compressImage(Uint8List source) async {
     // Check for animated content — pass through without re-encoding to
@@ -44,29 +57,31 @@ class ImageCompressionService {
     // will decode again for the actual resize + encode — the duplicate
     // decode is cheap compared to the encode step.
     final decoded = img.decodeImage(source);
-    if (decoded == null) {
-      throw ArgumentError('Unable to decode image');
-    }
-
-    final (targetWidth, targetHeight) =
-        fitWithin(decoded.width, decoded.height, _maxDimension);
+    final (targetWidth, targetHeight) = decoded == null
+        ? (_maxDimension, _maxDimension)
+        : fitWithin(decoded.width, decoded.height, _maxDimension);
 
     // Encode via Rust FFI — auto-selects format:
     //   has alpha → lossless WebP (art/banners/dividers)
     //   no alpha  → JPEG at _quality (photos)
-    final (compressed, mimeType) = await ffi.encodeImage(
+    final (compressed, mimeType) = await _encodeImage(
       imageBytes: source,
       maxWidth: targetWidth,
       maxHeight: targetHeight,
       quality: _quality,
     );
 
-    final blurhash = await computeBlurhashFromImage(decoded);
+    final decodedForMetadata = decoded ?? img.decodeImage(compressed);
+    if (decodedForMetadata == null) {
+      throw ArgumentError('Unable to decode image');
+    }
+
+    final blurhash = await computeBlurhashFromImage(decodedForMetadata);
 
     return CompressedImage(
       bytes: compressed,
-      width: targetWidth,
-      height: targetHeight,
+      width: decoded == null ? decodedForMetadata.width : targetWidth,
+      height: decoded == null ? decodedForMetadata.height : targetHeight,
       blurhash: blurhash,
       mimeType: mimeType,
     );
@@ -281,16 +296,28 @@ class ImageCompressionService {
     return pos;
   }
 
-  Future<Uint8List> generateThumbnail(Uint8List source, {img.Image? decoded}) async {
+  Future<Uint8List> generateThumbnail(
+    Uint8List source, {
+    img.Image? decoded,
+  }) async {
     decoded ??= img.decodeImage(source);
     if (decoded == null) {
-      throw ArgumentError('Unable to decode image');
+      final (bytes, _) = await _encodeImage(
+        imageBytes: source,
+        maxWidth: _thumbnailMaxDimension,
+        maxHeight: _thumbnailMaxDimension,
+        quality: _quality,
+      );
+      return bytes;
     }
 
-    final (targetWidth, targetHeight) =
-        fitWithin(decoded.width, decoded.height, _thumbnailMaxDimension);
+    final (targetWidth, targetHeight) = fitWithin(
+      decoded.width,
+      decoded.height,
+      _thumbnailMaxDimension,
+    );
 
-    final (bytes, _) = await ffi.encodeImage(
+    final (bytes, _) = await _encodeImage(
       imageBytes: source,
       maxWidth: targetWidth,
       maxHeight: targetHeight,
@@ -306,14 +333,14 @@ class ImageCompressionService {
     // copyResize(width: 32)) keeps both axes bounded and ≥1 — a fixed width
     // derives round(32*h/w), which is 0 for very wide images and millions of
     // rows for very tall ones.
-    final (blurWidth, blurHeight) = fitWithin(decoded.width, decoded.height, 32);
+    final (blurWidth, blurHeight) = fitWithin(
+      decoded.width,
+      decoded.height,
+      32,
+    );
     final small = img.copyResize(decoded, width: blurWidth, height: blurHeight);
     return Isolate.run(() {
-      return BlurHash.encode(
-        small,
-        numCompX: 4,
-        numCompY: 3,
-      ).hash;
+      return BlurHash.encode(small, numCompX: 4, numCompY: 3).hash;
     });
   }
 }
