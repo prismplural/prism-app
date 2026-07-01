@@ -6834,6 +6834,22 @@
   "@onboardingContinue": {
     "description": "Primary navigation button for intermediate onboarding steps"
   },
+  "onboardingNoMembersConfirmTitle": "Add someone first?",
+  "@onboardingNoMembersConfirmTitle": {
+    "description": "Title of the confirm dialog shown when leaving the add-members onboarding step without adding anyone"
+  },
+  "onboardingNoMembersConfirmMessage": "You haven't added anyone to your system yet. You can always add people later from the home screen. Continue without adding anyone?",
+  "@onboardingNoMembersConfirmMessage": {
+    "description": "Body of the confirm dialog shown when leaving the add-members onboarding step without adding anyone"
+  },
+  "onboardingNoMembersConfirmProceed": "Continue anyway",
+  "@onboardingNoMembersConfirmProceed": {
+    "description": "Confirm button: proceed past the add-members step without adding anyone"
+  },
+  "onboardingNoMembersConfirmCancel": "Go back",
+  "@onboardingNoMembersConfirmCancel": {
+    "description": "Cancel button: return to the add-members step to add someone"
+  },
   "onboardingErrorCompletingSetup": "Error completing setup: {error}",
   "@onboardingErrorCompletingSetup": {
     "description": "Toast shown when onboarding commit fails",

@@ -29,7 +29,9 @@ import 'package:prism_plurality/features/onboarding/widgets/recovery_phrase_onbo
 import 'package:prism_plurality/features/onboarding/widgets/biometric_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
@@ -47,6 +49,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   static const _prismLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
 
   bool _isCompleting = false;
+  bool _confirmingEmptyMembers = false;
   bool _replacePairingRedirectScheduled = false;
 
   /// Steps that have progress capsules (all except complete and full-screen steps).
@@ -300,6 +303,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 pending();
                                 return;
                               }
+                              // Empty is allowed but usually an accidental
+                              // skip — confirm first.
+                              if (step == OnboardingStep.addMembers) {
+                                _confirmThenAdvance();
+                                return;
+                              }
                               notifier.next();
                             },
                           ),
@@ -425,6 +434,41 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         setState(() => _isCompleting = false);
       }
     }
+  }
+
+  /// Advances past the add-members step, first nudging the user if the system
+  /// is still empty. Kept fire-and-forget so the tap handler stays sync.
+  Future<void> _confirmThenAdvance() async {
+    if (_confirmingEmptyMembers) return;
+    _confirmingEmptyMembers = true;
+    try {
+      if (!await _confirmProceedWithoutMembers()) return;
+      if (!mounted) return;
+      // Re-check in case the step moved while the dialog was open.
+      if (ref.read(onboardingProvider).currentStep ==
+          OnboardingStep.addMembers) {
+        ref.read(onboardingProvider.notifier).next();
+      }
+    } finally {
+      _confirmingEmptyMembers = false;
+    }
+  }
+
+  /// Confirms leaving the add-members step empty. An empty system is allowed,
+  /// so this nudges rather than blocks.
+  Future<bool> _confirmProceedWithoutMembers() async {
+    final members =
+        ref.read(userVisibleAllMembersProvider).value ?? const [];
+    if (members.isNotEmpty) return true;
+    if (!mounted) return false;
+    return PrismDialog.confirm(
+      context: context,
+      icon: AppIcons.duotoneMembers,
+      title: context.l10n.onboardingNoMembersConfirmTitle,
+      message: context.l10n.onboardingNoMembersConfirmMessage,
+      confirmLabel: context.l10n.onboardingNoMembersConfirmProceed,
+      cancelLabel: context.l10n.onboardingNoMembersConfirmCancel,
+    );
   }
 }
 

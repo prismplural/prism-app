@@ -8528,6 +8528,30 @@ abstract class AppLocalizations {
   /// **'Continue'**
   String get onboardingContinue;
 
+  /// Title of the confirm dialog shown when leaving the add-members onboarding step without adding anyone
+  ///
+  /// In en, this message translates to:
+  /// **'Add someone first?'**
+  String get onboardingNoMembersConfirmTitle;
+
+  /// Body of the confirm dialog shown when leaving the add-members onboarding step without adding anyone
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t added anyone to your system yet. You can always add people later from the home screen. Continue without adding anyone?'**
+  String get onboardingNoMembersConfirmMessage;
+
+  /// Confirm button: proceed past the add-members step without adding anyone
+  ///
+  /// In en, this message translates to:
+  /// **'Continue anyway'**
+  String get onboardingNoMembersConfirmProceed;
+
+  /// Cancel button: return to the add-members step to add someone
+  ///
+  /// In en, this message translates to:
+  /// **'Go back'**
+  String get onboardingNoMembersConfirmCancel;
+
   /// Toast shown when onboarding commit fails
   ///
   /// In en, this message translates to:

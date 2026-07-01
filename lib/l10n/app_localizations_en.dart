@@ -5049,6 +5049,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingContinue => 'Continue';
 
   @override
+  String get onboardingNoMembersConfirmTitle => 'Add someone first?';
+
+  @override
+  String get onboardingNoMembersConfirmMessage =>
+      'You haven\'t added anyone to your system yet. You can always add people later from the home screen. Continue without adding anyone?';
+
+  @override
+  String get onboardingNoMembersConfirmProceed => 'Continue anyway';
+
+  @override
+  String get onboardingNoMembersConfirmCancel => 'Go back';
+
+  @override
   String onboardingErrorCompletingSetup(Object error) {
     return 'Error completing setup: $error';
   }
