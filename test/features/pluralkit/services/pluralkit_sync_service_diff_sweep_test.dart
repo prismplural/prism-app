@@ -3095,4 +3095,73 @@ void main() {
       },
     );
   });
+
+  // -- F19 (2026-06 PK audit): import cursor must be monotonic ---------------
+
+  group('advanceImportCursorPast monotonicity (F19)', () {
+    test('a forward advance moves the cursor; a stale advance does not '
+        'regress it', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final service = _makeService(db: db, client: _FakeClient([]));
+
+      final older = DateTime.utc(2026, 1, 1, 12);
+      final newer = DateTime.utc(2026, 1, 2, 12);
+
+      // First write always applies (no stored cursor yet).
+      await service.advanceImportCursorPast(
+        switchId: 'sw-old',
+        timestamp: older,
+      );
+      var state = await db.pluralKitSyncDao.getSyncState();
+      expect(state.switchCursorId, 'sw-old');
+      expect(state.switchCursorTimestamp, _sameInstant(older));
+
+      // Forward advance to a strictly-newer timestamp works.
+      await service.advanceImportCursorPast(
+        switchId: 'sw-new',
+        timestamp: newer,
+      );
+      state = await db.pluralKitSyncDao.getSyncState();
+      expect(state.switchCursorId, 'sw-new');
+      expect(state.switchCursorTimestamp, _sameInstant(newer));
+
+      // A subsequent advance with an OLDER timestamp must be a no-op — the
+      // cursor stays at the newer value (F19: monotonic, never regresses).
+      await service.advanceImportCursorPast(
+        switchId: 'sw-old',
+        timestamp: older,
+      );
+      state = await db.pluralKitSyncDao.getSyncState();
+      expect(
+        state.switchCursorId,
+        'sw-new',
+        reason: 'a stale advance must not move the cursor backward',
+      );
+      expect(state.switchCursorTimestamp, _sameInstant(newer));
+    });
+
+    test('same-timestamp advance only wins with a lexically-greater id',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final service = _makeService(db: db, client: _FakeClient([]));
+      final ts = DateTime.utc(2026, 1, 1, 12);
+
+      await service.advanceImportCursorPast(switchId: 'sw-5', timestamp: ts);
+
+      // Same timestamp, lexically-SMALLER id → no-op.
+      await service.advanceImportCursorPast(switchId: 'sw-1', timestamp: ts);
+      var state = await db.pluralKitSyncDao.getSyncState();
+      expect(state.switchCursorId, 'sw-5');
+
+      // Same timestamp, lexically-GREATER id → advances.
+      await service.advanceImportCursorPast(switchId: 'sw-9', timestamp: ts);
+      state = await db.pluralKitSyncDao.getSyncState();
+      expect(state.switchCursorId, 'sw-9');
+      expect(state.switchCursorTimestamp, _sameInstant(ts));
+    });
+  });
 }

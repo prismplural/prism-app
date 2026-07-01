@@ -1097,12 +1097,11 @@ class PluralKitSyncService {
     required String switchId,
     required DateTime timestamp,
   }) async {
-    await _syncDao.upsertSyncState(
-      PluralKitSyncStateCompanion(
-        id: const Value('pk_config'),
-        switchCursorTimestamp: Value(timestamp),
-        switchCursorId: Value(switchId),
-      ),
+    // F19: route through advanceImportCursorIfNewer so a stale/out-of-order
+    // caller can't regress the monotonic cursor into redundant re-fetches.
+    await _syncDao.advanceImportCursorIfNewer(
+      switchId: switchId,
+      timestamp: timestamp,
     );
   }
 
@@ -4225,13 +4224,13 @@ class PluralKitSyncService {
     }
 
     if (advanceCursor && batchNewestTs != null && batchNewestId != null) {
-      // One cursor write per batch.
-      await _syncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          switchCursorTimestamp: Value(batchNewestTs),
-          switchCursorId: Value(batchNewestId),
-        ),
+      // One cursor write per batch, monotonic (F19): a file+token import over an
+      // OLD export hands this an older batch-newest than the established cursor,
+      // so route through advanceImportCursorIfNewer — an unconditional upsert
+      // would regress the cursor into redundant re-fetches next sweep.
+      await _syncDao.advanceImportCursorIfNewer(
+        switchId: batchNewestId,
+        timestamp: batchNewestTs,
       );
     }
 

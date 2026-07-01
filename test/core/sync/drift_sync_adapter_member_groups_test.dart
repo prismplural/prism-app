@@ -2247,6 +2247,105 @@ void main() {
     });
 
     test(
+      'F17: nested batches replay exactly once, at the OUTER completeBatch',
+      () async {
+        var runs = 0;
+        final controller = DeferredPkEntryReplayController(() async {
+          runs++;
+        });
+
+        // Outer apply batch opens, then an inner (spill-repair / drain) batch
+        // nests inside it through the same controller.
+        controller.beginBatch();
+        controller.beginBatch();
+
+        // An entry deferred while either batch is open must NOT replay yet.
+        await controller.requestReplay();
+        expect(runs, 0, reason: 'a request inside nested batches is deferred');
+
+        // The INNER batch finishes while the outer is still applying. With the
+        // old single-bool design this flipped active off and ran the replay
+        // concurrently with the live outer apply.
+        await controller.completeBatch();
+        expect(
+          runs,
+          0,
+          reason: 'inner completeBatch must not run the replay; outer is live',
+        );
+
+        // The OUTERMOST batch finishes — depth returns to 0 — and the deferred
+        // replay runs exactly once.
+        await controller.completeBatch();
+        expect(
+          runs,
+          1,
+          reason: 'replay runs once, only after the outermost batch completes',
+        );
+
+        // An unmatched completeBatch must not re-run the replay nor underflow.
+        await controller.completeBatch();
+        expect(
+          runs,
+          1,
+          reason: 'underflow completeBatch is a no-op (no extra replay)',
+        );
+      },
+    );
+
+    test(
+        'F17: a latch-only pre-arm (armBatchCompletionLatch) does not wedge the '
+        'replay — a later batch still drains it', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      var runs = 0;
+      final controller = DeferredPkEntryReplayController(() async {
+        runs++;
+      });
+      final swc = SyncAdapterWithCompletion(
+        buildSyncAdapterWithCompletion(db).adapter,
+        <Future<void>>[],
+        controller,
+      );
+
+      // The pairing bootstrap pre-arms ONLY the completion latch (no replay
+      // batch). A real snapshot-apply batch then defers an entry and completes.
+      swc.armBatchCompletionLatch();
+      swc.beginSyncBatch();
+      await controller.requestReplay();
+      expect(runs, 0, reason: 'deferred while the apply batch is open');
+      await swc.completeSyncBatch();
+      expect(runs, 1,
+          reason: 'F17: the pre-arm latch must not pin the depth; the batch '
+              'completes at depth 0 and drains the deferred replay');
+    });
+
+    test(
+        'F17: an unmatched full beginSyncBatch pre-arm WOULD wedge the replay — '
+        'the hazard armBatchCompletionLatch exists to avoid', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      var runs = 0;
+      final controller = DeferredPkEntryReplayController(() async {
+        runs++;
+      });
+      final swc = SyncAdapterWithCompletion(
+        buildSyncAdapterWithCompletion(db).adapter,
+        <Future<void>>[],
+        controller,
+      );
+
+      // The OLD pairing pre-arm called beginSyncBatch (depth -> 1) with no
+      // matching completeSyncBatch; a later snapshot batch then never returns
+      // depth to 0, starving the deferred replay for the rest of the session.
+      swc.beginSyncBatch();
+      swc.beginSyncBatch();
+      await swc.completeSyncBatch();
+      expect(runs, 0,
+          reason: 'documents the wedge an unmatched beginSyncBatch causes — '
+              'depth stays > 0 so the replay never runs');
+    });
+
+    test(
       'a sync batch replays deferred PK entries once, not per member_group',
       () async {
         final db = AppDatabase(NativeDatabase.memory());

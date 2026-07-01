@@ -1180,7 +1180,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // either strict-apply fails (signalFailure) or the batch finishes
     // (signalBatchComplete).
     final outcomeFuture = strictCoordinator.enterStrictMode();
-    syncAdapter.beginSyncBatch();
+    // Latch-only arm: the bootstrap resolves through the strict coordinator's
+    // signalBatchComplete, never completeSyncBatch, so a full beginSyncBatch
+    // here would leak the deferred-replay depth and starve PK group-entry
+    // replay for the rest of the session (the snapshot apply's own begin/
+    // complete batches manage the replay depth).
+    syncAdapter.armBatchCompletionLatch();
     _bootstrapJournalDrained = false;
     // A retry armed by a previous attempt no longer applies to this fresh
     // bootstrap; tear it down so it can't ACK against the wrong attempt.

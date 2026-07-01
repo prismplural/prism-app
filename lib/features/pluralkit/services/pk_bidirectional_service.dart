@@ -60,6 +60,30 @@ class PkBidirectionalService {
     return null;
   }
 
+  /// F16: run one per-member DB write under the same per-member isolation as the
+  /// push path (M10a) — a generic failure is classified as a skip via
+  /// [recordPushSkip] instead of aborting the whole run. Returns whether it
+  /// landed. Global [PluralKitAuthError]/[PluralKitRateLimitError] rethrow (they
+  /// fail every member identically; the upstream M3 handler owns the messaging).
+  Future<bool> _runMemberDbWrite(
+    String memberName,
+    String label,
+    void Function(String message) recordPushSkip,
+    Future<void> Function() write,
+  ) async {
+    try {
+      await write();
+      return true;
+    } on PluralKitAuthError {
+      rethrow;
+    } on PluralKitRateLimitError {
+      rethrow;
+    } catch (e) {
+      recordPushSkip("'$memberName': $label failed ($e).");
+      return false;
+    }
+  }
+
   /// Sync members bidirectionally.
   ///
   /// [localMembers] — all local members (may or may not have PK IDs).
@@ -165,10 +189,21 @@ class PkBidirectionalService {
                   recordPushSkip("'$localName': $field $reason."),
             );
             if (needsIdentityRepair) {
-              await memberRepository.applyPluralKitLink(local.id, {
-                'pluralkit_uuid': pk.uuid,
-                'pluralkit_id': pk.id,
-              });
+              // F16: a generic DB failure on this link-back must not abort the
+              // run. On failure the member is skip-counted below, not pushed.
+              final linked = await _runMemberDbWrite(
+                localName,
+                'identity link-back',
+                recordPushSkip,
+                () => memberRepository.applyPluralKitLink(local!.id, {
+                  'pluralkit_uuid': pk.uuid,
+                  'pluralkit_id': pk.id,
+                }),
+              );
+              if (!linked) {
+                skipped++;
+                continue;
+              }
             }
             pushed++;
             continue;
@@ -177,8 +212,14 @@ class PkBidirectionalService {
             // so the user can re-link via the mapping screen and the next
             // sync treats this as an unlinked local member. Null writes pass
             // through Rule A unchanged, so this stays on generic updateMember.
-            await memberRepository.updateMember(
-              local.copyWith(pluralkitId: null, pluralkitUuid: null),
+            // F16: isolate a generic DB failure on the clear, too.
+            await _runMemberDbWrite(
+              localName,
+              'stale-link clear',
+              recordPushSkip,
+              () => memberRepository.updateMember(
+                local!.copyWith(pluralkitId: null, pluralkitUuid: null),
+              ),
             );
             skipped++;
             continue;
@@ -203,25 +244,43 @@ class PkBidirectionalService {
 
       if (direction.pullEnabled) {
         // Apply PK-side changes to the local member.
-        final applied = await _applyPkChanges(
-          local,
-          pk,
-          config,
-          direction,
-          memberRepository,
-          forceWrite: needsIdentityRepair,
+        // F16: isolate the pull write; on a generic DB failure fall through to
+        // the skip path below rather than counting a pull.
+        var applied = false;
+        final ok = await _runMemberDbWrite(
+          local.name,
+          'pull apply',
+          recordPushSkip,
+          () async => applied = await _applyPkChanges(
+            local!,
+            pk,
+            config,
+            direction,
+            memberRepository,
+            forceWrite: needsIdentityRepair,
+          ),
         );
-        if (applied) {
+        if (ok && applied) {
           pulled++;
+          continue;
+        }
+        if (!ok) {
+          skipped++;
           continue;
         }
       }
 
       if (needsIdentityRepair) {
-        await memberRepository.applyPluralKitLink(local.id, {
-          'pluralkit_uuid': pk.uuid,
-          'pluralkit_id': pk.id,
-        });
+        // F16: isolate a generic DB failure on the identity-repair link-back.
+        await _runMemberDbWrite(
+          local.name,
+          'identity repair',
+          recordPushSkip,
+          () => memberRepository.applyPluralKitLink(local!.id, {
+            'pluralkit_uuid': pk.uuid,
+            'pluralkit_id': pk.id,
+          }),
+        );
       }
       skipped++;
     }
@@ -266,13 +325,27 @@ class PkBidirectionalService {
         if (local.createPushStartedAt != null) {
           final orphan = _findAdoptableOrphan(local, pkMembers, linkedPkUuids);
           if (orphan != null) {
-            await memberRepository.applyPluralKitLink(local.id, {
-              'pluralkit_uuid': orphan.uuid,
-              'pluralkit_id': orphan.id,
-            });
-            await memberRepository.clearCreatePushStartedAt(local.id);
-            linkedPkUuids.add(orphan.uuid.trim());
-            pushed++;
+            // F16: isolate a generic DB failure on the adoption writes. On
+            // failure the lease stays set, so the next sync re-attempts the
+            // adoption (no duplicate POST); count this member as skipped.
+            final adopted = await _runMemberDbWrite(
+              local.name,
+              'orphan adoption',
+              recordPushSkip,
+              () async {
+                await memberRepository.applyPluralKitLink(local.id, {
+                  'pluralkit_uuid': orphan.uuid,
+                  'pluralkit_id': orphan.id,
+                });
+                await memberRepository.clearCreatePushStartedAt(local.id);
+              },
+            );
+            if (adopted) {
+              linkedPkUuids.add(orphan.uuid.trim());
+              pushed++;
+            } else {
+              skipped++;
+            }
             continue;
           }
         }
@@ -282,22 +355,25 @@ class PkBidirectionalService {
         // abort the remaining creates or the rest of the sync.
         final localName = local.name;
         // F4: stamp the synced lease BEFORE the POST so a peer syncing in this
-        // window backs off and does not also mint a PK member.
-        //
-        // Deliberately re-stamps `now` on a retry (unlike the delete lease's
-        // stamp-if-null at _runSwitchDeletions): for CREATE the re-stamp IS the
-        // backoff — a stale-lease retry that re-POSTs gets a fresh 10-min window
-        // before the next attempt. Mirroring delete's stamp-if-null here would
-        // REMOVE that backoff (a stale lease would re-POST every sync), so the
-        // asymmetry is correct, not a livelock to "fix". The one genuine residual
-        // — repeated orphan creation when a POST succeeds, the link-back keeps
-        // failing, AND the local was renamed so _findAdoptableOrphan (exact-name)
-        // can't reclaim the orphan — needs a "this fleet already POSTed" signal
-        // distinct from the lease, not a lease-stamp tweak. Narrow; left as-is.
-        await memberRepository.stampCreatePushStartedAt(
-          local.id,
-          now.millisecondsSinceEpoch,
+        // window backs off and does not also mint a PK member. Re-stamps `now` on
+        // a retry (unlike delete's stamp-if-null): for CREATE the re-stamp IS the
+        // backoff, giving a stale-lease re-POST a fresh 10-min window — so don't
+        // mirror the delete lease here.
+        // F16: if the stamp fails, do NOT POST — the anti-duplicate guarantee
+        // needs the lease to land first. Skip; the next sync retries clean.
+        final stamped = await _runMemberDbWrite(
+          local.name,
+          'create lease stamp',
+          recordPushSkip,
+          () => memberRepository.stampCreatePushStartedAt(
+            local.id,
+            now.millisecondsSinceEpoch,
+          ),
         );
+        if (!stamped) {
+          skipped++;
+          continue;
+        }
         final PKMember pkMember;
         try {
           pkMember = await _pushService.pushMemberFull(
@@ -307,14 +383,25 @@ class PkBidirectionalService {
                 recordPushSkip("'$localName': $field $reason."),
           );
         } catch (e) {
-          // The POST failed (transport error, validation rejection, auth, rate
-          // limit, …) so NO PK member was created. Release the lease: leaving it
-          // set would falsely read as "a prior POST orphaned a PK member" and let
-          // a later sync ADOPT an unrelated same-named PK member (a silent
-          // wrong-identity merge), and would starve peers who skip on a fresh
-          // lease. The lease is kept ONLY when the POST genuinely succeeds but
-          // the link-back fails (the real F5 orphan case, below).
-          await memberRepository.clearCreatePushStartedAt(local.id);
+          // POST failed, so NO PK member was created. Release the lease — a
+          // lingering lease would falsely read as an F5 orphan and let a later
+          // sync adopt an unrelated same-named member (silent wrong-identity
+          // merge). The lease is kept ONLY when the POST succeeds but link-back
+          // fails (the real orphan case, below).
+          // F16: isolate the clear so it can't mask the POST error's
+          // classification (or the auth/rate rethrow) below; a failed clear
+          // leaves a stale lease the F5 path resolves next sync.
+          try {
+            await memberRepository.clearCreatePushStartedAt(local.id);
+          } on PluralKitAuthError {
+            rethrow;
+          } on PluralKitRateLimitError {
+            rethrow;
+          } catch (clearError) {
+            recordPushSkip(
+              "'$localName': create lease clear failed ($clearError).",
+            );
+          }
           if (e is PluralKitAuthError || e is PluralKitRateLimitError) {
             // Global condition — see the linked-member loop above.
             rethrow;

@@ -40,9 +40,19 @@ class SyncAdapterWithCompletion {
 
   Completer<void>? _batchCompleter;
 
-  /// Call before starting a sync to create a new completion signal.
-  void beginSyncBatch() {
+  /// Arm ONLY the batch-completion latch — no replay-batch bracket. The pairing
+  /// bootstrap pre-arms the completion signal but never calls completeSyncBatch
+  /// (it resolves through the coordinator), so routing it through beginSyncBatch
+  /// would open a replay bracket that never closes, pinning depth > 0 for the
+  /// life of the singleton adapter and starving the deferred PK replay.
+  void armBatchCompletionLatch() {
     _batchCompleter = Completer<void>();
+  }
+
+  /// Call before starting a sync to create a new completion signal AND open a
+  /// replay-batch bracket (must be matched by completeSyncBatch).
+  void beginSyncBatch() {
+    armBatchCompletionLatch();
     _deferredPkEntryReplay.beginBatch();
   }
 
@@ -81,25 +91,36 @@ class DeferredPkEntryReplayController {
   DeferredPkEntryReplayController(this._run);
 
   final Future<void> Function() _run;
-  bool _batchActive = false;
+
+  // Depth, not a bool: apply batches nest (spill-repair / remote-delivery drain
+  // open their own bracket via this controller). A bool would flip false on the
+  // INNER completeBatch and let the deferred PK replay re-enter a still-live
+  // apply; the replay must run exactly once, at the outermost completion.
+  int _batchDepth = 0;
 
   void beginBatch() {
-    _batchActive = true;
+    _batchDepth++;
   }
 
   Future<void> requestReplay() {
-    if (_batchActive) {
+    if (_batchDepth > 0) {
       return Future.value();
     }
     return _run();
   }
 
   Future<void> completeBatch() async {
-    try {
-      await _run();
-    } finally {
-      _batchActive = false;
+    if (_batchDepth == 0) {
+      // Underflow guard: an unmatched completeBatch must not run the replay
+      // (no outer batch deferred anything) nor drive the depth negative.
+      return;
     }
+    _batchDepth--;
+    if (_batchDepth > 0) {
+      // An inner batch finished; the outer batch is still applying. Defer.
+      return;
+    }
+    await _run();
   }
 }
 
@@ -720,6 +741,11 @@ Future<bool> _memberPkIdentityHeldByOtherRow(
   return row != null;
 }
 
+/// CONTRACT (audit F6): the prism-sync engine merges on
+/// `(entity_table, entity_id, field_name)` with NO identity column, by design
+/// and deliberately PluralKit-agnostic. So the ENTIRE cross-device PK/SP de-dup
+/// burden lives in this apply adapter (this resolver + the F1–F11 redirect/alias
+/// logic). Don't teach the engine PK semantics; keep reconciliation here.
 Future<List<Member>> _activeMemberRowsByPkIdentityForApply(
   AppDatabase db, {
   required String? pkUuid,

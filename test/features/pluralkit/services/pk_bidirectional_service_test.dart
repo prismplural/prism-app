@@ -2518,6 +2518,144 @@ void main() {
       expect(decoded.hasSummaryDetails, isTrue);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // F16: per-member DB-write isolation. A generic (non-PK-API) DB exception on
+  // ONE member's link-back / identity-repair / lease write must NOT propagate
+  // out of syncMembers and abort the rest of the run. It is classified as a
+  // per-member skip (surfaced via pushSkippedMessages) and the loop continues.
+  // PluralKitAuthError still aborts (M3 owns the messaging).
+  // ---------------------------------------------------------------------------
+  group('per-member DB-write isolation (F16)', () {
+    domain.Member linked(String n) => _localMember(
+      id: 'local-$n',
+      name: 'Member $n',
+      pluralkitId: 'pk00$n',
+      pluralkitUuid: 'uuid-pk00$n',
+      pronouns: 'pn/$n',
+    );
+
+    // PK side reports a DIFFERENT pronoun than local, forcing a push for each
+    // member; the successful push then fires the identity-repair link-back —
+    // the exact F16 write site.
+    PKMember pkFor(String n) => _pkMember(
+      id: 'pk00$n',
+      uuid: 'uuid-pk00$n',
+      name: 'Member $n',
+    );
+
+    test(
+      'a generic DB error on one link-back skips that member, the rest sync',
+      () async {
+        // Member 2's link-back write throws a generic (SQLITE-like) exception;
+        // members 1 and 3 must still push. The push fires because PK lacks the
+        // local pronoun (a real difference) AND the link identifiers differ
+        // (pluralkitUuid mismatch forces needsIdentityRepair → link-back).
+        final repo = _LinkFailureRepository({'local-2'});
+        final callbackMessages = <String>[];
+
+        // Pre-seed the repo so applyPluralKitLink has rows to mutate, and give
+        // each local a STALE pk uuid so needsIdentityRepair → link-back fires
+        // on the push-success path.
+        final locals = [
+          linked('1').copyWith(pluralkitUuid: 'stale-1'),
+          linked('2').copyWith(pluralkitUuid: 'stale-2'),
+          linked('3').copyWith(pluralkitUuid: 'stale-3'),
+        ];
+        for (final m in locals) {
+          await repo.createMember(m);
+        }
+
+        final summary = await service.syncMembers(
+          localMembers: locals,
+          pkMembers: [pkFor('1'), pkFor('2'), pkFor('3')],
+          fieldConfigs: {},
+          direction: PkSyncDirection.pushOnly,
+          lastSyncDate: null,
+          memberRepository: repo,
+          client: fakeClient,
+          onPushSkipped: callbackMessages.add,
+        );
+
+        // (a) syncMembers completed without throwing (we got a summary).
+        // (b) the other two members still synced.
+        expect(summary.membersPushed, 2);
+        // (c) the failing member is counted + surfaced as a skip.
+        expect(summary.membersSkipped, 1);
+        expect(summary.pushSkippedMessages, hasLength(1));
+        final message = summary.pushSkippedMessages.single;
+        expect(message, contains("'Member 2'"));
+        expect(message, contains('link-back'));
+        expect(callbackMessages, [message]);
+
+        // The link-back was attempted for all three — the loop did not abort
+        // on member 2.
+        final linkAttempts = repo.calls
+            .where((c) => c.method == 'applyPluralKitLink')
+            .map((c) => c.args[0])
+            .toList();
+        expect(linkAttempts, ['local-1', 'local-2', 'local-3']);
+      },
+    );
+
+    test(
+      'a PluralKitAuthError from a DB-write site still aborts the whole run',
+      () async {
+        // Defensive: even if a repository surfaced a global PK condition from a
+        // write (a revoked token mid-write), it must propagate, not be
+        // swallowed as a per-member skip.
+        final repo = _LinkFailureRepository(
+          {'local-1'},
+          error: const PluralKitAuthError(),
+        );
+        final locals = [
+          linked('1').copyWith(pluralkitUuid: 'stale-1'),
+          linked('2').copyWith(pluralkitUuid: 'stale-2'),
+        ];
+        for (final m in locals) {
+          await repo.createMember(m);
+        }
+
+        await expectLater(
+          service.syncMembers(
+            localMembers: locals,
+            pkMembers: [pkFor('1'), pkFor('2')],
+            fieldConfigs: {},
+            direction: PkSyncDirection.pushOnly,
+            lastSyncDate: null,
+            memberRepository: repo,
+            client: fakeClient,
+          ),
+          throwsA(isA<PluralKitAuthError>()),
+        );
+      },
+    );
+  });
+}
+
+/// Fake repository whose [applyPluralKitLink] throws for specific local ids
+/// (recording the attempt first) and otherwise behaves like the base fake.
+/// Exercises the F16 per-member DB-write isolation: a generic DB exception on
+/// one member's link-back must not abort the whole sync run. When [error] is a
+/// global PK condition (auth / rate limit), it must still propagate.
+class _LinkFailureRepository extends FakeMemberRepository {
+  _LinkFailureRepository(this.failingLocalIds, {Object? error})
+    : error = error ?? Exception('SQLITE_BUSY: database is locked');
+
+  /// Local member ids whose link-back write throws.
+  final Set<String> failingLocalIds;
+
+  /// The error thrown for a failing id (a generic DB error by default).
+  final Object error;
+
+  @override
+  Future<int> applyPluralKitLink(String id, Map<String, dynamic> patch) {
+    if (failingLocalIds.contains(id)) {
+      calls.add(Call('applyPluralKitLink', [id, patch]));
+      return Future.error(error);
+    }
+    return super.applyPluralKitLink(id, patch);
+  }
 }
 
 /// Fake client whose updateMember throws a scripted error for specific PK
