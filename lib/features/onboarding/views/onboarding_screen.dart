@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/widgets/welcome_step.dart';
@@ -357,6 +358,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 .read(onboardingCommitServiceProvider)
                 .completeImportedBootstrap();
             if (!mounted) return;
+            ref.read(localOnboardingCompletionProvider.notifier).mark();
             context.go(AppRoutePaths.home);
           } catch (e) {
             if (!mounted) return;
@@ -407,6 +409,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       await ref.read(onboardingCommitServiceProvider).complete(onboarding);
 
       if (mounted) {
+        ref.read(localOnboardingCompletionProvider.notifier).mark();
         ref.read(onboardingProvider.notifier).clearAppearancePreview();
         context.go(AppRoutePaths.home);
       }

@@ -24,6 +24,7 @@ import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
+import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
@@ -350,6 +351,10 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     ref.invalidate(pkFileImportProvider);
     ref.invalidate(onboardingPendingImportActionProvider);
     ref.invalidate(onboardingProvider);
+    // Per-onboarding-attempt state: a wipe that re-enters onboarding must
+    // clear it, or a stale local-completion exemption pulls a freshly paired
+    // device onto an empty Home before its members finish syncing in.
+    ref.invalidate(localOnboardingCompletionProvider);
   }
 
   Future<String?> _readDecodedSecureValue(String key) async {

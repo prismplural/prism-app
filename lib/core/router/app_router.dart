@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -201,6 +202,48 @@ Future<bool> _recoverCompletedOnboardingFromPairedState(Ref ref) async {
   }
 }
 
+/// Pure decision for the onboarding gate, extracted so it can be unit-tested
+/// without spinning up a [GoRouter]. Returns the path to redirect to, or null
+/// to leave the requested location alone.
+///
+/// [completedLocally] distinguishes a device that finished onboarding here
+/// (an empty member table is a deliberate end-state) from one that inherited
+/// `hasCompletedOnboarding` over sync and is still waiting for its members —
+/// only the latter is held on onboarding to avoid an empty home.
+@visibleForTesting
+Future<String?> resolveOnboardingRedirect({
+  required bool? hasCompleted,
+  required bool isOnboarding,
+  required bool completedLocally,
+  required Future<bool> Function() tryRecoverPaired,
+  required Future<int> Function() getMemberCount,
+}) async {
+  // While settings are still loading, don't redirect.
+  if (hasCompleted == null) return null;
+
+  if (!hasCompleted) {
+    final recovered = await tryRecoverPaired();
+    if (recovered) {
+      return isOnboarding ? AppRoutePaths.home : null;
+    }
+  }
+
+  if (!hasCompleted && !isOnboarding) {
+    return AppRoutePaths.onboarding;
+  }
+  if (hasCompleted && isOnboarding) {
+    // A device that inherited hasCompletedOnboarding over CRDT sync waits for
+    // its members before leaving onboarding, so it doesn't land on an empty
+    // home. A device that finished onboarding locally is exempt: an empty
+    // system is a valid choice here (e.g. importing via the main UI later).
+    if (!completedLocally && await getMemberCount() == 0) {
+      return null;
+    }
+    return AppRoutePaths.home;
+  }
+  return null;
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   // Update the redirect notifier reactively.
   ref.listen(systemSettingsProvider, (_, next) {
@@ -235,33 +278,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
     },
     redirect: (context, state) async {
-      final hasCompleted = _onboardingRedirectNotifier.hasCompleted;
-
-      // While settings are still loading, don't redirect
-      if (hasCompleted == null) return null;
-
-      final isOnboarding = state.matchedLocation == AppRoutePaths.onboarding;
-
-      if (!hasCompleted) {
-        final recovered = await _recoverCompletedOnboardingFromPairedState(ref);
-        if (recovered) {
-          return isOnboarding ? AppRoutePaths.home : null;
-        }
-      }
-
-      if (!hasCompleted && !isOnboarding) {
-        return AppRoutePaths.onboarding;
-      }
-      if (hasCompleted && isOnboarding) {
-        // Guard: if hasCompletedOnboarding was synced via CRDT but no
-        // members exist yet on this device, keep showing onboarding so
-        // Device B doesn't land on an empty home screen.
-        final memberRepo = ref.read(memberRepositoryProvider);
-        final count = await memberRepo.getCount();
-        if (count == 0) return null;
-        return AppRoutePaths.home;
-      }
-      return null;
+      return resolveOnboardingRedirect(
+        hasCompleted: _onboardingRedirectNotifier.hasCompleted,
+        isOnboarding: state.matchedLocation == AppRoutePaths.onboarding,
+        completedLocally: ref.read(localOnboardingCompletionProvider),
+        tryRecoverPaired: () => _recoverCompletedOnboardingFromPairedState(ref),
+        getMemberCount: ref.read(memberRepositoryProvider).getCount,
+      );
     },
     routes: [
       // Onboarding (full-screen)

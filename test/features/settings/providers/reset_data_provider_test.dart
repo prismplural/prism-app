@@ -23,6 +23,7 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
+import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
@@ -2093,6 +2094,8 @@ void main() {
       harness.container
           .read(onboardingPendingImportActionProvider.notifier)
           .set(() async {});
+      harness.container.read(localOnboardingCompletionProvider.notifier).mark();
+      expect(harness.container.read(localOnboardingCompletionProvider), isTrue);
 
       expect(
         harness.container.read(importerProvider).step,
@@ -2129,6 +2132,14 @@ void main() {
       expect(
         harness.container.read(onboardingPendingImportActionProvider),
         isNull,
+      );
+      expect(
+        harness.container.read(localOnboardingCompletionProvider),
+        isFalse,
+        reason:
+            'localOnboardingCompletionProvider must reset on full wipe so a '
+            'stale exemption cannot skip the redirect member-count guard when '
+            're-pairing to a real system',
       );
 
       final prefs = await SharedPreferences.getInstance();
