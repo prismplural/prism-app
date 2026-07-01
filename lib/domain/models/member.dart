@@ -70,6 +70,9 @@ abstract class Member with _$Member {
     @Default(false) bool isDeleted,
     int? deleteIntentEpoch,
     int? deletePushStartedAt,
+    // F4 create-push coordination lease (ms since epoch, synced). Mirrors
+    // deletePushStartedAt for the member CREATE/POST path.
+    int? createPushStartedAt,
     // Per-member fronting refactor (docs/plans/fronting-per-member-sessions.md
     // §2.3): when true, this member's session is treated as "background" and
     // omitted from avatar stacks, surfaced instead in the "Always-present"

@@ -28,6 +28,38 @@ class PkBidirectionalService {
        _avatarCacheService = avatarCacheService ?? PkAvatarCacheService(),
        _bannerCacheService = bannerCacheService ?? PkBannerCacheService();
 
+  /// F4: how long a create-push lease is honored before a peer assumes the
+  /// stamping device crashed/went offline and takes over (adopting any orphan
+  /// or re-POSTing). Mirrors the delete lease's R6 takeover threshold.
+  static const _createPushTakeoverThreshold = Duration(minutes: 10);
+
+  bool _createLeaseActive(int? startedAtMs, DateTime now) {
+    if (startedAtMs == null) return false;
+    final age = Duration(
+      milliseconds: now.millisecondsSinceEpoch - startedAtMs,
+    );
+    return age < _createPushTakeoverThreshold;
+  }
+
+  /// F5: find an orphaned-create PK member for [local] — unlinked, matched by
+  /// name (the only join key; an orphan has no pluralkit_uuid/id). The caller
+  /// gates this on [local] holding a stale create lease, bounding collision risk
+  /// to members this fleet tried to create. A rename across the crash window
+  /// misses and re-POSTs — the same pre-F5 duplicate, never worse.
+  PKMember? _findAdoptableOrphan(
+    domain.Member local,
+    List<PKMember> pkMembers,
+    Set<String> linkedPkUuids,
+  ) {
+    final name = local.name.trim();
+    if (name.isEmpty) return null;
+    for (final pk in pkMembers) {
+      if (linkedPkUuids.contains(pk.uuid.trim())) continue;
+      if (pk.name.trim() == name) return pk;
+    }
+    return null;
+  }
+
   /// Sync members bidirectionally.
   ///
   /// [localMembers] — all local members (may or may not have PK IDs).
@@ -195,35 +227,111 @@ class PkBidirectionalService {
 
     // Process local members that have no PK counterpart
     if (direction.pushEnabled) {
+      final now = DateTime.now();
+      // PK uuids already claimed by some local member, so an ORPHANED PK member
+      // (created by a prior interrupted push whose link-back never landed) is
+      // recognizable for F5 adoption below.
+      final linkedPkUuids = <String>{
+        for (final m in localMembers)
+          if ((m.pluralkitUuid ?? '').trim().isNotEmpty)
+            m.pluralkitUuid!.trim(),
+      };
+      // F5 safety: a soft-deleted member retains its pluralkit_uuid, and its PK
+      // member may still be live on the server (the delete-push hasn't completed,
+      // or PK refused it). Exclude those uuids too, so a new same-named member
+      // never adopts — and silently inherits — a deleted member's PK identity.
+      for (final m in await memberRepository.getDeletedLinkedMembers()) {
+        final u = (m.pluralkitUuid ?? '').trim();
+        if (u.isNotEmpty) linkedPkUuids.add(u);
+      }
       for (final local in localMembers) {
         if (hasPluralKitLink(local)) continue;
         // User picked Keep local via the push-on-create dialog or banner;
         // respect their durable preference.
         if (local.pluralkitSyncIgnored) continue;
+
+        // F4: a FRESH create lease means another device (or this one) is
+        // mid-POST for this member. Skip so two paired devices don't each mint
+        // a separate PK member; whoever holds the lease finishes and links it,
+        // and the next sync sees it linked.
+        if (_createLeaseActive(local.createPushStartedAt, now)) {
+          skipped++;
+          continue;
+        }
+
+        // F5: a set-but-STALE lease means a prior POST may have orphaned a PK
+        // member (the link-back never completed). Adopt a matching orphan
+        // instead of re-POSTing a duplicate.
+        if (local.createPushStartedAt != null) {
+          final orphan = _findAdoptableOrphan(local, pkMembers, linkedPkUuids);
+          if (orphan != null) {
+            await memberRepository.applyPluralKitLink(local.id, {
+              'pluralkit_uuid': orphan.uuid,
+              'pluralkit_id': orphan.id,
+            });
+            await memberRepository.clearCreatePushStartedAt(local.id);
+            linkedPkUuids.add(orphan.uuid.trim());
+            pushed++;
+            continue;
+          }
+        }
+
         // New local member — push to PK. Same per-member isolation as the
         // linked-member loop above (M10a): one rejected create must not
         // abort the remaining creates or the rest of the sync.
         final localName = local.name;
+        // F4: stamp the synced lease BEFORE the POST so a peer syncing in this
+        // window backs off and does not also mint a PK member.
+        await memberRepository.stampCreatePushStartedAt(
+          local.id,
+          now.millisecondsSinceEpoch,
+        );
+        final PKMember pkMember;
         try {
-          final pkMember = await _pushService.pushMemberFull(
+          pkMember = await _pushService.pushMemberFull(
             local,
             client,
             onFieldSkipped: (field, reason) =>
                 recordPushSkip("'$localName': $field $reason."),
           );
-          // Store both PK identifiers back on the local member.
+        } catch (e) {
+          // The POST failed (transport error, validation rejection, auth, rate
+          // limit, …) so NO PK member was created. Release the lease: leaving it
+          // set would falsely read as "a prior POST orphaned a PK member" and let
+          // a later sync ADOPT an unrelated same-named PK member (a silent
+          // wrong-identity merge), and would starve peers who skip on a fresh
+          // lease. The lease is kept ONLY when the POST genuinely succeeds but
+          // the link-back fails (the real F5 orphan case, below).
+          await memberRepository.clearCreatePushStartedAt(local.id);
+          if (e is PluralKitAuthError || e is PluralKitRateLimitError) {
+            // Global condition — see the linked-member loop above.
+            rethrow;
+          }
+          if (e is PluralKitApiError) {
+            recordPushSkip(_describePushFailure(localName, e));
+          } else {
+            recordPushSkip("'$localName': create push failed ($e).");
+          }
+          skipped++;
+          continue;
+        }
+        try {
+          // POST succeeded — a PK member now exists. Store both identifiers back
+          // on the local member and release the lease; the create is durably
+          // linked.
           await memberRepository.applyPluralKitLink(local.id, {
             'pluralkit_uuid': pkMember.uuid,
             'pluralkit_id': pkMember.id,
           });
+          await memberRepository.clearCreatePushStartedAt(local.id);
+          linkedPkUuids.add(pkMember.uuid.trim());
           pushed++;
-        } on PluralKitAuthError {
-          rethrow;
-        } on PluralKitRateLimitError {
-          // Global condition — see the linked-member loop above.
-          rethrow;
-        } on PluralKitApiError catch (e) {
-          recordPushSkip(_describePushFailure(localName, e));
+        } catch (e) {
+          // F5/F16: the link-back failed AFTER a successful POST, so a PK member
+          // is orphaned. KEEP the lease set so the next sync adopts that orphan
+          // rather than re-POSTing a duplicate, and don't abort the remaining
+          // creates.
+          recordPushSkip("'$localName': create link-back failed ($e).");
           skipped++;
         }
       }

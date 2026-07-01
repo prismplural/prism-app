@@ -484,11 +484,18 @@ const _repositoryFieldSources = <_RepoFieldSource>[
 const _writeOmittedFields = <String, Set<String>>{
   // `delete_push_started_at` is stamped via DriftMemberRepository
   //   .stampDeletePushStartedAt(), not the create/update field map.
+  // `create_push_started_at` is stamped/cleared via DriftMemberRepository
+  //   .stampCreatePushStartedAt()/.clearCreatePushStartedAt() (the F4 create
+  //   lease), not the create/update field map — same separate-code-path reason.
   // `board_last_read_at` is written by DriftMemberBoardPostsRepository
   //   .markInboxOpenedFor(...) via a targeted syncRecordUpdate, not through
   //   the member create/update field map. The domain Member model does not
   //   carry this field (it lives on the Drift row and is updated in isolation).
-  'members': {'delete_push_started_at', 'board_last_read_at'},
+  'members': {
+    'delete_push_started_at',
+    'create_push_started_at',
+    'board_last_read_at',
+  },
   // `delete_push_started_at` — stamped through a separate code path on
   // session deletion; not part of the regular create/update field map.
   // `pluralkit_uuid` is set in _sessionFields, but for SP-only sessions

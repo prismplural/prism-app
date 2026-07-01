@@ -104,6 +104,13 @@ abstract class MemberRepository {
   /// R6.
   Future<void> stampDeletePushStartedAt(String id, int timestampMs);
 
+  /// F4: stamp the synced cross-device `create_push_started_at` (ms since
+  /// epoch) via `syncRecordUpdate` so peers don't double-POST a new member.
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs);
+
+  /// F4: clear the create-push lease once the create completes or is adopted.
+  Future<void> clearCreatePushStartedAt(String id);
+
   // -- Unknown sentinel ----------------------------------------------------
 
   /// Ensures the deterministic Unknown sentinel member exists, creating

@@ -64,6 +64,7 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
   isDeleted: json['isDeleted'] as bool? ?? false,
   deleteIntentEpoch: (json['deleteIntentEpoch'] as num?)?.toInt(),
   deletePushStartedAt: (json['deletePushStartedAt'] as num?)?.toInt(),
+  createPushStartedAt: (json['createPushStartedAt'] as num?)?.toInt(),
   isAlwaysFronting: json['isAlwaysFronting'] as bool? ?? false,
 );
 
@@ -109,6 +110,7 @@ Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
   'isDeleted': instance.isDeleted,
   'deleteIntentEpoch': instance.deleteIntentEpoch,
   'deletePushStartedAt': instance.deletePushStartedAt,
+  'createPushStartedAt': instance.createPushStartedAt,
   'isAlwaysFronting': instance.isAlwaysFronting,
 };
 

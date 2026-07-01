@@ -456,6 +456,16 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _createPushStartedAtMeta =
+      const VerificationMeta('createPushStartedAt');
+  @override
+  late final GeneratedColumn<int> createPushStartedAt = GeneratedColumn<int>(
+    'create_push_started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isAlwaysFrontingMeta = const VerificationMeta(
     'isAlwaysFronting',
   );
@@ -523,6 +533,7 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     isDeleted,
     deleteIntentEpoch,
     deletePushStartedAt,
+    createPushStartedAt,
     isAlwaysFronting,
     boardLastReadAt,
   ];
@@ -850,6 +861,15 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('create_push_started_at')) {
+      context.handle(
+        _createPushStartedAtMeta,
+        createPushStartedAt.isAcceptableOrUnknown(
+          data['create_push_started_at']!,
+          _createPushStartedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_always_fronting')) {
       context.handle(
         _isAlwaysFrontingMeta,
@@ -1029,6 +1049,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.int,
         data['${effectivePrefix}delete_push_started_at'],
       ),
+      createPushStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}create_push_started_at'],
+      ),
       isAlwaysFronting: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_always_fronting'],
@@ -1085,6 +1109,7 @@ class Member extends DataClass implements Insertable<Member> {
   final bool isDeleted;
   final int? deleteIntentEpoch;
   final int? deletePushStartedAt;
+  final int? createPushStartedAt;
   final bool isAlwaysFronting;
   final DateTime? boardLastReadAt;
   const Member({
@@ -1126,6 +1151,7 @@ class Member extends DataClass implements Insertable<Member> {
     required this.isDeleted,
     this.deleteIntentEpoch,
     this.deletePushStartedAt,
+    this.createPushStartedAt,
     required this.isAlwaysFronting,
     this.boardLastReadAt,
   });
@@ -1212,6 +1238,9 @@ class Member extends DataClass implements Insertable<Member> {
     if (!nullToAbsent || deletePushStartedAt != null) {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt);
     }
+    if (!nullToAbsent || createPushStartedAt != null) {
+      map['create_push_started_at'] = Variable<int>(createPushStartedAt);
+    }
     map['is_always_fronting'] = Variable<bool>(isAlwaysFronting);
     if (!nullToAbsent || boardLastReadAt != null) {
       map['board_last_read_at'] = Variable<DateTime>(boardLastReadAt);
@@ -1295,6 +1324,9 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: deletePushStartedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletePushStartedAt),
+      createPushStartedAt: createPushStartedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createPushStartedAt),
       isAlwaysFronting: Value(isAlwaysFronting),
       boardLastReadAt: boardLastReadAt == null && nullToAbsent
           ? const Value.absent()
@@ -1368,6 +1400,9 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: serializer.fromJson<int?>(
         json['deletePushStartedAt'],
       ),
+      createPushStartedAt: serializer.fromJson<int?>(
+        json['createPushStartedAt'],
+      ),
       isAlwaysFronting: serializer.fromJson<bool>(json['isAlwaysFronting']),
       boardLastReadAt: serializer.fromJson<DateTime?>(json['boardLastReadAt']),
     );
@@ -1416,6 +1451,7 @@ class Member extends DataClass implements Insertable<Member> {
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
       'deletePushStartedAt': serializer.toJson<int?>(deletePushStartedAt),
+      'createPushStartedAt': serializer.toJson<int?>(createPushStartedAt),
       'isAlwaysFronting': serializer.toJson<bool>(isAlwaysFronting),
       'boardLastReadAt': serializer.toJson<DateTime?>(boardLastReadAt),
     };
@@ -1460,6 +1496,7 @@ class Member extends DataClass implements Insertable<Member> {
     bool? isDeleted,
     Value<int?> deleteIntentEpoch = const Value.absent(),
     Value<int?> deletePushStartedAt = const Value.absent(),
+    Value<int?> createPushStartedAt = const Value.absent(),
     bool? isAlwaysFronting,
     Value<DateTime?> boardLastReadAt = const Value.absent(),
   }) => Member(
@@ -1527,6 +1564,9 @@ class Member extends DataClass implements Insertable<Member> {
     deletePushStartedAt: deletePushStartedAt.present
         ? deletePushStartedAt.value
         : this.deletePushStartedAt,
+    createPushStartedAt: createPushStartedAt.present
+        ? createPushStartedAt.value
+        : this.createPushStartedAt,
     isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
     boardLastReadAt: boardLastReadAt.present
         ? boardLastReadAt.value
@@ -1626,6 +1666,9 @@ class Member extends DataClass implements Insertable<Member> {
       deletePushStartedAt: data.deletePushStartedAt.present
           ? data.deletePushStartedAt.value
           : this.deletePushStartedAt,
+      createPushStartedAt: data.createPushStartedAt.present
+          ? data.createPushStartedAt.value
+          : this.createPushStartedAt,
       isAlwaysFronting: data.isAlwaysFronting.present
           ? data.isAlwaysFronting.value
           : this.isAlwaysFronting,
@@ -1676,6 +1719,7 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
           ..write('deletePushStartedAt: $deletePushStartedAt, ')
+          ..write('createPushStartedAt: $createPushStartedAt, ')
           ..write('isAlwaysFronting: $isAlwaysFronting, ')
           ..write('boardLastReadAt: $boardLastReadAt')
           ..write(')'))
@@ -1722,6 +1766,7 @@ class Member extends DataClass implements Insertable<Member> {
     isDeleted,
     deleteIntentEpoch,
     deletePushStartedAt,
+    createPushStartedAt,
     isAlwaysFronting,
     boardLastReadAt,
   ]);
@@ -1776,6 +1821,7 @@ class Member extends DataClass implements Insertable<Member> {
           other.isDeleted == this.isDeleted &&
           other.deleteIntentEpoch == this.deleteIntentEpoch &&
           other.deletePushStartedAt == this.deletePushStartedAt &&
+          other.createPushStartedAt == this.createPushStartedAt &&
           other.isAlwaysFronting == this.isAlwaysFronting &&
           other.boardLastReadAt == this.boardLastReadAt);
 }
@@ -1819,6 +1865,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<bool> isDeleted;
   final Value<int?> deleteIntentEpoch;
   final Value<int?> deletePushStartedAt;
+  final Value<int?> createPushStartedAt;
   final Value<bool> isAlwaysFronting;
   final Value<DateTime?> boardLastReadAt;
   final Value<int> rowid;
@@ -1861,6 +1908,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
+    this.createPushStartedAt = const Value.absent(),
     this.isAlwaysFronting = const Value.absent(),
     this.boardLastReadAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1904,6 +1952,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.isDeleted = const Value.absent(),
     this.deleteIntentEpoch = const Value.absent(),
     this.deletePushStartedAt = const Value.absent(),
+    this.createPushStartedAt = const Value.absent(),
     this.isAlwaysFronting = const Value.absent(),
     this.boardLastReadAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1949,6 +1998,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<bool>? isDeleted,
     Expression<int>? deleteIntentEpoch,
     Expression<int>? deletePushStartedAt,
+    Expression<int>? createPushStartedAt,
     Expression<bool>? isAlwaysFronting,
     Expression<DateTime>? boardLastReadAt,
     Expression<int>? rowid,
@@ -2001,6 +2051,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
       if (deletePushStartedAt != null)
         'delete_push_started_at': deletePushStartedAt,
+      if (createPushStartedAt != null)
+        'create_push_started_at': createPushStartedAt,
       if (isAlwaysFronting != null) 'is_always_fronting': isAlwaysFronting,
       if (boardLastReadAt != null) 'board_last_read_at': boardLastReadAt,
       if (rowid != null) 'rowid': rowid,
@@ -2046,6 +2098,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<bool>? isDeleted,
     Value<int?>? deleteIntentEpoch,
     Value<int?>? deletePushStartedAt,
+    Value<int?>? createPushStartedAt,
     Value<bool>? isAlwaysFronting,
     Value<DateTime?>? boardLastReadAt,
     Value<int>? rowid,
@@ -2090,6 +2143,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
       isDeleted: isDeleted ?? this.isDeleted,
       deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
       deletePushStartedAt: deletePushStartedAt ?? this.deletePushStartedAt,
+      createPushStartedAt: createPushStartedAt ?? this.createPushStartedAt,
       isAlwaysFronting: isAlwaysFronting ?? this.isAlwaysFronting,
       boardLastReadAt: boardLastReadAt ?? this.boardLastReadAt,
       rowid: rowid ?? this.rowid,
@@ -2223,6 +2277,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (deletePushStartedAt.present) {
       map['delete_push_started_at'] = Variable<int>(deletePushStartedAt.value);
     }
+    if (createPushStartedAt.present) {
+      map['create_push_started_at'] = Variable<int>(createPushStartedAt.value);
+    }
     if (isAlwaysFronting.present) {
       map['is_always_fronting'] = Variable<bool>(isAlwaysFronting.value);
     }
@@ -2276,6 +2333,7 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('isDeleted: $isDeleted, ')
           ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
           ..write('deletePushStartedAt: $deletePushStartedAt, ')
+          ..write('createPushStartedAt: $createPushStartedAt, ')
           ..write('isAlwaysFronting: $isAlwaysFronting, ')
           ..write('boardLastReadAt: $boardLastReadAt, ')
           ..write('rowid: $rowid')
@@ -29003,6 +29061,7 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
+      Value<int?> createPushStartedAt,
       Value<bool> isAlwaysFronting,
       Value<DateTime?> boardLastReadAt,
       Value<int> rowid,
@@ -29047,6 +29106,7 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<bool> isDeleted,
       Value<int?> deleteIntentEpoch,
       Value<int?> deletePushStartedAt,
+      Value<int?> createPushStartedAt,
       Value<bool> isAlwaysFronting,
       Value<DateTime?> boardLastReadAt,
       Value<int> rowid,
@@ -29248,6 +29308,11 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<int> get deletePushStartedAt => $composableBuilder(
     column: $table.deletePushStartedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createPushStartedAt => $composableBuilder(
+    column: $table.createPushStartedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -29461,6 +29526,11 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get createPushStartedAt => $composableBuilder(
+    column: $table.createPushStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isAlwaysFronting => $composableBuilder(
     column: $table.isAlwaysFronting,
     builder: (column) => ColumnOrderings(column),
@@ -29649,6 +29719,11 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get createPushStartedAt => $composableBuilder(
+    column: $table.createPushStartedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isAlwaysFronting => $composableBuilder(
     column: $table.isAlwaysFronting,
     builder: (column) => column,
@@ -29726,6 +29801,7 @@ class $$MembersTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
+                Value<int?> createPushStartedAt = const Value.absent(),
                 Value<bool> isAlwaysFronting = const Value.absent(),
                 Value<DateTime?> boardLastReadAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -29768,6 +29844,7 @@ class $$MembersTableTableManager
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
+                createPushStartedAt: createPushStartedAt,
                 isAlwaysFronting: isAlwaysFronting,
                 boardLastReadAt: boardLastReadAt,
                 rowid: rowid,
@@ -29812,6 +29889,7 @@ class $$MembersTableTableManager
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int?> deleteIntentEpoch = const Value.absent(),
                 Value<int?> deletePushStartedAt = const Value.absent(),
+                Value<int?> createPushStartedAt = const Value.absent(),
                 Value<bool> isAlwaysFronting = const Value.absent(),
                 Value<DateTime?> boardLastReadAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -29854,6 +29932,7 @@ class $$MembersTableTableManager
                 isDeleted: isDeleted,
                 deleteIntentEpoch: deleteIntentEpoch,
                 deletePushStartedAt: deletePushStartedAt,
+                createPushStartedAt: createPushStartedAt,
                 isAlwaysFronting: isAlwaysFronting,
                 boardLastReadAt: boardLastReadAt,
                 rowid: rowid,

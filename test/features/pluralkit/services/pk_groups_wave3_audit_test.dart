@@ -22,6 +22,10 @@ import '../../../helpers/pk_fixtures.dart';
 // ── Fakes ──────────────────────────────────────────────────────────────────
 
 class _FakeMemberRepo implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _FakeMemberRepo(this.members);
   final List<domain.Member> members;
 

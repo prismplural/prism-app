@@ -504,6 +504,7 @@ class PkMappingApplier {
               'is_deleted',
               'delete_intent_epoch',
               'delete_push_started_at',
+              'create_push_started_at',
             }.contains(k),
           );
     await _withReleasedDeletedPkIdentityHolders(

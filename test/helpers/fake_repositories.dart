@@ -183,6 +183,12 @@ class FakeMemberRepository implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
+
+  @override
   Future<({Member member, bool wasCreated})>
   ensureUnknownSentinelMember() async {
     final existing = await getMemberById(unknownSentinelMemberId);
@@ -955,6 +961,12 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
 
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
 
   @override
   Future<({int count, Duration? avgDuration})> getSleepStats({

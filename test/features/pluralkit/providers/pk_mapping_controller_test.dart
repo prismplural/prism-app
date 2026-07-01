@@ -172,6 +172,12 @@ class _FakeMemberRepo implements MemberRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
   @override
   Future<({domain.Member member, bool wasCreated})>
   ensureUnknownSentinelMember() => throw UnimplementedError();
@@ -1546,6 +1552,10 @@ void main() {
 /// Records mapping state at each member-repo write — used to observe what the
 /// controller's phase / applyProgress look like during the per-decision loop.
 class _RecordingMemberRepo implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _RecordingMemberRepo(this._inner, {required this.onWrite});
 
   final MemberRepository _inner;

@@ -51,6 +51,7 @@ const String prismSyncSchema = '''
         "pk_banner_cached_url": "String",
         "pluralkit_sync_ignored": "Bool",
         "delete_push_started_at": "Int",
+        "create_push_started_at": "Int",
         "is_deleted": "Bool",
         "board_last_read_at": "DateTime"
       }

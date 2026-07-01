@@ -122,6 +122,12 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
   @override
   Future<({domain.Member member, bool wasCreated})>
   ensureUnknownSentinelMember() async {

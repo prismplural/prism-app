@@ -700,6 +700,26 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   }
 
   @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {
+    await runSyncedWrite(() async {
+      await _dao.stampCreatePushStartedAt(id, timestampMs);
+      await syncRecordUpdate(_table, id, {
+        'create_push_started_at': timestampMs,
+      });
+    });
+  }
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {
+    await runSyncedWrite(() async {
+      await _dao.clearCreatePushStartedAt(id);
+      await syncRecordUpdate(_table, id, {
+        'create_push_started_at': null,
+      });
+    });
+  }
+
+  @override
   Future<List<domain.Member>> getMembersByIds(List<String> ids) async {
     final rows = await _dao.getMembersByIds(ids);
     return rows.map(MemberMapper.toDomain).toList();
@@ -1093,6 +1113,9 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
           : const Value.absent(),
       deletePushStartedAt: fields.containsKey('delete_push_started_at')
           ? Value(fields['delete_push_started_at'] as int?)
+          : const Value.absent(),
+      createPushStartedAt: fields.containsKey('create_push_started_at')
+          ? Value(fields['create_push_started_at'] as int?)
           : const Value.absent(),
     );
   }

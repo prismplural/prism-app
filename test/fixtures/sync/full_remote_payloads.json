@@ -86,6 +86,7 @@
       "pk_banner_cached_url": "https://example.invalid/banner.png",
       "pluralkit_sync_ignored": false,
       "delete_push_started_at": 0,
+      "create_push_started_at": 0,
       "is_always_fronting": false,
       "is_deleted": false,
       "board_last_read_at": "2026-04-29T12:05:00.000Z"

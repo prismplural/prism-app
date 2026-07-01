@@ -27,15 +27,19 @@ class FakePluralKitClient implements PluralKitClient {
       throw UnimplementedError();
   final List<Call> calls = [];
   int _idCounter = 0;
+  // When set, createMember throws this instead of returning — simulates a POST
+  // failure (transport error, validation rejection, …).
+  Object? createError;
 
   @override
   String get currentToken => 'fake-token';
 
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) async {
+    calls.add(Call('createMember', [data]));
+    if (createError != null) throw createError!;
     _idCounter++;
     final id = 'pk${_idCounter.toString().padLeft(3, '0')}';
-    calls.add(Call('createMember', [data]));
     return PKMember(
       id: id,
       uuid: 'uuid-$id',
@@ -229,11 +233,31 @@ class FakeMemberRepository implements MemberRepository {
   Future<int> getCount() async => _members.length;
 
   @override
-  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => _members.values
+      .where((m) => m.isDeleted && (m.pluralkitUuid ?? '').trim().isNotEmpty)
+      .toList();
   @override
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {
+    calls.add(Call('stampCreatePushStartedAt', [id, timestampMs]));
+    final existing = _members[id];
+    if (existing != null) {
+      _members[id] = existing.copyWith(createPushStartedAt: timestampMs);
+    }
+  }
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {
+    calls.add(Call('clearCreatePushStartedAt', [id]));
+    final existing = _members[id];
+    if (existing != null) {
+      _members[id] = existing.copyWith(createPushStartedAt: null);
+    }
+  }
 
   @override
   Future<({domain.Member member, bool wasCreated})>
@@ -412,6 +436,187 @@ void main() {
       final patch = applyCall.args[1] as Map<String, dynamic>;
       expect(patch['pluralkit_id'], 'pk001');
       expect(patch['pluralkit_uuid'], 'uuid-pk001');
+    });
+  });
+
+  group('F4/F5 create-push lease', () {
+    domain.Member leaseMember(String id, String name, int? leaseMs) =>
+        domain.Member(
+          id: id,
+          name: name,
+          createdAt: DateTime(2026, 1, 1),
+          createPushStartedAt: leaseMs,
+        );
+
+    test('F4: a FRESH create lease defers the push (no duplicate POST)',
+        () async {
+      final fresh = DateTime.now().millisecondsSinceEpoch;
+      final summary = await service.syncMembers(
+        localMembers: [leaseMember('local-1', 'Pending', fresh)],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+      expect(
+        fakeClient.calls.where((c) => c.method == 'createMember'),
+        isEmpty,
+        reason: 'a fresh lease means another device is mid-POST — do not POST',
+      );
+      expect(
+        fakeRepo.calls.where((c) => c.method == 'stampCreatePushStartedAt'),
+        isEmpty,
+      );
+      expect(summary.membersPushed, 0);
+      expect(summary.membersSkipped, 1);
+    });
+
+    test('F4: stamps the lease before POST and clears it after link-back',
+        () async {
+      final summary = await service.syncMembers(
+        localMembers: [_localMember(id: 'local-1', name: 'NewMember')],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+      expect(summary.membersPushed, 1);
+      final methods = fakeRepo.calls.map((c) => c.method).toList();
+      final stampIdx = methods.indexOf('stampCreatePushStartedAt');
+      final clearIdx = methods.indexOf('clearCreatePushStartedAt');
+      expect(stampIdx, greaterThanOrEqualTo(0),
+          reason: 'the lease must be stamped before the POST');
+      expect(clearIdx, greaterThan(stampIdx),
+          reason: 'the lease must be cleared after the link-back');
+      expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue);
+    });
+
+    test('F5: a STALE lease adopts a matching orphaned PK member instead of '
+        're-POSTing', () async {
+      final stale = DateTime.now()
+          .subtract(const Duration(minutes: 20))
+          .millisecondsSinceEpoch;
+      final summary = await service.syncMembers(
+        localMembers: [leaseMember('local-1', 'Orphaned', stale)],
+        pkMembers: [_pkMember(id: 'po1', uuid: 'uuid-orphan', name: 'Orphaned')],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+      expect(
+        fakeClient.calls.where((c) => c.method == 'createMember'),
+        isEmpty,
+        reason: 'the orphan from a prior interrupted push is adopted, not '
+            're-created',
+      );
+      final applyCall = fakeRepo.calls.firstWhere(
+        (c) => c.method == 'applyPluralKitLink',
+        orElse: () => throw StateError('expected an adoption link'),
+      );
+      expect((applyCall.args[1] as Map)['pluralkit_uuid'], 'uuid-orphan');
+      expect(
+        fakeRepo.calls.any((c) => c.method == 'clearCreatePushStartedAt'),
+        isTrue,
+      );
+      expect(summary.membersPushed, 1);
+    });
+
+    test('F5: a STALE lease with NO matching orphan re-POSTs (re-stamps)',
+        () async {
+      final stale = DateTime.now()
+          .subtract(const Duration(minutes: 20))
+          .millisecondsSinceEpoch;
+      final summary = await service.syncMembers(
+        localMembers: [leaseMember('local-1', 'Lonely', stale)],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+      expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue,
+          reason: 'no orphan to adopt — a stale lease re-POSTs');
+      expect(
+        fakeRepo.calls.any((c) => c.method == 'stampCreatePushStartedAt'),
+        isTrue,
+      );
+      expect(summary.membersPushed, 1);
+    });
+
+    test('F5 safety: a FAILED POST releases the lease (no phantom orphan to '
+        'adopt later)', () async {
+      // The POST never reaches PK and mints no member; leaving the lease set
+      // would falsely authorize adopting an unrelated same-named PK member.
+      fakeClient.createError = Exception('simulated transport failure');
+      final local = _localMember(id: 'local-1', name: 'Pending');
+      await fakeRepo.createMember(local);
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue,
+          reason: 'the POST was attempted and threw');
+      final after = await fakeRepo.getMemberById('local-1');
+      expect(after!.createPushStartedAt, isNull,
+          reason: 'a failed POST must release the lease, not leave it set');
+      expect(after.pluralkitUuid, isNull, reason: 'the member stays unlinked');
+    });
+
+    test('F5 safety: adoption does not steal a soft-deleted same-named '
+        'member\'s PK identity', () async {
+      // A soft-deleted member still owns uuid-twin on PK (delete-push not done).
+      await fakeRepo.createMember(domain.Member(
+        id: 'deleted-twin',
+        name: 'Twin',
+        createdAt: DateTime(2026, 1, 1),
+        pluralkitUuid: 'uuid-twin',
+        pluralkitId: 'tw1',
+        isDeleted: true,
+      ));
+      // A brand-new active member of the same name with a stale lease.
+      final stale = DateTime.now()
+          .subtract(const Duration(minutes: 20))
+          .millisecondsSinceEpoch;
+      final newTwin = domain.Member(
+        id: 'new-twin',
+        name: 'Twin',
+        createdAt: DateTime(2026, 2, 1),
+        createPushStartedAt: stale,
+      );
+      await fakeRepo.createMember(newTwin);
+
+      await service.syncMembers(
+        localMembers: [newTwin],
+        pkMembers: [_pkMember(id: 'tw1', uuid: 'uuid-twin', name: 'Twin')],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      // The new member must NOT adopt the deleted member's PK uuid.
+      for (final c
+          in fakeRepo.calls.where((c) => c.method == 'applyPluralKitLink')) {
+        expect((c.args[1] as Map)['pluralkit_uuid'], isNot('uuid-twin'),
+            reason: 'a deleted member\'s live PK identity is not adoptable');
+      }
+      // It re-POSTs a fresh PK member instead.
+      expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue);
     });
   });
 

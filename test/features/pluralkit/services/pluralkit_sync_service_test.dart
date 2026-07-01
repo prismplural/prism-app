@@ -397,6 +397,12 @@ class FakeMemberRepository implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
+
+  @override
   Future<({domain.Member member, bool wasCreated})>
   ensureUnknownSentinelMember() => throw UnimplementedError();
 }
@@ -567,6 +573,12 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   Future<void> clearPluralKitLink(String id) async {}
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
 
   @override
   Future<({int count, Duration? avgDuration})> getSleepStats({

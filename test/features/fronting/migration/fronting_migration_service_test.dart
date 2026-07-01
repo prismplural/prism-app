@@ -2849,6 +2849,10 @@ class _PinnedRandom implements Random {
 /// transaction - used to verify rollback semantics (settings unchanged,
 /// PRISM1 file preserved).
 class _ThrowingMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _ThrowingMemberRepository(this._inner);
 
   final MemberRepository _inner;
@@ -3169,6 +3173,10 @@ class _SuppressionAssertingFrontSessionCommentsRepository
 }
 
 class _SuppressionAssertingMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _SuppressionAssertingMemberRepository(this._inner);
   final MemberRepository _inner;
 

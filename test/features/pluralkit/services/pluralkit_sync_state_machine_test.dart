@@ -339,6 +339,10 @@ class _FakeClient implements PluralKitClient {
 }
 
 class _FakeMemberRepo implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   @override
   Future<List<domain.Member>> getAllMembers() async => const [];
   @override

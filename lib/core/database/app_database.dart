@@ -115,7 +115,7 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const currentSchemaVersion = 39;
+  static const currentSchemaVersion = 40;
 
   /// Optional view of the sync engine's absorbing-delete state. When the sync
   /// layer has a live engine handle it sets this so the deterministic-id rescue
@@ -1203,6 +1203,10 @@ class AppDatabase extends _$AppDatabase {
           TableMigration(
             members,
             columnTransformer: {members.age: members.age.cast<String>()},
+            // Columns added AFTER this v31 recreate don't exist on the old table
+            // when a v1→current chain reaches this step, so drift must populate
+            // them from default, not copy. createPushStartedAt (v40) is one.
+            newColumns: [members.createPushStartedAt],
           ),
         );
       },
@@ -1419,6 +1423,27 @@ class AppDatabase extends _$AppDatabase {
         );
       },
     ),
+    _MigrationStep(
+      from: 39,
+      to: 40,
+      apply: (migrator, to) async {
+        // Narrow idx_members_pluralkit_id to active rows only: short ids are
+        // user-recyclable, so a tombstone holding a recycled short id must not
+        // occupy the unique index and block a live member that now owns it. The
+        // new predicate is a strict subset of the old, so the recreate can't fail
+        // on data valid under the covering index. The uuid index stays covering.
+        await customStatement('DROP INDEX IF EXISTS idx_members_pluralkit_id');
+        await customStatement(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_id '
+          'ON members(pluralkit_id) '
+          'WHERE pluralkit_id IS NOT NULL AND is_deleted = 0',
+        );
+        // F4: synced create-push coordination lease, mirroring
+        // delete_push_started_at, so paired devices don't both POST the same
+        // unlinked member to PluralKit.
+        await _addColumnIfAbsent(migrator, members, members.createPushStartedAt);
+      },
+    ),
   ];
 
 
@@ -1475,7 +1500,14 @@ class AppDatabase extends _$AppDatabase {
 
   /// PK uniqueness indexes that are stable across v2 → v7.
   ///
-  /// Members + member_groups indexes have the same shape from v2 onward.
+  /// Members + member_groups indexes have the same shape from v2 onward, EXCEPT
+  /// `idx_members_pluralkit_id`, which narrows to active-only (`is_deleted = 0`)
+  /// at v40 — short ids are user-recyclable under PK Premium, so a soft-deleted
+  /// tombstone retaining a recycled short id must not block a different live
+  /// member that now owns it. `idx_members_pluralkit_uuid` deliberately still
+  /// covers tombstones (uuid is stable identity; tombstone collision protection
+  /// is valuable and PK delete-push needs the linked uuid). The v39→v40
+  /// migration drops/recreates the short-id index into the active-only shape.
   /// Fronting-sessions indexes differ between v2 (single-column on `pluralkit_uuid`)
   /// and v7 (composite + orphan); each migration path or fresh-install call site
   /// adds the right fronting variant explicitly.  Putting fronting indexes in the
@@ -1488,7 +1520,7 @@ class AppDatabase extends _$AppDatabase {
     );
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_id '
-      'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+      'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL AND is_deleted = 0',
     );
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '

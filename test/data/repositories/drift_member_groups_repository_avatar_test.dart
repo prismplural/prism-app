@@ -35,6 +35,10 @@ class _RecordingRepo extends DriftMemberGroupsRepository {
 }
 
 class _NoopMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   const _NoopMemberRepository();
 
   @override

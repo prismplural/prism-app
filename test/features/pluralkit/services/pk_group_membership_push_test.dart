@@ -17,6 +17,10 @@ import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.d
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 class _FakeMemberRepo implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _FakeMemberRepo(this.members);
   final List<domain.Member> members;
 

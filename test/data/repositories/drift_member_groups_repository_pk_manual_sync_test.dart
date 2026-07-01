@@ -13,6 +13,10 @@ import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 
 class _FakeMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _FakeMemberRepository(this._membersById);
 
   final Map<String, member_domain.Member> _membersById;

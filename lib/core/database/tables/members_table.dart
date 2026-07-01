@@ -72,6 +72,12 @@ class Members extends Table {
   // device that takes ownership of pushing the DELETE stamps this; other
   // devices skip while it's fresh (< 10 min) and take over once stale.
   IntColumn get deletePushStartedAt => integer().nullable()();
+  // F4: cross-device CREATE-push lease (ms since epoch, synced), mirroring
+  // deletePushStartedAt — a fresh stamp makes peers skip so two devices don't
+  // each mint a PK member; they take over once stale. Also the F5 recovery
+  // marker: a set-but-stale lease means a prior POST may have orphaned a PK
+  // member, so the takeover adopts it instead of re-POSTing.
+  IntColumn get createPushStartedAt => integer().nullable()();
 
   // -- Phase 1: per-member fronting refactor (docs/plans/fronting-per-member-sessions.md §2.3) --
   //

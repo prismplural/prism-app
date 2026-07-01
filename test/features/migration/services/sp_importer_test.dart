@@ -158,6 +158,12 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
+
+  @override
   Future<({domain.Member member, bool wasCreated})>
   ensureUnknownSentinelMember() => throw UnimplementedError();
 }
@@ -306,6 +312,12 @@ class _FakeSessionRepository implements FrontingSessionRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
+
+  @override
   Future<({int count, Duration? avgDuration})> getSleepStats({
     required DateTime since,
     DateTime? until,
@@ -449,6 +461,10 @@ class _FakeConversationRepository implements ConversationRepository {
 /// members loop (pre-resolve existing-member/tombstone detection), so that's
 /// the durable failure-injection point that survives later batching changes.
 class _ThrowingMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _ThrowingMemberRepository(this._inner);
   final MemberRepository _inner;
   bool _thrown = false;

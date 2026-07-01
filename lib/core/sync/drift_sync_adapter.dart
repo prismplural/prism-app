@@ -656,24 +656,40 @@ Future<void> _releaseDeletedPkIdentityHoldersForMemberApply(
   final normalizedPkId = _nonEmptySyncString(pkId);
   if (normalizedPkUuid == null && normalizedPkId == null) return;
 
-  await (db.update(db.members)..where((t) {
-        final matchingUuid = normalizedPkUuid == null
-            ? const Constant<bool>(false)
-            : t.pluralkitUuid.equals(normalizedPkUuid);
-        final matchingId = normalizedPkId == null
-            ? const Constant<bool>(false)
-            : t.pluralkitId.equals(normalizedPkId);
+  // Free deleted holders of the SAME PK identity so an incoming op can re-take
+  // it without a UNIQUE collision on the deleted-row-covering indexes (post-
+  // delete re-import). But a deleted holder whose non-empty uuid DIFFERS from
+  // the incoming uuid — matched only by a recycled short id — is a distinct,
+  // recoverable member: clear ONLY its stale pluralkit_id (mirrors importer
+  // H12a / F3), never its uuid. Same-uuid matches still clear both fields.
+  final deletedHolders =
+      await (db.select(db.members)..where((t) {
+            final matchingUuid = normalizedPkUuid == null
+                ? const Constant<bool>(false)
+                : t.pluralkitUuid.equals(normalizedPkUuid);
+            final matchingId = normalizedPkId == null
+                ? const Constant<bool>(false)
+                : t.pluralkitId.equals(normalizedPkId);
 
-        return t.id.equals(incomingId).not() &
-            t.isDeleted.equals(true) &
-            (matchingUuid | matchingId);
-      }))
-      .write(
-        const MembersCompanion(
-          pluralkitUuid: Value(null),
-          pluralkitId: Value(null),
-        ),
-      );
+            return t.id.equals(incomingId).not() &
+                t.isDeleted.equals(true) &
+                (matchingUuid | matchingId);
+          }))
+          .get();
+  for (final holder in deletedHolders) {
+    final holderUuid = _nonEmptySyncString(holder.pluralkitUuid);
+    final staleShortIdConflict = normalizedPkUuid != null &&
+        holderUuid != null &&
+        holderUuid != normalizedPkUuid;
+    await (db.update(db.members)..where((t) => t.id.equals(holder.id))).write(
+      staleShortIdConflict
+          ? const MembersCompanion(pluralkitId: Value(null))
+          : const MembersCompanion(
+              pluralkitUuid: Value(null),
+              pluralkitId: Value(null),
+            ),
+    );
+  }
 }
 
 Future<bool> _memberPkIdentityHeldByOtherRow(
@@ -797,6 +813,31 @@ Future<List<FrontingSession>> _activeFrontingSessionRowsByPkIdentityForApply(
     return left.id.compareTo(right.id);
   });
   return rows;
+}
+
+/// Remap an incoming `fronting_sessions.member_id` onto the local winner row.
+///
+/// The synced `member_id` is the EMITTING device's local id, which may have been
+/// redirected onto a different local row at member apply (the loser id is never
+/// materialized, only a `pk_identity_sync_aliases` row recorded). Writing it
+/// verbatim strands the session on a non-existent member and the fronter
+/// vanishes, so resolve a dangling id through the alias to the active holder.
+/// Live ids and ids with no recorded redirect pass through unchanged.
+Future<String?> _remapFrontingMemberIdForApply(
+  AppDatabase db,
+  String? memberId,
+) async {
+  final normalized = _nonEmptySyncString(memberId);
+  if (normalized == null) return memberId;
+  final live =
+      await (db.select(db.members)
+            ..where((t) => t.id.equals(normalized) & t.isDeleted.equals(false))
+            ..limit(1))
+          .getSingleOrNull();
+  if (live != null) return memberId;
+  final holderId = await _resolveRedirectedMemberHolderForApply(db, normalized);
+  if (holderId != null && holderId != normalized) return holderId;
+  return memberId;
 }
 
 String? _nonEmptySyncString(String? value) {
@@ -1896,6 +1937,32 @@ Future<String?> _resolveMemberIdentityAliasHolder(
   return fallback?.id;
 }
 
+/// Like [_resolveMemberIdentityAliasHolder] but for the non-tombstone apply
+/// paths that WRITE the incoming op's fields onto the resolved holder (F1
+/// fronting remap, F2 sparse-op retarget). Resolves ONLY through a live row that
+/// still holds the alias's recorded PK identity — never the bare `target_row_id`
+/// fallback, since writing onto a holder relinked to a DIFFERENT PK member would
+/// clobber it. When nothing matches, callers fall through to a safe default.
+Future<String?> _resolveRedirectedMemberHolderForApply(
+  AppDatabase db,
+  String legacyEntityId,
+) async {
+  final alias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+    'members',
+    legacyEntityId,
+  );
+  if (alias == null) return null;
+  final holders = await _activeMemberRowsByPkIdentityForApply(
+    db,
+    pkUuid: alias.pkUuid,
+    pkId: alias.pkId,
+  );
+  for (final holder in holders) {
+    if (!holder.createdAt.isAfter(alias.createdAt)) return holder.id;
+  }
+  return null;
+}
+
 /// `fronting_sessions` analogue of [_resolveMemberIdentityAliasHolder],
 /// keyed on (pluralkit_uuid, member_id). The dominant post-delete re-import
 /// vector is closed by the same mechanism: every terminal resolution path
@@ -2176,6 +2243,7 @@ DriftSyncEntity _membersEntity(
         'pk_banner_cached_url': r.pkBannerCachedUrl,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
         'delete_push_started_at': r.deletePushStartedAt,
+        'create_push_started_at': r.createPushStartedAt,
         'is_always_fronting': r.isAlwaysFronting,
         'is_deleted': r.isDeleted,
         'board_last_read_at': _dateTimeToSyncStringOrNull(r.boardLastReadAt),
@@ -2294,22 +2362,72 @@ DriftSyncEntity _membersEntity(
           pkUuid: nextPkUuid,
           pkId: nextPkId,
         );
-        Member? targetRow;
+        // F3: a candidate row whose non-empty uuid DIFFERS from the incoming op,
+        // matched ONLY by a recycled short id, is a distinct PK member (mirrors
+        // importer H12a). Clear only its stale pluralkit_id — its uuid, its real
+        // identity, stays — so it survives and the incoming member can take the
+        // short id without tripping the unique index. Skipped when the incoming
+        // op carries no uuid (can't tell a recycled short id from a real match).
+        final normalizedIncomingUuid = _nonEmptySyncString(nextPkUuid);
+        final identityRows = <Member>[];
         for (final row in activeIdentityRows) {
+          final rowUuid = _nonEmptySyncString(row.pluralkitUuid);
+          final staleShortIdConflict = normalizedIncomingUuid != null &&
+              rowUuid != null &&
+              rowUuid != normalizedIncomingUuid;
+          if (staleShortIdConflict) {
+            await (db.update(
+              db.members,
+            )..where((t) => t.id.equals(row.id))).write(
+              const MembersCompanion(pluralkitId: Value(null)),
+            );
+            continue;
+          }
+          identityRows.add(row);
+        }
+        Member? targetRow;
+        for (final row in identityRows) {
           if (row.id == id) {
             targetRow = row;
             break;
           }
         }
-        if (targetRow == null && activeIdentityRows.isNotEmpty) {
-          targetRow = activeIdentityRows.first;
+        if (targetRow == null && identityRows.isNotEmpty) {
+          targetRow = identityRows.first;
+        }
+        if (targetRow == null) {
+          // F2: a sparse op (no PK identity) for a legacy id previously
+          // redirected onto a winner matches nothing above; a plain insert would
+          // orphan a duplicate row or drop the edit. Resolve the redirect alias
+          // to the holder and retarget the write. Three guards prevent clobbering
+          // a distinct/relinked member:
+          //  - identity-free only: an op with its OWN uuid/short-id is a distinct
+          //    member (or relink) — never fold it onto the holder;
+          //  - no existing row at `id`: a row at `id` is this op's own row —
+          //    update it directly (mirrors the tombstone existing==null guard);
+          //  - identity-verified holder: the resolver matches only a row still
+          //    holding the alias's identity, never the target_row_id fallback.
+          final incomingIsIdentityFree = normalizedIncomingUuid == null &&
+              _nonEmptySyncString(nextPkId) == null;
+          if (incomingIsIdentityFree) {
+            final aliasHolderId =
+                await _resolveRedirectedMemberHolderForApply(db, id);
+            if (aliasHolderId != null && aliasHolderId != id) {
+              final existingAtId = await (db.select(
+                db.members,
+              )..where((t) => t.id.equals(id))).getSingleOrNull();
+              if (existingAtId == null) {
+                targetId = aliasHolderId;
+              }
+            }
+          }
         }
         if (targetRow != null) {
           targetId = targetRow.id;
           if (shouldCheckPkUuidChange) {
             priorPkUuid = targetRow.pluralkitUuid;
           }
-          for (final row in activeIdentityRows) {
+          for (final row in identityRows) {
             if (row.id == targetId) continue;
             await (db.update(
               db.members,
@@ -2335,6 +2453,19 @@ DriftSyncEntity _membersEntity(
               pkUuid: nextPkUuid,
               pkId: nextPkId,
               targetRowId: targetId,
+            );
+            // F1 (order-independence): a fronting_sessions row may already have
+            // been applied carrying member_id == id (this now-redirected legacy
+            // id) before this member op arrived — the engine does not order
+            // cross-table changes causally. Back-fill those sessions onto the
+            // winner so the fronter doesn't dangle (the forward case is handled
+            // by _remapFrontingMemberIdForApply). Local-only, and can't collide:
+            // PK session ids are deterministic, so an already-remapped row is the
+            // same id.
+            await (db.update(
+              db.frontingSessions,
+            )..where((t) => t.memberId.equals(id))).write(
+              FrontingSessionsCompanion(memberId: Value(targetId)),
             );
           }
         }
@@ -2378,6 +2509,7 @@ DriftSyncEntity _membersEntity(
         pkBannerCachedUrl: f.stringFieldNullable('pk_banner_cached_url'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
+        createPushStartedAt: f.intFieldNullable('create_push_started_at'),
         isAlwaysFronting: f.boolField('is_always_fronting'),
         isDeleted: f.boolField('is_deleted'),
         boardLastReadAt: f.dateTimeFieldNullable('board_last_read_at'),
@@ -2578,6 +2710,7 @@ DriftSyncEntity _membersEntity(
         'pk_banner_cached_url': row.pkBannerCachedUrl,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
         'delete_push_started_at': row.deletePushStartedAt,
+        'create_push_started_at': row.createPushStartedAt,
         'is_always_fronting': row.isAlwaysFronting,
         'is_deleted': row.isDeleted,
         'board_last_read_at': _dateTimeToSyncStringOrNull(row.boardLastReadAt),
@@ -2728,9 +2861,16 @@ DriftSyncEntity _frontingSessionsEntity(
       final nextPkUuid = fields.containsKey('pluralkit_uuid')
           ? _asString(fields['pluralkit_uuid'])
           : existing?.pluralkitUuid;
-      final nextMemberId = fields.containsKey('member_id')
+      final rawMemberId = fields.containsKey('member_id')
           ? _asString(fields['member_id'])
           : existing?.memberId;
+      // F1: remap the incoming (emitting-device) member_id through the identity
+      // alias BEFORE the dedup and row write below — see
+      // _remapFrontingMemberIdForApply — else the session dangles and the fronter
+      // vanishes. Sparse ops (no member_id) keep the existing live local id.
+      final nextMemberId = fields.containsKey('member_id')
+          ? await _remapFrontingMemberIdForApply(db, rawMemberId)
+          : rawMemberId;
       if (!remoteTombstone) {
         await _releaseDeletedPkIdentityHoldersForFrontingSessionApply(
           db,
@@ -2807,6 +2947,12 @@ DriftSyncEntity _frontingSessionsEntity(
         deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
+      // F1: write the remapped winner id instead of the dangling emitting-device
+      // id. Guarded on an actual remap so the field helper's malformed-payload
+      // semantics (quarantine report + absent) are preserved for every other op.
+      if (fields.containsKey('member_id') && nextMemberId != rawMemberId) {
+        companion = companion.copyWith(memberId: Value(nextMemberId));
+      }
       // Normalize an orphan-producing apply onto the Unknown sentinel
       // instead of letting the v14 CHECK (session_type != 0 OR member_id IS NOT
       // NULL) throw and the row get quarantined-and-swallowed. A pre-v14 sparse

@@ -541,12 +541,14 @@ class DataImportService {
         // 1. Import members (first pass: create)
         //
         // Dedup against ALL local members, including soft-deleted tombstones.
-        // The partial unique indexes idx_members_pluralkit_uuid /
-        // idx_members_pluralkit_id cover tombstones (no `is_deleted = 0` clause
-        // in the index \u2014 tombstones still hold `pluralkit_uuid` / `pluralkit_id`
-        // until the corresponding delete-push completes), so an import row whose
-        // PK link matches a tombstoned local row would otherwise hit the unique
-        // index and roll back the entire import transaction. See
+        // idx_members_pluralkit_uuid covers tombstones (no `is_deleted = 0`
+        // clause \u2014 a tombstone keeps its `pluralkit_uuid` until the delete-push
+        // completes), so an import row whose uuid matches a tombstoned local row
+        // would otherwise hit the unique index and roll back the entire import
+        // transaction. idx_members_pluralkit_id narrowed to active-only at v40
+        // (recycled short ids), so a short-id-only collision no longer rolls
+        // back \u2014 the pluralkit_id skip below is now a deliberate delete-intent
+        // guard, not an index requirement. See
         // docs/plans/data-import-tombstone-collision.md.
         var membersCreated = 0;
         final allMemberRows = await db.membersDao

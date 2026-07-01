@@ -3085,6 +3085,12 @@ class PluralKitSyncService {
     debugPrint('[PK_SVC] _importMembers: existing in DB=${existing.length}');
     final byPkUuid = <String, domain.Member>{};
     final byPkId = <String, domain.Member>{};
+    // F5 (full-import adoption): unlinked local members this fleet tried to
+    // create (create lease set), keyed by name. A matching PK member in the
+    // import that isn't otherwise linked is very likely the orphaned create
+    // from an interrupted push — adopt it rather than minting a local
+    // duplicate. Mirrors the incremental adoption in PkBidirectionalService.
+    final attemptedCreateByName = <String, domain.Member>{};
     for (final m in existing) {
       final pkUuid = m.pluralkitUuid?.trim();
       if (pkUuid != null && pkUuid.isNotEmpty) {
@@ -3094,7 +3100,19 @@ class PluralKitSyncService {
       if (pkId != null && pkId.isNotEmpty) {
         byPkId[pkId] = m;
       }
+      if (!m.isDeleted &&
+          !m.pluralkitSyncIgnored &&
+          (pkUuid == null || pkUuid.isEmpty) &&
+          (pkId == null || pkId.isEmpty) &&
+          m.createPushStartedAt != null) {
+        // Exclude user-excluded ("keep local") members: adopting one would
+        // re-link it AND force pluralkit_sync_ignored back to false, silently
+        // undoing the user's choice. Mirrors the bidirectional path's guard.
+        final name = m.name.trim();
+        if (name.isNotEmpty) attemptedCreateByName[name] = m;
+      }
     }
+    final nowMsForCreateLease = DateTime.now().millisecondsSinceEpoch;
 
     var created = 0;
     var updated = 0;
@@ -3244,11 +3262,37 @@ class PluralKitSyncService {
                   'is_deleted',
                   'delete_intent_epoch',
                   'delete_push_started_at',
+                  'create_push_started_at',
                 }.contains(k),
               );
           await _memberRepository.applyPluralKitLink(localMember.id, patch);
           updated++;
         } else {
+          // F5: adopt an orphaned create instead of duplicating it. A local
+          // member this fleet tried to create (create lease set) whose name
+          // matches this unlinked PK member is very likely the orphaned create
+          // from an interrupted push. A FRESH lease means a peer is mid-POST
+          // right now — skip (don't duplicate the in-flight create); a STALE
+          // lease means the prior attempt is abandoned — adopt the orphan.
+          final attempted = attemptedCreateByName[pk.name.trim()];
+          if (attempted != null) {
+            attemptedCreateByName.remove(pk.name.trim());
+            final leaseMs = attempted.createPushStartedAt;
+            final leaseFresh = leaseMs != null &&
+                (nowMsForCreateLease - leaseMs) <
+                    _createPushTakeoverThreshold.inMilliseconds;
+            if (leaseFresh) {
+              skipped++;
+              continue;
+            }
+            await _memberRepository.applyPluralKitLink(attempted.id, {
+              'pluralkit_uuid': pk.uuid,
+              'pluralkit_id': pk.id,
+            });
+            await _memberRepository.clearCreatePushStartedAt(attempted.id);
+            updated++;
+            continue;
+          }
           await _memberRepository.createMember(
             domain.Member(
               id: _uuid.v4(),
@@ -4325,6 +4369,11 @@ class PluralKitSyncService {
   /// recently claimed the push (within this window), we back off; past this
   /// window we assume the other device crashed or is offline and take over.
   static const _deletePushTakeoverThreshold = Duration(minutes: 10);
+
+  /// F4/F5: how long a create-push lease is honored before a takeover adopts an
+  /// orphan or re-POSTs. Mirrors [_deletePushTakeoverThreshold] and the
+  /// matching constant in PkBidirectionalService.
+  static const _createPushTakeoverThreshold = Duration(minutes: 10);
 
   bool _deleteLeaseActive(int? startedAtMs, DateTime now) {
     if (startedAtMs == null) return false;

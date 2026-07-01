@@ -57,12 +57,12 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
             ..orderBy([(m) => OrderingTerm.asc(m.displayOrder)]))
           .get();
 
-  /// Like [getAllMembers] but includes soft-deleted tombstones. Used by
-  /// the export importer to detect unique-constraint collisions on
-  /// `pluralkit_uuid` / `pluralkit_id` against tombstones — the partial
-  /// unique indexes `idx_members_pluralkit_uuid` /
-  /// `idx_members_pluralkit_id` cover tombstones (no `is_deleted = 0`
-  /// clause), so dedup off the active-only `getAllMembers` set is unsafe.
+  /// Like [getAllMembers] but includes soft-deleted tombstones. `idx_members_
+  /// pluralkit_uuid` covers tombstones (no `is_deleted = 0` clause), so deduping
+  /// by uuid off the active-only set would let an import hit the unique index and
+  /// roll back the transaction. `idx_members_pluralkit_id` narrowed to active-only
+  /// at v40 (short ids recyclable); importers still read tombstones here to reason
+  /// about short-id reuse and delete intent.
   Future<List<Member>> getAllMembersIncludingDeleted() => select(members).get();
 
   Stream<List<Member>> watchAllMembers() =>
@@ -432,6 +432,19 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
       (update(members)..where((m) => m.id.equals(id))).write(
         MembersCompanion(deletePushStartedAt: Value(timestampMs)),
+      );
+
+  /// F4: stamp the create-push lease. Callers route it through `syncRecordUpdate`
+  /// too so other devices see it.
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) =>
+      (update(members)..where((m) => m.id.equals(id))).write(
+        MembersCompanion(createPushStartedAt: Value(timestampMs)),
+      );
+
+  /// F4: clear the create-push lease once the create completes or is adopted.
+  Future<void> clearCreatePushStartedAt(String id) =>
+      (update(members)..where((m) => m.id.equals(id))).write(
+        const MembersCompanion(createPushStartedAt: Value(null)),
       );
 
   Future<List<Member>> getMembersByIds(List<String> ids) =>

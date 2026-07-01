@@ -115,6 +115,12 @@ class _FakeMemberRepository implements MemberRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+
+  @override
+  Future<void> clearCreatePushStartedAt(String id) async {}
+
+  @override
   Future<void> updateMember(member_domain.Member member) async {
     final index = _members.indexWhere((existing) => existing.id == member.id);
     if (index >= 0) {

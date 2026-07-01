@@ -203,6 +203,10 @@ class _FakeClient implements PluralKitClient {
 // ---------------------------------------------------------------------------
 
 class _FakeMemberRepo implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   final Map<String, domain.Member> members = {};
   final List<String> linkCleared = [];
   final List<String> stampedPushStart = [];

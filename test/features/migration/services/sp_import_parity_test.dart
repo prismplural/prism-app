@@ -784,6 +784,10 @@ class _NoopHttpClient extends http.BaseClient {
 /// successful batch insert), see `_MidBatchFailingChatMessagesDao` /
 /// `_MidBatchFailingAppDatabase` further down.
 class _EarlyFailingMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _EarlyFailingMemberRepository(this._inner);
   final MemberRepository _inner;
   bool _thrown = false;

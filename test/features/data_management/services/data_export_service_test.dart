@@ -638,6 +638,8 @@ void main() {
             'isDeleted',
             'deleteIntentEpoch',
             'deletePushStartedAt',
+            // Local-only cross-device create-push lease, not user data.
+            'createPushStartedAt',
           },
         ),
         _ExportSchemaCoverageCase(

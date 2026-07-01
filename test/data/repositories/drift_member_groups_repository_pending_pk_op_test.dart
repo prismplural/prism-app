@@ -44,6 +44,10 @@ class _RecordingRepo extends DriftMemberGroupsRepository {
 }
 
 class _FakeMemberRepository implements MemberRepository {
+  
+  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
+  
+  Future<void> clearCreatePushStartedAt(String id) async {}
   _FakeMemberRepository(this._members);
 
   final List<member_domain.Member> _members;
