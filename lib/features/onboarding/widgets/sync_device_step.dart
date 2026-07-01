@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
+import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
@@ -142,6 +143,14 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
           actionLabel: context.l10n.onboardingGetStarted,
           onAction: () async {
             await ref.read(devicePairingProvider.notifier).completeOnboarding();
+            if (!mounted) return;
+            // Exempt from the redirect's member-count guard only when the
+            // initial sync fully applied: a zero count is then a genuinely
+            // empty peer, safe to enter Home. If catch-up is still incomplete,
+            // members may yet arrive, so leave the guard in place.
+            if (!pairingState.syncIncomplete) {
+              ref.read(localOnboardingCompletionProvider.notifier).mark();
+            }
             widget.onComplete();
           },
         );

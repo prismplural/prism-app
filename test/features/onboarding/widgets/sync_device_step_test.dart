@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -16,6 +17,7 @@ class _FakeDevicePairingNotifier extends DevicePairingNotifier {
   int completionCount = 0;
   int confirmSasCount = 0;
   int resetCount = 0;
+  int completeOnboardingCount = 0;
 
   @override
   PairingState build() => initialState;
@@ -35,6 +37,11 @@ class _FakeDevicePairingNotifier extends DevicePairingNotifier {
   void reset() {
     resetCount++;
     state = const PairingState();
+  }
+
+  @override
+  Future<void> completeOnboarding() async {
+    completeOnboardingCount++;
   }
 }
 
@@ -198,4 +205,86 @@ void main() {
     await tester.pump();
     expect(notifier.resetCount, 1);
   });
+
+  testWidgets(
+    'pairing success (sync complete) marks local completion for an empty peer',
+    (tester) async {
+      final notifier = _FakeDevicePairingNotifier(
+        const PairingState(step: PairingStep.success),
+      );
+      var completed = false;
+      final container = ProviderContainer(
+        overrides: [devicePairingProvider.overrideWith(() => notifier)],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: SyncDeviceStep(
+                onBack: () {},
+                onComplete: () => completed = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Precondition: a freshly paired device has not been flagged yet, so the
+      // redirect's zero-member guard would otherwise hold it on onboarding.
+      expect(container.read(localOnboardingCompletionProvider), isFalse);
+
+      await tester.tap(find.text('Get Started'));
+      await tester.pumpAndSettle();
+
+      expect(notifier.completeOnboardingCount, 1);
+      expect(container.read(localOnboardingCompletionProvider), isTrue);
+      expect(completed, isTrue);
+    },
+  );
+
+  testWidgets(
+    'pairing success with incomplete sync does NOT mark local completion',
+    (tester) async {
+      final notifier = _FakeDevicePairingNotifier(
+        const PairingState(step: PairingStep.success, syncIncomplete: true),
+      );
+      var completed = false;
+      final container = ProviderContainer(
+        overrides: [devicePairingProvider.overrideWith(() => notifier)],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: SyncDeviceStep(
+                onBack: () {},
+                onComplete: () => completed = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Get Started'));
+      await tester.pumpAndSettle();
+
+      // Members may still be arriving, so the redirect's member-count guard
+      // must stay in force — local completion is NOT marked.
+      expect(notifier.completeOnboardingCount, 1);
+      expect(container.read(localOnboardingCompletionProvider), isFalse);
+      expect(completed, isTrue);
+    },
+  );
 }
