@@ -2192,64 +2192,30 @@ class PluralKitSyncService {
 
 
         final newSwitches = <PKSwitch>[];
-        int pageNum = 0;
-        int totalFetched = 0;
         // `reachedCursor` must start false: a null cursor means "walk ALL of
-        // history", terminated by a short page or
-        // the page cap. Seeding it with `cursor == null` made page 1 the only
-        // page and silently gapped history past the newest 100 switches.
+        // history", terminated by a short page or the page cap. Seeding it with
+        // `cursor == null` made page 1 the only page and silently gapped history
+        // past the newest 100 switches.
         bool reachedCursor = false;
-        DateTime? previousPageBefore;
-
-        while (true) {
-          // First page: no `before`, fetch newest. Subsequent pages: page
-          // backwards from the previous page's oldest timestamp. Note that
-          // we use the *page's* last timestamp, not `newSwitches.last`, so
-          // that even if the cursor break trims the page partway through we
-          // continue paging from the actual API boundary.
-          final DateTime? fetchBefore = previousPageBefore;
-          final page = await client.getSwitches(
-            before: fetchBefore,
-            limit: 100,
-          );
-          pageNum++;
-          totalFetched += page.length;
-          debugPrint('[PK_PULL] page=$pageNum fetched=${page.length}');
-          if (page.isEmpty) break;
-
-          // No-progress guard: a non-empty page that doesn't advance the
-          // paging boundary would loop forever under naive `before =
-          // page.last.timestamp`. Bail with a typed error so the caller
-          // sees a real failure rather than a hung sweep.
-          final pageOldest = page.last.timestamp;
-          if (previousPageBefore != null && pageOldest == previousPageBefore) {
-            throw PkPaginationNoProgressError(
-              lastBefore: pageOldest,
-              pagesFetched: pageNum,
-            );
-          }
-          previousPageBefore = pageOldest;
-
-          for (final sw in page) {
-            // Skip any switch at or before the cursor lexicographically.
-            // Crucially, switches at the same timestamp as the cursor but a
-            // different id are NOT covered and must be processed.
-            if (cursor != null && cursor.covers(sw.timestamp, sw.id)) {
-              reachedCursor = true;
-              continue;
+        final counts = await _paginateSwitchesNewestFirst(
+          client,
+          onPage: (fresh) {
+            for (final sw in fresh) {
+              // Skip any switch at or before the cursor lexicographically.
+              // Crucially, switches at the same timestamp as the cursor but a
+              // different id are NOT covered and must be processed.
+              if (cursor != null && cursor.covers(sw.timestamp, sw.id)) {
+                reachedCursor = true;
+                continue;
+              }
+              newSwitches.add(sw);
             }
-            newSwitches.add(sw);
-          }
-
-          if (reachedCursor) break;
-          if (page.length < 100) break; // last page
-          if (pageNum >= _maxIncrementalPages) {
-            throw PkImportTooLargeError(
-              pagesFetched: pageNum,
-              cap: _maxIncrementalPages,
-            );
-          }
-        }
+            return !reachedCursor;
+          },
+        );
+        final int pageNum = counts.pages;
+        final int totalFetched = counts.fetched;
+        debugPrint('[PK_PULL] paged $pageNum page(s), fetched $totalFetched');
 
         // Sort oldest-first for chronological diff sweep. PluralKit can
         // return multiple switches at the same timestamp; the cursor treats a
@@ -3374,18 +3340,90 @@ class PluralKitSyncService {
     return map;
   }
 
+  /// Paginate PK switch history newest-first, de-duped and tie-safe across page
+  /// boundaries (F7), with no-progress + page-cap guards (F10).
+  ///
+  /// PK's `before` is strictly exclusive, so paging by a page's oldest timestamp
+  /// would silently DROP same-timestamp switches beyond the 100-item page cap.
+  /// We page by `oldest + 1µs` (inclusive) and de-dup by switch id so ties are
+  /// never skipped. [onPage] gets each page's NEW switches newest-first and
+  /// returns false to stop early. When a re-served page is all-seen we step
+  /// strictly below that timestamp to advance (≥100 switches at the exact same
+  /// microsecond are unpageable — that overflow alone is lost); a server that
+  /// ignores `before` (still all-seen after the step) throws
+  /// [PkPaginationNoProgressError]. Returns page/raw-fetched counts.
+  Future<({int pages, int fetched})> _paginateSwitchesNewestFirst(
+    PluralKitClient client, {
+    required bool Function(List<PKSwitch> freshNewestFirst) onPage,
+  }) async {
+    final seenIds = <String>{};
+    DateTime? pageBefore;
+    var pageNum = 0;
+    var rawFetched = 0;
+    // Set once we've stepped the cursor STRICTLY below a timestamp to get past
+    // it. If the very next full page is still entirely already-seen, the server
+    // isn't honoring `before` — bail rather than spin to the page cap.
+    var steppedPastTimestamp = false;
+    while (true) {
+      final page = await client.getSwitches(before: pageBefore, limit: 100);
+      pageNum++;
+      if (page.isEmpty) return (pages: pageNum, fetched: rawFetched);
+      rawFetched += page.length;
+      final fresh = <PKSwitch>[];
+      for (final sw in page) {
+        if (seenIds.add(sw.id)) fresh.add(sw);
+      }
+      if (fresh.isEmpty) {
+        // A SHORT page of already-seen switches means history is exhausted.
+        if (page.length < 100) return (pages: pageNum, fetched: rawFetched);
+        // A FULL page of already-seen switches: the inclusive boundary re-served
+        // a fully-captured timestamp's ties. Step the cursor strictly below it to
+        // advance to older history. If we ALREADY stepped and the next full page
+        // is still all-seen, the server is ignoring `before` — surface it.
+        if (steppedPastTimestamp) {
+          throw PkPaginationNoProgressError(
+            lastBefore: page.last.timestamp,
+            pagesFetched: pageNum,
+          );
+        }
+        if (pageNum >= _maxIncrementalPages) {
+          throw PkImportTooLargeError(
+            pagesFetched: pageNum,
+            cap: _maxIncrementalPages,
+          );
+        }
+        steppedPastTimestamp = true;
+        pageBefore = page.last.timestamp; // strictly exclusive: advance past it
+        continue;
+      }
+      steppedPastTimestamp = false;
+      if (!onPage(fresh)) return (pages: pageNum, fetched: rawFetched);
+      if (page.length < 100) return (pages: pageNum, fetched: rawFetched);
+      if (pageNum >= _maxIncrementalPages) {
+        throw PkImportTooLargeError(
+          pagesFetched: pageNum,
+          cap: _maxIncrementalPages,
+        );
+      }
+      // Inclusive boundary (oldest + 1µs) re-serves the boundary timestamp's
+      // ties next page; seenIds dedups the overlap. PK switch timestamps carry
+      // microsecond precision (the real client sends `before` as microsecond
+      // ISO8601 and PK returns/compares the same precision).
+      pageBefore = page.last.timestamp.add(const Duration(microseconds: 1));
+    }
+  }
+
   /// Paginate the full PK switch history and return all switches sorted
   /// oldest-first. Used by [performFullImport].
   Future<List<PKSwitch>> _fetchAllSwitches(PluralKitClient client) async {
     final allSwitches = <PKSwitch>[];
-    DateTime? pageBefore;
-    while (true) {
-      final page = await client.getSwitches(before: pageBefore, limit: 100);
-      if (page.isEmpty) break;
-      allSwitches.addAll(page);
-      pageBefore = page.last.timestamp;
-      if (page.length < 100) break;
-    }
+    await _paginateSwitchesNewestFirst(
+      client,
+      onPage: (fresh) {
+        allSwitches.addAll(fresh);
+        return true;
+      },
+    );
     // PK returns newest-first; sort oldest-first for the diff sweep.
     allSwitches.sort(_compareSwitchesChronologically);
     return allSwitches;
@@ -3728,26 +3766,24 @@ class PluralKitSyncService {
         .reduce((left, right) => left < right ? left : right);
 
     final switches = <PKSwitch>[];
-    DateTime? pageBefore;
-    while (true) {
-      final page = await client.getSwitches(before: pageBefore, limit: 100);
-      if (page.isEmpty) break;
-
-      var pageReachedBeforeFileRange = false;
-      for (final switchEntry in page) {
-        final timestampMicros = switchEntry.timestamp
-            .toUtc()
-            .microsecondsSinceEpoch;
-        if (timestampMicros >= minFileTimestampMicros) {
-          switches.add(switchEntry);
-        } else {
-          pageReachedBeforeFileRange = true;
+    await _paginateSwitchesNewestFirst(
+      client,
+      onPage: (fresh) {
+        var reachedBeforeFileRange = false;
+        for (final switchEntry in fresh) {
+          final timestampMicros =
+              switchEntry.timestamp.toUtc().microsecondsSinceEpoch;
+          if (timestampMicros >= minFileTimestampMicros) {
+            switches.add(switchEntry);
+          } else {
+            reachedBeforeFileRange = true;
+          }
         }
-      }
-
-      if (pageReachedBeforeFileRange || page.length < 100) break;
-      pageBefore = page.last.timestamp;
-    }
+        // Stop once a page reaches below the file range — older switches are
+        // outside it.
+        return !reachedBeforeFileRange;
+      },
+    );
 
     switches.sort(_compareSwitchesChronologically);
     return switches;

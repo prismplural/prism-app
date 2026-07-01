@@ -2658,6 +2658,145 @@ void main() {
       final state = await db.pluralKitSyncDao.getSyncState();
       expect(state.switchCursorId, newestSwitchId);
     });
+
+    test(
+        'F7: a same-timestamp switch straddling a 100-item page boundary is '
+        'not skipped', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      await memberRepo.createMember(
+        _member(localId: 'local-z', pkShortId: 'pkZ', pkUuid: 'uuid-z'),
+      );
+
+      // 101 switches. The newest 99 plus a 100th all front A at distinct
+      // timestamps; the 101st SHARES the 100th's timestamp (the page boundary)
+      // and is Z's only appearance. PK's strictly-exclusive `before` cursor
+      // would drop that 101st same-timestamp switch — and with it, Z's front —
+      // unless paging is tie-safe.
+      final base = DateTime.utc(2026, 1, 1, 0);
+      final boundaryTs = base.add(const Duration(minutes: 1));
+      final history = <PKSwitch>[
+        for (var i = 0; i < 99; i++)
+          PKSwitch(
+            id: 'sw-${(100 - i).toString().padLeft(4, '0')}',
+            timestamp: base.add(Duration(minutes: 100 - i)),
+            members: const ['pkA'],
+          ),
+        PKSwitch(id: 'sw-0001a', timestamp: boundaryTs, members: const ['pkA']),
+        PKSwitch(
+          id: 'sw-0001b',
+          timestamp: boundaryTs,
+          members: const ['pkA', 'pkZ'],
+        ),
+      ];
+
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          switchCursorTimestamp: const Value(null),
+          switchCursorId: const Value(null),
+          lastSyncDate: Value(base.add(const Duration(days: 1))),
+        ),
+      );
+
+      final client = _PaginatingClient(history);
+      final service = _makeService(db: db, client: client);
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.loadState();
+
+      await service.syncRecentData();
+
+      expect(client.pageCalls, greaterThanOrEqualTo(2),
+          reason: '101 switches over 100/page must page at least twice');
+
+      final sessions =
+          await DriftFrontingSessionRepository(db.frontingSessionsDao, null)
+              .getAllSessions();
+      expect(
+        sessions.where((s) => s.memberId == 'local-z'),
+        isNotEmpty,
+        reason: 'F7: the boundary same-timestamp switch (Z\'s only front) must '
+            'survive paging',
+      );
+    });
+
+    test(
+        'F7: a 100-switch same-timestamp group does NOT wall off older history',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      await memberRepo.createMember(
+        _member(localId: 'local-z', pkShortId: 'pkZ', pkUuid: 'uuid-z'),
+      );
+
+      // 50 newer A switches at distinct timestamps, a 100-switch A group all at
+      // ONE timestamp, then the oldest switch (Z) strictly below it. The
+      // inclusive +1µs boundary cannot advance past the 100-group; the cursor
+      // must step strictly below it to reach Z. If Z's session exists, older
+      // history past the group was fetched (not stranded, and no false throw).
+      final base = DateTime.utc(2026, 1, 1, 0);
+      final tieTs = base.add(const Duration(minutes: 200));
+      final history = <PKSwitch>[
+        for (var i = 0; i < 50; i++)
+          PKSwitch(
+            id: 'new-${i.toString().padLeft(3, '0')}',
+            timestamp: base.add(Duration(minutes: 300 + i)),
+            members: const ['pkA'],
+          ),
+        for (var i = 0; i < 100; i++)
+          PKSwitch(
+            id: 'tie-${i.toString().padLeft(3, '0')}',
+            timestamp: tieTs,
+            members: const ['pkA'],
+          ),
+        PKSwitch(
+          id: 'old-z',
+          timestamp: base.add(const Duration(minutes: 100)),
+          members: const ['pkZ'],
+        ),
+      ];
+
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          switchCursorTimestamp: const Value(null),
+          switchCursorId: const Value(null),
+          lastSyncDate: Value(base.add(const Duration(days: 1))),
+        ),
+      );
+
+      final client = _PaginatingClient(history);
+      final service = _makeService(db: db, client: client);
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.loadState();
+
+      // Must not throw a no-progress / too-large error on this legitimate group.
+      await service.syncRecentData();
+
+      final sessions =
+          await DriftFrontingSessionRepository(db.frontingSessionsDao, null)
+              .getAllSessions();
+      expect(
+        sessions.where((s) => s.memberId == 'local-z'),
+        isNotEmpty,
+        reason: 'history older than a 100-switch same-timestamp group must be '
+            'reached, not walled off',
+      );
+    });
   });
 
   // -- M2: live-poll/sweep duplicate open row --------------------------------
