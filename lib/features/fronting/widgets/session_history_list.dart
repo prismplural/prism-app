@@ -215,22 +215,20 @@ class CurrentFrontingSessionChip extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    final slices = splitPeriodAtMidnight(period);
-    if (slices.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    final slice = slices.lastWhere(
-      (candidate) => candidate.isLiveOpenEnded,
-      orElse: () => slices.last,
+    final slice = DisplayPeriod(
+      period: period,
+      start: period.start,
+      end: period.end,
+      isContinuation: false,
+      continuesNextDay: false,
+      briefVisitors: period.briefVisitors,
     );
 
     final membersAsync = ref.watch(allMemberListProvider);
     final membersMap = _loadedMembersMapOrNull(membersAsync);
     if (membersMap == null) return const SizedBox.shrink();
     final tint = _periodTint(context, period, membersMap);
-    final chipKey = slice.isContinuation
-        ? '${period.sessionIds.join("|")}-current-${slice.displayStart.toDayKey()}'
-        : '${period.sessionIds.join("|")}-current';
+    final chipKey = '${period.sessionIds.join("|")}-current';
 
     return AnimatedSwitcher(
       duration: Anim.md,
@@ -1452,15 +1450,32 @@ class _PeriodTile extends ConsumerWidget {
   FrontingPeriod get period => slice.period;
 
   String _timeRange(BuildContext context) {
-    final startStr = context.formatTime(slice.displayStart);
-    final midnight = context.use24HourTime ? '00:00' : '12:00 AM';
+    final spansDays = !DateUtils.isSameDay(
+      slice.displayStart,
+      slice.displayEnd,
+    );
+    final showDate =
+        spansDays && !slice.isContinuation && !slice.continuesNextDay;
+    final startStr = showDate
+        ? context.formatDateTime(slice.displayStart)
+        : context.formatTime(slice.displayStart);
+    final midnight = context.formatTime(
+      DateTime(
+        slice.displayStart.year,
+        slice.displayStart.month,
+        slice.displayStart.day + 1,
+      ),
+    );
     if (slice.continuesNextDay) {
       return '$startStr – $midnight';
     }
     if (slice.isLiveOpenEnded) {
-      return '$startStr – ongoing';
+      return '$startStr – ${context.l10n.frontingPeriodOngoing}';
     }
-    return '$startStr – ${context.formatTime(slice.displayEnd)}';
+    final endStr = showDate
+        ? context.formatDateTime(slice.displayEnd)
+        : context.formatTime(slice.displayEnd);
+    return '$startStr – $endStr';
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -2263,10 +2278,14 @@ class _ActiveSubtitle extends StatelessWidget {
             fontFeatures: [const FontFeature.tabularFigures()],
           ),
         ),
-        Text(
-          '  ·  $timeRange',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        Expanded(
+          child: Text(
+            '  ·  $timeRange',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
