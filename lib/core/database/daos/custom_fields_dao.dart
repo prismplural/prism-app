@@ -160,10 +160,10 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
     String fieldId,
     String memberId,
   ) async {
-    // Tolerant of >1 active row for one (field, member): two devices refilling a
-    // burned id mint different fresh ids, so both can coexist until the apply
-    // adapter's dedup collapses them. Order by id and take the first — never
-    // throw (getSingleOrNull would), and reads agree on the same survivor.
+    // A partial unique index (custom_field_id, member_id) WHERE is_deleted = 0
+    // enforces at most one active row, so this returns 0-or-1. Ordered take-first
+    // is cheap defense-in-depth against a corrupt DB (never throws like
+    // getSingleOrNull, and reads agree on the same survivor).
     final rows =
         await (select(customFieldValues)
               ..where(
@@ -177,20 +177,10 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
     return rows.isEmpty ? null : rows.first;
   }
 
-  /// Upserts a value for `(customFieldId, memberId)` and returns the row id it
-  /// actually wrote. The returned id differs from `companion.id` only in the
-  /// burned-id case (see below), so the caller MUST emit its create/update sync
-  /// op against the RETURNED id, not the companion's.
-  ///
-  /// Burned-id mint: a value row id is the deterministic UUIDv5 of
-  /// `(field, member)`, and `is_deleted` is absorbing fleet-wide — once a peer
-  /// tombstones that id, no `is_deleted=false` op ever revives it. So when there
-  /// is no ACTIVE logical row but a TOMBSTONED row already sits at the target id,
-  /// writing into it would resurrect a burned id locally that can never
-  /// propagate (data-loss / Rust-Dart divergence). Instead we insert a FRESH id
-  /// row; the apply-adapter's logical dedup re-converges peers by
-  /// `(field, member)`. [mintFreshId] supplies that id (default: a random v4,
-  /// which no peer can hold a tombstone for); tests inject it for determinism.
+  /// Returns the row id it wrote — callers MUST emit against the RETURNED id.
+  /// A tombstoned deterministic id is absorbing fleet-wide, so a refill never
+  /// revives it: the write lands on a fresh minted row ([mintFreshId], default
+  /// random v4) and the apply path re-converges peers.
   Future<String> upsertValue(
     CustomFieldValuesCompanion companion, {
     String Function()? mintFreshId,
@@ -250,6 +240,18 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
       (update(customFieldValues)..where((v) => v.id.equals(id))).write(
         const CustomFieldValuesCompanion(isDeleted: Value(true)),
       );
+
+  /// Tombstones the ACTIVE row for `(customFieldId, memberId)` and returns its
+  /// id (or null when none). Resolving the live row inside the same transaction
+  /// avoids clearing via a stale cached id that may be a dead minted incarnation.
+  Future<String?> deleteValueFor(String customFieldId, String memberId) =>
+      transaction(() async {
+        final active = await getValueForField(customFieldId, memberId);
+        if (active == null) return null;
+        await (update(customFieldValues)..where((v) => v.id.equals(active.id)))
+            .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+        return active.id;
+      });
 
   Future<void> deleteValuesForField(String fieldId) =>
       (update(customFieldValues)..where((v) => v.customFieldId.equals(fieldId)))

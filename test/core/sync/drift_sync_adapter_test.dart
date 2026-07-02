@@ -609,44 +609,44 @@ void main() {
     },
   );
 
-  test(
-    'custom_field_values applyFields merges active logical row with different '
-    'remote id',
-    () async {
-      final db = database.AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final adapter = buildSyncAdapterWithCompletion(db).adapter;
-      final values = adapter.entities.singleWhere(
-        (entity) => entity.tableName == 'custom_field_values',
-      );
+  test('custom_field_values applyFields adopts the higher minted id when the '
+      'incoming id wins the total order', () async {
+    final db = database.AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final adapter = buildSyncAdapterWithCompletion(db).adapter;
+    final values = adapter.entities.singleWhere(
+      (entity) => entity.tableName == 'custom_field_values',
+    );
 
-      await db
-          .into(db.customFieldValues)
-          .insert(
-            database.CustomFieldValuesCompanion.insert(
-              id: 'local-random-value',
-              customFieldId: 'field-1',
-              memberId: 'member-1',
-              value: 'local',
-            ),
-          );
+    await db
+        .into(db.customFieldValues)
+        .insert(
+          database.CustomFieldValuesCompanion.insert(
+            id: 'local-random-value',
+            customFieldId: 'field-1',
+            memberId: 'member-1',
+            value: 'local',
+          ),
+        );
 
-      await values.applyFields('remote-random-value', {
-        'custom_field_id': 'field-1',
-        'member_id': 'member-1',
-        'value': 'remote',
-        'is_deleted': false,
-      });
+    // Both ids are minted; 'remote-...' > 'local-...' lexicographically, so
+    // the incoming id wins and the row is re-homed onto it (single active row,
+    // no index violation). Losers' ids die out so the fleet converges on one.
+    await values.applyFields('remote-random-value', {
+      'custom_field_id': 'field-1',
+      'member_id': 'member-1',
+      'value': 'remote',
+      'is_deleted': false,
+    });
 
-      final rows = await db.select(db.customFieldValues).get();
-      expect(rows, hasLength(1));
-      expect(rows.single.id, 'local-random-value');
-      expect(rows.single.value, 'remote');
-    },
-  );
+    final rows = await db.select(db.customFieldValues).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.id, 'remote-random-value');
+    expect(rows.single.value, 'remote');
+  });
 
-  test('custom_field_values applyFields canonicalizes active logical row when '
-      'remote id is deterministic', () async {
+  test('custom_field_values applyFields drops an incoming deterministic id that '
+      'loses to an active minted row', () async {
     final db = database.AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final adapter = buildSyncAdapterWithCompletion(db).adapter;
@@ -669,6 +669,9 @@ void main() {
           ),
         );
 
+    // The deterministic id never beats a minted id, so this op is dropped: the
+    // minted row stays live and the deterministic id is never materialized. The
+    // fleet converges on the minted id, after which exact-id clears propagate.
     await values.applyFields(deterministicId, {
       'custom_field_id': 'field-1',
       'member_id': 'member-1',
@@ -678,9 +681,9 @@ void main() {
 
     final rows = await db.select(db.customFieldValues).get();
     expect(rows, hasLength(1));
-    expect(rows.single.id, deterministicId);
-    expect(rows.single.value, 'remote');
-    expect(await values.readRow(deterministicId), isNotNull);
+    expect(rows.single.id, 'local-random-value');
+    expect(rows.single.value, 'local');
+    expect(await values.readRow(deterministicId), isNull);
   });
 
   test(

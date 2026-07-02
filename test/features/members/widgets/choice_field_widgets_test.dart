@@ -80,6 +80,7 @@ Widget _editorSubject({
   CustomFieldsEditorController? controller,
 }) {
   final r = repo ?? _FakeCustomFieldsRepository();
+  if (value != null) r.seedValue(value);
   Widget body = Consumer(
     builder: (context, ref, _) =>
         buildChoiceEditor(context, field, value, _memberId),
@@ -741,6 +742,10 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   final upsertedValues = <CustomFieldValue>[];
   final deletedValueIds = <String>[];
   final writtenConfigs = <String, CustomFieldTypeConfig>{};
+  final _seeded = <String, CustomFieldValue>{};
+
+  void seedValue(CustomFieldValue value) =>
+      _seeded['${value.customFieldId}|${value.memberId}'] = value;
 
   @override
   Future<void> createField(CustomField field) async {}
@@ -754,6 +759,12 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   @override
   Future<void> deleteValue(String id) async {
     deletedValueIds.add(id);
+  }
+
+  @override
+  Future<void> deleteValueFor(String customFieldId, String memberId) async {
+    final active = _seeded.remove('$customFieldId|$memberId');
+    if (active != null) deletedValueIds.add(active.id);
   }
 
   @override
@@ -775,7 +786,7 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<CustomFieldValue?> getValueForField(
     String fieldId,
     String memberId,
-  ) async => null;
+  ) async => _seeded['$fieldId|$memberId'];
 
   @override
   Future<void> updateField(CustomField field) async {}

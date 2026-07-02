@@ -297,7 +297,6 @@ class CustomFieldValueNotifier extends AsyncNotifier<void> {
     required String customFieldId,
     required String memberId,
     required String value,
-    String? existingId,
   }) async {
     Object? failure;
     state = await AsyncValue.guard(() async {
@@ -322,14 +321,19 @@ class CustomFieldValueNotifier extends AsyncNotifier<void> {
     return failure;
   }
 
-  /// Deletes the value at [id]. Returns the caught error (or `null`) — see
-  /// [setValue] for why the bulk-commit path must check the return value.
-  Future<Object?> deleteValue(String id) async {
+  /// Clears the active value for ([customFieldId], [memberId]), resolving its
+  /// live row id at commit time so a minted refill can't leave the clear
+  /// addressing a dead id. No-op when nothing is set. Returns the caught error
+  /// (or `null`) — see [setValue] for why callers must check the return value.
+  Future<Object?> deleteValueFor({
+    required String customFieldId,
+    required String memberId,
+  }) async {
     Object? failure;
     state = await AsyncValue.guard(() async {
       final repo = ref.read(customFieldsRepositoryProvider);
       try {
-        await repo.deleteValue(id);
+        await repo.deleteValueFor(customFieldId, memberId);
       } catch (e) {
         failure = e;
         rethrow;

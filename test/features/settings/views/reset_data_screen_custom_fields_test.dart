@@ -116,6 +116,9 @@ class _FakeCustomFieldsRepository implements repo_iface.CustomFieldsRepository {
   Future<void> deleteValue(String id) async {}
 
   @override
+  Future<void> deleteValueFor(String customFieldId, String memberId) async {}
+
+  @override
   Future<void> deleteValuesForField(String fieldId) async {}
 
   @override

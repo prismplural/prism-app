@@ -205,16 +205,15 @@ class _ChoiceEditorWidgetState extends ConsumerState<_ChoiceEditorWidget>
     final notifier = ref.read(customFieldValueNotifierProvider.notifier);
     Object? failure;
     if (encoded.isEmpty) {
-      final existingId = widget.existingValue?.id;
-      if (existingId != null) {
-        failure = await notifier.deleteValue(existingId);
-      }
+      failure = await notifier.deleteValueFor(
+        customFieldId: widget.field.id,
+        memberId: widget.memberId,
+      );
     } else {
       failure = await notifier.setValue(
         customFieldId: widget.field.id,
         memberId: widget.memberId,
         value: encoded,
-        existingId: widget.existingValue?.id,
       );
     }
     // On failure: leave _initialValue alone and stay dirty so the bulk-commit

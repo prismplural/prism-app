@@ -392,6 +392,17 @@ class DriftCustomFieldsRepository
   }
 
   @override
+  Future<void> deleteValueFor(String customFieldId, String memberId) async {
+    // Resolve the live row id inside the txn and tombstone + emit against IT, so
+    // a mint that moved the id doesn't leave the clear addressing a dead row.
+    await runSyncedWrite(() async {
+      final clearedId = await _dao.deleteValueFor(customFieldId, memberId);
+      if (clearedId == null) return;
+      await syncRecordDelete(_valuesTable, clearedId);
+    });
+  }
+
+  @override
   Future<void> deleteValuesForField(String fieldId) async {
     // Tombstone path: bulk delete + per-value delete-op intents commit
     // atomically; dispatch post-commit (FFI outside the txn).

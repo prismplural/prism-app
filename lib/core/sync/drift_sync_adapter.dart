@@ -503,76 +503,101 @@ Future<void> _insertOrUpdateById<T extends Table, D>(
   await (db.update(table)..where(matchesId)).write(companion);
 }
 
+/// Applies an incoming custom_field_values op under the partial unique index
+/// (one active row per (field, member)). Tombstones touch the EXACT incoming
+/// id only, so a stale burned-id tombstone can never kill the active minted
+/// row. Live ops converge divergent incarnations by a total order every device
+/// computes identically — minted beats deterministic, higher minted id wins —
+/// materialized in one statement; the loser's id dies out fleet-wide.
 Future<void> _insertOrUpdateCustomFieldValueForApply(
   AppDatabase db,
   String id,
   CustomFieldValuesCompanion companion,
   Map<String, dynamic> fields,
 ) async {
-  final customFieldId = _asString(fields['custom_field_id']);
-  final memberId = _asString(fields['member_id']);
-  var targetId = id;
-  CustomFieldValueRow? existingLogical;
-  if (customFieldId != null && memberId != null) {
-    final deterministicId = deriveCustomFieldValueId(
-      customFieldId: customFieldId,
-      memberId: memberId,
-    );
-    // Two devices refilling a burned (field, member) mint different fresh ids,
-    // so >1 active row can coexist transiently until this dedup collapses them.
-    // Order by id and take the first: never throw (getSingleOrNull would), and
-    // every device converges on the same survivor.
-    final activeRows =
-        await (db.select(db.customFieldValues)
-              ..where(
-                (t) =>
-                    t.customFieldId.equals(customFieldId) &
-                    t.memberId.equals(memberId) &
-                    t.isDeleted.equals(false),
-              )
-              ..orderBy([(t) => OrderingTerm.asc(t.id)]))
-            .get();
-    existingLogical = activeRows.isEmpty ? null : activeRows.first;
-    if (existingLogical != null) {
-      targetId = id == deterministicId || existingLogical.id == deterministicId
-          ? deterministicId
-          : existingLogical.id;
-    }
-  }
-  final targetCompanion = targetId == id
-      ? companion
-      : companion.copyWith(id: Value(targetId));
-
-  final existingByTarget = await (db.select(
+  final isTombstone = _isRemoteTombstone(fields);
+  final existingAtId = await (db.select(
     db.customFieldValues,
-  )..where((t) => t.id.equals(targetId))).getSingleOrNull();
-  if (existingLogical != null && existingLogical.id != targetId) {
-    if (existingByTarget != null) {
-      // F42: write the replacement BEFORE tombstoning the old logical row, so a
-      // throw between the two never leaves the value blanked with no successor
-      // (the chunk txn still commits — per-row failures are caught upstream).
+  )..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  // Tombstone: apply to the exact id only. Row present → soft-delete it; absent
+  // → skip (the id is unknown here, upstream skip-unknown already handled it).
+  if (isTombstone) {
+    if (existingAtId != null) {
       await (db.update(
         db.customFieldValues,
-      )..where((t) => t.id.equals(targetId))).write(targetCompanion);
-      await (db.update(db.customFieldValues)
-            ..where((t) => t.id.equals(existingLogical!.id)))
-          .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
+      )..where((t) => t.id.equals(id))).write(companion);
+    }
+    return;
+  }
+
+  final customFieldId = _asString(fields['custom_field_id']);
+  final memberId = _asString(fields['member_id']);
+  if (customFieldId == null || memberId == null) {
+    // No context to resolve (field, member): exact-id-only, matching the sparse
+    // upstream skip behavior for context-less ops.
+    if (existingAtId == null) {
+      await db.into(db.customFieldValues).insertOnConflictUpdate(companion);
     } else {
       await (db.update(
         db.customFieldValues,
-      )..where((t) => t.id.equals(existingLogical!.id))).write(targetCompanion);
+      )..where((t) => t.id.equals(id))).write(companion);
     }
     return;
   }
 
-  if (existingByTarget != null) {
+  final deterministicId = deriveCustomFieldValueId(
+    customFieldId: customFieldId,
+    memberId: memberId,
+  );
+  final activeRow =
+      await (db.select(db.customFieldValues)..where(
+            (t) =>
+                t.customFieldId.equals(customFieldId) &
+                t.memberId.equals(memberId) &
+                t.isDeleted.equals(false),
+          ))
+          .getSingleOrNull();
+
+  // 1. Active row already lives at the incoming id → plain update in place.
+  if (activeRow != null && activeRow.id == id) {
     await (db.update(
       db.customFieldValues,
-    )..where((t) => t.id.equals(targetId))).write(targetCompanion);
+    )..where((t) => t.id.equals(id))).write(companion);
     return;
   }
 
-  await db.into(db.customFieldValues).insertOnConflictUpdate(targetCompanion);
+  // 2. No active row for (field, member).
+  if (activeRow == null) {
+    if (existingAtId != null) {
+      // A tombstoned row sits at the incoming id; delivery means this device's
+      // engine holds it live, so revive it in place to match the engine.
+      await (db.update(db.customFieldValues)..where((t) => t.id.equals(id)))
+          .write(companion.copyWith(isDeleted: const Value(false)));
+    } else {
+      await db.into(db.customFieldValues).insertOnConflictUpdate(companion);
+    }
+    return;
+  }
+
+  // 3. Active row R under a different id → adoption. X wins iff R is the
+  // deterministic id, or X is minted and lexicographically above R. Id order,
+  // not HLC: a race can supersede a loser-side edit; it self-heals on the
+  // next winner-side op.
+  final xWins =
+      activeRow.id == deterministicId ||
+      (id != deterministicId && id.compareTo(activeRow.id) > 0);
+  if (!xWins) return; // Loser's id dies out; the winner is/will be everywhere.
+
+  // Adopt: re-home R onto X in ONE statement so the active-row count never
+  // exceeds 1. A dead row already at X is hard-deleted first — the engine
+  // keeps its tombstone, and a failure in between leaves R intact (no blank).
+  if (existingAtId != null) {
+    await (db.delete(db.customFieldValues)..where((t) => t.id.equals(id))).go();
+  }
+  await (db.update(db.customFieldValues)
+        ..where((t) => t.id.equals(activeRow.id)))
+      .write(companion.copyWith(id: Value(id), isDeleted: const Value(false)));
 }
 
 Future<void> _insertOrUpdateMemberProfilePreferenceValueForApply(
@@ -709,8 +734,7 @@ Future<void> _releaseDeletedPkIdentityHoldersForMemberApply(
           .get();
   for (final holder in deletedHolders) {
     final holderUuid = _nonEmptySyncString(holder.pluralkitUuid);
-    final staleShortIdConflict =
-        normalizedPkUuid != null &&
+    final staleShortIdConflict = normalizedPkUuid != null &&
         holderUuid != null &&
         holderUuid != normalizedPkUuid;
     await (db.update(db.members)..where((t) => t.id.equals(holder.id))).write(
@@ -2004,11 +2028,9 @@ Future<String?> _resolveMemberIdentityAliasHolder(
   for (final holder in holders) {
     if (!holder.createdAt.isAfter(alias.createdAt)) return holder.id;
   }
-  final fallback =
-      await (db.select(db.members)..where(
-            (t) => t.id.equals(alias.targetRowId) & t.isDeleted.equals(false),
-          ))
-          .getSingleOrNull();
+  final fallback = await (db.select(db.members)
+        ..where((t) => t.id.equals(alias.targetRowId) & t.isDeleted.equals(false)))
+      .getSingleOrNull();
   return fallback?.id;
 }
 
@@ -2074,11 +2096,9 @@ Future<String?> _resolveFrontingIdentityAliasHolder(
   for (final holder in holders) {
     if (!holder.startTime.isAfter(alias.createdAt)) return holder.id;
   }
-  final fallback =
-      await (db.select(db.frontingSessions)..where(
-            (t) => t.id.equals(alias.targetRowId) & t.isDeleted.equals(false),
-          ))
-          .getSingleOrNull();
+  final fallback = await (db.select(db.frontingSessions)
+        ..where((t) => t.id.equals(alias.targetRowId) & t.isDeleted.equals(false)))
+      .getSingleOrNull();
   return fallback?.id;
 }
 
@@ -2449,13 +2469,15 @@ DriftSyncEntity _membersEntity(
         final identityRows = <Member>[];
         for (final row in activeIdentityRows) {
           final rowUuid = _nonEmptySyncString(row.pluralkitUuid);
-          final staleShortIdConflict =
-              normalizedIncomingUuid != null &&
+          final staleShortIdConflict = normalizedIncomingUuid != null &&
               rowUuid != null &&
               rowUuid != normalizedIncomingUuid;
           if (staleShortIdConflict) {
-            await (db.update(db.members)..where((t) => t.id.equals(row.id)))
-                .write(const MembersCompanion(pluralkitId: Value(null)));
+            await (db.update(
+              db.members,
+            )..where((t) => t.id.equals(row.id))).write(
+              const MembersCompanion(pluralkitId: Value(null)),
+            );
             continue;
           }
           identityRows.add(row);
@@ -2482,14 +2504,11 @@ DriftSyncEntity _membersEntity(
           //    update it directly (mirrors the tombstone existing==null guard);
           //  - identity-verified holder: the resolver matches only a row still
           //    holding the alias's identity, never the target_row_id fallback.
-          final incomingIsIdentityFree =
-              normalizedIncomingUuid == null &&
+          final incomingIsIdentityFree = normalizedIncomingUuid == null &&
               _nonEmptySyncString(nextPkId) == null;
           if (incomingIsIdentityFree) {
-            final aliasHolderId = await _resolveRedirectedMemberHolderForApply(
-              db,
-              id,
-            );
+            final aliasHolderId =
+                await _resolveRedirectedMemberHolderForApply(db, id);
             if (aliasHolderId != null && aliasHolderId != id) {
               final existingAtId = await (db.select(
                 db.members,
@@ -2552,9 +2571,11 @@ DriftSyncEntity _membersEntity(
               'AND w.member_id = ? AND w.id != fronting_sessions.id)',
               [id, targetId],
             );
-            await (db.update(db.frontingSessions)
-                  ..where((t) => t.memberId.equals(id)))
-                .write(FrontingSessionsCompanion(memberId: Value(targetId)));
+            await (db.update(
+              db.frontingSessions,
+            )..where((t) => t.memberId.equals(id))).write(
+              FrontingSessionsCompanion(memberId: Value(targetId)),
+            );
           }
         }
       }
@@ -2720,7 +2741,9 @@ DriftSyncEntity _membersEntity(
       if (holderId != null &&
           holderId != id &&
           holderId != unknownSentinelMemberId) {
-        await (db.delete(db.members)..where((t) => t.id.equals(holderId))).go();
+        await (db.delete(
+          db.members,
+        )..where((t) => t.id.equals(holderId))).go();
         // The holder was found by re-resolving the alias identity, not
         // necessarily by its recorded target_row_id. Purge EVERY alias of this
         // identity (not just target == holderId): a sibling alias
@@ -2935,8 +2958,10 @@ DriftSyncEntity _frontingSessionsEntity(
           // tombstone it (fall through to the companion write). NO alias ->
           // keep the existing early-return exactly. Redirects that predate this
           // machinery recorded no alias — delete again on the surviving device.
-          tombstoneAlias = await db.pkIdentitySyncAliasesDao
-              .getByLegacyEntityId('fronting_sessions', id);
+          tombstoneAlias = await db.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+            'fronting_sessions',
+            id,
+          );
           final holderId = await _resolveFrontingIdentityAliasHolder(db, id);
           if (holderId == null || holderId == id) return;
           targetId = holderId;

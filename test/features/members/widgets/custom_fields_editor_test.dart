@@ -1048,6 +1048,9 @@ Widget _subject({
   List<Member> members = const [],
 }) {
   final memberRepo = FakeMemberRepository()..seed(members);
+  for (final v in values) {
+    repo.seedValue(v);
+  }
   return ProviderScope(
     overrides: [
       systemSettingsRepositoryProvider.overrideWithValue(
@@ -1083,10 +1086,14 @@ Widget _subject({
 class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   final upsertedValues = <CustomFieldValue>[];
   final deletedValueIds = <String>[];
+  final _seeded = <String, CustomFieldValue>{};
 
   /// When non-null, [upsertValue] throws for values targeting this field id.
   /// Used by the partial-failure test to simulate one editor failing mid-bulk.
   String? failOnFieldId;
+
+  void seedValue(CustomFieldValue value) =>
+      _seeded['${value.customFieldId}|${value.memberId}'] = value;
 
   @override
   Future<void> createField(CustomField field) async {}
@@ -1100,6 +1107,12 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   @override
   Future<void> deleteValue(String id) async {
     deletedValueIds.add(id);
+  }
+
+  @override
+  Future<void> deleteValueFor(String customFieldId, String memberId) async {
+    final active = _seeded.remove('$customFieldId|$memberId');
+    if (active != null) deletedValueIds.add(active.id);
   }
 
   @override
@@ -1121,7 +1134,7 @@ class _FakeCustomFieldsRepository implements CustomFieldsRepository {
   Future<CustomFieldValue?> getValueForField(
     String fieldId,
     String memberId,
-  ) async => null;
+  ) async => _seeded['$fieldId|$memberId'];
 
   @override
   Future<void> updateField(CustomField field) async {}

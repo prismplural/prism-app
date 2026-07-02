@@ -64,6 +64,7 @@ abstract class CustomFieldsRepository {
   Future<void> setFieldDisplayOrder(String fieldId, int newOrder);
 
   Future<void> reorderFields(List<domain.CustomField> fields);
+
   /// Delete a field by [id].
   ///
   /// For group-typed fields, [deleteChildren] controls what happens to child
@@ -90,7 +91,16 @@ abstract class CustomFieldsRepository {
     String memberId,
   );
   Future<void> upsertValue(domain.CustomFieldValue value);
+
+  /// Exact-id tombstone; sync-apply/tests only. UI clears must resolve the
+  /// live row via [deleteValueFor] — a cached id can be a dead incarnation.
   Future<void> deleteValue(String id);
+
+  /// Clears the active value for `(customFieldId, memberId)` by resolving its
+  /// live row id at commit time and tombstoning + emitting against THAT id.
+  /// No-op (no op emitted) when no active value exists. Prefer this over
+  /// [deleteValue] with a cached id, which can be a dead minted incarnation.
+  Future<void> deleteValueFor(String customFieldId, String memberId);
   Future<void> deleteValuesForField(String fieldId);
   Future<void> deleteValuesForMember(String memberId);
 

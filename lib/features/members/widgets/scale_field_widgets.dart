@@ -165,10 +165,10 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
     final step = _step;
     Object? failure;
     if (step == null || step < 1) {
-      final existingId = widget.existingValue?.id;
-      if (existingId != null) {
-        failure = await notifier.deleteValue(existingId);
-      }
+      failure = await notifier.deleteValueFor(
+        customFieldId: widget.field.id,
+        memberId: widget.memberId,
+      );
     } else {
       final encoded = scaleFieldDefinition.valueEncoder(
         ScaleFieldValue(step: step),
@@ -177,7 +177,6 @@ class _ScaleEditorWidgetState extends ConsumerState<_ScaleEditorWidget>
         customFieldId: widget.field.id,
         memberId: widget.memberId,
         value: encoded,
-        existingId: widget.existingValue?.id,
       );
     }
     // On failure: leave _initialStep alone and stay dirty so the bulk-commit

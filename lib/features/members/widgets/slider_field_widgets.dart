@@ -175,18 +175,13 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
       case CommitIntent.noop:
         return;
       case CommitIntent.delete:
-        final existingId = widget.existingValue?.id;
-        if (existingId == null) {
-          // Nothing to delete; normalize local state to pristine.
-          _state = _state.onCommitSuccess(
-            intent: CommitIntent.delete,
-            midpoint: _defaultMidpoint(_config()),
-          );
-          _syncDirtyState();
-          return;
-        }
+        // deleteValueFor no-ops when nothing is set, so this is safe to call
+        // unconditionally; it resolves the live row id at commit time.
         final priorStateDelete = _state;
-        final deleteFailure = await notifier.deleteValue(existingId);
+        final deleteFailure = await notifier.deleteValueFor(
+          customFieldId: widget.field.id,
+          memberId: widget.memberId,
+        );
         if (deleteFailure != null) throw deleteFailure;
         if (!mounted) return;
         if (!identical(_state, priorStateDelete)) {
@@ -206,7 +201,6 @@ class _SliderEditorWidgetState extends ConsumerState<_SliderEditorWidget>
           customFieldId: widget.field.id,
           memberId: widget.memberId,
           value: encoded,
-          existingId: widget.existingValue?.id,
         );
         if (setFailure != null) throw setFailure;
         if (!mounted) return;
