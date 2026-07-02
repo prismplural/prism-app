@@ -127,6 +127,91 @@ void main() {
     expect(notes.created.single.memberId, 'member-1');
   });
 
+  testWidgets('save ignores repeated taps while note create is pending', (
+    tester,
+  ) async {
+    final notes = _FakeNotesRepository()..createCompleter = Completer<void>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notesRepositoryProvider.overrideWithValue(notes),
+          currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
+          systemSettingsProvider.overrideWithValue(
+            const AsyncValue.data(
+              SystemSettings(terminology: SystemTerminology.members),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: Scaffold(body: NoteSheet()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(EditableText).first, 'Front notes');
+    await tester.pump();
+
+    final saveButton = find.byTooltip('Save note');
+    await tester.tap(saveButton);
+    await tester.tap(saveButton);
+
+    expect(notes.created, hasLength(1));
+
+    notes.createCompleter!.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('edit save ignores repeated taps while note update is pending', (
+    tester,
+  ) async {
+    final note = Note(
+      id: 'note-1',
+      title: 'Old title',
+      body: 'Existing body',
+      date: DateTime(2026, 1, 1),
+      createdAt: DateTime(2026, 1, 1),
+      modifiedAt: DateTime(2026, 1, 1),
+    );
+    final notes = _FakeNotesRepository()..updateCompleter = Completer<void>();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notesRepositoryProvider.overrideWithValue(notes),
+          currentFronterProvider.overrideWithValue(const AsyncValue.data(null)),
+          systemSettingsProvider.overrideWithValue(
+            const AsyncValue.data(
+              SystemSettings(terminology: SystemTerminology.members),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(body: NoteSheet(note: note)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(EditableText).first, 'New title');
+    await tester.pump();
+
+    final saveButton = find.byTooltip('Save note');
+    await tester.tap(saveButton);
+    await tester.tap(saveButton);
+
+    expect(notes.updated, hasLength(1));
+    expect(notes.updated.single.title, 'New title');
+
+    notes.updateCompleter!.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('author picker opens universal member search sheet', (
     tester,
   ) async {
@@ -180,10 +265,14 @@ void main() {
 
 class _FakeNotesRepository implements NotesRepository {
   final created = <Note>[];
+  final updated = <Note>[];
+  Completer<void>? createCompleter;
+  Completer<void>? updateCompleter;
 
   @override
   Future<void> createNote(Note note) async {
     created.add(note);
+    await createCompleter?.future;
   }
 
   @override
@@ -193,7 +282,10 @@ class _FakeNotesRepository implements NotesRepository {
   Future<Note?> getNoteById(String id) async => null;
 
   @override
-  Future<void> updateNote(Note note) async {}
+  Future<void> updateNote(Note note) async {
+    updated.add(note);
+    await updateCompleter?.future;
+  }
 
   @override
   Stream<List<Note>> watchAllNotes() => Stream.value(created);

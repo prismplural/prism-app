@@ -64,6 +64,18 @@ class _GatedArchiveRepository extends FakeConversationRepository {
   }
 }
 
+class _GatedTitleSaveRepository extends FakeConversationRepository {
+  final updateGate = Completer<void>();
+  int updateConversationCalls = 0;
+
+  @override
+  Future<void> updateConversation(Conversation conversation) async {
+    updateConversationCalls += 1;
+    await updateGate.future;
+    return super.updateConversation(conversation);
+  }
+}
+
 /// A throwaway route to sit *underneath* the info sheet so the test can confirm
 /// the sheet was actually presented as a modal route (and dismissed once).
 class _ChatPageStub extends StatelessWidget {
@@ -259,7 +271,8 @@ void main() {
       expect(
         popObserver.popCount,
         1,
-        reason: 'the re-entry guard must collapse a spam-tap to a single pop; '
+        reason:
+            'the re-entry guard must collapse a spam-tap to a single pop; '
             'extra pops punch past the sheet into the app root → black screen',
       );
 
@@ -285,6 +298,167 @@ void main() {
       );
     },
   );
+
+  testWidgets('rapid title-save taps update the conversation once', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 5, 16);
+    final conversationRepo = _GatedTitleSaveRepository()
+      ..conversations.add(
+        Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'General',
+          creatorId: 'alice',
+          participantIds: const ['alice', 'bob'],
+        ),
+      );
+    final memberRepo = FakeMemberRepository()
+      ..seed([
+        Member(id: 'alice', name: 'Alice', createdAt: now),
+        Member(id: 'bob', name: 'Bob', createdAt: now),
+      ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          conversationRepositoryProvider.overrideWithValue(conversationRepo),
+          chatMessageRepositoryProvider.overrideWithValue(
+            _FakeChatMessageRepository(),
+          ),
+          memberRepositoryProvider.overrideWithValue(memberRepo),
+          speakingAsProvider.overrideWith(_FixedSpeakingAsNotifier.new),
+          activeMembersProvider.overrideWithValue(
+            AsyncValue.data(await memberRepo.getAllMembers()),
+          ),
+          activeSessionsProvider.overrideWithValue(
+            const AsyncValue.data(<FrontingSession>[]),
+          ),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          conversationCategoriesProvider.overrideWith(
+            (ref) => Stream.value(const <ConversationCategory>[]),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: ConversationInfoSheet(
+              conversationId: 'conv-1',
+              scrollController: ScrollController(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Renamed');
+    await tester.pump();
+
+    final doneButton = find.text('Done');
+    await tester.tap(doneButton);
+    await tester.tap(doneButton);
+    await tester.pump();
+
+    expect(conversationRepo.updateConversationCalls, 1);
+
+    conversationRepo.updateGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(conversationRepo.conversations.single.title, 'Renamed');
+  });
+
+  testWidgets('rapid clear-emoji taps update the conversation once', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 5, 16);
+    final conversationRepo = _GatedTitleSaveRepository()
+      ..conversations.add(
+        Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'General',
+          emoji: '✨',
+          creatorId: 'alice',
+          participantIds: const ['alice', 'bob'],
+        ),
+      );
+    final memberRepo = FakeMemberRepository()
+      ..seed([
+        Member(id: 'alice', name: 'Alice', createdAt: now),
+        Member(id: 'bob', name: 'Bob', createdAt: now),
+      ]);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          conversationRepositoryProvider.overrideWithValue(conversationRepo),
+          chatMessageRepositoryProvider.overrideWithValue(
+            _FakeChatMessageRepository(),
+          ),
+          memberRepositoryProvider.overrideWithValue(memberRepo),
+          speakingAsProvider.overrideWith(_FixedSpeakingAsNotifier.new),
+          activeMembersProvider.overrideWithValue(
+            AsyncValue.data(await memberRepo.getAllMembers()),
+          ),
+          activeSessionsProvider.overrideWithValue(
+            const AsyncValue.data(<FrontingSession>[]),
+          ),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
+          conversationCategoriesProvider.overrideWith(
+            (ref) => Stream.value(const <ConversationCategory>[]),
+          ),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: ConversationInfoSheet(
+              conversationId: 'conv-1',
+              scrollController: ScrollController(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    final clearEmojiButton = find.byTooltip('Clear conversation emoji');
+    await tester.tap(clearEmojiButton);
+    await tester.tap(clearEmojiButton);
+    await tester.pump();
+
+    expect(conversationRepo.updateConversationCalls, 1);
+
+    conversationRepo.updateGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(conversationRepo.conversations.single.emoji, isNull);
+  });
 
   testWidgets(
     'co-fronting admin can transfer group ownership from conversation info',

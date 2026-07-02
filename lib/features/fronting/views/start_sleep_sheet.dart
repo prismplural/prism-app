@@ -70,6 +70,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
   }
 
   Future<void> _submit() async {
+    if (_saving) return;
     final notes = _notesController.text.trim().isNotEmpty
         ? _notesController.text.trim()
         : null;

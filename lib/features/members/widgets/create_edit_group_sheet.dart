@@ -249,6 +249,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);

@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
+import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
+import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
 import 'package:prism_plurality/features/members/widgets/full_screen_markdown_editor_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/image_size_field.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -21,6 +25,49 @@ class _FakeClipboardReader implements AppClipboardReader {
 
   @override
   Future<ClipboardImageData?> readImageUri(String uri) async => null;
+}
+
+class _GatedBioImageProcessor implements BioImageProcessor {
+  final commitGate = Completer<void>();
+  int commitCount = 0;
+
+  @override
+  final List<StagedBioImage> staged = [];
+
+  @override
+  Future<List<String>> commitStaged() async {
+    commitCount += 1;
+    await commitGate.future;
+    staged.clear();
+    return const [];
+  }
+
+  @override
+  void discardStaged() {}
+
+  @override
+  Uint8List? getStagedBytes(String mediaId) => null;
+
+  @override
+  Uint8List? getStagedByTag(String tag) => null;
+
+  @override
+  Future<String> stageDeviceImage(
+    Uint8List bytes,
+    String tag, {
+    String? altText,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> stageUrlImage(
+    String url,
+    String tag, {
+    String? altText,
+  }) async {
+    throw UnimplementedError();
+  }
 }
 
 void main() {
@@ -41,6 +88,63 @@ void main() {
       ),
     );
   }
+
+  testWidgets('rapid save taps commit staged markdown images once', (
+    tester,
+  ) async {
+    final processor = _GatedBioImageProcessor();
+    String? saved;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appClipboardReaderProvider.overrideWithValue(
+            const _FakeClipboardReader(),
+          ),
+          bioImageProcessorProvider.overrideWith((ref, sessionId) => processor),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => Center(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    saved = await showFullScreenMarkdownEditor(
+                      context: context,
+                      title: 'Notes',
+                      initialText: '',
+                      hintText: 'Write something',
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'saved once');
+    await tester.pump();
+
+    final saveButton = find.byTooltip('Save');
+    await tester.tap(saveButton);
+    await tester.tap(saveButton);
+    await tester.pump();
+
+    expect(processor.commitCount, 1);
+
+    processor.commitGate.complete();
+    await tester.pumpAndSettle();
+
+    expect(saved, 'saved once');
+    expect(find.text('Open'), findsOneWidget);
+  });
 
   testWidgets(
     'pasting an image into the markdown editor opens the add-image dialog',

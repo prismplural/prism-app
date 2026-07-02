@@ -9,6 +9,8 @@
 // The widget tests are kept here so they are ready to run once the upstream
 // prism_sync FFI issue is resolved.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,8 +31,14 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 class _FakeCustomFieldNotifier extends CustomFieldNotifier {
   CustomField? lastCreated;
   CustomField? lastUpdated;
+  String? lastRenamedFieldId;
+  String? lastRenamedName;
   String? lastWrittenConfigFieldId;
   CustomFieldTypeConfig? lastWrittenConfig;
+  int createCalls = 0;
+  int renameCalls = 0;
+  Completer<void>? createCompleter;
+  Completer<void>? renameCompleter;
 
   @override
   Future<void> build() async {}
@@ -46,6 +54,7 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
     CustomFieldTypeConfig? typeConfig,
     String? parentFieldId,
   }) async {
+    createCalls++;
     lastCreated = CustomField(
       id: id ?? 'created-id',
       name: name,
@@ -57,12 +66,22 @@ class _FakeCustomFieldNotifier extends CustomFieldNotifier {
       typeConfig: typeConfig,
       parentFieldId: parentFieldId,
     );
+    await createCompleter?.future;
     return null;
   }
 
   @override
   Future<Object?> updateField(CustomField field) async {
     lastUpdated = field;
+    return null;
+  }
+
+  @override
+  Future<Object?> renameField(String fieldId, String newName) async {
+    renameCalls++;
+    lastRenamedFieldId = fieldId;
+    lastRenamedName = newName;
+    await renameCompleter?.future;
     return null;
   }
 
@@ -121,6 +140,63 @@ void main() {
 
       expect(find.text('Options'), findsOneWidget);
       expect(find.text('Add option'), findsOneWidget);
+    });
+
+    testWidgets('save ignores repeated taps while create is pending', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final notifier = _FakeCustomFieldNotifier()
+        ..createCompleter = Completer<void>();
+      await tester.pumpWidget(_buildSheet(notifier: notifier));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Favorite color');
+      await tester.pump();
+
+      final saveButton = find.byTooltip('Save');
+      await tester.tap(saveButton);
+      await tester.tap(saveButton);
+
+      expect(notifier.createCalls, 1);
+
+      notifier.createCompleter!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('edit save ignores repeated taps while rename is pending', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final existingField = CustomField(
+        id: 'field-1',
+        name: 'Mood',
+        fieldType: CustomFieldType.text,
+        displayOrder: 0,
+        createdAt: DateTime.utc(2026, 1, 1),
+        fieldTypeId: 'text',
+      );
+      final notifier = _FakeCustomFieldNotifier()
+        ..renameCompleter = Completer<void>();
+
+      await tester.pumpWidget(
+        _buildSheet(field: existingField, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Mood label');
+      await tester.pump();
+
+      final saveButton = find.byTooltip('Save');
+      await tester.tap(saveButton);
+      await tester.tap(saveButton);
+
+      expect(notifier.renameCalls, 1);
+      expect(notifier.lastRenamedFieldId, 'field-1');
+      expect(notifier.lastRenamedName, 'Mood label');
+
+      notifier.renameCompleter!.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('add option appends to list with auto-color', (tester) async {

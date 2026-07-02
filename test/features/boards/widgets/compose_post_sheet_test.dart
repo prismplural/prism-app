@@ -1,5 +1,7 @@
 // ignore_for_file: subtype_of_sealed_class
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +63,8 @@ class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
   String? createdAudience;
   String? createdTargetMemberId;
   String? createdBody;
+  int createCalls = 0;
+  Completer<void>? createCompleter;
   String? updatedId;
   String? updatedAudience;
   String? updatedTargetMemberId;
@@ -77,10 +81,12 @@ class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
     String? title,
     required String body,
   }) async {
+    createCalls++;
     createdAuthorId = authorId;
     createdAudience = audience;
     createdTargetMemberId = targetMemberId;
     createdBody = body;
+    await createCompleter?.future;
     return MemberBoardPost(
       id: 'created-id',
       authorId: authorId,
@@ -391,6 +397,33 @@ void main() {
 
       expect(find.text('Hello headmates!'), findsOneWidget);
       expect(find.byTooltip('Post'), findsOneWidget);
+    });
+
+    testWidgets('save ignores repeated taps while create is pending', (
+      tester,
+    ) async {
+      final notifier = _FakeBoardPostNotifier()
+        ..createCompleter = Completer<void>();
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice],
+          speakingAs: 'alice',
+          notifier: notifier,
+        ),
+      );
+      await _openSheet(tester);
+
+      await tester.enterText(find.byType(TextField).last, 'Hello headmates!');
+      await tester.pump();
+
+      final saveButton = find.byTooltip('Post');
+      await tester.tap(saveButton);
+      await tester.tap(saveButton);
+
+      expect(notifier.createCalls, 1);
+
+      notifier.createCompleter!.complete();
+      await tester.pumpAndSettle();
     });
 
     testWidgets('save stays disabled while an image is processing', (

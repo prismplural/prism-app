@@ -83,6 +83,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   }
 
   Future<void> _saveTitle(String conversationId, String? currentEmoji) async {
+    if (_saving) return;
     final newTitle = _titleController.text.trim();
     if (newTitle.isEmpty) {
       setState(() => _isEditing = false);
@@ -116,11 +117,11 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   }
 
   Future<void> _pickEmoji(String conversationId, String? currentTitle) async {
-    final emoji = await PrismEmojiPicker.showPicker(context);
-    if (emoji == null || !mounted) return;
-
+    if (_saving) return;
     setState(() => _saving = true);
     try {
+      final emoji = await PrismEmojiPicker.showPicker(context);
+      if (emoji == null || !mounted) return;
       await ref
           .read(chatNotifierProvider.notifier)
           .updateConversation(
@@ -141,6 +142,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   }
 
   Future<void> _clearEmoji(String conversationId, String? currentTitle) async {
+    if (_saving) return;
     setState(() => _saving = true);
     try {
       await ref

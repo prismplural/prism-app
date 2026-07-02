@@ -205,6 +205,30 @@ void main() {
       expect(find.textContaining('Enter your PIN'), findsOneWidget);
     });
 
+    testWidgets('valid phrase tolerates rapid repeated Continue taps', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(_buildScreen());
+      await tester.pumpAndSettle();
+
+      final words = _validMnemonic.split(' ');
+      for (var i = 0; i < 12; i++) {
+        await tester.enterText(find.byType(TextField).at(i), words[i]);
+        await tester.pump();
+      }
+      await tester.pumpAndSettle();
+
+      final continueButton = find.widgetWithText(PrismButton, 'Continue');
+      await tester.ensureVisible(continueButton);
+      await tester.tap(continueButton);
+      await tester.tap(continueButton);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Enter your PIN'), findsOneWidget);
+      expect(find.widgetWithText(PrismButton, 'Scan QR'), findsNothing);
+    });
+
     testWidgets('scan back returns to manual flow and disposes scanner', (
       tester,
     ) async {

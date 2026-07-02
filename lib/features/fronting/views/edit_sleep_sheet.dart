@@ -80,6 +80,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
   // Date/time editing is handled inline by PrismDateTimePills.
 
   Future<void> _save() async {
+    if (_saving) return;
     final notes = _notesController.text.trim();
     final endTime = _isActive ? null : (_endTime ?? DateTime.now());
 

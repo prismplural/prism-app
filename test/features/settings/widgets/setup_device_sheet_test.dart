@@ -859,6 +859,75 @@ void main() {
     },
   );
 
+  testWidgets('mnemonic Continue tolerates rapid repeated taps', (
+    tester,
+  ) async {
+    const fakeHandle = _FakePrismSyncHandle();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          prismSyncHandleProvider.overrideWithBuild(
+            (ref, notifier) => fakeHandle,
+          ),
+          syncHealthProvider.overrideWith(_FakeSyncHealthNotifier.new),
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncDeviceIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('device-123'),
+          ),
+          syncDeviceSecretPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+          syncWrappedDekPresentProvider.overrideWithValue(
+            const AsyncValue<bool>.data(true),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (context) => Consumer(
+              builder: (context, ref, _) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () => SetupDeviceSheet.show(context, ref),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    const phrase =
+        'abandon abandon abandon abandon abandon abandon '
+        'abandon abandon abandon abandon abandon about';
+    final words = phrase.split(' ');
+    for (var i = 0; i < 12; i++) {
+      await tester.enterText(find.byType(TextField).at(i), words[i]);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    final continueButton = find.text('Continue');
+    await tester.tap(continueButton);
+    await tester.tap(continueButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter your PIN'), findsOneWidget);
+    expect(find.textContaining('before scanning'), findsOneWidget);
+    expect(find.text("Scan Joiner's QR"), findsNothing);
+  });
+
   testWidgets(
     '_InitiatorPinView callback delivers a PinBuffer with expected bytes',
     (tester) async {

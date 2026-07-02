@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,6 +58,65 @@ void main() {
     expect(spy.createHabitCalls, isEmpty);
   });
 
+  testWidgets('edit mode ignores repeated save taps while update is pending', (
+    tester,
+  ) async {
+    final habit = Habit(
+      id: 'habit-1',
+      name: 'Read',
+      createdAt: DateTime(2026, 5, 1, 12),
+      modifiedAt: DateTime(2026, 5, 1, 12),
+      frequency: HabitFrequency.daily,
+    );
+    final spy = _SpyHabitNotifier()..updateFieldsCompleter = Completer<void>();
+
+    await tester.pumpWidget(_buildSubject(habit: habit, notifier: spy));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open habit sheet'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Read more');
+    await tester.pump();
+
+    final saveButton = find.byTooltip('Save');
+    await tester.tap(saveButton);
+    await tester.tap(saveButton);
+
+    expect(spy.updateHabitFieldsCalls, hasLength(1));
+    expect(spy.updateHabitFieldsCalls.single.changedFields, {
+      'name': 'Read more',
+    });
+
+    spy.updateFieldsCompleter!.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'create mode ignores repeated save taps while create is pending',
+    (tester) async {
+      final spy = _SpyHabitNotifier()..createCompleter = Completer<void>();
+
+      await tester.pumpWidget(_buildSubject(habit: null, notifier: spy));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open habit sheet'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Stretch');
+      await tester.pump();
+
+      final saveButton = find.byTooltip('Save');
+      await tester.tap(saveButton);
+      await tester.tap(saveButton);
+
+      expect(spy.createHabitCalls, hasLength(1));
+
+      spy.createCompleter!.complete();
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets('color picker keeps vertical swatch spacing in angular mode', (
     tester,
   ) async {
@@ -89,7 +150,7 @@ void main() {
 }
 
 Widget _buildSubject({
-  required Habit habit,
+  required Habit? habit,
   required _SpyHabitNotifier notifier,
   PrismShapes shapes = PrismShapes.rounded,
 }) {
@@ -143,10 +204,13 @@ class _SpyHabitNotifier extends HabitNotifier {
   final List<Habit> updateHabitCalls = [];
   final List<({String habitId, Map<String, dynamic> changedFields})>
   updateHabitFieldsCalls = [];
+  Completer<void>? createCompleter;
+  Completer<void>? updateFieldsCompleter;
 
   @override
   Future<void> createHabit(Habit habit) async {
     createHabitCalls.add(habit);
+    await createCompleter?.future;
   }
 
   @override
@@ -163,5 +227,6 @@ class _SpyHabitNotifier extends HabitNotifier {
       habitId: habitId,
       changedFields: Map<String, dynamic>.from(changedFields),
     ));
+    await updateFieldsCompleter?.future;
   }
 }

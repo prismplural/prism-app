@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +52,7 @@ class _FakeFrontingNotifier extends FrontingNotifier {
       <
         ({String sleepSessionId, SleepQuality? quality, List<String> memberIds})
       >[];
+  Completer<void>? wakeUpCompleter;
 
   @override
   Future<void> build() async {}
@@ -65,10 +68,29 @@ class _FakeFrontingNotifier extends FrontingNotifier {
       quality: quality,
       memberIds: List<String>.from(frontingMemberIds),
     ));
+    await wakeUpCompleter?.future;
   }
 }
 
-Widget _buildSubject({List<Member>? members, _FakeFrontingNotifier? notifier}) {
+class _FakeSleepNotifier extends SleepNotifier {
+  final endedSessionIds = <String>[];
+  Completer<void>? endSleepCompleter;
+
+  @override
+  void build() {}
+
+  @override
+  Future<void> endSleep(String sessionId) async {
+    endedSessionIds.add(sessionId);
+    await endSleepCompleter?.future;
+  }
+}
+
+Widget _buildSubject({
+  List<Member>? members,
+  _FakeFrontingNotifier? notifier,
+  _FakeSleepNotifier? sleepNotifier,
+}) {
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith(
@@ -89,6 +111,8 @@ Widget _buildSubject({List<Member>? members, _FakeFrontingNotifier? notifier}) {
       ),
       if (notifier != null)
         frontingNotifierProvider.overrideWith(() => notifier),
+      if (sleepNotifier != null)
+        sleepNotifierProvider.overrideWith(() => sleepNotifier),
     ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -339,6 +363,46 @@ void main() {
         expect(notifier.wakeUps.single.sleepSessionId, 'sleep-1');
         expect(notifier.wakeUps.single.quality, SleepQuality.good);
         expect(notifier.wakeUps.single.memberIds, ['alice', 'bob']);
+      });
+
+      testWidgets('Done ignores repeated taps while wake-up is pending', (
+        tester,
+      ) async {
+        final notifier = _FakeFrontingNotifier()
+          ..wakeUpCompleter = Completer<void>();
+        await tester.pumpWidget(_buildSubject(notifier: notifier));
+        await tester.pumpAndSettle();
+
+        await tester.tap(_quickAvatar('Alice'));
+        await tester.pumpAndSettle();
+
+        final doneButton = find.text('Done');
+        await tester.tap(doneButton);
+        await tester.tap(doneButton);
+
+        expect(notifier.wakeUps, hasLength(1));
+        expect(notifier.wakeUps.single.memberIds, ['alice']);
+
+        notifier.wakeUpCompleter!.complete();
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('Skip ignores repeated taps while sleep end is pending', (
+        tester,
+      ) async {
+        final sleepNotifier = _FakeSleepNotifier()
+          ..endSleepCompleter = Completer<void>();
+        await tester.pumpWidget(_buildSubject(sleepNotifier: sleepNotifier));
+        await tester.pumpAndSettle();
+
+        final skipButton = find.text('Skip');
+        await tester.tap(skipButton);
+        await tester.tap(skipButton);
+
+        expect(sleepNotifier.endedSessionIds, ['sleep-1']);
+
+        sleepNotifier.endSleepCompleter!.complete();
+        await tester.pumpAndSettle();
       });
     });
   });

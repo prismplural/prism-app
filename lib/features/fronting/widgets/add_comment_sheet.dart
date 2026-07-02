@@ -41,6 +41,7 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
   late DateTime _timestamp;
   late final String _initialBody;
   late final DateTime _initialTimestamp;
+  bool _saving = false;
 
   bool get _isEditing => widget.comment != null;
   bool get _isDirty =>
@@ -66,24 +67,30 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
       widget.sessionId.trim().isNotEmpty;
 
   Future<void> _save() async {
-    if (!_isValid) return;
-    final notifier = ref.read(commentNotifierProvider.notifier);
-    if (_isEditing) {
-      await notifier.updateComment(
-        widget.comment!.copyWith(
+    if (_saving || !_isValid) return;
+    setState(() => _saving = true);
+
+    try {
+      final notifier = ref.read(commentNotifierProvider.notifier);
+      if (_isEditing) {
+        await notifier.updateComment(
+          widget.comment!.copyWith(
+            sessionId: widget.sessionId,
+            body: _bodyController.text.trim(),
+            timestamp: _timestamp,
+          ),
+        );
+      } else {
+        await notifier.createComment(
           sessionId: widget.sessionId,
-          body: _bodyController.text.trim(),
           timestamp: _timestamp,
-        ),
-      );
-    } else {
-      await notifier.createComment(
-        sessionId: widget.sessionId,
-        timestamp: _timestamp,
-        body: _bodyController.text.trim(),
-      );
+          body: _bodyController.text.trim(),
+        );
+      }
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _pickDateTime(BuildContext anchorContext) async {
@@ -157,7 +164,8 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
                   const SizedBox(height: 24),
                   PrismButton(
                     onPressed: _save,
-                    enabled: _isValid,
+                    enabled: _isValid && !_saving,
+                    isLoading: _saving,
                     label: _isEditing ? context.l10n.save : context.l10n.add,
                   ),
                 ],

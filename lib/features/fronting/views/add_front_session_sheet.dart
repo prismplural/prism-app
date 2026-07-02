@@ -177,7 +177,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   /// sentinel member if it doesn't exist, then writes a single session
   /// row attributed to it.
   Future<void> _submit(FrontStartBehavior mode) async {
-    if (!_canSubmit) return;
+    if (_saving || !_canSubmit) return;
     setState(() => _saving = true);
 
     try {

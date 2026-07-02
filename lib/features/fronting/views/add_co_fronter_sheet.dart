@@ -59,7 +59,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
   }
 
   Future<void> _add() async {
-    if (_selectedIds.isEmpty) return;
+    if (_saving || _selectedIds.isEmpty) return;
 
     setState(() => _saving = true);
 

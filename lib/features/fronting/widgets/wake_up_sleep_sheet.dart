@@ -102,6 +102,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   }
 
   Future<void> _handleDone() async {
+    if (_saving) return;
     setState(() => _saving = true);
     try {
       await ref
@@ -120,6 +121,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   }
 
   Future<void> _handleSkip() async {
+    if (_saving) return;
     setState(() => _saving = true);
     try {
       await ref

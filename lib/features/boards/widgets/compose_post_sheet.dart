@@ -234,7 +234,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
   // ---------------------------------------------------------------------------
 
   Future<void> _save() async {
-    if (!_canSave) return;
+    if (_isSaving || !_canSave) return;
     setState(() => _isSaving = true);
 
     try {

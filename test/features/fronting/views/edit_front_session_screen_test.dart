@@ -15,6 +15,8 @@
 //      executor's ensure-sentinel branch runs.  Pins the unknown-sentinel fix
 //      against regression.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -47,6 +49,8 @@ import 'package:prism_plurality/core/database/app_database.dart' as appdb;
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -180,6 +184,71 @@ void main() {
         // Sheet should have closed and Alice's name appears in the picker row.
         expect(find.byType(MemberSearchSheet), findsNothing);
         expect(find.text('Alice'), findsWidgets);
+      },
+    );
+  });
+
+  group('save re-entry guard', () {
+    testWidgets(
+      'rapid save taps execute one edit while validation is pending',
+      (tester) async {
+        final session = _session(id: 'session-1', memberId: 'alice');
+        final repo = _GatedFrontingSessionRepository()..sessions.add(session);
+        final executor = _NoOpFrontingChangeExecutor(repository: repo);
+        final members = [_member(id: 'alice', name: 'Alice')];
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              sessionByIdProvider(
+                session.id,
+              ).overrideWith((ref) => Stream.value(session)),
+              activeMembersProvider.overrideWith(
+                (ref) => Stream.value(members),
+              ),
+              activeMemberListProvider.overrideWith(
+                (ref) => Stream.value(members),
+              ),
+              allGroupsProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroup>[]),
+              ),
+              allGroupEntriesProvider.overrideWith(
+                (ref) => Stream.value(const <MemberGroupEntry>[]),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              ..._memberNamePresentationOverrides(),
+              frontingSessionRepositoryProvider.overrideWithValue(repo),
+              frontingChangeExecutorProvider.overrideWithValue(executor),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              home: Scaffold(
+                body: EditFrontSessionScreen(sessionId: session.id),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final saveButton = find.byIcon(AppIcons.check);
+        await tester.tap(saveButton);
+        await tester.tap(saveButton);
+        await tester.pump();
+
+        expect(repo.getAllSessionsCalls, 1);
+        expect(executor.captured, isEmpty);
+
+        repo.getAllSessionsGate.complete();
+        await tester.pumpAndSettle();
+
+        expect(executor.captured, hasLength(1));
+        final update = executor.captured.single
+            .whereType<UpdateSessionChange>()
+            .single;
+        expect(update.sessionId, session.id);
       },
     );
   });
@@ -549,5 +618,38 @@ class _CapturingFrontingChangeExecutor extends FrontingChangeExecutor {
   ) async {
     captured.add(List.of(changes));
     return super.execute(changes);
+  }
+}
+
+class _GatedFrontingSessionRepository extends FakeFrontingSessionRepository {
+  final getAllSessionsGate = Completer<void>();
+  int getAllSessionsCalls = 0;
+
+  @override
+  Future<List<FrontingSession>> getAllSessions() async {
+    getAllSessionsCalls += 1;
+    await getAllSessionsGate.future;
+    return super.getAllSessions();
+  }
+}
+
+class _NoOpFrontingChangeExecutor extends FrontingChangeExecutor {
+  _NoOpFrontingChangeExecutor({
+    required FakeFrontingSessionRepository repository,
+  }) : super(
+         repository: repository,
+         mutationRunner: MutationRunner(
+           transactionRunner: <T>(action) => action(),
+         ),
+       );
+
+  final List<List<FrontingSessionChange>> captured = [];
+
+  @override
+  Future<MutationResult<void>> execute(
+    List<FrontingSessionChange> changes,
+  ) async {
+    captured.add(List.of(changes));
+    return const MutationResult<void>.success(null);
   }
 }

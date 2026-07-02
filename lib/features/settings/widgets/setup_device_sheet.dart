@@ -1212,6 +1212,7 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     final normalized = PrismMnemonicField.normalize(_controller.text);
     if (normalized.isEmpty) {
       setState(() => _error = context.l10n.changePinMnemonicRequired);
@@ -1221,9 +1222,11 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
       _busy = true;
       _error = null;
     });
-    await widget.onSubmit(normalized);
-    if (!mounted) return;
-    setState(() => _busy = false);
+    try {
+      await widget.onSubmit(normalized);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -1261,6 +1264,7 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
         PrismButton(
           label: context.l10n.setupDeviceMnemonicContinue,
           onPressed: _submit,
+          enabled: !_busy,
           isLoading: _busy,
         ),
       ],

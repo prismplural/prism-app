@@ -130,172 +130,153 @@ class _EditFrontSessionScreenState
   }
 
   Future<void> _save() async {
-    final editGuard = ref.read(frontingEditGuardProvider);
-    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
-    final changeExecutor = ref.read(frontingChangeExecutorProvider);
-    final timingMode = ref.read(timingModeProvider);
-    final repo = ref.read(frontingSessionRepositoryProvider);
-
-    // 1. Get the original session directly from repository
-    final original = await repo.getSessionById(widget.sessionId);
-    if (original == null || !mounted) return;
-
-    final end = _isActive ? null : _endTime;
-    final trimmedNotes = _notesController.text.trim();
-
-    // 2. Validate basic time range — hard errors block save
-    final timeErrors = editGuard.validateTimeRange(_startTime, end);
-    if (timeErrors.isNotEmpty) {
-      if (!mounted) return;
-      final message = timeErrors.map((e) => e.summary).join('\n');
-      PrismToast.error(context, message: message);
-      return;
-    }
-
-    // 3. Short duration warning (< 1 minute)
-    if (end != null &&
-        end.difference(_startTime) < const Duration(minutes: 1)) {
-      if (!mounted) return;
-      final proceed = await PrismDialog.confirm(
-        context: context,
-        title: context.l10n.frontingShortSessionTitle,
-        message: context.l10n.frontingShortSessionMessage,
-        confirmLabel: context.l10n.save,
-      );
-      if (!proceed || !mounted) return;
-    }
-
-    // 4. Build snapshot and patch for the edit guard
-    final originalSnapshot = original.toSnapshot();
-    // memberId handling: the picker now writes [unknownSentinelMemberId]
-    // (not null) when the user selects "Unknown", so any non-null change
-    // — including transitioning from a legacy null to the sentinel — flows
-    // through the [memberId] field and triggers the executor's
-    // ensure-sentinel branch.  [clearMemberId] is reserved for the
-    // (currently unreachable from this screen) "explicitly clear back to
-    // null" case; we keep the slot wired for symmetry but never set it
-    // from the Unknown picker.
-    final memberChanged = _memberId != original.memberId;
-    final patch = FrontingSessionPatch(
-      start: _startTime != original.startTime ? _startTime : null,
-      end: end != original.endTime ? end : null,
-      clearEnd: _isActive && original.endTime != null,
-      memberId: memberChanged && _memberId != null ? _memberId : null,
-      clearMemberId: memberChanged && _memberId == null,
-      // coFronterIds omitted — each session is one member's continuous
-      // presence; co-fronting is emergent overlap, not a field.
-      notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
-      clearNotes: trimmedNotes.isEmpty && (original.notes?.isNotEmpty ?? false),
-      confidenceIndex: _confidence?.index,
-    );
-
-    // 5. Load nearby sessions directly from repository (not stream provider,
-    // which may not be loaded yet)
-    final allSessions = await repo.getAllSessions();
-    final nearbySnapshots = allSessions.map((s) => s.toSnapshot()).toList();
-
-    // 6. Run edit validation
-    //    (no proposed-snapshot needed: cross-member overlap resolution was
-    //    removed with the per-member-sessions refactor — see §3.3.)
-    final validation = editGuard.validateEdit(
-      original: originalSnapshot,
-      patch: patch,
-      nearbySessions: nearbySnapshots,
-      timingMode: timingMode,
-    );
-
-    final allChanges = <FrontingSessionChange>[];
-
-    // Same-member, same-type self-overlaps must be trimmed away before the
-    // edit lands. Cross-member normal overlaps (valid co-fronting) and
-    // cross-type sleep/front overlaps (parallel timelines) never appear
-    // here — the guard filters both out.
-    if (validation.overlappingSessions.isNotEmpty) {
-      final proposedSnapshot = FrontingSessionSnapshot(
-        id: original.id,
-        memberId: patch.clearMemberId
-            ? null
-            : (patch.memberId ?? original.memberId),
-        start: patch.start ?? original.startTime,
-        end: patch.clearEnd ? null : (patch.end ?? original.endTime),
-        notes: patch.notes ?? original.notes,
-        confidenceIndex: patch.confidenceIndex ?? original.confidence?.index,
-        sessionType: original.sessionType,
-        quality: original.quality,
-        isHealthKitImport: original.isHealthKitImport,
-        isDeleted: original.isDeleted,
-      );
-      allChanges.addAll(
-        resolutionService.resolveAllOverlaps(
-          edited: proposedSnapshot,
-          overlaps: validation.overlappingSessions,
-          resolution: OverlapResolution.trim,
-        ),
-      );
-    }
-
-    // 8. Handle gaps
-    if (validation.gapsCreated.isNotEmpty && mounted) {
-      final gapResolution = await showGapResolutionDialog(
-        context,
-        gaps: validation.gapsCreated,
-      );
-      if (gapResolution == null || gapResolution == GapResolution.cancel) {
-        return;
-      }
-      if (!mounted) return;
-
-      if (gapResolution == GapResolution.fillWithUnknown) {
-        final gapChanges = resolutionService.computeGapFillChanges(
-          validation.gapsCreated,
-        );
-        allChanges.addAll(gapChanges);
-      }
-    }
-
-    // 9. Handle duplicates
-    if (validation.duplicates.isNotEmpty && mounted) {
-      final proceed = await PrismDialog.confirm(
-        context: context,
-        title: context.l10n.frontingDuplicateSessionTitle,
-        message: context.l10n.frontingDuplicateSessionMessage(
-          validation.duplicates.length,
-        ),
-        confirmLabel: context.l10n.frontingSaveAnyway,
-      );
-      if (!proceed || !mounted) return;
-    }
-
-    // 10. Add the primary update change
-    allChanges.insert(
-      0,
-      UpdateSessionChange(sessionId: widget.sessionId, patch: patch),
-    );
-
-    // 11. Execute all changes
+    if (_saving) return;
     setState(() => _saving = true);
 
     try {
-      final result = await changeExecutor.execute(allChanges);
-      result.when(
-        success: (_) {
-          if (mounted) Navigator.of(context).pop(true);
-        },
-        failure: (error) {
-          if (mounted) {
-            PrismToast.error(
-              context,
-              message: context.l10n.frontingErrorSavingSession(error),
-            );
-          }
-        },
-      );
-    } catch (e) {
-      if (mounted) {
-        PrismToast.error(
-          context,
-          message: context.l10n.frontingErrorSavingSession(e),
+      final editGuard = ref.read(frontingEditGuardProvider);
+      final resolutionService = ref.read(frontingEditResolutionServiceProvider);
+      final changeExecutor = ref.read(frontingChangeExecutorProvider);
+      final timingMode = ref.read(timingModeProvider);
+      final repo = ref.read(frontingSessionRepositoryProvider);
+
+      final original = await repo.getSessionById(widget.sessionId);
+      if (original == null || !mounted) return;
+
+      final end = _isActive ? null : _endTime;
+      final trimmedNotes = _notesController.text.trim();
+
+      final timeErrors = editGuard.validateTimeRange(_startTime, end);
+      if (timeErrors.isNotEmpty) {
+        if (!mounted) return;
+        final message = timeErrors.map((e) => e.summary).join('\n');
+        PrismToast.error(context, message: message);
+        return;
+      }
+
+      if (end != null &&
+          end.difference(_startTime) < const Duration(minutes: 1)) {
+        if (!mounted) return;
+        final proceed = await PrismDialog.confirm(
+          context: context,
+          title: context.l10n.frontingShortSessionTitle,
+          message: context.l10n.frontingShortSessionMessage,
+          confirmLabel: context.l10n.save,
         );
+        if (!proceed || !mounted) return;
+      }
+
+      final originalSnapshot = original.toSnapshot();
+      // Route "Unknown" through the sentinel path while preserving legacy nulls.
+      final memberChanged = _memberId != original.memberId;
+      final patch = FrontingSessionPatch(
+        start: _startTime != original.startTime ? _startTime : null,
+        end: end != original.endTime ? end : null,
+        clearEnd: _isActive && original.endTime != null,
+        memberId: memberChanged && _memberId != null ? _memberId : null,
+        clearMemberId: memberChanged && _memberId == null,
+        // A session records one member; co-fronting is derived from overlap.
+        notes: trimmedNotes.isNotEmpty ? trimmedNotes : null,
+        clearNotes:
+            trimmedNotes.isEmpty && (original.notes?.isNotEmpty ?? false),
+        confidenceIndex: _confidence?.index,
+      );
+
+      // Use the repository; the stream provider may not be loaded yet.
+      final allSessions = await repo.getAllSessions();
+      final nearbySnapshots = allSessions.map((s) => s.toSnapshot()).toList();
+
+      final validation = editGuard.validateEdit(
+        original: originalSnapshot,
+        patch: patch,
+        nearbySessions: nearbySnapshots,
+        timingMode: timingMode,
+      );
+
+      final allChanges = <FrontingSessionChange>[];
+
+      // Validation only reports same-member self-overlaps that need trimming.
+      if (validation.overlappingSessions.isNotEmpty) {
+        final proposedSnapshot = FrontingSessionSnapshot(
+          id: original.id,
+          memberId: patch.clearMemberId
+              ? null
+              : (patch.memberId ?? original.memberId),
+          start: patch.start ?? original.startTime,
+          end: patch.clearEnd ? null : (patch.end ?? original.endTime),
+          notes: patch.notes ?? original.notes,
+          confidenceIndex: patch.confidenceIndex ?? original.confidence?.index,
+          sessionType: original.sessionType,
+          quality: original.quality,
+          isHealthKitImport: original.isHealthKitImport,
+          isDeleted: original.isDeleted,
+        );
+        allChanges.addAll(
+          resolutionService.resolveAllOverlaps(
+            edited: proposedSnapshot,
+            overlaps: validation.overlappingSessions,
+            resolution: OverlapResolution.trim,
+          ),
+        );
+      }
+
+      if (validation.gapsCreated.isNotEmpty && mounted) {
+        final gapResolution = await showGapResolutionDialog(
+          context,
+          gaps: validation.gapsCreated,
+        );
+        if (gapResolution == null || gapResolution == GapResolution.cancel) {
+          return;
+        }
+        if (!mounted) return;
+
+        if (gapResolution == GapResolution.fillWithUnknown) {
+          final gapChanges = resolutionService.computeGapFillChanges(
+            validation.gapsCreated,
+          );
+          allChanges.addAll(gapChanges);
+        }
+      }
+
+      if (validation.duplicates.isNotEmpty && mounted) {
+        final proceed = await PrismDialog.confirm(
+          context: context,
+          title: context.l10n.frontingDuplicateSessionTitle,
+          message: context.l10n.frontingDuplicateSessionMessage(
+            validation.duplicates.length,
+          ),
+          confirmLabel: context.l10n.frontingSaveAnyway,
+        );
+        if (!proceed || !mounted) return;
+      }
+
+      allChanges.insert(
+        0,
+        UpdateSessionChange(sessionId: widget.sessionId, patch: patch),
+      );
+
+      try {
+        final result = await changeExecutor.execute(allChanges);
+        result.when(
+          success: (_) {
+            if (mounted) Navigator.of(context).pop(true);
+          },
+          failure: (error) {
+            if (mounted) {
+              PrismToast.error(
+                context,
+                message: context.l10n.frontingErrorSavingSession(error),
+              );
+            }
+          },
+        );
+      } catch (e) {
+        if (mounted) {
+          PrismToast.error(
+            context,
+            message: context.l10n.frontingErrorSavingSession(e),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _saving = false);

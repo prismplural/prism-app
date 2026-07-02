@@ -396,6 +396,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
   String? _error;
   bool _scanning = false;
   bool _scanHandled = false;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -406,6 +407,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
   }
 
   Future<void> _submit() async {
+    if (_busy) return;
     final normalized = PrismMnemonicField.normalize(_controller.text);
     if (normalized.isEmpty) {
       setState(() => _error = context.l10n.changePinMnemonicRequired);
@@ -415,7 +417,15 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
       setState(() => _error = context.l10n.changePinMnemonicInvalid);
       return;
     }
-    await widget.onSubmit(normalized);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.onSubmit(normalized);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _stopScanning({String? error}) async {
@@ -428,6 +438,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
   }
 
   void _startScanning() {
+    if (_busy) return;
     setState(() {
       _error = null;
       _scanHandled = false;
@@ -472,6 +483,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
             controller: _controller,
             hintText: l10n.changePinMnemonicHint,
             errorText: _error,
+            enabled: !_busy,
             autofocus: true,
             onSubmitted: (_) => unawaited(_submit()),
           ),
@@ -482,6 +494,8 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
                 child: PrismButton(
                   label: l10n.setupDeviceMnemonicContinue,
                   onPressed: () => unawaited(_submit()),
+                  enabled: !_busy,
+                  isLoading: _busy,
                   tone: PrismButtonTone.filled,
                 ),
               ),
@@ -489,6 +503,7 @@ class _VerifyPhraseViewState extends State<_VerifyPhraseView> {
               PrismButton(
                 label: l10n.verifyBackupScanQrButton,
                 onPressed: _startScanning,
+                enabled: !_busy,
                 icon: AppIcons.qrCode,
                 tone: PrismButtonTone.subtle,
               ),

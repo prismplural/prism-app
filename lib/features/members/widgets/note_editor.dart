@@ -100,6 +100,7 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
   late String? _initialMemberId;
   bool _memberWasEdited = false;
   bool _showPreview = false;
+  bool _saving = false;
   // Isolates staged images to this editor instance.
   final String _editSessionId = const Uuid().v4();
   // Drives the add-image dialog when an image is pasted into the body, reusing
@@ -185,51 +186,60 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
   }
 
   Future<void> _save() async {
-    if (!_isValid) return;
-    final shouldContinue = await promptAndStageRemoteMarkdownImages(
-      context: context,
-      ref: ref,
-      controller: _bodyController,
-      sessionId: _editSessionId,
-    );
-    if (!shouldContinue || !mounted) return;
+    if (_saving || !_isValid) return;
+    setState(() => _saving = true);
 
-    // Commit any images staged via the image button before persisting.
-    var failedTags = const <String>[];
     try {
-      failedTags = await ref
-          .read(bioImageProcessorProvider(_editSessionId))
-          .commitStaged();
-    } catch (_) {}
-    if (mounted && failedTags.isNotEmpty) {
-      PrismToast.error(context, message: context.l10n.mediaSomeImagesNotSaved);
-    }
+      final shouldContinue = await promptAndStageRemoteMarkdownImages(
+        context: context,
+        ref: ref,
+        controller: _bodyController,
+        sessionId: _editSessionId,
+      );
+      if (!shouldContinue || !mounted) return;
 
-    final notifier = ref.read(noteNotifierProvider.notifier);
-    final savedNote = _isEditing
-        ? await notifier.updateNote(
-            widget.note!.copyWith(
+      // Commit any images staged via the image button before persisting.
+      var failedTags = const <String>[];
+      try {
+        failedTags = await ref
+            .read(bioImageProcessorProvider(_editSessionId))
+            .commitStaged();
+      } catch (_) {}
+      if (mounted && failedTags.isNotEmpty) {
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaSomeImagesNotSaved,
+        );
+      }
+
+      final notifier = ref.read(noteNotifierProvider.notifier);
+      final savedNote = _isEditing
+          ? await notifier.updateNote(
+              widget.note!.copyWith(
+                title: _titleController.text.trim(),
+                body: _bodyController.text.trim(),
+                colorHex: _colorHex,
+                memberId: _selectedMemberId,
+                date: _date,
+              ),
+            )
+          : await notifier.createNote(
               title: _titleController.text.trim(),
               body: _bodyController.text.trim(),
               colorHex: _colorHex,
               memberId: _selectedMemberId,
               date: _date,
-            ),
-          )
-        : await notifier.createNote(
-            title: _titleController.text.trim(),
-            body: _bodyController.text.trim(),
-            colorHex: _colorHex,
-            memberId: _selectedMemberId,
-            date: _date,
-          );
+            );
 
-    if (!mounted || savedNote == null) return;
-    final onSaved = widget.onSaved;
-    if (onSaved != null) {
-      onSaved(savedNote);
-    } else {
-      Navigator.of(context).pop();
+      if (!mounted || savedNote == null) return;
+      final onSaved = widget.onSaved;
+      if (onSaved != null) {
+        onSaved(savedNote);
+      } else {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -374,8 +384,9 @@ class _NoteEditorState extends ConsumerState<NoteEditor> {
                       const SizedBox(width: 4),
                       PrismGlassIconButton(
                         icon: AppIcons.check,
-                        onPressed: _isValid ? _save : null,
-                        enabled: _isValid,
+                        onPressed: _isValid && !_saving ? _save : null,
+                        enabled: _isValid && !_saving,
+                        isLoading: _saving,
                         tooltip: l10n.memberSaveNoteTooltip,
                         size: PrismTokens.topBarActionSize,
                         tint: theme.colorScheme.primary,

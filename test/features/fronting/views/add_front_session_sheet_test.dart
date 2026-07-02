@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -42,6 +44,7 @@ List<Member> _bigMemberList() =>
 class _FakeFrontingNotifier extends FrontingNotifier {
   final List<List<String>> startFrontingCalls = [];
   final List<DateTime?> startFrontingStartTimes = [];
+  Completer<void>? startFrontingCompleter;
   final List<List<String>> replaceFrontingCalls = [];
   final List<DateTime?> replaceFrontingStartTimes = [];
   final List<({List<String> memberIds, DateTime startTime, DateTime endTime})>
@@ -59,6 +62,7 @@ class _FakeFrontingNotifier extends FrontingNotifier {
   }) async {
     startFrontingCalls.add(List<String>.from(memberIds));
     startFrontingStartTimes.add(startTime);
+    await startFrontingCompleter?.future;
   }
 
   @override
@@ -706,6 +710,31 @@ void main() {
           <String>[unknownSentinelMemberId],
         ]),
       );
+    });
+
+    testWidgets('submit ignores repeated taps while start is pending', (
+      tester,
+    ) async {
+      final notifier = _FakeFrontingNotifier()
+        ..startFrontingCompleter = Completer<void>();
+      final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
+      await tester.pumpWidget(
+        _buildSheetTrigger(members: members, fakeNotifier: notifier),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('M0'));
+      await tester.pumpAndSettle();
+
+      final saveButton = _saveButton();
+      await tester.tap(saveButton);
+      await tester.tap(saveButton);
+
+      expect(notifier.startFrontingCalls, hasLength(1));
+
+      notifier.startFrontingCompleter!.complete();
+      await tester.pumpAndSettle();
     });
   });
 

@@ -772,6 +772,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   // ── Save ────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
+    if (_saving) return;
     final name = _nameController.text.trim();
     // Groups are the only type allowed to save without a name.
     if (name.isEmpty && _selectedTypeId != 'group') return;
@@ -963,6 +964,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                         icon: AppIcons.check,
                         tooltip: context.l10n.save,
                         size: PrismTokens.topBarActionSize,
+                        isLoading: _saving,
                         onPressed: canSave ? _save : null,
                       ),
               ),

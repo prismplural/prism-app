@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +39,7 @@ Finder _sheetConfirmSelectionButton() => find.descendant(
 class _FakeFrontingNotifier extends FrontingNotifier {
   final addedIds = <String>[];
   final startedIds = <List<String>>[];
+  Completer<void>? startFrontingCompleter;
 
   @override
   Future<void> build() async {}
@@ -49,6 +52,7 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     DateTime? startTime,
   }) async {
     startedIds.add(List<String>.from(memberIds));
+    await startFrontingCompleter?.future;
   }
 
   @override
@@ -274,6 +278,41 @@ void main() {
         ['bob', 'charlie'],
       ]);
       expect(sheetResult, isTrue);
+    });
+
+    testWidgets('tapping Add twice while the add is pending submits once', (
+      tester,
+    ) async {
+      final notifier = _FakeFrontingNotifier()
+        ..startFrontingCompleter = Completer<void>();
+      final members = [
+        _member(id: 'bob', name: 'Bob'),
+        _member(id: 'charlie', name: 'Charlie'),
+      ];
+
+      await tester.pumpWidget(
+        _buildSheetTrigger(
+          members: members,
+          currentFronterId: 'alice',
+          fakeNotifier: notifier,
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bob'));
+      await tester.pump();
+
+      final addButton = find.widgetWithText(PrismButton, 'Add');
+      await tester.tap(addButton);
+      await tester.tap(addButton);
+
+      expect(notifier.startedIds, [
+        ['bob'],
+      ]);
+
+      notifier.startFrontingCompleter!.complete();
+      await tester.pumpAndSettle();
     });
   });
 }

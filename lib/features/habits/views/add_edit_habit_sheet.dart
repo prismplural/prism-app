@@ -62,6 +62,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   String? _assignedMemberId;
   bool _onlyNotifyWhenFronting = false;
   bool _isPrivate = false;
+  bool _saving = false;
 
   // Track initial notification state for save toast.
   bool _wasNotificationsEnabled = false;
@@ -151,7 +152,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     final membersAsync = ref.watch(userVisibleAllMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
-    final canSave = _nameController.text.trim().isNotEmpty;
+    final canSave = _nameController.text.trim().isNotEmpty && !_saving;
 
     return ListenableBuilder(
       listenable: Listenable.merge([
@@ -175,6 +176,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                   size: PrismTokens.topBarActionSize,
                   tint: canSave ? theme.colorScheme.primary : null,
                   accentIcon: canSave,
+                  isLoading: _saving,
                   onPressed: canSave ? _save : null,
                 ),
               ),
@@ -475,64 +477,71 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   }
 
   Future<void> _save() async {
-    final now = DateTime.now();
-    final notifier = ref.read(habitNotifierProvider.notifier);
+    if (_saving) return;
+    setState(() => _saving = true);
 
-    final habit = Habit(
-      id: widget.existingHabit?.id ?? _uuid.v4(),
-      name: _nameController.text.trim(),
-      description: _descriptionController.text.trim().isEmpty
-          ? null
-          : _descriptionController.text.trim(),
-      icon: _iconController.text.trim().isEmpty
-          ? null
-          : _iconController.text.trim(),
-      colorHex: _colorHex,
-      isActive: widget.existingHabit?.isActive ?? true,
-      createdAt: widget.existingHabit?.createdAt ?? now,
-      modifiedAt: now,
-      frequency: _frequency,
-      weeklyDays: _frequency == HabitFrequency.weekly
-          ? (_weeklyDays.toList()..sort())
-          : null,
-      intervalDays: _frequency == HabitFrequency.interval
-          ? _intervalDays
-          : null,
-      reminderTime: _notificationsEnabled ? _reminderTime : null,
-      notificationsEnabled: _notificationsEnabled,
-      notificationMessage: _notificationMessageController.text.trim().isEmpty
-          ? null
-          : _notificationMessageController.text.trim(),
-      assignedMemberId: _assignedMemberId,
-      onlyNotifyWhenFronting: _onlyNotifyWhenFronting,
-      isPrivate: _isPrivate,
-      currentStreak: widget.existingHabit?.currentStreak ?? 0,
-      bestStreak: widget.existingHabit?.bestStreak ?? 0,
-      totalCompletions: widget.existingHabit?.totalCompletions ?? 0,
-    );
+    try {
+      final now = DateTime.now();
+      final notifier = ref.read(habitNotifierProvider.notifier);
 
-    if (_isEditing) {
-      await notifier.updateHabitFields(
-        habitId: habit.id,
-        changedFields: _buildChangedFieldsForExistingHabit(habit),
+      final habit = Habit(
+        id: widget.existingHabit?.id ?? _uuid.v4(),
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        icon: _iconController.text.trim().isEmpty
+            ? null
+            : _iconController.text.trim(),
+        colorHex: _colorHex,
+        isActive: widget.existingHabit?.isActive ?? true,
+        createdAt: widget.existingHabit?.createdAt ?? now,
+        modifiedAt: now,
+        frequency: _frequency,
+        weeklyDays: _frequency == HabitFrequency.weekly
+            ? (_weeklyDays.toList()..sort())
+            : null,
+        intervalDays: _frequency == HabitFrequency.interval
+            ? _intervalDays
+            : null,
+        reminderTime: _notificationsEnabled ? _reminderTime : null,
+        notificationsEnabled: _notificationsEnabled,
+        notificationMessage: _notificationMessageController.text.trim().isEmpty
+            ? null
+            : _notificationMessageController.text.trim(),
+        assignedMemberId: _assignedMemberId,
+        onlyNotifyWhenFronting: _onlyNotifyWhenFronting,
+        isPrivate: _isPrivate,
+        currentStreak: widget.existingHabit?.currentStreak ?? 0,
+        bestStreak: widget.existingHabit?.bestStreak ?? 0,
+        totalCompletions: widget.existingHabit?.totalCompletions ?? 0,
       );
-    } else {
-      await notifier.createHabit(habit);
-    }
 
-    if (mounted) {
-      // Show toast when reminders are first enabled or the time changes.
-      if (_notificationsEnabled &&
-          (!_wasNotificationsEnabled ||
-              _reminderTime != _initialReminderTime)) {
-        PrismToast.success(
-          context,
-          message: context.l10n.habitsReminderSetFor(
-            _formatReminderTime(context),
-          ),
+      if (_isEditing) {
+        await notifier.updateHabitFields(
+          habitId: habit.id,
+          changedFields: _buildChangedFieldsForExistingHabit(habit),
         );
+      } else {
+        await notifier.createHabit(habit);
       }
-      context.pop();
+
+      if (mounted) {
+        // Show toast when reminders are first enabled or the time changes.
+        if (_notificationsEnabled &&
+            (!_wasNotificationsEnabled ||
+                _reminderTime != _initialReminderTime)) {
+          PrismToast.success(
+            context,
+            message: context.l10n.habitsReminderSetFor(
+              _formatReminderTime(context),
+            ),
+          );
+        }
+        context.pop();
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 

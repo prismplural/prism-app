@@ -74,6 +74,7 @@ class _FullScreenMarkdownEditorSheetState
   // the same staging flow as the floating image button.
   final GlobalKey<MarkdownImageButtonState> _imageButtonKey = GlobalKey();
   bool _showPreview = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -118,30 +119,36 @@ class _FullScreenMarkdownEditorSheetState
   }
 
   Future<void> _save() async {
-    final shouldContinue = await promptAndStageRemoteMarkdownImages(
-      context: context,
-      ref: ref,
-      controller: _controller,
-      sessionId: _editSessionId,
-    );
-    if (!shouldContinue || !mounted) return;
+    if (_saving) return;
+    setState(() => _saving = true);
 
-    // Commit any images staged during this edit (upload + library record)
-    // before returning. Done here — while the editor is still mounted and the
-    // processor is alive — so it works uniformly across every surface that
-    // opens this editor (bios, notes, custom fields, group descriptions).
-    var failedTags = const <String>[];
     try {
-      failedTags = await _getProcessor().commitStaged();
-    } catch (_) {
-      // Don't block save if an upload fails; the tag refs resolve once the
-      // library entry syncs, or show "unavailable" if it never does.
+      final shouldContinue = await promptAndStageRemoteMarkdownImages(
+        context: context,
+        ref: ref,
+        controller: _controller,
+        sessionId: _editSessionId,
+      );
+      if (!shouldContinue || !mounted) return;
+
+      // Upload staged images while the editor's processor is still mounted.
+      var failedTags = const <String>[];
+      try {
+        failedTags = await _getProcessor().commitStaged();
+      } catch (_) {
+        // Leave refs in place; they resolve once the library entry syncs.
+      }
+      if (!mounted) return;
+      if (failedTags.isNotEmpty) {
+        PrismToast.error(
+          context,
+          message: context.l10n.mediaSomeImagesNotSaved,
+        );
+      }
+      Navigator.of(context).pop(_controller.text.trim());
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (!mounted) return;
-    if (failedTags.isNotEmpty) {
-      PrismToast.error(context, message: context.l10n.mediaSomeImagesNotSaved);
-    }
-    Navigator.of(context).pop(_controller.text.trim());
   }
 
   @override
@@ -190,10 +197,11 @@ class _FullScreenMarkdownEditorSheetState
                       const SizedBox(width: 4),
                       PrismGlassIconButton(
                         icon: AppIcons.check,
-                        onPressed: _save,
+                        onPressed: _saving ? null : _save,
                         tooltip: l10n.save,
                         size: PrismTokens.topBarActionSize,
                         tint: theme.colorScheme.primary,
+                        isLoading: _saving,
                         accentIcon: true,
                       ),
                     ],
