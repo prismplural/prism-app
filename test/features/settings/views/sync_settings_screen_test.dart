@@ -460,6 +460,42 @@ void main() {
     );
   });
 
+  group('canRunManualSyncForHealth', () {
+    test('allows user-initiated recovery from websocket auth failure', () {
+      expect(canRunManualSyncForHealth(SyncHealthState.healthy), isTrue);
+      expect(
+        canRunManualSyncForHealth(SyncHealthState.websocketAuthFailed),
+        isTrue,
+      );
+      expect(canRunManualSyncForHealth(SyncHealthState.disconnected), isFalse);
+      expect(canRunManualSyncForHealth(SyncHealthState.needsPassword), isFalse);
+    });
+
+    test('manual ensure keeps websocket auth pause until sync outcome', () {
+      expect(
+        syncHealthAfterManualEnsureConfigured(
+          previousHealth: SyncHealthState.websocketAuthFailed,
+          configuredHealth: SyncHealthState.healthy,
+        ),
+        SyncHealthState.websocketAuthFailed,
+      );
+      expect(
+        syncHealthAfterManualEnsureConfigured(
+          previousHealth: SyncHealthState.websocketAuthFailed,
+          configuredHealth: SyncHealthState.disconnected,
+        ),
+        SyncHealthState.disconnected,
+      );
+      expect(
+        syncHealthAfterManualEnsureConfigured(
+          previousHealth: SyncHealthState.healthy,
+          configuredHealth: SyncHealthState.healthy,
+        ),
+        SyncHealthState.healthy,
+      );
+    });
+  });
+
   group('buildSyncSummaryPresentation', () {
     test('keeps a connected headline while a quick sync is active', () {
       final lastSyncAt = DateTime.utc(2026, 6, 11, 12);

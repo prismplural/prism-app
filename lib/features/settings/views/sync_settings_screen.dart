@@ -1060,7 +1060,7 @@ class _ConfiguredView extends ConsumerWidget {
       final health = await ref
           .read(prismSyncHandleProvider.notifier)
           .ensureConfigured(handle);
-      if (health != SyncHealthState.healthy) {
+      if (!canRunManualSyncForHealth(health)) {
         if (context.mounted) {
           PrismToast.error(
             context,
@@ -1089,25 +1089,28 @@ class _ConfiguredView extends ConsumerWidget {
     }
   }
 
-  String _manualSyncUnavailableMessage(SyncHealthState health) =>
-      switch (health) {
-        SyncHealthState.needsPassword =>
-          'Sync needs your PIN and recovery phrase before it can reconnect.',
-        SyncHealthState.needsRewrap =>
-          'Re-enter your PIN and recovery phrase to restore your pairing key.',
-        SyncHealthState.disconnected =>
-          'Sync credentials are missing. Set up sync again to reconnect.',
-        SyncHealthState.reconnecting =>
-          'Sync is reconnecting — this should clear on its own in a moment.',
-        SyncHealthState.unpaired => 'Sync is not set up on this device.',
-        SyncHealthState.awaitingDeviceUnlock =>
-          'Sync paused while the device was locked — it will reconnect '
-              'once you bring the app to the foreground.',
-        SyncHealthState.runtimeDekRestoreDeferred =>
-          'Sync paused while the device key is being checked. Reopen Prism '
-              'or unlock your device to retry.',
-        SyncHealthState.healthy => 'Sync is not ready yet.',
-      };
+  String _manualSyncUnavailableMessage(
+    SyncHealthState health,
+  ) => switch (health) {
+    SyncHealthState.needsPassword =>
+      'Sync needs your PIN and recovery phrase before it can reconnect.',
+    SyncHealthState.needsRewrap =>
+      'Re-enter your PIN and recovery phrase to restore your pairing key.',
+    SyncHealthState.disconnected =>
+      'Sync credentials are missing. Set up sync again to reconnect.',
+    SyncHealthState.reconnecting =>
+      'Sync is reconnecting — this should clear on its own in a moment.',
+    SyncHealthState.websocketAuthFailed =>
+      'Sync could not authenticate with the relay. Try syncing again, or set up sync again if this device was removed.',
+    SyncHealthState.unpaired => 'Sync is not set up on this device.',
+    SyncHealthState.awaitingDeviceUnlock =>
+      'Sync paused while the device was locked — it will reconnect '
+          'once you bring the app to the foreground.',
+    SyncHealthState.runtimeDekRestoreDeferred =>
+      'Sync paused while the device key is being checked. Reopen Prism '
+          'or unlock your device to retry.',
+    SyncHealthState.healthy => 'Sync is not ready yet.',
+  };
 }
 
 const _syncDatabaseNeedsRepairMessage =

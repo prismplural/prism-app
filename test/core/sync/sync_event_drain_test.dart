@@ -473,6 +473,391 @@ void main() {
     expect(status.lastError, 'Prism sync failed: epoch mismatch');
   });
 
+  test('websocket auth failure pauses sync without draining credentials', () async {
+    final ctx = bindContainer();
+    addTearDown(() async {
+      ctx.subscription.close();
+      ctx.eventSubscription.close();
+      ctx.container.dispose();
+      await ctx.controller.close();
+    });
+
+    ctx.controller.add(
+      SyncEvent('Error', {
+        'type': 'Error',
+        'kind': 'Auth',
+        'message':
+            'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+        'retryable': false,
+        'code': prismSyncWebSocketAuthFailedCode,
+      }),
+    );
+    await Future<void>.delayed(settleAfterDebounce);
+
+    expect(
+      ctx.container.read(syncHealthProvider),
+      SyncHealthState.websocketAuthFailed,
+    );
+    expect(ctx.drainCount(), 0);
+    expect(
+      ctx.container.read(syncStatusProvider).lastError,
+      'Prism sync failed: Sync could not authenticate with the relay after session refresh. HTTP 401.',
+    );
+  });
+
+  test('websocket auth failure via SyncCompleted result pauses sync', () async {
+    final ctx = bindContainer();
+    addTearDown(() async {
+      ctx.subscription.close();
+      ctx.eventSubscription.close();
+      ctx.container.dispose();
+      await ctx.controller.close();
+    });
+
+    ctx.controller.add(
+      SyncEvent('SyncCompleted', {
+        'type': 'SyncCompleted',
+        'result': {
+          'error':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'error_kind': 'Auth',
+          'error_code': prismSyncWebSocketAuthFailedCode,
+        },
+      }),
+    );
+    await Future<void>.delayed(settleAfterDebounce);
+
+    expect(
+      ctx.container.read(syncHealthProvider),
+      SyncHealthState.websocketAuthFailed,
+    );
+    expect(ctx.drainCount(), 0);
+    expect(
+      ctx.container.read(syncStatusProvider).lastError,
+      'Prism sync failed: Sync could not authenticate with the relay after session refresh. HTTP 401.',
+    );
+  });
+
+  test(
+    'websocket connected does not clear paused websocket auth failure state',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+
+      ctx.controller.add(
+        SyncEvent('WebSocketStateChanged', {
+          'type': 'WebSocketStateChanged',
+          'connected': true,
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+      expect(ctx.container.read(syncStatusProvider).lastError, isNotNull);
+    },
+  );
+
+  test(
+    'successful SyncCompleted clears paused websocket auth failure state',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+
+      ctx.controller.add(
+        SyncEvent('SyncCompleted', {
+          'type': 'SyncCompleted',
+          'result': <String, dynamic>{},
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+
+      expect(ctx.container.read(syncHealthProvider), SyncHealthState.healthy);
+      expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+    },
+  );
+
+  test(
+    'session token rotation clears paused websocket auth failure state',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+
+      ctx.controller.add(
+        SyncEvent('SessionTokenRotated', {
+          'type': 'SessionTokenRotated',
+          'token': 'fresh-token',
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+
+      expect(ctx.container.read(syncHealthProvider), SyncHealthState.healthy);
+      expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+      expect(ctx.drainCount(), 1);
+    },
+  );
+
+  test(
+    'failed SyncCompleted does not clear paused websocket auth failure',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+
+      ctx.controller.add(
+        SyncEvent('SyncCompleted', {
+          'type': 'SyncCompleted',
+          'result': {
+            'error': 'Sync still could not authenticate with the relay.',
+            'error_code': prismSyncWebSocketAuthFailedCode,
+            'error_kind': 'Auth',
+          },
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+      expect(
+        ctx.container.read(syncStatusProvider).lastError,
+        'Prism sync failed: Sync still could not authenticate with the relay.',
+      );
+    },
+  );
+
+  test(
+    'transient SyncCompleted preserves paused websocket auth failure error',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+      final pausedError = ctx.container.read(syncStatusProvider).lastError;
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+      expect(pausedError, isNotNull);
+
+      ctx.controller.add(
+        SyncEvent('SyncCompleted', {
+          'type': 'SyncCompleted',
+          'result': {
+            'error': 'temporary network failure',
+            'error_kind': 'Network',
+          },
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+      expect(ctx.container.read(syncStatusProvider).lastError, pausedError);
+    },
+  );
+
+  test(
+    'session token rotation prevents stale requery from restoring auth error',
+    () async {
+      final pendingOps = Completer<int>();
+      debugQueryPendingOpsOverride = () => pendingOps.future;
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+
+      ctx.controller.add(
+        SyncEvent('SyncCompleted', {
+          'type': 'SyncCompleted',
+          'result': {
+            'error': 'temporary network failure',
+            'error_kind': 'Network',
+          },
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      ctx.controller.add(
+        SyncEvent('SessionTokenRotated', {
+          'type': 'SessionTokenRotated',
+          'token': 'fresh-token',
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(ctx.container.read(syncHealthProvider), SyncHealthState.healthy);
+      expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+
+      pendingOps.complete(7);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(ctx.container.read(syncHealthProvider), SyncHealthState.healthy);
+      expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+    },
+  );
+
+  test(
+    'legacy proxy connected then auth error leaves websocket auth failure paused',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(
+        SyncEvent('WebSocketStateChanged', {
+          'type': 'WebSocketStateChanged',
+          'connected': true,
+        }),
+      );
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.websocketAuthFailed,
+      );
+      expect(
+        ctx.container.read(syncStatusProvider).lastError,
+        'Prism sync failed: Sync could not authenticate with the relay after session refresh. HTTP 401.',
+      );
+    },
+  );
+
   // ------------------------------------------------------------------
   // Fix 2: device_revoked arriving via SyncCompleted.result.error_code
   // ------------------------------------------------------------------
@@ -589,6 +974,51 @@ void main() {
         reason:
             'post-revoke success must not re-arm the drain until a new handle exists',
       );
+    },
+  );
+
+  test(
+    'websocket auth events after verified revoke keep sync disconnected',
+    () async {
+      final ctx = bindContainer();
+      addTearDown(() async {
+        ctx.subscription.close();
+        ctx.eventSubscription.close();
+        ctx.container.dispose();
+        await ctx.controller.close();
+      });
+
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
+      await Future<void>.delayed(settleAfterDebounce);
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.disconnected,
+      );
+
+      ctx.controller.add(
+        SyncEvent('Error', {
+          'type': 'Error',
+          'kind': 'Auth',
+          'message':
+              'Sync could not authenticate with the relay after session refresh. HTTP 401.',
+          'retryable': false,
+          'code': prismSyncWebSocketAuthFailedCode,
+        }),
+      );
+      ctx.controller.add(
+        SyncEvent('SessionTokenRotated', {
+          'type': 'SessionTokenRotated',
+          'token': 'stale-token',
+        }),
+      );
+      await Future<void>.delayed(settleAfterDebounce);
+
+      expect(
+        ctx.container.read(syncHealthProvider),
+        SyncHealthState.disconnected,
+      );
+      expect(ctx.container.read(syncStatusProvider).lastError, isNull);
+      expect(ctx.drainCount(), 0);
     },
   );
 

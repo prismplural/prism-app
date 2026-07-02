@@ -156,6 +156,28 @@ void main() {
     });
   });
 
+  group('shouldAutoReconnectWebsocketOnResume', () {
+    test(
+      'suppresses automatic reconnect after terminal websocket auth failure',
+      () {
+        expect(
+          shouldAutoReconnectWebsocketOnResume(
+            SyncHealthState.websocketAuthFailed,
+          ),
+          isFalse,
+        );
+        expect(
+          shouldAutoReconnectWebsocketOnResume(SyncHealthState.healthy),
+          isTrue,
+        );
+        expect(
+          shouldAutoReconnectWebsocketOnResume(SyncHealthState.reconnecting),
+          isTrue,
+        );
+      },
+    );
+  });
+
   // --------------------------------------------------------------------
   // computeSeedEntries — the Dart-side dynamic-key seed pipeline.
   // --------------------------------------------------------------------

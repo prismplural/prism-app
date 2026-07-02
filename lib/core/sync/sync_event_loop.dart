@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+const prismSyncWebSocketAuthFailedCode = 'websocket_auth_failed';
+
 /// Parsed sync event from the Rust FFI layer.
 ///
 /// Event types (from prism-sync-core/src/events.rs): RemoteChanges,
@@ -30,6 +32,25 @@ class SyncEvent {
   bool get isEpochRotated => type == 'EpochRotated';
   bool get remoteWipe => data['remote_wipe'] as bool? ?? false;
   bool get isWebSocketStateChanged => type == 'WebSocketStateChanged';
+  bool get websocketConnected => data['connected'] as bool? ?? false;
+
+  String? get errorCode {
+    if (isError) {
+      final code = data['code'];
+      if (code is String) return code;
+    }
+    if (isSyncCompleted) {
+      final result = data['result'];
+      if (result is Map<String, dynamic>) {
+        final code = result['error_code'];
+        if (code is String) return code;
+      }
+    }
+    return null;
+  }
+
+  bool get isWebSocketAuthFailed =>
+      isError && errorCode == prismSyncWebSocketAuthFailedCode;
 
   /// The relay minted a fresh device-session token via the signed
   /// `/session/refresh` recovery path. The app re-persists
@@ -133,8 +154,6 @@ class SyncEvent {
 /// Rust pushes events directly — no polling needed.
 Stream<SyncEvent> createSyncEventStream(ffi.PrismSyncHandle handle) {
   return ffi.syncEventStream(handle: handle).map((jsonStr) {
-    return SyncEvent.fromJson(
-      jsonDecode(jsonStr) as Map<String, dynamic>,
-    );
+    return SyncEvent.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
   });
 }

@@ -147,6 +147,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     _repairPrimaryDatabaseKeySlotOnce();
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return;
+    final health = ref.read(syncHealthProvider);
+    if (!shouldAutoReconnectWebsocketOnResume(health)) {
+      return;
+    }
 
     // Re-establish the WebSocket if it dropped while backgrounded,
     // resetting the exponential backoff for an immediate reconnect.
@@ -158,7 +162,6 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // onResume before pairing / unlock produces `sync not configured` error
     // spam that's not actionable. `reconnecting` is a transient sibling of
     // `healthy` (credentials + relay config intact), so we nudge in both.
-    final health = ref.read(syncHealthProvider);
     if (health == SyncHealthState.healthy ||
         health == SyncHealthState.reconnecting) {
       unawaited(_nudgeSyncOnResume(handle));

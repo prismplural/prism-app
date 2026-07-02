@@ -1204,19 +1204,24 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     syncAutoConfigureInProgress.value = true;
     try {
       final health = await _autoConfigureIfReady(handle);
-      ref.read(syncHealthProvider.notifier).setState(health);
+      final previousHealth = ref.read(syncHealthProvider);
+      final effectiveHealth = syncHealthAfterManualEnsureConfigured(
+        previousHealth: previousHealth,
+        configuredHealth: health,
+      );
+      ref.read(syncHealthProvider.notifier).setState(effectiveHealth);
       // Drain the durable outbox regardless of the configure outcome (a
       // null/unconfigured engine defers safely inside the drainer); a manual
       // reconnect that ends disconnected must not strand enqueued rows.
       await triggerOutboxDrain(ref.read(databaseProvider), handle);
-      if (health == SyncHealthState.healthy) {
+      if (effectiveHealth == SyncHealthState.healthy) {
         await runPostHealthySyncCatchUp(
           handle: handle,
           db: ref.read(databaseProvider),
           failureLabel: 'Post-manual-configure catch-up sync failed',
         );
       }
-      return health;
+      return effectiveHealth;
     } finally {
       syncAutoConfigureInProgress.value = false;
     }
@@ -3897,12 +3902,9 @@ Future<int> applyConsumerDeliveriesHealingUnappliable(
   var healedApplied = 0;
   final unappliable = <ConsumerDelivery>[];
   for (final delivery in deliveries) {
-    final rowApplied = await applyConsumerDeliveries(
-      db,
-      adapter,
-      [delivery],
-      strict: false,
-    );
+    final rowApplied = await applyConsumerDeliveries(db, adapter, [
+      delivery,
+    ], strict: false);
     if (rowApplied >= 1) {
       healedApplied += rowApplied;
     } else {
@@ -4413,6 +4415,12 @@ enum SyncHealthState {
   /// engine self-heals out of this state (see `_onResume` reconfigure+retry).
   reconnecting,
 
+  /// The relay rejected the WebSocket session after signed session refresh was
+  /// exhausted. Credentials and local data are preserved; this is not a
+  /// verified revocation. Automatic resume reconnect is paused so the client
+  /// does not loop auth failures forever.
+  websocketAuthFailed,
+
   /// Wrapped runtime cache is missing but wrapped_dek exists — user must
   /// enter password.
   needsPassword,
@@ -4862,6 +4870,23 @@ bool shouldDrainForCompletedErrorKind(String? errorKind) {
   }
 }
 
+bool shouldAutoReconnectWebsocketOnResume(SyncHealthState health) =>
+    health != SyncHealthState.websocketAuthFailed;
+
+bool canRunManualSyncForHealth(SyncHealthState health) =>
+    health == SyncHealthState.healthy ||
+    health == SyncHealthState.websocketAuthFailed;
+
+@visibleForTesting
+SyncHealthState syncHealthAfterManualEnsureConfigured({
+  required SyncHealthState previousHealth,
+  required SyncHealthState configuredHealth,
+}) =>
+    previousHealth == SyncHealthState.websocketAuthFailed &&
+        configuredHealth == SyncHealthState.healthy
+    ? previousHealth
+    : configuredHealth;
+
 /// Outcome of the device_id self-check on a `device_revoked` signal.
 ///
 /// We NEVER assume an ambiguous revoke targets us. The old "unknown/unreadable
@@ -5033,6 +5058,7 @@ SyncStatus syncStatusAfterCompleted({
   required bool hasQuarantinedItems,
   required int quarantinedBatchCount,
   bool surfaceResultError = true,
+  String? preservedLastError,
   DateTime? completedAt,
 }) {
   final resultError = rawResultError != null && rawResultError.isNotEmpty
@@ -5046,7 +5072,7 @@ SyncStatus syncStatusAfterCompleted({
     pendingOps: pendingOps,
     hasQuarantinedItems: hasQuarantinedItems,
     quarantinedBatchCount: quarantinedBatchCount,
-    lastError: surfaceResultError ? resultError : null,
+    lastError: surfaceResultError ? resultError : preservedLastError,
   );
 }
 
@@ -5108,6 +5134,16 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   /// plan: timer cancellation alone is not enough because a drain
   /// callback may already have started running when revocation fires.
   bool _credentialsRevoked = false;
+
+  bool _canEnterWebSocketAuthFailureState() {
+    if (_credentialsRevoked) return false;
+    return switch (ref.read(syncHealthProvider)) {
+      SyncHealthState.healthy ||
+      SyncHealthState.reconnecting ||
+      SyncHealthState.websocketAuthFailed => true,
+      _ => false,
+    };
+  }
 
   /// Debounce interval for event-driven `drainRustStore` calls.
   ///
@@ -5275,6 +5311,11 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           final resultErrorCode = resultMap?['error_code'] as String?;
           final resultRemoteWipe = resultMap?['remote_wipe'] as bool?;
           final isDeviceRevokedFromResult = resultErrorCode == 'device_revoked';
+          final isWebSocketAuthFailedFromResult =
+              resultErrorCode == prismSyncWebSocketAuthFailedCode;
+          final canEnterWebSocketAuthFailureFromResult =
+              isWebSocketAuthFailedFromResult &&
+              _canEnterWebSocketAuthFailureState();
           final structuredError = rawResultError == null
               ? null
               : PrismSyncStructuredError.tryParseMessage(rawResultError);
@@ -5288,12 +5329,36 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               shouldSurfaceSyncError(
                 errorKind: event.errorKind,
                 retryable: null,
-              );
+              ) &&
+              (!isWebSocketAuthFailedFromResult ||
+                  canEnterWebSocketAuthFailureFromResult);
           final previous = state;
+          final healthBeforeCompletion = ref.read(syncHealthProvider);
+          final cleanCompletion =
+              rawResultError == null &&
+              event.errorKind == null &&
+              resultErrorCode == null;
+          final preserveWebSocketAuthError =
+              healthBeforeCompletion == SyncHealthState.websocketAuthFailed &&
+              !cleanCompletion &&
+              !surfaceCompletedError;
           state = state.copyWith(
             isSyncing: false,
-            lastError: surfaceCompletedError ? displayableCompletedError : null,
+            lastError: surfaceCompletedError
+                ? displayableCompletedError
+                : preserveWebSocketAuthError
+                ? previous.lastError
+                : null,
           );
+          if (isWebSocketAuthFailedFromResult) {
+            if (canEnterWebSocketAuthFailureFromResult) {
+              ref
+                  .read(syncHealthProvider.notifier)
+                  .setState(SyncHealthState.websocketAuthFailed);
+            }
+          } else if (cleanCompletion) {
+            _clearWebSocketAuthFailure();
+          }
           // Re-query pending ops, schema-quarantine, and push-quarantine
           // state after sync completes. The push-quarantine count needs to
           // refresh here in addition to the per-event handler below because
@@ -5313,6 +5378,9 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               hasQuarantinedItems: results[1] as bool,
               quarantinedBatchCount: results[2] as int,
               surfaceResultError: surfaceCompletedError,
+              preservedLastError: preserveWebSocketAuthError
+                  ? previous.lastError
+                  : null,
               completedAt: DateTime.now(),
             );
           });
@@ -5357,6 +5425,14 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           });
         } else if (event.isError) {
           _statusEventGeneration++;
+          final canEnterWebSocketAuthFailure =
+              event.isWebSocketAuthFailed &&
+              _canEnterWebSocketAuthFailureState();
+          if (canEnterWebSocketAuthFailure) {
+            ref
+                .read(syncHealthProvider.notifier)
+                .setState(SyncHealthState.websocketAuthFailed);
+          }
           final structuredError =
               PrismSyncStructuredError.fromSyncEvent(event) ??
               PrismSyncStructuredError.tryParseMessage(
@@ -5374,10 +5450,19 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               shouldSurfaceSyncError(
                 errorKind: event.errorKind,
                 retryable: event.data['retryable'] as bool?,
-              );
+              ) &&
+              (!event.isWebSocketAuthFailed || canEnterWebSocketAuthFailure);
+          final preserveWebSocketAuthError =
+              ref.read(syncHealthProvider) ==
+                  SyncHealthState.websocketAuthFailed &&
+              !surfaceError;
           state = state.copyWith(
             isSyncing: false,
-            lastError: surfaceError ? displayableError : null,
+            lastError: surfaceError
+                ? displayableError
+                : preserveWebSocketAuthError
+                ? state.lastError
+                : null,
           );
           if (structuredError?.isDeviceRevoked ?? false) {
             _handleDeviceRevokedFromAuthFailure(
@@ -5389,6 +5474,11 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           _statusEventGeneration++;
           state = state.copyWith(isSyncing: false);
           _handleDeviceRevoked(event);
+        } else if (event.isWebSocketStateChanged) {
+          // Transport-level WebSocket connection is not proof that the relay
+          // accepted the session. Legacy proxy deployments can accept the
+          // upgrade, then reject auth with a close frame. Wait for a clean sync
+          // completion or a session token rotation before clearing auth pause.
         } else if (event.isQuarantinedBatch) {
           // The Rust engine just quarantined a push batch (or another one
           // already in the queue). Refresh the count so the
@@ -5404,11 +5494,25 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           // keychain so the next launch starts authenticated; the drain reads
           // the now-updated Rust store, so it carries the new token. Skip if
           // credentials were revoked so we never resurrect a wiped session.
+          if (_credentialsRevoked) return;
+          if (ref.read(syncHealthProvider) ==
+              SyncHealthState.websocketAuthFailed) {
+            _statusEventGeneration++;
+          }
+          _clearWebSocketAuthFailure();
           _scheduleDrain();
         }
       });
     });
     return const SyncStatus();
+  }
+
+  void _clearWebSocketAuthFailure() {
+    if (_credentialsRevoked) return;
+    if (ref.read(syncHealthProvider) == SyncHealthState.websocketAuthFailed) {
+      state = state.copyWith(lastError: null);
+      ref.read(syncHealthProvider.notifier).setState(SyncHealthState.healthy);
+    }
   }
 
   /// Schedule a trailing-edge debounced drain of the Rust MemorySecureStore
@@ -5534,6 +5638,23 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     state = state.copyWith(quarantinedBatchCount: count);
   }
 
+  Future<void> _disableAutoSyncAfterRevocation() async {
+    try {
+      final handle = ref.read(prismSyncHandleProvider).value;
+      if (handle != null) {
+        await ffi.setAutoSync(
+          handle: handle,
+          enabled: false,
+          debounceMs: BigInt.from(0),
+          retryDelayMs: BigInt.from(0),
+          maxRetries: 0,
+        );
+      }
+    } catch (e) {
+      debugPrint('[SYNC] Failed to disable auto-sync after revocation: $e');
+    }
+  }
+
   /// Handle a DeviceRevoked event. Rust emits this event for BOTH
   /// self-revoke AND sibling-revoke (another device in the group being
   /// revoked), so the first thing we do is determine which case this
@@ -5614,20 +5735,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     _abortPendingDrainForRevoke();
 
     // Stop auto-sync to prevent background retry loops.
-    try {
-      final handle = ref.read(prismSyncHandleProvider).value;
-      if (handle != null) {
-        await ffi.setAutoSync(
-          handle: handle,
-          enabled: false,
-          debounceMs: BigInt.from(0),
-          retryDelayMs: BigInt.from(0),
-          maxRetries: 0,
-        );
-      }
-    } catch (e) {
-      debugPrint('[SYNC] Failed to disable auto-sync after revocation: $e');
-    }
+    await _disableAutoSyncAfterRevocation();
 
     // If remote wipe was requested, delete the sync database. The wipe bit is
     // the VERIFIED, admin-signed intent read from the signature-verified
@@ -5707,6 +5815,8 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // revoke path.
     _abortPendingDrainForRevoke();
     try {
+      await _disableAutoSyncAfterRevocation();
+
       // The wipe bit is the admin-signed, signature-verified intent (H3 Layer
       // B), not the relay-controlled error/WS hint. A relay cannot flip it
       // without an admin signature over `remote_wipe == true` for this device.
