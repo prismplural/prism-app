@@ -362,6 +362,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                 scrollOffsetNotifier: _scrollOffsetNotifier,
                 viewportHeight: scrollableViewportHeight,
                 locale: context.dateLocale,
+                textScaler: MediaQuery.textScalerOf(context),
                 repaintListenable: _scrollOffsetNotifier,
               ),
             ),

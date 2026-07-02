@@ -304,6 +304,7 @@ class TimelineTimeGutterPainter extends CustomPainter {
     required this.gridColor,
     required this.viewportHeight,
     required this.locale,
+    required this.textScaler,
     this.scrollOffsetNotifier,
     Listenable? repaintListenable,
   }) : _shortWeekdayFmt = DateFormat.E(locale),
@@ -317,6 +318,7 @@ class TimelineTimeGutterPainter extends CustomPainter {
   final Color gridColor;
   final double viewportHeight;
   final String locale;
+  final TextScaler textScaler;
   final ValueNotifier<double>? scrollOffsetNotifier;
   final DateFormat _shortWeekdayFmt;
   final DateFormat _hourFmt;
@@ -415,6 +417,7 @@ class TimelineTimeGutterPainter extends CustomPainter {
           ),
         ),
         textDirection: TextDirection.ltr,
+        textScaler: textScaler,
       )..layout();
 
       textPainter.paint(
@@ -432,6 +435,7 @@ class TimelineTimeGutterPainter extends CustomPainter {
         oldDelegate.viewStart != viewStart ||
         oldDelegate.viewEnd != viewEnd ||
         oldDelegate.viewportHeight != viewportHeight ||
-        oldDelegate.locale != locale;
+        oldDelegate.locale != locale ||
+        oldDelegate.textScaler != textScaler;
   }
 }
