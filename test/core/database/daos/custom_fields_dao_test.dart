@@ -26,16 +26,19 @@ void main() {
         ),
       );
 
-  Future<void> insertValue(String id, {bool isDeleted = false}) =>
-      db.customFieldsDao.upsertValue(
-        CustomFieldValuesCompanion.insert(
-          id: id,
-          customFieldId: 'field-1',
-          memberId: 'member-$id', // unique per value to avoid (field,member) constraint
-          value: 'v',
-          isDeleted: Value(isDeleted),
-        ),
-      );
+  Future<void> insertValue(
+    String id, {
+    bool isDeleted = false,
+  }) => db.customFieldsDao.upsertValue(
+    CustomFieldValuesCompanion.insert(
+      id: id,
+      customFieldId: 'field-1',
+      memberId:
+          'member-$id', // unique per value to avoid (field,member) constraint
+      value: 'v',
+      isDeleted: Value(isDeleted),
+    ),
+  );
 
   // ── getNonDeletedFieldIds ────────────────────────────────────────────────────
 
@@ -71,6 +74,85 @@ void main() {
     });
   });
 
+  // ── upsertValue burned-id mint ───────────────────────────────────────────────
+
+  group('upsertValue', () {
+    setUp(() => insertField('field-1'));
+
+    CustomFieldValuesCompanion companion(String id, String value) =>
+        CustomFieldValuesCompanion.insert(
+          id: id,
+          customFieldId: 'field-1',
+          memberId: 'member-1',
+          value: value,
+        );
+
+    test('first-ever fill keeps the given (deterministic) id', () async {
+      final written = await db.customFieldsDao.upsertValue(
+        companion('det-1', 'first'),
+      );
+      expect(written, 'det-1');
+    });
+
+    test('refill after a tombstone at the id mints a fresh row, never reviving '
+        'the burned id', () async {
+      await db.customFieldsDao.upsertValue(companion('det-1', 'first'));
+      await db.customFieldsDao.deleteValue('det-1');
+
+      final written = await db.customFieldsDao.upsertValue(
+        companion('det-1', 'refill'),
+        mintFreshId: () => 'fresh-1',
+      );
+
+      expect(written, 'fresh-1');
+      final active = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-1',
+      );
+      expect(active!.id, 'fresh-1');
+      expect(active.value, 'refill');
+      // The burned id stays tombstoned (not resurrected).
+      final burned = await (db.select(
+        db.customFieldValues,
+      )..where((v) => v.id.equals('det-1'))).getSingle();
+      expect(burned.isDeleted, isTrue);
+    });
+
+    test('writing to a live row at the id updates it in place', () async {
+      await db.customFieldsDao.upsertValue(companion('det-1', 'first'));
+      final written = await db.customFieldsDao.upsertValue(
+        companion('det-1', 'edited'),
+      );
+      expect(written, 'det-1');
+      final active = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-1',
+      );
+      expect(active!.value, 'edited');
+    });
+
+    test('an active logical row wins over a mismatched incoming id (never '
+        'writes the derived/burned id)', () async {
+      // Active row under a minted id; caller passes the deterministic id.
+      await db.customFieldsDao.upsertValue(companion('minted-1', 'live'));
+      final written = await db.customFieldsDao.upsertValue(
+        companion('det-1', 'edited'),
+      );
+      expect(written, 'minted-1');
+      final active = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-1',
+      );
+      expect(active!.id, 'minted-1');
+      expect(active.value, 'edited');
+      // The deterministic id was never inserted.
+      final det = await (db.select(
+        db.customFieldValues,
+      )..where((v) => v.id.equals('det-1'))).getSingleOrNull();
+      expect(det, isNull);
+    });
+  });
+
   // ── softDeleteAllCustomFieldData ─────────────────────────────────────────────
 
   group('softDeleteAllCustomFieldData', () {
@@ -86,7 +168,10 @@ void main() {
       final result = await db.customFieldsDao.softDeleteAllCustomFieldData();
 
       // Returned IDs match the rows that were active before the call
-      expect(result.fieldIds.toSet(), equals({'f-active-1', 'f-active-2', 'field-1'}));
+      expect(
+        result.fieldIds.toSet(),
+        equals({'f-active-1', 'f-active-2', 'field-1'}),
+      );
       expect(result.valueIds.toSet(), equals({'v-active-1', 'v-active-2'}));
 
       // Query ALL rows including tombstones
@@ -96,12 +181,18 @@ void main() {
       expect(allFields, isNotEmpty);
       expect(allValues, isNotEmpty);
       for (final row in allFields) {
-        expect(row.isDeleted, isTrue,
-            reason: 'field ${row.id} should be tombstoned');
+        expect(
+          row.isDeleted,
+          isTrue,
+          reason: 'field ${row.id} should be tombstoned',
+        );
       }
       for (final row in allValues) {
-        expect(row.isDeleted, isTrue,
-            reason: 'value ${row.id} should be tombstoned');
+        expect(
+          row.isDeleted,
+          isTrue,
+          reason: 'value ${row.id} should be tombstoned',
+        );
       }
     });
 
@@ -117,7 +208,8 @@ void main() {
       expect(first.fieldIds, isNotEmpty);
       expect(first.valueIds, isNotEmpty);
 
-      final second = await db.customFieldsDao.softDeleteAllCustomFieldData(); // second call
+      final second = await db.customFieldsDao
+          .softDeleteAllCustomFieldData(); // second call
       // Second call finds nothing active — empty lists
       expect(second.fieldIds.isEmpty, isTrue);
       expect(second.valueIds.isEmpty, isTrue);

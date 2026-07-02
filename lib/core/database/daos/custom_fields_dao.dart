@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/custom_fields_table.dart';
 import 'package:prism_plurality/core/database/tables/custom_field_values_table.dart';
@@ -158,50 +159,81 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
   Future<CustomFieldValueRow?> getValueForField(
     String fieldId,
     String memberId,
-  ) =>
-      (select(customFieldValues)..where(
-            (v) =>
-                v.customFieldId.equals(fieldId) &
-                v.memberId.equals(memberId) &
-                v.isDeleted.equals(false),
-          ))
-          .getSingleOrNull();
+  ) async {
+    // Tolerant of >1 active row for one (field, member): two devices refilling a
+    // burned id mint different fresh ids, so both can coexist until the apply
+    // adapter's dedup collapses them. Order by id and take the first — never
+    // throw (getSingleOrNull would), and reads agree on the same survivor.
+    final rows =
+        await (select(customFieldValues)
+              ..where(
+                (v) =>
+                    v.customFieldId.equals(fieldId) &
+                    v.memberId.equals(memberId) &
+                    v.isDeleted.equals(false),
+              )
+              ..orderBy([(v) => OrderingTerm.asc(v.id)]))
+            .get();
+    return rows.isEmpty ? null : rows.first;
+  }
 
-  Future<int> upsertValue(CustomFieldValuesCompanion companion) {
+  /// Upserts a value for `(customFieldId, memberId)` and returns the row id it
+  /// actually wrote. The returned id differs from `companion.id` only in the
+  /// burned-id case (see below), so the caller MUST emit its create/update sync
+  /// op against the RETURNED id, not the companion's.
+  ///
+  /// Burned-id mint: a value row id is the deterministic UUIDv5 of
+  /// `(field, member)`, and `is_deleted` is absorbing fleet-wide — once a peer
+  /// tombstones that id, no `is_deleted=false` op ever revives it. So when there
+  /// is no ACTIVE logical row but a TOMBSTONED row already sits at the target id,
+  /// writing into it would resurrect a burned id locally that can never
+  /// propagate (data-loss / Rust-Dart divergence). Instead we insert a FRESH id
+  /// row; the apply-adapter's logical dedup re-converges peers by
+  /// `(field, member)`. [mintFreshId] supplies that id (default: a random v4,
+  /// which no peer can hold a tombstone for); tests inject it for determinism.
+  Future<String> upsertValue(
+    CustomFieldValuesCompanion companion, {
+    String Function()? mintFreshId,
+  }) {
     final id = companion.id.value;
     final customFieldId = companion.customFieldId.value;
     final memberId = companion.memberId.value;
+    final mint = mintFreshId ?? () => const Uuid().v4();
 
     return transaction(() async {
       final activeLogical = await getValueForField(customFieldId, memberId);
-      if (activeLogical != null && activeLogical.id != id) {
-        final target = await (select(
-          customFieldValues,
-        )..where((v) => v.id.equals(id))).getSingleOrNull();
-        if (target != null) {
-          await (update(customFieldValues)
-                ..where((v) => v.id.equals(activeLogical.id)))
-              .write(const CustomFieldValuesCompanion(isDeleted: Value(true)));
-          return (update(
-            customFieldValues,
-          )..where((v) => v.id.equals(id))).write(companion);
-        }
-
-        return (update(
-          customFieldValues,
-        )..where((v) => v.id.equals(activeLogical.id))).write(companion);
+      if (activeLogical != null) {
+        // Active-row lookup wins: write the live logical row, never the derived
+        // id (which may be a stale tombstone).
+        await (update(customFieldValues)
+              ..where((v) => v.id.equals(activeLogical.id)))
+            .write(companion.copyWith(id: Value(activeLogical.id)));
+        return activeLogical.id;
       }
 
       final existing = await (select(
         customFieldValues,
       )..where((v) => v.id.equals(id))).getSingleOrNull();
-      if (existing != null) {
-        return (update(
+      if (existing == null) {
+        // First-ever fill: keep the deterministic id so paired devices dedup
+        // a concurrent first-fill on the same (field, member).
+        await into(customFieldValues).insert(companion);
+        return id;
+      }
+      if (!existing.isDeleted) {
+        // Live row at the target id (no logical row means this id IS the row);
+        // plain update.
+        await (update(
           customFieldValues,
         )..where((v) => v.id.equals(id))).write(companion);
+        return id;
       }
-
-      return into(customFieldValues).insert(companion);
+      // Burned id: mint a fresh row rather than reviving the tombstone.
+      final freshId = mint();
+      await into(customFieldValues).insert(
+        companion.copyWith(id: Value(freshId), isDeleted: const Value(false)),
+      );
+      return freshId;
     });
   }
 

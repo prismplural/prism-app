@@ -372,10 +372,12 @@ class DriftCustomFieldsRepository
     }
     final companion = CustomFieldValueMapper.toCompanion(value);
     // Upsert + create-op intent commit atomically (dispatch post-commit,
-    // FFI outside the txn — reverted-revert invariant).
+    // FFI outside the txn — reverted-revert invariant). Emit against the id
+    // the DAO wrote: a refill over a burned tombstone lands on a minted row,
+    // and _valueFields carries no id so the map is id-agnostic.
     await runSyncedWrite(() async {
-      await _dao.upsertValue(companion);
-      await syncRecordCreate(_valuesTable, value.id, _valueFields(value));
+      final writtenId = await _dao.upsertValue(companion);
+      await syncRecordCreate(_valuesTable, writtenId, _valueFields(value));
     });
   }
 
