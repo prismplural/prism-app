@@ -11,6 +11,7 @@ permissions:
 
 env:
   FLUTTER_VERSION: '3.41.7'
+  SYSTEM_DEPS_DAV1D_BUILD_INTERNAL: always
 
 jobs:
   windows:
@@ -37,6 +38,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: windows-cargokit
+
+      - name: Install dav1d build tools
+        shell: pwsh
+        run: choco install pkgconfiglite meson ninja nasm --yes --no-progress
 
       - run: flutter --version
 
