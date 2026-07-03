@@ -602,6 +602,81 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get terminologyFrontingSectionTitle => 'Fronting terminology';
+
+  @override
+  String get terminologyFrontingSectionDescription =>
+      'Controls labels for who\'s active now, related actions, history, and reminders.';
+
+  @override
+  String get terminologyFrontingCustomSubtitle => 'Full phrase editor';
+
+  @override
+  String get terminologyFrontingCustomIntro =>
+      'Advanced mode lets you edit every phrase Prism derives from this terminology.';
+
+  @override
+  String get terminologyFrontingCustomRequired =>
+      'Fill in every fronting phrase before saving.';
+
+  @override
+  String terminologyFrontingCustomTooLong(int maxLength) {
+    return 'Use $maxLength characters or fewer per phrase.';
+  }
+
+  @override
+  String terminologyFrontingPreview(
+    String question,
+    String activePlural,
+    String logAction,
+    String historyLabel,
+  ) {
+    return '\"$question\" · \"$activePlural\" · \"$logAction\" · \"$historyLabel\"';
+  }
+
+  @override
+  String get terminologyFrontingGroupPrimary => 'Primary labels';
+
+  @override
+  String get terminologyFrontingGroupPrimarySubtitle =>
+      'Headings, current-state text, and active-member labels.';
+
+  @override
+  String get terminologyFrontingGroupActions => 'Actions';
+
+  @override
+  String get terminologyFrontingGroupActionsSubtitle =>
+      'Buttons, menu items, and hold hints.';
+
+  @override
+  String get terminologyFrontingGroupHistory => 'History and stats';
+
+  @override
+  String get terminologyFrontingGroupHistorySubtitle =>
+      'Session, analytics, sorting, and data labels.';
+
+  @override
+  String get terminologyFrontingGroupTogether => 'Together states';
+
+  @override
+  String get terminologyFrontingGroupTogetherSubtitle =>
+      'Shared activity, overlap, and add-together phrases.';
+
+  @override
+  String get terminologyFrontingGroupChanges => 'Changes and reminders';
+
+  @override
+  String get terminologyFrontingGroupChangesSubtitle =>
+      'Change events, reminder triggers, and delay labels.';
+
+  @override
+  String get terminologyFrontingGroupPinned => 'Pinned and correction labels';
+
+  @override
+  String get terminologyFrontingGroupPinnedSubtitle =>
+      'Long-running, always-active, Quick Switch, and import event labels.';
+
+  @override
   String get appearanceLanguage => 'Language';
 
   @override
@@ -5768,6 +5843,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingPreferencesSystemTerminology => 'System terminology';
+
+  @override
+  String get onboardingPreferencesFrontingTerminology => 'Fronting terminology';
 
   @override
   String get onboardingPreferencesCustomTerminology => 'Custom';

@@ -11,6 +11,7 @@ import 'package:prism_plurality/data/repositories/drift_app_preference_repositor
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
@@ -18,6 +19,20 @@ import 'package:prism_plurality/features/onboarding/providers/onboarding_provide
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 
 import '../../helpers/fake_repositories.dart';
+
+OnboardingCommitService _commitServiceWithFakeAppPreferences({
+  required AppDatabase db,
+  required FakeAppPreferenceRepository appPreferences,
+}) {
+  return OnboardingCommitService(
+    database: db,
+    settingsRepository: FakeSystemSettingsRepository(),
+    appPreferenceRepository: appPreferences,
+    memberRepository: FakeMemberRepository(),
+    conversationRepository: FakeConversationRepository(),
+    frontingRepository: FakeFrontingSessionRepository(),
+  );
+}
 
 void main() {
   group('OnboardingNotifier', () {
@@ -230,6 +245,31 @@ void main() {
       expect(
         container.read(onboardingProvider).quickFrontDefaultBehavior,
         FrontStartBehavior.replace,
+      );
+    });
+
+    test('fronting terminology setters update pending onboarding state', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(onboardingProvider.notifier);
+
+      notifier.setFrontingTermPreset(FrontingTermPreset.present);
+      expect(
+        container.read(onboardingProvider).pendingFrontingTerms,
+        const FrontingTerms.preset(FrontingTermPreset.present),
+      );
+
+      notifier.setCustomFrontingTerms(defaultFrontingTermBundle);
+      expect(
+        container.read(onboardingProvider).pendingFrontingTerms,
+        FrontingTerms.custom(defaultFrontingTermBundle),
+      );
+
+      notifier.resetFrontingTerms();
+      expect(
+        container.read(onboardingProvider).pendingFrontingTerms,
+        FrontingTerms.unset,
       );
     });
 
@@ -555,6 +595,80 @@ void main() {
       expect(row.valueType, 'json');
       expect(row.valueJson, '{"preset":"collective"}');
     });
+
+    test(
+      'complete writes fronting terminology preset app preference',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final appPreferences = FakeAppPreferenceRepository();
+        addTearDown(appPreferences.close);
+        final service = _commitServiceWithFakeAppPreferences(
+          db: db,
+          appPreferences: appPreferences,
+        );
+
+        await service.complete(
+          const OnboardingState(
+            systemName: 'Prism Collective',
+            pendingFrontingTerms: FrontingTerms.preset(FrontingTermPreset.out),
+          ),
+        );
+
+        expect(
+          await appPreferences.getStored(frontingTermsPreference),
+          const FrontingTerms.preset(FrontingTermPreset.out),
+        );
+      },
+    );
+
+    test(
+      'complete writes custom fronting terminology app preference',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final appPreferences = FakeAppPreferenceRepository();
+        addTearDown(appPreferences.close);
+        final service = _commitServiceWithFakeAppPreferences(
+          db: db,
+          appPreferences: appPreferences,
+        );
+        final custom = FrontingTerms.custom(defaultFrontingTermBundle);
+
+        await service.complete(
+          OnboardingState(
+            systemName: 'Prism Collective',
+            pendingFrontingTerms: custom,
+          ),
+        );
+
+        expect(await appPreferences.getStored(frontingTermsPreference), custom);
+      },
+    );
+
+    test(
+      'complete resets default fronting terminology app preference',
+      () async {
+        final db = AppDatabase(NativeDatabase.memory());
+        addTearDown(db.close);
+        final appPreferences = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            const FrontingTerms.preset(FrontingTermPreset.online),
+          );
+        addTearDown(appPreferences.close);
+        final service = _commitServiceWithFakeAppPreferences(
+          db: db,
+          appPreferences: appPreferences,
+        );
+
+        await service.complete(
+          const OnboardingState(systemName: 'Prism Collective'),
+        );
+
+        expect(await appPreferences.getStored(frontingTermsPreference), isNull);
+      },
+    );
 
     test('complete writes onboarding fronting default choices', () async {
       final settingsRepository = FakeSystemSettingsRepository();

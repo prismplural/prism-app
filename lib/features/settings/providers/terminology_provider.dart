@@ -247,6 +247,15 @@ const frontingTermPresetChoices = [
   FrontingTermPreset.online,
 ];
 
+String frontingTermPresetChoiceLabel(FrontingTermPreset preset) {
+  return switch (preset) {
+    FrontingTermPreset.fronting => 'Fronting',
+    FrontingTermPreset.present => 'Present',
+    FrontingTermPreset.out => 'Out',
+    FrontingTermPreset.online => 'Online',
+  };
+}
+
 FrontingTermBundle resolveFrontingTerms(FrontingTerms? custom) {
   final normalized = custom?.normalized() ?? FrontingTerms.unset;
   if (normalized.preset != null) {

@@ -817,6 +817,101 @@
       }
     }
   },
+  "terminologyFrontingSectionTitle": "Fronting terminology",
+  "@terminologyFrontingSectionTitle": {
+    "description": "Settings section title for terminology used for fronting/presence/activity"
+  },
+  "terminologyFrontingSectionDescription": "Controls labels for who's active now, related actions, history, and reminders.",
+  "@terminologyFrontingSectionDescription": {
+    "description": "Settings section description for fronting terminology"
+  },
+  "terminologyFrontingCustomSubtitle": "Full phrase editor",
+  "@terminologyFrontingCustomSubtitle": {
+    "description": "Subtitle for custom fronting terminology choice tile"
+  },
+  "terminologyFrontingCustomIntro": "Advanced mode lets you edit every phrase Prism derives from this terminology.",
+  "@terminologyFrontingCustomIntro": {
+    "description": "Intro text above custom fronting terminology fields"
+  },
+  "terminologyFrontingCustomRequired": "Fill in every fronting phrase before saving.",
+  "@terminologyFrontingCustomRequired": {
+    "description": "Validation message when a custom fronting phrase bundle is incomplete"
+  },
+  "terminologyFrontingCustomTooLong": "Use {maxLength} characters or fewer per phrase.",
+  "@terminologyFrontingCustomTooLong": {
+    "description": "Validation message when a custom fronting phrase is too long",
+    "placeholders": {
+      "maxLength": {
+        "type": "int"
+      }
+    }
+  },
+  "terminologyFrontingPreview": "\"{question}\" · \"{activePlural}\" · \"{logAction}\" · \"{historyLabel}\"",
+  "@terminologyFrontingPreview": {
+    "description": "Live preview for fronting terminology settings",
+    "placeholders": {
+      "question": {
+        "type": "String"
+      },
+      "activePlural": {
+        "type": "String"
+      },
+      "logAction": {
+        "type": "String"
+      },
+      "historyLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "terminologyFrontingGroupPrimary": "Primary labels",
+  "@terminologyFrontingGroupPrimary": {
+    "description": "Custom fronting terminology field group title"
+  },
+  "terminologyFrontingGroupPrimarySubtitle": "Headings, current-state text, and active-member labels.",
+  "@terminologyFrontingGroupPrimarySubtitle": {
+    "description": "Custom fronting terminology field group subtitle"
+  },
+  "terminologyFrontingGroupActions": "Actions",
+  "@terminologyFrontingGroupActions": {
+    "description": "Custom fronting terminology action field group title"
+  },
+  "terminologyFrontingGroupActionsSubtitle": "Buttons, menu items, and hold hints.",
+  "@terminologyFrontingGroupActionsSubtitle": {
+    "description": "Custom fronting terminology action field group subtitle"
+  },
+  "terminologyFrontingGroupHistory": "History and stats",
+  "@terminologyFrontingGroupHistory": {
+    "description": "Custom fronting terminology history field group title"
+  },
+  "terminologyFrontingGroupHistorySubtitle": "Session, analytics, sorting, and data labels.",
+  "@terminologyFrontingGroupHistorySubtitle": {
+    "description": "Custom fronting terminology history field group subtitle"
+  },
+  "terminologyFrontingGroupTogether": "Together states",
+  "@terminologyFrontingGroupTogether": {
+    "description": "Custom fronting terminology co-fronting/together field group title"
+  },
+  "terminologyFrontingGroupTogetherSubtitle": "Shared activity, overlap, and add-together phrases.",
+  "@terminologyFrontingGroupTogetherSubtitle": {
+    "description": "Custom fronting terminology co-fronting/together field group subtitle"
+  },
+  "terminologyFrontingGroupChanges": "Changes and reminders",
+  "@terminologyFrontingGroupChanges": {
+    "description": "Custom fronting terminology changes/reminders field group title"
+  },
+  "terminologyFrontingGroupChangesSubtitle": "Change events, reminder triggers, and delay labels.",
+  "@terminologyFrontingGroupChangesSubtitle": {
+    "description": "Custom fronting terminology changes/reminders field group subtitle"
+  },
+  "terminologyFrontingGroupPinned": "Pinned and correction labels",
+  "@terminologyFrontingGroupPinned": {
+    "description": "Custom fronting terminology pinned/correction field group title"
+  },
+  "terminologyFrontingGroupPinnedSubtitle": "Long-running, always-active, Quick Switch, and import event labels.",
+  "@terminologyFrontingGroupPinnedSubtitle": {
+    "description": "Custom fronting terminology pinned/correction field group subtitle"
+  },
   "appearanceLanguage": "Language",
   "@appearanceLanguage": {
     "description": "Section title for language picker in appearance settings"
@@ -7777,6 +7872,10 @@
   "onboardingPreferencesSystemTerminology": "System terminology",
   "@onboardingPreferencesSystemTerminology": {
     "description": "Section header for choosing terminology for the user's collective/system during onboarding"
+  },
+  "onboardingPreferencesFrontingTerminology": "Fronting terminology",
+  "@onboardingPreferencesFrontingTerminology": {
+    "description": "Section header for choosing terminology for fronting/presence/activity during onboarding"
   },
   "onboardingPreferencesCustomTerminology": "Custom",
   "@onboardingPreferencesCustomTerminology": {

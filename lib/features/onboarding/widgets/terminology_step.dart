@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -74,6 +75,9 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
+    final selectedFrontingPreset =
+        onboarding.pendingFrontingTerms.normalized().preset ??
+        FrontingTermPreset.fronting;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -250,6 +254,32 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
               ],
             ),
           ],
+          const SizedBox(height: 24),
+          _SectionLabel(
+            label: context.l10n.onboardingPreferencesFrontingTerminology,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 10),
+          PrismTermChoiceGrid<FrontingTermPreset>(
+            selected: selectedFrontingPreset,
+            choices: [
+              for (final preset in frontingTermPresetChoices)
+                PrismTermChoice<FrontingTermPreset>(
+                  value: preset,
+                  label: frontingTermPresetChoiceLabel(preset),
+                  subtitle: frontingTermBundleForPreset(
+                    preset,
+                  ).activePluralLabel,
+                ),
+            ],
+            onSelected: (preset) {
+              if (preset == FrontingTermPreset.fronting) {
+                notifier.resetFrontingTerms();
+              } else {
+                notifier.setFrontingTermPreset(preset);
+              }
+            },
+          ),
         ],
       ),
     );

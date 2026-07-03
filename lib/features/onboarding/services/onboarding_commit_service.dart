@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/domain/repositories/app_preference_repository.dart';
@@ -186,6 +187,7 @@ class OnboardingCommitService {
     });
 
     await _writeSystemTermsPreference(onboarding);
+    await _writeFrontingTermsPreference(onboarding);
   }
 
   Future<void> _writeSystemTermsPreference(OnboardingState onboarding) async {
@@ -208,5 +210,16 @@ class OnboardingCommitService {
     }
 
     await _appPreferenceRepository.set(systemTermsPreference, terms);
+  }
+
+  Future<void> _writeFrontingTermsPreference(OnboardingState onboarding) async {
+    final FrontingTerms terms = onboarding.pendingFrontingTerms.normalized();
+
+    if (terms.isUnset || !frontingTermsPreference.codec.isValid(terms)) {
+      await _appPreferenceRepository.reset(frontingTermsPreference);
+      return;
+    }
+
+    await _appPreferenceRepository.set(frontingTermsPreference, terms);
   }
 }

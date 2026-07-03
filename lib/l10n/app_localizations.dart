@@ -1158,6 +1158,125 @@ abstract class AppLocalizations {
     String memberTermLower,
   );
 
+  /// Settings section title for terminology used for fronting/presence/activity
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting terminology'**
+  String get terminologyFrontingSectionTitle;
+
+  /// Settings section description for fronting terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Controls labels for who\'s active now, related actions, history, and reminders.'**
+  String get terminologyFrontingSectionDescription;
+
+  /// Subtitle for custom fronting terminology choice tile
+  ///
+  /// In en, this message translates to:
+  /// **'Full phrase editor'**
+  String get terminologyFrontingCustomSubtitle;
+
+  /// Intro text above custom fronting terminology fields
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced mode lets you edit every phrase Prism derives from this terminology.'**
+  String get terminologyFrontingCustomIntro;
+
+  /// Validation message when a custom fronting phrase bundle is incomplete
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in every fronting phrase before saving.'**
+  String get terminologyFrontingCustomRequired;
+
+  /// Validation message when a custom fronting phrase is too long
+  ///
+  /// In en, this message translates to:
+  /// **'Use {maxLength} characters or fewer per phrase.'**
+  String terminologyFrontingCustomTooLong(int maxLength);
+
+  /// Live preview for fronting terminology settings
+  ///
+  /// In en, this message translates to:
+  /// **'\"{question}\" · \"{activePlural}\" · \"{logAction}\" · \"{historyLabel}\"'**
+  String terminologyFrontingPreview(
+    String question,
+    String activePlural,
+    String logAction,
+    String historyLabel,
+  );
+
+  /// Custom fronting terminology field group title
+  ///
+  /// In en, this message translates to:
+  /// **'Primary labels'**
+  String get terminologyFrontingGroupPrimary;
+
+  /// Custom fronting terminology field group subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Headings, current-state text, and active-member labels.'**
+  String get terminologyFrontingGroupPrimarySubtitle;
+
+  /// Custom fronting terminology action field group title
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get terminologyFrontingGroupActions;
+
+  /// Custom fronting terminology action field group subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Buttons, menu items, and hold hints.'**
+  String get terminologyFrontingGroupActionsSubtitle;
+
+  /// Custom fronting terminology history field group title
+  ///
+  /// In en, this message translates to:
+  /// **'History and stats'**
+  String get terminologyFrontingGroupHistory;
+
+  /// Custom fronting terminology history field group subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Session, analytics, sorting, and data labels.'**
+  String get terminologyFrontingGroupHistorySubtitle;
+
+  /// Custom fronting terminology co-fronting/together field group title
+  ///
+  /// In en, this message translates to:
+  /// **'Together states'**
+  String get terminologyFrontingGroupTogether;
+
+  /// Custom fronting terminology co-fronting/together field group subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Shared activity, overlap, and add-together phrases.'**
+  String get terminologyFrontingGroupTogetherSubtitle;
+
+  /// Custom fronting terminology changes/reminders field group title
+  ///
+  /// In en, this message translates to:
+  /// **'Changes and reminders'**
+  String get terminologyFrontingGroupChanges;
+
+  /// Custom fronting terminology changes/reminders field group subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Change events, reminder triggers, and delay labels.'**
+  String get terminologyFrontingGroupChangesSubtitle;
+
+  /// Custom fronting terminology pinned/correction field group title
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned and correction labels'**
+  String get terminologyFrontingGroupPinned;
+
+  /// Custom fronting terminology pinned/correction field group subtitle
+  ///
+  /// In en, this message translates to:
+  /// **'Long-running, always-active, Quick Switch, and import event labels.'**
+  String get terminologyFrontingGroupPinnedSubtitle;
+
   /// Section title for language picker in appearance settings
   ///
   /// In en, this message translates to:
@@ -9720,6 +9839,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'System terminology'**
   String get onboardingPreferencesSystemTerminology;
+
+  /// Section header for choosing terminology for fronting/presence/activity during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting terminology'**
+  String get onboardingPreferencesFrontingTerminology;
 
   /// Label for the custom terminology option in preferences grid
   ///

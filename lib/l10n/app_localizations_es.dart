@@ -606,6 +606,82 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get terminologyFrontingSectionTitle => 'Terminología de frente';
+
+  @override
+  String get terminologyFrontingSectionDescription =>
+      'Controla las etiquetas para quién está active ahora, acciones relacionadas, historial y recordatorios.';
+
+  @override
+  String get terminologyFrontingCustomSubtitle => 'Editor completo de frases';
+
+  @override
+  String get terminologyFrontingCustomIntro =>
+      'El modo avanzado te permite editar cada frase que Prism deriva de esta terminología.';
+
+  @override
+  String get terminologyFrontingCustomRequired =>
+      'Completa todas las frases de frente antes de guardar.';
+
+  @override
+  String terminologyFrontingCustomTooLong(int maxLength) {
+    return 'Usa $maxLength caracteres o menos por frase.';
+  }
+
+  @override
+  String terminologyFrontingPreview(
+    String question,
+    String activePlural,
+    String logAction,
+    String historyLabel,
+  ) {
+    return '\"$question\" · \"$activePlural\" · \"$logAction\" · \"$historyLabel\"';
+  }
+
+  @override
+  String get terminologyFrontingGroupPrimary => 'Etiquetas principales';
+
+  @override
+  String get terminologyFrontingGroupPrimarySubtitle =>
+      'Encabezados, texto de estado actual y etiquetas de integrantes activos.';
+
+  @override
+  String get terminologyFrontingGroupActions => 'Acciones';
+
+  @override
+  String get terminologyFrontingGroupActionsSubtitle =>
+      'Botones, elementos de menú e indicaciones de mantener presionado.';
+
+  @override
+  String get terminologyFrontingGroupHistory => 'Historial y estadísticas';
+
+  @override
+  String get terminologyFrontingGroupHistorySubtitle =>
+      'Etiquetas de sesiones, análisis, ordenamiento y datos.';
+
+  @override
+  String get terminologyFrontingGroupTogether => 'Estados compartidos';
+
+  @override
+  String get terminologyFrontingGroupTogetherSubtitle =>
+      'Frases de actividad compartida, superposición y agregar juntes.';
+
+  @override
+  String get terminologyFrontingGroupChanges => 'Cambios y recordatorios';
+
+  @override
+  String get terminologyFrontingGroupChangesSubtitle =>
+      'Eventos de cambio, activadores de recordatorio y etiquetas de demora.';
+
+  @override
+  String get terminologyFrontingGroupPinned =>
+      'Etiquetas fijadas y correcciones';
+
+  @override
+  String get terminologyFrontingGroupPinnedSubtitle =>
+      'Etiquetas de larga duración, siempre active, Quick Switch e importación.';
+
+  @override
   String get appearanceLanguage => 'Idioma';
 
   @override
@@ -5863,6 +5939,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get onboardingPreferencesSystemTerminology =>
       'Terminología del sistema';
+
+  @override
+  String get onboardingPreferencesFrontingTerminology =>
+      'Terminología de frente';
 
   @override
   String get onboardingPreferencesCustomTerminology => 'Personalizado';

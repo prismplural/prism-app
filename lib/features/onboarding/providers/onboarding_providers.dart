@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
@@ -161,6 +162,7 @@ class OnboardingState {
   final SystemTermPreset? selectedSystemTermPreset;
   final String? customSystemTermSingular;
   final String? customSystemTermPlural;
+  final FrontingTerms pendingFrontingTerms;
   final bool terminologyUseEnglish;
   final bool isSyncPath;
 
@@ -212,6 +214,7 @@ class OnboardingState {
     this.selectedSystemTermPreset,
     this.customSystemTermSingular,
     this.customSystemTermPlural,
+    this.pendingFrontingTerms = FrontingTerms.unset,
     this.terminologyUseEnglish = false,
     this.isSyncPath = false,
     this.allMembersChannelKey,
@@ -260,6 +263,7 @@ class OnboardingState {
     Object? selectedSystemTermPreset = _sentinel,
     Object? customSystemTermSingular = _sentinel,
     Object? customSystemTermPlural = _sentinel,
+    FrontingTerms? pendingFrontingTerms,
     bool? terminologyUseEnglish,
     bool? isSyncPath,
     bool clearFronterId = false,
@@ -344,6 +348,7 @@ class OnboardingState {
       customSystemTermPlural: customSystemTermPlural == _sentinel
           ? this.customSystemTermPlural
           : customSystemTermPlural as String?,
+      pendingFrontingTerms: pendingFrontingTerms ?? this.pendingFrontingTerms,
       terminologyUseEnglish:
           terminologyUseEnglish ?? this.terminologyUseEnglish,
       isSyncPath: isSyncPath ?? this.isSyncPath,
@@ -851,6 +856,18 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setCustomSystemTermPlural(String value) {
     state = state.copyWith(customSystemTermPlural: value);
+  }
+
+  void setFrontingTermPreset(FrontingTermPreset preset) {
+    state = state.copyWith(pendingFrontingTerms: FrontingTerms.preset(preset));
+  }
+
+  void setCustomFrontingTerms(FrontingTermBundle bundle) {
+    state = state.copyWith(pendingFrontingTerms: FrontingTerms.custom(bundle));
+  }
+
+  void resetFrontingTerms() {
+    state = state.copyWith(pendingFrontingTerms: FrontingTerms.unset);
   }
 
   void setAccentColor(String hex) {

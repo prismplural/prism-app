@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
@@ -29,6 +30,24 @@ void main() {
         supportedLocales: [Locale('en')],
         home: Scaffold(
           body: SingleChildScrollView(child: SystemTerminologyPicker()),
+        ),
+      ),
+    );
+  }
+
+  Widget buildFrontingSubject(FakeAppPreferenceRepository appPrefs) {
+    return ProviderScope(
+      overrides: [
+        appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+        systemSettingsProvider.overrideWith(
+          (ref) => Stream.value(const SystemSettings()),
+        ),
+      ],
+      child: const MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: [Locale('en')],
+        home: Scaffold(
+          body: SingleChildScrollView(child: FrontingTerminologyPicker()),
         ),
       ),
     );
@@ -153,6 +172,77 @@ void main() {
         findsOneWidget,
       );
       expect(await appPrefs.getStored(systemTermsPreference), isNull);
+    });
+  });
+
+  group('FrontingTerminologyPicker', () {
+    testWidgets('saves a fronting terminology preset', (tester) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fronting'), findsOneWidget);
+      expect(find.text('Present'), findsOneWidget);
+      expect(find.text('Out'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
+      expect(find.text('Out Members'), findsOneWidget);
+
+      await tester.tap(find.text('Out'));
+      await tester.pumpAndSettle();
+
+      expect(
+        await appPrefs.getStored(frontingTermsPreference),
+        const FrontingTerms.preset(FrontingTermPreset.out),
+      );
+    });
+
+    testWidgets('uses the Fronting choice as the reset/default state', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(
+          frontingTermsPreference,
+          const FrontingTerms.preset(FrontingTermPreset.online),
+        );
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Fronting'));
+      await tester.pumpAndSettle();
+
+      expect(await appPrefs.getStored(frontingTermsPreference), isNull);
+    });
+
+    testWidgets('saves an advanced custom fronting phrase bundle', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Primary labels'), findsOneWidget);
+      expect(find.text('Actions'), findsOneWidget);
+      expect(find.text('Feature label'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextFormField).first, 'At Front');
+      await tester.pump();
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      final stored = await appPrefs.getStored(frontingTermsPreference);
+      expect(stored?.custom?.featureLabel, 'At Front');
+      expect(stored?.custom?.activePluralLabel, 'Fronters');
+      expect(stored?.preset, isNull);
     });
   });
 }
