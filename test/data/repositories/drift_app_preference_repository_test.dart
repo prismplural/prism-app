@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_app_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
@@ -213,6 +214,38 @@ void main() {
     expect(row!.isDeleted, isFalse);
     expect(row.valueType, 'json');
     expect(row.valueJson, '{"preset":"collective"}');
+  });
+
+  test('fronting terms presets round-trip json value', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
+    const preset = FrontingTerms.preset(FrontingTermPreset.out);
+
+    await repo.set(frontingTermsPreference, preset);
+
+    expect(await repo.get(frontingTermsPreference), preset);
+    expect(await repo.getStored(frontingTermsPreference), preset);
+
+    final row = await PreferenceValuesDao(
+      db,
+    ).getAppValue(frontingTermsPreference.key);
+    expect(row, isNotNull);
+    expect(row!.isDeleted, isFalse);
+    expect(row.valueType, 'json');
+    expect(row.valueJson, '{"preset":"out"}');
+  });
+
+  test('fronting custom terms round-trip json value', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
+    final custom = FrontingTerms.custom(defaultFrontingTermBundle);
+
+    await repo.set(frontingTermsPreference, custom);
+
+    expect(await repo.get(frontingTermsPreference), custom);
+    expect(await repo.getStored(frontingTermsPreference), custom);
   });
 
   test('system terms rejects one-sided and oversized values', () async {

@@ -12,6 +12,7 @@ import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
@@ -133,6 +134,34 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await ref
           .read(appPreferenceRepositoryProvider)
           .reset(systemTermsPreference);
+    });
+  }
+
+  Future<void> updateFrontingTerminologyPreset(
+    FrontingTermPreset preset,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(appPreferenceRepositoryProvider)
+          .set(frontingTermsPreference, FrontingTerms.preset(preset));
+    });
+  }
+
+  Future<void> updateFrontingTerminologyCustom(
+    FrontingTermBundle bundle,
+  ) async {
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(appPreferenceRepositoryProvider)
+          .set(frontingTermsPreference, FrontingTerms.custom(bundle));
+    });
+  }
+
+  Future<void> resetFrontingTerminology() async {
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(appPreferenceRepositoryProvider)
+          .reset(frontingTermsPreference);
     });
   }
 

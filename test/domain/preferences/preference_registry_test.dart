@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
@@ -104,5 +105,29 @@ void main() {
     );
     expect(systemTermsPreference.introducedInAppVersion, '0.14.0');
     expect(systemTermsPreference.introducedInSchemaVersion, 40);
+  });
+
+  test('fronting terms preference is a synced app preference', () {
+    expect(
+      appPreferenceRegistry.definitions,
+      contains(frontingTermsPreference),
+    );
+    expect(frontingTermsPreference.key, 'terminology.fronting_terms');
+    expect(frontingTermsPreference.scope, PreferenceScope.appSynced);
+    expect(frontingTermsPreference.defaultValue, FrontingTerms.unset);
+    expect(
+      frontingTermsPreference.codec.isValid(
+        const FrontingTerms.preset(FrontingTermPreset.fronting),
+      ),
+      isTrue,
+    );
+    expect(
+      frontingTermsPreference.codec.isValid(
+        FrontingTerms.custom(defaultFrontingTermBundle),
+      ),
+      isTrue,
+    );
+    expect(frontingTermsPreference.introducedInAppVersion, '0.14.0');
+    expect(frontingTermsPreference.introducedInSchemaVersion, 40);
   });
 }

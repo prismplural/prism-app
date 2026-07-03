@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
@@ -78,6 +79,52 @@ void main() {
         'plural': 'collectives',
       }),
       SystemTerms.unset,
+    );
+  });
+
+  test('fronting terms codec validates presets and custom bundles', () {
+    const codec = FrontingTermsPreferenceCodec();
+    final custom = FrontingTerms.custom(defaultFrontingTermBundle);
+
+    expect(codec.isValid(custom), isTrue);
+    expect(codec.decode(codec.encode(custom)), custom);
+    expect(codec.encode(const FrontingTerms.preset(FrontingTermPreset.out)), {
+      'preset': 'out',
+    });
+    expect(
+      codec.decode(
+        codec.encode(const FrontingTerms.preset(FrontingTermPreset.online)),
+      ),
+      const FrontingTerms.preset(FrontingTermPreset.online),
+    );
+    expect(
+      codec.isValid(const FrontingTerms.preset(FrontingTermPreset.present)),
+      isTrue,
+    );
+    expect(codec.isValid(FrontingTerms.unset), isFalse);
+  });
+
+  test('fronting terms codec decodes malformed values to unset', () {
+    const codec = FrontingTermsPreferenceCodec();
+    final encoded = defaultFrontingTermBundle.toJson();
+
+    expect(codec.decode(null), FrontingTerms.unset);
+    expect(codec.decode('not a map'), FrontingTerms.unset);
+    expect(codec.decode({'preset': 'bogus'}), FrontingTerms.unset);
+    expect(
+      codec.decode({
+        'custom': {'featureLabel': 'Only one'},
+      }),
+      {FrontingTerms.unset}.single,
+    );
+    expect(
+      codec.decode({
+        'custom': {
+          ...encoded,
+          'featureLabel': 'x' * (frontingTermMaxLength + 1),
+        },
+      }),
+      FrontingTerms.unset,
     );
   });
 }

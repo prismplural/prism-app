@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -102,6 +103,17 @@ final storedSystemTermsProvider = StreamProvider<SystemTerms?>((ref) {
 final systemTermsSettingProvider = Provider<SystemTerms?>((ref) {
   return ref
       .watch(storedSystemTermsProvider)
+      .maybeWhen(data: (value) => value, orElse: () => null);
+});
+
+final storedFrontingTermsProvider = StreamProvider<FrontingTerms?>((ref) {
+  final repo = ref.watch(appPreferenceRepositoryProvider);
+  return repo.watchStored(frontingTermsPreference);
+});
+
+final frontingTermsSettingProvider = Provider<FrontingTerms?>((ref) {
+  return ref
+      .watch(storedFrontingTermsProvider)
       .maybeWhen(data: (value) => value, orElse: () => null);
 });
 
@@ -228,6 +240,23 @@ Terminology resolveTerminology(
   );
 }
 
+const frontingTermPresetChoices = [
+  FrontingTermPreset.fronting,
+  FrontingTermPreset.present,
+  FrontingTermPreset.out,
+  FrontingTermPreset.online,
+];
+
+FrontingTermBundle resolveFrontingTerms(FrontingTerms? custom) {
+  final normalized = custom?.normalized() ?? FrontingTerms.unset;
+  if (normalized.preset != null) {
+    return frontingTermBundleForPreset(normalized.preset!);
+  }
+  final customBundle = normalized.custom;
+  if (customBundle != null && customBundle.isValid) return customBundle;
+  return defaultFrontingTermBundle;
+}
+
 /// Always returns English strings regardless of device locale.
 /// Used when [terminologyUseEnglish] is true — the user explicitly chose
 /// an English term while in a non-English UI (e.g. "Headmate" in Spanish mode).
@@ -330,6 +359,10 @@ Terminology watchFullTerminology(BuildContext context, WidgetRef ref) {
   );
 }
 
+FrontingTermBundle watchFrontingTerms(WidgetRef ref) {
+  return resolveFrontingTerms(ref.watch(frontingTermsSettingProvider));
+}
+
 /// Read the current locale-aware [Terminology] in a callback (non-reactive).
 ///
 /// Use [watchTerminology] in [build] methods. Use this in event handlers and
@@ -363,4 +396,8 @@ Terminology readFullTerminology(BuildContext context, WidgetRef ref) {
     useEnglish: s.useEnglish,
     systemTerms: systemTerms,
   );
+}
+
+FrontingTermBundle readFrontingTerms(WidgetRef ref) {
+  return resolveFrontingTerms(ref.read(frontingTermsSettingProvider));
 }

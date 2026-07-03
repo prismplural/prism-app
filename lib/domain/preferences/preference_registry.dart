@@ -1,4 +1,5 @@
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_entity_id.dart';
@@ -128,6 +129,15 @@ const systemTermsPreference = PreferenceDefinition<SystemTerms>(
   introducedInSchemaVersion: 40,
 );
 
+const frontingTermsPreference = PreferenceDefinition<FrontingTerms>(
+  key: 'terminology.fronting_terms',
+  scope: PreferenceScope.appSynced,
+  defaultValue: FrontingTerms.unset,
+  codec: FrontingTermsPreferenceCodec(),
+  introducedInAppVersion: '0.14.0',
+  introducedInSchemaVersion: 40,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideMemberCountsPreference,
   frontingReminderSuppressMinutesPreference,
@@ -138,5 +148,6 @@ final appPreferenceRegistry = PreferenceRegistry(const [
   navBarExpandedLabelsFullPreference,
   memberNamePresentationPreference,
   systemTermsPreference,
+  frontingTermsPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);
