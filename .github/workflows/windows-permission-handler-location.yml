@@ -44,11 +44,13 @@ jobs:
         shell: pwsh
         run: |
           choco install pkgconfiglite meson ninja nasm --yes --no-progress
-          @(
+          $toolPaths = @(
             'C:\ProgramData\chocolatey\bin',
             'C:\Program Files\Meson',
             'C:\Program Files\NASM'
-          ) | Add-Content -Path $env:GITHUB_PATH
+          )
+          $env:Path = ($toolPaths -join ';') + ";$env:Path"
+          $toolPaths | Add-Content -Path $env:GITHUB_PATH
           pkg-config --version
           meson --version
           ninja --version
