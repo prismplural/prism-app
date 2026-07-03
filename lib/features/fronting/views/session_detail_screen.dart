@@ -26,6 +26,7 @@ import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -667,7 +668,11 @@ class _InfoRow extends StatelessWidget {
 
 enum _NextFronterChoice { pickFronter, unknown, endWithoutFronting }
 
-Future<_NextFronterChoice?> _showNextFronterDialog(BuildContext context) {
+Future<_NextFronterChoice?> _showNextFronterDialog(
+  BuildContext context, {
+  required String pickLabel,
+  required String endLabel,
+}) {
   // Capture l10n strings before entering the dialog so we can reference them
   // from the builder context without holding onto the outer BuildContext.
   final l10n = context.l10n;
@@ -679,7 +684,7 @@ Future<_NextFronterChoice?> _showNextFronterDialog(BuildContext context) {
     actions: [
       Builder(
         builder: (ctx) => PrismButton(
-          label: l10n.frontingNextFronterPick,
+          label: pickLabel,
           tone: PrismButtonTone.filled,
           onPressed: () =>
               Navigator.of(ctx).pop(_NextFronterChoice.pickFronter),
@@ -694,7 +699,7 @@ Future<_NextFronterChoice?> _showNextFronterDialog(BuildContext context) {
       ),
       Builder(
         builder: (ctx) => PrismButton(
-          label: l10n.frontingNextFronterEnd,
+          label: endLabel,
           tone: PrismButtonTone.outlined,
           onPressed: () =>
               Navigator.of(ctx).pop(_NextFronterChoice.endWithoutFronting),
@@ -722,6 +727,7 @@ Future<void> _handleEndSession(
   if (active == null) return;
 
   final notifier = ref.read(frontingNotifierProvider.notifier);
+  final frontingTerms = readFrontingTerms(ref);
   Haptics.medium();
 
   Future<bool> safeEnd() async {
@@ -773,7 +779,11 @@ Future<void> _handleEndSession(
     return;
   }
 
-  final choice = await _showNextFronterDialog(context);
+  final choice = await _showNextFronterDialog(
+    context,
+    pickLabel: frontingTerms.setAsAction,
+    endLabel: frontingTerms.endWithoutAction,
+  );
   if (choice == null || !context.mounted) return;
 
   final showSheet = showAddSheetOverride ?? AddFrontSessionSheet.show;
@@ -799,7 +809,7 @@ Future<void> _handleEndSession(
   }
 }
 
-class _FloatingEndSessionButton extends StatelessWidget {
+class _FloatingEndSessionButton extends ConsumerWidget {
   const _FloatingEndSessionButton({
     required this.memberName,
     required this.tintColor,
@@ -811,10 +821,10 @@ class _FloatingEndSessionButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final pillRadius = BorderRadius.circular(PrismTokens.radiusPill);
-    final label = context.l10n.frontingEndSessionButton;
+    final label = watchFrontingTerms(ref).endCurrentAction;
 
     return Semantics(
       button: true,

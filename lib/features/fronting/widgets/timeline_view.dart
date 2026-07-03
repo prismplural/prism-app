@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
@@ -122,6 +123,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     final theme = Theme.of(context);
     final timelineState = ref.watch(timelineStateProvider);
     final rowsAsync = ref.watch(timelineRowsProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     // Listen (not watch) for jump target — fires only on change, avoids
     // duplicate addPostFrameCallback registrations on rebuild.
@@ -169,7 +171,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         padding: EdgeInsets.only(bottom: bottomInset),
         child: EmptyState(
           icon: Icon(AppIcons.navTimeline),
-          title: context.l10n.frontingTimelineNoHistory,
+          title: 'No ${_lowerFirst(frontingTerms.historyLabel)}',
           subtitle: context.l10n.frontingTimelineNoHistorySubtitle,
         ),
       );
@@ -506,6 +508,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     });
   }
 }
+
+String _lowerFirst(String value) =>
+    value.isEmpty ? value : '${value[0].toLowerCase()}${value.substring(1)}';
 
 /// Preview bottom sheet shown when a session bar is tapped in the timeline.
 ///

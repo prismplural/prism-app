@@ -287,6 +287,7 @@ class _EditFrontSessionScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final termPlural = watchTerminology(context, ref).plural;
+    final frontingTerms = watchFrontingTerms(ref);
     final sessionAsync = ref.watch(sessionByIdProvider(widget.sessionId));
     final membersAsync = ref.watch(activeMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
@@ -297,7 +298,7 @@ class _EditFrontSessionScreenState
         hasUnsavedChanges: _isDirty(sessionAsync.value),
         child: PrismPageScaffold(
           topBar: PrismTopBar(
-            title: context.l10n.frontingEditSessionTitle,
+            title: frontingTerms.sessionSingular,
             showBackButton: true,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
@@ -349,7 +350,7 @@ class _EditFrontSessionScreenState
 
                   // End time / Still active toggle
                   PrismSwitchRow(
-                    title: context.l10n.frontingStillActive,
+                    title: _capFirst(frontingTerms.currentlyActivePhrase),
                     value: _isActive,
                     onChanged: (v) => setState(() {
                       _isActive = v;
@@ -375,7 +376,7 @@ class _EditFrontSessionScreenState
 
                   // Member picker
                   Text(
-                    context.l10n.frontingFronter,
+                    frontingTerms.activeSingularLabel,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -502,6 +503,9 @@ class _FronterPickerRow extends StatelessWidget {
     );
   }
 }
+
+String _capFirst(String value) =>
+    value.isEmpty ? value : '${value[0].toUpperCase()}${value.substring(1)}';
 
 class _ConfidenceEditor extends StatelessWidget {
   const _ConfidenceEditor({required this.selected, required this.onSelect});

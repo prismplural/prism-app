@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/fronting/providers/quick_front_hint_pro
 import 'package:prism_plurality/features/fronting/utils/current_fronters_order.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -613,6 +614,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     final theme = Theme.of(context);
     final member = widget.member;
     final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final frontingTerms = watchFrontingTerms(ref);
     final memberName = member.effectiveName(preferDisplayName: prefer);
     final ringSize = widget.ringSize;
     final avatarSize = (ringSize - _kAvatarRingInset).clamp(0.0, ringSize);
@@ -624,8 +626,8 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     return Semantics(
       button: true,
       enabled: true,
-      label: context.l10n.frontingQuickFrontLabel(memberName),
-      onLongPressHint: context.l10n.frontingQuickFrontHoldHint,
+      label: '${frontingTerms.quickAction} $memberName',
+      onLongPressHint: frontingTerms.holdToStartHint,
       child: GestureDetector(
         onLongPressStart: (_) => _onPressStart(),
         onLongPressEnd: (_) => _onPressEnd(widget.quickFrontBehavior),

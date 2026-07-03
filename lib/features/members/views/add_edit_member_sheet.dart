@@ -965,9 +965,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     required Set<String> sessionIdsToEnd,
   }) {
     final l10n = context.l10n;
+    final frontingTerms = readFrontingTerms(ref);
     return PrismDialog.show<_AlwaysFrontingSessionChoice>(
       context: context,
-      title: l10n.memberAlwaysFrontingEndPromptTitle,
+      title: '${frontingTerms.endCurrentAction}?',
       message: l10n.memberAlwaysFrontingEndPromptMessage(member.name),
       builder: (ctx) => Wrap(
         alignment: WrapAlignment.end,
@@ -980,7 +981,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             onPressed: () => Navigator.of(ctx).pop(),
           ),
           PrismButton(
-            label: l10n.memberAlwaysFrontingKeepFronting,
+            label: frontingTerms.keepCurrentAction,
             tone: PrismButtonTone.filled,
             onPressed: () => Navigator.of(ctx).pop(
               const _AlwaysFrontingSessionChoice(
@@ -989,7 +990,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
             ),
           ),
           PrismButton(
-            label: l10n.memberAlwaysFrontingEndFront,
+            label: frontingTerms.endCurrentAction,
             tone: PrismButtonTone.destructive,
             onPressed: () => Navigator.of(ctx).pop(
               _AlwaysFrontingSessionChoice(
@@ -1666,6 +1667,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   List<Widget> _buildMainViewChildren() {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
     final l10n = context.l10n;
 
     return [
@@ -2107,7 +2109,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
         const SizedBox(height: 8),
 
         PrismSwitchRow(
-          title: l10n.memberAlwaysFrontingTitle,
+          title: frontingTerms.alwaysActiveLabel,
           subtitle: l10n.memberAlwaysFrontingSubtitle(terms.singularLower),
           value: _isAlwaysFronting,
           onChanged: (v) => setState(() => _isAlwaysFronting = v),

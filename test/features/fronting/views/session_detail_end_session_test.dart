@@ -1,4 +1,4 @@
-// Tests for the floating "End session" pill on SessionDetailScreen.
+// Tests for the floating "End front" pill on SessionDetailScreen.
 //
 // Covers:
 //   1. Visibility when active non-sleep session with member
@@ -9,8 +9,8 @@
 //   6. Tap with 1 active session → dialog with 3 action choices
 //   7. Dialog → End without fronting → endFronting called
 //   8. Dialog → Unknown → endFronting then startFronting(unknown)
-//   9. Dialog → Pick a fronter (sheet returns true) → endFronting called
-//  10. Dialog → Pick a fronter (sheet cancelled) → endFronting NOT called
+//   9. Dialog → Set as fronter (sheet returns true) → endFronting called
+//  10. Dialog → Set as fronter (sheet cancelled) → endFronting NOT called
 //  11. Dialog → tap outside barrier → no calls
 
 import 'package:flutter/material.dart';
@@ -20,10 +20,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/fronting/providers/front_comments_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -112,6 +114,7 @@ Widget _buildApp({
       commentsForSessionProvider(
         session.id,
       ).overrideWith((ref) => Stream.value(const [])),
+      frontingTermsSettingProvider.overrideWithValue(FrontingTerms.unset),
       frontingNotifierProvider.overrideWith(() => fake),
     ],
     child: MaterialApp(
@@ -143,7 +146,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('End session'), findsOneWidget);
+      expect(find.text('End front'), findsOneWidget);
     });
 
     // 2. Hidden when sleep
@@ -154,7 +157,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('End session'), findsNothing);
+      expect(find.text('End front'), findsNothing);
     });
 
     // 3. Hidden when not active
@@ -165,7 +168,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('End session'), findsNothing);
+      expect(find.text('End front'), findsNothing);
     });
 
     // 4. Hidden when orphan (memberId == null)
@@ -176,7 +179,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('End session'), findsNothing);
+      expect(find.text('End front'), findsNothing);
     });
 
     // 5. Tap with 2+ active sessions → endFronting called, no dialog
@@ -200,7 +203,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('End session'));
+        await tester.tap(find.text('End front'));
         await tester.pumpAndSettle();
 
         // endFronting called with session's memberId
@@ -232,11 +235,11 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('End session'));
+        await tester.tap(find.text('End front'));
         await tester.pumpAndSettle();
 
         expect(find.text("Who's fronting next?"), findsOneWidget);
-        expect(find.text('Pick a fronter'), findsOneWidget);
+        expect(find.text('Set as fronter'), findsOneWidget);
         expect(find.text('Unknown'), findsOneWidget);
         expect(find.text('End without fronting'), findsOneWidget);
       },
@@ -258,7 +261,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('End session'));
+      await tester.tap(find.text('End front'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('End without fronting'));
@@ -288,7 +291,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('End session'));
+        await tester.tap(find.text('End front'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Unknown'));
@@ -321,7 +324,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('End session'));
+      await tester.tap(find.text('End front'));
       await tester.pumpAndSettle();
 
       // Tap the barrier to dismiss

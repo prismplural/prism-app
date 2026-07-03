@@ -29,6 +29,7 @@ import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text
 import 'package:prism_plurality/features/fronting/widgets/wake_up_sleep_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
@@ -123,6 +124,7 @@ class MemberFrontingHistoryList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(memberFrontingHistoryProvider(memberId));
+    final frontingTerms = watchFrontingTerms(ref);
 
     return historyAsync.when(
       skipLoadingOnReload: true,
@@ -151,7 +153,7 @@ class MemberFrontingHistoryList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    context.l10n.memberFrontingHistoryEmpty,
+                    'No ${_lowerFirst(frontingTerms.sessionPlural)} yet.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
@@ -602,6 +604,7 @@ class _CombinedPeriodsList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final sessionsAsync = ref.watch(unifiedHistoryProvider);
+    final frontingTerms = watchFrontingTerms(ref);
     final sessions = sessionsAsync.value;
     if (sessions != null) {
       BootTimings.markOnce(
@@ -656,7 +659,7 @@ class _CombinedPeriodsList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    context.l10n.frontingNoSessionHistory,
+                    'No ${_lowerFirst(frontingTerms.historyLabel)} yet',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
@@ -738,6 +741,7 @@ class _PerMemberRowsList extends ConsumerWidget {
     final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
     final unifiedAsync = ref.watch(unifiedHistoryProvider);
     final alwaysPresentAsync = ref.watch(alwaysPresentMembersProvider);
+    final frontingTerms = watchFrontingTerms(ref);
     final unifiedSessions = unifiedAsync.value;
     if (unifiedSessions != null) {
       BootTimings.markOnce(
@@ -833,7 +837,7 @@ class _PerMemberRowsList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    context.l10n.frontingNoSessionHistory,
+                    'No ${_lowerFirst(frontingTerms.historyLabel)} yet',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
@@ -1235,6 +1239,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final frontingTerms = watchFrontingTerms(ref);
     final memberId = session.memberId;
     final member = memberId == null ? null : membersMap[memberId];
     final isUnknown = member == null;
@@ -1249,7 +1254,9 @@ class _PerMemberSessionTile extends ConsumerWidget {
 
     final timeRange = slice.timeRangeString(context);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
-    final name = member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown';
+    final name =
+        member?.effectiveName(preferDisplayName: prefer) ??
+        frontingTerms.unknownActiveLabel;
 
     final leadingWidget = isUnknown
         ? Container(
@@ -1553,6 +1560,7 @@ class _PeriodTile extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
+    final frontingTerms = readFrontingTerms(ref);
     // Edit hidden on multi-contributor periods: there's no period-level edit
     // UI today, so an Edit action would silently route to sessionIds.first —
     // the same first-of-N silent-drop bug Delete was fixed for. Long-press
@@ -1561,7 +1569,7 @@ class _PeriodTile extends ConsumerWidget {
     return [
       if (slice.isLiveOpenEnded)
         _TileContextAction(
-          label: context.l10n.frontingEndSessionButton,
+          label: frontingTerms.endCurrentAction,
           icon: AppIcons.exitToApp,
           onSelected: () => _endFronting(context, ref),
         ),
@@ -1584,6 +1592,7 @@ class _PeriodTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     final avatarMembers = <Member>[];
     final rosterNames = <String>[];
@@ -1591,7 +1600,8 @@ class _PeriodTile extends ConsumerWidget {
       final member = membersMap[id];
       if (rosterNames.length < _periodRosterNameLimit) {
         rosterNames.add(
-          member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown',
+          member?.effectiveName(preferDisplayName: prefer) ??
+              frontingTerms.unknownActiveLabel,
         );
       }
       if (member != null && avatarMembers.length < _periodAvatarMemberLimit) {
@@ -1785,7 +1795,9 @@ class _PeriodTile extends ConsumerWidget {
                   semanticsLabel: _cappedRosterLabel(
                     rosterNames,
                     hiddenRosterCount,
+                    unknownLabel: frontingTerms.unknownActiveLabel,
                   ),
+                  unknownLabel: frontingTerms.unknownActiveLabel,
                 ),
               ),
               const SizedBox(width: 8),
@@ -1857,6 +1869,7 @@ class _PeriodTitleBlock extends StatelessWidget {
     required this.overflowChipForeground,
     required this.hiddenNameCount,
     required this.semanticsLabel,
+    required this.unknownLabel,
   });
 
   final List<String> names;
@@ -1869,6 +1882,7 @@ class _PeriodTitleBlock extends StatelessWidget {
   final Color overflowChipForeground;
   final int hiddenNameCount;
   final String semanticsLabel;
+  final String unknownLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1897,6 +1911,7 @@ class _PeriodTitleBlock extends StatelessWidget {
           overflowChipForeground: overflowChipForeground,
           overflowChipTextStyle: overflowChipTextStyle,
           semanticsLabel: semanticsLabel,
+          unknownLabel: unknownLabel,
         ),
         const SizedBox(height: 2),
         DefaultTextStyle(style: subtitleStyle, child: subtitle),
@@ -1916,6 +1931,7 @@ class _AdaptiveRosterSummary extends StatelessWidget {
     required this.overflowChipForeground,
     required this.overflowChipTextStyle,
     required this.semanticsLabel,
+    required this.unknownLabel,
   });
 
   final List<String> names;
@@ -1925,18 +1941,19 @@ class _AdaptiveRosterSummary extends StatelessWidget {
   final Color overflowChipForeground;
   final TextStyle overflowChipTextStyle;
   final String semanticsLabel;
+  final String unknownLabel;
 
   @override
   Widget build(BuildContext context) {
     if (names.isEmpty) {
-      return Text('Unknown', style: titleStyle);
+      return Text(unknownLabel, style: titleStyle);
     }
 
     return Text.rich(
       TextSpan(
         style: titleStyle,
         children: [
-          TextSpan(text: _formatRosterNames(names)),
+          TextSpan(text: _formatRosterNames(names, unknownLabel: unknownLabel)),
           if (hiddenNameCount > 0) ...[
             const TextSpan(text: ' '),
             WidgetSpan(
@@ -1986,18 +2003,31 @@ class _OverflowRosterChip extends StatelessWidget {
   }
 }
 
-String _formatRosterNames(List<String> names) {
-  if (names.isEmpty) return 'Unknown';
+String _formatRosterNames(
+  List<String> names, {
+  String unknownLabel = 'Unknown',
+}) {
+  if (names.isEmpty) return unknownLabel;
   if (names.length == 1) return names.first;
   if (names.length == 2) return '${names[0]} & ${names[1]}';
   return '${names.take(names.length - 1).join(', ')} & ${names.last}';
 }
 
-String _cappedRosterLabel(List<String> visibleNames, int hiddenNameCount) {
-  final visibleLabel = _formatRosterNames(visibleNames);
+String _cappedRosterLabel(
+  List<String> visibleNames,
+  int hiddenNameCount, {
+  String unknownLabel = 'Unknown',
+}) {
+  final visibleLabel = _formatRosterNames(
+    visibleNames,
+    unknownLabel: unknownLabel,
+  );
   if (hiddenNameCount <= 0) return visibleLabel;
   return '$visibleLabel, +$hiddenNameCount more';
 }
+
+String _lowerFirst(String value) =>
+    value.isEmpty ? value : '${value[0].toLowerCase()}${value.substring(1)}';
 
 class _TileContextAction {
   const _TileContextAction({

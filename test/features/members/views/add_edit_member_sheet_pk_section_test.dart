@@ -54,20 +54,21 @@ PkLinkManagementState _state({
   required List<Member> locals,
   List<PKMember> pkMembers = const [],
   bool isConnected = true,
-}) =>
-    PkLinkManagementState(
-      localMembers: locals,
-      pkMembers: pkMembers,
-      isConnected: isConnected,
-      fetchedPkUuids:
-          isConnected ? {for (final pk in pkMembers) pk.uuid} : const {},
-      fetchedPkIds: isConnected ? {for (final pk in pkMembers) pk.id} : const {},
-      pkMembersByUuid: isConnected
-          ? {for (final pk in pkMembers) pk.uuid: pk}
-          : const {},
-      pkMembersById:
-          isConnected ? {for (final pk in pkMembers) pk.id: pk} : const {},
-    );
+}) => PkLinkManagementState(
+  localMembers: locals,
+  pkMembers: pkMembers,
+  isConnected: isConnected,
+  fetchedPkUuids: isConnected
+      ? {for (final pk in pkMembers) pk.uuid}
+      : const {},
+  fetchedPkIds: isConnected ? {for (final pk in pkMembers) pk.id} : const {},
+  pkMembersByUuid: isConnected
+      ? {for (final pk in pkMembers) pk.uuid: pk}
+      : const {},
+  pkMembersById: isConnected
+      ? {for (final pk in pkMembers) pk.id: pk}
+      : const {},
+);
 
 Widget _harness({
   required Member member,
@@ -76,8 +77,12 @@ Widget _harness({
   required MemberRepository repo,
   PkLinkManagementState? managementState,
 }) {
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
+
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
         FakeFrontingSessionRepository(),
@@ -127,16 +132,15 @@ Member _seed(
   String? pkId,
   String? pkDisplayName,
   bool excluded = false,
-}) =>
-    Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2026, 1, 1),
-      pluralkitUuid: pkUuid,
-      pluralkitId: pkId,
-      pluralkitDisplayName: pkDisplayName,
-      pluralkitSyncIgnored: excluded,
-    );
+}) => Member(
+  id: id,
+  name: name,
+  createdAt: DateTime(2026, 1, 1),
+  pluralkitUuid: pkUuid,
+  pluralkitId: pkId,
+  pluralkitDisplayName: pkDisplayName,
+  pluralkitSyncIgnored: excluded,
+);
 
 PKMember _pk(String uuid, String name, {String? id, String? displayName}) =>
     PKMember(
@@ -156,12 +160,14 @@ void main() {
         _useTallViewport(tester);
         final m = _seed('m-1', 'Alice');
         final repo = FakeMemberRepository()..seed([m]);
-        await tester.pumpWidget(_harness(
-          member: m,
-          pkState: const PluralKitSyncState(isConnected: false),
-          direction: PkSyncDirection.bidirectional,
-          repo: repo,
-        ));
+        await tester.pumpWidget(
+          _harness(
+            member: m,
+            pkState: const PluralKitSyncState(isConnected: false),
+            direction: PkSyncDirection.bidirectional,
+            repo: repo,
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('PluralKit'), findsNothing);
@@ -175,13 +181,15 @@ void main() {
         _useTallViewport(tester);
         final m = _seed('m-1', 'Alice', excluded: true);
         final repo = FakeMemberRepository()..seed([m]);
-        await tester.pumpWidget(_harness(
-          member: m,
-          pkState: const PluralKitSyncState(isConnected: false),
-          direction: PkSyncDirection.bidirectional,
-          repo: repo,
-          managementState: _state(locals: [m], isConnected: false),
-        ));
+        await tester.pumpWidget(
+          _harness(
+            member: m,
+            pkState: const PluralKitSyncState(isConnected: false),
+            direction: PkSyncDirection.bidirectional,
+            repo: repo,
+            managementState: _state(locals: [m], isConnected: false),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('PluralKit'), findsOneWidget);
@@ -195,13 +203,15 @@ void main() {
         _useTallViewport(tester);
         final m = _seed('m-1', 'Alice');
         final repo = FakeMemberRepository()..seed([m]);
-        await tester.pumpWidget(_harness(
-          member: m,
-          pkState: const PluralKitSyncState(isConnected: true),
-          direction: PkSyncDirection.bidirectional,
-          repo: repo,
-          managementState: _state(locals: [m]),
-        ));
+        await tester.pumpWidget(
+          _harness(
+            member: m,
+            pkState: const PluralKitSyncState(isConnected: true),
+            direction: PkSyncDirection.bidirectional,
+            repo: repo,
+            managementState: _state(locals: [m]),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('PluralKit'), findsOneWidget);
@@ -216,13 +226,15 @@ void main() {
       final pk = _pk('pk-alice', 'Alice', displayName: 'PK Alice');
       final m = _seed('m-1', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
       final repo = FakeMemberRepository()..seed([m]);
-      await tester.pumpWidget(_harness(
-        member: m,
-        pkState: const PluralKitSyncState(isConnected: true),
-        direction: PkSyncDirection.bidirectional,
-        repo: repo,
-        managementState: _state(locals: [m], pkMembers: [pk]),
-      ));
+      await tester.pumpWidget(
+        _harness(
+          member: m,
+          pkState: const PluralKitSyncState(isConnected: true),
+          direction: PkSyncDirection.bidirectional,
+          repo: repo,
+          managementState: _state(locals: [m], pkMembers: [pk]),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Linked as PK Alice'), findsOneWidget);
@@ -233,19 +245,19 @@ void main() {
       _useTallViewport(tester);
       final m = _seed('m-1', 'Carol', pkId: 'stale');
       final repo = FakeMemberRepository()..seed([m]);
-      await tester.pumpWidget(_harness(
-        member: m,
-        pkState: const PluralKitSyncState(isConnected: true),
-        direction: PkSyncDirection.bidirectional,
-        repo: repo,
-        managementState: _state(locals: [m]),
-      ));
+      await tester.pumpWidget(
+        _harness(
+          member: m,
+          pkState: const PluralKitSyncState(isConnected: true),
+          direction: PkSyncDirection.bidirectional,
+          repo: repo,
+          managementState: _state(locals: [m]),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(
-        find.text(
-          'Linked to stale (not in your current PluralKit system)',
-        ),
+        find.text('Linked to stale (not in your current PluralKit system)'),
         findsOneWidget,
       );
       expect(find.text('Exclude from PluralKit sync'), findsOneWidget);
@@ -262,39 +274,43 @@ void main() {
         excluded: true,
       );
       final repo = FakeMemberRepository()..seed([m]);
-      await tester.pumpWidget(_harness(
-        member: m,
-        pkState: const PluralKitSyncState(isConnected: true),
-        direction: PkSyncDirection.bidirectional,
-        repo: repo,
-        managementState: _state(locals: [m], pkMembers: [pk]),
-      ));
+      await tester.pumpWidget(
+        _harness(
+          member: m,
+          pkState: const PluralKitSyncState(isConnected: true),
+          direction: PkSyncDirection.bidirectional,
+          repo: repo,
+          managementState: _state(locals: [m], pkMembers: [pk]),
+        ),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Excluded from sync — was linked as Bob'), findsOneWidget);
+      expect(
+        find.text('Excluded from sync — was linked as Bob'),
+        findsOneWidget,
+      );
       expect(find.text('Resume PluralKit sync'), findsOneWidget);
     });
 
     testWidgets('Excluded — was linked to <pkId> (unresolved)', (tester) async {
       _useTallViewport(tester);
-      final m = _seed(
-        'm-1',
-        'Stale Bob',
-        pkId: 'oldid',
-        excluded: true,
-      );
+      final m = _seed('m-1', 'Stale Bob', pkId: 'oldid', excluded: true);
       final repo = FakeMemberRepository()..seed([m]);
-      await tester.pumpWidget(_harness(
-        member: m,
-        pkState: const PluralKitSyncState(isConnected: true),
-        direction: PkSyncDirection.bidirectional,
-        repo: repo,
-        managementState: _state(locals: [m]),
-      ));
+      await tester.pumpWidget(
+        _harness(
+          member: m,
+          pkState: const PluralKitSyncState(isConnected: true),
+          direction: PkSyncDirection.bidirectional,
+          repo: repo,
+          managementState: _state(locals: [m]),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Excluded from sync — was linked to oldid (not in current system)'),
+        find.text(
+          'Excluded from sync — was linked to oldid (not in current system)',
+        ),
         findsOneWidget,
       );
       expect(find.text('Resume PluralKit sync'), findsOneWidget);
@@ -304,93 +320,98 @@ void main() {
       _useTallViewport(tester);
       final m = _seed('m-1', 'Lonely', excluded: true);
       final repo = FakeMemberRepository()..seed([m]);
-      await tester.pumpWidget(_harness(
-        member: m,
-        pkState: const PluralKitSyncState(isConnected: true),
-        direction: PkSyncDirection.bidirectional,
-        repo: repo,
-        managementState: _state(locals: [m]),
-      ));
+      await tester.pumpWidget(
+        _harness(
+          member: m,
+          pkState: const PluralKitSyncState(isConnected: true),
+          direction: PkSyncDirection.bidirectional,
+          repo: repo,
+          managementState: _state(locals: [m]),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Excluded from sync — not linked'), findsOneWidget);
       expect(find.text('Resume PluralKit sync'), findsOneWidget);
     });
 
-    testWidgets(
-      'Not linked — connected + push: shows Link button',
-      (tester) async {
-        _useTallViewport(tester);
-        final m = _seed('m-1', 'Mira');
-        final repo = FakeMemberRepository()..seed([m]);
-        await tester.pumpWidget(_harness(
+    testWidgets('Not linked — connected + push: shows Link button', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final m = _seed('m-1', 'Mira');
+      final repo = FakeMemberRepository()..seed([m]);
+      await tester.pumpWidget(
+        _harness(
           member: m,
           pkState: const PluralKitSyncState(isConnected: true),
           direction: PkSyncDirection.bidirectional,
           repo: repo,
           managementState: _state(locals: [m]),
-        ));
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        expect(find.text('Not linked'), findsOneWidget);
-        expect(find.text('Link to PluralKit member…'), findsOneWidget);
-      },
-    );
+      expect(find.text('Not linked'), findsOneWidget);
+      expect(find.text('Link to PluralKit member…'), findsOneWidget);
+    });
   });
 
   group('add_edit_member_sheet PluralKit section — actions', () {
-    testWidgets(
-      'Exclude tap calls excludePluralKitSync via the repo',
-      (tester) async {
-        _useTallViewport(tester);
-        final pk = _pk('pk-alice', 'Alice');
-        final m = _seed('m-1', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
-        final repo = FakeMemberRepository()..seed([m]);
-        await tester.pumpWidget(_harness(
+    testWidgets('Exclude tap calls excludePluralKitSync via the repo', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final pk = _pk('pk-alice', 'Alice');
+      final m = _seed('m-1', 'Alice', pkUuid: 'pk-alice', pkId: 'aliceid');
+      final repo = FakeMemberRepository()..seed([m]);
+      await tester.pumpWidget(
+        _harness(
           member: m,
           pkState: const PluralKitSyncState(isConnected: true),
           direction: PkSyncDirection.bidirectional,
           repo: repo,
           managementState: _state(locals: [m], pkMembers: [pk]),
-        ));
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.tap(
-          find.byKey(const ValueKey('memberEditorPluralKitExcludeButton')),
-        );
-        await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('memberEditorPluralKitExcludeButton')),
+      );
+      await tester.pumpAndSettle();
 
-        final after = await repo.getMemberById('m-1');
-        expect(after, isNotNull);
-        expect(after!.pluralkitSyncIgnored, isTrue);
-      },
-    );
+      final after = await repo.getMemberById('m-1');
+      expect(after, isNotNull);
+      expect(after!.pluralkitSyncIgnored, isTrue);
+    });
 
-    testWidgets(
-      'Resume tap calls resumePluralKitSync via the repo',
-      (tester) async {
-        _useTallViewport(tester);
-        final m = _seed('m-1', 'Bob', pkUuid: 'pk-bob', excluded: true);
-        final repo = FakeMemberRepository()..seed([m]);
-        await tester.pumpWidget(_harness(
+    testWidgets('Resume tap calls resumePluralKitSync via the repo', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final m = _seed('m-1', 'Bob', pkUuid: 'pk-bob', excluded: true);
+      final repo = FakeMemberRepository()..seed([m]);
+      await tester.pumpWidget(
+        _harness(
           member: m,
           pkState: const PluralKitSyncState(isConnected: true),
           direction: PkSyncDirection.bidirectional,
           repo: repo,
           managementState: _state(locals: [m]),
-        ));
-        await tester.pumpAndSettle();
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        await tester.tap(
-          find.byKey(const ValueKey('memberEditorPluralKitResumeButton')),
-        );
-        await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('memberEditorPluralKitResumeButton')),
+      );
+      await tester.pumpAndSettle();
 
-        final after = await repo.getMemberById('m-1');
-        expect(after, isNotNull);
-        expect(after!.pluralkitSyncIgnored, isFalse);
-      },
-    );
+      final after = await repo.getMemberById('m-1');
+      expect(after, isNotNull);
+      expect(after!.pluralkitSyncIgnored, isFalse);
+    });
   });
 
   group(
@@ -415,13 +436,15 @@ void main() {
             excluded: true,
           );
           final repo = FakeMemberRepository()..seed([m]);
-          await tester.pumpWidget(_harness(
-            member: m,
-            pkState: const PluralKitSyncState(isConnected: true),
-            direction: PkSyncDirection.bidirectional,
-            repo: repo,
-            managementState: _state(locals: [m]),
-          ));
+          await tester.pumpWidget(
+            _harness(
+              member: m,
+              pkState: const PluralKitSyncState(isConnected: true),
+              direction: PkSyncDirection.bidirectional,
+              repo: repo,
+              managementState: _state(locals: [m]),
+            ),
+          );
           await tester.pumpAndSettle();
 
           // The field is the existing labeled "PluralKit Display Name" — same

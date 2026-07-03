@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/group_sort_mode.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
@@ -187,6 +188,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final paneScope = ListDetailPaneScope.maybeOf(context);
     final canPopPane = paneScope?.canPopPane ?? false;
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
     final namePresentation = ref.watch(memberNamePresentationProvider);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
     final allGroupsAsync = ref.watch(allGroupsProvider);
@@ -256,6 +258,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             visiblePairs: visiblePairs,
             visibleMembers: visibleMembers,
             terms: terms,
+            frontingTerms: frontingTerms,
             groupEntries: entries ?? const <MemberGroupEntry>[],
             subGroups: subGroups,
             hasMembers: hasMembers,
@@ -601,6 +604,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   Future<void> _openMemberSortDialog({
     required List<(MemberGroupEntry, Member)> visiblePairs,
     required Terminology terms,
+    required FrontingTermBundle frontingTerms,
     required GroupSortMode currentMode,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 160));
@@ -664,7 +668,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             _sortDialogRow(
               context: dialogContext,
               icon: AppIcons.flashOn,
-              label: dialogContext.l10n.groupSortItemFrontingMost,
+              label: frontingTerms.mostActiveSortLabel,
               onTap: () {
                 Navigator.of(dialogContext).pop();
                 unawaited(_applyFrontingOrder(visiblePairs, descending: true));
@@ -673,7 +677,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             _sortDialogRow(
               context: dialogContext,
               icon: AppIcons.frontHandOutlined,
-              label: dialogContext.l10n.groupSortItemFrontingLeast,
+              label: frontingTerms.leastActiveSortLabel,
               onTap: () {
                 Navigator.of(dialogContext).pop();
                 unawaited(_applyFrontingOrder(visiblePairs, descending: false));
@@ -741,6 +745,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     required List<(MemberGroupEntry, Member)> visiblePairs,
     required List<Member> visibleMembers,
     required Terminology terms,
+    required FrontingTermBundle frontingTerms,
     required List<MemberGroupEntry> groupEntries,
     required List<MemberGroup> subGroups,
     required bool hasMembers,
@@ -820,6 +825,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
               _openMemberSortDialog(
                 visiblePairs: visiblePairs,
                 terms: terms,
+                frontingTerms: frontingTerms,
                 currentMode: currentMode,
               ),
             );

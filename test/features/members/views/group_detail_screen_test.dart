@@ -14,6 +14,8 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/domain/repositories/snapshot_apply_result.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
@@ -34,6 +36,8 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 List<MemberGroup> _chain(int n) => [
   for (var i = 0; i < n; i++)
@@ -199,13 +203,20 @@ Widget _buildSubject({
   required _FakeGroupNotifier notifier,
   List<Member>? allMembers,
   _FakeMemberGroupsRepository? repository,
+  FrontingTerms? frontingTerms,
 }) {
   final resolvedAll = allMembers ?? activeMembers;
   final repo =
       repository ??
       _FakeMemberGroupsRepository(allGroups: allGroups, allEntries: allEntries);
+  final appPrefs = FakeAppPreferenceRepository();
+  if (frontingTerms != null) {
+    appPrefs.seed(frontingTermsPreference, frontingTerms);
+  }
+  addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -276,8 +287,11 @@ Widget _buildRoutedSubject({
   required _FakeGroupNotifier notifier,
   required GoRouter router,
 }) {
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -1331,7 +1345,7 @@ void main() {
       },
     );
 
-    testWidgets('picking "Most-fronting first" snapshots fronting order '
+    testWidgets('picking "Most out" snapshots fronting order '
         'from the Arrange once section', (tester) async {
       final group = groupWith(
         id: 'g',
@@ -1353,6 +1367,7 @@ void main() {
           ],
           notifier: _FakeGroupNotifier(),
           repository: repo,
+          frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
         ),
       );
       await tester.pumpAndSettle();
@@ -1363,7 +1378,7 @@ void main() {
       expect(find.text('Arrange once'), findsOneWidget);
       expect(find.text('Apply current order'), findsNothing);
 
-      await tester.tap(find.text('Most-fronting first'));
+      await tester.tap(find.text('Most out'));
       await tester.pumpAndSettle();
 
       // The fake fronting stats fall back to zero in widget tests; we just

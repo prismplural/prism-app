@@ -741,6 +741,9 @@ List<AnalyticsInsight> computeInsights(
   Map<String, String> names = const {},
   String termSingularLower = 'member',
   String termPluralLower = 'members',
+  String? sessionPluralLower,
+  String? togetherPastLabelLower,
+  String? activeTimeLabelLower,
 }) {
   final insights = <AnalyticsInsight>[];
 
@@ -769,9 +772,14 @@ List<AnalyticsInsight> computeInsights(
     final top = current.topCoFrontingPairs.first;
     final nameA = _name(names, top.memberIdA);
     final nameB = _name(names, top.memberIdB);
-    final headline = (nameA != null && nameB != null)
-        ? '$nameA & $nameB co-fronted a lot this period'
-        : 'Two $termPluralLower co-fronted a lot this period';
+    final togetherPast = togetherPastLabelLower;
+    final headline = togetherPast == null
+        ? (nameA != null && nameB != null)
+              ? '$nameA & $nameB co-fronted a lot this period'
+              : 'Two $termPluralLower co-fronted a lot this period'
+        : (nameA != null && nameB != null)
+        ? '$nameA & $nameB $togetherPast a lot this period'
+        : 'Two $termPluralLower $togetherPast a lot this period';
     insights.add(
       AnalyticsInsight(
         type: AnalyticsInsightType.coFrontingHighlight,
@@ -799,13 +807,18 @@ List<AnalyticsInsight> computeInsights(
     if (quietMembers.isNotEmpty) {
       final quietest = quietMembers.first;
       final name = _name(names, quietest.memberId);
+      final sessions = sessionPluralLower;
       insights.add(
         AnalyticsInsight(
           type: AnalyticsInsightType.quietMember,
           iconType: AnalyticsInsightIconType.moonStars,
-          headline: name != null
-              ? '$name hasn\'t fronted this period'
-              : 'One $termSingularLower hasn\'t fronted this period',
+          headline: sessions == null
+              ? name != null
+                    ? '$name hasn\'t fronted this period'
+                    : 'One $termSingularLower hasn\'t fronted this period'
+              : name != null
+              ? '$name has no $sessions this period'
+              : 'One $termSingularLower has no $sessions this period',
           body: 'They were active in the last one.',
           signalStrength: 70,
         ),
@@ -824,9 +837,14 @@ List<AnalyticsInsight> computeInsights(
       if (change.abs() >= 0.25) {
         final longer = change > 0;
         final name = _name(names, curr.memberId);
-        final headline = name != null
-            ? '$name\'s sessions are running ${longer ? "longer" : "shorter"}'
-            : 'Session lengths are ${longer ? "longer" : "shorter"} for a $termSingularLower';
+        final sessions = sessionPluralLower;
+        final headline = sessions == null
+            ? name != null
+                  ? '$name\'s sessions are running ${longer ? "longer" : "shorter"}'
+                  : 'Session lengths are ${longer ? "longer" : "shorter"} for a $termSingularLower'
+            : name != null
+            ? '$name\'s $sessions are running ${longer ? "longer" : "shorter"}'
+            : '${_capFirst(sessions)} are ${longer ? "longer" : "shorter"} for a $termSingularLower';
         insights.add(
           AnalyticsInsight(
             type: AnalyticsInsightType.sessionDrift,
@@ -852,15 +870,20 @@ List<AnalyticsInsight> computeInsights(
       if (currModal != null && prevModal != null && currModal != prevModal) {
         final isNightward = currModal == 'evening' || currModal == 'night';
         final name = _name(names, curr.memberId);
+        final timeLabel = activeTimeLabelLower;
         insights.add(
           AnalyticsInsight(
             type: AnalyticsInsightType.timeOfDayShift,
             iconType: isNightward
                 ? AnalyticsInsightIconType.moon
                 : AnalyticsInsightIconType.sun,
-            headline: name != null
-                ? '$name is fronting at a different time'
-                : 'A $termSingularLower\'s fronting time of day shifted',
+            headline: timeLabel == null
+                ? name != null
+                      ? '$name is fronting at a different time'
+                      : 'A $termSingularLower\'s fronting time of day shifted'
+                : name != null
+                ? '$name\'s $timeLabel of day shifted'
+                : 'A $termSingularLower\'s $timeLabel of day shifted',
             body:
                 'Mostly ${_bucketLabel(currModal)} lately — ${_bucketLabel(prevModal)} is more typical.',
             signalStrength: 40,
@@ -915,6 +938,11 @@ String _bucketLabel(String bucket) => switch (bucket) {
   _ => bucket,
 };
 
+String _capFirst(String value) {
+  if (value.isEmpty) return value;
+  return '${value[0].toUpperCase()}${value.substring(1)}';
+}
+
 /// Auto-generated insight cards for the analytics screen.
 final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
   ref,
@@ -923,6 +951,9 @@ final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
   final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
   final members = await ref.watch(allMemberListProvider.future);
   final terms = ref.watch(terminologySettingProvider);
+  final frontingTerms = resolveFrontingTerms(
+    ref.watch(frontingTermsSettingProvider),
+  );
   final names = <String, String>{for (final m in members) m.id: m.name};
   final englishTerms = _analyticsTerms(
     terms.term,
@@ -935,6 +966,9 @@ final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
     names: names,
     termSingularLower: englishTerms.singularLower,
     termPluralLower: englishTerms.pluralLower,
+    sessionPluralLower: frontingTerms.sessionPlural.toLowerCase(),
+    togetherPastLabelLower: frontingTerms.togetherPastLabel.toLowerCase(),
+    activeTimeLabelLower: frontingTerms.timeLabel.toLowerCase(),
   );
 });
 

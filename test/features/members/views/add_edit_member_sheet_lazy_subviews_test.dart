@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/database_encryption.dart';
@@ -40,6 +41,12 @@ class _PushDisabledNotifier extends PkSyncDirectionNotifier {
   PkSyncDirection build() => PkSyncDirection.disabled;
 }
 
+Override _appPreferenceOverride() {
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
+  return appPreferenceRepositoryProvider.overrideWithValue(appPrefs);
+}
+
 Widget _buildMemberEditor({
   required Member member,
   AddEditMemberSheetController? controller,
@@ -51,6 +58,7 @@ Widget _buildMemberEditor({
   return ProviderScope(
     overrides: [
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+      _appPreferenceOverride(),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
         FakeFrontingSessionRepository(),
@@ -97,6 +105,7 @@ Widget _buildMemberEditorSheetHost({required Member member}) {
   return ProviderScope(
     overrides: [
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+      _appPreferenceOverride(),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
         FakeFrontingSessionRepository(),
@@ -225,6 +234,7 @@ void main() {
         ProviderScope(
           overrides: [
             verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+            _appPreferenceOverride(),
             memberRepositoryProvider.overrideWithValue(repo),
             frontingSessionRepositoryProvider.overrideWithValue(
               FakeFrontingSessionRepository(),
@@ -297,6 +307,7 @@ void main() {
       ProviderScope(
         overrides: [
           verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          _appPreferenceOverride(),
           memberRepositoryProvider.overrideWithValue(repo),
           frontingSessionRepositoryProvider.overrideWithValue(
             FakeFrontingSessionRepository(),
@@ -517,6 +528,7 @@ void main() {
       ProviderScope(
         overrides: [
           verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          _appPreferenceOverride(),
           memberRepositoryProvider.overrideWithValue(repo),
           frontingSessionRepositoryProvider.overrideWithValue(
             FakeFrontingSessionRepository(),
@@ -589,6 +601,7 @@ void main() {
       ProviderScope(
         overrides: [
           verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          _appPreferenceOverride(),
           memberRepositoryProvider.overrideWithValue(repo),
           frontingSessionRepositoryProvider.overrideWithValue(
             FakeFrontingSessionRepository(),

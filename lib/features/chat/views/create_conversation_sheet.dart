@@ -211,9 +211,10 @@ class _CreateConversationSheetState
   ) async {
     final speakingAs = ref.read(speakingAsProvider);
     final termPlural = readTerminology(context, ref).plural;
+    final frontingTerms = readFrontingTerms(ref);
     final groups = readMemberSearchGroups(ref, members);
 
-    final frontingLabel = context.l10n.chatCreateFronting;
+    final frontingLabel = frontingTerms.activeSectionLabel;
     final primaryColor = theme.colorScheme.primary;
     final labelStyle = theme.textTheme.labelSmall?.copyWith(
       color: primaryColor,

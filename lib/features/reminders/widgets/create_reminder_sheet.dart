@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -125,6 +126,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
 
   Future<void> _openTargetPicker(List<Member> members) async {
     final groups = readMemberSearchGroups(ref, members);
+    final frontingTerms = readFrontingTerms(ref);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
@@ -133,7 +135,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
       specialRows: [
         MemberSearchSpecialRow(
           rowKey: '__any__',
-          title: context.l10n.remindersTargetAny,
+          title: frontingTerms.anyChangeLabel,
           leading: Icon(AppIcons.peopleOutline),
           result: const MemberSearchResultCleared(),
         ),
@@ -158,6 +160,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     // Non-fronting picker: hide the Unknown sentinel — you don't set a
     // reminder for the placeholder member.
     final membersAsync = ref.watch(userVisibleMemberListProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     return ListenableBuilder(
       listenable: Listenable.merge([_nameController, _messageController]),
@@ -218,7 +221,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                         ),
                         PrismSegment(
                           value: ReminderTrigger.onFrontChange,
-                          label: context.l10n.remindersTriggerFrontChange,
+                          label: frontingTerms.changeSingular,
                         ),
                       ],
                       selected: _trigger,
@@ -335,7 +338,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                     ] else ...[
                       // Delay picker for front change
                       _LabeledRow(
-                        label: context.l10n.remindersDelayLabel,
+                        label: frontingTerms.delayAfterChangeLabel,
                         child: PrismSelect<int>.compact(
                           value: _delayHours ?? 0,
                           menuWidth: 180,
@@ -410,7 +413,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                                   )
                                 : Icon(AppIcons.peopleOutline),
                             title: Text(
-                              selectedName ?? context.l10n.remindersTargetAny,
+                              selectedName ?? frontingTerms.anyChangeLabel,
                             ),
                             subtitle: selectedMember != null
                                 ? Text(context.l10n.remindersTargetLabel)
@@ -428,8 +431,8 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                       InfoBanner(
                         icon: AppIcons.infoOutlineRounded,
                         iconColor: theme.colorScheme.primary,
-                        title: context.l10n.remindersTriggerFrontChange,
-                        message: context.l10n.remindersTargetDisclosure,
+                        title: frontingTerms.changeSingular,
+                        message: _frontChangeReminderDisclosure(frontingTerms),
                       ),
                     ],
 
@@ -516,6 +519,13 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     }
     Navigator.of(context).pop();
   }
+}
+
+String _frontChangeReminderDisclosure(FrontingTermBundle frontingTerms) {
+  final event = frontingTerms.switchEventLabel.toLowerCase();
+  return 'Only fires when Prism is running on this device and notices the '
+      '$event. If Prism is closed and the $event is logged elsewhere, this '
+      'reminder will not trigger right away.';
 }
 
 class _LabeledRow extends StatelessWidget {

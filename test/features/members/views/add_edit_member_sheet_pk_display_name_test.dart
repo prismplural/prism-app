@@ -51,11 +51,13 @@ class _FakeMemberRepository implements MemberRepository {
 
   // Stub: not exercised by this test file.
   @override
-  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> excludePluralKitSync(String id) async =>
+      throw UnimplementedError();
 
   // Stub: not exercised by this test file.
   @override
-  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> resumePluralKitSync(String id) async =>
+      throw UnimplementedError();
 
   @override
   Future<List<Member>> getAllMembers() async => [member];
@@ -135,8 +137,11 @@ Widget _harness({
   required PkSyncDirection direction,
 }) {
   final repo = _FakeMemberRepository(member);
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
         FakeFrontingSessionRepository(),
@@ -182,21 +187,22 @@ Member _unlinkedMember() =>
     Member(id: 'm-1', name: 'Alice', createdAt: DateTime(2026, 1, 1));
 
 void main() {
-  testWidgets('hides PK display name on unlinked member when PK is disconnected', (
-    tester,
-  ) async {
-    _useTallViewport(tester);
-    await tester.pumpWidget(
-      _harness(
-        member: _unlinkedMember(),
-        pkState: const PluralKitSyncState(isConnected: false),
-        direction: PkSyncDirection.bidirectional,
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'hides PK display name on unlinked member when PK is disconnected',
+    (tester) async {
+      _useTallViewport(tester);
+      await tester.pumpWidget(
+        _harness(
+          member: _unlinkedMember(),
+          pkState: const PluralKitSyncState(isConnected: false),
+          direction: PkSyncDirection.bidirectional,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('PluralKit Display Name'), findsNothing);
-  });
+      expect(find.text('PluralKit Display Name'), findsNothing);
+    },
+  );
 
   testWidgets(
     'hides PK display name on unlinked member when sync is pull-only',

@@ -29,10 +29,13 @@ class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
 
 Widget _harness(Member member) {
   final repo = FakeMemberRepository()..seed([member]);
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
 
   return ProviderScope(
     overrides: [
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       memberRepositoryProvider.overrideWithValue(repo),
       frontingSessionRepositoryProvider.overrideWithValue(
         FakeFrontingSessionRepository(),

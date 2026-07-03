@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/settings/views/fronting_feature_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -15,9 +17,17 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  Widget buildSubject(FakeSystemSettingsRepository repo) {
+  Widget buildSubject(
+    FakeSystemSettingsRepository repo, {
+    FakeAppPreferenceRepository? appPrefs,
+  }) {
+    final prefs = appPrefs ?? FakeAppPreferenceRepository();
+    addTearDown(prefs.close);
     return ProviderScope(
-      overrides: [systemSettingsRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        systemSettingsRepositoryProvider.overrideWithValue(repo),
+        appPreferenceRepositoryProvider.overrideWithValue(prefs),
+      ],
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: [Locale('en')],
@@ -34,14 +44,14 @@ void main() {
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
 
-      expect(find.text('Session display & front behavior'), findsOneWidget);
-      expect(find.text('Session list view'), findsOneWidget);
-      expect(find.text('When adding a new front'), findsOneWidget);
-      expect(find.text('When using quick front'), findsOneWidget);
       expect(
-        find.text('Show long-running fronts in header'),
+        find.text('Fronting session display & fronting behavior'),
         findsOneWidget,
       );
+      expect(find.text('Session list view'), findsOneWidget);
+      expect(find.text('When adding a new fronter'), findsOneWidget);
+      expect(find.text('When using quick front'), findsOneWidget);
+      expect(find.text('Show long-running fronts in header'), findsOneWidget);
     });
 
     testWidgets('subtitles reflect the saved enum values', (tester) async {
@@ -62,6 +72,29 @@ void main() {
       // Both the add-front row and the quick-front row read 'Replace current
       // fronters', so we expect two matches.
       expect(find.text('Replace current fronters'), findsNWidgets(2));
+    });
+
+    testWidgets('labels respond to the fronting terminology preference', (
+      tester,
+    ) async {
+      final repo = FakeSystemSettingsRepository();
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(
+          frontingTermsPreference,
+          const FrontingTerms.preset(FrontingTermPreset.out),
+        );
+
+      await tester.pumpWidget(buildSubject(repo, appPrefs: appPrefs));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Out'), findsOneWidget);
+      expect(find.text('Out session display & out behavior'), findsOneWidget);
+      expect(find.text('When adding a new out member'), findsOneWidget);
+      expect(find.text('When using quick out'), findsOneWidget);
+      expect(
+        find.text('Show long-running out sessions in header'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('tapping list-view-mode picker writes the selected value', (
@@ -88,7 +121,7 @@ void main() {
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('When adding a new front'));
+      await tester.tap(find.text('When adding a new fronter'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Replace current fronters').last);

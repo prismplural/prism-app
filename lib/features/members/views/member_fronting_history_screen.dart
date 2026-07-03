@@ -77,6 +77,7 @@ class _MemberFrontingHistoryScreenState
   @override
   Widget build(BuildContext context) {
     final memberAsync = ref.watch(activeMemberByIdProvider(widget.memberId));
+    final frontingTerms = watchFrontingTerms(ref);
 
     ref.listen(memberFrontingHistoryProvider(widget.memberId), (_, next) {
       if (_pendingJumpDayKey == null || !next.hasValue) return;
@@ -117,6 +118,7 @@ class _MemberFrontingHistoryScreenState
               memberName: member.effectiveName(
                 preferDisplayName: ref.watch(memberNamePreferDisplayProvider),
               ),
+              sessionPlural: frontingTerms.sessionPlural,
             ),
             showBackButton: true,
             actions: [
@@ -243,9 +245,11 @@ class _MemberFrontingHistoryScreenState
     }
 
     _pendingJumpDayKey = null;
+    final frontingTerms = readFrontingTerms(ref);
     PrismToast.show(
       context,
-      message: context.l10n.memberFrontingHistoryNoSessionsOnDate,
+      message:
+          'No ${frontingTerms.sessionPlural.toLowerCase()} found for that day.',
     );
   }
 }
@@ -263,8 +267,9 @@ double memberFrontingHistoryBottomSpacerHeight(BuildContext context) {
 String memberFrontingHistoryTitleForWidth({
   required BuildContext context,
   required String memberName,
+  required String sessionPlural,
 }) {
-  final fullTitle = context.l10n.memberFrontingHistoryTitle(memberName);
+  final fullTitle = "$memberName's $sessionPlural";
   final width = MediaQuery.sizeOf(context).width;
   final maxTitleWidth =
       width -

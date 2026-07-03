@@ -8,8 +8,8 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 
@@ -30,6 +30,7 @@ class AlwaysPresentHeader extends ConsumerWidget {
     }
 
     final theme = Theme.of(context);
+    final frontingTerms = watchFrontingTerms(ref);
     final members = qualifying.map((q) => q.member).toList(growable: false);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     final names = _joinNames(
@@ -43,16 +44,14 @@ class AlwaysPresentHeader extends ConsumerWidget {
         .length;
     final allExplicit = explicitCount == qualifying.length;
     final noneExplicit = explicitCount == 0;
-    final headerLabel = allExplicit
-        ? context.l10n.frontingAlwaysPresentLabel(durationLabel)
+    final baseLabel = allExplicit
+        ? frontingTerms.alwaysPresentHeaderLabel
         : noneExplicit
-        ? context.l10n.frontingLongRunningLabel(durationLabel)
-        : context.l10n.frontingMixedPinnedLabel(durationLabel);
-    final semanticsLabel = allExplicit
-        ? context.l10n.frontingAlwaysPresentSemantics(names, durationLabel)
-        : noneExplicit
-        ? context.l10n.frontingLongRunningSemantics(names, durationLabel)
-        : context.l10n.frontingMixedPinnedLabel(durationLabel);
+        ? frontingTerms.longRunningHeaderLabel
+        : '${frontingTerms.alwaysPresentHeaderLabel} + '
+              '${frontingTerms.longRunningLabel.toLowerCase()}';
+    final headerLabel = '$baseLabel · $durationLabel';
+    final semanticsLabel = '$baseLabel: $names, $durationLabel';
     final sessionId = qualifying.first.session.id;
 
     return Padding(

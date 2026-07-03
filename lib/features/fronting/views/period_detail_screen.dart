@@ -22,6 +22,7 @@ import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
@@ -494,6 +495,7 @@ class _CoFrontersSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final frontingTerms = watchFrontingTerms(ref);
     // Resolve all sessions; skip loading/error — render nothing until data
     // arrives (the header provides instant content from hint, so there's no
     // blank screen).
@@ -532,7 +534,7 @@ class _CoFrontersSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(
-              context.l10n.frontingPeriodCoFrontersTitle,
+              frontingTerms.togetherActivePluralLabel,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
@@ -630,10 +632,11 @@ class _CoFronterRow extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
+    final frontingTerms = readFrontingTerms(ref);
     return [
       if (session.isActive)
         _ContextAction(
-          label: context.l10n.frontingEndSessionButton,
+          label: frontingTerms.endCurrentAction,
           icon: AppIcons.exitToApp,
           onSelected: () => _endFronting(context, ref),
         ),
@@ -1044,6 +1047,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final frontingTerms = watchFrontingTerms(ref);
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final matchedPeriod = periodsAsync.whenOrNull(
       data: (periods) => findPeriodBySessionIds(periods, sessionIds),
@@ -1070,7 +1074,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Text(
-              context.l10n.frontingPeriodAlwaysPresentTitle,
+              frontingTerms.alwaysPresentHeaderLabel,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,

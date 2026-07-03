@@ -14,6 +14,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
@@ -22,6 +23,7 @@ import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
@@ -97,9 +99,11 @@ Widget _buildSheetTrigger({
   List<FrontingSession> activeSessions = const [],
   _FakeFrontingNotifier? fakeNotifier,
   FrontStartBehavior addFrontDefaultBehavior = FrontStartBehavior.additive,
+  FrontingTerms frontingTerms = FrontingTerms.unset,
 }) {
   return ProviderScope(
     overrides: [
+      frontingTermsSettingProvider.overrideWithValue(frontingTerms),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       activeMemberListProvider.overrideWith((ref) => Stream.value(members)),
       allGroupsProvider.overrideWith(
@@ -190,8 +194,8 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Start session'), findsOneWidget);
-      expect(find.bySemanticsLabel('Start session'), findsOneWidget);
+      expect(find.byTooltip('Log Front'), findsOneWidget);
+      expect(find.bySemanticsLabel('Log Front'), findsOneWidget);
     });
 
     testWidgets(
@@ -764,9 +768,40 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Add as fronter'), findsOneWidget);
-        expect(find.text('Replace current'), findsOneWidget);
+        expect(find.text('Replace current fronters'), findsOneWidget);
       },
     );
+
+    testWidgets('fronting terminology preset relabels sheet controls', (
+      tester,
+    ) async {
+      final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
+      await tester.pumpWidget(
+        _buildSheetTrigger(
+          members: members,
+          frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Out session'), findsWidgets);
+      expect(find.text('Mark out'), findsOneWidget);
+      expect(find.text('Replace current out members'), findsOneWidget);
+      expect(find.text('Out Members'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('sessionTimeSegmentedControl')),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(AddFrontSessionSheet),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Out time'), findsOneWidget);
+    });
 
     testWidgets('submitting in additive mode (default) calls startFronting', (
       tester,
@@ -840,7 +875,7 @@ void main() {
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('Replace current'));
+        await tester.tap(find.text('Replace current fronters'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('M0'));
@@ -907,7 +942,7 @@ void main() {
         );
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Replace current'));
+        await tester.tap(find.text('Replace current fronters'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('M0'));
         await tester.pumpAndSettle();
@@ -947,7 +982,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Replace current'));
+      await tester.tap(find.text('Replace current fronters'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add as fronter'));
       await tester.pumpAndSettle();
@@ -1032,7 +1067,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('renders Start Earlier, Start Now, and Past Session choices', (
+    testWidgets('renders Start Earlier, Start Now, and session term choices', (
       tester,
     ) async {
       final members = List.generate(3, (i) => _member(id: 'id$i', name: 'M$i'));
@@ -1044,7 +1079,13 @@ void main() {
 
       expect(find.text('Start Earlier'), findsOneWidget);
       expect(find.text('Start Now'), findsOneWidget);
-      expect(find.text('Past Session'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('sessionTimeSegmentedControl')),
+          matching: find.text('Fronting session'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
@@ -1144,9 +1185,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Session Time'), findsOneWidget);
+        expect(find.text('Fronting time'), findsOneWidget);
 
-        await tester.tap(find.text('Past Session'));
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const Key('sessionTimeSegmentedControl')),
+            matching: find.text('Fronting session'),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('Start'), findsOneWidget);
@@ -1194,6 +1240,7 @@ void main() {
         final container = ProviderContainer(
           overrides: [
             databaseProvider.overrideWithValue(db),
+            frontingTermsSettingProvider.overrideWithValue(FrontingTerms.unset),
             activeMembersProvider.overrideWith(
               (ref) => Stream.value(<Member>[alice]),
             ),

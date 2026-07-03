@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/notification_providers.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -39,6 +41,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
       frontingReminderIntervalProvider,
     );
     final permissionAsync = ref.watch(notificationPermissionProvider);
+    final frontingTerms = watchFrontingTerms(ref);
     final theme = Theme.of(context);
 
     final hasPermission = permissionAsync.value ?? false;
@@ -64,9 +67,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   PrismSwitchRow(
-                    title: context.l10n.notificationsFrontingRemindersTitle,
-                    subtitle:
-                        context.l10n.notificationsFrontingRemindersSubtitle,
+                    title: _frontingReminderTitle(frontingTerms),
+                    subtitle: _frontingReminderSubtitle(frontingTerms),
                     value: frontingRemindersEnabled,
                     onChanged: (value) {
                       ref
@@ -121,7 +123,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
-              context.l10n.notificationsAboutText,
+              _frontingReminderAboutText(frontingTerms),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -155,6 +157,7 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncValue = ref.watch(frontingReminderSuppressMinutesProvider);
+    final frontingTerms = watchFrontingTerms(ref);
     final value = asyncValue.value ?? 5;
     final l10n = context.l10n;
 
@@ -179,7 +182,10 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
 
     return PrismListRow(
       title: Text(l10n.notificationsSuppressIfRecentTitle),
-      subtitle: Text(l10n.notificationsSuppressIfRecentSubtitle),
+      subtitle: Text(
+        'Do not remind after recent '
+        '${frontingTerms.changeSingular.toLowerCase()} logs',
+      ),
       trailing: PrismSelect<int>.compact(
         value: value,
         menuWidth: 200,
@@ -259,6 +265,23 @@ class _FrontingReminderSuppressRow extends ConsumerWidget {
       },
     );
   }
+}
+
+String _frontingReminderTitle(FrontingTermBundle frontingTerms) {
+  return '${frontingTerms.featureLabel} reminders';
+}
+
+String _frontingReminderSubtitle(FrontingTermBundle frontingTerms) {
+  return 'Get reminded to ${frontingTerms.logChangeReminderAction.toLowerCase()}';
+}
+
+String _frontingReminderAboutText(FrontingTermBundle frontingTerms) {
+  return '${frontingTerms.featureLabel} reminders send periodic notifications '
+      'to help you stay aware of '
+      '${frontingTerms.currentQuestion.toLowerCase().replaceAll('?', '')}. '
+      'This can be useful for '
+      '${frontingTerms.logChangeReminderAction.toLowerCase()} and maintaining '
+      'awareness throughout the day.';
 }
 
 /// Displays notification permission status and a request button if needed.

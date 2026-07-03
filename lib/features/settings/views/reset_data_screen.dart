@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -52,7 +53,8 @@ class ResetDataScreen extends ConsumerWidget {
                       icon: _granularCategories[i].icon,
                       iconColor: _granularCategories[i].color,
                       category: _granularCategories[i].category,
-                      enabled: _granularCategories[i].category ==
+                      enabled:
+                          _granularCategories[i].category ==
                               ResetCategory.customFields
                           ? !customFieldsEmpty
                           : true,
@@ -103,11 +105,12 @@ class ResetDataScreen extends ConsumerWidget {
     bool enabled = true,
   }) {
     final terms = readTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
     return PrismSettingsRow(
       icon: icon,
       iconColor: iconColor,
-      title: _categoryLabel(category, terms),
-      subtitle: _categoryDescription(category, terms),
+      title: _categoryLabel(category, terms, frontingTerms),
+      subtitle: _categoryDescription(category, terms, frontingTerms),
       destructive: destructive,
       enabled: enabled,
       onTap: enabled ? () => _showConfirmation(context, ref, category) : null,
@@ -123,7 +126,8 @@ class ResetDataScreen extends ConsumerWidget {
     final isSync = category == ResetCategory.sync;
     final isCustomFields = category == ResetCategory.customFields;
     final terms = readTerminology(context, ref);
-    final label = _categoryLabel(category, terms);
+    final frontingTerms = readFrontingTerms(ref);
+    final label = _categoryLabel(category, terms, frontingTerms);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: isSync
@@ -202,13 +206,28 @@ class ResetDataScreen extends ConsumerWidget {
     }
   }
 
-  String _categoryLabel(ResetCategory category, Terminology terms) =>
-      category == ResetCategory.members ? terms.plural : category.label;
+  String _categoryLabel(
+    ResetCategory category,
+    Terminology terms,
+    FrontingTermBundle frontingTerms,
+  ) => switch (category) {
+    ResetCategory.members => terms.plural,
+    ResetCategory.fronting => frontingTerms.sessionPlural,
+    _ => category.label,
+  };
 
-  String _categoryDescription(ResetCategory category, Terminology terms) =>
-      category == ResetCategory.members
-      ? 'Removes all ${terms.pluralLower}. Fronting sessions will show as unknown.'
-      : category.description;
+  String _categoryDescription(
+    ResetCategory category,
+    Terminology terms,
+    FrontingTermBundle frontingTerms,
+  ) => switch (category) {
+    ResetCategory.members =>
+      'Removes all ${terms.pluralLower}. '
+          '${frontingTerms.sessionPlural} will show as unknown.',
+    ResetCategory.fronting =>
+      'Deletes all ${frontingTerms.historyLabel.toLowerCase()}.',
+    _ => category.description,
+  };
 }
 
 class _CategoryEntry {

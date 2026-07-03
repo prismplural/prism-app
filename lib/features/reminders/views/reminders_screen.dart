@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/features/reminders/widgets/create_reminder_sheet.dart';
@@ -28,6 +30,7 @@ class RemindersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final remindersAsync = ref.watch(remindersProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -53,7 +56,10 @@ class RemindersScreen extends ConsumerWidget {
               child: EmptyState(
                 icon: Icon(AppIcons.notificationsNoneRounded),
                 title: context.l10n.remindersEmptyTitle,
-                subtitle: context.l10n.remindersEmptySubtitle,
+                subtitle:
+                    'Create reminders for '
+                    '${frontingTerms.changePlural.toLowerCase()} or '
+                    'scheduled times',
                 actionLabel: context.l10n.remindersEmptyAction,
                 onAction: () => _showCreateSheet(context),
               ),
@@ -99,6 +105,7 @@ class _ReminderTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final notifier = ref.read(remindersNotifierProvider.notifier);
+    final frontingTerms = watchFrontingTerms(ref);
     final isActive = reminder.isActive;
 
     String? targetName;
@@ -150,6 +157,7 @@ class _ReminderTile extends ConsumerWidget {
                 reminder: reminder,
                 targetName: targetName,
                 isActive: isActive,
+                frontingTerms: frontingTerms,
               ),
             ),
             const SizedBox(width: 12),
@@ -190,11 +198,13 @@ class _ReminderSummary extends StatelessWidget {
     required this.reminder,
     required this.targetName,
     required this.isActive,
+    required this.frontingTerms,
   });
 
   final Reminder reminder;
   final String? targetName;
   final bool isActive;
+  final FrontingTermBundle frontingTerms;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +241,12 @@ class _ReminderSummary extends StatelessWidget {
         ],
         const SizedBox(height: 10),
         _ReminderMetadata(
-          text: _formatReminderSubtitle(context, reminder, targetName),
+          text: _formatReminderSubtitle(
+            context,
+            reminder,
+            targetName,
+            frontingTerms,
+          ),
           isActive: isActive,
         ),
       ],
@@ -269,6 +284,7 @@ String _formatReminderSubtitle(
   BuildContext context,
   Reminder r,
   String? targetName,
+  FrontingTermBundle frontingTerms,
 ) {
   final l10n = context.l10n;
   if (r.trigger == ReminderTrigger.onFrontChange) {
@@ -278,12 +294,13 @@ String _formatReminderSubtitle(
     // deleted) or no target is set.
     final delay = r.delayHours ?? 0;
     if (targetName != null && targetName.isNotEmpty) {
-      final prefix = l10n.remindersSubtitleTargetPrefix(targetName);
+      final prefix = '$targetName · ${frontingTerms.changeSingular}';
       if (delay == 0) return prefix;
       return '$prefix · ${l10n.remindersDelayHours(delay)}';
     }
-    if (delay == 0) return l10n.remindersSubtitleOnFrontChange;
-    return l10n.remindersSubtitleOnFrontChangeDelay(delay);
+    if (delay == 0) return frontingTerms.onChangeLabel;
+    return '${frontingTerms.onChangeLabel} · '
+        '${l10n.remindersDelayHours(delay)}';
   }
 
   final time = _formatReminderTime(context, r.timeOfDay);

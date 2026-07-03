@@ -290,13 +290,12 @@ class _MemberDetailBody extends ConsumerWidget {
             member.id,
           ]);
           if (context.mounted) {
+            final frontingTerms = readFrontingTerms(ref);
             PrismToast.show(
               context,
-              message: context.l10n.memberIsFronting(
-                member.effectiveName(
-                  preferDisplayName: ref.read(memberNamePreferDisplayProvider),
-                ),
-              ),
+              message:
+                  '${member.effectiveName(preferDisplayName: ref.read(memberNamePreferDisplayProvider))} '
+                  'is ${frontingTerms.currentlyActivePhrase}.',
             );
           }
         } catch (e) {
@@ -427,6 +426,7 @@ class _FrontingStatsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final frontingTerms = watchFrontingTerms(ref);
     final statsAsync = ref.watch(memberFrontingStatsProvider(memberId));
 
     return statsAsync.when(
@@ -442,25 +442,25 @@ class _FrontingStatsSection extends ConsumerWidget {
 
         return _SectionCard(
           icon: AppIcons.barChartOutlined,
-          title: l10n.memberSectionFrontingStats,
+          title: frontingTerms.statsLabel,
           theme: theme,
           child: Column(
             children: [
               _StatRow(
-                label: l10n.memberStatsTotalSessions,
+                label: 'Total ${frontingTerms.sessionPlural.toLowerCase()}',
                 value: '${stats.totalSessions}',
                 theme: theme,
               ),
               const Divider(height: 1),
               _StatRow(
-                label: l10n.memberStatsTotalTime,
+                label: frontingTerms.timeLabel,
                 value: stats.totalDuration.toRoundedString(),
                 theme: theme,
               ),
               if (stats.lastFronted != null) ...[
                 const Divider(height: 1),
                 _StatRow(
-                  label: l10n.memberStatsLastFronted,
+                  label: frontingTerms.lastActiveLabel,
                   value: _formatTimestamp(l10n, stats.lastFronted!),
                   theme: theme,
                 ),
@@ -502,6 +502,7 @@ class _RecentSessionsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final frontingTerms = watchFrontingTerms(ref);
     final sessionsAsync = ref.watch(memberRecentSessionsProvider(memberId));
 
     return sessionsAsync.when(
@@ -512,7 +513,7 @@ class _RecentSessionsSection extends ConsumerWidget {
 
         return _SectionCard(
           icon: AppIcons.historyOutlined,
-          title: context.l10n.memberSectionRecentSessions,
+          title: frontingTerms.sessionPlural,
           theme: theme,
           trailing: PrismButton(
             label: context.l10n.memberSectionFrontingSessionsViewAll,
@@ -974,19 +975,20 @@ class _StatRow extends StatelessWidget {
   }
 }
 
-class _MoreMenuButton extends StatelessWidget {
+class _MoreMenuButton extends ConsumerWidget {
   const _MoreMenuButton({required this.member, required this.onAction});
 
   final Member member;
   final ValueChanged<_MenuAction> onAction;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final frontingTerms = watchFrontingTerms(ref);
     final items = [
       (
         action: _MenuAction.setFronter,
-        label: l10n.memberSetAsFronter,
+        label: frontingTerms.setAsAction,
         icon: AppIcons.flashOn,
         destructive: false,
       ),

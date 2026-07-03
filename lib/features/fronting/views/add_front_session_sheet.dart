@@ -261,6 +261,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
     final membersAsync = ref.watch(activeMemberListProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
@@ -293,11 +294,13 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
               children: [
                 PrismSheetTopBar(
                   title: _isHistorical
-                      ? context.l10n.frontingLogPastSession
-                      : context.l10n.frontingNewSession,
+                      ? frontingTerms.logPastAction
+                      : frontingTerms.sessionSingular,
                   trailing: PrismGlassIconButton(
                     icon: AppIcons.check,
-                    tooltip: context.l10n.frontingStartSessionTooltip,
+                    tooltip: _isHistorical
+                        ? frontingTerms.logPastAction
+                        : frontingTerms.logAction,
                     onPressed: (_saving || !_canSubmit)
                         ? null
                         : () => _submit(mode),
@@ -319,11 +322,11 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                           segments: [
                             PrismSegment(
                               value: FrontStartBehavior.additive,
-                              label: context.l10n.frontingAddFrontModeAdditive,
+                              label: frontingTerms.addAction,
                             ),
                             PrismSegment(
                               value: FrontStartBehavior.replace,
-                              label: context.l10n.frontingAddFrontModeReplace,
+                              label: frontingTerms.replaceCurrentAction,
                             ),
                           ],
                           selected: mode,
@@ -334,7 +337,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       // TODO(§2.5): Phase 3 — show "already fronting" members as
                       // deselect-to-end with "— ends session" hint per spec §2.5.
                       Text(
-                        context.l10n.frontingSelectFronter,
+                        frontingTerms.activePluralLabel,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -353,6 +356,8 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                             unknownId: _unknownId,
                             pluralTerm: terms.pluralLower,
                             frontingMemberIds: frontingMemberIds,
+                            activeSectionLabel:
+                                frontingTerms.activeSectionLabel,
                             onToggle: (id) {
                               setState(() {
                                 if (id == _unknownId) {
@@ -376,7 +381,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        context.l10n.frontingSessionTime,
+                        frontingTerms.timeLabel,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -395,7 +400,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                           ),
                           PrismSegment(
                             value: _SessionTimingMode.pastSession,
-                            label: context.l10n.frontingSessionTimePastSession,
+                            label: frontingTerms.sessionSingular,
                           ),
                         ],
                         selected: _timingMode,
@@ -487,6 +492,7 @@ class _MemberGrid extends ConsumerStatefulWidget {
     required this.unknownId,
     required this.onToggle,
     required this.pluralTerm,
+    required this.activeSectionLabel,
     this.frontingMemberIds = const {},
   });
 
@@ -495,6 +501,7 @@ class _MemberGrid extends ConsumerStatefulWidget {
   final String unknownId;
   final ValueChanged<String> onToggle;
   final String pluralTerm;
+  final String activeSectionLabel;
   final Set<String> frontingMemberIds;
 
   /// Threshold above which we switch to compact picker + search.
@@ -627,7 +634,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
                     ),
                     const SizedBox(width: 2),
                     Text(
-                      context.l10n.frontingFronting,
+                      widget.activeSectionLabel,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: AppColors.fronting(theme.brightness),
                         fontWeight: FontWeight.w600,

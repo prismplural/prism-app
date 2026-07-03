@@ -453,6 +453,7 @@ class _QuickFrontHomeBlock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final showInstruction = ref.watch(quickFrontHoldInstructionVisibleProvider);
+    final frontingTerms = watchFrontingTerms(ref);
     final labelStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
       fontWeight: FontWeight.w400,
@@ -480,7 +481,7 @@ class _QuickFrontHomeBlock extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        context.l10n.featureFrontingShowQuickFront,
+                        frontingTerms.quickAction,
                         style: labelStyle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -530,6 +531,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   @override
   Widget build(BuildContext context) {
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
     final pkState = ref.watch(pluralKitSyncProvider);
     final pkReady = pkState.canAutoSync && !pkState.isSyncing;
 
@@ -552,7 +554,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     menuItems.addAll([
       _MenuItem(
         icon: AppIcons.personOutline,
-        label: context.l10n.frontingMenuLogFront,
+        label: frontingTerms.logAction,
         onTap: (close) {
           close();
           _openAddSessionSheet(context);
@@ -560,7 +562,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       ),
       _MenuItem(
         icon: AppIcons.history,
-        label: context.l10n.frontingMenuLogPastSession,
+        label: frontingTerms.logPastAction,
         onTap: (close) {
           close();
           _openAddSessionSheet(context, initialHistorical: true);
@@ -637,7 +639,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       },
       child: PrismTopBarAction(
         icon: AppIcons.add,
-        tooltip: context.l10n.frontingAddEntry,
+        tooltip: frontingTerms.logAction,
         onPressed: () => _openAddSessionSheet(context),
         onLongPress: () => _popupKey.currentState?.show(),
         onSecondaryTap: () => _popupKey.currentState?.show(),

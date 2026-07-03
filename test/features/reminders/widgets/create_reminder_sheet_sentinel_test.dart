@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -14,6 +15,8 @@ import 'package:prism_plurality/features/reminders/widgets/create_reminder_sheet
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,8 +39,11 @@ Reminder _editingFrontChangeReminder() => Reminder(
 );
 
 Widget _buildTestWidget(List<Member> members) {
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allGroupsProvider.overrideWith(
         (ref) => Stream.value(const <MemberGroup>[]),

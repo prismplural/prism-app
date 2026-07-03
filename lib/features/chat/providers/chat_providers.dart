@@ -443,9 +443,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       return;
     }
 
-    throw StateError(
-      'Only a currently-fronting owner or admin can transfer ownership.',
-    );
+    throw StateError('Only a current owner or admin can transfer ownership.');
   }
 
   void _invalidateMemberConversationActivityFor(

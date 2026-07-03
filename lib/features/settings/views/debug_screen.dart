@@ -59,6 +59,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     final nodeIdAsync = ref.watch(nodeIdProvider);
     final pendingAsync = ref.watch(_pendingChangesCountProvider);
     final lastSyncTime = ref.watch(lastSyncTimeProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.debugTitle, showBackButton: true),
@@ -190,9 +191,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Collapse duplicate open fronting sessions down to one per '
-                  'member and merge overlapping same-member rows. Runs through '
-                  'the sync layer (peers converge) and is safe to run '
+                  'Collapse duplicate open '
+                  '${frontingTerms.sessionPlural.toLowerCase()} down to one '
+                  'per member and merge overlapping same-member rows. Runs '
+                  'through the sync layer (peers converge) and is safe to run '
                   'repeatedly.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -202,7 +204,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: 'Repair fronting sessions',
+                    label:
+                        'Repair ${frontingTerms.sessionPlural.toLowerCase()}',
                     icon: AppIcons.buildCircleOutlined,
                     tone: PrismButtonTone.outlined,
                     expanded: true,
@@ -506,6 +509,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   }
 
   Future<void> _repairFrontingSessions(BuildContext context) async {
+    final frontingTerms = readFrontingTerms(ref);
     setState(() => _isRepairingFronting = true);
     try {
       final result = await ref
@@ -520,10 +524,14 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               ? 'Repaired ${summary.membersAffected} member(s): closed '
                     '${summary.openDuplicatesClosed} duplicate open(s), merged '
                     '${summary.overlapsMerged} overlap(s).'
-              : 'No issues found — fronting sessions are already clean.',
+              : 'No issues found - '
+                    '${frontingTerms.sessionPlural.toLowerCase()} are already clean.',
         );
       } else {
-        PrismToast.error(context, message: 'Fronting repair failed.');
+        PrismToast.error(
+          context,
+          message: '${frontingTerms.featureLabel} repair failed.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isRepairingFronting = false);

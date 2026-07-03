@@ -83,6 +83,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
     final membersAsync = ref.watch(activeMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
 
@@ -132,7 +133,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                     enabled: !_saving,
                   ),
                   Text(
-                    context.l10n.frontingAddCoFrontersTitle,
+                    frontingTerms.addTogetherAction,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

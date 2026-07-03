@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -45,11 +46,13 @@ Uint8List _pngBytes() => base64Decode(
 Future<void> _pumpHeader(
   WidgetTester tester, {
   required AsyncValue<List<AlwaysPresentMember>> value,
+  FrontingTerms frontingTerms = FrontingTerms.unset,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         alwaysPresentMembersProvider.overrideWithValue(value),
+        frontingTermsSettingProvider.overrideWithValue(frontingTerms),
         terminologySettingProvider.overrideWithValue((
           term: SystemTerminology.headmates,
           customSingular: null,
@@ -96,7 +99,7 @@ void main() {
         );
 
         expect(find.text('Host'), findsOneWidget);
-        expect(find.text('Long-running · 14d 0h'), findsOneWidget);
+        expect(find.text('Long-running fronts · 14d 0h'), findsOneWidget);
         expect(find.textContaining('Always present'), findsNothing);
       },
     );
@@ -123,7 +126,26 @@ void main() {
       );
 
       expect(find.text('Host & Friend'), findsOneWidget);
-      expect(find.text('Long-running · 14d 0h'), findsOneWidget);
+      expect(find.text('Long-running fronts · 14d 0h'), findsOneWidget);
+    });
+
+    testWidgets('fronting terminology preset relabels pinned header', (
+      tester,
+    ) async {
+      final host = _member(id: 'host', name: 'Host');
+      await _pumpHeader(
+        tester,
+        frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
+        value: AsyncValue.data([
+          AlwaysPresentMember(
+            member: host,
+            session: _session('s1', 'host'),
+            age: const Duration(days: 14),
+          ),
+        ]),
+      );
+
+      expect(find.text('Long-running out sessions · 14d 0h'), findsOneWidget);
     });
 
     testWidgets(
@@ -171,6 +193,7 @@ void main() {
               (ref, memberId) =>
                   Stream.value(memberId == 'host' ? _pngBytes() : null),
             ),
+            frontingTermsSettingProvider.overrideWithValue(FrontingTerms.unset),
             terminologySettingProvider.overrideWithValue((
               term: SystemTerminology.headmates,
               customSingular: null,
@@ -229,6 +252,9 @@ void main() {
                       ? _pngBytes()
                       : null,
                 ),
+              ),
+              frontingTermsSettingProvider.overrideWithValue(
+                FrontingTerms.unset,
               ),
               terminologySettingProvider.overrideWithValue((
                 term: SystemTerminology.headmates,
@@ -327,9 +353,7 @@ void main() {
       );
 
       expect(
-        find.bySemanticsLabel(
-          'Long-running fronters: Host & Friend, 14d 0h. Double tap to view details.',
-        ),
+        find.bySemanticsLabel('Long-running fronts: Host & Friend, 14d 0h'),
         findsOneWidget,
       );
     });
@@ -353,6 +377,9 @@ void main() {
                       age: const Duration(days: 14),
                     ),
                   ]),
+                ),
+                frontingTermsSettingProvider.overrideWithValue(
+                  FrontingTerms.unset,
                 ),
                 terminologySettingProvider.overrideWithValue((
                   term: SystemTerminology.headmates,

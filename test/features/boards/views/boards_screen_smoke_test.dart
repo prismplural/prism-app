@@ -6,9 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/boards/views/boards_screen.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
@@ -17,6 +20,8 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 // ---------------------------------------------------------------------------
 // Fake notifiers
@@ -93,10 +98,17 @@ Widget _buildBoardsScreen({
   int inboxBadge = 0,
   VoidCallback? onPublicFeedBuilt,
   VoidCallback? onInboxFeedBuilt,
+  FrontingTerms? frontingTerms,
 }) {
   final fronters = currentFronters ?? activeMembers;
+  final appPrefs = FakeAppPreferenceRepository();
+  if (frontingTerms != null) {
+    appPrefs.seed(frontingTermsPreference, frontingTerms);
+  }
+  addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings(boardsEnabled: true)),
       ),
@@ -298,6 +310,24 @@ void main() {
         );
       },
     );
+
+    testWidgets('inbox empty state follows fronting terminology preset', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildBoardsScreen(
+          activeMembers: const [],
+          frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Inbox'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining("No one's out right now"), findsOneWidget);
+      expect(find.textContaining("No one's fronting right now"), findsNothing);
+    });
 
     testWidgets('inbox shows all-members filter when members are active', (
       tester,

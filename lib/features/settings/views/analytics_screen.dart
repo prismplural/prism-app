@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
@@ -31,6 +32,7 @@ class AnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsAsync = ref.watch(frontingAnalyticsProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -53,7 +55,7 @@ class AnalyticsScreen extends ConsumerWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'No fronting sessions in this date range',
+                        'No ${frontingTerms.sessionPlural.toLowerCase()} in this date range',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -62,7 +64,10 @@ class AnalyticsScreen extends ConsumerWidget {
                     ),
                   );
                 }
-                return _AnalyticsBody(analytics: analytics);
+                return _AnalyticsBody(
+                  analytics: analytics,
+                  frontingTerms: frontingTerms,
+                );
               },
             ),
           ),
@@ -73,14 +78,14 @@ class AnalyticsScreen extends ConsumerWidget {
 }
 
 class _AnalyticsBody extends ConsumerWidget {
-  const _AnalyticsBody({required this.analytics});
+  const _AnalyticsBody({required this.analytics, required this.frontingTerms});
 
   final FrontingAnalytics analytics;
+  final FrontingTermBundle frontingTerms;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
 
     // Previous period and insights load independently — degrade gracefully.
     final previousPeriod = ref
@@ -144,7 +149,7 @@ class _AnalyticsBody extends ConsumerWidget {
                         ),
                         _OverviewStat(
                           label: context.l10n.statisticsUniqueFrontersLabel(
-                            terms.plural,
+                            frontingTerms.activePluralLabel,
                           ),
                           value: '${analytics.uniqueFronters}',
                           priorLabel: previousPeriod != null

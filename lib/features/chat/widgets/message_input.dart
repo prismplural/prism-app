@@ -183,6 +183,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     List<Member> candidates,
     Set<String> fronterIds,
     String termPlural,
+    String frontingSectionLabel,
   ) {
     if (_askEachTimePrompted) return;
     if (mode != ComposerDefaultMember.askEachTime) return;
@@ -196,7 +197,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         members: candidates,
         termPlural: termPlural,
         fronterIds: fronterIds,
-        fronterSectionLabel: context.l10n.memberPickerFrontingSectionLabel,
+        fronterSectionLabel: frontingSectionLabel,
       );
       if (!mounted || result is! MemberSearchResultSelected) return;
       ref.read(speakingAsProvider.notifier).setMember(result.memberId);
@@ -790,6 +791,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             .whenOrNull(data: (v) => v) ??
         false;
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
 
     final members = membersAsync.value ?? [];
     final conversation = conversationAsync.value;
@@ -831,6 +833,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       speakingAsCandidates,
       fronterIds,
       terms.plural,
+      frontingTerms.activeSectionLabel,
     );
 
     final rawMatch = useProxyTags ? matchProxyTag(_lastText, members) : null;
@@ -928,8 +931,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     groupsBuilder: () =>
                         readMemberSearchGroups(ref, speakingAsCandidates),
                     fronterIds: fronterIds,
-                    fronterSectionLabel:
-                        context.l10n.memberPickerFrontingSectionLabel,
+                    fronterSectionLabel: frontingTerms.activeSectionLabel,
                     onMemberSelected: (memberId) => ref
                         .read(speakingAsProvider.notifier)
                         .setMember(memberId),

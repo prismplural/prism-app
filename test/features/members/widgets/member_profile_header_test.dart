@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -42,13 +44,19 @@ Member _member({
   pkBannerCachedUrl: pkBannerCachedUrl,
 );
 
-Widget _wrap(Widget child) => ProviderScope(
-  child: MaterialApp(
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
-    supportedLocales: const [Locale('en')],
-    home: Scaffold(body: SingleChildScrollView(child: child)),
-  ),
-);
+Widget _wrap(Widget child, {FrontingTerms? frontingTerms}) {
+  return ProviderScope(
+    overrides: [
+      if (frontingTerms != null)
+        frontingTermsSettingProvider.overrideWithValue(frontingTerms),
+    ],
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('en')],
+      home: Scaffold(body: SingleChildScrollView(child: child)),
+    ),
+  );
+}
 
 Finder get _headerImages => find.byWidgetPredicate(
   (widget) => widget is Image && widget.semanticLabel == 'Alice profile header',
@@ -148,6 +156,23 @@ void main() {
     expect(pronounText.maxLines, 2);
     expect(pronounText.overflow, TextOverflow.ellipsis);
     expect(tester.getSize(find.text(pronouns)).height, greaterThan(16));
+  });
+
+  testWidgets('fronting chip follows fronting terminology preset', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: MemberProfileHeader(member: _member(), isFronting: true),
+        ),
+        frontingTerms: const FrontingTerms.preset(FrontingTermPreset.online),
+      ),
+    );
+
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.text('Fronting'), findsNothing);
   });
 
   testWidgets(

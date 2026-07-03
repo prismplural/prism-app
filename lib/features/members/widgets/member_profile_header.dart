@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/utils/member_name_style.dart';
 import 'package:prism_plurality/features/members/utils/member_profile_header_resolver.dart';
@@ -380,6 +381,7 @@ class _MemberHeaderMetadata extends ConsumerWidget {
     final secondary = secondaryColor ?? theme.colorScheme.onSurfaceVariant;
     final birthday = _birthdayDisplay(context, member);
     final shadows = applyTextShadow ? _onImageShadows : null;
+    final frontingTerms = watchFrontingTerms(ref);
 
     final namePresentation = ref.watch(memberNamePresentationProvider);
     final primaryTitle = primaryNameFor(member, namePresentation);
@@ -421,6 +423,7 @@ class _MemberHeaderMetadata extends ConsumerWidget {
       pronouns: pronounsInline ? null : pronouns,
       birthday: birthday,
       shadows: shadows,
+      frontingLabel: frontingTerms.activeSectionLabel,
     );
 
     final title = Text.rich(
@@ -476,6 +479,7 @@ class _MemberHeaderMetadata extends ConsumerWidget {
     required String? pronouns,
     required String? birthday,
     required List<Shadow>? shadows,
+    required String frontingLabel,
   }) {
     final chips = <Widget>[];
 
@@ -518,7 +522,7 @@ class _MemberHeaderMetadata extends ConsumerWidget {
       chips.add(
         _Chip(
           icon: AppIcons.flashOn,
-          label: context.l10n.memberFrontingChip,
+          label: frontingLabel,
           backgroundColor: AppColors.fronting(
             theme.brightness,
           ).withValues(alpha: 0.15),

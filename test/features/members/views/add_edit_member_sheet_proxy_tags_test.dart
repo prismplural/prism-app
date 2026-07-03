@@ -16,6 +16,8 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
+import '../../../helpers/fake_repositories.dart';
+
 class _FakeMemberRepository implements MemberRepository {
   _FakeMemberRepository(this.member);
 
@@ -53,11 +55,13 @@ class _FakeMemberRepository implements MemberRepository {
 
   // Stub: not exercised by this test file.
   @override
-  Future<int> excludePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> excludePluralKitSync(String id) async =>
+      throw UnimplementedError();
 
   // Stub: not exercised by this test file.
   @override
-  Future<int> resumePluralKitSync(String id) async => throw UnimplementedError();
+  Future<int> resumePluralKitSync(String id) async =>
+      throw UnimplementedError();
 
   @override
   Future<List<Member>> getAllMembers() async => [member];
@@ -125,6 +129,8 @@ void main() {
       createdAt: DateTime(2026, 1, 1),
     );
     final repo = _FakeMemberRepository(member);
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -132,6 +138,7 @@ void main() {
           // §4 verifiedStartupKeyProvider throws by default; widget tests
           // don't run the boot probe.
           verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
           memberRepositoryProvider.overrideWithValue(repo),
           customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
           terminologySettingProvider.overrideWithValue((
@@ -203,6 +210,8 @@ void main() {
       createdAt: DateTime(2026, 1, 1),
     );
     final repo = _FakeMemberRepository(member);
+    final appPrefs = FakeAppPreferenceRepository();
+    addTearDown(appPrefs.close);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -210,6 +219,7 @@ void main() {
           // §4 verifiedStartupKeyProvider throws by default; widget tests
           // don't run the boot probe.
           verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+          appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
           memberRepositoryProvider.overrideWithValue(repo),
           customFieldsProvider.overrideWithValue(const AsyncValue.data([])),
           terminologySettingProvider.overrideWithValue((

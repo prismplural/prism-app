@@ -627,6 +627,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     }
 
     final l10n = context.l10n;
+    final frontingTerms = watchFrontingTerms(ref);
     final fronterMembers = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
 
@@ -663,7 +664,8 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
                 ? EmptyState(
                     icon: Icon(AppIcons.forum),
                     title: l10n.boardsTabInbox,
-                    subtitle: l10n.boardsComposeNoFronterHint,
+                    subtitle:
+                        '${frontingTerms.emptyCurrentState} right now - start a session to post.',
                   )
                 : EmptyState(
                     icon: Icon(AppIcons.forum),

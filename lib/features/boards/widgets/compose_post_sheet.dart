@@ -419,6 +419,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     );
     final members = ref.read(userVisibleMemberListProvider).value ?? [];
     final groups = readMemberSearchGroups(ref, members);
+    final frontingTerms = readFrontingTerms(ref);
     final fronterIds =
         ref
             .read(activeSessionsProvider)
@@ -433,7 +434,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
       termPlural: terms.plural,
       groups: groups,
       fronterIds: fronterIds,
-      fronterSectionLabel: context.l10n.memberPickerFrontingSectionLabel,
+      fronterSectionLabel: frontingTerms.activeSectionLabel,
     );
     if (!mounted) return;
     if (result is MemberSearchResultSelected) {

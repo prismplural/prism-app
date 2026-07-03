@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/features/reminders/views/reminders_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 class _FakeRemindersNotifier extends RemindersNotifier {
   final toggled = <String>[];
@@ -44,8 +47,11 @@ Widget _buildSubject(
   _FakeRemindersNotifier? notifier,
   bool alwaysUse24HourFormat = false,
 }) {
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       remindersProvider.overrideWith((ref) => Stream.value(reminders)),
       if (notifier != null)
         remindersNotifierProvider.overrideWith(() => notifier),

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
@@ -67,6 +68,7 @@ class _MemberTilePrefs {
     required this.frontButtonBehavior,
     required this.frontingActionBusy,
     required this.namePresentation,
+    required this.frontingTerms,
   });
 
   final bool showPronouns;
@@ -77,6 +79,7 @@ class _MemberTilePrefs {
   /// Name presentation preference resolved once per build so each tile renders
   /// names without watching the setting itself.
   final MemberNamePresentation namePresentation;
+  final FrontingTermBundle frontingTerms;
 }
 
 /// Main member list screen.
@@ -161,6 +164,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   Widget _buildOptionsMenuAction(
     List<Member>? members,
     Terminology terms,
+    FrontingTermBundle frontingTerms,
     bool showInactive,
   ) {
     final l10n = context.l10n;
@@ -283,7 +287,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         (ctx, close) => _buildSortMenuRow(
           context: ctx,
           icon: AppIcons.flashOn,
-          label: ctx.l10n.memberSortMostFronting,
+          label: frontingTerms.mostActiveSortLabel,
           onTap: () {
             close();
             _reorderByFronting(availableMembers, descending: true);
@@ -292,7 +296,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         (ctx, close) => _buildSortMenuRow(
           context: ctx,
           icon: AppIcons.frontHandOutlined,
-          label: ctx.l10n.memberSortLeastFronting,
+          label: frontingTerms.leastActiveSortLabel,
           onTap: () {
             close();
             _reorderByFronting(availableMembers, descending: false);
@@ -634,6 +638,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         : _displayMembers(membersAsync.value!);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final terms = watchFullTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(ref);
 
     // Build a set of currently-fronting member IDs.
     final frontingIds =
@@ -659,6 +664,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       frontButtonBehavior: frontButtonBehavior,
       frontingActionBusy: frontingActionBusy,
       namePresentation: namePresentation,
+      frontingTerms: frontingTerms,
     );
     final showGroups = ref.watch(membersShowGroupsProvider);
     final showGroupedSections = viewMode == MembersListViewMode.groupedSections;
@@ -701,7 +707,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                   tooltip: context.l10n.terminologyAddButton(terms.singular),
                   onPressed: _openAddSheet,
                 ),
-                _buildOptionsMenuAction(menuMembers, terms, showInactive),
+                _buildOptionsMenuAction(
+                  menuMembers,
+                  terms,
+                  frontingTerms,
+                  showInactive,
+                ),
               ],
             ),
             bodyPadding: EdgeInsets.zero,
@@ -1277,17 +1288,20 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     int? reorderIndex,
   }) {
     final theme = Theme.of(context);
-    final actions = _memberContextActions(member, isFronting);
+    final actions = _memberContextActions(
+      member,
+      isFronting,
+      memberTilePrefs.frontingTerms,
+    );
     final resolvedName = primaryNameFor(
       member,
       memberTilePrefs.namePresentation,
     );
     final frontButtonLabel = switch (memberTilePrefs.frontButtonBehavior) {
-      FrontStartBehavior.additive => context.l10n.memberFrontButtonAddSemantic(
-        resolvedName,
-      ),
+      FrontStartBehavior.additive =>
+        '${memberTilePrefs.frontingTerms.addAction}: $resolvedName',
       FrontStartBehavior.replace =>
-        context.l10n.memberFrontButtonReplaceSemantic(resolvedName),
+        '${memberTilePrefs.frontingTerms.replaceCurrentAction}: $resolvedName',
     };
 
     return BlurPopupAnchor(
@@ -1330,7 +1344,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           children: [
             if (isFronting) ...[
               PrismPill(
-                label: context.l10n.memberFrontingChip,
+                label: memberTilePrefs.frontingTerms.activeSectionLabel,
                 icon: AppIcons.flashOn,
                 color: AppColors.fronting(theme.brightness),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1369,11 +1383,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   List<_MemberContextAction> _memberContextActions(
     Member member,
     bool isFronting,
+    FrontingTermBundle frontingTerms,
   ) {
     return [
       if (!isFronting)
         _MemberContextAction(
-          label: context.l10n.memberSetAsFronter,
+          label: frontingTerms.setAsAction,
           icon: AppIcons.flashOn,
           onSelected: () => _startFronting(member),
         ),
@@ -1438,13 +1453,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           await notifier.replaceFronting([member.id]);
       }
       if (!mounted) return;
+      final frontingTerms = readFrontingTerms(ref);
       PrismToast.show(
         context,
-        message: context.l10n.memberIsFronting(
-          member.effectiveName(
-            preferDisplayName: ref.read(memberNamePreferDisplayProvider),
-          ),
-        ),
+        message:
+            '${member.effectiveName(preferDisplayName: ref.read(memberNamePreferDisplayProvider))} '
+            'is ${frontingTerms.currentlyActivePhrase}.',
       );
     } catch (e) {
       if (!mounted) return;

@@ -21,6 +21,7 @@ Widget _buildSubject({
             memberFrontingHistoryTitleForWidth(
               context: context,
               memberName: memberName,
+              sessionPlural: 'Fronting sessions',
             ),
           );
           return const SizedBox.shrink();
@@ -38,13 +39,13 @@ void main() {
 
     await tester.pumpWidget(
       _buildSubject(
-        width: 520,
+        width: 720,
         memberName: 'Alex',
         onTitle: (value) => title = value,
       ),
     );
 
-    expect(title, "Alex's Sessions");
+    expect(title, "Alex's Fronting sessions");
   });
 
   testWidgets('member history title falls back to name when suffix overflows', (

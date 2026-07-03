@@ -17,6 +17,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
@@ -35,6 +36,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -76,6 +78,7 @@ Widget _buildSubject({
   List<CustomFieldValue> customFieldValues = const [],
   _FakeFrontingNotifier? frontingNotifier,
   _FakeMembersNotifier? membersNotifier,
+  FrontingTerms? frontingTerms,
   void Function(FakeAppPreferenceRepository appPrefs)? seedAppPreferences,
   bool withRouter = false,
   Set<String>? customFieldValueMemberIds,
@@ -199,6 +202,8 @@ Widget _buildSubject({
         frontingNotifierProvider.overrideWith(() => frontingNotifier),
       if (membersNotifier != null)
         membersNotifierProvider.overrideWith(() => membersNotifier),
+      if (frontingTerms != null)
+        frontingTermsSettingProvider.overrideWithValue(frontingTerms),
       allGroupsProvider.overrideWith((ref) => Stream.value(groups)),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(entries)),
       groupByIdProvider.overrideWith((ref, groupId) {
@@ -1179,11 +1184,13 @@ void main() {
 
     expect(find.text('Front buttons'), findsOneWidget);
     expect(
-      find.text('Show a direct front action next to each member in the list.'),
+      find.text(
+        'Show a direct fronting action next to each member in the list.',
+      ),
       findsOneWidget,
     );
-    expect(find.text('Add'), findsOneWidget);
-    expect(find.text('Replace'), findsOneWidget);
+    expect(find.text('Add as fronter'), findsOneWidget);
+    expect(find.text('Replace current fronters'), findsOneWidget);
   });
 
   testWidgets('member rows hide pronouns when disabled in view settings', (
@@ -1547,7 +1554,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Add Member alice to front'));
+    await tester.tap(find.byTooltip('Add as fronter: Member alice'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
 
@@ -1575,7 +1582,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Replace front with Member alice'));
+    await tester.tap(find.byTooltip('Replace current fronters: Member alice'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
 
@@ -1608,7 +1615,61 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Fronting'), findsOneWidget);
-    expect(find.byTooltip('Add Member alice to front'), findsNothing);
+    expect(find.byTooltip('Add as fronter: Member alice'), findsNothing);
+  });
+
+  testWidgets('fronting terminology preset updates member list labels', (
+    tester,
+  ) async {
+    final members = [_member('alice'), _member('bob', displayOrder: 1)];
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: members,
+        groups: const [],
+        entries: const [],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+        frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Out'), findsOneWidget);
+    expect(find.byTooltip('Mark out: Member bob'), findsOneWidget);
+
+    await tester.longPress(find.text('Member bob'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mark out'), findsOneWidget);
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(AppIcons.moreVert));
+    await tester.pumpAndSettle();
+    expect(find.text('Most out'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Least out'),
+      80,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Least out'), findsOneWidget);
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(AppIcons.moreVert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Out buttons'), findsOneWidget);
+    expect(find.text('Show out buttons'), findsOneWidget);
   });
 
   testWidgets('long-press set as fronter follows replace preference', (

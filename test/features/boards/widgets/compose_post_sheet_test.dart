@@ -21,6 +21,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -32,6 +33,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/markdown_image_button.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -185,6 +187,7 @@ Member _member(String id, String name) =>
 
 final _alice = _member('alice', 'Alice');
 final _bob = _member('bob', 'Bob');
+final _charlie = _member('charlie', 'Charlie');
 
 // ---------------------------------------------------------------------------
 // Widget builder
@@ -206,6 +209,7 @@ Widget _buildSubject({
   List<FrontingSession> activeSessions = const [],
   ComposerDefaultMember composerDefaultMember =
       ComposerDefaultMember.latestFronter,
+  FrontingTerms? frontingTerms,
 }) {
   final repoPostMap = repoPost != null
       ? {repoPost.id: repoPost}
@@ -215,6 +219,8 @@ Widget _buildSubject({
 
   return ProviderScope(
     overrides: [
+      if (frontingTerms != null)
+        frontingTermsSettingProvider.overrideWithValue(frontingTerms),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -483,6 +489,36 @@ void main() {
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
       expect(find.text('Who is posting?'), findsOneWidget);
+    });
+
+    testWidgets('author picker current section follows fronting terms', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice, _bob, _charlie],
+          speakingAs: 'alice',
+          activeSessions: [
+            FrontingSession(
+              id: 'front-alice',
+              memberId: 'alice',
+              startTime: _now,
+            ),
+            FrontingSession(id: 'front-bob', memberId: 'bob', startTime: _now),
+          ],
+          frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
+        ),
+      );
+      await _openSheet(tester);
+
+      await tester.tap(
+        find.byKey(const ValueKey('boards.compose.authorSelector')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+      expect(find.text('Out'), findsOneWidget);
+      expect(find.text('Fronting'), findsNothing);
     });
 
     testWidgets(

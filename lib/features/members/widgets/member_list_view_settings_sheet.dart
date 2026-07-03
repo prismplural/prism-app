@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
@@ -22,14 +23,14 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final showGroups = ref.watch(membersShowGroupsProvider);
-    final hasGroups =
-        ref.watch(allGroupsProvider).value?.isNotEmpty ?? false;
+    final hasGroups = ref.watch(allGroupsProvider).value?.isNotEmpty ?? false;
     final viewMode = ref.watch(membersListViewModeProvider);
     final groupedDefault = ref.watch(membersGroupedDefaultStateProvider);
     final folderVisibility = ref.watch(membersFolderMemberVisibilityProvider);
     final showPronouns = ref.watch(membersShowPronounsProvider);
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
+    final frontingTerms = watchFrontingTerms(ref);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -71,115 +72,115 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                             children: [
                               _SettingsSection(
                                 title: l10n.memberListViewModeLabel,
-                                description:
-                                    l10n.memberListViewModeDescription,
-                                child: PrismSegmentedControl<
-                                  MembersListViewMode
-                                >(
-                                  selected: viewMode,
-                                  onChanged: (mode) {
-                                    ref
-                                        .read(
-                                          settingsNotifierProvider.notifier,
-                                        )
-                                        .updateMembersListViewMode(mode);
-                                  },
-                                  segments: [
-                                    PrismSegment(
-                                      value:
-                                          MembersListViewMode.groupedSections,
-                                      label: l10n
-                                          .memberListViewModeGroupedSections,
+                                description: l10n.memberListViewModeDescription,
+                                child:
+                                    PrismSegmentedControl<MembersListViewMode>(
+                                      selected: viewMode,
+                                      onChanged: (mode) {
+                                        ref
+                                            .read(
+                                              settingsNotifierProvider.notifier,
+                                            )
+                                            .updateMembersListViewMode(mode);
+                                      },
+                                      segments: [
+                                        PrismSegment(
+                                          value: MembersListViewMode
+                                              .groupedSections,
+                                          label: l10n
+                                              .memberListViewModeGroupedSections,
+                                        ),
+                                        PrismSegment(
+                                          value: MembersListViewMode.folders,
+                                          label: l10n.memberListViewModeFolders,
+                                        ),
+                                      ],
                                     ),
-                                    PrismSegment(
-                                      value: MembersListViewMode.folders,
-                                      label: l10n.memberListViewModeFolders,
-                                    ),
-                                  ],
-                                ),
                               ),
                               const SizedBox(height: 24),
                               if (viewMode ==
                                   MembersListViewMode.groupedSections)
                                 _SettingsSection(
-                                  title:
-                                      l10n.memberGroupedDefaultStateLabel,
-                                  description: l10n
-                                      .memberGroupedDefaultStateDescription,
-                                  child: PrismSegmentedControl<
-                                    MembersGroupedDefaultState
-                                  >(
-                                    selected: groupedDefault,
-                                    onChanged: (state) {
-                                      ref
-                                          .read(
-                                            settingsNotifierProvider.notifier,
-                                          )
-                                          .updateMembersGroupedDefaultState(
-                                            state,
+                                  title: l10n.memberGroupedDefaultStateLabel,
+                                  description:
+                                      l10n.memberGroupedDefaultStateDescription,
+                                  child:
+                                      PrismSegmentedControl<
+                                        MembersGroupedDefaultState
+                                      >(
+                                        selected: groupedDefault,
+                                        onChanged: (state) {
+                                          ref
+                                              .read(
+                                                settingsNotifierProvider
+                                                    .notifier,
+                                              )
+                                              .updateMembersGroupedDefaultState(
+                                                state,
+                                              );
+                                          final collapsed = ref.read(
+                                            collapsedGroupsProvider.notifier,
                                           );
-                                      final collapsed = ref.read(
-                                        collapsedGroupsProvider.notifier,
-                                      );
-                                      switch (state) {
-                                        case MembersGroupedDefaultState.open:
-                                          collapsed.expandAll();
-                                        case MembersGroupedDefaultState
-                                              .closed:
-                                          collapsed.collapseAll();
-                                      }
-                                    },
-                                    segments: [
-                                      PrismSegment(
-                                        value:
-                                            MembersGroupedDefaultState.open,
-                                        label: l10n
-                                            .memberGroupedDefaultStateOpen,
+                                          switch (state) {
+                                            case MembersGroupedDefaultState
+                                                .open:
+                                              collapsed.expandAll();
+                                            case MembersGroupedDefaultState
+                                                .closed:
+                                              collapsed.collapseAll();
+                                          }
+                                        },
+                                        segments: [
+                                          PrismSegment(
+                                            value:
+                                                MembersGroupedDefaultState.open,
+                                            label: l10n
+                                                .memberGroupedDefaultStateOpen,
+                                          ),
+                                          PrismSegment(
+                                            value: MembersGroupedDefaultState
+                                                .closed,
+                                            label: l10n
+                                                .memberGroupedDefaultStateClosed,
+                                          ),
+                                        ],
                                       ),
-                                      PrismSegment(
-                                        value:
-                                            MembersGroupedDefaultState.closed,
-                                        label: l10n
-                                            .memberGroupedDefaultStateClosed,
-                                      ),
-                                    ],
-                                  ),
                                 )
                               else
                                 _SettingsSection(
                                   title: l10n.memberFolderVisibilityLabel,
                                   description:
                                       l10n.memberFolderVisibilityDescription,
-                                  child: PrismSegmentedControl<
-                                    MembersFolderMemberVisibility
-                                  >(
-                                    selected: folderVisibility,
-                                    onChanged: (visibility) {
-                                      ref
-                                          .read(
-                                            settingsNotifierProvider.notifier,
-                                          )
-                                          .updateMembersFolderMemberVisibility(
-                                            visibility,
-                                          );
-                                    },
-                                    segments: [
-                                      PrismSegment(
-                                        value:
-                                            MembersFolderMemberVisibility
+                                  child:
+                                      PrismSegmentedControl<
+                                        MembersFolderMemberVisibility
+                                      >(
+                                        selected: folderVisibility,
+                                        onChanged: (visibility) {
+                                          ref
+                                              .read(
+                                                settingsNotifierProvider
+                                                    .notifier,
+                                              )
+                                              .updateMembersFolderMemberVisibility(
+                                                visibility,
+                                              );
+                                        },
+                                        segments: [
+                                          PrismSegment(
+                                            value: MembersFolderMemberVisibility
                                                 .allMembers,
-                                        label:
-                                            l10n.memberFolderVisibilityAll,
-                                      ),
-                                      PrismSegment(
-                                        value:
-                                            MembersFolderMemberVisibility
+                                            label:
+                                                l10n.memberFolderVisibilityAll,
+                                          ),
+                                          PrismSegment(
+                                            value: MembersFolderMemberVisibility
                                                 .ungroupedOnly,
-                                        label: l10n
-                                            .memberFolderVisibilityUngrouped,
+                                            label: l10n
+                                                .memberFolderVisibilityUngrouped,
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
                                 ),
                               const SizedBox(height: 24),
                             ],
@@ -189,15 +190,17 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                           ),
                   ),
                   _SettingsSection(
-                    title: l10n.memberFrontButtonsLabel,
+                    title: frontingTerms.directButtonLabel,
                     description: showFrontButtons
-                        ? l10n.memberFrontButtonsDescription
+                        ? 'Show a direct ${frontingTerms.featureLower} action next to each member in the list.'
                         : null,
                     child: Column(
                       children: [
                         PrismSwitchRow(
-                          title: l10n.memberFrontButtonsToggle,
-                          subtitle: l10n.memberFrontButtonsToggleDescription,
+                          title:
+                              'Show ${frontingTerms.directButtonLabel.toLowerCase()}',
+                          subtitle:
+                              'Adds ${frontingTerms.directButtonLabel.toLowerCase()} to rows that are not ${frontingTerms.currentlyActivePhrase}.',
                           value: showFrontButtons,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           onChanged: (value) {
@@ -214,30 +217,34 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                                   padding: const EdgeInsets.only(top: 12),
                                   child: _LabeledControl(
                                     label: l10n.memberFrontButtonBehaviorLabel,
-                                    child: PrismSegmentedControl<FrontStartBehavior>(
-                                      selected: frontButtonBehavior,
-                                      onChanged: (behavior) {
-                                        ref
-                                            .read(
-                                              settingsNotifierProvider.notifier,
-                                            )
-                                            .updateMembersFrontButtonBehavior(
-                                              behavior,
-                                            );
-                                      },
-                                      segments: [
-                                        PrismSegment(
-                                          value: FrontStartBehavior.additive,
-                                          label:
-                                              l10n.memberFrontButtonBehaviorAdd,
+                                    child:
+                                        PrismSegmentedControl<
+                                          FrontStartBehavior
+                                        >(
+                                          selected: frontButtonBehavior,
+                                          onChanged: (behavior) {
+                                            ref
+                                                .read(
+                                                  settingsNotifierProvider
+                                                      .notifier,
+                                                )
+                                                .updateMembersFrontButtonBehavior(
+                                                  behavior,
+                                                );
+                                          },
+                                          segments: [
+                                            PrismSegment(
+                                              value:
+                                                  FrontStartBehavior.additive,
+                                              label: frontingTerms.addAction,
+                                            ),
+                                            PrismSegment(
+                                              value: FrontStartBehavior.replace,
+                                              label: frontingTerms
+                                                  .replaceCurrentAction,
+                                            ),
+                                          ],
                                         ),
-                                        PrismSegment(
-                                          value: FrontStartBehavior.replace,
-                                          label: l10n
-                                              .memberFrontButtonBehaviorReplace,
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 )
                               : const SizedBox.shrink(),

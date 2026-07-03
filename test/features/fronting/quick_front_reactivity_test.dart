@@ -7,12 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/quick_front_hint_provider.dart';
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -81,6 +83,7 @@ Widget _harness({
 }) {
   return ProviderScope(
     overrides: [
+      frontingTermsSettingProvider.overrideWithValue(FrontingTerms.unset),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       quickFrontCandidateMembersProvider.overrideWith(
         (ref) => Stream.value(
