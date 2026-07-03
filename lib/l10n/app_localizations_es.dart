@@ -6270,6 +6270,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get habitsCreateHabitTooltip => 'Crear hábito';
 
   @override
+  String get habitsFilterTooltip => 'Filtros de hábitos';
+
+  @override
+  String get habitsShowDeactivated => 'Mostrar hábitos desactivados';
+
+  @override
+  String get habitsShowCompleted => 'Mostrar hábitos completados';
+
+  @override
   String get habitsEmptyTitle => 'Aún no hay hábitos';
 
   @override

@@ -14,7 +14,9 @@ import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart'
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/habit_detail_screen.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -51,6 +53,7 @@ class HabitsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final habitsAsync = ref.watch(habitsProvider);
+    final showCompletedHabits = ref.watch(showCompletedHabitsProvider);
     final todayAsync = ref.watch(todayCompletionsProvider);
     final allCompletionsAsync = ref.watch(allCompletionsProvider);
     final weeklyAsync = ref.watch(weeklyCompletionsProvider);
@@ -112,6 +115,7 @@ class HabitsListScreen extends ConsumerWidget {
                 SliverPinnedTopBar(
                   child: PrismTopBar(
                     title: context.l10n.habitsListTitle,
+                    leading: const _HabitsVisibilityMenu(),
                     trailing: PrismTopBarAction(
                       icon: AppIcons.add,
                       tooltip: context.l10n.habitsCreateHabitTooltip,
@@ -141,6 +145,7 @@ class HabitsListScreen extends ConsumerWidget {
                       onTap: (h) => _openHabit(context, h),
                       onQuickComplete: (h) =>
                           _showCompleteSheet(context, ref, h),
+                      showCompleteSection: showCompletedHabits,
                     ),
                   if (upcoming.isNotEmpty)
                     _HabitSection(
@@ -284,12 +289,74 @@ class _HabitSection extends StatelessWidget {
                 todayCompletions: completions,
                 weeklyCompletions: weeklyByHabit[habit.id] ?? const [],
                 isCompletedToday: isCompleted,
-                onQuickComplete: () => onQuickComplete(habit),
+                onQuickComplete: habit.isActive
+                    ? () => onQuickComplete(habit)
+                    : null,
               ),
             );
           },
         ),
       ],
+    );
+  }
+}
+
+class _HabitsVisibilityMenu extends ConsumerStatefulWidget {
+  const _HabitsVisibilityMenu();
+
+  @override
+  ConsumerState<_HabitsVisibilityMenu> createState() =>
+      _HabitsVisibilityMenuState();
+}
+
+class _HabitsVisibilityMenuState extends ConsumerState<_HabitsVisibilityMenu> {
+  final GlobalKey<BlurPopupAnchorState> _popupKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final showDeactivated = ref.watch(showDeactivatedHabitsProvider);
+    final showCompleted = ref.watch(showCompletedHabitsProvider);
+    final l10n = context.l10n;
+
+    return BlurPopupAnchor(
+      key: _popupKey,
+      trigger: BlurPopupTrigger.manual,
+      preferredDirection: BlurPopupDirection.down,
+      width: 280,
+      maxHeight: 176,
+      itemCount: 2,
+      semanticLabel: l10n.habitsFilterTooltip,
+      itemBuilder: (context, index, close) {
+        final title = switch (index) {
+          0 => l10n.habitsShowDeactivated,
+          _ => l10n.habitsShowCompleted,
+        };
+        final value = switch (index) {
+          0 => showDeactivated,
+          _ => showCompleted,
+        };
+        return PrismSwitchRow(
+          title: title,
+          value: value,
+          icon: value ? AppIcons.visibility : AppIcons.visibilityOff,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          onChanged: (value) {
+            switch (index) {
+              case 0:
+                ref.read(showDeactivatedHabitsProvider.notifier).set(value);
+              default:
+                ref.read(showCompletedHabitsProvider.notifier).set(value);
+            }
+            close();
+          },
+        );
+      },
+      child: PrismTopBarAction(
+        icon: AppIcons.filterList,
+        tooltip: l10n.habitsFilterTooltip,
+        onPressed: () => _popupKey.currentState?.show(),
+        onSecondaryTap: () => _popupKey.currentState?.show(),
+      ),
     );
   }
 }

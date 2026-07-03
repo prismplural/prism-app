@@ -10389,6 +10389,24 @@ abstract class AppLocalizations {
   /// **'Create habit'**
   String get habitsCreateHabitTooltip;
 
+  /// Tooltip for the filter menu button in the habits list
+  ///
+  /// In en, this message translates to:
+  /// **'Habit filters'**
+  String get habitsFilterTooltip;
+
+  /// Toggle label in the habits list filter menu
+  ///
+  /// In en, this message translates to:
+  /// **'Show Deactivated Habits'**
+  String get habitsShowDeactivated;
+
+  /// Toggle label in the habits list filter menu
+  ///
+  /// In en, this message translates to:
+  /// **'Show Completed Habits'**
+  String get habitsShowCompleted;
+
   /// Empty state title on habits list
   ///
   /// In en, this message translates to:

@@ -8306,6 +8306,18 @@
   "@habitsCreateHabitTooltip": {
     "description": "Tooltip for the create habit button in the habits list"
   },
+  "habitsFilterTooltip": "Habit filters",
+  "@habitsFilterTooltip": {
+    "description": "Tooltip for the filter menu button in the habits list"
+  },
+  "habitsShowDeactivated": "Show Deactivated Habits",
+  "@habitsShowDeactivated": {
+    "description": "Toggle label in the habits list filter menu"
+  },
+  "habitsShowCompleted": "Show Completed Habits",
+  "@habitsShowCompleted": {
+    "description": "Toggle label in the habits list filter menu"
+  },
   "habitsEmptyTitle": "No habits yet",
   "@habitsEmptyTitle": {
     "description": "Empty state title on habits list"

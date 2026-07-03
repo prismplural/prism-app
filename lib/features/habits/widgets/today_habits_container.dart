@@ -43,6 +43,7 @@ class TodayHabitsContainer extends ConsumerStatefulWidget {
     required this.weeklyByHabit,
     required this.onTap,
     required this.onQuickComplete,
+    this.showCompleteSection = true,
   });
 
   /// Habits that are due today and NOT yet completed.
@@ -56,6 +57,7 @@ class TodayHabitsContainer extends ConsumerStatefulWidget {
   final Map<String, List<HabitCompletion>> weeklyByHabit;
   final void Function(Habit) onTap;
   final Future<void> Function(Habit) onQuickComplete;
+  final bool showCompleteSection;
 
   @override
   ConsumerState<TodayHabitsContainer> createState() =>
@@ -138,7 +140,7 @@ class _TodayHabitsContainerState extends ConsumerState<TodayHabitsContainer> {
       ),
     ];
 
-    if (hasComplete) {
+    if (hasComplete && widget.showCompleteSection) {
       slivers.add(
         SliverMainAxisGroup(
           slivers: [

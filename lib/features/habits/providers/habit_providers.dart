@@ -37,10 +37,43 @@ final currentDateProvider = Provider<DateTime>((ref) {
   return today;
 });
 
+/// Controls whether habit list surfaces include inactive habits.
+class ShowDeactivatedHabitsNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final showDeactivatedHabitsProvider =
+    NotifierProvider<ShowDeactivatedHabitsNotifier, bool>(
+      ShowDeactivatedHabitsNotifier.new,
+    );
+
+/// Controls whether habit list surfaces show completed-today habit rows.
+class ShowCompletedHabitsNotifier extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void set(bool value) => state = value;
+}
+
+final showCompletedHabitsProvider =
+    NotifierProvider<ShowCompletedHabitsNotifier, bool>(
+      ShowCompletedHabitsNotifier.new,
+    );
+
 /// Watches all active habits.
-final habitsProvider = StreamProvider<List<Habit>>((ref) {
+final activeHabitsProvider = StreamProvider<List<Habit>>((ref) {
   final repo = ref.watch(habitRepositoryProvider);
   return repo.watchActiveHabits();
+});
+
+/// Watches habits visible in the list, optionally including inactive habits.
+final habitsProvider = StreamProvider<List<Habit>>((ref) {
+  final repo = ref.watch(habitRepositoryProvider);
+  final showDeactivated = ref.watch(showDeactivatedHabitsProvider);
+  return showDeactivated ? repo.watchAllHabits() : repo.watchActiveHabits();
 });
 
 /// Watches a single habit by ID.
@@ -95,7 +128,7 @@ final weeklyCompletionsProvider = StreamProvider<List<HabitCompletion>>((ref) {
 
 /// Count of habits that are due today but not yet completed.
 final dueHabitsCountProvider = Provider<int>((ref) {
-  final habits = ref.watch(habitsProvider).value ?? [];
+  final habits = ref.watch(activeHabitsProvider).value ?? [];
   final todayCompletions = ref.watch(todayCompletionsProvider).value ?? [];
   final allCompletions = ref.watch(allCompletionsProvider).value ?? [];
   final completedIds = todayCompletions.map((c) => c.habitId).toSet();
@@ -789,7 +822,7 @@ final habitNotificationListenerProvider = Provider<void>((ref) {
   void scheduleReschedule() {
     debounceTimer?.cancel();
     debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      final habits = ref.read(habitsProvider).value;
+      final habits = ref.read(activeHabitsProvider).value;
       if (habits == null) return;
       final todayCompletions =
           ref.read(todayCompletionsProvider).value ?? const [];
@@ -812,7 +845,7 @@ final habitNotificationListenerProvider = Provider<void>((ref) {
   }
 
   ref.listen(
-    habitsProvider,
+    activeHabitsProvider,
     (_, _) => scheduleReschedule(),
     fireImmediately: true,
   );

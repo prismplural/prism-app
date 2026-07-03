@@ -8,7 +8,142 @@ import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/habits/utils/habit_due.dart';
 
 void main() {
+  group('habitsProvider', () {
+    test('hides inactive habits by default', () async {
+      final now = DateTime(2026, 4, 7, 10);
+      final active = Habit(
+        id: 'active',
+        name: 'Active habit',
+        createdAt: now,
+        modifiedAt: now,
+      );
+      final inactive = Habit(
+        id: 'inactive',
+        name: 'Inactive habit',
+        createdAt: now,
+        modifiedAt: now,
+        isActive: false,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(
+            _FakeHabitRepository(
+              habits: [active, inactive],
+              allCompletions: const [],
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final subscription = container.listen(
+        habitsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(subscription.read().value, [active]);
+    });
+
+    test('includes inactive habits when show-deactivated is enabled', () async {
+      final now = DateTime(2026, 4, 7, 10);
+      final active = Habit(
+        id: 'active',
+        name: 'Active habit',
+        createdAt: now,
+        modifiedAt: now,
+      );
+      final inactive = Habit(
+        id: 'inactive',
+        name: 'Inactive habit',
+        createdAt: now,
+        modifiedAt: now,
+        isActive: false,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(
+            _FakeHabitRepository(
+              habits: [active, inactive],
+              allCompletions: const [],
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(showDeactivatedHabitsProvider.notifier).set(true);
+      final subscription = container.listen(
+        habitsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(subscription.close);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(subscription.read().value, [active, inactive]);
+    });
+  });
+
   group('dueHabitsCountProvider', () {
+    test('showing inactive habits does not change the due count', () async {
+      final now = DateTime(2026, 4, 7, 10);
+      final today = DateTime(now.year, now.month, now.day);
+      final active = Habit(
+        id: 'active',
+        name: 'Active habit',
+        createdAt: now.subtract(const Duration(days: 30)),
+        modifiedAt: now,
+        frequency: HabitFrequency.daily,
+      );
+      final inactive = Habit(
+        id: 'inactive',
+        name: 'Inactive habit',
+        createdAt: now.subtract(const Duration(days: 30)),
+        modifiedAt: now,
+        frequency: HabitFrequency.daily,
+        isActive: false,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          habitRepositoryProvider.overrideWithValue(
+            _FakeHabitRepository(
+              habits: [active, inactive],
+              allCompletions: const [],
+            ),
+          ),
+          currentDateProvider.overrideWith((ref) => today),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(showDeactivatedHabitsProvider.notifier).set(true);
+      final activeHabitsSubscription = container.listen(
+        activeHabitsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      final todayCompletionsSubscription = container.listen(
+        todayCompletionsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      final allCompletionsSubscription = container.listen(
+        allCompletionsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
+      addTearDown(activeHabitsSubscription.close);
+      addTearDown(todayCompletionsSubscription.close);
+      addTearDown(allCompletionsSubscription.close);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(activeHabitsSubscription.read().value, [active]);
+      expect(container.read(dueHabitsCountProvider), 1);
+    });
+
     test('interval habit completed yesterday is not due', () async {
       final now = DateTime(2026, 4, 7, 10);
       final today = DateTime(now.year, now.month, now.day);

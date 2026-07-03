@@ -395,6 +395,90 @@ void main() {
     expect(find.text('Water plants'), findsOneWidget);
     expect(find.text('detail'), findsNothing);
   });
+
+  testWidgets('filter menu reveals inactive habits', (tester) async {
+    final activeHabit = Habit(
+      id: 'active',
+      name: 'Active habit',
+      createdAt: today.subtract(const Duration(days: 7)),
+      modifiedAt: today,
+      frequency: HabitFrequency.interval,
+      intervalDays: 5,
+    );
+    final inactiveHabit = Habit(
+      id: 'inactive',
+      name: 'Paused habit',
+      createdAt: today.subtract(const Duration(days: 7)),
+      modifiedAt: today,
+      frequency: HabitFrequency.daily,
+      isActive: false,
+    );
+    final repo = _FakeHabitRepository(
+      habits: [activeHabit, inactiveHabit],
+      allCompletions: [
+        completion(
+          'active',
+          id: 'active-yesterday',
+          completedAt: today.subtract(const Duration(days: 1)),
+        ),
+      ],
+    );
+    addTearDown(repo.dispose);
+
+    final lastRoute = ValueNotifier<String?>(null);
+    await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Active habit'), findsOneWidget);
+    expect(find.text('Paused habit'), findsNothing);
+    expect(find.text('Inactive'), findsNothing);
+
+    await tester.tap(find.byTooltip('Habit filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('Show Deactivated Habits'), findsOneWidget);
+
+    await tester.tap(find.text('Show Deactivated Habits'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Inactive'), findsOneWidget);
+    expect(find.text('Paused habit'), findsOneWidget);
+  });
+
+  testWidgets('filter menu hides completed habits', (tester) async {
+    final habit = Habit(
+      id: 'h1',
+      name: 'Meditate',
+      createdAt: today.subtract(const Duration(days: 7)),
+      modifiedAt: today,
+      frequency: HabitFrequency.daily,
+    );
+    final repo = _FakeHabitRepository(
+      habits: [habit],
+      allCompletions: [
+        completion('h1', completedAt: today.add(const Duration(hours: 9))),
+      ],
+    );
+    addTearDown(repo.dispose);
+
+    final lastRoute = ValueNotifier<String?>(null);
+    await tester.pumpWidget(buildApp(repository: repo, lastRoute: lastRoute));
+    await tester.pumpAndSettle();
+
+    expect(find.text('all done'), findsOneWidget);
+    expect(find.text('Complete'), findsOneWidget);
+    expect(find.text('Meditate'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Habit filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('Show Completed Habits'), findsOneWidget);
+
+    await tester.tap(find.text('Show Completed Habits'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('all done'), findsOneWidget);
+    expect(find.text('Complete'), findsNothing);
+    expect(find.text('Meditate'), findsNothing);
+  });
 }
 
 // ── Fake repository ──────────────────────────────────────────────────────────
