@@ -199,6 +199,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PrismTermChoiceGrid<_TermOption>(
+          density: PrismTermChoiceGridDensity.compact,
           selected: currentValue,
           choices: [
             for (final term in standardTerms)
@@ -219,6 +220,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
           ),
           const SizedBox(height: 8),
           PrismTermChoiceGrid<_TermOption>(
+            density: PrismTermChoiceGridDensity.compact,
             selected: currentValue,
             choices: [
               for (final term in standardTerms)
@@ -228,6 +230,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
           ),
           const SizedBox(height: 8),
           PrismTermChoiceGrid<_TermOption>(
+            density: PrismTermChoiceGridDensity.compact,
             selected: currentValue,
             choices: [
               _choice(context, SystemTerminology.custom, useEnglish: false),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 class PrismTermChoice<T> {
   const PrismTermChoice({
@@ -17,6 +18,8 @@ class PrismTermChoice<T> {
   final String? semanticLabel;
 }
 
+enum PrismTermChoiceGridDensity { standard, compact }
+
 class PrismTermChoiceGrid<T> extends StatelessWidget {
   const PrismTermChoiceGrid({
     super.key,
@@ -25,6 +28,7 @@ class PrismTermChoiceGrid<T> extends StatelessWidget {
     required this.onSelected,
     this.crossAxisCount = 2,
     this.childAspectRatio = 3.3,
+    this.density = PrismTermChoiceGridDensity.standard,
   });
 
   final List<PrismTermChoice<T>> choices;
@@ -32,24 +36,43 @@ class PrismTermChoiceGrid<T> extends StatelessWidget {
   final ValueChanged<T> onSelected;
   final int crossAxisCount;
   final double childAspectRatio;
+  final PrismTermChoiceGridDensity density;
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: crossAxisCount,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: childAspectRatio,
-      children: [
-        for (final choice in choices)
-          _TermChoiceTile<T>(
-            choice: choice,
-            selected: choice.value == selected,
-            onTap: () => onSelected(choice.value),
+    final useCompact =
+        density == PrismTermChoiceGridDensity.compact &&
+        MediaQuery.sizeOf(context).width >= PrismTokens.desktopBreakpoint;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final effectiveCrossAxisCount =
+            useCompact && constraints.maxWidth >= 720 && choices.length >= 3
+            ? 3
+            : crossAxisCount;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: choices.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: effectiveCrossAxisCount,
+            mainAxisSpacing: useCompact ? 6 : 8,
+            crossAxisSpacing: useCompact ? 6 : 8,
+            childAspectRatio: childAspectRatio,
+            mainAxisExtent: useCompact ? 52 : null,
           ),
-      ],
+          itemBuilder: (context, index) {
+            final choice = choices[index];
+            return _TermChoiceTile<T>(
+              choice: choice,
+              selected: choice.value == selected,
+              compact: useCompact,
+              onTap: () => onSelected(choice.value),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -58,11 +81,13 @@ class _TermChoiceTile<T> extends StatelessWidget {
   const _TermChoiceTile({
     required this.choice,
     required this.selected,
+    required this.compact,
     required this.onTap,
   });
 
   final PrismTermChoice<T> choice;
   final bool selected;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
@@ -104,7 +129,10 @@ class _TermChoiceTile<T> extends StatelessWidget {
                 : null,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 10 : 8,
+              vertical: compact ? 6 : 0,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -113,10 +141,16 @@ class _TermChoiceTile<T> extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: foreground,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
+                  style:
+                      (compact
+                              ? theme.textTheme.labelMedium
+                              : theme.textTheme.labelLarge)
+                          ?.copyWith(
+                            color: foreground,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
                 ),
                 if (choice.subtitle != null) ...[
                   const SizedBox(height: 2),

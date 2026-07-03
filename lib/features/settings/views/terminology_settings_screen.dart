@@ -286,6 +286,7 @@ class _FrontingTerminologyPickerState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PrismTermChoiceGrid<_FrontingTermOption>(
+          density: PrismTermChoiceGridDensity.compact,
           selected: _useCustom
               ? (preset: null, custom: true)
               : (preset: _selectedPreset, custom: false),
@@ -587,6 +588,7 @@ class _SystemTerminologyPickerState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PrismTermChoiceGrid<_SystemTermOption>(
+          density: PrismTermChoiceGridDensity.compact,
           selected: _useCustom
               ? (preset: null, custom: true)
               : (preset: _selectedPreset, custom: false),

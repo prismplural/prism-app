@@ -11,13 +11,17 @@ import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/terminology_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
-  Widget buildSubject(FakeAppPreferenceRepository appPrefs) {
+  Widget buildSubject(
+    FakeAppPreferenceRepository appPrefs, {
+    Locale locale = const Locale('en'),
+  }) {
     return ProviderScope(
       overrides: [
         appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
@@ -25,17 +29,21 @@ void main() {
           (ref) => Stream.value(const SystemSettings()),
         ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: [Locale('en')],
-        home: Scaffold(
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(
           body: SingleChildScrollView(child: SystemTerminologyPicker()),
         ),
       ),
     );
   }
 
-  Widget buildFrontingSubject(FakeAppPreferenceRepository appPrefs) {
+  Widget buildFrontingSubject(
+    FakeAppPreferenceRepository appPrefs, {
+    Locale locale = const Locale('en'),
+  }) {
     return ProviderScope(
       overrides: [
         appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
@@ -43,10 +51,11 @@ void main() {
           (ref) => Stream.value(const SystemSettings()),
         ),
       ],
-      child: const MaterialApp(
+      child: MaterialApp(
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: [Locale('en')],
-        home: Scaffold(
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(
           body: SingleChildScrollView(child: FrontingTerminologyPicker()),
         ),
       ),
@@ -176,6 +185,147 @@ void main() {
   });
 
   group('FrontingTerminologyPicker', () {
+    testWidgets('uses compact three-column desktop tiles', (tester) async {
+      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      Rect tileRect(String label) {
+        return tester.getRect(
+          find
+              .ancestor(
+                of: find.text(label),
+                matching: find.byType(AnimatedContainer),
+              )
+              .first,
+        );
+      }
+
+      final fronting = tileRect('Fronting');
+      final present = tileRect('Present');
+      final out = tileRect('Out');
+      final online = tileRect('Online');
+
+      expect(fronting.height, closeTo(52, 0.1));
+      expect(fronting.width, lessThan(360));
+      expect(present.top, fronting.top);
+      expect(out.top, fronting.top);
+      expect(online.top, greaterThan(fronting.top));
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final locale in AppLocalizations.supportedLocales) {
+      testWidgets(
+        'renders localized fronting terminology strings for ${locale.languageCode}',
+        (tester) async {
+          final appPrefs = FakeAppPreferenceRepository();
+          addTearDown(appPrefs.close);
+          final l10n = await AppLocalizations.delegate.load(locale);
+
+          await tester.pumpWidget(
+            buildFrontingSubject(appPrefs, locale: locale),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text(l10n.settingsTerminologyPreviewLabel),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingCustomSubtitle),
+            findsOneWidget,
+          );
+
+          for (final preset in frontingTermPresetChoices) {
+            await tester.tap(find.text(frontingTermPresetChoiceLabel(preset)));
+            await tester.pumpAndSettle();
+
+            final terms = frontingTermBundleForPreset(preset);
+            expect(
+              find.text(
+                l10n.terminologyFrontingPreview(
+                  terms.currentQuestionNow,
+                  terms.activePluralLabel,
+                  terms.logAction,
+                  terms.historyLabel,
+                ),
+              ),
+              findsOneWidget,
+            );
+          }
+
+          await tester.tap(find.text(l10n.terminologySystemModeCustom));
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text(l10n.terminologyFrontingCustomIntro),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupPrimary),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupPrimarySubtitle),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupActions),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupActionsSubtitle),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupHistory),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupHistorySubtitle),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupTogether),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupTogetherSubtitle),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupChanges),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupChangesSubtitle),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupPinned),
+            findsOneWidget,
+          );
+          expect(
+            find.text(l10n.terminologyFrontingGroupPinnedSubtitle),
+            findsOneWidget,
+          );
+          expect(find.textContaining('{question}'), findsNothing);
+          expect(find.textContaining('{activePlural}'), findsNothing);
+          expect(find.textContaining('{logAction}'), findsNothing);
+          expect(find.textContaining('{historyLabel}'), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('saves a fronting terminology preset', (tester) async {
       final appPrefs = FakeAppPreferenceRepository();
       addTearDown(appPrefs.close);

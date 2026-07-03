@@ -12,13 +12,17 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
-  Widget buildSubject(ProviderContainer container) {
+  Widget buildSubject(
+    ProviderContainer container, {
+    Locale locale = const Locale('en'),
+  }) {
     return UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(
+      child: MaterialApp(
+        locale: locale,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: [Locale('en')],
-        home: Scaffold(body: TerminologyStep()),
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: const Scaffold(body: TerminologyStep()),
       ),
     );
   }
@@ -163,4 +167,43 @@ void main() {
       FrontingTerms.unset,
     );
   });
+
+  for (final locale in AppLocalizations.supportedLocales) {
+    testWidgets(
+      'renders fronting terminology choices for ${locale.languageCode}',
+      (tester) async {
+        final container = ProviderContainer(
+          overrides: [
+            systemSettingsRepositoryProvider.overrideWithValue(
+              FakeSystemSettingsRepository(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final l10n = await AppLocalizations.delegate.load(locale);
+
+        await tester.pumpWidget(buildSubject(container, locale: locale));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(
+          find.text(l10n.onboardingPreferencesFrontingTerminology),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(l10n.onboardingPreferencesFrontingTerminology),
+          findsOneWidget,
+        );
+        expect(find.text('Fronting'), findsWidgets);
+        expect(find.text('Fronters'), findsOneWidget);
+        expect(find.text('Present'), findsOneWidget);
+        expect(find.text('Present Members'), findsOneWidget);
+        expect(find.text('Out'), findsOneWidget);
+        expect(find.text('Out Members'), findsOneWidget);
+        expect(find.text('Online'), findsOneWidget);
+        expect(find.text('Online Members'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
