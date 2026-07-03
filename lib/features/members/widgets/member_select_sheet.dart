@@ -85,14 +85,8 @@ class MemberSelectSheet extends ConsumerWidget {
     return settingsAsync.when(
       loading: () => const PrismLoadingState(),
       error: (_, _) => Center(child: Text(l10n.syncUnableToLoad)),
-      data: (settings) {
-        final terminology = resolveTerminology(
-          l10n,
-          settings.terminology,
-          customSingular: settings.customTerminology,
-          customPlural: settings.customPluralTerminology,
-          useEnglish: settings.terminologyUseEnglish,
-        );
+      data: (_) {
+        final terminology = watchFullTerminology(context, ref);
 
         return membersAsync.when(
           loading: () => const PrismLoadingState(),
@@ -109,6 +103,7 @@ class MemberSelectSheet extends ConsumerWidget {
                 title: l10n.noMembersFound(terminology.pluralLower),
                 subtitle: l10n.terminologyAddFirstSubtitle(
                   terminology.singularLower,
+                  terminology.systemSingularLower,
                 ),
               );
             }

@@ -5,6 +5,9 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
+import 'package:prism_plurality/domain/repositories/app_preference_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
@@ -18,28 +21,28 @@ final onboardingCommitServiceProvider = Provider<OnboardingCommitService>((
   return OnboardingCommitService(
     database: ref.watch(databaseProvider),
     settingsRepository: ref.watch(systemSettingsRepositoryProvider),
+    appPreferenceRepository: ref.watch(appPreferenceRepositoryProvider),
     memberRepository: ref.watch(memberRepositoryProvider),
     conversationRepository: ref.watch(conversationRepositoryProvider),
     frontingRepository: ref.watch(frontingSessionRepositoryProvider),
   );
 });
 
-/// Commits the collected onboarding state to the database in a single transaction.
+/// Commits onboarding data and synced preferences.
 ///
-/// All changes (settings, members, conversations, initial session) are atomic —
-/// if any step fails, everything rolls back. Re-running after a partial failure
-/// is safe: we check existingTitles and hasCompletedOnboarding to avoid
-/// duplicates. Called at the end of the onboarding flow and after importing
-/// data from another app.
+/// Core data remains transactional; synced preferences are written afterward so
+/// they emit through the normal preference path.
 class OnboardingCommitService {
   OnboardingCommitService({
     required AppDatabase database,
     required SystemSettingsRepository settingsRepository,
+    required AppPreferenceRepository appPreferenceRepository,
     required MemberRepository memberRepository,
     required ConversationRepository conversationRepository,
     required FrontingSessionRepository frontingRepository,
   }) : _database = database,
        _settingsRepository = settingsRepository,
+       _appPreferenceRepository = appPreferenceRepository,
        _memberRepository = memberRepository,
        _conversationRepository = conversationRepository,
        _frontingRepository = frontingRepository;
@@ -48,6 +51,7 @@ class OnboardingCommitService {
 
   final AppDatabase _database;
   final SystemSettingsRepository _settingsRepository;
+  final AppPreferenceRepository _appPreferenceRepository;
   final MemberRepository _memberRepository;
   final ConversationRepository _conversationRepository;
   final FrontingSessionRepository _frontingRepository;
@@ -129,7 +133,6 @@ class OnboardingCommitService {
               : currentSettings.navBarOverflowItems,
         ),
       );
-
       final members = await _memberRepository.getAllMembers();
 
       if (onboarding.chatEnabled &&
@@ -181,5 +184,29 @@ class OnboardingCommitService {
         );
       }
     });
+
+    await _writeSystemTermsPreference(onboarding);
+  }
+
+  Future<void> _writeSystemTermsPreference(OnboardingState onboarding) async {
+    final SystemTerms terms;
+    if (onboarding.useCustomSystemTerminology) {
+      terms = SystemTerms.custom(
+        singular: onboarding.customSystemTermSingular ?? '',
+        plural: onboarding.customSystemTermPlural ?? '',
+      ).normalized();
+    } else if (onboarding.selectedSystemTermPreset != null) {
+      terms = SystemTerms.preset(onboarding.selectedSystemTermPreset!);
+    } else {
+      await _appPreferenceRepository.reset(systemTermsPreference);
+      return;
+    }
+
+    if (!systemTermsPreference.codec.isValid(terms)) {
+      await _appPreferenceRepository.reset(systemTermsPreference);
+      return;
+    }
+
+    await _appPreferenceRepository.set(systemTermsPreference, terms);
   }
 }

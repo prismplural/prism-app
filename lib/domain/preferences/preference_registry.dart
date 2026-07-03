@@ -2,6 +2,7 @@ import 'package:prism_plurality/domain/preferences/composer_default_member.dart'
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_entity_id.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
 final class PreferenceRegistry {
   PreferenceRegistry(Iterable<PreferenceDefinition<dynamic>> definitions)
@@ -118,6 +119,15 @@ const memberNamePresentationPreference = PreferenceDefinition<String>(
   introducedInSchemaVersion: 39,
 );
 
+const systemTermsPreference = PreferenceDefinition<SystemTerms>(
+  key: 'terminology.system_terms',
+  scope: PreferenceScope.appSynced,
+  defaultValue: SystemTerms.unset,
+  codec: SystemTermsPreferenceCodec(),
+  introducedInAppVersion: '0.14.0',
+  introducedInSchemaVersion: 40,
+);
+
 final appPreferenceRegistry = PreferenceRegistry(const [
   hideMemberCountsPreference,
   frontingReminderSuppressMinutesPreference,
@@ -127,5 +137,6 @@ final appPreferenceRegistry = PreferenceRegistry(const [
   typographyLetterSpacingPreference,
   navBarExpandedLabelsFullPreference,
   memberNamePresentationPreference,
+  systemTermsPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);

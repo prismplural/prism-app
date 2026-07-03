@@ -134,6 +134,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     });
 
     final l10n = context.l10n;
+    final terms = watchFullTerminology(context, ref);
     final counts = ref.watch(groupMemberCountsProvider);
     final hideMemberCounts =
         ref
@@ -184,7 +185,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         icon: Icon(AppIcons.folderOutlined),
                         title: l10n.memberGroupEmptyList,
                         subtitle: l10n.memberGroupEmptySubtitle(
-                          watchTerminology(context, ref).pluralLower,
+                          terms.pluralLower,
+                          terms.systemSingularLower,
                         ),
                         actionLabel: l10n.memberNewGroupTooltip,
                         onAction: _openCreateSheet,

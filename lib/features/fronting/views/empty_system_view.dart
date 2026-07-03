@@ -15,7 +15,7 @@ class EmptySystemView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
 
     return Center(
       child: Padding(
@@ -37,7 +37,10 @@ class EmptySystemView extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              context.l10n.frontingWelcomeSubtitle(terms.singularLower),
+              context.l10n.frontingWelcomeSubtitle(
+                terms.systemSingularLower,
+                terms.singularLower,
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -59,9 +62,8 @@ class EmptySystemView extends ConsumerWidget {
   void _openAddMemberSheet(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => AddEditMemberSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          AddEditMemberSheet(scrollController: scrollController),
     );
   }
 }

@@ -14,6 +14,7 @@ import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
@@ -101,6 +102,37 @@ class SettingsNotifier extends AsyncNotifier<void> {
         customPluralTerminology: customPluralTerminology,
         useEnglish: useEnglish,
       );
+    });
+  }
+
+  Future<void> updateSystemTerminology({
+    required String singular,
+    required String plural,
+  }) async {
+    state = await AsyncValue.guard(() async {
+      final normalized = SystemTerms.custom(
+        singular: singular,
+        plural: plural,
+      ).normalized();
+      await ref
+          .read(appPreferenceRepositoryProvider)
+          .set(systemTermsPreference, normalized);
+    });
+  }
+
+  Future<void> updateSystemTerminologyPreset(SystemTermPreset preset) async {
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(appPreferenceRepositoryProvider)
+          .set(systemTermsPreference, SystemTerms.preset(preset));
+    });
+  }
+
+  Future<void> resetSystemTerminology() async {
+    state = await AsyncValue.guard(() async {
+      await ref
+          .read(appPreferenceRepositoryProvider)
+          .reset(systemTermsPreference);
     });
   }
 

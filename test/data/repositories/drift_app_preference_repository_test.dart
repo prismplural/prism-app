@@ -8,6 +8,7 @@ import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
 const _density = PreferenceDefinition<String>(
   key: 'appearance.sidebar_density',
@@ -149,15 +150,127 @@ void main() {
     addTearDown(db.close);
     final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
     const preference = memberNamePresentationPreference;
+    final values = <String?>[];
 
-    final expectedValues = expectLater(
-      repo.watchStored(preference).take(3),
-      emitsInOrder([isNull, 'full_name_with_name', isNull]),
-    );
+    final subscription = repo.watchStored(preference).listen(values.add);
+    addTearDown(subscription.cancel);
 
     await repo.set(preference, 'full_name_with_name');
     await repo.reset(preference);
+    await pumpEventQueue(times: 10);
 
-    await expectedValues;
+    expect(values, containsAllInOrder(<String?>['full_name_with_name', null]));
+    expect(values.last, isNull);
+  });
+
+  test(
+    'system terms set, reset, and set again round-trips json value',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
+      const first = SystemTerms.custom(
+        singular: 'collective',
+        plural: 'collectives',
+      );
+      const second = SystemTerms.custom(singular: 'system', plural: 'systems');
+
+      await repo.set(systemTermsPreference, first);
+      expect(await repo.get(systemTermsPreference), first);
+
+      await repo.reset(systemTermsPreference);
+      expect(await repo.get(systemTermsPreference), SystemTerms.unset);
+      expect(await repo.getStored(systemTermsPreference), isNull);
+
+      await repo.set(systemTermsPreference, second);
+      expect(await repo.get(systemTermsPreference), second);
+
+      final row = await PreferenceValuesDao(
+        db,
+      ).getAppValue(systemTermsPreference.key);
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isFalse);
+      expect(row.valueType, 'json');
+      expect(row.valueJson, '{"singular":"system","plural":"systems"}');
+    },
+  );
+
+  test('system terms presets round-trip json value', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
+    const preset = SystemTerms.preset(SystemTermPreset.collective);
+
+    await repo.set(systemTermsPreference, preset);
+
+    expect(await repo.get(systemTermsPreference), preset);
+    expect(await repo.getStored(systemTermsPreference), preset);
+
+    final row = await PreferenceValuesDao(
+      db,
+    ).getAppValue(systemTermsPreference.key);
+    expect(row, isNotNull);
+    expect(row!.isDeleted, isFalse);
+    expect(row.valueType, 'json');
+    expect(row.valueJson, '{"preset":"collective"}');
+  });
+
+  test('system terms rejects one-sided and oversized values', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
+
+    await expectLater(
+      repo.set(
+        systemTermsPreference,
+        const SystemTerms(singular: 'collective'),
+      ),
+      throwsA(isA<PreferenceValidationException>()),
+    );
+    await expectLater(
+      repo.set(
+        systemTermsPreference,
+        SystemTerms.custom(
+          singular: 'x' * (systemTermMaxLength + 1),
+          plural: 'collectives',
+        ),
+      ),
+      throwsA(isA<PreferenceValidationException>()),
+    );
+    expect(
+      await PreferenceValuesDao(db).getAppValue(systemTermsPreference.key),
+      isNull,
+    );
+  });
+
+  test('system terms stored malformed values fall back to unset', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final dao = PreferenceValuesDao(db);
+    final repo = DriftAppPreferenceRepository(dao, null);
+
+    Future<void> seedRaw(String valueJson) {
+      return dao.upsertAppValue(
+        AppPreferenceValuesCompanion.insert(
+          key: systemTermsPreference.key,
+          valueType: systemTermsPreference.codec.valueType,
+          valueJson: Value(valueJson),
+        ),
+      );
+    }
+
+    await seedRaw('{"singular":"collective"}');
+    expect(await repo.get(systemTermsPreference), SystemTerms.unset);
+    expect(await repo.getStored(systemTermsPreference), isNull);
+
+    await seedRaw(
+      '{"singular":"${'x' * (systemTermMaxLength + 1)}","plural":"collectives"}',
+    );
+    expect(await repo.get(systemTermsPreference), SystemTerms.unset);
+    expect(await repo.getStored(systemTermsPreference), isNull);
+
+    await seedRaw('not json');
+    expect(await repo.get(systemTermsPreference), SystemTerms.unset);
+    expect(await repo.getStored(systemTermsPreference), isNull);
   });
 }

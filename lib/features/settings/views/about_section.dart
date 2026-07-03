@@ -41,7 +41,7 @@ class AboutSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
     final version = ref
         .watch(_packageInfoProvider)
         .maybeWhen(data: _formatPackageVersion, orElse: _buildInfoVersion);
@@ -92,7 +92,11 @@ class AboutSection extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            context.l10n.settingsAboutDescription(terms.pluralLower),
+            context.l10n.settingsAboutDescription(
+              terms.pluralLower,
+              terms.systemSingularLower,
+              terms.systemPluralLower,
+            ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -178,7 +182,10 @@ Future<void> _openExternalUri(BuildContext context, Uri uri) async {
   final safe = safeExternalUri(uri.toString());
   if (safe != null) {
     try {
-      final opened = await launchUrl(safe, mode: LaunchMode.externalApplication);
+      final opened = await launchUrl(
+        safe,
+        mode: LaunchMode.externalApplication,
+      );
       if (opened || !context.mounted) return;
     } catch (_) {
       if (!context.mounted) return;

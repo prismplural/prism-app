@@ -42,7 +42,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final syncEnabled = ref.watch(syncEnabledProvider);
     final voiceNotesEnabled = ref.watch(voiceNotesEnabledProvider);
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
     final speakingAs = ref.watch(speakingAsProvider);
     final badgePrefs = ref.watch(chatBadgePreferencesProvider);
     final isMentionsOnly =
@@ -82,7 +82,10 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              context.l10n.featureChatDescription(terms.pluralLower),
+              context.l10n.featureChatDescription(
+                terms.pluralLower,
+                terms.systemSingularLower,
+              ),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -97,6 +100,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                 title: context.l10n.featureChatEnable,
                 subtitle: context.l10n.featureChatEnableSubtitle(
                   terms.pluralLower,
+                  terms.systemSingularLower,
                 ),
                 value: chatEnabled,
                 onChanged: (value) => ref

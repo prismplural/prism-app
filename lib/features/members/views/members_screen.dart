@@ -633,7 +633,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         ? null
         : _displayMembers(membersAsync.value!);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
 
     // Build a set of currently-fronting member IDs.
     final frontingIds =
@@ -751,6 +751,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                               subtitle: context.l10n
                                   .terminologyAddFirstSubtitle(
                                     terms.singularLower,
+                                    terms.systemSingularLower,
                                   ),
                               actionLabel: context.l10n.terminologyAddButton(
                                 terms.singular,
@@ -973,6 +974,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
                       ),
                 subtitle: context.l10n.terminologyAddFirstSubtitle(
                   terms.singularLower,
+                  terms.systemSingularLower,
                 ),
               )
             : EmptyState(
@@ -1051,7 +1053,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     Set<String> frontingIds,
     _MemberTilePrefs memberTilePrefs,
   ) {
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
     final rootGroups = ref.watch(childGroupsProvider(null));
     final counts = ref.watch(groupMemberCountsProvider);
     final hideMemberCounts =

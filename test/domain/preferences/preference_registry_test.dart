@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
 void main() {
   test('app registry includes hide member counts preference', () {
@@ -76,5 +77,32 @@ void main() {
     expect(memberNamePresentationPreference.codec.isValid('unknown'), isFalse);
     expect(memberNamePresentationPreference.introducedInAppVersion, '0.14.0');
     expect(memberNamePresentationPreference.introducedInSchemaVersion, 39);
+  });
+
+  test('system terms preference is a synced app preference', () {
+    expect(appPreferenceRegistry.definitions, contains(systemTermsPreference));
+    expect(systemTermsPreference.key, 'terminology.system_terms');
+    expect(systemTermsPreference.scope, PreferenceScope.appSynced);
+    expect(systemTermsPreference.defaultValue, SystemTerms.unset);
+    expect(
+      systemTermsPreference.codec.isValid(
+        const SystemTerms.custom(singular: 'collective', plural: 'collectives'),
+      ),
+      isTrue,
+    );
+    expect(
+      systemTermsPreference.codec.isValid(
+        const SystemTerms.preset(SystemTermPreset.collective),
+      ),
+      isTrue,
+    );
+    expect(
+      systemTermsPreference.codec.isValid(
+        const SystemTerms(singular: 'collective'),
+      ),
+      isFalse,
+    );
+    expect(systemTermsPreference.introducedInAppVersion, '0.14.0');
+    expect(systemTermsPreference.introducedInSchemaVersion, 40);
   });
 }

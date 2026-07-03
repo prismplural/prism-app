@@ -356,11 +356,11 @@ abstract class AppLocalizations {
   /// **'More options'**
   String get moreOptions;
 
-  /// Settings section header: System
+  /// Settings section header for system/collective data
   ///
   /// In en, this message translates to:
-  /// **'System'**
-  String get settingsSectionSystem;
+  /// **'{systemTerm}'**
+  String settingsSectionSystem(String systemTerm);
 
   /// Settings section header: App
   ///
@@ -377,8 +377,8 @@ abstract class AppLocalizations {
   /// Settings link: System Information
   ///
   /// In en, this message translates to:
-  /// **'System Information'**
-  String get settingsSystemInformation;
+  /// **'{systemTerm} Information'**
+  String settingsSystemInformation(String systemTerm);
 
   /// Settings link: Groups
   ///
@@ -403,6 +403,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Appearance'**
   String get settingsAppearance;
+
+  /// Settings link and screen title for member and system terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Terminology'**
+  String get settingsTerminology;
 
   /// Settings link: Navigation
   ///
@@ -473,8 +479,8 @@ abstract class AppLocalizations {
   /// Fallback display name when no system name is set
   ///
   /// In en, this message translates to:
-  /// **'My System'**
-  String get settingsFallbackSystemName;
+  /// **'My {systemTerm}'**
+  String settingsFallbackSystemName(String systemTerm);
 
   /// Language settings row title
   ///
@@ -1003,6 +1009,154 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Terminology'**
   String get appearanceTerminology;
+
+  /// Settings section title for terminology used for people/members
+  ///
+  /// In en, this message translates to:
+  /// **'Member terminology'**
+  String get terminologyMemberSectionTitle;
+
+  /// Settings section description for member terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Controls labels for people in Prism.'**
+  String get terminologyMemberSectionDescription;
+
+  /// Settings section title for terminology used for the user's collective/system
+  ///
+  /// In en, this message translates to:
+  /// **'System terminology'**
+  String get terminologySystemSectionTitle;
+
+  /// Settings section description for system terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Controls labels for your collective across Prism.'**
+  String get terminologySystemSectionDescription;
+
+  /// Default singular collective/system terminology
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get terminologySystemDefaultSingular;
+
+  /// Default plural collective/system terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Systems'**
+  String get terminologySystemDefaultPlural;
+
+  /// Preset singular collective/system terminology: Collective
+  ///
+  /// In en, this message translates to:
+  /// **'Collective'**
+  String get terminologySystemPresetCollectiveSingular;
+
+  /// Preset plural collective/system terminology: Collectives
+  ///
+  /// In en, this message translates to:
+  /// **'Collectives'**
+  String get terminologySystemPresetCollectivePlural;
+
+  /// Preset singular collective/system terminology: Community
+  ///
+  /// In en, this message translates to:
+  /// **'Community'**
+  String get terminologySystemPresetCommunitySingular;
+
+  /// Preset plural collective/system terminology: Communities
+  ///
+  /// In en, this message translates to:
+  /// **'Communities'**
+  String get terminologySystemPresetCommunityPlural;
+
+  /// Preset singular collective/system terminology: Network
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get terminologySystemPresetNetworkSingular;
+
+  /// Preset plural collective/system terminology: Networks
+  ///
+  /// In en, this message translates to:
+  /// **'Networks'**
+  String get terminologySystemPresetNetworkPlural;
+
+  /// Preset singular collective/system terminology: Constellation
+  ///
+  /// In en, this message translates to:
+  /// **'Constellation'**
+  String get terminologySystemPresetConstellationSingular;
+
+  /// Preset plural collective/system terminology: Constellations
+  ///
+  /// In en, this message translates to:
+  /// **'Constellations'**
+  String get terminologySystemPresetConstellationPlural;
+
+  /// Subtitle for custom terminology choice tiles
+  ///
+  /// In en, this message translates to:
+  /// **'Your own terms'**
+  String get terminologyCustomTermsSubtitle;
+
+  /// Segment label for default system terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get terminologySystemModeDefault;
+
+  /// Segment label for custom system terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get terminologySystemModeCustom;
+
+  /// Label for custom system singular terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'Singular'**
+  String get terminologySystemCustomSingularLabel;
+
+  /// Hint for custom system singular terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'Collective'**
+  String get terminologySystemCustomSingularHint;
+
+  /// Label for custom system plural terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'Plural'**
+  String get terminologySystemCustomPluralLabel;
+
+  /// Hint for custom system plural terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'Collectives'**
+  String get terminologySystemCustomPluralHint;
+
+  /// Validation message when a custom system term pair is incomplete
+  ///
+  /// In en, this message translates to:
+  /// **'Enter both singular and plural terms.'**
+  String get terminologySystemCustomRequired;
+
+  /// Validation message when a custom system term is too long
+  ///
+  /// In en, this message translates to:
+  /// **'Use {maxLength} characters or fewer.'**
+  String terminologySystemCustomTooLong(int maxLength);
+
+  /// Live preview for custom system terminology settings
+  ///
+  /// In en, this message translates to:
+  /// **'\"{systemTerm} Information\" · \"Add your first {systemTermLower} {memberTermLower}\"'**
+  String terminologySystemPreview(
+    String systemTerm,
+    String systemTermLower,
+    String memberTermLower,
+  );
 
   /// Section title for language picker in appearance settings
   ///
@@ -2501,7 +2655,7 @@ abstract class AppLocalizations {
   /// Subtitle / accessibility hint clarifying that percentages are share of total {term}-minutes, not wall-clock fronting time.
   ///
   /// In en, this message translates to:
-  /// **'% of system {term}-minutes'**
+  /// **'% of total {term}-minutes'**
   String statisticsMemberMinutesAxisHint(String term);
 
   /// Statistics overview stat label: median session duration
@@ -2885,8 +3039,8 @@ abstract class AppLocalizations {
   /// System Information screen title
   ///
   /// In en, this message translates to:
-  /// **'System Information'**
-  String get systemInfoTitle;
+  /// **'{systemTerm} Information'**
+  String systemInfoTitle(String systemTerm);
 
   /// Avatar action: change avatar
   ///
@@ -3149,14 +3303,14 @@ abstract class AppLocalizations {
   /// Hint text for system name field
   ///
   /// In en, this message translates to:
-  /// **'System name'**
-  String get systemInfoSystemNameHint;
+  /// **'{systemTerm} name'**
+  String systemInfoSystemNameHint(String systemTerm);
 
   /// Tooltip for save system name button
   ///
   /// In en, this message translates to:
-  /// **'Save system name'**
-  String get systemInfoSaveSystemName;
+  /// **'Save {systemTermLower} name'**
+  String systemInfoSaveSystemName(String systemTermLower);
 
   /// Tooltip for cancel editing button
   ///
@@ -3173,8 +3327,8 @@ abstract class AppLocalizations {
   /// Hint text for system description field
   ///
   /// In en, this message translates to:
-  /// **'System description'**
-  String get systemInfoDescriptionHint;
+  /// **'{systemTerm} description'**
+  String systemInfoDescriptionHint(String systemTerm);
 
   /// Placeholder text when no description is set
   ///
@@ -3191,8 +3345,8 @@ abstract class AppLocalizations {
   /// Label for the system tag field
   ///
   /// In en, this message translates to:
-  /// **'System tag'**
-  String get systemInfoTagLabel;
+  /// **'{systemTerm} tag'**
+  String systemInfoTagLabel(String systemTerm);
 
   /// Placeholder for the system tag field
   ///
@@ -3209,8 +3363,8 @@ abstract class AppLocalizations {
   /// Label for the system color row
   ///
   /// In en, this message translates to:
-  /// **'System color'**
-  String get systemInfoColorLabel;
+  /// **'{systemTerm} color'**
+  String systemInfoColorLabel(String systemTerm);
 
   /// Button label / dialog title for picking a system color
   ///
@@ -3239,8 +3393,8 @@ abstract class AppLocalizations {
   /// Helper text for hiding member count displays
   ///
   /// In en, this message translates to:
-  /// **'Hides member totals in Settings, System Information, Statistics, diagnostics, and group or folder count chips.'**
-  String get systemInfoHideTotalMemberCountSubtitle;
+  /// **'Hides member totals in Settings, {systemTerm} Information, Statistics, diagnostics, and group or folder count chips.'**
+  String systemInfoHideTotalMemberCountSubtitle(String systemTerm);
 
   /// Device management screen title
   ///
@@ -3779,8 +3933,8 @@ abstract class AppLocalizations {
   /// Description text on chat feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'Internal messaging between system {term}.'**
-  String featureChatDescription(String term);
+  /// **'Private messaging between {term} in your {systemTermLower}.'**
+  String featureChatDescription(String term, String systemTermLower);
 
   /// Section title: general settings on chat feature screen
   ///
@@ -3797,8 +3951,8 @@ abstract class AppLocalizations {
   /// Toggle subtitle: enable chat
   ///
   /// In en, this message translates to:
-  /// **'In-system messaging between {term}'**
-  String featureChatEnableSubtitle(String term);
+  /// **'Messaging between {term} in this {systemTermLower}'**
+  String featureChatEnableSubtitle(String term, String systemTermLower);
 
   /// Section title: options on chat feature screen
   ///
@@ -3971,8 +4125,8 @@ abstract class AppLocalizations {
   /// Description text on habits feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'Track recurring tasks and build streaks with your system {term}.'**
-  String featureHabitsDescription(String term);
+  /// **'Track recurring tasks and build streaks with {term} in your {systemTermLower}.'**
+  String featureHabitsDescription(String term, String systemTermLower);
 
   /// Section title: general on habits feature screen
   ///
@@ -4133,8 +4287,8 @@ abstract class AppLocalizations {
   /// Description text on polls feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.'**
-  String get featurePollsDescription;
+  /// **'Let your {systemTermLower} vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.'**
+  String featurePollsDescription(String systemTermLower);
 
   /// Toggle title: enable polls
   ///
@@ -4145,14 +4299,14 @@ abstract class AppLocalizations {
   /// Toggle subtitle: enable polls
   ///
   /// In en, this message translates to:
-  /// **'Create polls for system decisions'**
-  String get featurePollsEnableSubtitle;
+  /// **'Create polls for {systemTermLower} decisions'**
+  String featurePollsEnableSubtitle(String systemTermLower);
 
   /// Description text on notes feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'A personal journal for system {term}. Disabling hides notes from navigation but keeps existing entries.'**
-  String featureNotesDescription(String term);
+  /// **'A personal journal for {term} in your {systemTermLower}. Disabling hides notes from navigation but keeps existing entries.'**
+  String featureNotesDescription(String term, String systemTermLower);
 
   /// Toggle title: enable notes
   ///
@@ -4445,8 +4599,8 @@ abstract class AppLocalizations {
   /// Subtitle on empty system view (uses terminology term for member)
   ///
   /// In en, this message translates to:
-  /// **'Add your first system {member} to get started'**
-  String frontingWelcomeSubtitle(String member);
+  /// **'Add your first {systemTermLower} {member} to get started'**
+  String frontingWelcomeSubtitle(String systemTermLower, String member);
 
   /// Semantics label for a quick-front avatar button
   ///
@@ -5557,8 +5711,8 @@ abstract class AppLocalizations {
   /// Empty state subtitle on the groups screen
   ///
   /// In en, this message translates to:
-  /// **'Create groups to organize your system {termPlural}'**
-  String memberGroupEmptySubtitle(String termPlural);
+  /// **'Create groups to organize {termPlural} in your {systemTermLower}'**
+  String memberGroupEmptySubtitle(String termPlural, String systemTermLower);
 
   /// Empty state title in the desktop member detail pane when members exist but none is selected
   ///
@@ -6824,7 +6978,7 @@ abstract class AppLocalizations {
   /// Switch subtitle: admin status
   ///
   /// In en, this message translates to:
-  /// **'Admins can manage system settings'**
+  /// **'Admins can manage shared settings'**
   String get memberAdminSubtitle;
 
   /// Switch label: mark this member as always fronting
@@ -7058,8 +7212,8 @@ abstract class AppLocalizations {
   /// Empty state subtitle when there are no conversations
   ///
   /// In en, this message translates to:
-  /// **'Start chatting with your system'**
-  String get chatNoConversationsSubtitle;
+  /// **'Start chatting with your {systemTermLower}'**
+  String chatNoConversationsSubtitle(String systemTermLower);
 
   /// Empty state title when the direct messages tab is empty
   ///
@@ -7718,8 +7872,8 @@ abstract class AppLocalizations {
   /// Hint text for the group name text field
   ///
   /// In en, this message translates to:
-  /// **'e.g., System Discussion'**
-  String get chatCreateGroupNameHint;
+  /// **'e.g., {systemTerm} Discussion'**
+  String chatCreateGroupNameHint(String systemTerm);
 
   /// Header for participant selection in group chat creation
   ///
@@ -8330,7 +8484,7 @@ abstract class AppLocalizations {
   /// Title of the progress card shown while the encrypted pairing snapshot is uploading to the relay
   ///
   /// In en, this message translates to:
-  /// **'Uploading your system to the new device'**
+  /// **'Uploading your data to the new device'**
   String get syncSetupSnapshotUploadingTitle;
 
   /// Label under the snapshot upload progress bar, showing bytes uploaded out of total
@@ -8348,7 +8502,7 @@ abstract class AppLocalizations {
   /// Title shown when the pair-time snapshot upload fails; accompanied by a retry button
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t upload your system'**
+  /// **'Couldn\'t upload your data'**
   String get syncSetupSnapshotUploadFailedTitle;
 
   /// Retry button label on the snapshot upload failure view
@@ -8537,7 +8691,7 @@ abstract class AppLocalizations {
   /// Body of the confirm dialog shown when leaving the add-members onboarding step without adding anyone
   ///
   /// In en, this message translates to:
-  /// **'You haven\'t added anyone to your system yet. You can always add people later from the home screen. Continue without adding anyone?'**
+  /// **'You haven\'t added anyone yet. You can always add people later from the home screen. Continue without adding anyone?'**
   String get onboardingNoMembersConfirmMessage;
 
   /// Confirm button: proceed past the add-members step without adding anyone
@@ -8579,7 +8733,7 @@ abstract class AppLocalizations {
   /// Feature row title in welcome step
   ///
   /// In en, this message translates to:
-  /// **'Your system is yours'**
+  /// **'Your data is yours'**
   String get onboardingWelcomePrivateTitle;
 
   /// Feature row description in welcome step
@@ -8709,7 +8863,7 @@ abstract class AppLocalizations {
   /// Feature toggle description for chat in features step
   ///
   /// In en, this message translates to:
-  /// **'Internal messaging between system {termPluralLower}'**
+  /// **'Internal messaging between {termPluralLower}'**
   String onboardingFeaturesChatDescription(String termPluralLower);
 
   /// Feature toggle description when Simply Plural chats were imported and chat cannot be disabled
@@ -8727,7 +8881,7 @@ abstract class AppLocalizations {
   /// Feature toggle description for polls in features step
   ///
   /// In en, this message translates to:
-  /// **'Create polls for system decisions'**
+  /// **'Create polls for shared decisions'**
   String get onboardingFeaturesPollsDescription;
 
   /// Feature toggle title for habits in features step
@@ -8763,7 +8917,7 @@ abstract class AppLocalizations {
   /// Feature toggle description for notes in features step
   ///
   /// In en, this message translates to:
-  /// **'A personal journal and writing space for your system'**
+  /// **'A personal journal and writing space'**
   String get onboardingFeaturesNotesDescription;
 
   /// Feature toggle label for message boards in features step
@@ -8793,7 +8947,7 @@ abstract class AppLocalizations {
   /// Feature toggle description for reminders in features step
   ///
   /// In en, this message translates to:
-  /// **'Set reminders for yourself or system {termPluralLower}'**
+  /// **'Set reminders for yourself or {termPluralLower}'**
   String onboardingFeaturesRemindersDescription(String termPluralLower);
 
   /// Next step row title in complete step
@@ -8829,7 +8983,7 @@ abstract class AppLocalizations {
   /// Next step row description in complete step
   ///
   /// In en, this message translates to:
-  /// **'Polls, votes — the democracy your system deserves.'**
+  /// **'Polls, votes — make decisions together.'**
   String get onboardingCompletePollsDescription;
 
   /// Large display text on the final onboarding step
@@ -9075,7 +9229,7 @@ abstract class AppLocalizations {
   /// Description text in Prism export preview
   ///
   /// In en, this message translates to:
-  /// **'This will restore your exported Prism system and finish setup on this device.'**
+  /// **'This will restore your exported Prism data and finish setup on this device.'**
   String get onboardingPrismExportPreviewDescription;
 
   /// Button label to start the Prism export import
@@ -9327,13 +9481,13 @@ abstract class AppLocalizations {
   /// Hint text in the system name text field
   ///
   /// In en, this message translates to:
-  /// **'Enter system name'**
+  /// **'Enter name'**
   String get onboardingSystemNameHint;
 
   /// Helper text below the system name field
   ///
   /// In en, this message translates to:
-  /// **'This is how your system will be identified in the app.'**
+  /// **'This is how this profile will be identified in the app.'**
   String get onboardingSystemNameHelperText;
 
   /// Helper text on the name-your-system step when the name was pre-filled from an import
@@ -9555,11 +9709,35 @@ abstract class AppLocalizations {
   /// **'Terminology'**
   String get onboardingPreferencesTerminology;
 
+  /// Section header for choosing terminology for members during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Member terminology'**
+  String get onboardingPreferencesMemberTerminology;
+
+  /// Section header for choosing terminology for the user's collective/system during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'System terminology'**
+  String get onboardingPreferencesSystemTerminology;
+
   /// Label for the custom terminology option in preferences grid
   ///
   /// In en, this message translates to:
   /// **'Custom'**
   String get onboardingPreferencesCustomTerminology;
+
+  /// Option label for using Prism's default system terminology during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get onboardingPreferencesSystemDefault;
+
+  /// Option label for using custom system terminology during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get onboardingPreferencesCustomSystemTerminology;
 
   /// Hint text for custom singular terminology field
   ///
@@ -9572,6 +9750,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Plural (e.g. Alters)'**
   String get onboardingPreferencesPluralHint;
+
+  /// Hint text for custom singular system terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'Singular (e.g. Collective)'**
+  String get onboardingPreferencesSystemSingularHint;
+
+  /// Hint text for custom plural system terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'Plural (e.g. Collectives)'**
+  String get onboardingPreferencesSystemPluralHint;
 
   /// Section header for accent color in preferences step
   ///
@@ -10083,7 +10273,7 @@ abstract class AppLocalizations {
   /// Empty state subtitle on habits list
   ///
   /// In en, this message translates to:
-  /// **'Create habits to track daily routines, self-care, or anything your system wants to keep up with.'**
+  /// **'Create habits to track daily routines, self-care, or anything you want to keep up with.'**
   String get habitsEmptySubtitle;
 
   /// Empty state action button label on habits list
@@ -10395,7 +10585,7 @@ abstract class AppLocalizations {
   /// Empty state subtitle when no active polls
   ///
   /// In en, this message translates to:
-  /// **'Create a poll to get your system voting'**
+  /// **'Create a poll to start voting'**
   String get pollsEmptyActiveSubtitle;
 
   /// Empty state title when no closed polls
@@ -13690,7 +13880,7 @@ abstract class AppLocalizations {
   /// Tagline shown below the app name in About
   ///
   /// In en, this message translates to:
-  /// **'Plural system management'**
+  /// **'Plural management'**
   String get settingsAboutTagline;
 
   /// App version string in About section
@@ -13702,8 +13892,12 @@ abstract class AppLocalizations {
   /// Description paragraph in the About section
   ///
   /// In en, this message translates to:
-  /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between {termPluralLower}, and keep your system organized.'**
-  String settingsAboutDescription(String termPluralLower);
+  /// **'A privacy-focused app for managing plural {systemTermPluralLower}. Track fronting, communicate between {termPluralLower}, and keep your {systemTermLower} organized.'**
+  String settingsAboutDescription(
+    String termPluralLower,
+    String systemTermLower,
+    String systemTermPluralLower,
+  );
 
   /// Website chip label in About section
   ///
@@ -15090,7 +15284,7 @@ abstract class AppLocalizations {
   /// Header title for the onboarding welcome step
   ///
   /// In en, this message translates to:
-  /// **'Your system, together.'**
+  /// **'Together in Prism.'**
   String get onboardingWelcomeTitle;
 
   /// Header subtitle for the onboarding welcome step
@@ -15138,7 +15332,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding imported-data-ready step
   ///
   /// In en, this message translates to:
-  /// **'Your imported system is ready to use'**
+  /// **'Your imported data is ready to use'**
   String get onboardingImportedDataReadySubtitle;
 
   /// Header title for the onboarding import-data step
@@ -15150,13 +15344,13 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding import-data step
   ///
   /// In en, this message translates to:
-  /// **'Bring your system with you.'**
+  /// **'Bring your data with you.'**
   String get onboardingImportDataSubtitle;
 
   /// Header title for the onboarding system-name step
   ///
   /// In en, this message translates to:
-  /// **'Name your system'**
+  /// **'Name this profile'**
   String get onboardingSystemNameTitle;
 
   /// Header subtitle for the onboarding system-name step
@@ -15186,7 +15380,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding add-members step
   ///
   /// In en, this message translates to:
-  /// **'Add the people in your system.'**
+  /// **'Add your people.'**
   String get onboardingAddMembersSubtitle;
 
   /// Header title for the onboarding features step
@@ -15234,7 +15428,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding chat-setup step
   ///
   /// In en, this message translates to:
-  /// **'Channels for your system to talk.'**
+  /// **'Channels to talk.'**
   String get onboardingChatSetupSubtitle;
 
   /// Header title for the onboarding appearance step
@@ -15324,7 +15518,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding complete step
   ///
   /// In en, this message translates to:
-  /// **'Your system is set up. Here\'s what to explore.'**
+  /// **'Prism is set up. Here\'s what to explore.'**
   String get onboardingCompleteSubtitle;
 
   /// Button label to add a new member/alter/headmate — {term} is user's chosen singular
@@ -15402,8 +15596,8 @@ abstract class AppLocalizations {
   /// Members empty state subtitle — {term} is user's chosen singular lowercase
   ///
   /// In en, this message translates to:
-  /// **'Add your first system {term} to get started'**
-  String terminologyAddFirstSubtitle(String term);
+  /// **'Add your first {systemTermLower} {term} to get started'**
+  String terminologyAddFirstSubtitle(String term, String systemTermLower);
 
   /// Toast when trying to vote without selecting a member to vote as — {term} is user's chosen singular lowercase
   ///
@@ -15942,7 +16136,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingSyncMembersLabel.
   ///
   /// In en, this message translates to:
-  /// **'System members'**
+  /// **'Members'**
   String get onboardingSyncMembersLabel;
 
   /// No description provided for @onboardingSyncPhaseConnectTitle.
@@ -15960,7 +16154,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingSyncPhaseDownloadTitle.
   ///
   /// In en, this message translates to:
-  /// **'Downloading your system'**
+  /// **'Downloading your data'**
   String get onboardingSyncPhaseDownloadTitle;
 
   /// No description provided for @onboardingSyncPhaseDownloadSubtitle.
@@ -15996,7 +16190,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingSyncReassurance.
   ///
   /// In en, this message translates to:
-  /// **'Still going — larger systems can take a minute on slow networks.'**
+  /// **'Still going — larger restores can take a minute on slow networks.'**
   String get onboardingSyncReassurance;
 
   /// No description provided for @onboardingSyncReconnecting.
@@ -17120,7 +17314,7 @@ abstract class AppLocalizations {
   /// Consequence text shown when composing a public post addressed to no specific member.
   ///
   /// In en, this message translates to:
-  /// **'Everyone in your system will see this in the Public feed.'**
+  /// **'Everyone will see this in the Public feed.'**
   String get boardsComposeConsequencePublicEveryone;
 
   /// Save/submit button label in the compose post sheet.

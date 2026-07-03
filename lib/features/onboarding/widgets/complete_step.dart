@@ -3,8 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -22,9 +24,18 @@ class CompleteStep extends ConsumerWidget {
         .value
         ?.take(_maxDisplayMembers)
         .toList(growable: false);
+    final selectedSystemTerms = onboarding.useCustomSystemTerminology
+        ? SystemTerms.custom(
+            singular: onboarding.customSystemTermSingular ?? '',
+            plural: onboarding.customSystemTermPlural ?? '',
+          )
+        : onboarding.selectedSystemTermPreset == null
+        ? null
+        : SystemTerms.preset(onboarding.selectedSystemTermPreset!);
+    final systemTerms = resolveSystemTerms(context.l10n, selectedSystemTerms);
     final systemName = onboarding.systemName.trim().isNotEmpty
         ? onboarding.systemName.trim()
-        : context.l10n.settingsFallbackSystemName;
+        : context.l10n.settingsFallbackSystemName(systemTerms.singular);
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;

@@ -213,9 +213,14 @@
   "@moreOptions": {
     "description": "Tooltip for 'more options' menu button"
   },
-  "settingsSectionSystem": "System",
+  "settingsSectionSystem": "{systemTerm}",
   "@settingsSectionSystem": {
-    "description": "Settings section header: System"
+    "description": "Settings section header for system/collective data",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "settingsSectionApp": "App",
   "@settingsSectionApp": {
@@ -225,9 +230,14 @@
   "@settingsSectionData": {
     "description": "Settings section header: Data"
   },
-  "settingsSystemInformation": "System Information",
+  "settingsSystemInformation": "{systemTerm} Information",
   "@settingsSystemInformation": {
-    "description": "Settings link: System Information"
+    "description": "Settings link: System Information",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "settingsGroups": "Groups",
   "@settingsGroups": {
@@ -244,6 +254,10 @@
   "settingsAppearance": "Appearance",
   "@settingsAppearance": {
     "description": "Settings link: Appearance"
+  },
+  "settingsTerminology": "Terminology",
+  "@settingsTerminology": {
+    "description": "Settings link and screen title for member and system terminology"
   },
   "settingsNavigation": "Navigation",
   "@settingsNavigation": {
@@ -289,9 +303,14 @@
   "@settingsDebug": {
     "description": "Settings link: Debug"
   },
-  "settingsFallbackSystemName": "My System",
+  "settingsFallbackSystemName": "My {systemTerm}",
   "@settingsFallbackSystemName": {
-    "description": "Fallback display name when no system name is set"
+    "description": "Fallback display name when no system name is set",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "settingsLanguageTitle": "Language",
   "@settingsLanguageTitle": {
@@ -685,6 +704,118 @@
   "appearanceTerminology": "Terminology",
   "@appearanceTerminology": {
     "description": "Appearance settings section: Terminology"
+  },
+  "terminologyMemberSectionTitle": "Member terminology",
+  "@terminologyMemberSectionTitle": {
+    "description": "Settings section title for terminology used for people/members"
+  },
+  "terminologyMemberSectionDescription": "Controls labels for people in Prism.",
+  "@terminologyMemberSectionDescription": {
+    "description": "Settings section description for member terminology"
+  },
+  "terminologySystemSectionTitle": "System terminology",
+  "@terminologySystemSectionTitle": {
+    "description": "Settings section title for terminology used for the user's collective/system"
+  },
+  "terminologySystemSectionDescription": "Controls labels for your collective across Prism.",
+  "@terminologySystemSectionDescription": {
+    "description": "Settings section description for system terminology"
+  },
+  "terminologySystemDefaultSingular": "System",
+  "@terminologySystemDefaultSingular": {
+    "description": "Default singular collective/system terminology"
+  },
+  "terminologySystemDefaultPlural": "Systems",
+  "@terminologySystemDefaultPlural": {
+    "description": "Default plural collective/system terminology"
+  },
+  "terminologySystemPresetCollectiveSingular": "Collective",
+  "@terminologySystemPresetCollectiveSingular": {
+    "description": "Preset singular collective/system terminology: Collective"
+  },
+  "terminologySystemPresetCollectivePlural": "Collectives",
+  "@terminologySystemPresetCollectivePlural": {
+    "description": "Preset plural collective/system terminology: Collectives"
+  },
+  "terminologySystemPresetCommunitySingular": "Community",
+  "@terminologySystemPresetCommunitySingular": {
+    "description": "Preset singular collective/system terminology: Community"
+  },
+  "terminologySystemPresetCommunityPlural": "Communities",
+  "@terminologySystemPresetCommunityPlural": {
+    "description": "Preset plural collective/system terminology: Communities"
+  },
+  "terminologySystemPresetNetworkSingular": "Network",
+  "@terminologySystemPresetNetworkSingular": {
+    "description": "Preset singular collective/system terminology: Network"
+  },
+  "terminologySystemPresetNetworkPlural": "Networks",
+  "@terminologySystemPresetNetworkPlural": {
+    "description": "Preset plural collective/system terminology: Networks"
+  },
+  "terminologySystemPresetConstellationSingular": "Constellation",
+  "@terminologySystemPresetConstellationSingular": {
+    "description": "Preset singular collective/system terminology: Constellation"
+  },
+  "terminologySystemPresetConstellationPlural": "Constellations",
+  "@terminologySystemPresetConstellationPlural": {
+    "description": "Preset plural collective/system terminology: Constellations"
+  },
+  "terminologyCustomTermsSubtitle": "Your own terms",
+  "@terminologyCustomTermsSubtitle": {
+    "description": "Subtitle for custom terminology choice tiles"
+  },
+  "terminologySystemModeDefault": "Default",
+  "@terminologySystemModeDefault": {
+    "description": "Segment label for default system terminology"
+  },
+  "terminologySystemModeCustom": "Custom",
+  "@terminologySystemModeCustom": {
+    "description": "Segment label for custom system terminology"
+  },
+  "terminologySystemCustomSingularLabel": "Singular",
+  "@terminologySystemCustomSingularLabel": {
+    "description": "Label for custom system singular terminology field"
+  },
+  "terminologySystemCustomSingularHint": "Collective",
+  "@terminologySystemCustomSingularHint": {
+    "description": "Hint for custom system singular terminology field"
+  },
+  "terminologySystemCustomPluralLabel": "Plural",
+  "@terminologySystemCustomPluralLabel": {
+    "description": "Label for custom system plural terminology field"
+  },
+  "terminologySystemCustomPluralHint": "Collectives",
+  "@terminologySystemCustomPluralHint": {
+    "description": "Hint for custom system plural terminology field"
+  },
+  "terminologySystemCustomRequired": "Enter both singular and plural terms.",
+  "@terminologySystemCustomRequired": {
+    "description": "Validation message when a custom system term pair is incomplete"
+  },
+  "terminologySystemCustomTooLong": "Use {maxLength} characters or fewer.",
+  "@terminologySystemCustomTooLong": {
+    "description": "Validation message when a custom system term is too long",
+    "placeholders": {
+      "maxLength": {
+        "type": "int"
+      }
+    }
+  },
+  "terminologySystemPreview": "\"{systemTerm} Information\" · \"Add your first {systemTermLower} {memberTermLower}\"",
+  "@terminologySystemPreview": {
+    "description": "Live preview for custom system terminology settings",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      },
+      "systemTermLower": {
+        "type": "String"
+      },
+      "memberTermLower": {
+        "type": "String"
+      }
+    }
   },
   "appearanceLanguage": "Language",
   "@appearanceLanguage": {
@@ -1784,7 +1915,7 @@
       }
     }
   },
-  "statisticsMemberMinutesAxisHint": "% of system {term}-minutes",
+  "statisticsMemberMinutesAxisHint": "% of total {term}-minutes",
   "@statisticsMemberMinutesAxisHint": {
     "description": "Subtitle / accessibility hint clarifying that percentages are share of total {term}-minutes, not wall-clock fronting time.",
     "placeholders": {
@@ -2090,9 +2221,14 @@
   "@errorHistoryCopied": {
     "description": "Toast after copying error details"
   },
-  "systemInfoTitle": "System Information",
+  "systemInfoTitle": "{systemTerm} Information",
   "@systemInfoTitle": {
-    "description": "System Information screen title"
+    "description": "System Information screen title",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "systemInfoChangeAvatar": "Change avatar",
   "@systemInfoChangeAvatar": {
@@ -2271,13 +2407,23 @@
   "@systemInfoNameLabel": {
     "description": "System name field label"
   },
-  "systemInfoSystemNameHint": "System name",
+  "systemInfoSystemNameHint": "{systemTerm} name",
   "@systemInfoSystemNameHint": {
-    "description": "Hint text for system name field"
+    "description": "Hint text for system name field",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
-  "systemInfoSaveSystemName": "Save system name",
+  "systemInfoSaveSystemName": "Save {systemTermLower} name",
   "@systemInfoSaveSystemName": {
-    "description": "Tooltip for save system name button"
+    "description": "Tooltip for save system name button",
+    "placeholders": {
+      "systemTermLower": {
+        "type": "String"
+      }
+    }
   },
   "systemInfoCancelEditing": "Cancel editing",
   "@systemInfoCancelEditing": {
@@ -2287,9 +2433,14 @@
   "@systemInfoDescriptionLabel": {
     "description": "System description field label"
   },
-  "systemInfoDescriptionHint": "System description",
+  "systemInfoDescriptionHint": "{systemTerm} description",
   "@systemInfoDescriptionHint": {
-    "description": "Hint text for system description field"
+    "description": "Hint text for system description field",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "systemInfoAddDescription": "Add a description...",
   "@systemInfoAddDescription": {
@@ -2299,9 +2450,14 @@
   "@systemInfoSaveDescription": {
     "description": "Tooltip for save description button"
   },
-  "systemInfoTagLabel": "System tag",
+  "systemInfoTagLabel": "{systemTerm} tag",
   "@systemInfoTagLabel": {
-    "description": "Label for the system tag field"
+    "description": "Label for the system tag field",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "systemInfoTagHint": "e.g. | Skylars",
   "@systemInfoTagHint": {
@@ -2311,9 +2467,14 @@
   "@systemInfoTagHelper": {
     "description": "Helper text below the system tag field"
   },
-  "systemInfoColorLabel": "System color",
+  "systemInfoColorLabel": "{systemTerm} color",
   "@systemInfoColorLabel": {
-    "description": "Label for the system color row"
+    "description": "Label for the system color row",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "systemInfoColorPickAction": "Pick color",
   "@systemInfoColorPickAction": {
@@ -2331,9 +2492,14 @@
   "@systemInfoHideTotalMemberCountTitle": {
     "description": "Switch label for hiding member count totals and group count chips"
   },
-  "systemInfoHideTotalMemberCountSubtitle": "Hides member totals in Settings, System Information, Statistics, diagnostics, and group or folder count chips.",
+  "systemInfoHideTotalMemberCountSubtitle": "Hides member totals in Settings, {systemTerm} Information, Statistics, diagnostics, and group or folder count chips.",
   "@systemInfoHideTotalMemberCountSubtitle": {
-    "description": "Helper text for hiding member count displays"
+    "description": "Helper text for hiding member count displays",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "devicesTitle": "Manage Devices",
   "@devicesTitle": {
@@ -2776,10 +2942,13 @@
   "@syncTroubleshootingBackupFirst": {
     "description": "Button: go to import/export before resetting sync"
   },
-  "featureChatDescription": "Internal messaging between system {term}.",
+  "featureChatDescription": "Private messaging between {term} in your {systemTermLower}.",
   "@featureChatDescription": {
     "description": "Description text on chat feature settings screen",
-    "placeholders": { "term": { "type": "String" } }
+    "placeholders": {
+      "term": { "type": "String" },
+      "systemTermLower": { "type": "String" }
+    }
   },
   "featureChatGeneral": "General",
   "@featureChatGeneral": {
@@ -2789,10 +2958,13 @@
   "@featureChatEnable": {
     "description": "Toggle title: enable chat"
   },
-  "featureChatEnableSubtitle": "In-system messaging between {term}",
+  "featureChatEnableSubtitle": "Messaging between {term} in this {systemTermLower}",
   "@featureChatEnableSubtitle": {
     "description": "Toggle subtitle: enable chat",
-    "placeholders": { "term": { "type": "String" } }
+    "placeholders": {
+      "term": { "type": "String" },
+      "systemTermLower": { "type": "String" }
+    }
   },
   "featureChatOptions": "Options",
   "@featureChatOptions": {
@@ -2931,10 +3103,13 @@
       }
     }
   },
-  "featureHabitsDescription": "Track recurring tasks and build streaks with your system {term}.",
+  "featureHabitsDescription": "Track recurring tasks and build streaks with {term} in your {systemTermLower}.",
   "@featureHabitsDescription": {
     "description": "Description text on habits feature settings screen",
-    "placeholders": { "term": { "type": "String" } }
+    "placeholders": {
+      "term": { "type": "String" },
+      "systemTermLower": { "type": "String" }
+    }
   },
   "featureHabitsGeneral": "General",
   "@featureHabitsGeneral": {
@@ -3049,22 +3224,31 @@
   "@featureSleepRecoverySheetRestoring": {
     "description": "Button label while a sleep recovery is in progress"
   },
-  "featurePollsDescription": "Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.",
+  "featurePollsDescription": "Let your {systemTermLower} vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.",
   "@featurePollsDescription": {
-    "description": "Description text on polls feature settings screen"
+    "description": "Description text on polls feature settings screen",
+    "placeholders": {
+      "systemTermLower": { "type": "String" }
+    }
   },
   "featurePollsEnable": "Enable Polls",
   "@featurePollsEnable": {
     "description": "Toggle title: enable polls"
   },
-  "featurePollsEnableSubtitle": "Create polls for system decisions",
+  "featurePollsEnableSubtitle": "Create polls for {systemTermLower} decisions",
   "@featurePollsEnableSubtitle": {
-    "description": "Toggle subtitle: enable polls"
+    "description": "Toggle subtitle: enable polls",
+    "placeholders": {
+      "systemTermLower": { "type": "String" }
+    }
   },
-  "featureNotesDescription": "A personal journal for system {term}. Disabling hides notes from navigation but keeps existing entries.",
+  "featureNotesDescription": "A personal journal for {term} in your {systemTermLower}. Disabling hides notes from navigation but keeps existing entries.",
   "@featureNotesDescription": {
     "description": "Description text on notes feature settings screen",
-    "placeholders": { "term": { "type": "String" } }
+    "placeholders": {
+      "term": { "type": "String" },
+      "systemTermLower": { "type": "String" }
+    }
   },
   "featureNotesEnable": "Enable Notes",
   "@featureNotesEnable": {
@@ -3340,10 +3524,13 @@
   "@frontingWelcomeTitle": {
     "description": "Title on empty system view when no members exist"
   },
-  "frontingWelcomeSubtitle": "Add your first system {member} to get started",
+  "frontingWelcomeSubtitle": "Add your first {systemTermLower} {member} to get started",
   "@frontingWelcomeSubtitle": {
     "description": "Subtitle on empty system view (uses terminology term for member)",
     "placeholders": {
+      "systemTermLower": {
+        "type": "String"
+      },
       "member": {
         "type": "String"
       }
@@ -4312,11 +4499,14 @@
   "@memberGroupEmptyList": {
     "description": "Empty state title on the groups screen"
   },
-  "memberGroupEmptySubtitle": "Create groups to organize your system {termPlural}",
+  "memberGroupEmptySubtitle": "Create groups to organize {termPlural} in your {systemTermLower}",
   "@memberGroupEmptySubtitle": {
     "description": "Empty state subtitle on the groups screen",
     "placeholders": {
       "termPlural": {
+        "type": "String"
+      },
+      "systemTermLower": {
         "type": "String"
       }
     }
@@ -5344,7 +5534,7 @@
   "@memberAdminTitle": {
     "description": "Switch label: admin status"
   },
-  "memberAdminSubtitle": "Admins can manage system settings",
+  "memberAdminSubtitle": "Admins can manage shared settings",
   "@memberAdminSubtitle": {
     "description": "Switch subtitle: admin status"
   },
@@ -5574,9 +5764,14 @@
   "@chatNoConversations": {
     "description": "Empty state title when there are no conversations"
   },
-  "chatNoConversationsSubtitle": "Start chatting with your system",
+  "chatNoConversationsSubtitle": "Start chatting with your {systemTermLower}",
   "@chatNoConversationsSubtitle": {
-    "description": "Empty state subtitle when there are no conversations"
+    "description": "Empty state subtitle when there are no conversations",
+    "placeholders": {
+      "systemTermLower": {
+        "type": "String"
+      }
+    }
   },
   "chatNoDirectMessages": "No direct messages",
   "@chatNoDirectMessages": {
@@ -6133,9 +6328,14 @@
   "@chatCreateGroupName": {
     "description": "Label for the group name text field"
   },
-  "chatCreateGroupNameHint": "e.g., System Discussion",
+  "chatCreateGroupNameHint": "e.g., {systemTerm} Discussion",
   "@chatCreateGroupNameHint": {
-    "description": "Hint text for the group name text field"
+    "description": "Hint text for the group name text field",
+    "placeholders": {
+      "systemTerm": {
+        "type": "String"
+      }
+    }
   },
   "chatCreateSelectParticipants": "Select participants (2+)",
   "@chatCreateSelectParticipants": {
@@ -6661,7 +6861,7 @@
   "@syncSetupPairingFailed": {
     "description": "Title shown when the existing-device setup flow fails"
   },
-  "syncSetupSnapshotUploadingTitle": "Uploading your system to the new device",
+  "syncSetupSnapshotUploadingTitle": "Uploading your data to the new device",
   "@syncSetupSnapshotUploadingTitle": {
     "description": "Title of the progress card shown while the encrypted pairing snapshot is uploading to the relay"
   },
@@ -6677,7 +6877,7 @@
   "@syncSetupSnapshotUploadStarting": {
     "description": "Placeholder label shown before the first upload progress event arrives"
   },
-  "syncSetupSnapshotUploadFailedTitle": "Couldn't upload your system",
+  "syncSetupSnapshotUploadFailedTitle": "Couldn't upload your data",
   "@syncSetupSnapshotUploadFailedTitle": {
     "description": "Title shown when the pair-time snapshot upload fails; accompanied by a retry button"
   },
@@ -6838,7 +7038,7 @@
   "@onboardingNoMembersConfirmTitle": {
     "description": "Title of the confirm dialog shown when leaving the add-members onboarding step without adding anyone"
   },
-  "onboardingNoMembersConfirmMessage": "You haven't added anyone to your system yet. You can always add people later from the home screen. Continue without adding anyone?",
+  "onboardingNoMembersConfirmMessage": "You haven't added anyone yet. You can always add people later from the home screen. Continue without adding anyone?",
   "@onboardingNoMembersConfirmMessage": {
     "description": "Body of the confirm dialog shown when leaving the add-members onboarding step without adding anyone"
   },
@@ -6871,7 +7071,7 @@
   "@onboardingImportedDataLabel": {
     "description": "Summary label on the imported data ready view"
   },
-  "onboardingWelcomePrivateTitle": "Your system is yours",
+  "onboardingWelcomePrivateTitle": "Your data is yours",
   "@onboardingWelcomePrivateTitle": {
     "description": "Feature row title in welcome step"
   },
@@ -6964,7 +7164,7 @@
   "@onboardingFeaturesChat": {
     "description": "Feature toggle title for chat in features step"
   },
-  "onboardingFeaturesChatDescription": "Internal messaging between system {termPluralLower}",
+  "onboardingFeaturesChatDescription": "Internal messaging between {termPluralLower}",
   "@onboardingFeaturesChatDescription": {
     "description": "Feature toggle description for chat in features step",
     "placeholders": {
@@ -6981,7 +7181,7 @@
   "@onboardingFeaturesPolls": {
     "description": "Feature toggle title for polls in features step"
   },
-  "onboardingFeaturesPollsDescription": "Create polls for system decisions",
+  "onboardingFeaturesPollsDescription": "Create polls for shared decisions",
   "@onboardingFeaturesPollsDescription": {
     "description": "Feature toggle description for polls in features step"
   },
@@ -7005,7 +7205,7 @@
   "@onboardingFeaturesNotes": {
     "description": "Feature toggle label for notes in features step"
   },
-  "onboardingFeaturesNotesDescription": "A personal journal and writing space for your system",
+  "onboardingFeaturesNotesDescription": "A personal journal and writing space",
   "@onboardingFeaturesNotesDescription": {
     "description": "Feature toggle description for notes in features step"
   },
@@ -7025,7 +7225,7 @@
   "@onboardingFeaturesReminders": {
     "description": "Feature toggle label for reminders in features step"
   },
-  "onboardingFeaturesRemindersDescription": "Set reminders for yourself or system {termPluralLower}",
+  "onboardingFeaturesRemindersDescription": "Set reminders for yourself or {termPluralLower}",
   "@onboardingFeaturesRemindersDescription": {
     "description": "Feature toggle description for reminders in features step",
     "placeholders": {
@@ -7054,7 +7254,7 @@
   "@onboardingCompletePollsTitle": {
     "description": "Next step row title in complete step"
   },
-  "onboardingCompletePollsDescription": "Polls, votes — the democracy your system deserves.",
+  "onboardingCompletePollsDescription": "Polls, votes — make decisions together.",
   "@onboardingCompletePollsDescription": {
     "description": "Next step row description in complete step"
   },
@@ -7236,7 +7436,7 @@
   "@onboardingPrismExportReadyToImport": {
     "description": "Section header in Prism export preview"
   },
-  "onboardingPrismExportPreviewDescription": "This will restore your exported Prism system and finish setup on this device.",
+  "onboardingPrismExportPreviewDescription": "This will restore your exported Prism data and finish setup on this device.",
   "@onboardingPrismExportPreviewDescription": {
     "description": "Description text in Prism export preview"
   },
@@ -7404,11 +7604,11 @@
   "@onboardingDataReadySyncedData": {
     "description": "Summary label for synced data on pairing success screen"
   },
-  "onboardingSystemNameHint": "Enter system name",
+  "onboardingSystemNameHint": "Enter name",
   "@onboardingSystemNameHint": {
     "description": "Hint text in the system name text field"
   },
-  "onboardingSystemNameHelperText": "This is how your system will be identified in the app.",
+  "onboardingSystemNameHelperText": "This is how this profile will be identified in the app.",
   "@onboardingSystemNameHelperText": {
     "description": "Helper text below the system name field"
   },
@@ -7570,9 +7770,25 @@
   "@onboardingPreferencesTerminology": {
     "description": "Section header for terminology section in preferences step"
   },
+  "onboardingPreferencesMemberTerminology": "Member terminology",
+  "@onboardingPreferencesMemberTerminology": {
+    "description": "Section header for choosing terminology for members during onboarding"
+  },
+  "onboardingPreferencesSystemTerminology": "System terminology",
+  "@onboardingPreferencesSystemTerminology": {
+    "description": "Section header for choosing terminology for the user's collective/system during onboarding"
+  },
   "onboardingPreferencesCustomTerminology": "Custom",
   "@onboardingPreferencesCustomTerminology": {
     "description": "Label for the custom terminology option in preferences grid"
+  },
+  "onboardingPreferencesSystemDefault": "System",
+  "@onboardingPreferencesSystemDefault": {
+    "description": "Option label for using Prism's default system terminology during onboarding"
+  },
+  "onboardingPreferencesCustomSystemTerminology": "Custom",
+  "@onboardingPreferencesCustomSystemTerminology": {
+    "description": "Option label for using custom system terminology during onboarding"
   },
   "onboardingPreferencesSingularHint": "Singular (e.g. Alter)",
   "@onboardingPreferencesSingularHint": {
@@ -7581,6 +7797,14 @@
   "onboardingPreferencesPluralHint": "Plural (e.g. Alters)",
   "@onboardingPreferencesPluralHint": {
     "description": "Hint text for custom plural terminology field"
+  },
+  "onboardingPreferencesSystemSingularHint": "Singular (e.g. Collective)",
+  "@onboardingPreferencesSystemSingularHint": {
+    "description": "Hint text for custom singular system terminology field"
+  },
+  "onboardingPreferencesSystemPluralHint": "Plural (e.g. Collectives)",
+  "@onboardingPreferencesSystemPluralHint": {
+    "description": "Hint text for custom plural system terminology field"
   },
   "onboardingPreferencesAccentColor": "Accent Color",
   "@onboardingPreferencesAccentColor": {
@@ -7987,7 +8211,7 @@
   "@habitsEmptyTitle": {
     "description": "Empty state title on habits list"
   },
-  "habitsEmptySubtitle": "Create habits to track daily routines, self-care, or anything your system wants to keep up with.",
+  "habitsEmptySubtitle": "Create habits to track daily routines, self-care, or anything you want to keep up with.",
   "@habitsEmptySubtitle": {
     "description": "Empty state subtitle on habits list"
   },
@@ -8241,7 +8465,7 @@
   "@pollsEmptyActiveTitle": {
     "description": "Empty state title when no active polls"
   },
-  "pollsEmptyActiveSubtitle": "Create a poll to get your system voting",
+  "pollsEmptyActiveSubtitle": "Create a poll to start voting",
   "@pollsEmptyActiveSubtitle": {
     "description": "Empty state subtitle when no active polls"
   },
@@ -9658,17 +9882,21 @@
   },
   "settingsAboutAppName": "Prism",
   "@settingsAboutAppName": { "description": "App name headline in the About section" },
-  "settingsAboutTagline": "Plural system management",
+  "settingsAboutTagline": "Plural management",
   "@settingsAboutTagline": { "description": "Tagline shown below the app name in About" },
   "settingsAboutVersion": "Version {version}",
   "@settingsAboutVersion": {
     "description": "App version string in About section",
     "placeholders": { "version": { "type": "String" } }
   },
-  "settingsAboutDescription": "A privacy-focused app for managing plural systems. Track fronting, communicate between {termPluralLower}, and keep your system organized.",
+  "settingsAboutDescription": "A privacy-focused app for managing plural {systemTermPluralLower}. Track fronting, communicate between {termPluralLower}, and keep your {systemTermLower} organized.",
   "@settingsAboutDescription": {
     "description": "Description paragraph in the About section",
-    "placeholders": { "termPluralLower": { "type": "String" } }
+    "placeholders": {
+      "termPluralLower": { "type": "String" },
+      "systemTermLower": { "type": "String" },
+      "systemTermPluralLower": { "type": "String" }
+    }
   },
   "settingsAboutWebsite": "Website",
   "@settingsAboutWebsite": { "description": "Website chip label in About section" },
@@ -10211,7 +10439,7 @@
   "cancelHistoricalSleep": "Cancel",
   "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
 
-  "onboardingWelcomeTitle": "Your system, together.",
+  "onboardingWelcomeTitle": "Together in Prism.",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
   "onboardingWelcomeSubtitle": "Fronting, chat, notes, habits, and decisions in one private place.",
   "@onboardingWelcomeSubtitle": { "description": "Header subtitle for the onboarding welcome step" },
@@ -10229,13 +10457,13 @@
   "@onboardingSyncDeviceSubtitle": { "description": "Header subtitle for the onboarding sync device step" },
   "onboardingImportedDataReadyTitle": "Data Ready",
   "@onboardingImportedDataReadyTitle": { "description": "Header title for the onboarding imported-data-ready step" },
-  "onboardingImportedDataReadySubtitle": "Your imported system is ready to use",
+  "onboardingImportedDataReadySubtitle": "Your imported data is ready to use",
   "@onboardingImportedDataReadySubtitle": { "description": "Header subtitle for the onboarding imported-data-ready step" },
   "onboardingImportDataTitle": "Already have data?",
   "@onboardingImportDataTitle": { "description": "Header title for the onboarding import-data step" },
-  "onboardingImportDataSubtitle": "Bring your system with you.",
+  "onboardingImportDataSubtitle": "Bring your data with you.",
   "@onboardingImportDataSubtitle": { "description": "Header subtitle for the onboarding import-data step" },
-  "onboardingSystemNameTitle": "Name your system",
+  "onboardingSystemNameTitle": "Name this profile",
   "@onboardingSystemNameTitle": { "description": "Header title for the onboarding system-name step" },
   "onboardingSystemNameSubtitle": "Whatever feels right.",
   "@onboardingSystemNameSubtitle": { "description": "Header subtitle for the onboarding system-name step" },
@@ -10245,7 +10473,7 @@
   "@onboardingTerminologySubtitle": { "description": "Header subtitle for the onboarding terminology step" },
   "onboardingAddMembersTitle": "Who's here?",
   "@onboardingAddMembersTitle": { "description": "Header title for the onboarding add-members step" },
-  "onboardingAddMembersSubtitle": "Add the people in your system.",
+  "onboardingAddMembersSubtitle": "Add your people.",
   "@onboardingAddMembersSubtitle": { "description": "Header subtitle for the onboarding add-members step" },
   "onboardingFeaturesTitle": "Pick your tools",
   "@onboardingFeaturesTitle": { "description": "Header title for the onboarding features step" },
@@ -10261,7 +10489,7 @@
   "@onboardingFrontingDefaultsSubtitle": { "description": "Header subtitle for the onboarding fronting defaults step" },
   "onboardingChatSetupTitle": "Set up chat",
   "@onboardingChatSetupTitle": { "description": "Header title for the onboarding chat-setup step" },
-  "onboardingChatSetupSubtitle": "Channels for your system to talk.",
+  "onboardingChatSetupSubtitle": "Channels to talk.",
   "@onboardingChatSetupSubtitle": { "description": "Header subtitle for the onboarding chat-setup step" },
   "onboardingAppearanceTitle": "Make it yours",
   "@onboardingAppearanceTitle": { "description": "Header title for the onboarding appearance step" },
@@ -10315,7 +10543,7 @@
   "@onboardingWhosFrontingSubtitle": { "description": "Header subtitle for the onboarding who's-fronting step" },
   "onboardingCompleteTitle": "Ready when you are",
   "@onboardingCompleteTitle": { "description": "Header title for the onboarding complete step" },
-  "onboardingCompleteSubtitle": "Your system is set up. Here's what to explore.",
+  "onboardingCompleteSubtitle": "Prism is set up. Here's what to explore.",
   "@onboardingCompleteSubtitle": { "description": "Header subtitle for the onboarding complete step" },
 
   "terminologyAddButton": "Add {term}",
@@ -10381,10 +10609,13 @@
       "error": { "type": "String" }
     }
   },
-  "terminologyAddFirstSubtitle": "Add your first system {term} to get started",
+  "terminologyAddFirstSubtitle": "Add your first {systemTermLower} {term} to get started",
   "@terminologyAddFirstSubtitle": {
     "description": "Members empty state subtitle — {term} is user's chosen singular lowercase",
-    "placeholders": { "term": { "type": "String" } }
+    "placeholders": {
+      "term": { "type": "String" },
+      "systemTermLower": { "type": "String" }
+    }
   },
   "pollsVotingAsSelectPrompt": "Select a {term} to vote as",
   "@pollsVotingAsSelectPrompt": {
@@ -10782,16 +11013,16 @@
       }
     }
   },
-  "onboardingSyncMembersLabel": "System members",
+  "onboardingSyncMembersLabel": "Members",
   "onboardingSyncPhaseConnectTitle": "Connecting…",
   "onboardingSyncPhaseConnectSubtitle": "Saying hello to your other device",
-  "onboardingSyncPhaseDownloadTitle": "Downloading your system",
+  "onboardingSyncPhaseDownloadTitle": "Downloading your data",
   "onboardingSyncPhaseDownloadSubtitle": "Pulling the encrypted snapshot",
   "onboardingSyncPhaseRestoreTitle": "Restoring your data",
   "onboardingSyncPhaseRestoreSubtitle": "Unpacking headmates, messages, and notes",
   "onboardingSyncPhaseFinishTitle": "Wrapping up",
   "onboardingSyncPhaseFinishSubtitle": "Locking things in for good",
-  "onboardingSyncReassurance": "Still going — larger systems can take a minute on slow networks.",
+  "onboardingSyncReassurance": "Still going — larger restores can take a minute on slow networks.",
   "onboardingSyncReconnecting": "Reconnecting to the relay…",
   "onboardingSyncNoDataToRestore": "No prior data to restore — starting fresh.",
   "onboardingSyncStillPullingBackground": "Still pulling updates in the background. You can continue.",
@@ -11499,7 +11730,7 @@
       "name": { "type": "String" }
     }
   },
-  "boardsComposeConsequencePublicEveryone": "Everyone in your system will see this in the Public feed.",
+  "boardsComposeConsequencePublicEveryone": "Everyone will see this in the Public feed.",
   "@boardsComposeConsequencePublicEveryone": {
     "description": "Consequence text shown when composing a public post addressed to no specific member."
   },

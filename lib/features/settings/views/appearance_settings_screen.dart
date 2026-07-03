@@ -14,7 +14,6 @@ import 'package:prism_plurality/features/settings/views/accent_color_picker.dart
 import 'package:prism_plurality/features/settings/views/palette_settings_screen.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
-import 'package:prism_plurality/features/settings/views/terminology_picker.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -27,8 +26,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
-/// Screen for customising appearance: accent color, per-member colors,
-/// terminology, and a live preview card.
+/// Screen for customising appearance: accent color, per-member colors, and a
+/// live preview card.
 class AppearanceSettingsScreen extends ConsumerWidget {
   const AppearanceSettingsScreen({super.key});
 
@@ -228,17 +227,6 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                           .read(settingsNotifierProvider.notifier)
                           .updateBioMarkdownEnabled(value);
                     },
-                  ),
-                ),
-              ),
-              PrismSection(
-                title: context.l10n.appearanceTerminology,
-                child: PrismSectionCard(
-                  child: TerminologyPicker(
-                    current: settings.terminology,
-                    currentUseEnglish: settings.terminologyUseEnglish,
-                    customTerminology: settings.customTerminology,
-                    customPluralTerminology: settings.customPluralTerminology,
                   ),
                 ),
               ),

@@ -20,10 +20,13 @@ class NotesFeatureSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesEnabled = ref.watch(notesEnabledProvider);
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.featureNotesTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.featureNotesTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -31,7 +34,10 @@ class NotesFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              context.l10n.featureNotesDescription(terms.pluralLower),
+              context.l10n.featureNotesDescription(
+                terms.pluralLower,
+                terms.systemSingularLower,
+              ),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

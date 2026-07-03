@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     hide Conversation, FrontingSession, Member;
+import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/data/repositories/drift_app_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
@@ -461,6 +465,10 @@ void main() {
         final service = OnboardingCommitService(
           database: db,
           settingsRepository: settingsRepository,
+          appPreferenceRepository: DriftAppPreferenceRepository(
+            PreferenceValuesDao(db),
+            null,
+          ),
           memberRepository: FakeMemberRepository(),
           conversationRepository: FakeConversationRepository(),
           frontingRepository: FakeFrontingSessionRepository(),
@@ -475,6 +483,78 @@ void main() {
         expect(settings.hasCompletedOnboarding, isTrue);
       },
     );
+
+    test('complete writes custom system terminology app preference', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final settingsRepository = DriftSystemSettingsRepository(
+        db.systemSettingsDao,
+        null,
+      );
+      final service = OnboardingCommitService(
+        database: db,
+        settingsRepository: settingsRepository,
+        appPreferenceRepository: DriftAppPreferenceRepository(
+          PreferenceValuesDao(db),
+          null,
+        ),
+        memberRepository: FakeMemberRepository(),
+        conversationRepository: FakeConversationRepository(),
+        frontingRepository: FakeFrontingSessionRepository(),
+      );
+
+      await service.complete(
+        const OnboardingState(
+          systemName: 'Prism Collective',
+          useCustomSystemTerminology: true,
+          customSystemTermSingular: '  collective  ',
+          customSystemTermPlural: ' collectives ',
+        ),
+      );
+
+      final row = await db.preferenceValuesDao.getAppValue(
+        systemTermsPreference.key,
+      );
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isFalse);
+      expect(row.valueType, 'json');
+      expect(row.valueJson, '{"singular":"collective","plural":"collectives"}');
+    });
+
+    test('complete writes system terminology preset app preference', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final settingsRepository = DriftSystemSettingsRepository(
+        db.systemSettingsDao,
+        null,
+      );
+      final service = OnboardingCommitService(
+        database: db,
+        settingsRepository: settingsRepository,
+        appPreferenceRepository: DriftAppPreferenceRepository(
+          PreferenceValuesDao(db),
+          null,
+        ),
+        memberRepository: FakeMemberRepository(),
+        conversationRepository: FakeConversationRepository(),
+        frontingRepository: FakeFrontingSessionRepository(),
+      );
+
+      await service.complete(
+        const OnboardingState(
+          systemName: 'Prism Collective',
+          selectedSystemTermPreset: SystemTermPreset.collective,
+        ),
+      );
+
+      final row = await db.preferenceValuesDao.getAppValue(
+        systemTermsPreference.key,
+      );
+      expect(row, isNotNull);
+      expect(row!.isDeleted, isFalse);
+      expect(row.valueType, 'json');
+      expect(row.valueJson, '{"preset":"collective"}');
+    });
 
     test('complete writes onboarding fronting default choices', () async {
       final settingsRepository = FakeSystemSettingsRepository();
@@ -752,6 +832,10 @@ void main() {
         final service = OnboardingCommitService(
           database: db,
           settingsRepository: settingsRepository,
+          appPreferenceRepository: DriftAppPreferenceRepository(
+            PreferenceValuesDao(db),
+            null,
+          ),
           memberRepository: FakeMemberRepository(),
           conversationRepository: FakeConversationRepository(),
           frontingRepository: FakeFrontingSessionRepository(),

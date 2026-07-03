@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
 void main() {
   test('primitive codecs round-trip valid values', () {
@@ -24,6 +25,59 @@ void main() {
     expect(
       () => const BoolPreferenceCodec().decode('true'),
       throwsA(isA<PreferenceDecodeException>()),
+    );
+  });
+
+  test('system terms codec validates complete bounded pairs', () {
+    const codec = SystemTermsPreferenceCodec();
+    const terms = SystemTerms.custom(
+      singular: 'collective',
+      plural: 'collectives',
+    );
+
+    expect(codec.isValid(terms), isTrue);
+    expect(codec.decode(codec.encode(terms)), terms);
+    expect(
+      codec.encode(const SystemTerms.preset(SystemTermPreset.collective)),
+      {'preset': 'collective'},
+    );
+    expect(
+      codec.decode(
+        codec.encode(const SystemTerms.preset(SystemTermPreset.collective)),
+      ),
+      const SystemTerms.preset(SystemTermPreset.collective),
+    );
+    expect(
+      codec.isValid(const SystemTerms.preset(SystemTermPreset.collective)),
+      isTrue,
+    );
+    expect(codec.isValid(const SystemTerms(singular: 'collective')), isFalse);
+    expect(codec.isValid(const SystemTerms(plural: 'collectives')), isFalse);
+    expect(
+      codec.isValid(
+        SystemTerms.custom(
+          singular: 'x' * (systemTermMaxLength + 1),
+          plural: 'collectives',
+        ),
+      ),
+      isFalse,
+    );
+  });
+
+  test('system terms codec decodes malformed values to unset', () {
+    const codec = SystemTermsPreferenceCodec();
+
+    expect(codec.decode(null), SystemTerms.unset);
+    expect(codec.decode('not a map'), SystemTerms.unset);
+    expect(codec.decode({'preset': 'bogus'}), SystemTerms.unset);
+    expect(codec.decode({'singular': 'collective'}), SystemTerms.unset);
+    expect(codec.decode({'plural': 'collectives'}), SystemTerms.unset);
+    expect(
+      codec.decode({
+        'singular': 'x' * (systemTermMaxLength + 1),
+        'plural': 'collectives',
+      }),
+      SystemTerms.unset,
     );
   });
 }

@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 // Leaf settings screens shown inline in the detail pane on wide windows.
 import 'package:prism_plurality/features/settings/views/appearance_settings_screen.dart';
+import 'package:prism_plurality/features/settings/views/terminology_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/accessibility_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/navigation_settings_screen.dart';
 import 'package:prism_plurality/features/settings/views/features_settings_screen.dart';
@@ -148,7 +149,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   Widget _buildListPane(BuildContext context) {
     final settingsAsync = ref.watch(systemSettingsProvider);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
     // System card displays member count + avatar stack — exclude the Unknown
     // sentinel so it doesn't inflate the count or appear in the stack.
     final membersAsync = ref.watch(userVisibleMemberListProvider);
@@ -185,12 +186,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 ),
                 const SizedBox(height: 8),
                 _buildSection(
-                  title: context.l10n.settingsSectionSystem,
+                  title: context.l10n.settingsSectionSystem(
+                    terms.systemSingular,
+                  ),
                   rows: [
                     _leafLink(
                       icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
-                      title: context.l10n.settingsSystemInformation,
+                      title: context.l10n.settingsSystemInformation(
+                        terms.systemSingular,
+                      ),
                       selectionKey: 'system-info',
                       route: AppRoutePaths.settingsSystemInfo,
                       builder: (_) => const SystemInfoScreen(),
@@ -245,6 +250,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       selectionKey: 'appearance',
                       route: AppRoutePaths.settingsAppearance,
                       builder: (_) => const AppearanceSettingsScreen(),
+                    ),
+                    _leafLink(
+                      icon: AppIcons.textFields,
+                      iconColor: Colors.purple,
+                      title: context.l10n.settingsTerminology,
+                      selectionKey: 'terminology',
+                      route: AppRoutePaths.settingsTerminology,
+                      builder: (_) => const TerminologySettingsScreen(),
                     ),
                     _leafLink(
                       icon: AppIcons.tabOutlined,
@@ -495,7 +508,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         children: [
                           Text(
                             settings.systemName ??
-                                context.l10n.settingsFallbackSystemName,
+                                context.l10n.settingsFallbackSystemName(
+                                  terms.systemSingular,
+                                ),
                             style: theme.textTheme.headlineMedium?.copyWith(
                               fontFamily:
                                   theme.textTheme.headlineLarge?.fontFamily,

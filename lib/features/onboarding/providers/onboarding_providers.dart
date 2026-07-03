@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -156,6 +157,10 @@ class OnboardingState {
   final OnboardingDataCounts? importedDataCounts;
   final String? customTermSingular;
   final String? customTermPlural;
+  final bool useCustomSystemTerminology;
+  final SystemTermPreset? selectedSystemTermPreset;
+  final String? customSystemTermSingular;
+  final String? customSystemTermPlural;
   final bool terminologyUseEnglish;
   final bool isSyncPath;
 
@@ -203,6 +208,10 @@ class OnboardingState {
     this.importedDataCounts,
     this.customTermSingular,
     this.customTermPlural,
+    this.useCustomSystemTerminology = false,
+    this.selectedSystemTermPreset,
+    this.customSystemTermSingular,
+    this.customSystemTermPlural,
     this.terminologyUseEnglish = false,
     this.isSyncPath = false,
     this.allMembersChannelKey,
@@ -247,6 +256,10 @@ class OnboardingState {
     Object? importedDataCounts = _sentinel,
     Object? customTermSingular = _sentinel,
     Object? customTermPlural = _sentinel,
+    bool? useCustomSystemTerminology,
+    Object? selectedSystemTermPreset = _sentinel,
+    Object? customSystemTermSingular = _sentinel,
+    Object? customSystemTermPlural = _sentinel,
     bool? terminologyUseEnglish,
     bool? isSyncPath,
     bool clearFronterId = false,
@@ -320,6 +333,17 @@ class OnboardingState {
       customTermPlural: customTermPlural == _sentinel
           ? this.customTermPlural
           : customTermPlural as String?,
+      useCustomSystemTerminology:
+          useCustomSystemTerminology ?? this.useCustomSystemTerminology,
+      selectedSystemTermPreset: selectedSystemTermPreset == _sentinel
+          ? this.selectedSystemTermPreset
+          : selectedSystemTermPreset as SystemTermPreset?,
+      customSystemTermSingular: customSystemTermSingular == _sentinel
+          ? this.customSystemTermSingular
+          : customSystemTermSingular as String?,
+      customSystemTermPlural: customSystemTermPlural == _sentinel
+          ? this.customSystemTermPlural
+          : customSystemTermPlural as String?,
       terminologyUseEnglish:
           terminologyUseEnglish ?? this.terminologyUseEnglish,
       isSyncPath: isSyncPath ?? this.isSyncPath,
@@ -805,6 +829,28 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setCustomTermPlural(String value) {
     state = state.copyWith(customTermPlural: value);
+  }
+
+  void setUseCustomSystemTerminology(bool value) {
+    state = state.copyWith(
+      useCustomSystemTerminology: value,
+      selectedSystemTermPreset: null,
+    );
+  }
+
+  void setSystemTermPreset(SystemTermPreset preset) {
+    state = state.copyWith(
+      useCustomSystemTerminology: false,
+      selectedSystemTermPreset: preset,
+    );
+  }
+
+  void setCustomSystemTermSingular(String value) {
+    state = state.copyWith(customSystemTermSingular: value);
+  }
+
+  void setCustomSystemTermPlural(String value) {
+    state = state.copyWith(customSystemTermPlural: value);
   }
 
   void setAccentColor(String hex) {

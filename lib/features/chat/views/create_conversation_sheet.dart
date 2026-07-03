@@ -277,7 +277,7 @@ class _CreateConversationSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
     // Participant selection still hides the Unknown author placeholder.
     final membersAsync = ref.watch(userVisibleMemberListProvider);
     final speakingAs = ref.watch(speakingAsProvider);
@@ -415,7 +415,9 @@ class _CreateConversationSheetState
               field: PrismTextField(
                 controller: _titleController,
                 labelText: context.l10n.chatCreateGroupName,
-                hintText: context.l10n.chatCreateGroupNameHint,
+                hintText: context.l10n.chatCreateGroupNameHint(
+                  terms.systemSingular,
+                ),
                 onChanged: (_) => setState(() {}),
               ),
             ),

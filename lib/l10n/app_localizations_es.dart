@@ -152,7 +152,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get moreOptions => 'Más opciones';
 
   @override
-  String get settingsSectionSystem => 'Sistema';
+  String settingsSectionSystem(String systemTerm) {
+    return '$systemTerm';
+  }
 
   @override
   String get settingsSectionApp => 'App';
@@ -161,7 +163,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsSectionData => 'Datos';
 
   @override
-  String get settingsSystemInformation => 'Información del sistema';
+  String settingsSystemInformation(String systemTerm) {
+    return 'Información de $systemTerm';
+  }
 
   @override
   String get settingsGroups => 'Grupos';
@@ -174,6 +178,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsAppearance => 'Apariencia';
+
+  @override
+  String get settingsTerminology => 'Terminología';
 
   @override
   String get settingsNavigation => 'Navegación';
@@ -209,7 +216,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsDebug => 'Depuración';
 
   @override
-  String get settingsFallbackSystemName => 'Mi sistema';
+  String settingsFallbackSystemName(String systemTerm) {
+    return 'Mi $systemTerm';
+  }
 
   @override
   String get settingsLanguageTitle => 'Idioma';
@@ -512,6 +521,89 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get appearanceTerminology => 'Terminología';
+
+  @override
+  String get terminologyMemberSectionTitle => 'Terminología de integrantes';
+
+  @override
+  String get terminologyMemberSectionDescription =>
+      'Controla las etiquetas para las personas en Prism.';
+
+  @override
+  String get terminologySystemSectionTitle => 'Terminología del sistema';
+
+  @override
+  String get terminologySystemSectionDescription =>
+      'Controla las etiquetas para tu colectivo en Prism.';
+
+  @override
+  String get terminologySystemDefaultSingular => 'Sistema';
+
+  @override
+  String get terminologySystemDefaultPlural => 'Sistemas';
+
+  @override
+  String get terminologySystemPresetCollectiveSingular => 'Colectivo';
+
+  @override
+  String get terminologySystemPresetCollectivePlural => 'Colectivos';
+
+  @override
+  String get terminologySystemPresetCommunitySingular => 'Comunidad';
+
+  @override
+  String get terminologySystemPresetCommunityPlural => 'Comunidades';
+
+  @override
+  String get terminologySystemPresetNetworkSingular => 'Red';
+
+  @override
+  String get terminologySystemPresetNetworkPlural => 'Redes';
+
+  @override
+  String get terminologySystemPresetConstellationSingular => 'Constelación';
+
+  @override
+  String get terminologySystemPresetConstellationPlural => 'Constelaciones';
+
+  @override
+  String get terminologyCustomTermsSubtitle => 'Tus propios términos';
+
+  @override
+  String get terminologySystemModeDefault => 'Predeterminada';
+
+  @override
+  String get terminologySystemModeCustom => 'Personalizada';
+
+  @override
+  String get terminologySystemCustomSingularLabel => 'Singular';
+
+  @override
+  String get terminologySystemCustomSingularHint => 'Colectivo';
+
+  @override
+  String get terminologySystemCustomPluralLabel => 'Plural';
+
+  @override
+  String get terminologySystemCustomPluralHint => 'Colectivos';
+
+  @override
+  String get terminologySystemCustomRequired =>
+      'Ingresa los términos singular y plural.';
+
+  @override
+  String terminologySystemCustomTooLong(int maxLength) {
+    return 'Usa $maxLength caracteres o menos.';
+  }
+
+  @override
+  String terminologySystemPreview(
+    String systemTerm,
+    String systemTermLower,
+    String memberTermLower,
+  ) {
+    return '\"Información del $systemTermLower\" · \"Agrega tu primer $memberTermLower del $systemTermLower\"';
+  }
 
   @override
   String get appearanceLanguage => 'Idioma';
@@ -1390,7 +1482,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String statisticsMemberMinutesAxisHint(String term) {
-    return '% de los minutos por $term del sistema';
+    return '% de los minutos por $term totales';
   }
 
   @override
@@ -1606,7 +1698,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get errorHistoryCopied => 'Detalles del error copiados';
 
   @override
-  String get systemInfoTitle => 'Información del sistema';
+  String systemInfoTitle(String systemTerm) {
+    return 'Información de $systemTerm';
+  }
 
   @override
   String get systemInfoChangeAvatar => 'Cambiar avatar';
@@ -1746,10 +1840,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoNameLabel => 'Nombre';
 
   @override
-  String get systemInfoSystemNameHint => 'Nombre del sistema';
+  String systemInfoSystemNameHint(String systemTerm) {
+    return 'Nombre de $systemTerm';
+  }
 
   @override
-  String get systemInfoSaveSystemName => 'Guardar nombre del sistema';
+  String systemInfoSaveSystemName(String systemTermLower) {
+    return 'Guardar nombre de $systemTermLower';
+  }
 
   @override
   String get systemInfoCancelEditing => 'Cancelar edición';
@@ -1758,7 +1856,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoDescriptionLabel => 'Descripción';
 
   @override
-  String get systemInfoDescriptionHint => 'Descripción del sistema';
+  String systemInfoDescriptionHint(String systemTerm) {
+    return 'Descripción de $systemTerm';
+  }
 
   @override
   String get systemInfoAddDescription => 'Agregar una descripción...';
@@ -1767,7 +1867,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoSaveDescription => 'Guardar descripción';
 
   @override
-  String get systemInfoTagLabel => 'Etiqueta del sistema';
+  String systemInfoTagLabel(String systemTerm) {
+    return 'Etiqueta de $systemTerm';
+  }
 
   @override
   String get systemInfoTagHint => 'p. ej. | Skylars';
@@ -1776,7 +1878,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoTagHelper => 'Se añade a los mensajes proxificados';
 
   @override
-  String get systemInfoColorLabel => 'Color del sistema';
+  String systemInfoColorLabel(String systemTerm) {
+    return 'Color de $systemTerm';
+  }
 
   @override
   String get systemInfoColorPickAction => 'Elegir color';
@@ -1792,8 +1896,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Ocultar conteos de integrantes';
 
   @override
-  String get systemInfoHideTotalMemberCountSubtitle =>
-      'Oculta los totales en Ajustes, Información del sistema, Estadísticas, diagnósticos y conteos de grupos o carpetas.';
+  String systemInfoHideTotalMemberCountSubtitle(String systemTerm) {
+    return 'Oculta los totales en Ajustes, Información de $systemTerm, Estadísticas, diagnósticos y conteos de grupos o carpetas.';
+  }
 
   @override
   String get devicesTitle => 'Administrar dispositivos';
@@ -2133,8 +2238,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncTroubleshootingBackupFirst => 'Hacer copia primero';
 
   @override
-  String featureChatDescription(String term) {
-    return 'Mensajería interna entre los $term del sistema.';
+  String featureChatDescription(String term, String systemTermLower) {
+    return 'Mensajería privada entre $term en tu $systemTermLower.';
   }
 
   @override
@@ -2144,8 +2249,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get featureChatEnable => 'Activar Chat';
 
   @override
-  String featureChatEnableSubtitle(String term) {
-    return 'Mensajería interna entre $term';
+  String featureChatEnableSubtitle(String term, String systemTermLower) {
+    return 'Mensajería entre $term en este $systemTermLower';
   }
 
   @override
@@ -2255,8 +2360,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String featureHabitsDescription(String term) {
-    return 'Realiza un seguimiento de tareas recurrentes y construye rachas con los $term del sistema.';
+  String featureHabitsDescription(String term, String systemTermLower) {
+    return 'Realiza un seguimiento de tareas recurrentes y construye rachas con $term en tu $systemTermLower.';
   }
 
   @override
@@ -2373,19 +2478,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get featureSleepRecoverySheetRestoring => 'Restaurando…';
 
   @override
-  String get featurePollsDescription =>
-      'Permite que tu sistema vote en decisiones juntos. Desactivar oculta las encuestas de la navegación pero conserva los datos existentes.';
+  String featurePollsDescription(String systemTermLower) {
+    return 'Permite que tu $systemTermLower vote en decisiones juntes. Desactivar oculta las encuestas de la navegación pero conserva los datos existentes.';
+  }
 
   @override
   String get featurePollsEnable => 'Activar Encuestas';
 
   @override
-  String get featurePollsEnableSubtitle =>
-      'Crear encuestas para decisiones del sistema';
+  String featurePollsEnableSubtitle(String systemTermLower) {
+    return 'Crear encuestas para decisiones de $systemTermLower';
+  }
 
   @override
-  String featureNotesDescription(String term) {
-    return 'Un diario personal para los $term del sistema. Desactivar oculta las notas de la navegación pero conserva las entradas existentes.';
+  String featureNotesDescription(String term, String systemTermLower) {
+    return 'Un diario personal para $term en tu $systemTermLower. Desactivar oculta las notas de la navegación pero conserva las entradas existentes.';
   }
 
   @override
@@ -2594,8 +2701,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingWelcomeTitle => 'Bienvenide a Prism';
 
   @override
-  String frontingWelcomeSubtitle(String member) {
-    return 'Agrega tu primer $member del sistema para comenzar';
+  String frontingWelcomeSubtitle(String systemTermLower, String member) {
+    return 'Agrega tu primer $member de $systemTermLower para comenzar';
   }
 
   @override
@@ -3310,8 +3417,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupEmptyList => 'Aún no hay grupos';
 
   @override
-  String memberGroupEmptySubtitle(String termPlural) {
-    return 'Crea grupos para organizar les $termPlural de tu sistema';
+  String memberGroupEmptySubtitle(String termPlural, String systemTermLower) {
+    return 'Crea grupos para organizar $termPlural en tu $systemTermLower';
   }
 
   @override
@@ -4067,7 +4174,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberAdminSubtitle =>
-      'Los admins pueden gestionar la configuración del sistema';
+      'Los admins pueden gestionar la configuración compartida';
 
   @override
   String get memberAlwaysFrontingTitle => 'Siempre al frente';
@@ -4234,7 +4341,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatNoConversations => 'Sin conversaciones';
 
   @override
-  String get chatNoConversationsSubtitle => 'Empieza a chatear con tu sistema';
+  String chatNoConversationsSubtitle(String systemTermLower) {
+    return 'Empieza a chatear con tu $systemTermLower';
+  }
 
   @override
   String get chatNoDirectMessages => 'Sin mensajes directos';
@@ -4622,7 +4731,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatCreateGroupName => 'Nombre del grupo';
 
   @override
-  String get chatCreateGroupNameHint => 'p. ej., Discusión del sistema';
+  String chatCreateGroupNameHint(String systemTerm) {
+    return 'p. ej., Discusión de $systemTerm';
+  }
 
   @override
   String get chatCreateSelectParticipants => 'Seleccionar participantes (2+)';
@@ -5007,7 +5118,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncSetupSnapshotUploadingTitle =>
-      'Subiendo tu sistema al nuevo dispositivo';
+      'Subiendo tus datos al nuevo dispositivo';
 
   @override
   String syncSetupSnapshotUploadProgress(String sent, String total) {
@@ -5019,7 +5130,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncSetupSnapshotUploadFailedTitle =>
-      'No se pudo subir tu sistema';
+      'No se pudieron subir tus datos';
 
   @override
   String get syncSetupSnapshotUploadRetry => 'Reintentar subida';
@@ -5134,7 +5245,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingNoMembersConfirmMessage =>
-      'Aún no has añadido a nadie a tu sistema. Siempre puedes añadir personas más tarde desde la pantalla de inicio. ¿Continuar sin añadir a nadie?';
+      'Aún no has añadido a nadie. Siempre puedes añadir personas más tarde desde la pantalla de inicio. ¿Continuar sin añadir a nadie?';
 
   @override
   String get onboardingNoMembersConfirmProceed => 'Continuar de todos modos';
@@ -5158,7 +5269,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingImportedDataLabel => 'Datos importados';
 
   @override
-  String get onboardingWelcomePrivateTitle => 'Tu sistema es tuyo';
+  String get onboardingWelcomePrivateTitle => 'Tus datos son tuyos';
 
   @override
   String get onboardingWelcomePrivateDescription =>
@@ -5241,7 +5352,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String onboardingFeaturesChatDescription(String termPluralLower) {
-    return 'Mensajería interna entre $termPluralLower del sistema';
+    return 'Mensajería interna entre $termPluralLower';
   }
 
   @override
@@ -5253,7 +5364,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingFeaturesPollsDescription =>
-      'Crea encuestas para decisiones del sistema';
+      'Crea encuestas para decisiones compartidas';
 
   @override
   String get onboardingFeaturesHabits => 'Hábitos';
@@ -5274,7 +5385,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingFeaturesNotesDescription =>
-      'Un diario personal y espacio de escritura para tu sistema';
+      'Un diario personal y espacio de escritura';
 
   @override
   String get onboardingFeaturesBoards => 'Tableros de Mensajes';
@@ -5292,7 +5403,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String onboardingFeaturesRemindersDescription(String termPluralLower) {
-    return 'Configura recordatorios para ti o $termPluralLower del sistema';
+    return 'Configura recordatorios para ti o $termPluralLower';
   }
 
   @override
@@ -5315,7 +5426,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingCompletePollsDescription =>
-      'Encuestas, votos — la democracia que tu sistema merece.';
+      'Encuestas, votos — decisiones en conjunto.';
 
   @override
   String get onboardingCompleteWelcomeTitle => 'Bienvenida a Prism';
@@ -5470,7 +5581,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingPrismExportPreviewDescription =>
-      'Esto restaurará tu sistema de Prism exportado y completará la configuración en este dispositivo.';
+      'Esto restaurará tus datos exportados de Prism y completará la configuración en este dispositivo.';
 
   @override
   String get onboardingPrismExportImportButton => 'Importar y continuar';
@@ -5608,11 +5719,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingDataReadySyncedData => 'Datos sincronizados';
 
   @override
-  String get onboardingSystemNameHint => 'Ingresa el nombre del sistema';
+  String get onboardingSystemNameHint => 'Ingresa el nombre';
 
   @override
   String get onboardingSystemNameHelperText =>
-      'Así se identificará tu sistema en la app.';
+      'Así se identificará este perfil en la app.';
 
   @override
   String get onboardingSystemNameHelperTextImported =>
@@ -5746,13 +5857,35 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingPreferencesTerminology => 'Terminología';
 
   @override
+  String get onboardingPreferencesMemberTerminology =>
+      'Terminología de integrantes';
+
+  @override
+  String get onboardingPreferencesSystemTerminology =>
+      'Terminología del sistema';
+
+  @override
   String get onboardingPreferencesCustomTerminology => 'Personalizado';
+
+  @override
+  String get onboardingPreferencesSystemDefault => 'Sistema';
+
+  @override
+  String get onboardingPreferencesCustomSystemTerminology => 'Personalizado';
 
   @override
   String get onboardingPreferencesSingularHint => 'Singular (p. ej. Alter)';
 
   @override
   String get onboardingPreferencesPluralHint => 'Plural (p. ej. Alters)';
+
+  @override
+  String get onboardingPreferencesSystemSingularHint =>
+      'Singular (p. ej. Colectivo)';
+
+  @override
+  String get onboardingPreferencesSystemPluralHint =>
+      'Plural (p. ej. Colectivos)';
 
   @override
   String get onboardingPreferencesAccentColor => 'Color de acento';
@@ -6061,7 +6194,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get habitsEmptySubtitle =>
-      'Crea hábitos para registrar rutinas diarias, autocuidado o cualquier cosa que tu sistema quiera mantener.';
+      'Crea hábitos para registrar rutinas diarias, autocuidado o cualquier cosa que quieras mantener.';
 
   @override
   String get habitsEmptyCreateLabel => 'Crear hábito';
@@ -6236,7 +6369,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pollsEmptyActiveSubtitle =>
-      'Crea una encuesta para que tu sistema vote';
+      'Crea una encuesta para empezar a votar';
 
   @override
   String get pollsEmptyClosedTitle => 'No hay encuestas cerradas';
@@ -8552,7 +8685,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsAboutAppName => 'Prism';
 
   @override
-  String get settingsAboutTagline => 'Gestión de sistemas plurales';
+  String get settingsAboutTagline => 'Gestión plural';
 
   @override
   String settingsAboutVersion(String version) {
@@ -8560,8 +8693,12 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String settingsAboutDescription(String termPluralLower) {
-    return 'Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre $termPluralLower y mantén tu sistema organizado.';
+  String settingsAboutDescription(
+    String termPluralLower,
+    String systemTermLower,
+    String systemTermPluralLower,
+  ) {
+    return 'Una app centrada en la privacidad para gestionar $systemTermPluralLower plurales. Registra el frente, comunícate entre $termPluralLower y mantén tu $systemTermLower organizado.';
   }
 
   @override
@@ -9375,7 +9512,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get cancelHistoricalSleep => 'Cancelar';
 
   @override
-  String get onboardingWelcomeTitle => 'Tu sistema, juntes.';
+  String get onboardingWelcomeTitle => 'Juntes en Prism.';
 
   @override
   String get onboardingWelcomeSubtitle =>
@@ -9404,16 +9541,16 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingImportedDataReadySubtitle =>
-      'Tu sistema importado está listo para usar';
+      'Tus datos importados están listos para usar';
 
   @override
   String get onboardingImportDataTitle => '¿Ya tienes datos?';
 
   @override
-  String get onboardingImportDataSubtitle => 'Trae tu sistema contigo.';
+  String get onboardingImportDataSubtitle => 'Trae tus datos contigo.';
 
   @override
-  String get onboardingSystemNameTitle => 'Nombra tu sistema';
+  String get onboardingSystemNameTitle => 'Nombra este perfil';
 
   @override
   String get onboardingSystemNameSubtitle => 'Lo que se sienta bien.';
@@ -9429,8 +9566,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingAddMembersTitle => '¿Quién está aquí?';
 
   @override
-  String get onboardingAddMembersSubtitle =>
-      'Agrega a las personas en tu sistema.';
+  String get onboardingAddMembersSubtitle => 'Agrega a tus personas.';
 
   @override
   String get onboardingFeaturesTitle => 'Elige tus herramientas';
@@ -9458,8 +9594,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingChatSetupTitle => 'Configura el chat';
 
   @override
-  String get onboardingChatSetupSubtitle =>
-      'Canales para que tu sistema pueda hablar.';
+  String get onboardingChatSetupSubtitle => 'Canales para hablar.';
 
   @override
   String get onboardingAppearanceTitle => 'Hazlo tuyo';
@@ -9512,7 +9647,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingCompleteSubtitle =>
-      'Tu sistema está configurado. Esto es lo que puedes explorar.';
+      'Prism está configurado. Esto es lo que puedes explorar.';
 
   @override
   String terminologyAddButton(String term) {
@@ -9575,8 +9710,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String terminologyAddFirstSubtitle(String term) {
-    return 'Agrega tu primer $term del sistema para comenzar';
+  String terminologyAddFirstSubtitle(String term, String systemTermLower) {
+    return 'Agrega tu primer $term de $systemTermLower para comenzar';
   }
 
   @override
@@ -9905,7 +10040,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get onboardingSyncMembersLabel => 'Integrantes del sistema';
+  String get onboardingSyncMembersLabel => 'Integrantes';
 
   @override
   String get onboardingSyncPhaseConnectTitle => 'Conectando…';
@@ -9915,7 +10050,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Saludando a tu otro dispositivo';
 
   @override
-  String get onboardingSyncPhaseDownloadTitle => 'Descargando tu sistema';
+  String get onboardingSyncPhaseDownloadTitle => 'Descargando tus datos';
 
   @override
   String get onboardingSyncPhaseDownloadSubtitle =>
@@ -9936,7 +10071,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingSyncReassurance =>
-      'Aún cargando — los sistemas grandes pueden tardar un momento en redes lentas.';
+      'Aún cargando — las restauraciones grandes pueden tardar un momento en redes lentas.';
 
   @override
   String get onboardingSyncReconnecting => 'Reconectando al relay…';
@@ -10841,7 +10976,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get boardsComposeConsequencePublicEveryone =>
-      'Todos en tu sistema verán esto en el feed público.';
+      'Todos verán esto en el feed público.';
 
   @override
   String get boardsComposeSave => 'Publicar';

@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/prism_term_choice_grid.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+
+typedef _TermOption = ({SystemTerminology term, bool useEnglish});
+typedef _SystemTermOption = ({SystemTermPreset? preset, bool custom});
 
 class TerminologyStep extends ConsumerStatefulWidget {
   const TerminologyStep({super.key});
@@ -19,6 +24,8 @@ class TerminologyStep extends ConsumerStatefulWidget {
 class _TerminologyStepState extends ConsumerState<TerminologyStep> {
   final _customSingularController = TextEditingController();
   final _customPluralController = TextEditingController();
+  final _customSystemSingularController = TextEditingController();
+  final _customSystemPluralController = TextEditingController();
 
   @override
   void initState() {
@@ -26,23 +33,39 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
     final onboarding = ref.read(onboardingProvider);
     _customSingularController.text = onboarding.customTermSingular ?? '';
     _customPluralController.text = onboarding.customTermPlural ?? '';
+    _customSystemSingularController.text =
+        onboarding.customSystemTermSingular ?? '';
+    _customSystemPluralController.text =
+        onboarding.customSystemTermPlural ?? '';
   }
 
   @override
   void dispose() {
     _customSingularController.dispose();
     _customPluralController.dispose();
+    _customSystemSingularController.dispose();
+    _customSystemPluralController.dispose();
     super.dispose();
   }
 
-  static String _englishPlural(SystemTerminology term) => switch (term) {
-    SystemTerminology.members => 'Members',
-    SystemTerminology.headmates => 'Headmates',
-    SystemTerminology.alters => 'Alters',
-    SystemTerminology.parts => 'Parts',
-    SystemTerminology.facets => 'Facets',
-    SystemTerminology.custom => 'Custom',
+  static ({String singular, String plural}) _englishLabels(
+    SystemTerminology term,
+  ) => switch (term) {
+    SystemTerminology.members => (singular: 'member', plural: 'Members'),
+    SystemTerminology.headmates => (singular: 'headmate', plural: 'Headmates'),
+    SystemTerminology.alters => (singular: 'alter', plural: 'Alters'),
+    SystemTerminology.parts => (singular: 'part', plural: 'Parts'),
+    SystemTerminology.facets => (singular: 'facet', plural: 'Facets'),
+    SystemTerminology.custom => (singular: 'custom term', plural: 'Custom'),
   };
+
+  static const _standardTerms = [
+    SystemTerminology.members,
+    SystemTerminology.headmates,
+    SystemTerminology.alters,
+    SystemTerminology.parts,
+    SystemTerminology.facets,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -50,15 +73,7 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
     final notifier = ref.read(onboardingProvider.notifier);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     final isEnglish = Localizations.localeOf(context).languageCode == 'en';
-    const standardTerms = [
-      SystemTerminology.members,
-      SystemTerminology.headmates,
-      SystemTerminology.alters,
-      SystemTerminology.parts,
-      SystemTerminology.facets,
-    ];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -66,29 +81,44 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _SectionLabel(
-            label: context.l10n.onboardingPreferencesTerminology,
+            label: context.l10n.onboardingPreferencesMemberTerminology,
             isDark: isDark,
           ),
           const SizedBox(height: 10),
           if (isEnglish)
-            _TermGrid(
-              terms: [...standardTerms, SystemTerminology.custom],
-              useEnglish: false,
-              onboarding: onboarding,
-              notifier: notifier,
-              isDark: isDark,
-              primary: primary,
-              englishLabelFor: _englishPlural,
+            PrismTermChoiceGrid<_TermOption>(
+              selected: (
+                term: onboarding.selectedTerminology,
+                useEnglish: false,
+              ),
+              choices: [
+                for (final term in _standardTerms)
+                  _memberChoice(context, term, useEnglish: false),
+                _memberChoice(
+                  context,
+                  SystemTerminology.custom,
+                  useEnglish: false,
+                ),
+              ],
+              onSelected: (option) => notifier.setTerminology(
+                option.term,
+                useEnglish: option.useEnglish,
+              ),
             )
           else ...[
-            _TermGrid(
-              terms: standardTerms,
-              useEnglish: false,
-              onboarding: onboarding,
-              notifier: notifier,
-              isDark: isDark,
-              primary: primary,
-              englishLabelFor: _englishPlural,
+            PrismTermChoiceGrid<_TermOption>(
+              selected: (
+                term: onboarding.selectedTerminology,
+                useEnglish: onboarding.terminologyUseEnglish,
+              ),
+              choices: [
+                for (final term in _standardTerms)
+                  _memberChoice(context, term, useEnglish: false),
+              ],
+              onSelected: (option) => notifier.setTerminology(
+                option.term,
+                useEnglish: option.useEnglish,
+              ),
             ),
             const SizedBox(height: 12),
             Text(
@@ -102,28 +132,36 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
               ),
             ),
             const SizedBox(height: 8),
-            _TermGrid(
-              terms: standardTerms,
-              useEnglish: true,
-              onboarding: onboarding,
-              notifier: notifier,
-              isDark: isDark,
-              primary: primary,
-              englishLabelFor: _englishPlural,
+            PrismTermChoiceGrid<_TermOption>(
+              selected: (
+                term: onboarding.selectedTerminology,
+                useEnglish: onboarding.terminologyUseEnglish,
+              ),
+              choices: [
+                for (final term in _standardTerms)
+                  _memberChoice(context, term, useEnglish: true),
+              ],
+              onSelected: (option) => notifier.setTerminology(
+                option.term,
+                useEnglish: option.useEnglish,
+              ),
             ),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 44,
-              child: _TermTile(
-                label: context.l10n.onboardingPreferencesCustomTerminology,
-                isSelected:
-                    onboarding.selectedTerminology == SystemTerminology.custom,
-                onTap: () => notifier.setTerminology(
+            PrismTermChoiceGrid<_TermOption>(
+              selected: (
+                term: onboarding.selectedTerminology,
+                useEnglish: onboarding.terminologyUseEnglish,
+              ),
+              choices: [
+                _memberChoice(
+                  context,
                   SystemTerminology.custom,
                   useEnglish: false,
                 ),
-                isDark: isDark,
-                primary: primary,
+              ],
+              onSelected: (option) => notifier.setTerminology(
+                option.term,
+                useEnglish: option.useEnglish,
               ),
             ),
           ],
@@ -151,6 +189,67 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
               ],
             ),
           ],
+          const SizedBox(height: 24),
+          _SectionLabel(
+            label: context.l10n.onboardingPreferencesSystemTerminology,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 10),
+          PrismTermChoiceGrid<_SystemTermOption>(
+            selected: onboarding.useCustomSystemTerminology
+                ? (preset: null, custom: true)
+                : (preset: onboarding.selectedSystemTermPreset, custom: false),
+            choices: [
+              PrismTermChoice<_SystemTermOption>(
+                value: (preset: null, custom: false),
+                label: context.l10n.terminologySystemDefaultSingular,
+              ),
+              for (final preset in systemTermPresetChoices)
+                PrismTermChoice<_SystemTermOption>(
+                  value: (preset: preset, custom: false),
+                  label: resolveSystemTermPreset(context.l10n, preset).singular,
+                ),
+              PrismTermChoice<_SystemTermOption>(
+                value: (preset: null, custom: true),
+                label: context.l10n.terminologySystemModeCustom,
+              ),
+            ],
+            onSelected: (option) {
+              if (option.custom) {
+                notifier.setUseCustomSystemTerminology(true);
+              } else if (option.preset == null) {
+                notifier.setUseCustomSystemTerminology(false);
+              } else {
+                notifier.setSystemTermPreset(option.preset!);
+              }
+            },
+          ),
+          if (onboarding.useCustomSystemTerminology) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: _customSystemSingularController,
+                    hint: context.l10n.onboardingPreferencesSystemSingularHint,
+                    onChanged: notifier.setCustomSystemTermSingular,
+                    isDark: isDark,
+                    maxLength: systemTermMaxLength,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTextField(
+                    controller: _customSystemPluralController,
+                    hint: context.l10n.onboardingPreferencesSystemPluralHint,
+                    onChanged: notifier.setCustomSystemTermPlural,
+                    isDark: isDark,
+                    maxLength: systemTermMaxLength,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -161,6 +260,7 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
     required String hint,
     required ValueChanged<String> onChanged,
     required bool isDark,
+    int? maxLength,
   }) {
     final theme = Theme.of(context);
     return Container(
@@ -187,106 +287,33 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
           horizontal: 12,
           vertical: 10,
         ),
+        maxLength: maxLength,
         onChanged: onChanged,
       ),
     );
   }
-}
 
-class _TermGrid extends StatelessWidget {
-  const _TermGrid({
-    required this.terms,
-    required this.useEnglish,
-    required this.onboarding,
-    required this.notifier,
-    required this.isDark,
-    required this.primary,
-    required this.englishLabelFor,
-  });
-
-  final List<SystemTerminology> terms;
-  final bool useEnglish;
-  final OnboardingState onboarding;
-  final OnboardingNotifier notifier;
-  final bool isDark;
-  final Color primary;
-  final String Function(SystemTerminology term) englishLabelFor;
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 3,
-      children: terms.map((term) {
-        final isSelected =
-            onboarding.selectedTerminology == term &&
-            onboarding.terminologyUseEnglish == useEnglish;
-        final label = useEnglish
-            ? englishLabelFor(term)
-            : (term == SystemTerminology.custom
-                  ? context.l10n.onboardingPreferencesCustomTerminology
-                  : resolveTerminology(context.l10n, term).plural);
-        return _TermTile(
-          label: label,
-          isSelected: isSelected,
-          onTap: () => notifier.setTerminology(term, useEnglish: useEnglish),
-          isDark: isDark,
-          primary: primary,
-        );
-      }).toList(),
-    );
-  }
-}
-
-class _TermTile extends StatelessWidget {
-  const _TermTile({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-    required this.isDark,
-    required this.primary,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final bool isDark;
-  final Color primary;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected
-              ? primary.withValues(alpha: 0.2)
-              : isDark
-              ? AppColors.warmWhite.withValues(alpha: 0.1)
-              : AppColors.parchmentElevated,
-          borderRadius: BorderRadius.circular(
-            PrismShapes.of(context).radius(10),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: isSelected
-                  ? primary
-                  : isDark
-                  ? AppColors.warmWhite.withValues(alpha: 0.8)
-                  : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-        ),
-      ),
+  PrismTermChoice<_TermOption> _memberChoice(
+    BuildContext context,
+    SystemTerminology term, {
+    required bool useEnglish,
+  }) {
+    final labels = useEnglish
+        ? _englishLabels(term)
+        : term == SystemTerminology.custom
+        ? (
+            singular: context.l10n.terminologyCustomTermsSubtitle,
+            plural: context.l10n.onboardingPreferencesCustomTerminology,
+          )
+        : (
+            singular: resolveTerminology(context.l10n, term).singular,
+            plural: resolveTerminology(context.l10n, term).plural,
+          );
+    return PrismTermChoice<_TermOption>(
+      value: (term: term, useEnglish: useEnglish),
+      label: _capFirst(labels.plural),
+      subtitle: labels.singular,
+      semanticLabel: '${labels.plural}, ${labels.singular}',
     );
   }
 }
@@ -310,3 +337,6 @@ class _SectionLabel extends StatelessWidget {
     );
   }
 }
+
+String _capFirst(String value) =>
+    value.isEmpty ? value : '${value[0].toUpperCase()}${value.substring(1)}';

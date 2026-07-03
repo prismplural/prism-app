@@ -7,6 +7,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
@@ -921,6 +922,37 @@ void main() {
       expect(prefs.getString('prism.cache.palette_seed_color_hex'), '#ABCDEF');
       expect(prefs.getString('prism.cache.palette_mood'), 'expressive');
       expect(prefs.getString('prism.cache.palette_contrast'), 'high');
+    });
+  });
+
+  group('system terminology updates (SettingsNotifier)', () {
+    test('writes and resets synced system term presets', () async {
+      final fakeRepo = FakeSystemSettingsRepository();
+      final prefs = FakeAppPreferenceRepository();
+      addTearDown(prefs.close);
+      final container = ProviderContainer(
+        overrides: [
+          systemSettingsProvider.overrideWithValue(
+            AsyncValue.data(fakeRepo.settings),
+          ),
+          systemSettingsRepositoryProvider.overrideWithValue(fakeRepo),
+          appPreferenceRepositoryProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(settingsNotifierProvider.notifier);
+
+      await notifier.updateSystemTerminologyPreset(SystemTermPreset.network);
+
+      expect(
+        await prefs.getStored(systemTermsPreference),
+        const SystemTerms.preset(SystemTermPreset.network),
+      );
+
+      await notifier.resetSystemTerminology();
+
+      expect(await prefs.getStored(systemTermsPreference), isNull);
     });
   });
 

@@ -39,6 +39,7 @@ import '../../features/settings/views/notification_settings_screen.dart';
 import '../../features/settings/views/accessibility_settings_screen.dart';
 import '../../features/settings/views/appearance_settings_screen.dart';
 import '../../features/settings/views/palette_settings_screen.dart';
+import '../../features/settings/views/terminology_settings_screen.dart';
 import '../../features/settings/views/statistics_screen.dart';
 import '../../features/settings/views/database_diagnostics_screen.dart';
 import '../../features/settings/views/component_gallery_screen.dart';
@@ -549,6 +550,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                             const PaletteSettingsScreen(),
                       ),
                     ],
+                  ),
+                  GoRoute(
+                    path: 'terminology',
+                    builder: (context, state) =>
+                        const TerminologySettingsScreen(),
                   ),
                   GoRoute(
                     path: 'accessibility',

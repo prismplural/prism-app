@@ -130,6 +130,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
   Future<void> _openDescriptionEditor() async {
     final l10n = context.l10n;
+    final terms = readFullTerminology(context, ref);
     // initialText already captures the current text; cancel so a pending
     // debounce can't fire a stale save behind the open sheet.
     _descriptionSaveDebounce?.cancel();
@@ -137,7 +138,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
       context: context,
       title: l10n.systemInfoDescriptionLabel,
       initialText: _descriptionController.text,
-      hintText: l10n.systemInfoDescriptionHint,
+      hintText: l10n.systemInfoDescriptionHint(terms.systemSingular),
     );
     if (result == null || !mounted) return;
     _descriptionController.text = result;
@@ -209,11 +210,11 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     // sentinel so it doesn't appear as a manageable headmate.
     final membersAsync = ref.watch(userVisibleMemberListProvider);
     final hideMemberCountsAsync = ref.watch(hideMemberCountsProvider);
-    final terms = watchTerminology(context, ref);
+    final terms = watchFullTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: context.l10n.systemInfoTitle,
+        title: context.l10n.systemInfoTitle(terms.systemSingular),
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -325,7 +326,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               PrismTextField(
                 controller: _systemNameController,
                 labelText: l10n.systemInfoNameLabel,
-                hintText: l10n.systemInfoSystemNameHint,
+                hintText: l10n.systemInfoSystemNameHint(terms.systemSingular),
                 onChanged: (_) => _scheduleNameSave(),
                 onSubmitted: (_) => _saveNameNow(),
               ),
@@ -335,7 +336,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               // System tag
               PrismTextField(
                 controller: _systemTagController,
-                labelText: l10n.systemInfoTagLabel,
+                labelText: l10n.systemInfoTagLabel(terms.systemSingular),
                 hintText: l10n.systemInfoTagHint,
                 helperText: l10n.systemInfoTagHelper,
                 maxLength: 79,
@@ -366,7 +367,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               const SizedBox(height: 4),
               PrismTextField(
                 controller: _descriptionController,
-                hintText: l10n.systemInfoDescriptionHint,
+                hintText: l10n.systemInfoDescriptionHint(terms.systemSingular),
                 maxLines: 6,
                 minLines: 3,
                 textCapitalization: TextCapitalization.sentences,
@@ -386,7 +387,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.systemInfoColorLabel,
+                      l10n.systemInfoColorLabel(terms.systemSingular),
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -475,7 +476,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                   icon: AppIcons.visibilityOff,
                   iconColor: Colors.indigo,
                   title: l10n.systemInfoHideTotalMemberCountTitle,
-                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle,
+                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle(
+                    terms.systemSingular,
+                  ),
                   value: hideMemberCountsSwitchValue,
                   enabled: hideMemberCountsSwitchEnabled,
                   onChanged: (value) {

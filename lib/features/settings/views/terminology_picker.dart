@@ -6,7 +6,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/widgets/prism_select.dart';
+import 'package:prism_plurality/shared/widgets/prism_term_choice_grid.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 typedef _TermOption = ({SystemTerminology term, bool useEnglish});
@@ -108,54 +108,78 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
         );
   }
 
-  /// Localized (plural, singular) labels for the given terminology option.
-  (String, String) _localizedLabels(BuildContext context, SystemTerminology t) {
+  /// Localized (singular, plural) labels for the given terminology option.
+  ({String singular, String plural}) _localizedLabels(
+    BuildContext context,
+    SystemTerminology t,
+  ) {
     return switch (t) {
       SystemTerminology.members => (
-          context.l10n.settingsTerminologyOptionMembers,
-          context.l10n.settingsTerminologyOptionMembersSingular,
-        ),
+        singular: context.l10n.settingsTerminologyOptionMembersSingular,
+        plural: context.l10n.settingsTerminologyOptionMembers,
+      ),
       SystemTerminology.headmates => (
-          context.l10n.settingsTerminologyOptionHeadmates,
-          context.l10n.settingsTerminologyOptionHeadmatesSingular,
-        ),
+        singular: context.l10n.settingsTerminologyOptionHeadmatesSingular,
+        plural: context.l10n.settingsTerminologyOptionHeadmates,
+      ),
       SystemTerminology.alters => (
-          context.l10n.settingsTerminologyOptionAlters,
-          context.l10n.settingsTerminologyOptionAltersSingular,
-        ),
+        singular: context.l10n.settingsTerminologyOptionAltersSingular,
+        plural: context.l10n.settingsTerminologyOptionAlters,
+      ),
       SystemTerminology.parts => (
-          context.l10n.settingsTerminologyOptionParts,
-          context.l10n.settingsTerminologyOptionPartsSingular,
-        ),
+        singular: context.l10n.settingsTerminologyOptionPartsSingular,
+        plural: context.l10n.settingsTerminologyOptionParts,
+      ),
       SystemTerminology.facets => (
-          context.l10n.settingsTerminologyOptionFacets,
-          context.l10n.settingsTerminologyOptionFacetsSingular,
-        ),
+        singular: context.l10n.settingsTerminologyOptionFacetsSingular,
+        plural: context.l10n.settingsTerminologyOptionFacets,
+      ),
       SystemTerminology.custom => (
-          context.l10n.settingsTerminologyOptionCustom,
-          context.l10n.settingsTerminologyOptionCustomSingular,
-        ),
+        singular: context.l10n.terminologyCustomTermsSubtitle,
+        plural: context.l10n.settingsTerminologyOptionCustom,
+      ),
     };
   }
 
-  /// Hardcoded English (plural, singular) labels — always English regardless
+  /// Hardcoded English (singular, plural) labels — always English regardless
   /// of device locale.
-  static (String, String) _englishLabels(SystemTerminology t) {
+  static ({String singular, String plural}) _englishLabels(
+    SystemTerminology t,
+  ) {
     return switch (t) {
-      SystemTerminology.members => ('Members', 'member'),
-      SystemTerminology.headmates => ('Headmates', 'headmate'),
-      SystemTerminology.alters => ('Alters', 'alter'),
-      SystemTerminology.parts => ('Parts', 'part'),
-      SystemTerminology.facets => ('Facets', 'facet'),
-      SystemTerminology.custom => ('Custom', 'custom term'),
+      SystemTerminology.members => (singular: 'member', plural: 'Members'),
+      SystemTerminology.headmates => (
+        singular: 'headmate',
+        plural: 'Headmates',
+      ),
+      SystemTerminology.alters => (singular: 'alter', plural: 'Alters'),
+      SystemTerminology.parts => (singular: 'part', plural: 'Parts'),
+      SystemTerminology.facets => (singular: 'facet', plural: 'Facets'),
+      SystemTerminology.custom => (singular: 'custom term', plural: 'Custom'),
     };
   }
 
-  List<PrismSelectItem<_TermOption>> _buildItems(BuildContext context) {
-    final locale = Localizations.localeOf(context);
-    final isEnglish = locale.languageCode == 'en';
+  PrismTermChoice<_TermOption> _choice(
+    BuildContext context,
+    SystemTerminology term, {
+    required bool useEnglish,
+  }) {
+    final labels = useEnglish
+        ? _englishLabels(term)
+        : _localizedLabels(context, term);
+    return PrismTermChoice<_TermOption>(
+      value: (term: term, useEnglish: useEnglish),
+      label: labels.plural,
+      subtitle: labels.singular,
+      semanticLabel: '${labels.plural}, ${labels.singular}',
+    );
+  }
 
-    // Standard terms (no custom in this list — custom is always at bottom)
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final terms = watchTerminology(context, ref);
+    final isEnglish = Localizations.localeOf(context).languageCode == 'en';
     const standardTerms = [
       SystemTerminology.members,
       SystemTerminology.headmates,
@@ -163,79 +187,54 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
       SystemTerminology.parts,
       SystemTerminology.facets,
     ];
-
-    PrismSelectItem<_TermOption> localizedItem(SystemTerminology t) {
-      final (label, singular) = _localizedLabels(context, t);
-      return PrismSelectItem(
-        value: (term: t, useEnglish: false),
-        label: label,
-        subtitle: singular,
-        fieldLabel: '$label ($singular)',
-      );
-    }
-
-    PrismSelectItem<_TermOption> englishItem(SystemTerminology t) {
-      final (label, singular) = _englishLabels(t);
-      return PrismSelectItem(
-        value: (term: t, useEnglish: true),
-        label: label,
-        subtitle: singular,
-        fieldLabel: '$label ($singular)',
-      );
-    }
-
-    final items = <PrismSelectItem<_TermOption>>[];
-
-    if (isEnglish) {
-      // English locale: just the 5 standard options (localized == English)
-      items.addAll(standardTerms.map(localizedItem));
-    } else {
-      // Non-English locale: translated section, then English section
-      items.addAll(standardTerms.map(localizedItem));
-      items.add(PrismSelectItem(
-        value: (term: SystemTerminology.custom, useEnglish: true), // sentinel
-        label: context.l10n.terminologyEnglishOptionsLabel,
-        isHeader: true,
-      ));
-      items.addAll(standardTerms.map(englishItem));
-    }
-
-    // Custom is always last — never deduplicated or hidden
-    final (customLabel, customSingular) =
-        _localizedLabels(context, SystemTerminology.custom);
-    items.add(PrismSelectItem(
-      value: (term: SystemTerminology.custom, useEnglish: false),
-      label: customLabel,
-      subtitle: customSingular,
-      fieldLabel: '$customLabel ($customSingular)',
-    ));
-
-    return items;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
-    final isEnglish =
-        Localizations.localeOf(context).languageCode == 'en';
     // In English locale all items use useEnglish:false — normalize so the
     // selection always matches an item even if the user previously picked an
     // English-labelled term while in a non-English locale.
-    final currentValue = (term: _selected, useEnglish: isEnglish ? false : _useEnglish);
+    final currentValue = (
+      term: _selected,
+      useEnglish: isEnglish ? false : _useEnglish,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PrismSelect<_TermOption>(
-          value: currentValue,
-          labelText: context.l10n.settingsTerminologyPickerLabel,
-          isDense: true,
-          items: _buildItems(context),
-          onChanged: (value) {
-            if (value != null) _onChanged(value);
-          },
+        PrismTermChoiceGrid<_TermOption>(
+          selected: currentValue,
+          choices: [
+            for (final term in standardTerms)
+              _choice(context, term, useEnglish: false),
+            if (isEnglish)
+              _choice(context, SystemTerminology.custom, useEnglish: false),
+          ],
+          onSelected: _onChanged,
         ),
+        if (!isEnglish) ...[
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.terminologyEnglishOptionsLabel,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          PrismTermChoiceGrid<_TermOption>(
+            selected: currentValue,
+            choices: [
+              for (final term in standardTerms)
+                _choice(context, term, useEnglish: true),
+            ],
+            onSelected: _onChanged,
+          ),
+          const SizedBox(height: 8),
+          PrismTermChoiceGrid<_TermOption>(
+            selected: currentValue,
+            choices: [
+              _choice(context, SystemTerminology.custom, useEnglish: false),
+            ],
+            onSelected: _onChanged,
+          ),
+        ],
         if (_selected == SystemTerminology.custom) ...[
           const SizedBox(height: 12),
           PrismTextField(
@@ -270,7 +269,9 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
             color: theme.colorScheme.surfaceContainerHighest.withValues(
               alpha: 0.5,
             ),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(8),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
