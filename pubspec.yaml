@@ -141,6 +141,13 @@ dev_dependencies:
   json_serializable: ^6.0.0
   drift_dev: ^2.0.0
 
+dependency_overrides:
+  permission_handler_windows:
+    git:
+      url: https://github.com/prismplural/flutter-permission-handler.git
+      path: permission_handler_windows
+      ref: 721669c9f9b764fd95a186f2d3ebe3294ddfb672
+
 # Use SQLite3MultipleCiphers for database-at-rest encryption.
 # Replaces the old sqlite3_flutter_libs package (now end-of-life).
 # The sqlite3 package's hook system downloads pre-built sqlite3mc binaries

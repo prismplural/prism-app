@@ -1,0 +1,157 @@
+name: Windows permission handler location smoke
+
+on:
+  push:
+    branches:
+      - ci/windows-permission-handler-location
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.41.7'
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Exclude workspace from Windows Defender
+        shell: pwsh
+        run: |
+          Add-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Pub\Cache" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionPath "$env:USERPROFILE\.cargo" -ErrorAction SilentlyContinue
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: windows-cargokit
+
+      - run: flutter --version
+
+      - name: Fetch packages
+        run: flutter pub get
+
+      - name: Verify permission_handler_windows source
+        shell: pwsh
+        run: |
+          $packageConfig = Get-Content '.dart_tool\package_config.json' -Raw | ConvertFrom-Json
+          $package = $packageConfig.packages |
+            Where-Object { $_.name -eq 'permission_handler_windows' } |
+            Select-Object -First 1
+          if (-not $package) {
+            throw 'permission_handler_windows not found in package_config.json'
+          }
+          Write-Host "permission_handler_windows rootUri: $($package.rootUri)"
+          if ([string]$package.rootUri -notmatch 'flutter-permission-handler-721669c9f9b764fd95a186f2d3ebe3294ddfb672') {
+            throw 'permission_handler_windows did not resolve to the patched fork commit'
+          }
+
+      - name: Stage prism-sync crates for cargokit
+        shell: pwsh
+        run: |
+          $packageConfig = Get-Content '.dart_tool\package_config.json' -Raw | ConvertFrom-Json
+          $syncPackage = $packageConfig.packages |
+            Where-Object { $_.name -eq 'prism_sync' } |
+            Select-Object -First 1
+          if (-not $syncPackage) {
+            throw 'prism_sync not found in package_config.json'
+          }
+
+          $rootUri = [string]$syncPackage.rootUri
+          $syncRoot = if ($rootUri.StartsWith('file:')) {
+            ([System.Uri]$rootUri).LocalPath
+          } else {
+            Resolve-Path (Join-Path '.dart_tool' $rootUri)
+          }
+
+          $syncCheckout = Get-Item -LiteralPath $syncRoot
+          while ($syncCheckout -and -not (Test-Path (Join-Path $syncCheckout.FullName 'crates\prism-sync-ffi\Cargo.toml'))) {
+            $syncCheckout = $syncCheckout.Parent
+          }
+          if (-not $syncCheckout) {
+            throw "prism-sync checkout not found from package root $syncRoot"
+          }
+
+          $cratesSrc = Join-Path $syncCheckout.FullName 'crates'
+          $cratesDst = 'windows\flutter\crates'
+          New-Item -ItemType Directory -Force -Path 'windows\flutter' | Out-Null
+          if (Test-Path -LiteralPath $cratesDst) {
+            $existing = Get-Item -LiteralPath $cratesDst -Force
+            if ($existing.LinkType -eq 'Junction') {
+              cmd /c "rmdir `"$cratesDst`""
+            } else {
+              Remove-Item -LiteralPath $cratesDst -Recurse -Force
+            }
+          }
+          Write-Host "Using prism-sync crates from $cratesSrc"
+          cmd /c "mklink /J `"$cratesDst`" `"$cratesSrc`""
+
+      - name: Build Windows release
+        env:
+          VERBOSE: '1'
+        run: >
+          flutter build windows --release --verbose --no-tree-shake-icons
+          --dart-define=APP_VERSION=ci-permission-handler-location
+          --dart-define=GIT_REV=${{ github.sha }}
+          --dart-define=GIT_DESCRIBE=${{ github.sha }}
+          --dart-define=GIT_BRANCH=${{ github.ref_name }}
+          --dart-define=BUILT_AT=ci
+
+      - name: Launch Prism and check location registry entries
+        shell: pwsh
+        run: |
+          function Get-LocationEntries {
+            $roots = @(
+              'HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location',
+              'HKCU:\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\preciseLocation'
+            )
+            foreach ($root in $roots) {
+              if (Test-Path -LiteralPath $root) {
+                Get-ChildItem -LiteralPath $root -Recurse -ErrorAction SilentlyContinue |
+                  ForEach-Object { $_.Name }
+              }
+            }
+          }
+
+          $exe = Get-ChildItem -LiteralPath 'build\windows\x64' -Recurse -Filter 'prism_plurality.exe' |
+            Select-Object -First 1
+          if (-not $exe) {
+            Get-ChildItem -LiteralPath 'build\windows\x64' -Recurse -Filter '*.exe' |
+              Select-Object FullName
+            throw 'Prism executable was not found'
+          }
+
+          $before = @(Get-LocationEntries | Sort-Object -Unique)
+          Write-Host "Location registry entries before launch: $($before.Count)"
+
+          $process = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 15
+          if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id -Force
+          }
+          Start-Sleep -Seconds 2
+
+          $after = @(Get-LocationEntries | Sort-Object -Unique)
+          Write-Host "Location registry entries after launch: $($after.Count)"
+
+          $newEntries = @(
+            Compare-Object -ReferenceObject $before -DifferenceObject $after |
+              Where-Object { $_.SideIndicator -eq '=>' } |
+              ForEach-Object { $_.InputObject }
+          )
+          if ($newEntries.Count -gt 0) {
+            $newEntries | ForEach-Object { Write-Host "New location entry: $_" }
+            throw 'New Windows location capability entries appeared after launching Prism'
+          }
