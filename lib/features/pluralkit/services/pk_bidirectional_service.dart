@@ -518,6 +518,13 @@ class PkBidirectionalService {
     PkSyncDirection direction,
   ) {
     final fields = <String>{};
+    if (_pushField(config.name, direction)) {
+      final localName = _normalizeText(local.name);
+      final pkName = _normalizeText(pk.name);
+      if (localName != pkName && !_wouldClear(localName, pkName)) {
+        fields.add('name');
+      }
+    }
     if (_pushField(config.displayName, direction)) {
       final localDn = _normalizeText(local.pluralkitDisplayName);
       final pkDn = _normalizeText(pk.displayName);

@@ -288,6 +288,55 @@ void main() {
       },
     );
 
+    test('gated PATCH sends Prism Name as PK internal name', () async {
+      final member = _member(
+        name: 'New Prism Name',
+        pluralkitId: 'pk123',
+      );
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: const PKMember(
+          id: 'pk123',
+          uuid: 'uuid-pk123',
+          name: 'Old PK Name',
+        ),
+        allowedFields: {'name'},
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data, {'name': 'New Prism Name'});
+    });
+
+    test('gated PATCH skips blank name but still sends sibling fields',
+        () async {
+      final member = _member(
+        name: '   ',
+        pluralkitId: 'pk123',
+        pronouns: 'they/them',
+      );
+      final skips = <(String, String)>[];
+
+      await pushService.pushMember(
+        member,
+        fakeClient,
+        pkMember: const PKMember(
+          id: 'pk123',
+          uuid: 'uuid-pk123',
+          name: 'Old PK Name',
+        ),
+        allowedFields: {'name', 'pronouns'},
+        onFieldSkipped: (field, reason) => skips.add((field, reason)),
+      );
+
+      final data = fakeClient.calls.first.args.last as Map<String, dynamic>;
+      expect(data.containsKey('name'), isFalse);
+      expect(data['pronouns'], 'they/them');
+      expect(skips.single.$1, 'name');
+      expect(skips.single.$2, contains('is empty'));
+    });
+
     test('includes empty proxy tag list for explicit local clear', () async {
       final member = _member(proxyTagsJson: '[]');
 

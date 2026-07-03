@@ -6115,6 +6115,7 @@ class PluralKitSyncService {
     // allowed fields are all unset (e.g. color toggled OFF on an otherwise
     // empty member) would also produce `{}` -> spurious PK 400.
     final hasAnyPushableValue =
+        (allowedFields.contains('name') && _hasText(member.name)) ||
         (allowedFields.contains('display_name') &&
             _hasText(member.pluralkitDisplayName)) ||
         (allowedFields.contains('pronouns') && _hasText(member.pronouns)) ||
@@ -6163,6 +6164,7 @@ class PluralKitSyncService {
     }
 
     return <String>{
+      if (pushField(config.name)) 'name',
       if (pushField(config.displayName)) 'display_name',
       if (pushField(config.pronouns)) 'pronouns',
       if (pushField(config.description)) 'description',

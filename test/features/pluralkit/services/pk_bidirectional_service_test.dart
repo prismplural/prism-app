@@ -678,6 +678,37 @@ void main() {
       // It re-POSTs a fresh PK member instead.
       expect(fakeClient.calls.any((c) => c.method == 'createMember'), isTrue);
     });
+
+    test('pushes changed Prism Name to PK internal name', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'New Prism Name',
+        pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        uuid: 'uuid-pk001',
+        name: 'Old PK Name',
+      );
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 1);
+      final updateCall = fakeClient.calls.firstWhere(
+        (c) => c.method == 'updateMember',
+      );
+      final payload = updateCall.args[1] as Map<String, dynamic>;
+      expect(payload, {'name': 'New Prism Name'});
+    });
   });
 
   group('identity repair', () {
@@ -1284,6 +1315,32 @@ void main() {
       expect(summary.membersPushed, 0);
     });
 
+    test('does NOT push when local name is blank and PK has a value', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: '   ',
+        pluralkitId: 'pk001',
+      );
+      final pk = _pkMember(id: 'pk001', name: 'Alice PK');
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 0);
+      expect(summary.membersSkipped, 1);
+      expect(
+        fakeClient.calls.any((c) => c.method == 'updateMember'),
+        isFalse,
+      );
+    });
+
     test('still pushes when local is populated and differs', () async {
       final local = _localMember(
         id: 'local-1',
@@ -1567,10 +1624,49 @@ void main() {
       },
     );
 
+    test(
+      'name configured pull-only + display name differs: no name key',
+      () async {
+        final local = _localMember(
+          id: 'local-1',
+          name: 'Local Name',
+          pluralkitId: 'pk001',
+          pluralkitDisplayName: 'NewDisplay',
+        );
+        final pk = _pkMember(
+          id: 'pk001',
+          name: 'PK Name',
+          displayName: 'OldDisplay',
+        );
+
+        await service.syncMembers(
+          localMembers: [local],
+          pkMembers: [pk],
+          fieldConfigs: {
+            'local-1': const PkFieldSyncConfig(
+              name: PkSyncDirection.pullOnly,
+            ),
+          },
+          direction: PkSyncDirection.bidirectional,
+          lastSyncDate: null,
+          memberRepository: fakeRepo,
+          client: fakeClient,
+        );
+
+        final payload =
+            fakeClient.calls
+                    .firstWhere((c) => c.method == 'updateMember')
+                    .args[1]
+                as Map<String, dynamic>;
+        expect(payload['display_name'], 'NewDisplay');
+        expect(payload.containsKey('name'), isFalse);
+      },
+    );
+
     test('all fields differ in pushOnly: payload includes all of them', () async {
       final local = _localMember(
         id: 'local-1',
-        name: 'Alice',
+        name: 'Alice Local',
         pluralkitId: 'pk001',
         pluralkitDisplayName: 'NewDisplay',
         pronouns: 'they/them',
@@ -1581,7 +1677,7 @@ void main() {
       );
       final pk = _pkMember(
         id: 'pk001',
-        name: 'Alice',
+        name: 'Alice PK',
         displayName: 'OldDisplay',
         pronouns: 'he/him',
         description: 'old bio',
@@ -1602,6 +1698,7 @@ void main() {
       final payload =
           fakeClient.calls.firstWhere((c) => c.method == 'updateMember').args[1]
               as Map<String, dynamic>;
+      expect(payload['name'], 'Alice Local');
       expect(payload['display_name'], 'NewDisplay');
       expect(payload['pronouns'], 'they/them');
       expect(payload['description'], 'new bio');

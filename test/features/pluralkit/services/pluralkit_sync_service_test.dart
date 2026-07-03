@@ -98,6 +98,7 @@ class FakePluralKitClient implements PluralKitClient {
   int getGroupsCallCount = 0;
   int disposeCallCount = 0;
   final List<String> calls = [];
+  final List<({String id, Map<String, dynamic> data})> updateMemberCalls = [];
 
   @override
   String get currentToken => 'fake-token';
@@ -157,8 +158,44 @@ class FakePluralKitClient implements PluralKitClient {
       throw UnimplementedError();
 
   @override
-  Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
-      throw UnimplementedError();
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
+    calls.add('updateMember');
+    updateMemberCalls.add((id: id, data: Map<String, dynamic>.from(data)));
+    final existing = membersToReturn.firstWhere(
+      (member) => member.id == id || member.uuid == id,
+      orElse: () => PKMember(
+        id: id,
+        uuid: 'uuid-$id',
+        name: data['name'] as String? ?? '',
+      ),
+    );
+    return PKMember(
+      id: existing.id,
+      uuid: existing.uuid,
+      name: data['name'] as String? ?? existing.name,
+      displayName: data.containsKey('display_name')
+          ? data['display_name'] as String?
+          : existing.displayName,
+      pronouns: data.containsKey('pronouns')
+          ? data['pronouns'] as String?
+          : existing.pronouns,
+      description: data.containsKey('description')
+          ? data['description'] as String?
+          : existing.description,
+      color: data.containsKey('color')
+          ? data['color'] as String?
+          : existing.color,
+      birthday: data.containsKey('birthday')
+          ? data['birthday'] as String?
+          : existing.birthday,
+      created: existing.created,
+      avatarUrl: existing.avatarUrl,
+      bannerUrl: existing.bannerUrl,
+      hasBannerField: existing.hasBannerField,
+      proxyTagsJson: existing.proxyTagsJson,
+      system: existing.system,
+    );
+  }
 
   final List<({List<String> memberIds, DateTime? timestamp})>
   createSwitchCalls = [];
@@ -574,10 +611,8 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   @override
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
-  @override
   Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
 
-  @override
   Future<void> clearCreatePushStartedAt(String id) async {}
 
   @override
@@ -2076,8 +2111,15 @@ void main() {
 
         final local = (await memberRepo.getAllMembers()).single;
         expect(summary?.membersPulled, 0);
+        expect(summary?.membersPushed, 1);
+        expect(local.name, 'Local linked');
         expect(local.customColorEnabled, isFalse);
         expect(local.customColorHex, isNull);
+        expect(fakeClient.updateMemberCalls, hasLength(1));
+        expect(fakeClient.updateMemberCalls.single.id, 'pk001');
+        expect(fakeClient.updateMemberCalls.single.data, {
+          'name': 'Local linked',
+        });
         expect(
           fakeClient.getSwitchesCallCount,
           0,
@@ -4532,6 +4574,7 @@ void _registerWs3PrDTests() {
 
       final call = push.calls.single;
       expect(call.allowedFields, isNotNull);
+      expect(call.allowedFields, contains('name'));
       expect(call.allowedFields, contains('display_name'));
       expect(
         call.allowedFields,
@@ -4541,6 +4584,33 @@ void _registerWs3PrDTests() {
       // proxy_tags is never auto-pushed (manual-sync delete-risk preview path).
       expect(call.allowedFields, isNot(contains('proxy_tags')));
       expect(call.proxyTags, isFalse);
+    });
+
+    test('push-only name edit is not skipped as an empty PATCH', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final fakeClient = FakePluralKitClient();
+      final service = await readyService(
+        db: db,
+        fakeClient: fakeClient,
+        globalDirection: PkSyncDirection.pushOnly,
+      );
+      final push = _RecordingPushService();
+
+      final result = await service.pushMemberUpdate(
+        domain.Member(
+          id: 'a',
+          name: 'Renamed',
+          createdAt: DateTime.utc(2026),
+          pluralkitId: 'aaaaa',
+          pluralkitUuid: 'uuid-a',
+        ),
+        pushService: push,
+      );
+
+      expect(result, isTrue);
+      expect(push.calls, hasLength(1));
+      expect(push.calls.single.allowedFields, contains('name'));
     });
 
     test('skips the PATCH (no network) when every field is pull-only',

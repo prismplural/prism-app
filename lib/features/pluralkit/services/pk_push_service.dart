@@ -261,11 +261,15 @@ class PkPushService {
     final gated = isPatch && allowedFields != null;
     bool include(String key) => !gated || allowedFields.contains(key);
 
-    // Prism Name and Full Name are local-only after the PK display-name split.
-    // PluralKit still requires an internal `name` for creates, so seed it
-    // from Prism Name.
-    if (!isPatch) {
+    // Prism Name maps to PK's internal `name`; Full Name stays local-only.
+    if (!isPatch ||
+        (gated && include('name') && member.name.trim().isNotEmpty)) {
       data['name'] = member.name;
+    } else if (gated && include('name')) {
+      onFieldSkipped?.call(
+        'name',
+        'is empty; left unchanged on PluralKit this sync',
+      );
     }
 
     if (include('display_name')) {
