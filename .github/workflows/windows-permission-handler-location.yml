@@ -56,6 +56,27 @@ jobs:
           ninja --version
           nasm -v
 
+      - name: Install dav1d
+        shell: pwsh
+        run: |
+          $triplet = 'x64-windows-static'
+          vcpkg install "dav1d:$triplet"
+
+          $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $vcpkgRoot) {
+            $vcpkgRoot = 'C:\vcpkg'
+          }
+          $pkgConfigPath = Join-Path $vcpkgRoot "installed\$triplet\lib\pkgconfig"
+          if (-not (Test-Path -LiteralPath (Join-Path $pkgConfigPath 'dav1d.pc'))) {
+            throw "dav1d.pc not found under $pkgConfigPath"
+          }
+
+          "PKG_CONFIG_PATH=$pkgConfigPath" | Add-Content -Path $env:GITHUB_ENV
+          "PKG_CONFIG_ALLOW_SYSTEM_LIBS=1" | Add-Content -Path $env:GITHUB_ENV
+          "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1" | Add-Content -Path $env:GITHUB_ENV
+          $env:PKG_CONFIG_PATH = $pkgConfigPath
+          pkg-config --modversion dav1d
+
       - run: flutter --version
 
       - name: Fetch packages
