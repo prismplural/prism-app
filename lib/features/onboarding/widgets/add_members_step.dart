@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -26,7 +27,6 @@ class AddMembersStep extends ConsumerWidget {
     // onboarding members list (it shouldn't exist this early anyway, but
     // belt-and-suspenders).
     final membersAsync = ref.watch(userVisibleAllMemberListProvider);
-    final members = membersAsync.value ?? [];
     final onboarding = ref.watch(onboardingProvider);
     final terms = resolveTerminology(
       context.l10n,
@@ -36,124 +36,132 @@ class AddMembersStep extends ConsumerWidget {
       useEnglish: onboarding.terminologyUseEnglish,
     );
 
+    final membersContent = membersAsync.when(
+      loading: () => PrismLoadingState(
+        color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+      ),
+      error: (e, _) => Center(
+        child: Text(
+          context.l10n.errorLoadingMembers(terms.pluralLower, e),
+          style: TextStyle(color: theme.colorScheme.error),
+          textAlign: TextAlign.center,
+        ),
+      ),
+      data: (members) => members.isEmpty
+          ? Center(
+              child: Text(
+                context.l10n.onboardingAddMembersNoMembers(
+                  terms.pluralLower,
+                  terms.singular,
+                  terms.singularLower,
+                ),
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          : ListView.builder(
+              itemCount: members.length,
+              itemBuilder: (context, index) {
+                final member = members[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.warmWhite.withValues(alpha: 0.1)
+                          : AppColors.parchmentElevated,
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(12),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        MemberAvatar(
+                          memberId: member.id,
+                          avatarImageData: member.avatarImageData,
+                          memberName: member.name,
+                          emoji: member.emoji,
+                          customColorEnabled: member.customColorEnabled,
+                          customColorHex: member.customColorHex,
+                          size: 40,
+                          deferAvatarLookup: true,
+                        ),
+                        const SizedBox(width: 12),
+                        // Name + pronouns
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                member.name,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: isDark
+                                      ? AppColors.warmWhite
+                                      : AppColors.warmBlack,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (member.pronouns != null &&
+                                  member.pronouns!.isNotEmpty)
+                                Text(
+                                  member.pronouns!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: isDark
+                                        ? AppColors.mutedTextDark
+                                        : AppColors.mutedTextLight,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        // Delete
+                        PrismInlineIconButton(
+                          icon: AppIcons.close,
+                          color: isDark
+                              ? AppColors.warmWhite.withValues(alpha: 0.7)
+                              : AppColors.warmBlack.withValues(alpha: 0.7),
+                          iconSize: 20,
+                          tooltip: context.l10n
+                              .onboardingAddMembersRemoveMember(
+                                terms.singularLower,
+                              ),
+                          onPressed: () async {
+                            try {
+                              await ref
+                                  .read(onboardingProvider.notifier)
+                                  .deleteMember(member.id);
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              PrismToast.error(
+                                context,
+                                message:
+                                    'Could not remove ${terms.singularLower}: $e',
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           // Members list
-          Expanded(
-            child: members.isEmpty
-                ? Center(
-                    child: Text(
-                      context.l10n.onboardingAddMembersNoMembers(
-                        terms.pluralLower,
-                        terms.singular,
-                        terms.singularLower,
-                      ),
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: isDark
-                            ? AppColors.mutedTextDark
-                            : AppColors.mutedTextLight,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: members.length,
-                    itemBuilder: (context, index) {
-                      final member = members[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.warmWhite.withValues(alpha: 0.1)
-                                : AppColors.parchmentElevated,
-                            borderRadius: BorderRadius.circular(
-                              PrismShapes.of(context).radius(12),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              MemberAvatar(
-                                memberId: member.id,
-                                avatarImageData: member.avatarImageData,
-                                memberName: member.name,
-                                emoji: member.emoji,
-                                customColorEnabled: member.customColorEnabled,
-                                customColorHex: member.customColorHex,
-                                size: 40,
-                                deferAvatarLookup: true,
-                              ),
-                              const SizedBox(width: 12),
-                              // Name + pronouns
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      member.name,
-                                      style: theme.textTheme.titleSmall
-                                          ?.copyWith(
-                                            color: isDark
-                                                ? AppColors.warmWhite
-                                                : AppColors.warmBlack,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                    if (member.pronouns != null &&
-                                        member.pronouns!.isNotEmpty)
-                                      Text(
-                                        member.pronouns!,
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(
-                                              color: isDark
-                                                  ? AppColors.mutedTextDark
-                                                  : AppColors.mutedTextLight,
-                                            ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              // Delete
-                              PrismInlineIconButton(
-                                icon: AppIcons.close,
-                                color: isDark
-                                    ? AppColors.warmWhite.withValues(alpha: 0.7)
-                                    : AppColors.warmBlack.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                iconSize: 20,
-                                tooltip: context.l10n
-                                    .onboardingAddMembersRemoveMember(
-                                      terms.singularLower,
-                                    ),
-                                onPressed: () async {
-                                  try {
-                                    await ref
-                                        .read(onboardingProvider.notifier)
-                                        .deleteMember(member.id);
-                                  } catch (e) {
-                                    if (!context.mounted) return;
-                                    PrismToast.error(
-                                      context,
-                                      message:
-                                          'Could not remove ${terms.singularLower}: $e',
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
+          Expanded(child: membersContent),
 
           // Add member button
           const SizedBox(height: 12),

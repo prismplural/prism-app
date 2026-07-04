@@ -221,7 +221,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         ),
                         child: Center(
                           child: PhosphorIcon(
-                            step.icon as PhosphorIconData,
+                            step.icon,
                             size: 28,
                             color: primary,
                           ),
@@ -457,8 +457,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
   /// Confirms leaving the add-members step empty. An empty system is allowed,
   /// so this nudges rather than blocks.
   Future<bool> _confirmProceedWithoutMembers() async {
-    final members =
-        ref.read(userVisibleAllMembersProvider).value ?? const [];
+    final membersAsync = ref.read(userVisibleAllMemberListProvider);
+    if (!membersAsync.hasValue) return false;
+    final members = membersAsync.value ?? const [];
     if (members.isNotEmpty) return true;
     if (!mounted) return false;
     return PrismDialog.confirm(

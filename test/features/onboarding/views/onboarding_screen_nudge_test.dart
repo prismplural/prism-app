@@ -24,14 +24,20 @@ void main() {
   Future<ProviderContainer> pumpStep(
     WidgetTester tester, {
     required List<Member> members,
+    AsyncValue<List<Member>>? memberList,
+    AsyncValue<List<Member>>? fullMembers,
+    bool settle = true,
   }) async {
     final container = ProviderContainer(
       overrides: [
         onboardingProvider.overrideWith(_AddMembersNotifier.new),
         hasCompletedOnboardingProvider.overrideWithValue(false),
         syncDisconnectMarkerProvider.overrideWith((ref) async => null),
+        userVisibleAllMemberListProvider.overrideWithValue(
+          memberList ?? AsyncValue.data(members),
+        ),
         userVisibleAllMembersProvider.overrideWithValue(
-          AsyncValue.data(members),
+          fullMembers ?? AsyncValue.data(members),
         ),
       ],
     );
@@ -40,14 +46,18 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(
+        child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('en')],
-          home: const OnboardingScreen(),
+          supportedLocales: [Locale('en')],
+          home: OnboardingScreen(),
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
     return container;
   }
 
@@ -55,6 +65,47 @@ void main() {
     tester,
   ) async {
     final container = await pumpStep(tester, members: [_member('Alex')]);
+
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add someone first?'), findsNothing);
+    expect(
+      container.read(onboardingProvider).currentStep,
+      OnboardingStep.features,
+    );
+  });
+
+  testWidgets('loading members: Continue does not show empty nudge', (
+    tester,
+  ) async {
+    final container = await pumpStep(
+      tester,
+      members: const [],
+      memberList: const AsyncValue.loading(),
+      settle: false,
+    );
+
+    await tester.tap(find.text('Continue'));
+    await tester.pump();
+
+    expect(find.text('Add someone first?'), findsNothing);
+    expect(
+      container.read(onboardingProvider).currentStep,
+      OnboardingStep.addMembers,
+    );
+  });
+
+  testWidgets('visible members: Continue ignores unloaded full-member stream', (
+    tester,
+  ) async {
+    final container = await pumpStep(
+      tester,
+      members: [_member('Alex')],
+      fullMembers: const AsyncValue.loading(),
+    );
+
+    expect(find.text('Alex'), findsOneWidget);
 
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
