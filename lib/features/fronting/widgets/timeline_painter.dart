@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_geometry.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_time_label_formatter.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 /// A tappable region on the timeline canvas corresponding to one session bar.
@@ -56,19 +57,26 @@ class TimelinePainter extends CustomPainter {
   /// Visible Y range with a small bleed margin to avoid clipping at edges.
   static const double _bleed = 10.0;
   double get _scrollOffset => scrollOffsetNotifier?.value ?? 0.0;
-  double _boundedScrollOffset(Size size) {
-    final maxOffset = math.max(0.0, size.height - viewportHeight);
-    return _scrollOffset.clamp(0.0, maxOffset).toDouble();
-  }
+  double _boundedScrollOffset(Size size) =>
+      _geometry(size).boundedScrollOffset();
 
   double _visibleTop(Size size) => _boundedScrollOffset(size) - _bleed;
   double _visibleBottom(Size size) =>
       _boundedScrollOffset(size) + viewportHeight + _bleed;
 
-  double _timeToY(DateTime time) {
-    final diff = time.difference(viewStart);
-    return diff.inMilliseconds / Duration.millisecondsPerHour * pixelsPerHour;
+  TimelineGeometry _geometry(Size size) {
+    return TimelineGeometry(
+      viewStart: viewStart,
+      viewEnd: viewEnd,
+      pixelsPerHour: pixelsPerHour,
+      viewportHeight: viewportHeight,
+      contentHeight: size.height,
+      scrollOffset: _scrollOffset,
+    );
   }
+
+  double _timeToY(DateTime time, Size size) =>
+      _geometry(size).timeToContentY(time);
 
   /// Computes hit-test rectangles for all session bars, using the same geometry
   /// as [_drawSessionBars]. Call this from a [GestureDetector] to map a tap
@@ -91,8 +99,8 @@ class TimelinePainter extends CustomPainter {
           continue;
         }
 
-        final y1 = math.max(0.0, _timeToY(sessionStart));
-        final y2 = math.min(size.height, _timeToY(sessionEnd));
+        final y1 = math.max(0.0, _timeToY(sessionStart, size));
+        final y2 = math.min(size.height, _timeToY(sessionEnd, size));
 
         if (y2 - y1 < 1) continue;
 
@@ -135,8 +143,8 @@ class TimelinePainter extends CustomPainter {
         continue;
       }
 
-      final y1 = math.max(0.0, _timeToY(sessionStart));
-      final y2 = math.min(size.height, _timeToY(sessionEnd));
+      final y1 = math.max(0.0, _timeToY(sessionStart, size));
+      final y2 = math.min(size.height, _timeToY(sessionEnd, size));
       if (y2 < visibleTop || y1 > visibleBottom) continue;
       if (y2 - y1 < 1) continue;
 
@@ -184,6 +192,9 @@ class TimelinePainter extends CustomPainter {
     final gridPaint = Paint()
       ..color = onSurfaceColor.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
+    final dayBoundaryPaint = Paint()
+      ..color = onSurfaceColor.withValues(alpha: 0.18)
+      ..strokeWidth = 1.0;
 
     // Calculate the first visible hour boundary from the scroll offset.
     final visibleStartHours = visibleTop / pixelsPerHour;
@@ -199,9 +210,10 @@ class TimelinePainter extends CustomPainter {
     }
 
     while (hour.isBefore(viewEnd)) {
-      final y = _timeToY(hour);
+      final y = _timeToY(hour, size);
       if (y > visibleBottom) break;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      final paint = hour.hour == 0 ? dayBoundaryPaint : gridPaint;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
       hour = hour.add(const Duration(hours: 1));
     }
   }
@@ -227,8 +239,8 @@ class TimelinePainter extends CustomPainter {
           continue;
         }
 
-        final y1 = math.max(0.0, _timeToY(sessionStart));
-        final y2 = math.min(size.height, _timeToY(sessionEnd));
+        final y1 = math.max(0.0, _timeToY(sessionStart, size));
+        final y2 = math.min(size.height, _timeToY(sessionEnd, size));
 
         // Skip bars entirely outside the visible viewport.
         if (y2 < visibleTop || y1 > visibleBottom) continue;
@@ -265,7 +277,7 @@ class TimelinePainter extends CustomPainter {
     final visibleBottom = _visibleBottom(size);
     if (now.isBefore(viewStart) || now.isAfter(viewEnd)) return;
 
-    final y = _timeToY(now);
+    final y = _timeToY(now, size);
     // Skip if the now-line is outside the visible viewport (with margin for circle radius).
     if (y < visibleTop || y > visibleBottom) return;
 
@@ -292,9 +304,6 @@ class TimelinePainter extends CustomPainter {
 }
 
 /// Paints the time labels in the left gutter.
-///
-/// At midnight boundaries, shows the date instead of "12 AM" and draws a
-/// heavier separator line. This avoids the overlap of separate date labels.
 class TimelineTimeGutterPainter extends CustomPainter {
   TimelineTimeGutterPainter({
     required this.pixelsPerHour,
@@ -305,10 +314,13 @@ class TimelineTimeGutterPainter extends CustomPainter {
     required this.viewportHeight,
     required this.locale,
     required this.textScaler,
+    required this.alwaysUse24HourFormat,
     this.scrollOffsetNotifier,
     Listenable? repaintListenable,
-  }) : _shortWeekdayFmt = DateFormat.E(locale),
-       _hourFmt = DateFormat.j(locale),
+  }) : _formatter = TimelineTimeLabelFormatter(
+         locale: locale,
+         alwaysUse24HourFormat: alwaysUse24HourFormat,
+       ),
        super(repaint: repaintListenable);
 
   final double pixelsPerHour;
@@ -319,25 +331,32 @@ class TimelineTimeGutterPainter extends CustomPainter {
   final double viewportHeight;
   final String locale;
   final TextScaler textScaler;
+  final bool alwaysUse24HourFormat;
   final ValueNotifier<double>? scrollOffsetNotifier;
-  final DateFormat _shortWeekdayFmt;
-  final DateFormat _hourFmt;
+  final TimelineTimeLabelFormatter _formatter;
 
   static const double _bleed = 20.0; // extra margin for text labels
   double get _scrollOffset => scrollOffsetNotifier?.value ?? 0.0;
-  double _boundedScrollOffset(Size size) {
-    final maxOffset = math.max(0.0, size.height - viewportHeight);
-    return _scrollOffset.clamp(0.0, maxOffset).toDouble();
-  }
+  double _boundedScrollOffset(Size size) =>
+      _geometry(size).boundedScrollOffset();
 
   double _visibleTop(Size size) => _boundedScrollOffset(size) - _bleed;
   double _visibleBottom(Size size) =>
       _boundedScrollOffset(size) + viewportHeight + _bleed;
 
-  double _timeToY(DateTime time) {
-    final diff = time.difference(viewStart);
-    return diff.inMilliseconds / Duration.millisecondsPerHour * pixelsPerHour;
+  TimelineGeometry _geometry(Size size) {
+    return TimelineGeometry(
+      viewStart: viewStart,
+      viewEnd: viewEnd,
+      pixelsPerHour: pixelsPerHour,
+      viewportHeight: viewportHeight,
+      contentHeight: size.height,
+      scrollOffset: _scrollOffset,
+    );
   }
+
+  double _timeToY(DateTime time, Size size) =>
+      _geometry(size).timeToContentY(time);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -350,18 +369,12 @@ class TimelineTimeGutterPainter extends CustomPainter {
     final midnightPaint = Paint()
       ..color = gridColor.withValues(alpha: 0.4)
       ..strokeWidth = 1.0;
-
-    // Determine label interval based on zoom
-    final int hourInterval;
-    if (pixelsPerHour >= 80) {
-      hourInterval = 1;
-    } else if (pixelsPerHour >= 40) {
-      hourInterval = 2;
-    } else if (pixelsPerHour >= 20) {
-      hourInterval = 4;
-    } else {
-      hourInterval = 6;
-    }
+    final labelStyle = TextStyle(color: textColor, fontSize: 10);
+    final hourInterval = _formatter.hourInterval(
+      pixelsPerHour: pixelsPerHour,
+      style: labelStyle,
+      textScaler: textScaler,
+    );
 
     var hour = DateTime(
       viewStart.year,
@@ -388,7 +401,7 @@ class TimelineTimeGutterPainter extends CustomPainter {
     }
 
     while (hour.isBefore(viewEnd)) {
-      final y = _timeToY(hour);
+      final y = _timeToY(hour, size);
       if (y > visibleBottom) break;
       final isMidnight = hour.hour == 0;
 
@@ -403,27 +416,27 @@ class TimelineTimeGutterPainter extends CustomPainter {
         );
       }
 
-      // Label: show date at midnight, time at other hours
-      final label = isMidnight
-          ? '${_shortWeekdayFmt.format(hour)} ${hour.month}/${hour.day}'
-          : _hourFmt.format(hour);
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: label,
-          style: TextStyle(
-            color: textColor,
-            fontSize: isMidnight ? 9 : 10,
-            fontWeight: isMidnight ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
+      final label = _formatter.bestLabel(
+        time: hour,
+        style: labelStyle,
+        textScaler: textScaler,
+        maxWidth: size.width - 14,
         textDirection: TextDirection.ltr,
+      );
+      final textPainter = TextPainter(
+        text: TextSpan(text: label, style: labelStyle),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
         textScaler: textScaler,
       )..layout();
 
+      canvas.save();
+      canvas.clipRect(Offset.zero & size);
       textPainter.paint(
         canvas,
         Offset(size.width - 12 - textPainter.width, y - textPainter.height / 2),
       );
+      canvas.restore();
 
       hour = hour.add(Duration(hours: hourInterval));
     }
@@ -434,8 +447,11 @@ class TimelineTimeGutterPainter extends CustomPainter {
     return oldDelegate.pixelsPerHour != pixelsPerHour ||
         oldDelegate.viewStart != viewStart ||
         oldDelegate.viewEnd != viewEnd ||
+        oldDelegate.textColor != textColor ||
+        oldDelegate.gridColor != gridColor ||
         oldDelegate.viewportHeight != viewportHeight ||
         oldDelegate.locale != locale ||
-        oldDelegate.textScaler != textScaler;
+        oldDelegate.textScaler != textScaler ||
+        oldDelegate.alwaysUse24HourFormat != alwaysUse24HourFormat;
   }
 }

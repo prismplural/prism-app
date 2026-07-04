@@ -3165,6 +3165,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'Start a fronting session to see it appear on the timeline.';
 
   @override
+  String frontingTimelinePositionLabel(String date) {
+    return 'Timeline position, $date';
+  }
+
+  @override
   String get frontingDeleteStrategyTitle => 'What should happen to this time?';
 
   @override

@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart'
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/app_shell.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -34,13 +35,16 @@ double _timelineCanvasHeight(WidgetTester tester) {
 Rect _timelineCanvasRect(WidgetTester tester) =>
     tester.getRect(_timelineCanvasFinder());
 
-Widget _buildSubject(ProviderContainer container) {
+Widget _buildSubject(ProviderContainer container, {double bottomInset = 0}) {
   return UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(
+    child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: [Locale('en')],
-      home: Scaffold(body: TimelineView()),
+      supportedLocales: const [Locale('en')],
+      home: NavBarInset(
+        bottomInset: bottomInset,
+        child: const Scaffold(body: TimelineView()),
+      ),
     ),
   );
 }
@@ -202,5 +206,69 @@ void main() {
       lessThanOrEqualTo(_timelineCanvasHeight(tester)),
       reason: 'stale culling offset can skip every timeline bar after zoom-out',
     );
+  });
+
+  testWidgets('bottom inset scroll position survives rebuild sync', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 700);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final repo = FakeFrontingSessionRepository();
+    final member = Member(
+      id: 'alice',
+      name: 'Alice',
+      createdAt: DateTime(2026, 1, 1),
+    );
+    final now = DateTime.now();
+    repo.sessions.add(
+      FrontingSession(
+        id: 'long-session',
+        memberId: member.id,
+        startTime: now.subtract(const Duration(days: 21)),
+        endTime: now,
+      ),
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        frontingSessionRepositoryProvider.overrideWithValue(repo),
+        allMembersProvider.overrideWith((ref) => Stream.value([member])),
+        recentSleepSessionsPaginatedProvider.overrideWith(
+          (ref, limit) => Stream.value(const <FrontingSession>[]),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(_buildSubject(container, bottomInset: 80));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -100000),
+    );
+    await tester.pumpAndSettle();
+
+    final verticalScrollable = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollable && widget.axisDirection == AxisDirection.down,
+    );
+    expect(verticalScrollable, findsOneWidget);
+    final scrollable = tester.state<ScrollableState>(verticalScrollable);
+    final rawOffset = scrollable.position.pixels;
+    final contentOnlyMax =
+        _timelineCanvasHeight(tester) - scrollable.position.viewportDimension;
+    expect(rawOffset, greaterThan(contentOnlyMax + 60));
+
+    await tester.pumpWidget(_buildSubject(container, bottomInset: 80));
+    await tester.pump();
+
+    final painter = _timelinePainter(tester);
+    expect(painter.scrollOffsetNotifier!.value, closeTo(rawOffset, 1));
   });
 }

@@ -10,6 +10,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_date_overlay.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
@@ -48,8 +49,6 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   DateTime? _viewStart;
   bool _isLoadingMore = false;
   bool _scrollOffsetSyncScheduled = false;
-  double _pendingContentHeight = 0;
-  double _pendingViewportHeight = 0;
   // Last successfully loaded data, kept as a fallback so first-frame reloads
   // never blank the timeline into a spinner.
   TimelineData? _lastData;
@@ -247,10 +246,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         viewEnd.difference(viewStart).inMilliseconds /
         Duration.millisecondsPerHour;
     final totalHeight = totalHours * pxPerHour;
-    _scheduleScrollOffsetSync(
-      contentHeight: totalHeight,
-      viewportHeight: scrollableViewportHeight,
-    );
+    _scheduleScrollOffsetSync();
 
     // Preserve scroll position when viewStart changes (more data loaded)
     if (_viewStart != null && viewStart.isBefore(_viewStart!)) {
@@ -277,6 +273,15 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         : availableWidth;
     final needsHorizontalScroll = columnsWidth > availableWidth;
     final chartWidth = _timeGutterWidth + columnsWidth;
+    final timelineViewportWidth = availableWidth + _timeGutterWidth;
+    final chartViewportLeft = needsHorizontalScroll
+        ? _timeGutterWidth
+        : math.max(0.0, (timelineViewportWidth - chartWidth) / 2) +
+              _timeGutterWidth;
+    final chartViewportWidth = needsHorizontalScroll
+        ? math.max(0.0, availableWidth)
+        : columnsWidth;
+    final timelineBottomInset = NavBarInset.of(context);
 
     final mergedListenable = Listenable.merge([
       _nowNotifier,
@@ -313,7 +318,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
 
     Widget centerShortTimeline(Widget child) {
       if (needsHorizontalScroll) return child;
-      return Center(
+      return Align(
+        alignment: Alignment.topCenter,
         child: SizedBox(width: chartWidth, child: child),
       );
     }
@@ -365,6 +371,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                 viewportHeight: scrollableViewportHeight,
                 locale: context.dateLocale,
                 textScaler: MediaQuery.textScalerOf(context),
+                alwaysUse24HourFormat: MediaQuery.of(
+                  context,
+                ).alwaysUse24HourFormat,
                 repaintListenable: _scrollOffsetNotifier,
               ),
             ),
@@ -410,13 +419,34 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         ),
         // Scrollable timeline area
         Expanded(
-          child: SingleChildScrollView(
-            controller: _verticalController,
-            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-            child: SizedBox(
-              height: totalHeight,
-              child: centerShortTimeline(buildScrollableRow()),
-            ),
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                controller: _verticalController,
+                padding: EdgeInsets.only(bottom: timelineBottomInset),
+                child: SizedBox(
+                  height: totalHeight,
+                  child: centerShortTimeline(buildScrollableRow()),
+                ),
+              ),
+              if (chartViewportWidth > 0)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  left: chartViewportLeft,
+                  width: chartViewportWidth,
+                  child: TimelineDateOverlay(
+                    viewStart: viewStart,
+                    viewEnd: viewEnd,
+                    pixelsPerHour: pxPerHour,
+                    viewportHeight: scrollableViewportHeight,
+                    contentHeight: totalHeight,
+                    scrollableHeight: totalHeight + timelineBottomInset,
+                    scrollOffsetListenable: _scrollOffsetNotifier,
+                    nowListenable: _nowNotifier,
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -475,12 +505,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     }
   }
 
-  void _scheduleScrollOffsetSync({
-    required double contentHeight,
-    required double viewportHeight,
-  }) {
-    _pendingContentHeight = contentHeight;
-    _pendingViewportHeight = viewportHeight;
+  void _scheduleScrollOffsetSync() {
     if (_scrollOffsetSyncScheduled) return;
     _scrollOffsetSyncScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -495,15 +520,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         _verticalController.jumpTo(clampedScrollOffset);
       }
 
-      final maxCullingOffset = math.max(
-        0.0,
-        _pendingContentHeight - _pendingViewportHeight,
-      );
-      final clampedCullingOffset = clampedScrollOffset
-          .clamp(0.0, maxCullingOffset)
-          .toDouble();
-      if ((_scrollOffsetNotifier.value - clampedCullingOffset).abs() > 0.5) {
-        _scrollOffsetNotifier.value = clampedCullingOffset;
+      if ((_scrollOffsetNotifier.value - clampedScrollOffset).abs() > 0.5) {
+        _scrollOffsetNotifier.value = clampedScrollOffset;
       }
     });
   }

@@ -10,29 +10,56 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 /// Formats: "Today", "Yesterday", "April 7" (current year), or
 /// "April 7, 2025" (different year).
 class DateChip extends StatelessWidget {
-  const DateChip({super.key, required this.date});
+  const DateChip({
+    super.key,
+    required this.date,
+    this.semanticHeader = true,
+    this.semanticLabel,
+    this.includeSemantics = true,
+    this.maxWidth,
+  });
 
   final DateTime date;
+  final bool semanticHeader;
+  final String? semanticLabel;
+  final bool includeSemantics;
+  final double? maxWidth;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Semantics(
-      header: true,
-      child: UnconstrainedBox(
-        child: TintedGlassSurface(
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(999)),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-          child: Text(
-            date.toDayHeaderLabel(context.dateLocale),
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
-              fontWeight: FontWeight.w600,
-              fontSize: 11,
-            ),
-          ),
+    final chip = TintedGlassSurface(
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(999)),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      child: Text(
+        date.toDayHeaderLabel(context.dateLocale),
+        overflow: maxWidth == null ? null : TextOverflow.ellipsis,
+        softWrap: maxWidth == null,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
         ),
       ),
+    );
+
+    final sizedChip = maxWidth == null
+        ? UnconstrainedBox(child: chip)
+        : ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth!),
+            child: chip,
+          );
+
+    if (!includeSemantics) {
+      return ExcludeSemantics(child: sizedChip);
+    }
+
+    return Semantics(
+      header: semanticHeader,
+      label: semanticLabel,
+      child: semanticLabel == null
+          ? sizedChip
+          : ExcludeSemantics(child: sizedChip),
     );
   }
 }

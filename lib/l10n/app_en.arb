@@ -4257,6 +4257,16 @@
   "@frontingTimelineNoHistorySubtitle": {
     "description": "Empty state subtitle in timeline view"
   },
+  "frontingTimelinePositionLabel": "Timeline position, {date}",
+  "@frontingTimelinePositionLabel": {
+    "description": "Screen-reader label for the floating active date chip in timeline view",
+    "placeholders": {
+      "date": {
+        "type": "String",
+        "example": "July 1"
+      }
+    }
+  },
   "frontingDeleteStrategyTitle": "What should happen to this time?",
   "@frontingDeleteStrategyTitle": {
     "description": "Dialog title when choosing a delete strategy for a session"

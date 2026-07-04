@@ -5455,6 +5455,12 @@ abstract class AppLocalizations {
   /// **'Start a fronting session to see it appear on the timeline.'**
   String get frontingTimelineNoHistorySubtitle;
 
+  /// Screen-reader label for the floating active date chip in timeline view
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline position, {date}'**
+  String frontingTimelinePositionLabel(String date);
+
   /// Dialog title when choosing a delete strategy for a session
   ///
   /// In en, this message translates to:

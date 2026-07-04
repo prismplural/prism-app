@@ -888,6 +888,7 @@
   "frontingTimelineZoomIn": "Acercar",
   "frontingTimelineNoHistory": "Sin historial de frente",
   "frontingTimelineNoHistorySubtitle": "Inicia una sesión de frente para verla en la cronología.",
+  "frontingTimelinePositionLabel": "Posición en la cronología, {date}",
   "frontingDeleteStrategyTitle": "¿Qué debe pasar con este tiempo?",
   "frontingDeleteStrategyRecommended": "Recomendado",
   "frontingGapDetectedTitle": "{count, plural, =1{Brecha detectada} other{Brechas detectadas}}",

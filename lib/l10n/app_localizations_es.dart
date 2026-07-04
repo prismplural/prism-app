@@ -3222,6 +3222,11 @@ class AppLocalizationsEs extends AppLocalizations {
       'Inicia una sesión de frente para verla en la cronología.';
 
   @override
+  String frontingTimelinePositionLabel(String date) {
+    return 'Posición en la cronología, $date';
+  }
+
+  @override
   String get frontingDeleteStrategyTitle => '¿Qué debe pasar con este tiempo?';
 
   @override
