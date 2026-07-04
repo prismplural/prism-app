@@ -771,6 +771,108 @@ void main() {
     expect(visibleText, isNot(contains('-#')));
   });
 
+  testWidgets('consecutive `-#` lines keep authored line breaks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(data: '-# first aside\n-# second aside'),
+        ),
+      ),
+    );
+
+    final subtext = _textContaining(tester, 'first aside');
+
+    expect(
+      subtext.data ?? subtext.textSpan?.toPlainText(),
+      'first aside\nsecond aside',
+    );
+  });
+
+  testWidgets('consecutive `-#` parsing stops before normal paragraphs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(data: '-# first aside\nregular text'),
+        ),
+      ),
+    );
+
+    final subtext = _textContaining(tester, 'first aside');
+    expect(subtext.data ?? subtext.textSpan?.toPlainText(), 'first aside');
+    expect(
+      _richTextContaining(tester, 'regular text').text.toPlainText(),
+      'regular text',
+    );
+  });
+
+  testWidgets('blank lines keep `-#` runs as separate subtext blocks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(data: '-# first aside\n\n-# second aside'),
+        ),
+      ),
+    );
+
+    final first = _textContaining(tester, 'first aside');
+    final second = _textContaining(tester, 'second aside');
+
+    expect(first.data ?? first.textSpan?.toPlainText(), 'first aside');
+    expect(second.data ?? second.textSpan?.toPlainText(), 'second aside');
+  });
+
+  testWidgets('inline formatting spans consecutive `-#` line breaks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark(),
+        home: const Scaffold(
+          body: MarkdownText(data: '-# *first aside\n-# second aside*'),
+        ),
+      ),
+    );
+
+    final subtext = _textContaining(tester, 'first aside');
+    expect(
+      subtext.data ?? subtext.textSpan?.toPlainText(),
+      'first aside\nsecond aside',
+    );
+
+    final visibleText = <String>[];
+    final visibleStyles = <TextStyle?>[];
+    void collect(InlineSpan span, [TextStyle? inheritedStyle]) {
+      if (span is TextSpan) {
+        final style =
+            inheritedStyle?.merge(span.style) ?? span.style ?? inheritedStyle;
+        final text = span.text;
+        if (text != null && text.isNotEmpty) {
+          visibleText.add(text);
+          visibleStyles.add(style);
+        }
+        for (final child in span.children ?? const <InlineSpan>[]) {
+          collect(child, style);
+        }
+      }
+    }
+
+    collect(subtext.textSpan!);
+    expect(visibleText.join(), 'first aside\nsecond aside');
+    for (var i = 0; i < visibleText.length; i += 1) {
+      if (visibleText[i].trim().isEmpty) continue;
+      expect(visibleStyles[i]?.fontStyle, FontStyle.italic);
+    }
+  });
+
   testWidgets('`-#` inside a list item renders as subtext', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

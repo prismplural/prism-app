@@ -21,9 +21,16 @@ class SubtextBlockSyntax extends md.BlockSyntax {
 
   @override
   md.Node? parse(md.BlockParser parser) {
-    final match = pattern.firstMatch(parser.current.content)!;
-    parser.advance();
-    return md.Element('subtext', [md.UnparsedContent(match.group(1)!)]);
+    final lines = <String>[];
+
+    while (!parser.isDone) {
+      final match = pattern.firstMatch(parser.current.content);
+      if (match == null) break;
+      lines.add(match.group(1)!);
+      parser.advance();
+    }
+
+    return md.Element('subtext', [md.UnparsedContent(lines.join('\n'))]);
   }
 }
 
