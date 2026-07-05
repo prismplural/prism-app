@@ -20,7 +20,6 @@ const _allowedMimeTypes = {
   'image/jpeg',
   'image/png',
   'image/webp',
-  'image/avif',
   'image/heic',
   'image/heif',
   // GIF is a raster format (the SVG/XML magic-byte check below still guards
@@ -72,7 +71,7 @@ String normalizeImageUrl(String raw) {
 }
 
 /// Returns `true` if [data]'s leading bytes match a supported raster image
-/// magic number (JPEG, PNG, GIF, WebP, AVIF, HEIC/HEIF). Used as a fallback when a
+/// magic number (JPEG, PNG, GIF, WebP, HEIC/HEIF). Used as a fallback when a
 /// host serves a valid image under a wrong/absent `Content-Type` such as
 /// `application/octet-stream` or the non-standard `image/jpg`.
 bool _looksLikeRasterImage(Uint8List d) {
@@ -107,10 +106,9 @@ bool _looksLikeRasterImage(Uint8List d) {
       d[11] == 0x50) {
     return true;
   }
-  // AVIF/HEIC/HEIF (ISO-BMFF): bytes 4..7 == "ftyp", brand at 8..11 in a known set.
+  // HEIC/HEIF (ISO-BMFF): bytes 4..7 == "ftyp", brand at 8..11 in a known set.
   if (n >= 12 && d[4] == 0x66 && d[5] == 0x74 && d[6] == 0x79 && d[7] == 0x70) {
     const heifBrands = {
-      'avif',
       'heic',
       'heix',
       'hevc',

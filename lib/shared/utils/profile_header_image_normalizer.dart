@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:image/image.dart' as img;
-import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 
 abstract interface class ProfileHeaderWebpEncoder {
   /// [pngBytes] is the lossless intermediate built off the main isolate;
@@ -27,7 +27,7 @@ class FlutterProfileHeaderWebpEncoder implements ProfileHeaderWebpEncoder {
   }) async {
     // Rust sends opaque images to JPEG but anything with real transparency to
     // lossless WebP, which ignores `quality` — those shrink only by dimension.
-    final (bytes, _) = await ffi.encodeImage(
+    final (bytes, _) = await media_codec.encodeImage(
       imageBytes: pngBytes,
       maxWidth: width,
       maxHeight: height,
@@ -175,14 +175,13 @@ class ProfileHeaderImageNormalizer {
 
     // Upper bound forces progress (≥1px narrower); lower bound holds the floor.
     final nextWidth = (source.width * _downscaleFactor).round().clamp(
-          _minFallbackWidth,
-          source.width - 1,
-        );
-    final nextHeight =
-        (source.height * nextWidth / source.width).round().clamp(
-          1,
-          source.height,
-        );
+      _minFallbackWidth,
+      source.width - 1,
+    );
+    final nextHeight = (source.height * nextWidth / source.width).round().clamp(
+      1,
+      source.height,
+    );
 
     // Average, not cubic — cubic aliases on downscale and WebP locks it in.
     return img.copyResize(
@@ -212,8 +211,10 @@ class ProfileHeaderImageNormalizer {
 
     if (currentRatio > targetRatio) {
       // Floor at 1: an extreme ratio can round the crop axis to 0.
-      final cropWidth =
-          (source.height * targetRatio).round().clamp(1, source.width);
+      final cropWidth = (source.height * targetRatio).round().clamp(
+        1,
+        source.width,
+      );
       final x = ((source.width - cropWidth) / 2).round();
       return img.copyCrop(
         source,
@@ -224,8 +225,10 @@ class ProfileHeaderImageNormalizer {
       );
     }
 
-    final cropHeight =
-        (source.width / targetRatio).round().clamp(1, source.height);
+    final cropHeight = (source.width / targetRatio).round().clamp(
+      1,
+      source.height,
+    );
     final y = ((source.height - cropHeight) / 2).round();
     return img.copyCrop(
       source,

@@ -5,10 +5,25 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:prism_media_codec/prism_media_codec.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
-import 'package:prism_sync/generated/frb_generated.dart';
 
 void main() {
+  final mediaCodecFfiLibPath = _resolveFfiLibPath();
+
+  setUpAll(() async {
+    if (mediaCodecFfiLibPath == null) return;
+    await MediaCodecRustLib.init(
+      externalLibrary: ExternalLibrary.open(mediaCodecFfiLibPath),
+    );
+  });
+
+  tearDownAll(() {
+    if (mediaCodecFfiLibPath != null) {
+      MediaCodecRustLib.dispose();
+    }
+  });
+
   group('ImageCompressionService.fitWithin', () {
     test(
       'rejects a 0x0 decode instead of throwing "Infinity or NaN toInt"',
@@ -232,33 +247,46 @@ void main() {
 
     test(
       'bakes EXIF orientation before storing dimensions',
-      skip: _missingFfiLibReason(),
+      skip: _missingFfiLibReason(mediaCodecFfiLibPath),
       () async {
-        final ffiLibPath = _resolveFfiLibPath()!;
-        await RustLib.init(externalLibrary: ExternalLibrary.open(ffiLibPath));
-
         final source = img.Image(width: 80, height: 40);
         img.fill(source, color: img.ColorRgb8(120, 60, 200));
         source.exif.imageIfd.orientation = 6;
 
-        try {
-          final encoded = Uint8List.fromList(img.encodeJpg(source));
-          final decodedFixture = img.decodeImage(encoded)!;
-          expect((decodedFixture.width, decodedFixture.height), (40, 80));
+        final encoded = Uint8List.fromList(img.encodeJpg(source));
+        final decodedFixture = img.decodeImage(encoded)!;
+        expect((decodedFixture.width, decodedFixture.height), (40, 80));
 
-          final compressed = await ImageCompressionService().compressImage(
-            encoded,
-          );
-          final decodedCompressed = img.decodeImage(compressed.bytes)!;
+        final compressed = await ImageCompressionService().compressImage(
+          encoded,
+        );
+        final decodedCompressed = img.decodeImage(compressed.bytes)!;
 
-          expect((compressed.width, compressed.height), (40, 80));
-          expect(
-            (decodedCompressed.width, decodedCompressed.height),
-            (compressed.width, compressed.height),
-          );
-        } finally {
-          RustLib.dispose();
-        }
+        expect((compressed.width, compressed.height), (40, 80));
+        expect(
+          (decodedCompressed.width, decodedCompressed.height),
+          (compressed.width, compressed.height),
+        );
+      },
+    );
+
+    test(
+      'downscales oversized images through the media codec',
+      skip: _missingFfiLibReason(mediaCodecFfiLibPath),
+      () async {
+        final source = img.Image(width: 4096, height: 1024);
+        img.fill(source, color: img.ColorRgb8(120, 60, 200));
+
+        final compressed = await ImageCompressionService().compressImage(
+          Uint8List.fromList(img.encodeJpg(source)),
+        );
+        final decodedCompressed = img.decodeImage(compressed.bytes)!;
+
+        expect((compressed.width, compressed.height), (2048, 512));
+        expect(
+          (decodedCompressed.width, decodedCompressed.height),
+          (compressed.width, compressed.height),
+        );
       },
     );
   });
@@ -326,16 +354,16 @@ int _skipGifSubBlocks(Uint8List bytes, int pos) {
   return pos;
 }
 
-String? _missingFfiLibReason() => _resolveFfiLibPath() == null
-    ? 'Rust FFI lib not built for image compression integration test'
+String? _missingFfiLibReason(String? ffiLibPath) => ffiLibPath == null
+    ? 'Media codec FFI lib not built for image compression integration test'
     : null;
 
 String? _resolveFfiLibPath() {
   final name = Platform.isWindows
-      ? 'prism_sync_ffi.dll'
+      ? 'prism_media_codec_ffi.dll'
       : Platform.isMacOS
-      ? 'libprism_sync_ffi.dylib'
-      : 'libprism_sync_ffi.so';
+      ? 'libprism_media_codec_ffi.dylib'
+      : 'libprism_media_codec_ffi.so';
   final nativeAssetsDir = Platform.isMacOS
       ? 'macos'
       : Platform.isLinux
@@ -346,10 +374,10 @@ String? _resolveFfiLibPath() {
   final cwd = Directory.current.path;
   final candidates = [
     '$cwd/build/native_assets/$nativeAssetsDir/$name',
-    '$cwd/../prism-sync/target/debug/$name',
-    '$cwd/../prism-sync/target/debug/deps/$name',
-    '$cwd/../prism-sync/target/release/$name',
-    '$cwd/../prism-sync/target/release/deps/$name',
+    '$cwd/packages/prism_media_codec/rust/target/debug/$name',
+    '$cwd/packages/prism_media_codec/rust/target/debug/deps/$name',
+    '$cwd/packages/prism_media_codec/rust/target/release/$name',
+    '$cwd/packages/prism_media_codec/rust/target/release/deps/$name',
   ];
 
   for (final path in candidates) {

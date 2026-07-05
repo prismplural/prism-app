@@ -28,41 +28,47 @@ void main() {
       expect(bytes, body);
     });
 
-    test('returns bytes for AVIF image responses', () async {
-      final body = _avifHeader();
-      final client = MockClient((request) async {
-        return http.Response.bytes(
-          body,
-          200,
-          headers: {'content-type': 'image/avif'},
+    test(
+      'rejects AVIF image responses until the app-owned codec supports AVIF',
+      () async {
+        final body = _avifHeader();
+        final client = MockClient((request) async {
+          return http.Response.bytes(
+            body,
+            200,
+            headers: {'content-type': 'image/avif'},
+          );
+        });
+
+        final bytes = await fetchRemoteImageBytes(
+          'https://example.com/banner.avif',
+          client: client,
         );
-      });
 
-      final bytes = await fetchRemoteImageBytes(
-        'https://example.com/banner.avif',
-        client: client,
-      );
+        expect(bytes, isNull);
+      },
+    );
 
-      expect(bytes, body);
-    });
+    test(
+      'does not sniff AVIF bytes while AVIF codec support is disabled',
+      () async {
+        final body = _avifHeader();
+        final client = MockClient((request) async {
+          return http.Response.bytes(
+            body,
+            200,
+            headers: {'content-type': 'application/octet-stream'},
+          );
+        });
 
-    test('sniffs AVIF bytes when content type is generic', () async {
-      final body = _avifHeader();
-      final client = MockClient((request) async {
-        return http.Response.bytes(
-          body,
-          200,
-          headers: {'content-type': 'application/octet-stream'},
+        final bytes = await fetchRemoteImageBytes(
+          'https://example.com/banner',
+          client: client,
         );
-      });
 
-      final bytes = await fetchRemoteImageBytes(
-        'https://example.com/banner',
-        client: client,
-      );
-
-      expect(bytes, body);
-    });
+        expect(bytes, isNull);
+      },
+    );
 
     test('does not sniff animated AVIF as a supported still image', () async {
       final body = _avisHeader();

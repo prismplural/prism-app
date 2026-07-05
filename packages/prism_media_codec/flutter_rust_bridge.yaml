@@ -1,0 +1,5 @@
+rust_input: crate::api
+rust_root: rust
+dart_output: lib/generated
+rust_output: rust/src/frb_generated.rs
+dart_entrypoint_class_name: MediaCodecRustLib

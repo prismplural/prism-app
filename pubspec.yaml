@@ -83,21 +83,23 @@ dependencies:
   visibility_detector: ^0.4.0+2
 
   # Rust sync library
+  prism_media_codec:
+    path: packages/prism_media_codec
   prism_sync:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync
-      ref: 2cf17894a5b55c6e99c4341d5172168c9b183e07
+      ref: bfe45c3bfebe31882452ac9337c78135e89046dc
   prism_sync_drift:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync_drift
-      ref: 2cf17894a5b55c6e99c4341d5172168c9b183e07
+      ref: bfe45c3bfebe31882452ac9337c78135e89046dc
   prism_sync_flutter:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync_flutter
-      ref: 2cf17894a5b55c6e99c4341d5172168c9b183e07
+      ref: bfe45c3bfebe31882452ac9337c78135e89046dc
   flutter_rust_bridge: 2.12.0
   pointycastle: ^4.0.0
   crypto: ^3.0.6

@@ -213,7 +213,6 @@ class PlatformPrismFileDialogService implements PrismFileDialogService {
     return pickFile(
       dialogTitle: dialogTitle,
       allowedExtensions: const [
-        'avif',
         'gif',
         'heic',
         'heif',

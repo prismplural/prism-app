@@ -1176,12 +1176,19 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.5.0"
+  prism_media_codec:
+    dependency: "direct main"
+    description:
+      path: "packages/prism_media_codec"
+      relative: true
+    source: path
+    version: "0.1.0"
   prism_sync:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync"
-      ref: "2cf17894a5b55c6e99c4341d5172168c9b183e07"
-      resolved-ref: "2cf17894a5b55c6e99c4341d5172168c9b183e07"
+      ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
+      resolved-ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1189,8 +1196,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_drift"
-      ref: "2cf17894a5b55c6e99c4341d5172168c9b183e07"
-      resolved-ref: "2cf17894a5b55c6e99c4341d5172168c9b183e07"
+      ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
+      resolved-ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1198,8 +1205,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_flutter"
-      ref: "2cf17894a5b55c6e99c4341d5172168c9b183e07"
-      resolved-ref: "2cf17894a5b55c6e99c4341d5172168c9b183e07"
+      ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
+      resolved-ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"

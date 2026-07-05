@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:blurhash_dart/blurhash_dart.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image/image.dart' as img;
-import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 
 typedef ImageEncoder =
     Future<(Uint8List, String)> Function({
@@ -34,7 +34,7 @@ class CompressedImage {
 
 class ImageCompressionService {
   ImageCompressionService({ImageEncoder? encodeImage})
-    : _encodeImage = encodeImage ?? ffi.encodeImage;
+    : _encodeImage = encodeImage ?? media_codec.encodeImage;
 
   static const _maxDimension = 2048;
   static const _quality = 85;
