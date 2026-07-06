@@ -5,7 +5,8 @@
 Prism is a Flutter app for plural system management. It targets iOS, Android,
 macOS, Linux, and Windows, and uses the public
 [prism-sync](https://github.com/prismplural/prism-sync) repository for encrypted
-CRDT sync through `flutter_rust_bridge`.
+CRDT sync through `flutter_rust_bridge`. Non-sync native helpers live in
+app-owned packages under `packages/`.
 
 This is not a monorepo. Do not assume the sync engine lives inside this checkout.
 Public repo instructions should be enough for an outside contributor using a
@@ -97,6 +98,7 @@ lib/
 
 test/                              # Unit and widget tests
 integration_test/                  # Flutter integration tests
+packages/prism_media_codec/        # App-owned Rust image codec native asset
 android/ ios/ linux/ macos/        # Platform shells
 windows/
 fastlane/ packaging/ scripts/      # Release and packaging support
@@ -152,6 +154,16 @@ flutter test test/path/to/file_test.dart
 
 If a change touches sync behavior, also run the relevant `prism-sync` tests in
 that repository before updating this app to consume it.
+
+If a change touches `packages/prism_media_codec`, run:
+
+```bash
+(cd packages/prism_media_codec/rust && cargo test)
+flutter test test/core/services/media/image_compression_service_test.dart test/shared/utils/profile_header_image_normalizer_test.dart test/e2e/media_codec_native_assets_smoke_test.dart
+```
+
+Keep non-sync native dependencies in app-owned packages rather than adding them
+to `prism-sync`.
 
 ## Public Documentation Boundary
 

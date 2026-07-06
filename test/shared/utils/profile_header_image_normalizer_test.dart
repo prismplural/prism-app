@@ -1,12 +1,32 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
+import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 
+import '../../helpers/media_codec_test_support.dart';
+
 void main() {
+  final mediaCodecFfiLibPath = resolveMediaCodecFfiLibPath();
+
+  setUpAll(() async {
+    if (mediaCodecFfiLibPath == null) return;
+    await media_codec.MediaCodecRustLib.init(
+      externalLibrary: ExternalLibrary.open(mediaCodecFfiLibPath),
+    );
+  });
+
+  tearDownAll(() {
+    if (mediaCodecFfiLibPath != null) {
+      media_codec.MediaCodecRustLib.dispose();
+    }
+  });
+
   group('ProfileHeaderImageNormalizer', () {
     test('center-crops tall input to 3:1 before encoding', () async {
       final source = img.Image(width: 300, height: 300);
@@ -187,36 +207,30 @@ void main() {
       },
     );
 
-    test(
-      'returns best effort without throwing when even the floor exceeds '
-      'the hard cap',
-      () async {
-        final source = img.Image(width: 1800, height: 600);
-        img.fill(source, color: img.ColorRgb8(12, 34, 56));
+    test('returns best effort without throwing when even the floor exceeds '
+        'the hard cap', () async {
+      final source = img.Image(width: 1800, height: 600);
+      img.fill(source, color: img.ColorRgb8(12, 34, 56));
 
-        // Degenerate encoder: ignores both quality and dimensions, so no amount
-        // of downscaling helps. The normalizer must still return best effort
-        // rather than failing the upload (matching AvatarNormalizer's contract).
-        final encoder = _FakeWebpEncoder.fixed(
-          ProfileHeaderImageNormalizer.hardMaxBytes + 1,
-        );
+      // Degenerate encoder: ignores both quality and dimensions, so no amount
+      // of downscaling helps. The normalizer must still return best effort
+      // rather than failing the upload (matching AvatarNormalizer's contract).
+      final encoder = _FakeWebpEncoder.fixed(
+        ProfileHeaderImageNormalizer.hardMaxBytes + 1,
+      );
 
-        final normalized = await normalizeProfileHeaderImage(
-          Uint8List.fromList(img.encodePng(source)),
-          encoder: encoder,
-        );
+      final normalized = await normalizeProfileHeaderImage(
+        Uint8List.fromList(img.encodePng(source)),
+        encoder: encoder,
+      );
 
-        expect(
-          normalized.length,
-          ProfileHeaderImageNormalizer.hardMaxBytes + 1,
-        );
-        // It exhausted the downscale ladder before giving up.
-        expect(
-          encoder.images.last.width,
-          lessThan(ProfileHeaderImageNormalizer.maxWidth),
-        );
-      },
-    );
+      expect(normalized.length, ProfileHeaderImageNormalizer.hardMaxBytes + 1);
+      // It exhausted the downscale ladder before giving up.
+      expect(
+        encoder.images.last.width,
+        lessThan(ProfileHeaderImageNormalizer.maxWidth),
+      );
+    });
 
     test('rejects empty and undecodable input', () async {
       final encoder = _FakeWebpEncoder.fixed(100);
@@ -234,37 +248,73 @@ void main() {
       );
     });
 
+    test(
+      'normalizes transparent headers through the real media codec',
+      skip: missingMediaCodecFfiLibReason(
+        mediaCodecFfiLibPath,
+        'profile header integration test',
+      ),
+      () async {
+        final source = img.Image(width: 600, height: 600, numChannels: 4);
+        img.fill(source, color: img.ColorRgba8(0, 0, 0, 0));
+        img.fillRect(
+          source,
+          x1: 300,
+          y1: 200,
+          x2: 599,
+          y2: 399,
+          color: img.ColorRgba8(20, 80, 140, 255),
+        );
+
+        final normalized = await normalizeProfileHeaderImage(
+          Uint8List.fromList(img.encodePng(source)),
+        );
+
+        expect(_isWebp(normalized), isTrue);
+        final decoded = img.decodeImage(normalized);
+        expect(decoded, isNotNull);
+        expect((decoded!.width, decoded.height), (600, 200));
+        expect(decoded.hasAlpha, isTrue);
+        expect(
+          normalized.length,
+          lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+        );
+      },
+    );
+
     // Regression: a banner GIF used to be decoded frame-by-frame on the main
     // isolate during the re-emit migration, freezing the UI thread (ANR).
     // normalizeOffMainIsolate moves that decode into a background isolate. The
     // passthrough fake stands in for the native encoder (which flattens the
     // animation), so this only checks the off-isolate prep cropped to 3:1.
-    test('re-encodes an animated GIF banner through the off-isolate path',
-        () async {
-      final encoder = _PngPassthroughEncoder();
+    test(
+      're-encodes an animated GIF banner through the off-isolate path',
+      () async {
+        final encoder = _PngPassthroughEncoder();
 
-      final normalized = await ProfileHeaderImageNormalizer(
-        encoder: encoder,
-      ).normalizeOffMainIsolate(_animatedGifBanner());
+        final normalized = await ProfileHeaderImageNormalizer(
+          encoder: encoder,
+        ).normalizeOffMainIsolate(_animatedGifBanner());
 
-      // One ladder frame was enough — the budget was met at the base resolution
-      // without walking the downscale ladder.
-      expect(encoder.images, hasLength(1));
-      final prepared = encoder.images.single;
-      expect(prepared.width, 900);
-      expect(prepared.height, 300); // center-cropped 900x900 → 3:1
+        // One ladder frame was enough — the budget was met at the base resolution
+        // without walking the downscale ladder.
+        expect(encoder.images, hasLength(1));
+        final prepared = encoder.images.single;
+        expect(prepared.width, 900);
+        expect(prepared.height, 300); // center-cropped 900x900 → 3:1
 
-      // The passthrough output decodes back to the prepared 3:1 banner, within
-      // the inline-sync hard cap.
-      final decoded = img.decodeImage(normalized);
-      expect(decoded, isNotNull);
-      expect(decoded!.width, 900);
-      expect(decoded.height, 300);
-      expect(
-        normalized.length,
-        lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
-      );
-    });
+        // The passthrough output decodes back to the prepared 3:1 banner, within
+        // the inline-sync hard cap.
+        final decoded = img.decodeImage(normalized);
+        expect(decoded, isNotNull);
+        expect(decoded!.width, 900);
+        expect(decoded.height, 300);
+        expect(
+          normalized.length,
+          lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+        );
+      },
+    );
   });
 
   group('ProfileHeaderImageNormalizer.centerCropToThreeToOne', () {
@@ -392,3 +442,8 @@ Uint8List _animatedGifBanner() {
   frame0.addFrame(frame1);
   return Uint8List.fromList(img.encodeGif(frame0));
 }
+
+bool _isWebp(Uint8List bytes) =>
+    bytes.length >= 12 &&
+    String.fromCharCodes(bytes.sublist(0, 4)) == 'RIFF' &&
+    String.fromCharCodes(bytes.sublist(8, 12)) == 'WEBP';

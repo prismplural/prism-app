@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
@@ -8,8 +7,10 @@ import 'package:image/image.dart' as img;
 import 'package:prism_media_codec/prism_media_codec.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
 
+import '../../../helpers/media_codec_test_support.dart';
+
 void main() {
-  final mediaCodecFfiLibPath = _resolveFfiLibPath();
+  final mediaCodecFfiLibPath = resolveMediaCodecFfiLibPath();
 
   setUpAll(() async {
     if (mediaCodecFfiLibPath == null) return;
@@ -247,7 +248,10 @@ void main() {
 
     test(
       'bakes EXIF orientation before storing dimensions',
-      skip: _missingFfiLibReason(mediaCodecFfiLibPath),
+      skip: missingMediaCodecFfiLibReason(
+        mediaCodecFfiLibPath,
+        'image compression integration test',
+      ),
       () async {
         final source = img.Image(width: 80, height: 40);
         img.fill(source, color: img.ColorRgb8(120, 60, 200));
@@ -272,7 +276,10 @@ void main() {
 
     test(
       'downscales oversized images through the media codec',
-      skip: _missingFfiLibReason(mediaCodecFfiLibPath),
+      skip: missingMediaCodecFfiLibReason(
+        mediaCodecFfiLibPath,
+        'image compression integration test',
+      ),
       () async {
         final source = img.Image(width: 4096, height: 1024);
         img.fill(source, color: img.ColorRgb8(120, 60, 200));
@@ -352,36 +359,4 @@ int _skipGifSubBlocks(Uint8List bytes, int pos) {
     pos += size;
   }
   return pos;
-}
-
-String? _missingFfiLibReason(String? ffiLibPath) => ffiLibPath == null
-    ? 'Media codec FFI lib not built for image compression integration test'
-    : null;
-
-String? _resolveFfiLibPath() {
-  final name = Platform.isWindows
-      ? 'prism_media_codec_ffi.dll'
-      : Platform.isMacOS
-      ? 'libprism_media_codec_ffi.dylib'
-      : 'libprism_media_codec_ffi.so';
-  final nativeAssetsDir = Platform.isMacOS
-      ? 'macos'
-      : Platform.isLinux
-      ? 'linux'
-      : Platform.isWindows
-      ? 'windows'
-      : Platform.operatingSystem;
-  final cwd = Directory.current.path;
-  final candidates = [
-    '$cwd/build/native_assets/$nativeAssetsDir/$name',
-    '$cwd/packages/prism_media_codec/rust/target/debug/$name',
-    '$cwd/packages/prism_media_codec/rust/target/debug/deps/$name',
-    '$cwd/packages/prism_media_codec/rust/target/release/$name',
-    '$cwd/packages/prism_media_codec/rust/target/release/deps/$name',
-  ];
-
-  for (final path in candidates) {
-    if (File(path).existsSync()) return path;
-  }
-  return null;
 }

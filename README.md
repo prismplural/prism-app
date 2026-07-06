@@ -4,10 +4,10 @@ Hi. This is the source for the Prism app — a plural system management app buil
 by a plural system that uses it every day. If you're here to use Prism instead
 of hack on it, [prismplural.com](https://prismplural.com) is the place to go.
 
-The app is Flutter. The sync engine is Rust, lives in
+The app is Flutter. Encrypted sync is Rust, lives in
 [prism-sync](https://github.com/prismplural/prism-sync), and is wired in over
-`flutter_rust_bridge`. Most of what's interesting in this codebase happens
-either at that boundary or in the design system.
+`flutter_rust_bridge`. App-owned native helpers live under `packages/`; today
+that means the media codec package used for image normalization.
 
 ## What's in here
 
@@ -34,6 +34,7 @@ lib/
 ├── shared/                    # Design system: theme, widgets, extensions
 └── l10n/                      # Localization
 
+packages/prism_media_codec/        # App-owned Rust image codec native asset
 test/                              # Unit, widget, and integration tests
 integration_test/                  # Flutter integration tests
 android/  ios/  linux/  macos/    # Platform shells
@@ -63,8 +64,8 @@ To add a synced entity:
 ## Build and run
 
 You need Flutter (Dart `^3.11.1`), Rust via `rustup`, and the platform
-toolchains for whatever you're targeting. The app depends on `prism_sync`
-packages that build native Rust code during Flutter builds. A local
+toolchains for whatever you're targeting. The app builds native Rust code from
+both `prism_sync` packages and app-owned packages under `packages/`. A local
 `prism-sync` checkout is only needed when modifying sync source locally.
 
 ```bash
@@ -100,6 +101,14 @@ cd ../prism-sync
 flutter_rust_bridge_codegen generate
 ```
 
+### App-owned Rust packages
+
+Non-sync native code belongs in this repo under `packages/`, not in
+`prism-sync`. `packages/prism_media_codec` owns static image re-encoding for
+Prism media paths. See
+[packages/prism_media_codec/README.md](packages/prism_media_codec/README.md)
+for codec behavior, native-assets notes, and focused test commands.
+
 ### Testing
 
 ```bash
@@ -109,6 +118,13 @@ flutter test test/path/to/file_test.dart
 ```
 
 In-memory Drift databases isolate DB tests.
+
+For image codec changes, also run:
+
+```bash
+(cd packages/prism_media_codec/rust && cargo test)
+flutter test test/core/services/media/image_compression_service_test.dart test/shared/utils/profile_header_image_normalizer_test.dart test/e2e/media_codec_native_assets_smoke_test.dart
+```
 
 ## Contributing
 

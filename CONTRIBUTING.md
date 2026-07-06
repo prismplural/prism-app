@@ -24,8 +24,8 @@ maintainer checklist and example issue format.
 ## Development Setup
 
 You need Flutter with Dart `^3.11.1`, Rust via `rustup`, and the platform
-toolchains for the target you want to run. The app depends on `prism_sync`
-packages that build native Rust code during Flutter builds. A local
+toolchains for the target you want to run. The app builds native Rust code from
+both `prism_sync` packages and app-owned packages under `packages/`. A local
 `prism-sync` checkout is only needed when modifying sync source locally.
 
 ```bash
@@ -84,6 +84,7 @@ lib/
 
 test/
 integration_test/
+packages/prism_media_codec/
 android/ ios/ linux/ macos/ windows/
 fastlane/ packaging/ scripts/
 ```
@@ -108,6 +109,8 @@ Feature modules usually use `providers/`, `views/`, `widgets/`, and sometimes
   `FlutterSecureStorage()` directly.
 - Avoid logging secrets, key material, invite secrets, session tokens, or raw
   sync blobs.
+- Keep non-sync native helpers in app-owned packages under `packages/`; use
+  `prism-sync` only for sync, relay, and sync-owned FFI.
 
 ## Working With prism-sync
 
@@ -135,6 +138,20 @@ flutter_rust_bridge_codegen generate
 
 Then run `flutter pub get`, `flutter analyze`, and the relevant Flutter tests in
 this app.
+
+## Working With App-Owned Native Packages
+
+`packages/prism_media_codec` contains Prism's native static-image codec. It is a
+Flutter native-assets package backed by Rust and `flutter_rust_bridge`; it lives
+in this repository so image normalization does not add non-sync dependencies to
+`prism-sync`.
+
+If you change that package, run its Rust tests plus the app media tests:
+
+```bash
+(cd packages/prism_media_codec/rust && cargo test)
+flutter test test/core/services/media/image_compression_service_test.dart test/shared/utils/profile_header_image_normalizer_test.dart test/e2e/media_codec_native_assets_smoke_test.dart
+```
 
 ## Pull Requests
 
