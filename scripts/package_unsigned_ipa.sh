@@ -6,7 +6,7 @@ output_path="${1:-build/ios/Prism-ios-unsigned.ipa}"
 
 if [ ! -d "$app_path" ]; then
   echo "Runner.app not found at $app_path" >&2
-  echo "Run: flutter build ios --release --no-codesign" >&2
+  echo "Run: flutter build ios --release --no-codesign --no-tree-shake-icons" >&2
   exit 1
 fi
 

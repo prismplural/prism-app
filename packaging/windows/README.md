@@ -22,7 +22,7 @@ From a Windows machine with Flutter, Rust, and Inno Setup installed:
 
 ```powershell
 flutter pub get
-flutter build windows --release
+flutter build windows --release --no-tree-shake-icons
 powershell -ExecutionPolicy Bypass -File scripts\package_windows_installer.ps1
 ```
 

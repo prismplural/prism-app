@@ -26,7 +26,7 @@ if ($version -match '^(\d+)\.(\d+)\.(\d+)\+(\d+)$') {
 
 $exePath = Join-Path $bundlePath "prism_plurality.exe"
 if (-not (Test-Path -LiteralPath $exePath)) {
-  throw "Windows release bundle is missing $exePath. Run flutter build windows --release first."
+  throw "Windows release bundle is missing $exePath. Run flutter build windows --release --no-tree-shake-icons first."
 }
 
 New-Item -ItemType Directory -Force $outputPath | Out-Null

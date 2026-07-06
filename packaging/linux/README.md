@@ -58,7 +58,7 @@ bundle, creates:
 - `Prism-<version>-<arch>-flatpak-repo.tar.gz` — website-hostable OSTree repo
 - `prism.flatpakrepo` and `com.prismplural.prism.flatpakref` — install helpers
 
-The CI job builds the `linux-x64` artifacts after `flutter build linux --release`.
+The CI job builds the `linux-x64` artifacts after `flutter build linux --release --no-tree-shake-icons`.
 Set `FLATPAK_ARCH=aarch64` to produce `linux-arm64` artifact names from an ARM
 bundle.
 
