@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -227,13 +229,85 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  /// Batch-upsert custom-field values in a single Drift `batch()` round-trip.
-  /// Mirrors the single-row [upsertValue]'s `insertOnConflictUpdate` policy so
-  /// re-imports overwrite stale values per the live-edit semantics. Phase 6
-  /// SP importer; see `docs/plans/sp-import-perf-quick-wins.md`.
+  /// Raw id-keyed batch upsert, benchmark-only. Unlike [upsertValue] it never
+  /// reconciles against the live (field, member) row or a burned tombstone,
+  /// so a production caller could revive or duplicate rows — import paths
+  /// must use [reconcileValuesFromImport] instead.
   Future<void> batchUpsertValues(List<CustomFieldValuesCompanion> rows) async {
     if (rows.isEmpty) return;
     await batch((b) => b.insertAllOnConflictUpdate(customFieldValues, rows));
+  }
+
+  /// Bind-variable-safe chunk size for id-list lookups: a large import can
+  /// carry more ids than SQLite's variable cap (~32k) allows in one IN list.
+  static const _importLookupChunk = 500;
+
+  /// Import batch with [upsertValue]'s policy: adopt the active (field, member)
+  /// row id, insert unseen ids as-is, mint over a burned target id (tombstones
+  /// are absorbing); duplicate pair inputs collapse to one row, last value wins.
+  /// Reads run up front and writes land in ONE `batch()` = one table
+  /// notification. Returns the written id per input, by index — callers must
+  /// emit their sync ops against the RETURNED ids.
+  Future<List<String>> reconcileValuesFromImport(
+    List<CustomFieldValuesCompanion> rows, {
+    String Function()? mintFreshId,
+  }) {
+    final mint = mintFreshId ?? () => const Uuid().v4();
+    return transaction(() async {
+      if (rows.isEmpty) return const <String>[];
+      final fieldIds = {for (final c in rows) c.customFieldId.value}.toList();
+      // Ascending id + first-wins so a corrupt DB holding two active rows
+      // for a pair resolves to the same survivor as getValueForField.
+      final activeByPair = <(String, String), String>{};
+      for (var i = 0; i < fieldIds.length; i += _importLookupChunk) {
+        final chunk = fieldIds.sublist(
+          i,
+          min(i + _importLookupChunk, fieldIds.length),
+        );
+        final active =
+            await (select(customFieldValues)
+                  ..where(
+                    (v) =>
+                        v.isDeleted.equals(false) &
+                        v.customFieldId.isIn(chunk),
+                  )
+                  ..orderBy([(v) => OrderingTerm.asc(v.id)]))
+                .get();
+        for (final r in active) {
+          activeByPair.putIfAbsent((r.customFieldId, r.memberId), () => r.id);
+        }
+      }
+      final targetIds = rows.map((c) => c.id.value).toList();
+      final existingIds = <String>{};
+      for (var i = 0; i < targetIds.length; i += _importLookupChunk) {
+        final chunk = targetIds.sublist(
+          i,
+          min(i + _importLookupChunk, targetIds.length),
+        );
+        final found = await (select(
+          customFieldValues,
+        )..where((v) => v.id.isIn(chunk))).get();
+        existingIds.addAll(found.map((r) => r.id));
+      }
+
+      final writes = <CustomFieldValuesCompanion>[];
+      final written = <String>[];
+      final resolvedByPair = <(String, String), String>{};
+      for (final c in rows) {
+        final pair = (c.customFieldId.value, c.memberId.value);
+        final id =
+            resolvedByPair[pair] ??
+            activeByPair[pair] ??
+            (existingIds.contains(c.id.value) ? mint() : c.id.value);
+        resolvedByPair[pair] = id;
+        writes.add(c.copyWith(id: Value(id)));
+        written.add(id);
+      }
+      await batch(
+        (b) => b.insertAllOnConflictUpdate(customFieldValues, writes),
+      );
+      return written;
+    });
   }
 
   Future<void> deleteValue(String id) =>

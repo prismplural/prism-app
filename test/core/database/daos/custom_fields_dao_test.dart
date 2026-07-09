@@ -150,6 +150,143 @@ void main() {
     });
   });
 
+  // ── reconcileValuesFromImport ────────────────────────────────────────────────
+
+  group('reconcileValuesFromImport', () {
+    setUp(() => insertField('field-1'));
+
+    CustomFieldValuesCompanion companion(
+      String id,
+      String memberId,
+      String value,
+    ) => CustomFieldValuesCompanion.insert(
+      id: id,
+      customFieldId: 'field-1',
+      memberId: memberId,
+      value: value,
+    );
+
+    test('adopts the live row id, inserts unseen ids, and mints over a '
+        'burned id', () async {
+      // member-a: active row under a minted id (import carries another id).
+      await db.customFieldsDao.upsertValue(
+        companion('minted-a', 'member-a', 'live'),
+      );
+      // member-b: tombstone at the exact id the import will target.
+      await db.customFieldsDao.upsertValue(
+        companion('det-b', 'member-b', 'old'),
+      );
+      await db.customFieldsDao.deleteValue('det-b');
+
+      final written = await db.customFieldsDao.reconcileValuesFromImport([
+        companion('det-a', 'member-a', 'imported-a'),
+        companion('det-b', 'member-b', 'imported-b'),
+        companion('det-c', 'member-c', 'imported-c'),
+      ], mintFreshId: () => 'fresh-b');
+
+      expect(written, ['minted-a', 'fresh-b', 'det-c']);
+      final a = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-a',
+      );
+      expect(a!.id, 'minted-a');
+      expect(a.value, 'imported-a');
+      final b = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-b',
+      );
+      expect(b!.id, 'fresh-b');
+      expect(b.value, 'imported-b');
+      final burned = await (db.select(
+        db.customFieldValues,
+      )..where((v) => v.id.equals('det-b'))).getSingle();
+      expect(burned.isDeleted, isTrue);
+      final c = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-c',
+      );
+      expect(c!.id, 'det-c');
+    });
+
+    test('resolution stays correct across the 500-row lookup chunk boundary',
+        () async {
+      // Pre-seed one adopt case and one burned id, both in the third chunk.
+      await db.customFieldsDao.upsertValue(
+        CustomFieldValuesCompanion.insert(
+          id: 'zz-active-0700',
+          customFieldId: 'field-1',
+          memberId: 'member-0700',
+          value: 'live',
+        ),
+      );
+      await db.customFieldsDao.upsertValue(
+        CustomFieldValuesCompanion.insert(
+          id: 'target-0800',
+          customFieldId: 'field-1',
+          memberId: 'member-0800',
+          value: 'old',
+        ),
+      );
+      await db.customFieldsDao.deleteValue('target-0800');
+
+      final rows = [
+        for (var i = 0; i < 1100; i++)
+          CustomFieldValuesCompanion.insert(
+            id: 'target-${i.toString().padLeft(4, '0')}',
+            customFieldId: 'field-1',
+            memberId: 'member-${i.toString().padLeft(4, '0')}',
+            value: 'v$i',
+          ),
+      ];
+      final written = await db.customFieldsDao.reconcileValuesFromImport(
+        rows,
+        mintFreshId: () => 'fresh-0800',
+      );
+
+      expect(written.length, 1100);
+      expect(written[0], 'target-0000');
+      expect(written[499], 'target-0499');
+      expect(written[500], 'target-0500');
+      expect(written[700], 'zz-active-0700');
+      expect(written[800], 'fresh-0800');
+      expect(written[1099], 'target-1099');
+      final active = await (db.select(db.customFieldValues)
+            ..where((v) => v.isDeleted.equals(false)))
+          .get();
+      expect(active.length, 1100);
+      expect(
+        active.singleWhere((r) => r.memberId == 'member-0700').value,
+        'v700',
+      );
+      expect(
+        active.singleWhere((r) => r.memberId == 'member-0800').id,
+        'fresh-0800',
+      );
+    });
+
+    test('duplicate (field, member) inputs over a burned id collapse onto one '
+        'minted row, last value wins', () async {
+      await db.customFieldsDao.upsertValue(
+        companion('det-d', 'member-d', 'old'),
+      );
+      await db.customFieldsDao.deleteValue('det-d');
+
+      var mints = 0;
+      final written = await db.customFieldsDao.reconcileValuesFromImport([
+        companion('det-d', 'member-d', 'first'),
+        companion('det-d', 'member-d', 'second'),
+      ], mintFreshId: () => 'fresh-${++mints}');
+
+      expect(written, ['fresh-1', 'fresh-1']);
+      final d = await db.customFieldsDao.getValueForField(
+        'field-1',
+        'member-d',
+      );
+      expect(d!.id, 'fresh-1');
+      expect(d.value, 'second');
+    });
+  });
+
   // ── softDeleteAllCustomFieldData ─────────────────────────────────────────────
 
   group('softDeleteAllCustomFieldData', () {

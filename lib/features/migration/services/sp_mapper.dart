@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -1168,7 +1169,14 @@ class SpMapper {
 
         values.add(
           domain.CustomFieldValue(
-            id: _newId(),
+            // Deterministic (field, member) id, matching the live-edit path.
+            // A random id here would collide with an existing active row on
+            // the partial unique index instead of updating it, so a repeat
+            // import (or an import after a UI edit) would abort or duplicate.
+            id: deriveCustomFieldValueId(
+              customFieldId: fieldId,
+              memberId: prismMemberId,
+            ),
             customFieldId: fieldId,
             memberId: prismMemberId,
             value: value,

@@ -576,7 +576,33 @@ class SpImporter {
               totalItems,
               'Importing custom fields...',
             );
-            fieldCompanions.add(CustomFieldMapper.toCompanion(field));
+            // The persisted SP-id map re-derives the same field id on repeat
+            // import; a bare insert would hit the PK constraint and roll back
+            // everything. Tombstones resurrect; an active row takes the SP
+            // definition merged over local layout via the diff-then-bail update.
+            final existing = await db.customFieldsDao
+                .getFieldByIdIncludingDeleted(field.id);
+            if (existing == null) {
+              fieldCompanions.add(CustomFieldMapper.toCompanion(field));
+            } else if (existing.isDeleted) {
+              await db.customFieldsDao.resurrectField(
+                field.id,
+                CustomFieldMapper.toCompanion(
+                  field,
+                ).copyWith(isDeleted: const Value(false)),
+              );
+            } else {
+              final merged = CustomFieldMapper.toDomain(existing).copyWith(
+                name: field.name,
+                fieldType: field.fieldType,
+                fieldTypeId: field.fieldTypeId,
+                typeConfig: field.typeConfig,
+                datePrecision: field.datePrecision,
+              );
+              await customFieldsRepo.updateField(merged);
+              await didImportOne();
+              continue;
+            }
             fieldEmissions.add(
               CapturedSyncOp(
                 'custom_fields',
@@ -589,11 +615,11 @@ class SpImporter {
           }
           if (fieldCompanions.isNotEmpty) {
             await db.customFieldsDao.batchInsertFields(fieldCompanions);
-            captured.addAll(fieldEmissions);
           }
+          captured.addAll(fieldEmissions);
 
           final valueCompanions = <CustomFieldValuesCompanion>[];
-          final valueEmissions = <CapturedSyncOp>[];
+          final valuePayloads = <Map<String, dynamic>>[];
           for (final value in mapped.customFieldValues) {
             onProgress?.call(
               currentItem,
@@ -601,19 +627,24 @@ class SpImporter {
               'Importing field values...',
             );
             valueCompanions.add(CustomFieldValueMapper.toCompanion(value));
-            valueEmissions.add(
-              CapturedSyncOp(
-                'custom_field_values',
-                value.id,
-                SyncRecordOpType.create,
-                DriftCustomFieldsRepository.valueFields(value),
-              ),
-            );
+            valuePayloads.add(DriftCustomFieldsRepository.valueFields(value));
             await didImportOne();
           }
           if (valueCompanions.isNotEmpty) {
-            await db.customFieldsDao.batchUpsertValues(valueCompanions);
-            captured.addAll(valueEmissions);
+            // One reconciled batch() write; emissions must target the ids
+            // actually written (live-row adoption or fresh mint over a burn).
+            final writtenIds = await db.customFieldsDao
+                .reconcileValuesFromImport(valueCompanions);
+            for (var i = 0; i < writtenIds.length; i++) {
+              captured.add(
+                CapturedSyncOp(
+                  'custom_field_values',
+                  writtenIds[i],
+                  SyncRecordOpType.create,
+                  valuePayloads[i],
+                ),
+              );
+            }
           }
         }
 
