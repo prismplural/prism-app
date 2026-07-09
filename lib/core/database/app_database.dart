@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
+import 'package:prism_plurality/core/constants/custom_field_namespaces.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/core/database/daos/chat_messages_dao.dart';
@@ -192,6 +193,37 @@ class AppDatabase extends _$AppDatabase {
         debugPrint(
           '[DB] PK uniqueness index re-ensure skipped '
           '(likely pre-existing duplicate): $e',
+        );
+      }
+      // Like the PK indexes above, these are only created at onCreate / one
+      // migration step, so a renumbered or interrupted upgrade can reach
+      // currentSchemaVersion without them and accumulate duplicate live rows.
+      // A DB already holding duplicates throws on create — swallow, don't brick.
+      try {
+        await _createCustomFieldValueUniqueIndex();
+      } catch (_) {
+        // Duplicates block the index. Fold them to one survivor per pair,
+        // then retry; only an unfoldable DB leaves the index absent.
+        try {
+          final folded = await _foldDuplicateActiveCustomFieldValues();
+          await _createCustomFieldValueUniqueIndex();
+          debugPrint(
+            '[DB] folded $folded duplicate custom-field value rows; '
+            'uniqueness index re-ensured',
+          );
+        } catch (e) {
+          debugPrint(
+            '[DB] custom_field_values uniqueness index re-ensure skipped '
+            '(unfoldable duplicates): $e',
+          );
+        }
+      }
+      try {
+        await _createMemberProfilePreferenceUniqueIndex();
+      } catch (e) {
+        debugPrint(
+          '[DB] member_profile_preference_values uniqueness index re-ensure '
+          'skipped (likely pre-existing duplicate): $e',
         );
       }
     },
@@ -1940,6 +1972,62 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Partial unique index enforcing at most one live (custom_field_id,
+  /// member_id) value pair. Factored out of [_createCurrentIndexes] so
+  /// beforeOpen can re-ensure it on a renumbered/interrupted-upgrade DB
+  /// without duplicating the DDL (see beforeOpen's re-ensure block).
+  Future<void> _createCustomFieldValueUniqueIndex() async {
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_custom_field_values_field_member '
+      'ON custom_field_values (custom_field_id, member_id) '
+      'WHERE is_deleted = 0',
+    );
+  }
+
+  /// Tombstones all but one live row per (custom_field_id, member_id) so the
+  /// uniqueness index can form. Survivor order matches the sync apply path
+  /// (minted beats deterministic, higher id wins) so every device keeps the
+  /// same row. Local-only: no ops emitted; peers fold on their own boot.
+  Future<int> _foldDuplicateActiveCustomFieldValues() async {
+    final dupPairs = await customSelect(
+      'SELECT custom_field_id AS f, member_id AS m FROM custom_field_values '
+      'WHERE is_deleted = 0 '
+      'GROUP BY custom_field_id, member_id HAVING COUNT(*) > 1',
+    ).get();
+    var folded = 0;
+    for (final pair in dupPairs) {
+      final fieldId = pair.read<String>('f');
+      final memberId = pair.read<String>('m');
+      final ids =
+          (await customSelect(
+                'SELECT id FROM custom_field_values '
+                'WHERE is_deleted = 0 AND custom_field_id = ? '
+                'AND member_id = ? ORDER BY id',
+                variables: [
+                  Variable<String>(fieldId),
+                  Variable<String>(memberId),
+                ],
+              ).get())
+              .map((r) => r.read<String>('id'))
+              .toList();
+      final deterministicId = deriveCustomFieldValueId(
+        customFieldId: fieldId,
+        memberId: memberId,
+      );
+      final minted = ids.where((id) => id != deterministicId).toList();
+      final survivor = minted.isEmpty ? ids.last : minted.last;
+      for (final id in ids) {
+        if (id == survivor) continue;
+        await customStatement(
+          'UPDATE custom_field_values SET is_deleted = 1 WHERE id = ?',
+          [id],
+        );
+        folded++;
+      }
+    }
+    return folded;
+  }
+
   Future<void> _createCurrentIndexes() async {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_members_active '
@@ -2019,11 +2107,7 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_custom_fields_deleted_order '
       'ON custom_fields (is_deleted, display_order ASC)',
     );
-    await customStatement(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_custom_field_values_field_member '
-      'ON custom_field_values (custom_field_id, member_id) '
-      'WHERE is_deleted = 0',
-    );
+    await _createCustomFieldValueUniqueIndex();
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_notes_member '
       'ON notes (member_id, is_deleted, date DESC)',
@@ -2102,15 +2186,23 @@ class AppDatabase extends _$AppDatabase {
     return cols.any((r) => r.read<String>('name') == column);
   }
 
+  /// Partial-free unique index enforcing at most one (member_id, key)
+  /// preference row. Factored out of [_createPreferenceValueIndexes] so
+  /// beforeOpen can re-ensure it on a renumbered/interrupted-upgrade DB
+  /// without duplicating the DDL (see beforeOpen's re-ensure block).
+  Future<void> _createMemberProfilePreferenceUniqueIndex() async {
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_profile_pref_member_key '
+      'ON member_profile_preference_values (member_id, key)',
+    );
+  }
+
   Future<void> _createPreferenceValueIndexes() async {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_app_preference_values_deleted '
       'ON app_preference_values (is_deleted)',
     );
-    await customStatement(
-      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_profile_pref_member_key '
-      'ON member_profile_preference_values (member_id, key)',
-    );
+    await _createMemberProfilePreferenceUniqueIndex();
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_profile_pref_member_deleted_key '
       'ON member_profile_preference_values (member_id, is_deleted, key)',
