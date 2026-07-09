@@ -7,23 +7,28 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/core/database/daos/conversations_dao.dart';
+import 'package:prism_plurality/core/database/daos/custom_fields_dao.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/core/database/daos/preference_values_dao.dart';
 import 'package:prism_plurality/data/mappers/conversation_mapper.dart';
+import 'package:prism_plurality/data/mappers/custom_field_value_mapper.dart';
 import 'package:prism_plurality/core/database/sqlite_constraint.dart';
 import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_profile_preference_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/data/sync/field_diff.dart';
 import 'package:prism_plurality/data/utils/sync_datetime.dart';
+import 'package:prism_plurality/domain/custom_fields/definitions/member_field_definition.dart';
 import 'package:prism_plurality/domain/models/conversation.dart'
     as conversation_domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
+import 'package:prism_plurality/domain/models/typed_field_value.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/normalized_avatar_batch_writer.dart';
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
@@ -41,6 +46,7 @@ class DriftMemberRepository
   final ConversationsDao? _conversationsDao;
   final MemberGroupsDao? _memberGroupsDao;
   final PreferenceValuesDao? _preferenceValuesDao;
+  final CustomFieldsDao? _customFieldsDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
@@ -57,10 +63,12 @@ class DriftMemberRepository
     ConversationsDao? conversationsDao,
     MemberGroupsDao? memberGroupsDao,
     PreferenceValuesDao? preferenceValuesDao,
+    CustomFieldsDao? customFieldsDao,
   }) : _pkSyncDao = pkSyncDao,
        _conversationsDao = conversationsDao,
        _memberGroupsDao = memberGroupsDao,
-       _preferenceValuesDao = preferenceValuesDao;
+       _preferenceValuesDao = preferenceValuesDao,
+       _customFieldsDao = customFieldsDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -581,6 +589,7 @@ class DriftMemberRepository
       }
       await _resetDeletedMemberProfilePreferences(id);
       await _removeDeletedMemberFromConversations(id);
+      await _scrubDeletedMemberFromMemberFields(id);
       await syncRecordDelete(_table, id);
       await _fanOutPkIdentityAliasDeletes(existing);
     });
@@ -668,6 +677,53 @@ class DriftMemberRepository
     );
     for (final entry in entries) {
       await groupRepo.removeMemberFromGroup(entry.groupId, memberId);
+    }
+  }
+
+  /// Strip the deleted id out of every active member-type custom field value
+  /// on other members: rewrite the blob without it, or tombstone the row when
+  /// it empties (clear semantics). Writes route through the custom-fields repo
+  /// so the burned-id mint and live-row-targeted emit stay correct.
+  Future<void> _scrubDeletedMemberFromMemberFields(
+    String deletedMemberId,
+  ) async {
+    final customFieldsDao = _customFieldsDao;
+    if (customFieldsDao == null) return;
+
+    final repo = DriftCustomFieldsRepository(customFieldsDao, _syncHandle);
+    final memberFieldIds = <String>{
+      for (final field in await repo.getAllFields())
+        if (field.fieldTypeId == memberFieldDefinition.id) field.id,
+    };
+    if (memberFieldIds.isEmpty) return;
+
+    // Read only the member-type fields' active rows — deleteMember runs in
+    // bulk sweeps, so a full value-table load per call would multiply.
+    final database = customFieldsDao.attachedDatabase;
+    final rows =
+        await (database.select(database.customFieldValues)
+              ..where((v) => v.isDeleted.equals(false))
+              ..where((v) => v.customFieldId.isIn(memberFieldIds.toList())))
+            .get();
+    for (final row in rows) {
+      if (row.memberId == deletedMemberId) continue;
+      final parsed = memberFieldDefinition.valueParser(row.value);
+      if (parsed is! MemberFieldValue) continue;
+      if (!parsed.memberIds.contains(deletedMemberId)) continue;
+
+      final remaining = parsed.memberIds
+          .where((id) => id != deletedMemberId)
+          .toSet();
+      if (remaining.isEmpty) {
+        await repo.deleteValueFor(row.customFieldId, row.memberId);
+      } else {
+        final encoded = memberFieldDefinition.valueEncoder(
+          MemberFieldValue(memberIds: remaining, extra: parsed.extra),
+        );
+        await repo.upsertValue(
+          CustomFieldValueMapper.toDomain(row).copyWith(value: encoded),
+        );
+      }
     }
   }
 

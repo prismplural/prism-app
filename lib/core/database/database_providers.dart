@@ -117,6 +117,7 @@ final memberRepositoryProvider = Provider<MemberRepository>(
     conversationsDao: ref.watch(conversationsDaoProvider),
     memberGroupsDao: ref.watch(memberGroupsDaoProvider),
     preferenceValuesDao: ref.watch(preferenceValuesDaoProvider),
+    customFieldsDao: ref.watch(customFieldsDaoProvider),
   ),
 );
 
