@@ -144,6 +144,13 @@ dev_dependencies:
   drift_dev: ^2.0.0
 
 dependency_overrides:
+  # Treat a missing default Secret Service collection as an empty Linux store.
+  # Remove after https://github.com/juliansteenbakker/flutter_secure_storage/pull/1177 ships.
+  flutter_secure_storage_linux:
+    git:
+      url: https://github.com/prismplural/flutter_secure_storage.git
+      path: flutter_secure_storage_linux
+      ref: 7f1730a3403364f942a66d0833037be3dc88e540
   permission_handler_windows:
     git:
       url: https://github.com/prismplural/flutter-permission-handler.git
