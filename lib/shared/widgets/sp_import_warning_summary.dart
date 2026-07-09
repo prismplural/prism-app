@@ -249,6 +249,8 @@ String _headlineFor(SpImportWarningKind kind, AppLocalizations l10n) {
     SpImportWarningKind.avatars => l10n.spImportWarningsAvatarsHeadline,
     SpImportWarningKind.missingReferences =>
       l10n.spImportWarningsMissingReferencesHeadline,
+    SpImportWarningKind.duplicateMembers =>
+      l10n.spImportWarningsDuplicateMembersHeadline,
     SpImportWarningKind.customFrontAdjustments =>
       l10n.spImportWarningsCustomFrontAdjustmentsHeadline,
     SpImportWarningKind.encryptedMessages =>
@@ -265,6 +267,8 @@ String _explanationFor(SpImportWarningKind kind, AppLocalizations l10n) {
     SpImportWarningKind.avatars => l10n.spImportWarningsAvatarsExplanation,
     SpImportWarningKind.missingReferences =>
       l10n.spImportWarningsMissingReferencesExplanation,
+    SpImportWarningKind.duplicateMembers =>
+      l10n.spImportWarningsDuplicateMembersExplanation,
     SpImportWarningKind.customFrontAdjustments =>
       l10n.spImportWarningsCustomFrontAdjustmentsExplanation,
     SpImportWarningKind.encryptedMessages =>

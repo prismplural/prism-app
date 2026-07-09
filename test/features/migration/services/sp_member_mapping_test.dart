@@ -42,7 +42,7 @@ void main() {
     ));
   });
 
-  test('does not suggest duplicate SP members for the same local member', () {
+  test('never auto-links two SP members onto the same local member', () {
     final suggestions = const SpMemberMatcher().suggest(
       spMembers: const [
         SpMember(id: 'sp-a', name: 'Alice', pkId: 'abcde'),
@@ -53,12 +53,68 @@ void main() {
       ],
     );
 
+    // Neither is auto-linked; both surface the shared local as a candidate so
+    // the user resolves which SP member it is.
     expect(suggestions, hasLength(2));
     expect(suggestions.every((s) => s.suggestedLocal == null), isTrue);
     expect(
       suggestions.map((s) => s.confidence),
-      everyElement(SpMemberMatchConfidence.none),
+      everyElement(SpMemberMatchConfidence.ambiguous),
     );
+    expect(
+      suggestions.every((s) => s.candidates.map((m) => m.id).contains('local-a')),
+      isTrue,
+    );
+  });
+
+  test('two local members with one pkId make the SP row ambiguous, not new', () {
+    final suggestions = const SpMemberMatcher().suggest(
+      spMembers: const [
+        SpMember(id: 'sp-pk', name: 'Remote', pkId: 'abcde'),
+      ],
+      localMembers: [
+        _member(id: 'local-x', name: 'Xavier', pluralkitId: 'abcde'),
+        _member(id: 'local-y', name: 'Yolanda', pluralkitId: 'abcde'),
+      ],
+    );
+
+    final match = suggestions.single;
+    expect(match.suggestedLocal, isNull);
+    expect(match.confidence, SpMemberMatchConfidence.ambiguous);
+    expect(
+      match.candidates.map((m) => m.id),
+      containsAll(<String>['local-x', 'local-y']),
+    );
+  });
+
+  test('unique PluralKit id still auto-links without ambiguity', () {
+    final suggestions = const SpMemberMatcher().suggest(
+      spMembers: const [SpMember(id: 'sp-pk', name: 'Remote', pkId: 'abcde')],
+      localMembers: [
+        _member(id: 'local-pk', name: 'Local', pluralkitId: 'abcde'),
+      ],
+    );
+
+    final match = suggestions.single;
+    expect(match.suggestedLocal?.id, 'local-pk');
+    expect(match.confidence, SpMemberMatchConfidence.pluralKitId);
+    expect(match.candidates, isEmpty);
+  });
+
+  test('a member with no candidate matches imports as new without a prompt', () {
+    final suggestions = const SpMemberMatcher().suggest(
+      spMembers: const [
+        SpMember(id: 'sp-new', name: 'Nobody', pkId: 'zzzzz'),
+      ],
+      localMembers: [
+        _member(id: 'local-a', name: 'Alice', pluralkitId: 'abcde'),
+      ],
+    );
+
+    final match = suggestions.single;
+    expect(match.suggestedLocal, isNull);
+    expect(match.confidence, SpMemberMatchConfidence.none);
+    expect(match.candidates, isEmpty);
   });
 
   test(

@@ -30,6 +30,7 @@ import 'package:prism_plurality/domain/repositories/conversation_repository.dart
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
+import 'package:prism_plurality/features/migration/services/sp_import_warning_classifier.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_member_mapping.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
@@ -1098,6 +1099,121 @@ void main() {
               )
               .prismId,
           activeMembers.single.id,
+        );
+      },
+    );
+
+    test(
+      'ambiguous PluralKit collision imports as new and warns per member',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'pk-local-alice',
+            name: 'Alice from PK',
+            createdAt: DateTime(2025, 1, 1),
+            pluralkitId: 'abcde',
+          ),
+        );
+
+        // Two SP rows share the one local's pkId, so the 1:1 gate can't pick
+        // one — both fall through, collide, and import as stripped duplicates.
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: const SpExportData(
+                members: [
+                  SpMember(id: 'sp-ada', name: 'Ada', pkId: 'abcde'),
+                  SpMember(id: 'sp-bea', name: 'Bea', pkId: 'abcde'),
+                ],
+                customFronts: [],
+                frontHistory: [],
+                groups: [],
+                channels: [],
+                messages: [],
+                polls: [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: _FakeSessionRepository(),
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        final activeMembers = await memberRepo.getAllMembers();
+
+        expect(result.membersImported, 2);
+        expect(result.membersLinked, 0);
+        expect(activeMembers, hasLength(3));
+        expect(
+          activeMembers.where((m) => m.pluralkitId == 'abcde').map((m) => m.id),
+          ['pk-local-alice'],
+        );
+
+        expect(result.warnings.where((w) => w.contains('Ada')), hasLength(1));
+        expect(result.warnings.where((w) => w.contains('Bea')), hasLength(1));
+        expect(
+          result.warnings.every((w) => w.contains('Alice from PK')),
+          isTrue,
+        );
+
+        final categories = SpImportWarningClassifier.classify(result.warnings);
+        final duplicates = categories.singleWhere(
+          (c) => c.kind == SpImportWarningKind.duplicateMembers,
+        );
+        expect(duplicates.count, 2);
+      },
+    );
+
+    test(
+      'PluralKit collision with a soft-deleted member does not warn',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'pk-local-alice',
+            name: 'Deleted Alice',
+            createdAt: DateTime(2025, 1, 1),
+            pluralkitId: 'abcde',
+          ),
+        );
+        await memberRepo.deleteMember('pk-local-alice');
+
+        final result = await SpImporter(httpClient: _FakeHttpClient())
+            .executeImport(
+              db: db,
+              data: const SpExportData(
+                members: [
+                  SpMember(id: 'sp-ada', name: 'Ada', pkId: 'abcde'),
+                  SpMember(id: 'sp-bea', name: 'Bea', pkId: 'abcde'),
+                ],
+                customFronts: [],
+                frontHistory: [],
+                groups: [],
+                channels: [],
+                messages: [],
+                polls: [],
+              ),
+              memberRepo: memberRepo,
+              sessionRepo: _FakeSessionRepository(),
+              conversationRepo: _FakeConversationRepository(),
+              messageRepo: _FakeChatMessageRepository(),
+              pollRepo: _FakePollRepository(),
+              spImportDao: db.spImportDao,
+              downloadAvatars: false,
+            );
+
+        expect(
+          result.warnings.any((w) => w.contains('shares a PluralKit link')),
+          isFalse,
         );
       },
     );

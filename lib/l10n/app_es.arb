@@ -3387,6 +3387,7 @@
   "spMemberMappingMatchedPk": "Coincidencia por ID de PluralKit: {name}",
   "spMemberMappingMatchedName": "Coincidencia por nombre: {name}",
   "spMemberMappingNoMatch": "Sin coincidencia sugerida",
+  "spMemberMappingMultipleMatches": "Varias coincidencias posibles: elige una",
   "spMemberMappingMemberSemantics": "Miembro de Simply Plural {name}",
   "spMemberMappingContinue": "Continuar",
   "pkMappingTitle": "Vincular miembros",
@@ -4068,6 +4069,14 @@
   "spImportWarningsMissingReferencesExplanation": "These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.",
   "@spImportWarningsMissingReferencesExplanation": {
     "description": "Plain-language explanation for missing-reference warnings in the SP import warning summary."
+  },
+  "spImportWarningsDuplicateMembersHeadline": "Posibles miembros duplicados",
+  "@spImportWarningsDuplicateMembersHeadline": {
+    "description": "Category headline for members imported as new duplicates because a PluralKit link collided with an existing member."
+  },
+  "spImportWarningsDuplicateMembersExplanation": "Coincidieron con un miembro existente por su vínculo de PluralKit, pero no se pudieron emparejar automáticamente, así que se importaron como nuevos. Combina cada uno con su miembro existente para mantener juntos los campos personalizados.",
+  "@spImportWarningsDuplicateMembersExplanation": {
+    "description": "Plain-language explanation for duplicate-member warnings in the SP import warning summary."
   },
   "spImportWarningsCustomFrontAdjustmentsHeadline": "Custom front adjustments",
   "@spImportWarningsCustomFrontAdjustmentsHeadline": {

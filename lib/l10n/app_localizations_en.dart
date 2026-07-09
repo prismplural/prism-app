@@ -10966,6 +10966,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get spMemberMappingNoMatch => 'No suggested match';
 
   @override
+  String get spMemberMappingMultipleMatches =>
+      'Multiple possible matches — choose one';
+
+  @override
   String spMemberMappingMemberSemantics(String name) {
     return 'Simply Plural member $name';
   }
@@ -11573,6 +11577,14 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get spImportWarningsMissingReferencesExplanation =>
       'These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.';
+
+  @override
+  String get spImportWarningsDuplicateMembersHeadline =>
+      'Possible duplicate members';
+
+  @override
+  String get spImportWarningsDuplicateMembersExplanation =>
+      'These matched an existing member by PluralKit link but couldn’t be matched automatically, so they came in as new. Merge each with its existing member to keep custom fields together.';
 
   @override
   String get spImportWarningsCustomFrontAdjustmentsHeadline =>

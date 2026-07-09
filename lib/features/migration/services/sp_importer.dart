@@ -425,6 +425,10 @@ class SpImporter {
     // transaction so a failed import rolls back everything — no data loss.
     var membersImported = 0;
     var membersLinked = 0;
+    // SP rows whose PluralKit link collides with a live local member: the
+    // link is stripped and the row imported as a new duplicate. Reported so
+    // the user can merge instead of finding empty custom fields.
+    final duplicateMemberWarnings = <String>[];
 
     // Phase 5 of `docs/plans/sp-import-perf-quick-wins.md`: every repo-issued
     // sync emission inside the transaction is intercepted into `captured`,
@@ -525,6 +529,23 @@ class SpImporter {
             if (m.pluralkitUuid != null && m.pluralkitUuid!.isNotEmpty)
               m.pluralkitUuid!,
         };
+        // Name of the live member behind a colliding link, for the warning.
+        // Only live members are worth merging into; a tombstone collision
+        // still strips the link but needs no user action.
+        final liveMemberNameByPkId = {
+          for (final m in existingMembers)
+            if (!m.isDeleted &&
+                m.pluralkitId != null &&
+                m.pluralkitId!.isNotEmpty)
+              m.pluralkitId!: m.name,
+        };
+        final liveMemberNameByPkUuid = {
+          for (final m in existingMembers)
+            if (!m.isDeleted &&
+                m.pluralkitUuid != null &&
+                m.pluralkitUuid!.isNotEmpty)
+              m.pluralkitUuid!: m.name,
+        };
         final newMemberCompanions = <MembersCompanion>[];
         final newMemberFieldsById = <String, Map<String, dynamic>>{};
         for (final member in mapped.members) {
@@ -545,6 +566,19 @@ class SpImporter {
           final memberForInsert = pkIdCollides || pkUuidCollides
               ? member.copyWith(pluralkitId: null, pluralkitUuid: null)
               : member;
+          if (pkIdCollides || pkUuidCollides) {
+            final liveName = pkIdCollides
+                ? liveMemberNameByPkId[member.pluralkitId]
+                : liveMemberNameByPkUuid[member.pluralkitUuid];
+            if (liveName != null) {
+              duplicateMemberWarnings.add(
+                // raw-name-ok: incoming SP object, not yet a local member
+                'Imported "${member.name}" as a new member because it shares a '
+                'PluralKit link with existing member "$liveName" but could not '
+                'be matched automatically. Merge them if they are the same.',
+              );
+            }
+          }
           newMemberCompanions.add(MemberMapper.toCompanion(memberForInsert));
           newMemberFieldsById[member.id] = DriftMemberRepository.memberFields(
             memberForInsert,
@@ -1223,7 +1257,8 @@ class SpImporter {
     var avatarsImportedFromZip = 0;
     var systemAvatarImportedFromZip = false;
     var memberIdsRestoredFromZip = <String>{};
-    final warnings = List<String>.of(mapped.warnings);
+    final warnings = List<String>.of(mapped.warnings)
+      ..addAll(duplicateMemberWarnings);
 
     // Prefer ZIP avatars; use remote URLs only when ZIP restoration fails.
     if ((avatarZipPath != null && avatarZipPath.isNotEmpty) ||

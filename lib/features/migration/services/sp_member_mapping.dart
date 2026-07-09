@@ -21,17 +21,28 @@ class SpImportMemberDecision extends SpMemberMappingDecision {
   const SpImportMemberDecision({required super.spMemberId});
 }
 
-enum SpMemberMatchConfidence { persistedMapping, pluralKitId, exactName, none }
+enum SpMemberMatchConfidence {
+  persistedMapping,
+  pluralKitId,
+  exactName,
+  ambiguous,
+  none,
+}
 
 class SpMemberMatchSuggestion {
   const SpMemberMatchSuggestion({
     required this.spMember,
     required this.confidence,
     this.suggestedLocal,
+    this.candidates = const [],
   });
 
   final SpMember spMember;
   final Member? suggestedLocal;
+
+  /// Populated for [SpMemberMatchConfidence.ambiguous]: local members the SP
+  /// member could be, but which the 1:1 gates couldn't pick between.
+  final List<Member> candidates;
   final SpMemberMatchConfidence confidence;
 }
 
@@ -70,17 +81,23 @@ class SpMemberMatcher {
     final localPkCounts = <String, int>{};
     final localsByName = <String, Member>{};
     final localNameCounts = <String, int>{};
+    // Every local per key, not just the first, so a failed 1:1 gate can still
+    // list the members the SP row might be.
+    final localsByPkIdAll = <String, List<Member>>{};
+    final localsByNameAll = <String, List<Member>>{};
     for (final local in localsById.values) {
       final pkId = _trimmedOrNull(local.pluralkitId);
       if (pkId != null) {
         localPkCounts[pkId] = (localPkCounts[pkId] ?? 0) + 1;
         localsByPkId.putIfAbsent(pkId, () => local);
+        (localsByPkIdAll[pkId] ??= <Member>[]).add(local);
       }
 
       final name = normalizedSpMemberName(local.name);
       if (name != null) {
         localNameCounts[name] = (localNameCounts[name] ?? 0) + 1;
         localsByName.putIfAbsent(name, () => local);
+        (localsByNameAll[name] ??= <Member>[]).add(local);
       }
     }
 
@@ -146,16 +163,51 @@ class SpMemberMatcher {
         }
       }
 
+      // Failed every 1:1 gate but still has local matches → ambiguous, not
+      // new. Surfacing the candidates lets the user link it instead of
+      // minting a shadow duplicate that steals the SP row's custom fields.
+      final candidates = _ambiguousCandidates(
+        pkId: pkId,
+        normalizedName: normalizedName,
+        localsByPkIdAll: localsByPkIdAll,
+        localsByNameAll: localsByNameAll,
+        consumedLocalIds: consumedLocalIds,
+      );
       suggestions.add(
         SpMemberMatchSuggestion(
           spMember: member,
-          confidence: SpMemberMatchConfidence.none,
+          confidence: candidates.isEmpty
+              ? SpMemberMatchConfidence.none
+              : SpMemberMatchConfidence.ambiguous,
+          candidates: candidates,
         ),
       );
     }
 
     return suggestions;
   }
+}
+
+List<Member> _ambiguousCandidates({
+  required String? pkId,
+  required String? normalizedName,
+  required Map<String, List<Member>> localsByPkIdAll,
+  required Map<String, List<Member>> localsByNameAll,
+  required Set<String> consumedLocalIds,
+}) {
+  final seen = <String>{};
+  final candidates = <Member>[];
+  void addAll(Iterable<Member>? locals) {
+    if (locals == null) return;
+    for (final local in locals) {
+      if (consumedLocalIds.contains(local.id)) continue;
+      if (seen.add(local.id)) candidates.add(local);
+    }
+  }
+
+  if (pkId != null) addAll(localsByPkIdAll[pkId]);
+  if (normalizedName != null) addAll(localsByNameAll[normalizedName]);
+  return candidates;
 }
 
 String? normalizedSpMemberName(String name) {

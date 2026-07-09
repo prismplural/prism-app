@@ -224,6 +224,9 @@ class _SpMemberRow extends ConsumerWidget {
     AppLocalizations l10n,
     SpMemberMatchSuggestion? suggestion,
   ) {
+    if (suggestion?.confidence == SpMemberMatchConfidence.ambiguous) {
+      return l10n.spMemberMappingMultipleMatches;
+    }
     final local = suggestion?.suggestedLocal;
     if (local == null) return l10n.spMemberMappingNoMatch;
     return switch (suggestion!.confidence) {
@@ -235,6 +238,7 @@ class _SpMemberRow extends ConsumerWidget {
       SpMemberMatchConfidence.exactName => l10n.spMemberMappingMatchedName(
         local.name,
       ),
+      SpMemberMatchConfidence.ambiguous ||
       SpMemberMatchConfidence.none => l10n.spMemberMappingNoMatch,
     };
   }

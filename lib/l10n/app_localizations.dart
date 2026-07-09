@@ -17598,6 +17598,12 @@ abstract class AppLocalizations {
   /// **'No suggested match'**
   String get spMemberMappingNoMatch;
 
+  /// Reason text for a Simply Plural member that matches more than one local member; the user must pick one or import as new.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple possible matches — choose one'**
+  String get spMemberMappingMultipleMatches;
+
   /// Accessibility label for a Simply Plural member mapping row.
   ///
   /// In en, this message translates to:
@@ -18562,6 +18568,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.'**
   String get spImportWarningsMissingReferencesExplanation;
+
+  /// Category headline for members imported as new duplicates because a PluralKit link collided with an existing member.
+  ///
+  /// In en, this message translates to:
+  /// **'Possible duplicate members'**
+  String get spImportWarningsDuplicateMembersHeadline;
+
+  /// Plain-language explanation for duplicate-member warnings in the SP import warning summary.
+  ///
+  /// In en, this message translates to:
+  /// **'These matched an existing member by PluralKit link but couldn’t be matched automatically, so they came in as new. Merge each with its existing member to keep custom fields together.'**
+  String get spImportWarningsDuplicateMembersExplanation;
 
   /// Category headline for custom-front adjustment warnings in the SP import warning summary.
   ///

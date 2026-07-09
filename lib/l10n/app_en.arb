@@ -11965,6 +11965,10 @@
   "@spMemberMappingNoMatch": {
     "description": "Reason text for a Simply Plural member without a suggested local match."
   },
+  "spMemberMappingMultipleMatches": "Multiple possible matches — choose one",
+  "@spMemberMappingMultipleMatches": {
+    "description": "Reason text for a Simply Plural member that matches more than one local member; the user must pick one or import as new."
+  },
   "spMemberMappingMemberSemantics": "Simply Plural member {name}",
   "@spMemberMappingMemberSemantics": {
     "description": "Accessibility label for a Simply Plural member mapping row.",
@@ -12561,6 +12565,14 @@
   "spImportWarningsMissingReferencesExplanation": "These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.",
   "@spImportWarningsMissingReferencesExplanation": {
     "description": "Plain-language explanation for missing-reference warnings in the SP import warning summary."
+  },
+  "spImportWarningsDuplicateMembersHeadline": "Possible duplicate members",
+  "@spImportWarningsDuplicateMembersHeadline": {
+    "description": "Category headline for members imported as new duplicates because a PluralKit link collided with an existing member."
+  },
+  "spImportWarningsDuplicateMembersExplanation": "These matched an existing member by PluralKit link but couldn’t be matched automatically, so they came in as new. Merge each with its existing member to keep custom fields together.",
+  "@spImportWarningsDuplicateMembersExplanation": {
+    "description": "Plain-language explanation for duplicate-member warnings in the SP import warning summary."
   },
   "spImportWarningsCustomFrontAdjustmentsHeadline": "Custom front adjustments",
   "@spImportWarningsCustomFrontAdjustmentsHeadline": {

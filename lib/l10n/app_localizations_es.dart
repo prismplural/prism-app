@@ -11153,6 +11153,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get spMemberMappingNoMatch => 'Sin coincidencia sugerida';
 
   @override
+  String get spMemberMappingMultipleMatches =>
+      'Varias coincidencias posibles: elige una';
+
+  @override
   String spMemberMappingMemberSemantics(String name) {
     return 'Miembro de Simply Plural $name';
   }
@@ -11766,6 +11770,14 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get spImportWarningsMissingReferencesExplanation =>
       'These imported fine — they just don’t have a member attached, because that member was deleted in Simply Plural before the export.';
+
+  @override
+  String get spImportWarningsDuplicateMembersHeadline =>
+      'Posibles miembros duplicados';
+
+  @override
+  String get spImportWarningsDuplicateMembersExplanation =>
+      'Coincidieron con un miembro existente por su vínculo de PluralKit, pero no se pudieron emparejar automáticamente, así que se importaron como nuevos. Combina cada uno con su miembro existente para mantener juntos los campos personalizados.';
 
   @override
   String get spImportWarningsCustomFrontAdjustmentsHeadline =>

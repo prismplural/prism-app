@@ -8,6 +8,7 @@ library;
 enum SpImportWarningKind {
   avatars,
   missingReferences,
+  duplicateMembers,
   customFrontAdjustments,
   encryptedMessages,
   dataQuality,
@@ -82,6 +83,9 @@ class SpImportWarningClassifier {
     if (lower.contains('sync emission') || lower.contains('replay')) {
       return SpImportWarningKind.syncEmission;
     }
+    if (lower.contains('shares a pluralkit link')) {
+      return SpImportWarningKind.duplicateMembers;
+    }
     if (lower.contains('handled as notes') ||
         lower.contains('deleted in sp') ||
         lower.contains('custom front') ||
@@ -106,6 +110,7 @@ class SpImportWarningClassifier {
     return switch (kind) {
       SpImportWarningKind.avatars => SpImportWarningSeverity.warning,
       SpImportWarningKind.missingReferences => SpImportWarningSeverity.warning,
+      SpImportWarningKind.duplicateMembers => SpImportWarningSeverity.warning,
       SpImportWarningKind.customFrontAdjustments =>
         SpImportWarningSeverity.info,
       SpImportWarningKind.encryptedMessages => SpImportWarningSeverity.warning,
