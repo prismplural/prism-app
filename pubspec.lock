@@ -524,8 +524,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: flutter_secure_storage_linux
-      ref: "7f1730a3403364f942a66d0833037be3dc88e540"
-      resolved-ref: "7f1730a3403364f942a66d0833037be3dc88e540"
+      ref: "2e720ff7e6b956a5d1197a5077bb8be39a5d5632"
+      resolved-ref: "2e720ff7e6b956a5d1197a5077bb8be39a5d5632"
       url: "https://github.com/prismplural/flutter_secure_storage.git"
     source: git
     version: "3.0.1"
