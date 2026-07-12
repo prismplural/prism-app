@@ -150,7 +150,7 @@ dependency_overrides:
     git:
       url: https://github.com/prismplural/flutter_secure_storage.git
       path: flutter_secure_storage_linux
-      ref: f7738c2da4f9eb9923849bf0810216b47361b342
+      ref: d042536e0ef0c052e6a9351414934a80c6f2b3b5
   permission_handler_windows:
     git:
       url: https://github.com/prismplural/flutter-permission-handler.git
