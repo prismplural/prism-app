@@ -68,6 +68,7 @@ import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/media_attachment_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/domain/repositories/normalized_avatar_batch_writer.dart';
 import 'package:prism_plurality/features/members/services/bio_image_importer.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
@@ -239,14 +240,18 @@ class SpImporter {
     http.Client? httpClient,
     String Function()? newId,
     DateTime Function()? now,
+    SpAvatarZipImporter Function()? avatarZipImporterFactory,
   }) : _http = httpClient ?? http.Client(),
        _newId = newId ?? _defaultNewId,
        _now = now ?? _defaultNow,
+       _avatarZipImporterFactory =
+           avatarZipImporterFactory ?? SpAvatarZipImporter.new,
        _seamsInjected = newId != null || now != null;
 
   final http.Client _http;
   final String Function() _newId;
   final DateTime Function() _now;
+  final SpAvatarZipImporter Function() _avatarZipImporterFactory;
 
   /// True iff the caller injected a non-default `newId` or `now` seam.
   /// Used to decide whether parse+map can cross an isolate boundary via
@@ -316,6 +321,7 @@ class SpImporter {
     Map<String, CfDisposition>? customFrontDispositions,
     Map<String, SpMemberMappingDecision> memberMappingDecisions = const {},
     void Function(int current, int total, String label)? onProgress,
+    void Function()? onAvatarZipSourceReady,
   }) async {
     final stopwatch = Stopwatch()..start();
 
@@ -1185,12 +1191,78 @@ class SpImporter {
     var systemAvatarDownloaded = false;
     var avatarsImportedFromZip = 0;
     var systemAvatarImportedFromZip = false;
+    var memberIdsRestoredFromZip = <String>{};
     final warnings = List<String>.of(mapped.warnings);
+
+    // Prefer ZIP avatars; use remote URLs only when ZIP restoration fails.
+    if ((avatarZipPath != null && avatarZipPath.isNotEmpty) ||
+        (avatarZipBytes != null && avatarZipBytes.isNotEmpty)) {
+      onProgress?.call(0, 0, 'Preparing avatar ZIP...');
+      try {
+        if (memberRepo is! NormalizedAvatarBatchWriter) {
+          throw StateError(
+            'Avatar ZIP imports require the Drift member repository.',
+          );
+        }
+        final avatarBatchWriter = memberRepo as NormalizedAvatarBatchWriter;
+        final zipImporter = _avatarZipImporterFactory();
+        var sourceReadyReported = false;
+        void onZipProgress(SpAvatarZipProgress progress) {
+          if (!sourceReadyReported) {
+            sourceReadyReported = true;
+            onAvatarZipSourceReady?.call();
+          }
+          final label = switch (progress.phase) {
+            SpAvatarZipProgressPhase.scanning => 'Scanning avatar ZIP...',
+            SpAvatarZipProgressPhase.normalizingAndSaving =>
+              'Importing avatar ZIP...',
+            SpAvatarZipProgressPhase.complete => 'Avatar ZIP imported',
+          };
+          onProgress?.call(
+            progress.processedCandidates,
+            progress.totalCandidates,
+            label,
+          );
+        }
+
+        final zipResult = avatarZipBytes != null
+            ? await zipImporter.importZipFileBytes(
+                bytes: avatarZipBytes,
+                memberRepo: memberRepo,
+                avatarBatchWriter: avatarBatchWriter,
+                settingsRepo: settingsRepo,
+                spImportDao: spImportDao,
+                exportData: data,
+                skipMemberIds: linkedExistingMemberIds,
+                onProgress: onZipProgress,
+              )
+            : await zipImporter.importZipFile(
+                filePath: avatarZipPath!,
+                memberRepo: memberRepo,
+                avatarBatchWriter: avatarBatchWriter,
+                settingsRepo: settingsRepo,
+                spImportDao: spImportDao,
+                exportData: data,
+                skipMemberIds: linkedExistingMemberIds,
+                onProgress: onZipProgress,
+              );
+        avatarsImportedFromZip = zipResult.memberAvatarsUpdated;
+        memberIdsRestoredFromZip = {
+          ...zipResult.memberIdsUpdated,
+          ...zipResult.memberIdsUnchanged,
+        };
+        systemAvatarImportedFromZip = zipResult.systemAvatarUpdated;
+        warnings.addAll(zipResult.warnings);
+      } catch (e) {
+        warnings.add('Could not import avatar ZIP: $e');
+      }
+    }
 
     // 6a. System-level avatar. SP stores this on users[0] (separate from
     //     member avatars); mirror the member flow — fetch+store best-effort
     //     outside the transaction.
     if (downloadAvatars &&
+        !systemAvatarImportedFromZip &&
         settingsRepo != null &&
         mapped.systemAvatarUrl != null &&
         mapped.systemAvatarUrl!.isNotEmpty) {
@@ -1211,7 +1283,10 @@ class SpImporter {
         mapped.members,
         mapped.avatarUrls,
         memberRepo,
-        skipMemberIds: linkedExistingMemberIds,
+        skipMemberIds: {
+          ...linkedExistingMemberIds,
+          ...memberIdsRestoredFromZip,
+        },
         warnings: warnings,
         onProgress: (processed, total) {
           onProgress?.call(processed, total, 'Downloading avatars...');
@@ -1240,36 +1315,6 @@ class SpImporter {
           onProgress?.call(count, total, 'Importing bio images...');
         },
       );
-    }
-
-    if ((avatarZipPath != null && avatarZipPath.isNotEmpty) ||
-        (avatarZipBytes != null && avatarZipBytes.isNotEmpty)) {
-      onProgress?.call(totalItems, totalItems, 'Importing avatar ZIP...');
-      try {
-        final zipImporter = SpAvatarZipImporter();
-        final zipResult = avatarZipBytes != null
-            ? await zipImporter.importZipFileBytes(
-                bytes: avatarZipBytes,
-                memberRepo: memberRepo,
-                settingsRepo: settingsRepo,
-                spImportDao: spImportDao,
-                exportData: data,
-                skipMemberIds: linkedExistingMemberIds,
-              )
-            : await zipImporter.importZipFile(
-                filePath: avatarZipPath!,
-                memberRepo: memberRepo,
-                settingsRepo: settingsRepo,
-                spImportDao: spImportDao,
-                exportData: data,
-                skipMemberIds: linkedExistingMemberIds,
-              );
-        avatarsImportedFromZip = zipResult.memberAvatarsUpdated;
-        systemAvatarImportedFromZip = zipResult.systemAvatarUpdated;
-        warnings.addAll(zipResult.warnings);
-      } catch (e) {
-        warnings.add('Could not import avatar ZIP: $e');
-      }
     }
 
     // After import: if board posts were imported and we have a settings repo,

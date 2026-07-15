@@ -1,190 +1,386 @@
 import 'dart:io';
-import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
-import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/domain/repositories/normalized_avatar_batch_writer.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/features/migration/services/sp_avatar_zip_worker.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
-import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
+
+enum SpAvatarZipImportCompletion { complete, partial }
+
+enum SpAvatarZipProgressPhase { scanning, normalizingAndSaving, complete }
+
+/// Durable progress for a Simply Plural avatar ZIP import.
+class SpAvatarZipProgress {
+  final SpAvatarZipProgressPhase phase;
+  final int processedCandidates;
+  final int totalCandidates;
+  final int committedMemberUpdates;
+  final int skippedImages;
+  final int warningCount;
+
+  const SpAvatarZipProgress({
+    required this.phase,
+    required this.processedCandidates,
+    required this.totalCandidates,
+    required this.committedMemberUpdates,
+    required this.skippedImages,
+    required this.warningCount,
+  });
+}
 
 /// Summary for a Simply Plural avatar ZIP import.
 class SpAvatarZipImportResult {
   final int entriesScanned;
   final int imagesFound;
   final int memberAvatarsUpdated;
+  final Set<String> memberIdsUpdated;
+  final int memberAvatarsUnchanged;
+  final Set<String> memberIdsUnchanged;
+  final Set<String> memberIdsMissingOrDeleted;
   final bool systemAvatarUpdated;
   final int unmatchedImages;
   final List<String> warnings;
   final Duration duration;
+  final SpAvatarZipImportCompletion completion;
 
   const SpAvatarZipImportResult({
     required this.entriesScanned,
     required this.imagesFound,
     required this.memberAvatarsUpdated,
+    required this.memberIdsUpdated,
+    required this.memberAvatarsUnchanged,
+    required this.memberIdsUnchanged,
+    required this.memberIdsMissingOrDeleted,
     required this.systemAvatarUpdated,
     required this.unmatchedImages,
     required this.warnings,
     required this.duration,
+    required this.completion,
   });
 
   int get totalUpdated => memberAvatarsUpdated + (systemAvatarUpdated ? 1 : 0);
 }
 
-const Set<String> _supportedImageExtensions = {
-  '.gif',
-  '.jpeg',
-  '.jpg',
-  '.png',
-  '.webp',
-};
-
-const int _maxImageBytes = 20 * 1024 * 1024;
+typedef SpAvatarZipTemporaryDirectoryProvider = Future<Directory> Function();
 
 /// Imports Simply Plural's separate avatar ZIP export.
 ///
-/// SP names each exported image by the source entity id. Prism already keeps
-/// the SP member id -> Prism member id map after imports, so this service can
-/// repair member photos without touching any non-avatar fields.
+/// The worker owns file-backed archive scanning and normalization. This class
+/// owns durable, bounded writes and only acknowledges a worker chunk after its
+/// member transaction and system-avatar attempt have finished.
 class SpAvatarZipImporter {
-  /// Tests pass `runInline: true` to keep the CPU-heavy decode loop on the
-  /// current isolate. Production code pays the isolate spawn so the main
-  /// isolate stays responsive — pure-Dart image decode of a 50-photo zip
-  /// will otherwise ANR mid-tier Android.
-  final bool _runInline;
+  final SpAvatarZipWorkerRunner _workerRunner;
+  final SpAvatarZipTemporaryDirectoryProvider _temporaryDirectory;
 
-  SpAvatarZipImporter({bool runInline = false}) : _runInline = runInline;
+  SpAvatarZipImporter({
+    SpAvatarZipWorkerRunner workerRunner = const SpAvatarZipWorkerRunner(),
+    SpAvatarZipTemporaryDirectoryProvider? temporaryDirectory,
+  }) : _workerRunner = workerRunner,
+       _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
 
   Future<SpAvatarZipImportResult> importZipFile({
     required String filePath,
     required MemberRepository memberRepo,
+    required NormalizedAvatarBatchWriter avatarBatchWriter,
     SystemSettingsRepository? settingsRepo,
     SpImportDao? spImportDao,
     SpExportData? exportData,
     Set<String> skipMemberIds = const {},
+    void Function(SpAvatarZipProgress progress)? onProgress,
   }) async {
-    final stopwatch = Stopwatch()..start();
+    // Production supplies one object for both repository capabilities.
+    final _ = memberRepo;
     final file = File(filePath);
-    if (!file.existsSync()) {
+    if (!await file.exists()) {
       throw FileSystemException('Avatar ZIP not found', filePath);
     }
 
-    return _runImport(
-      input: _ZipProcessingInput(filePath: filePath, bytes: null),
-      memberRepo: memberRepo,
+    return _runFileImport(
+      filePath: filePath,
+      avatarBatchWriter: avatarBatchWriter,
       settingsRepo: settingsRepo,
       spImportDao: spImportDao,
       exportData: exportData,
       skipMemberIds: skipMemberIds,
-      stopwatch: stopwatch,
+      onProgress: onProgress,
     );
   }
 
   Future<SpAvatarZipImportResult> importZipFileBytes({
     required List<int> bytes,
     required MemberRepository memberRepo,
+    required NormalizedAvatarBatchWriter avatarBatchWriter,
     SystemSettingsRepository? settingsRepo,
     SpImportDao? spImportDao,
     SpExportData? exportData,
     Set<String> skipMemberIds = const {},
+    void Function(SpAvatarZipProgress progress)? onProgress,
   }) async {
-    final stopwatch = Stopwatch()..start();
-    final byteList = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
-    return _runImport(
-      input: _ZipProcessingInput(filePath: null, bytes: byteList),
-      memberRepo: memberRepo,
-      settingsRepo: settingsRepo,
-      spImportDao: spImportDao,
-      exportData: exportData,
-      skipMemberIds: skipMemberIds,
-      stopwatch: stopwatch,
+    final directory = await _temporaryDirectory();
+    await directory.create(recursive: true);
+    final nonce = Random.secure().nextInt(1 << 32).toRadixString(16);
+    final file = File(
+      '${directory.path}${Platform.pathSeparator}'
+      'sp-avatar-${DateTime.now().microsecondsSinceEpoch}-$nonce.zip',
     );
+
+    try {
+      await file.writeAsBytes(bytes, flush: true);
+      // The caller may release its bytes after this flush.
+      onProgress?.call(_initialScanningProgress);
+      final _ = memberRepo;
+      return await _runFileImport(
+        filePath: file.path,
+        avatarBatchWriter: avatarBatchWriter,
+        settingsRepo: settingsRepo,
+        spImportDao: spImportDao,
+        exportData: exportData,
+        skipMemberIds: skipMemberIds,
+        onProgress: onProgress,
+        emitInitialScanningProgress: false,
+      );
+    } finally {
+      try {
+        if (await file.exists()) await file.delete();
+      } on FileSystemException {
+        // Cache cleanup must not replace the import's more useful outcome.
+      }
+    }
   }
 
-  Future<SpAvatarZipImportResult> _runImport({
-    required _ZipProcessingInput input,
-    required MemberRepository memberRepo,
+  Future<SpAvatarZipImportResult> _runFileImport({
+    required String filePath,
+    required NormalizedAvatarBatchWriter avatarBatchWriter,
     required SystemSettingsRepository? settingsRepo,
     required SpImportDao? spImportDao,
     required SpExportData? exportData,
     required Set<String> skipMemberIds,
-    required Stopwatch stopwatch,
+    required void Function(SpAvatarZipProgress progress)? onProgress,
+    bool emitInitialScanningProgress = true,
   }) async {
-    final memberMappings = await _loadMemberMappings(spImportDao);
-    final systemId = exportData?.systemId?.trim();
-
-    final targetSpIds = <String>{
-      ...memberMappings.keys,
-      if (systemId != null && systemId.isNotEmpty) systemId,
+    final stopwatch = Stopwatch()..start();
+    if (emitInitialScanningProgress) {
+      onProgress?.call(_initialScanningProgress);
+    }
+    final mappings = await _loadMemberMappings(spImportDao);
+    final eligibleMappings = <String, String>{
+      for (final entry in mappings.entries)
+        if (!skipMemberIds.contains(entry.value)) entry.key: entry.value,
     };
+    final systemId = exportData?.systemId?.trim();
+    final normalizedSystemId = systemId == null || systemId.isEmpty
+        ? null
+        : systemId;
 
-    final task = _ZipProcessingTask(
-      input: input,
-      targetSpIds: targetSpIds,
-      maxImageBytes: _maxImageBytes,
+    final warnings = <String>[];
+    final updatedIds = <String>{};
+    final unchangedIds = <String>{};
+    final missingIds = <String>{};
+    var systemAvatarUpdated = false;
+    var processedDescriptors = 0;
+    var committedChunks = 0;
+    var totalCandidates = 0;
+    var latestStats = const SpAvatarZipScanStats();
+    var readyStats = const SpAvatarZipScanStats();
+    var completion = SpAvatarZipImportCompletion.complete;
+    var terminalReceived = false;
+    var aggregateWarningsAppended = false;
+
+    int skippedCount(SpAvatarZipScanStats stats) =>
+        stats.unmatchedImages +
+        stats.duplicateImages +
+        stats.oversizedImages +
+        stats.emptyImages +
+        stats.invalidImages +
+        missingIds.length;
+
+    int processedCount(SpAvatarZipScanStats stats) {
+      final invalidAfterScan = max(
+        0,
+        stats.invalidImages - readyStats.invalidImages,
+      );
+      final emptyAfterScan = max(0, stats.emptyImages - readyStats.emptyImages);
+      final oversizedAfterScan = max(
+        0,
+        stats.oversizedImages - readyStats.oversizedImages,
+      );
+      return min(
+        totalCandidates,
+        processedDescriptors +
+            invalidAfterScan +
+            emptyAfterScan +
+            oversizedAfterScan,
+      );
+    }
+
+    void publish(SpAvatarZipProgressPhase phase, SpAvatarZipScanStats stats) {
+      onProgress?.call(
+        SpAvatarZipProgress(
+          phase: phase,
+          processedCandidates:
+              phase == SpAvatarZipProgressPhase.complete &&
+                  completion == SpAvatarZipImportCompletion.complete
+              ? totalCandidates
+              : processedCount(stats),
+          totalCandidates: totalCandidates,
+          committedMemberUpdates: updatedIds.length,
+          skippedImages: skippedCount(stats),
+          warningCount:
+              warnings.length +
+              (aggregateWarningsAppended
+                  ? 0
+                  : _aggregateWarningCategoryCount(
+                      stats,
+                      missingMembers: missingIds.length,
+                    )),
+        ),
+      );
+    }
+
+    final session = await _workerRunner.start(
+      SpAvatarZipWorkerTask(
+        filePath: filePath,
+        prismMemberIdBySpId: eligibleMappings,
+        systemSpId: normalizedSystemId,
+      ),
     );
 
-    final processing = _runInline
-        ? await _processArchive(task)
-        : await Isolate.run(() => _processArchive(task));
+    try {
+      await for (final event in session.events) {
+        switch (event) {
+          case SpAvatarZipWorkerReady(:final stats):
+            latestStats = stats;
+            readyStats = stats;
+            totalCandidates = stats.processableImages;
+            publish(SpAvatarZipProgressPhase.normalizingAndSaving, stats);
 
-    var memberAvatarsUpdated = 0;
-    var systemAvatarUpdated = false;
-    var unmatchedImages = processing.unmatchedImages;
-    final warnings = List<String>.from(processing.warnings);
+          case SpAvatarZipWorkerChunk():
+            latestStats = event.stats;
+            try {
+              final memberBytes = <String, Uint8List>{};
+              SpAvatarZipChunkDescriptor? systemDescriptor;
+              for (final descriptor in event.descriptors) {
+                switch (descriptor.targetKind) {
+                  case SpAvatarZipTargetKind.member:
+                    memberBytes[descriptor.targetId] = event.bytesFor(
+                      descriptor,
+                    );
+                  case SpAvatarZipTargetKind.system:
+                    systemDescriptor = descriptor;
+                }
+              }
 
-    for (final image in processing.processed) {
-      if (systemId != null && systemId.isNotEmpty && image.spId == systemId) {
-        if (settingsRepo != null) {
-          await settingsRepo.updateSystemAvatarData(image.normalized);
-          systemAvatarUpdated = true;
+              if (memberBytes.isNotEmpty) {
+                final result = await avatarBatchWriter
+                    .applyNormalizedAvatarBatch(memberBytes);
+                updatedIds.addAll(result.updatedMemberIds);
+                unchangedIds.addAll(result.unchangedMemberIds);
+                missingIds.addAll(result.missingOrDeletedMemberIds);
+              }
+
+              if (systemDescriptor != null) {
+                if (settingsRepo == null) {
+                  warnings.add(
+                    'Skipped the system avatar because system settings were '
+                    'unavailable.',
+                  );
+                } else {
+                  try {
+                    final candidate = event.bytesFor(systemDescriptor);
+                    final existing =
+                        (await settingsRepo.getSettings()).systemAvatarData;
+                    if (!_byteListsEqual(existing, candidate)) {
+                      await settingsRepo.updateSystemAvatarData(candidate);
+                    }
+                    // Idempotent retries still suppress remote fallback.
+                    systemAvatarUpdated = true;
+                  } catch (_) {
+                    warnings.add('Could not save the system avatar from ZIP.');
+                  }
+                }
+              }
+
+              processedDescriptors += event.descriptors.length;
+              committedChunks++;
+              publish(
+                SpAvatarZipProgressPhase.normalizingAndSaving,
+                event.stats,
+              );
+              session.acknowledge(event.sequence);
+            } catch (_, stack) {
+              if (committedChunks == 0) {
+                Error.throwWithStackTrace(
+                  StateError('Could not save avatar images from ZIP.'),
+                  stack,
+                );
+              }
+              completion = SpAvatarZipImportCompletion.partial;
+              warnings.add(
+                'Avatar ZIP stopped after saving ${updatedIds.length} of '
+                '$totalCandidates matched images: could not save an avatar '
+                'batch.',
+              );
+              session.cancel('avatar batch persistence failed');
+              terminalReceived = true;
+            }
+
+          case SpAvatarZipWorkerComplete(:final stats):
+            latestStats = stats;
+            terminalReceived = true;
+
+          case SpAvatarZipWorkerFailed():
+            latestStats = event.stats;
+            terminalReceived = true;
+            if (completion == SpAvatarZipImportCompletion.partial) break;
+            if (committedChunks == 0) throw _exceptionForFailure(event);
+            completion = SpAvatarZipImportCompletion.partial;
+            warnings.add(
+              'Avatar ZIP stopped after saving ${updatedIds.length} of '
+              '$totalCandidates matched images: ${event.safeMessage}',
+            );
         }
-        continue;
+
+        if (completion == SpAvatarZipImportCompletion.partial &&
+            terminalReceived) {
+          break;
+        }
       }
 
-      final memberId = memberMappings[image.spId];
-      if (memberId == null) {
-        unmatchedImages++;
-        continue;
+      if (!terminalReceived) {
+        throw StateError('Avatar ZIP worker stopped without a result.');
       }
-      if (skipMemberIds.contains(memberId)) {
-        continue;
-      }
-
-      final current = await memberRepo.getMemberById(memberId);
-      if (current == null) {
-        warnings.add('Skipped ZIP image for missing member: ${image.spId}');
-        unmatchedImages++;
-        continue;
-      }
-
-      await memberRepo.updateMember(
-        current.copyWith(avatarImageData: image.normalized),
-      );
-      memberAvatarsUpdated++;
+    } finally {
+      await session.dispose();
     }
 
-    if (processing.imagesFound == 0) {
-      warnings.add('No supported images were found in the avatar ZIP.');
-    } else if (unmatchedImages > 0) {
-      warnings.add(
-        'Skipped $unmatchedImages ZIP image(s) that did not match imported '
-        'Simply Plural members.',
-      );
-    }
-
+    _appendAggregateWarnings(
+      warnings,
+      stats: latestStats,
+      missingMembers: missingIds.length,
+    );
+    aggregateWarningsAppended = true;
     stopwatch.stop();
+    publish(SpAvatarZipProgressPhase.complete, latestStats);
+
     return SpAvatarZipImportResult(
-      entriesScanned: processing.entriesScanned,
-      imagesFound: processing.imagesFound,
-      memberAvatarsUpdated: memberAvatarsUpdated,
+      entriesScanned: latestStats.entriesScanned,
+      imagesFound: latestStats.supportedImages,
+      memberAvatarsUpdated: updatedIds.length,
+      memberIdsUpdated: Set.unmodifiable(updatedIds),
+      memberAvatarsUnchanged: unchangedIds.length,
+      memberIdsUnchanged: Set.unmodifiable(unchangedIds),
+      memberIdsMissingOrDeleted: Set.unmodifiable(missingIds),
       systemAvatarUpdated: systemAvatarUpdated,
-      unmatchedImages: unmatchedImages,
-      warnings: warnings,
+      unmatchedImages: latestStats.unmatchedImages + missingIds.length,
+      warnings: List.unmodifiable(warnings),
       duration: stopwatch.elapsed,
+      completion: completion,
     );
   }
 
@@ -196,146 +392,84 @@ class SpAvatarZipImporter {
     final mappings = <String, String>{};
     final rows = await spImportDao.getAllMappings();
     for (final row in rows) {
-      if (row.entityType == 'member') {
-        mappings[row.spId] = row.prismId;
-      }
+      if (row.entityType == 'member') mappings[row.spId] = row.prismId;
     }
     return mappings;
   }
 }
 
-class _ZipProcessingInput {
-  final String? filePath;
-  final Uint8List? bytes;
+const _initialScanningProgress = SpAvatarZipProgress(
+  phase: SpAvatarZipProgressPhase.scanning,
+  processedCandidates: 0,
+  totalCandidates: 0,
+  committedMemberUpdates: 0,
+  skippedImages: 0,
+  warningCount: 0,
+);
 
-  const _ZipProcessingInput({required this.filePath, required this.bytes});
-}
-
-class _ZipProcessingTask {
-  final _ZipProcessingInput input;
-  final Set<String> targetSpIds;
-  final int maxImageBytes;
-
-  const _ZipProcessingTask({
-    required this.input,
-    required this.targetSpIds,
-    required this.maxImageBytes,
-  });
-}
-
-class _ProcessedImage {
-  final String spId;
-  final Uint8List normalized;
-
-  const _ProcessedImage(this.spId, this.normalized);
-}
-
-class _ZipProcessingOutput {
-  final List<_ProcessedImage> processed;
-  final List<String> warnings;
-  final int entriesScanned;
-  final int imagesFound;
-  final int unmatchedImages;
-
-  const _ZipProcessingOutput({
-    required this.processed,
-    required this.warnings,
-    required this.entriesScanned,
-    required this.imagesFound,
-    required this.unmatchedImages,
-  });
-}
-
-Future<_ZipProcessingOutput> _processArchive(_ZipProcessingTask task) async {
-  Uint8List bytes;
-  final input = task.input;
-  if (input.bytes != null) {
-    bytes = input.bytes!;
-  } else if (input.filePath != null) {
-    bytes = await File(input.filePath!).readAsBytes();
-  } else {
-    throw const FormatException('Could not read avatar ZIP: no source bytes');
+bool _byteListsEqual(Uint8List? first, Uint8List second) {
+  if (first == null || first.length != second.length) return false;
+  for (var i = 0; i < first.length; i++) {
+    if (first[i] != second[i]) return false;
   }
-
-  final archive = _decodeZipBytes(bytes);
-
-  final processed = <_ProcessedImage>[];
-  final warnings = <String>[];
-  var entriesScanned = 0;
-  var imagesFound = 0;
-  var unmatchedImages = 0;
-
-  for (final entry in archive.files) {
-    entriesScanned++;
-    if (!entry.isFile) continue;
-
-    final fileName = p.posix.basename(entry.name.replaceAll('\\', '/'));
-    final extension = p.posix.extension(fileName).toLowerCase();
-    if (!_supportedImageExtensions.contains(extension)) continue;
-
-    imagesFound++;
-    final spId = p.posix.basenameWithoutExtension(fileName).trim();
-    if (spId.isEmpty) {
-      unmatchedImages++;
-      continue;
-    }
-
-    if (entry.size > task.maxImageBytes) {
-      warnings.add('Skipped oversized ZIP image: $fileName');
-      continue;
-    }
-
-    // Skip the expensive decompress + decode for ids the caller has no
-    // destination for. Without this, a system with 5 mapped members would
-    // still pay full image decode cost for every other photo in the zip.
-    if (!task.targetSpIds.contains(spId)) {
-      unmatchedImages++;
-      continue;
-    }
-
-    final raw = entry.readBytes();
-    if (raw == null || raw.isEmpty) {
-      warnings.add('Skipped empty ZIP image: $fileName');
-      continue;
-    }
-    if (raw.length > task.maxImageBytes) {
-      warnings.add('Skipped oversized ZIP image: $fileName');
-      continue;
-    }
-
-    Uint8List? normalized;
-    try {
-      normalized = AvatarNormalizer.normalize(raw);
-    } catch (_) {
-      warnings.add('Skipped unsupported ZIP image: $fileName');
-      continue;
-    }
-
-    if (normalized == null) continue;
-    processed.add(_ProcessedImage(spId, normalized));
-  }
-
-  return _ZipProcessingOutput(
-    processed: processed,
-    warnings: warnings,
-    entriesScanned: entriesScanned,
-    imagesFound: imagesFound,
-    unmatchedImages: unmatchedImages,
-  );
+  return true;
 }
 
-Archive _decodeZipBytes(Uint8List bytes) {
-  if (bytes.length < 4 || bytes[0] != 0x50 || bytes[1] != 0x4B) {
-    throw const FormatException('Could not read avatar ZIP: invalid ZIP');
-  }
+int _aggregateWarningCategoryCount(
+  SpAvatarZipScanStats stats, {
+  required int missingMembers,
+}) {
+  var count = 0;
+  if (stats.supportedImages == 0) count++;
+  if (stats.unmatchedImages > 0) count++;
+  if (stats.duplicateImages > 0) count++;
+  if (stats.oversizedImages > 0) count++;
+  if (stats.emptyImages > 0) count++;
+  if (stats.invalidImages > 0) count++;
+  if (missingMembers > 0) count++;
+  return count;
+}
 
-  try {
-    return ZipDecoder().decodeBytes(bytes);
-  } on ArchiveException catch (e) {
-    throw FormatException('Could not read avatar ZIP: ${e.message}');
-  } on FormatException {
-    rethrow;
-  } catch (e) {
-    throw FormatException('Could not read avatar ZIP: $e');
+Object _exceptionForFailure(SpAvatarZipWorkerFailed failure) {
+  if (failure.code == 'invalid_zip') {
+    return FormatException(failure.safeMessage);
+  }
+  return StateError(failure.safeMessage);
+}
+
+void _appendAggregateWarnings(
+  List<String> warnings, {
+  required SpAvatarZipScanStats stats,
+  required int missingMembers,
+}) {
+  if (stats.supportedImages == 0) {
+    warnings.add('No supported images were found in the avatar ZIP.');
+  }
+  if (stats.unmatchedImages > 0) {
+    warnings.add(
+      'Skipped ${stats.unmatchedImages} ZIP image(s) that did not match '
+      'available imported '
+      'Simply Plural members.',
+    );
+  }
+  if (stats.duplicateImages > 0) {
+    warnings.add(
+      'Found ${stats.duplicateImages} duplicate ZIP image(s); the last image '
+      'for each Simply Plural id was used.',
+    );
+  }
+  if (stats.oversizedImages > 0) {
+    warnings.add('Skipped ${stats.oversizedImages} oversized ZIP image(s).');
+  }
+  if (stats.emptyImages > 0) {
+    warnings.add('Skipped ${stats.emptyImages} empty ZIP image(s).');
+  }
+  if (stats.invalidImages > 0) {
+    warnings.add('Skipped ${stats.invalidImages} unsupported ZIP image(s).');
+  }
+  if (missingMembers > 0) {
+    warnings.add(
+      'Skipped $missingMembers avatar(s) for missing or deleted members.',
+    );
   }
 }

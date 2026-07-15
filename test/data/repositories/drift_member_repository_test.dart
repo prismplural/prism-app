@@ -63,6 +63,51 @@ class _RacingDao implements MembersDao {
       Function.apply(_delegate.noSuchMethod, [invocation]);
 }
 
+class _AvatarQueryCountingDao implements MembersDao {
+  _AvatarQueryCountingDao(this._delegate);
+
+  final MembersDao _delegate;
+  int metadataReadCount = 0;
+  int blobReadCount = 0;
+  int batchWriteCount = 0;
+  int singleRowReadCount = 0;
+  List<String> lastBlobReadIds = const [];
+  Map<String, Uint8List> lastBatch = const {};
+
+  @override
+  AppDatabase get attachedDatabase => _delegate.attachedDatabase;
+
+  @override
+  Future<List<MemberAvatarMetadata>> getAvatarMetadataByIds(List<String> ids) {
+    metadataReadCount++;
+    return _delegate.getAvatarMetadataByIds(ids);
+  }
+
+  @override
+  Future<Map<String, Uint8List>> getAvatarBytesByIds(List<String> ids) {
+    blobReadCount++;
+    lastBlobReadIds = List.unmodifiable(ids);
+    return _delegate.getAvatarBytesByIds(ids);
+  }
+
+  @override
+  Future<void> batchUpdateAvatars(Map<String, Uint8List> bytesById) {
+    batchWriteCount++;
+    lastBatch = Map.unmodifiable(bytesById);
+    return _delegate.batchUpdateAvatars(bytesById);
+  }
+
+  @override
+  Future<Member?> getMemberByIdRow(String id) {
+    singleRowReadCount++;
+    return _delegate.getMemberByIdRow(id);
+  }
+
+  @override
+  noSuchMethod(Invocation invocation) =>
+      Function.apply(_delegate.noSuchMethod, [invocation]);
+}
+
 void main() {
   late AppDatabase db;
   late MembersDao dao;
@@ -875,6 +920,213 @@ void main() {
         expect(row.displayOrder, 7);
       },
     );
+  });
+
+  group('applyNormalizedAvatarBatch', () {
+    final baseTime = DateTime.utc(2026, 7, 14, 12);
+
+    Future<void> insert({
+      required String id,
+      Uint8List? avatar,
+      bool isDeleted = false,
+    }) {
+      return dao.insertMember(
+        MembersCompanion.insert(
+          id: id,
+          name: id,
+          createdAt: baseTime,
+          avatarImageData: Value(avatar),
+          isDeleted: Value(isDeleted),
+        ),
+      );
+    }
+
+    test(
+      'reports exact updated, unchanged, and missing-or-deleted ids',
+      () async {
+        final unchanged = Uint8List.fromList(const [1, 2, 3]);
+        await insert(id: 'changed', avatar: Uint8List.fromList(const [4]));
+        await insert(id: 'unchanged', avatar: unchanged);
+        await insert(id: 'deleted', isDeleted: true);
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        final result = await repo.applyNormalizedAvatarBatch({
+          'changed': Uint8List.fromList(const [7, 8]),
+          'unchanged': Uint8List.fromList(const [1, 2, 3]),
+          'deleted': Uint8List.fromList(const [9]),
+          'missing': Uint8List.fromList(const [10]),
+        });
+
+        expect(result.requested, 4);
+        expect(result.updatedMemberIds, {'changed'});
+        expect(result.unchangedMemberIds, {'unchanged'});
+        expect(result.missingOrDeletedMemberIds, {'deleted', 'missing'});
+        expect(captured, hasLength(1));
+        expect(captured.single.entityId, 'changed');
+        expect(captured.single.fields.keys, ['avatar_image_data']);
+        expect(
+          captured.single.fields['avatar_image_data'],
+          base64Encode(const [7, 8]),
+        );
+
+        final changed = await dao.getMemberByIdRow('changed');
+        expect(changed!.avatarImageData, orderedEquals(const [7, 8]));
+        final deleted = await dao.getMemberByIdRow('deleted');
+        expect(deleted!.avatarImageData, isNull);
+      },
+    );
+
+    test(
+      'reads metadata once and loads BLOBs only for equal-length candidates',
+      () async {
+        await insert(
+          id: 'different-length',
+          avatar: Uint8List.fromList(List.filled(1024 * 1024, 1)),
+        );
+        await insert(
+          id: 'equal-identical',
+          avatar: Uint8List.fromList(const [2, 3, 4]),
+        );
+        await insert(
+          id: 'equal-different',
+          avatar: Uint8List.fromList(const [5, 6, 7]),
+        );
+
+        final countingDao = _AvatarQueryCountingDao(dao);
+        final countingRepo = DriftMemberRepository(countingDao, null);
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+        final result = await countingRepo.applyNormalizedAvatarBatch({
+          'different-length': Uint8List.fromList(const [8, 9]),
+          'equal-identical': Uint8List.fromList(const [2, 3, 4]),
+          'equal-different': Uint8List.fromList(const [7, 6, 5]),
+        });
+
+        expect(countingDao.metadataReadCount, 1);
+        expect(countingDao.blobReadCount, 1);
+        expect(countingDao.lastBlobReadIds.toSet(), {
+          'equal-identical',
+          'equal-different',
+        });
+        expect(
+          countingDao.lastBlobReadIds,
+          isNot(contains('different-length')),
+        );
+        expect(countingDao.singleRowReadCount, 0);
+        expect(countingDao.batchWriteCount, 1);
+        expect(countingDao.lastBatch.keys.toSet(), {
+          'different-length',
+          'equal-different',
+        });
+        expect(result.updatedMemberIds, {
+          'different-length',
+          'equal-different',
+        });
+        expect(result.unchangedMemberIds, {'equal-identical'});
+        expect(captured.map((op) => op.entityId).toSet(), {
+          'different-length',
+          'equal-different',
+        });
+      },
+    );
+
+    test('rolls back avatar writes when sync capture fails', () async {
+      await insert(id: 'a', avatar: Uint8List.fromList(const [1]));
+      await insert(id: 'b', avatar: Uint8List.fromList(const [2]));
+
+      SyncRecordMixin.installCaptureSinkForTesting((_) {
+        throw StateError('injected capture failure');
+      });
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+
+      await expectLater(
+        repo.applyNormalizedAvatarBatch({
+          'a': Uint8List.fromList(const [3]),
+          'b': Uint8List.fromList(const [4]),
+        }),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(
+        (await dao.getMemberByIdRow('a'))!.avatarImageData,
+        orderedEquals(const [1]),
+      );
+      expect(
+        (await dao.getMemberByIdRow('b'))!.avatarImageData,
+        orderedEquals(const [2]),
+      );
+    });
+
+    test('raw avatar batches delegate without per-member row reads', () async {
+      await insert(id: 'a');
+      await insert(id: 'b');
+      final countingDao = _AvatarQueryCountingDao(dao);
+      final countingRepo = DriftMemberRepository(countingDao, null);
+
+      final source = img.Image(width: 8, height: 8);
+      img.fill(source, color: img.ColorRgb8(20, 40, 60));
+      final rawBytes = Uint8List.fromList(img.encodePng(source));
+
+      await countingRepo.batchUpdateAvatars([
+        domain.Member(
+          id: 'a',
+          name: 'a',
+          createdAt: baseTime,
+          avatarImageData: rawBytes,
+        ),
+        domain.Member(
+          id: 'b',
+          name: 'b',
+          createdAt: baseTime,
+          avatarImageData: rawBytes,
+        ),
+      ]);
+
+      expect(countingDao.singleRowReadCount, 0);
+      expect(countingDao.metadataReadCount, 1);
+      expect(countingDao.batchWriteCount, 1);
+      expect((await dao.getMemberByIdRow('a'))!.avatarImageData, isNotNull);
+      expect((await dao.getMemberByIdRow('b'))!.avatarImageData, isNotNull);
+    });
+
+    test('enforces 32-item writes and chunks larger raw batches', () async {
+      final source = img.Image(width: 2, height: 2);
+      img.fill(source, color: img.ColorRgb8(80, 90, 100));
+      final rawBytes = Uint8List.fromList(img.encodePng(source));
+      final normalizedBytes = encodeAvatarOutputForStorage(rawBytes);
+
+      await expectLater(
+        repo.applyNormalizedAvatarBatch({
+          for (var i = 0; i < 33; i++) 'missing-$i': normalizedBytes,
+        }),
+        throwsArgumentError,
+      );
+
+      for (var i = 0; i < 33; i++) {
+        await insert(id: 'member-$i');
+      }
+      final countingDao = _AvatarQueryCountingDao(dao);
+      final countingRepo = DriftMemberRepository(countingDao, null);
+
+      await countingRepo.batchUpdateAvatars([
+        for (var i = 0; i < 33; i++)
+          domain.Member(
+            id: 'member-$i',
+            name: 'member-$i',
+            createdAt: baseTime,
+            avatarImageData: rawBytes,
+          ),
+      ]);
+
+      expect(countingDao.metadataReadCount, 2);
+      expect(countingDao.batchWriteCount, 2);
+      expect(countingDao.singleRowReadCount, 0);
+    });
   });
 
   group('updateMemberFields (keyed patch entry point)', () {
@@ -1692,8 +1944,9 @@ void main() {
 
         expect(dispatched, contains('delete:members/m1'));
         expect(
-          (await db.syncOutboxDao.allInIdOrder())
-              .where((r) => r.entityTable == 'members'),
+          (await db.syncOutboxDao.allInIdOrder()).where(
+            (r) => r.entityTable == 'members',
+          ),
           isEmpty,
         );
       },

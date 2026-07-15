@@ -4,6 +4,18 @@ import 'package:prism_plurality/core/database/tables/members_table.dart';
 
 part 'members_dao.g.dart';
 
+final class MemberAvatarMetadata {
+  const MemberAvatarMetadata({
+    required this.id,
+    required this.isDeleted,
+    required this.avatarByteLength,
+  });
+
+  final String id;
+  final bool isDeleted;
+  final int? avatarByteLength;
+}
+
 @DriftAccessor(tables: [Members])
 class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
   MembersDao(super.db);
@@ -427,6 +439,54 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
         );
       }
     });
+  }
+
+  Future<List<MemberAvatarMetadata>> getAvatarMetadataByIds(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return const [];
+
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    final rows = await customSelect(
+      '''
+      SELECT id, is_deleted, LENGTH(avatar_image_data) AS avatar_byte_length
+      FROM members
+      WHERE id IN ($placeholders)
+      ''',
+      variables: ids.map(Variable.withString).toList(growable: false),
+      readsFrom: {members},
+    ).get();
+
+    return [
+      for (final row in rows)
+        MemberAvatarMetadata(
+          id: row.read<String>('id'),
+          isDeleted: row.read<bool>('is_deleted'),
+          avatarByteLength: row.read<int?>('avatar_byte_length'),
+        ),
+    ];
+  }
+
+  Future<Map<String, Uint8List>> getAvatarBytesByIds(List<String> ids) async {
+    if (ids.isEmpty) return const {};
+
+    final placeholders = List.filled(ids.length, '?').join(', ');
+    final rows = await customSelect(
+      '''
+      SELECT id, avatar_image_data
+      FROM members
+      WHERE id IN ($placeholders) AND is_deleted = 0
+      ''',
+      variables: ids.map(Variable.withString).toList(growable: false),
+      readsFrom: {members},
+    ).get();
+
+    final result = <String, Uint8List>{};
+    for (final row in rows) {
+      final bytes = row.read<Uint8List?>('avatar_image_data');
+      if (bytes != null) result[row.read<String>('id')] = bytes;
+    }
+    return result;
   }
 
   Future<void> softDeleteMember(String id) =>

@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -461,9 +461,8 @@ class _FakeConversationRepository implements ConversationRepository {
 /// members loop (pre-resolve existing-member/tombstone detection), so that's
 /// the durable failure-injection point that survives later batching changes.
 class _ThrowingMemberRepository implements MemberRepository {
-  
   Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
-  
+
   Future<void> clearCreatePushStartedAt(String id) async {}
   _ThrowingMemberRepository(this._inner);
   final MemberRepository _inner;
@@ -829,6 +828,8 @@ Future<String> _writeAvatarZip(Map<String, Uint8List> files) async {
 // =============================================================================
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   // ---------------------------------------------------------------------------
   // Happy path
   // ---------------------------------------------------------------------------
@@ -1560,8 +1561,23 @@ void main() {
     });
 
     test(
-      'avatar ZIP overwrites remote avatar bytes when both are present',
+      'avatar ZIP skips redundant remote avatar fetch when both are present',
       () async {
+        const pathProviderChannel = MethodChannel(
+          'plugins.flutter.io/path_provider',
+        );
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(pathProviderChannel, (call) async {
+              if (call.method == 'getTemporaryDirectory') return '/tmp';
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(pathProviderChannel, null),
+        );
+
         const avatarUrl = 'https://example.com/avatar.png';
         // Phase 6 switched these tests to the real `DriftMemberRepository`
         // (see comment below). Drift's avatar normalize step decodes the
@@ -1571,6 +1587,7 @@ void main() {
         final remoteBytes = _jpegBytes(10, 20, 30);
         final zipBytes = _jpegBytes(220, 20, 20);
         final zipPath = await _writeAvatarZip({'sp-a.jpg': zipBytes});
+        final zipArchiveBytes = await File(zipPath).readAsBytes();
 
         final client = _FakeHttpClient();
         client.stubUrl(
@@ -1600,6 +1617,8 @@ void main() {
         // reads from the same DB the batch wrote to.
         final memberRepo = DriftMemberRepository(db.membersDao, null);
         final importer = SpImporter(httpClient: client);
+        final progressEvents = <({int current, int total, String label})>[];
+        var sourceReadyCalls = 0;
 
         final result = await importer.executeImport(
           db: db,
@@ -1611,15 +1630,113 @@ void main() {
           pollRepo: _FakePollRepository(),
           spImportDao: db.spImportDao,
           downloadAvatars: true,
-          avatarZipPath: zipPath,
+          avatarZipBytes: zipArchiveBytes,
+          onAvatarZipSourceReady: () => sourceReadyCalls++,
+          onProgress: (current, total, label) {
+            progressEvents.add((current: current, total: total, label: label));
+          },
         );
 
         final imported = (await memberRepo.getAllMembers()).single;
-        expect(result.avatarsDownloaded, 1);
+        expect(result.avatarsDownloaded, 0);
         expect(result.avatarsImportedFromZip, 1);
+        expect(sourceReadyCalls, 1);
+        expect(client.calls, isNot(contains(avatarUrl)));
         expect(imported.avatarImageData, zipBytes);
+        expect(
+          progressEvents,
+          contains((current: 1, total: 1, label: 'Importing avatar ZIP...')),
+        );
+
+        // Idempotent ZIP retries must still suppress remote fallback.
+        final retryProgress = <({int current, int total, String label})>[];
+        final retryResult = await importer.executeImport(
+          db: db,
+          data: data,
+          memberRepo: memberRepo,
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          spImportDao: db.spImportDao,
+          downloadAvatars: true,
+          avatarZipBytes: zipArchiveBytes,
+          onAvatarZipSourceReady: () => sourceReadyCalls++,
+          onProgress: (current, total, label) {
+            retryProgress.add((current: current, total: total, label: label));
+          },
+        );
+
+        expect(retryResult.avatarsImportedFromZip, 0);
+        expect(sourceReadyCalls, 2);
+        expect(retryResult.avatarsDownloaded, 0);
+        expect(client.calls, isEmpty);
+        expect(
+          retryProgress,
+          contains((current: 1, total: 1, label: 'Avatar ZIP imported')),
+        );
       },
     );
+
+    test('avatar ZIP skips redundant remote system avatar fetch', () async {
+      const avatarUrl = 'https://example.com/system-avatar.png';
+      final remoteBytes = _jpegBytes(10, 20, 30);
+      final zipBytes = _jpegBytes(220, 20, 20);
+      final zipPath = await _writeAvatarZip({'sp-system.jpg': zipBytes});
+
+      final client = _FakeHttpClient();
+      client.stubUrl(
+        avatarUrl,
+        http.Response.bytes(
+          remoteBytes,
+          200,
+          headers: {'content-type': 'image/png'},
+        ),
+      );
+
+      const data = SpExportData(
+        members: [],
+        customFronts: [],
+        frontHistory: [],
+        groups: [],
+        channels: [],
+        messages: [],
+        polls: [],
+        systemId: 'sp-system',
+        systemAvatarUrl: avatarUrl,
+      );
+
+      final db = _makeDb();
+      addTearDown(db.close);
+      final settingsRepo = FakeSystemSettingsRepository();
+      final progressEvents = <({int current, int total, String label})>[];
+
+      final result = await SpImporter(httpClient: client).executeImport(
+        db: db,
+        data: data,
+        memberRepo: DriftMemberRepository(db.membersDao, null),
+        sessionRepo: _FakeSessionRepository(),
+        conversationRepo: _FakeConversationRepository(),
+        messageRepo: _FakeChatMessageRepository(),
+        pollRepo: _FakePollRepository(),
+        settingsRepo: settingsRepo,
+        spImportDao: db.spImportDao,
+        downloadAvatars: true,
+        avatarZipPath: zipPath,
+        onProgress: (current, total, label) {
+          progressEvents.add((current: current, total: total, label: label));
+        },
+      );
+
+      expect(result.systemAvatarDownloaded, isFalse);
+      expect(result.systemAvatarImportedFromZip, isTrue);
+      expect(client.calls, isNot(contains(avatarUrl)));
+      expect(settingsRepo.settings.systemAvatarData, zipBytes);
+      expect(
+        progressEvents,
+        contains((current: 1, total: 1, label: 'Avatar ZIP imported')),
+      );
+    });
 
     test(
       'explicit linked member keeps local avatar and imports dependent data',

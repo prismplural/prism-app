@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
@@ -24,9 +25,14 @@ import 'package:prism_plurality/domain/models/conversation.dart'
     as conversation_domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/domain/repositories/normalized_avatar_batch_writer.dart';
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 
-class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
+class DriftMemberRepository
+    with SyncRecordMixin
+    implements MemberRepository, NormalizedAvatarBatchWriter {
+  static const int _maxNormalizedAvatarBatchSize = 32;
+
   final MembersDao _dao;
   final ffi.PrismSyncHandle? _syncHandle;
   // Plan 02 R1: optional — when wired, `deleteMember` stamps the current PK
@@ -400,44 +406,106 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
       for (final member in membersWithBytes) member.avatarImageData,
     ]);
 
-    // The DAO writes ONLY `avatar_image_data` for each row (see
-    // `MembersDao.batchUpdateAvatars`). Emit a one-field patch per member
-    // to match what the DAO actually persists. Going through the full
-    // `_memberFields` diff would surface any stale non-avatar field from
-    // the supplied domain object (timezone offset, display order, anything
-    // bumped on another device between the caller's read and this write)
-    // and emit it as a phantom edit — local DB stays correct, but peers
-    // would clobber on those stale columns.
     final bytesById = <String, Uint8List>{};
-    final normalizedIds = <String>[];
     for (var i = 0; i < membersWithBytes.length; i++) {
       final member = membersWithBytes[i];
       final bytes = normalized[i];
       if (bytes == null) continue;
-
-      final existingRow = await _dao.getMemberByIdRow(member.id);
-      if (existingRow == null || existingRow.isDeleted) continue;
-
-      // Skip rows where the stored avatar already matches — no local write,
-      // no sync emission.
-      final encoded = base64Encode(bytes);
-      if (existingRow.avatarImageData != null &&
-          base64Encode(existingRow.avatarImageData!) == encoded) {
-        continue;
-      }
-
       bytesById[member.id] = bytes;
-      normalizedIds.add(member.id);
     }
-    if (bytesById.isEmpty) return;
 
-    await runSyncedWrite(() async {
-      await _dao.batchUpdateAvatars(bytesById);
-      for (final id in normalizedIds) {
-        await syncRecordUpdate(_table, id, {
-          'avatar_image_data': base64Encode(bytesById[id]!),
-        });
+    final entries = bytesById.entries.toList(growable: false);
+    for (
+      var start = 0;
+      start < entries.length;
+      start += _maxNormalizedAvatarBatchSize
+    ) {
+      final end = min(start + _maxNormalizedAvatarBatchSize, entries.length);
+      await applyNormalizedAvatarBatch({
+        for (final entry in entries.sublist(start, end)) entry.key: entry.value,
+      });
+    }
+  }
+
+  @override
+  Future<NormalizedAvatarBatchResult> applyNormalizedAvatarBatch(
+    Map<String, Uint8List> bytesByMemberId,
+  ) async {
+    if (bytesByMemberId.length > _maxNormalizedAvatarBatchSize) {
+      throw ArgumentError.value(
+        bytesByMemberId.length,
+        'bytesByMemberId',
+        'must contain at most $_maxNormalizedAvatarBatchSize avatars',
+      );
+    }
+    if (bytesByMemberId.isEmpty) {
+      return NormalizedAvatarBatchResult(
+        requested: 0,
+        updatedMemberIds: const [],
+        unchangedMemberIds: const [],
+        missingOrDeletedMemberIds: const [],
+      );
+    }
+
+    return runSyncedWrite(() async {
+      final ids = bytesByMemberId.keys.toList(growable: false);
+      final metadata = await _dao.getAvatarMetadataByIds(ids);
+      final foundIds = metadata.map((row) => row.id).toSet();
+      final missingOrDeletedIds = <String>{
+        for (final id in ids)
+          if (!foundIds.contains(id)) id,
+      };
+      final changedIds = <String>{};
+      final equalLengthIds = <String>[];
+
+      for (final row in metadata) {
+        if (row.isDeleted) {
+          missingOrDeletedIds.add(row.id);
+          continue;
+        }
+        final candidate = bytesByMemberId[row.id]!;
+        if (row.avatarByteLength == candidate.length) {
+          equalLengthIds.add(row.id);
+        } else {
+          changedIds.add(row.id);
+        }
       }
+
+      final unchangedIds = <String>{};
+      if (equalLengthIds.isNotEmpty) {
+        final storedBytes = await _dao.getAvatarBytesByIds(equalLengthIds);
+        for (final id in equalLengthIds) {
+          final existing = storedBytes[id];
+          if (existing == null) {
+            missingOrDeletedIds.add(id);
+          } else if (listEquals(existing, bytesByMemberId[id]!)) {
+            unchangedIds.add(id);
+          } else {
+            changedIds.add(id);
+          }
+        }
+      }
+
+      final changedBytes = <String, Uint8List>{
+        for (final id in ids)
+          if (changedIds.contains(id)) id: bytesByMemberId[id]!,
+      };
+      if (changedBytes.isNotEmpty) {
+        await _dao.batchUpdateAvatars(changedBytes);
+        for (final entry in changedBytes.entries) {
+          final encoded = base64Encode(entry.value);
+          await syncRecordUpdate(_table, entry.key, {
+            'avatar_image_data': encoded,
+          });
+        }
+      }
+
+      return NormalizedAvatarBatchResult(
+        requested: bytesByMemberId.length,
+        updatedMemberIds: changedBytes.keys,
+        unchangedMemberIds: unchangedIds,
+        missingOrDeletedMemberIds: missingOrDeletedIds,
+      );
     });
   }
 
