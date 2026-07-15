@@ -18359,6 +18359,12 @@ abstract class AppLocalizations {
   /// **'Matching ZIP images to existing Simply Plural imports.'**
   String get spAvatarZipImportingDescription;
 
+  /// Commit-aware avatar ZIP import progress
+  ///
+  /// In en, this message translates to:
+  /// **'Processed {processed} of {total} matching photos'**
+  String spAvatarZipProgress(int processed, int total);
+
   /// No description provided for @spAvatarZipNoMatchesTitle.
   ///
   /// In en, this message translates to:
@@ -18370,6 +18376,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Photos updated'**
   String get spAvatarZipCompleteTitle;
+
+  /// No description provided for @spAvatarZipPartialTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Some photos need attention'**
+  String get spAvatarZipPartialTitle;
+
+  /// No description provided for @spAvatarZipPartialMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Prism saved every photo it could. Review the details below or retry the ZIP.'**
+  String get spAvatarZipPartialMessage;
 
   /// No description provided for @spAvatarZipNoMatchesMessage.
   ///

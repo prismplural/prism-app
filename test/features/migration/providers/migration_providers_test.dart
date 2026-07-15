@@ -17,6 +17,36 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
+  group('ImporterNotifier avatar ZIP selection', () {
+    test(
+      'native handle stores a path without reading whole ZIP bytes',
+      () async {
+        var readAsBytesCalled = false;
+        final container = ProviderContainer(
+          overrides: [
+            prismFileDialogServiceProvider.overrideWithValue(
+              _PathPrismFileDialogService(
+                onReadAsBytes: () {
+                  readAsBytesCalled = true;
+                  throw StateError('native ZIP bytes should not be read');
+                },
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(importerProvider.notifier).selectAvatarZipFile();
+
+        final state = container.read(importerProvider);
+        expect(state.avatarZipPath, '/tmp/sp-avatars.zip');
+        expect(state.avatarZipName, 'sp-avatars.zip');
+        expect(state.avatarZipBytes, isNull);
+        expect(readAsBytesCalled, isFalse);
+      },
+    );
+  });
+
   group('ImporterNotifier member matching', () {
     test('skips member matching during onboarding', () async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -148,6 +178,43 @@ void main() {
       );
     });
   });
+}
+
+class _PathPrismFileDialogService implements PrismFileDialogService {
+  const _PathPrismFileDialogService({required this.onReadAsBytes});
+
+  final Uint8List Function() onReadAsBytes;
+
+  @override
+  Future<PickedFileHandle?> pickFile({
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+  }) async {
+    expect(allowedExtensions, ['zip']);
+    return PickedFileHandle(
+      name: 'sp-avatars.zip',
+      path: '/tmp/sp-avatars.zip',
+      readAsBytes: () async => onReadAsBytes(),
+      openRead: null,
+    );
+  }
+
+  @override
+  Future<PickedFileHandle?> pickImageFile({String? dialogTitle}) async => null;
+
+  @override
+  Future<SaveFileOutcome> saveBytes({
+    required Uint8List bytes,
+    required String suggestedName,
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+    String? mimeType,
+  }) async => const SaveFileOutcome(status: SaveFileStatus.unsupported);
+
+  @override
+  Future<SaveFileOutcome> saveExistingFile(
+    ExistingFileSaveRequest request,
+  ) async => const SaveFileOutcome(status: SaveFileStatus.unsupported);
 }
 
 ProviderContainer _containerFor({

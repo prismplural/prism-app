@@ -473,6 +473,12 @@ class ImporterNotifier extends Notifier<MigrationState> {
             progressLabel: label,
           );
         },
+        onAvatarZipSourceReady: () {
+          // Release duplicate bytes after the worker flushes its private copy.
+          if (state.avatarZipBytes != null) {
+            state = state.copyWith(avatarZipBytes: null);
+          }
+        },
       );
 
       // Mark that an SP import has been completed.

@@ -11629,11 +11629,23 @@ class AppLocalizationsEs extends AppLocalizations {
       'Asociando imágenes del ZIP con importaciones existentes de Simply Plural.';
 
   @override
+  String spAvatarZipProgress(int processed, int total) {
+    return 'Se procesaron $processed de $total fotos coincidentes';
+  }
+
+  @override
   String get spAvatarZipNoMatchesTitle =>
       'No se encontraron fotos coincidentes';
 
   @override
   String get spAvatarZipCompleteTitle => 'Fotos actualizadas';
+
+  @override
+  String get spAvatarZipPartialTitle => 'Algunas fotos necesitan atención';
+
+  @override
+  String get spAvatarZipPartialMessage =>
+      'Prism guardó todas las fotos que pudo. Revisa los detalles a continuación o vuelve a intentar con el ZIP.';
 
   @override
   String get spAvatarZipNoMatchesMessage =>

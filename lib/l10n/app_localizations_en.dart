@@ -11437,10 +11437,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Matching ZIP images to existing Simply Plural imports.';
 
   @override
+  String spAvatarZipProgress(int processed, int total) {
+    return 'Processed $processed of $total matching photos';
+  }
+
+  @override
   String get spAvatarZipNoMatchesTitle => 'No matching photos found';
 
   @override
   String get spAvatarZipCompleteTitle => 'Photos updated';
+
+  @override
+  String get spAvatarZipPartialTitle => 'Some photos need attention';
+
+  @override
+  String get spAvatarZipPartialMessage =>
+      'Prism saved every photo it could. Review the details below or retry the ZIP.';
 
   @override
   String get spAvatarZipNoMatchesMessage =>

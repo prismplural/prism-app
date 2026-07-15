@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
+import 'package:prism_plurality/domain/repositories/normalized_avatar_batch_writer.dart';
 import 'package:prism_plurality/features/migration/services/sp_avatar_zip_importer.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -12,7 +13,11 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
-enum _AvatarZipSheetState { idle, importing, complete, error }
+final spAvatarZipImporterProvider = Provider<SpAvatarZipImporter>(
+  (ref) => SpAvatarZipImporter(),
+);
+
+enum _AvatarZipSheetState { idle, importing, complete, partial, error }
 
 class SpAvatarZipImportSheet extends ConsumerStatefulWidget {
   const SpAvatarZipImportSheet({super.key, this.scrollController});
@@ -28,6 +33,7 @@ class _SpAvatarZipImportSheetState
     extends ConsumerState<SpAvatarZipImportSheet> {
   _AvatarZipSheetState _state = _AvatarZipSheetState.idle;
   SpAvatarZipImportResult? _result;
+  SpAvatarZipProgress? _progress;
   String? _error;
 
   Future<void> _pickAndImport() async {
@@ -38,27 +44,47 @@ class _SpAvatarZipImportSheetState
 
     setState(() {
       _state = _AvatarZipSheetState.importing;
+      _result = null;
+      _progress = null;
       _error = null;
     });
 
     try {
-      final importer = SpAvatarZipImporter();
+      final importer = ref.read(spAvatarZipImporterProvider);
+      final memberRepo = ref.read(memberRepositoryProvider);
+      if (memberRepo is! NormalizedAvatarBatchWriter) {
+        throw StateError(
+          'Avatar ZIP imports require the Drift member repository.',
+        );
+      }
+      final avatarBatchWriter = memberRepo as NormalizedAvatarBatchWriter;
+      void onProgress(SpAvatarZipProgress progress) {
+        if (!mounted) return;
+        setState(() => _progress = progress);
+      }
+
       final result = handle.path == null
           ? await importer.importZipFileBytes(
               bytes: await handle.readAsBytes(),
-              memberRepo: ref.read(memberRepositoryProvider),
+              memberRepo: memberRepo,
+              avatarBatchWriter: avatarBatchWriter,
               settingsRepo: ref.read(systemSettingsRepositoryProvider),
               spImportDao: ref.read(databaseProvider).spImportDao,
+              onProgress: onProgress,
             )
           : await importer.importZipFile(
               filePath: handle.path!,
-              memberRepo: ref.read(memberRepositoryProvider),
+              memberRepo: memberRepo,
+              avatarBatchWriter: avatarBatchWriter,
               settingsRepo: ref.read(systemSettingsRepositoryProvider),
               spImportDao: ref.read(databaseProvider).spImportDao,
+              onProgress: onProgress,
             );
       if (!mounted) return;
       setState(() {
-        _state = _AvatarZipSheetState.complete;
+        _state = result.completion == SpAvatarZipImportCompletion.complete
+            ? _AvatarZipSheetState.complete
+            : _AvatarZipSheetState.partial;
         _result = result;
       });
     } catch (e) {
@@ -85,7 +111,14 @@ class _SpAvatarZipImportSheetState
             child: switch (_state) {
               _AvatarZipSheetState.idle => _buildIdle(theme),
               _AvatarZipSheetState.importing => _buildImporting(theme),
-              _AvatarZipSheetState.complete => _buildComplete(theme),
+              _AvatarZipSheetState.complete => _buildComplete(
+                theme,
+                partial: false,
+              ),
+              _AvatarZipSheetState.partial => _buildComplete(
+                theme,
+                partial: true,
+              ),
               _AvatarZipSheetState.error => _buildError(theme),
             },
           ),
@@ -127,6 +160,7 @@ class _SpAvatarZipImportSheetState
   }
 
   Widget _buildImporting(ThemeData theme) {
+    final progress = _progress;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -139,7 +173,12 @@ class _SpAvatarZipImportSheetState
         ),
         const SizedBox(height: 8),
         Text(
-          context.l10n.spAvatarZipImportingDescription,
+          progress != null && progress.totalCandidates > 0
+              ? context.l10n.spAvatarZipProgress(
+                  progress.processedCandidates,
+                  progress.totalCandidates,
+                )
+              : context.l10n.spAvatarZipImportingDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -149,7 +188,7 @@ class _SpAvatarZipImportSheetState
     );
   }
 
-  Widget _buildComplete(ThemeData theme) {
+  Widget _buildComplete(ThemeData theme, {required bool partial}) {
     final result = _result!;
     final noUpdates = result.totalUpdated == 0;
 
@@ -159,7 +198,9 @@ class _SpAvatarZipImportSheetState
         Icon(AppIcons.checkCircleOutline, size: 48, color: Colors.green),
         const SizedBox(height: 16),
         Text(
-          noUpdates
+          partial
+              ? context.l10n.spAvatarZipPartialTitle
+              : noUpdates
               ? context.l10n.spAvatarZipNoMatchesTitle
               : context.l10n.spAvatarZipCompleteTitle,
           style: theme.textTheme.titleMedium?.copyWith(
@@ -168,7 +209,9 @@ class _SpAvatarZipImportSheetState
         ),
         const SizedBox(height: 12),
         Text(
-          noUpdates
+          partial
+              ? context.l10n.spAvatarZipPartialMessage
+              : noUpdates
               ? context.l10n.spAvatarZipNoMatchesMessage
               : context.l10n.spAvatarZipUpdatedMessage(
                   result.memberAvatarsUpdated,
@@ -224,6 +267,16 @@ class _SpAvatarZipImportSheetState
           ),
         ],
         const SizedBox(height: 24),
+        if (partial) ...[
+          PrismButton(
+            onPressed: _pickAndImport,
+            icon: AppIcons.refresh,
+            label: context.l10n.tryAgain,
+            tone: PrismButtonTone.outlined,
+            expanded: true,
+          ),
+          const SizedBox(height: 12),
+        ],
         PrismButton(
           onPressed: () => Navigator.of(context).maybePop(),
           label: context.l10n.done,
