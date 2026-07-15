@@ -291,6 +291,7 @@ void main() {
       'editing a session does not collapse touching same-member rows into one session',
       (tester) async {
         final db = appdb.AppDatabase(NativeDatabase.memory());
+        addTearDown(() async => db.close());
         final repo = DriftFrontingSessionRepository(
           db.frontingSessionsDao,
           null,
@@ -375,7 +376,7 @@ void main() {
           await tester.pump();
           container.dispose();
           await tester.pump();
-          await db.close();
+          await tester.pump(const Duration(milliseconds: 1));
         }
       },
     );
@@ -384,6 +385,7 @@ void main() {
       'saving trims same-member overlaps instead of persisting them',
       (tester) async {
         final db = appdb.AppDatabase(NativeDatabase.memory());
+        addTearDown(() async => db.close());
         final repo = DriftFrontingSessionRepository(
           db.frontingSessionsDao,
           null,
@@ -468,7 +470,7 @@ void main() {
           await tester.pump();
           container.dispose();
           await tester.pump();
-          await db.close();
+          await tester.pump(const Duration(milliseconds: 1));
         }
       },
     );
