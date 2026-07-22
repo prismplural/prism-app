@@ -53,7 +53,7 @@ Suggested checks:
 
 ```bash
 flutter test test/path/to/focused_test.dart
-flutter analyze
+flutter analyze --no-fatal-infos
 ```
 
 Add manual verification steps for gestures, platform behavior, or visual polish.
@@ -127,7 +127,7 @@ Suggested checks:
 
 ```bash
 flutter test test/features/boards/widgets/post_tile_test.dart
-flutter analyze
+flutter analyze --no-fatal-infos
 ```
 
 ## Notes

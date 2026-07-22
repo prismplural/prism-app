@@ -33,8 +33,8 @@ build native Rust code during Flutter builds.
 ```bash
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
-flutter analyze
-flutter test
+flutter analyze --no-fatal-infos
+flutter test --concurrency=2
 flutter run
 ```
 
@@ -79,9 +79,10 @@ cd ../prism-sync
 flutter_rust_bridge_codegen generate
 ```
 
-Then run `flutter pub get`, `flutter analyze`, and the relevant Flutter tests in
-this app. For published dependency updates, update this repo's resolved
-`prism-sync` revision rather than relying on local path overrides.
+Then run `flutter pub get`, `flutter analyze --no-fatal-infos`, and the
+relevant Flutter tests in this app. For published dependency updates, update
+this repo's resolved `prism-sync` revision rather than relying on local path
+overrides.
 
 ## Project Shape
 
@@ -146,8 +147,9 @@ Drift tables -> DAOs -> Repositories -> Mappers -> Freezed models -> Riverpod ->
 ## Useful Checks
 
 ```bash
-flutter analyze
-flutter test
+flutter analyze --no-fatal-infos
+flutter test --concurrency=2
+flutter test --concurrency=1 test/goldens
 flutter test test/core/sync/sync_schema_parity_test.dart
 flutter test test/path/to/file_test.dart
 ```

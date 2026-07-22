@@ -323,7 +323,8 @@ void main() {
     await tester.enterText(bodyField, body);
     await tester.pump();
     await tester.tap(find.byTooltip('Save note'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Save web images to Prism?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
@@ -355,7 +356,8 @@ void main() {
     await tester.enterText(bodyField, body);
     await tester.pump();
     await tester.tap(find.byTooltip('Save note'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('Save web images to Prism?'), findsOneWidget);
     await tester.tap(find.text('Download'));

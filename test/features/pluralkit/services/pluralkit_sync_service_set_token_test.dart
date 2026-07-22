@@ -351,11 +351,6 @@ class _FakeFrontingSessionRepository implements FrontingSessionRepository {
   Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 
   @override
-  Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
-
-  @override
-  Future<void> clearCreatePushStartedAt(String id) async {}
-  @override
   Future<int> getCount() async => 0;
   @override
   Future<int> getFrontingCount() async => 0;

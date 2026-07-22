@@ -524,8 +524,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: flutter_secure_storage_linux
-      ref: "d042536e0ef0c052e6a9351414934a80c6f2b3b5"
-      resolved-ref: "d042536e0ef0c052e6a9351414934a80c6f2b3b5"
+      ref: d042536e0ef0c052e6a9351414934a80c6f2b3b5
+      resolved-ref: d042536e0ef0c052e6a9351414934a80c6f2b3b5
       url: "https://github.com/prismplural/flutter_secure_storage.git"
     source: git
     version: "3.0.1"
@@ -1188,8 +1188,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync"
-      ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
-      resolved-ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
+      ref: bfe45c3bfebe31882452ac9337c78135e89046dc
+      resolved-ref: bfe45c3bfebe31882452ac9337c78135e89046dc
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1197,8 +1197,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_drift"
-      ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
-      resolved-ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
+      ref: bfe45c3bfebe31882452ac9337c78135e89046dc
+      resolved-ref: bfe45c3bfebe31882452ac9337c78135e89046dc
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"
@@ -1206,8 +1206,8 @@ packages:
     dependency: "direct main"
     description:
       path: "dart/packages/prism_sync_flutter"
-      ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
-      resolved-ref: "bfe45c3bfebe31882452ac9337c78135e89046dc"
+      ref: bfe45c3bfebe31882452ac9337c78135e89046dc
+      resolved-ref: bfe45c3bfebe31882452ac9337c78135e89046dc
       url: "https://github.com/prismplural/prism-sync.git"
     source: git
     version: "0.1.1"

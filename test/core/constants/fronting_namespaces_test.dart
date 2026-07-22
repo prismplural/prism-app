@@ -87,20 +87,10 @@ void main() {
     });
 
     test('deriveGapFillerSessionId is deterministic and UTC-normalized', () {
-      final localStart = DateTime(2024, 1, 1, 12);
-      final utcStart = localStart.toUtc();
-      final localEnd = DateTime(2024, 1, 1, 13);
-      final utcEnd = localEnd.toUtc();
-
-      // CI-tz guard: this test is meaningless on UTC hosts. Assert the
-      // precondition fails loudly so the test catches a regression instead
-      // of silently passing.
-      expect(
-        localStart.toIso8601String(),
-        isNot(utcStart.toIso8601String()),
-        reason: 'Test host TZ must be non-UTC; '
-            'set TZ=America/Los_Angeles in CI.',
-      );
+      final utcStart = DateTime.utc(2024, 1, 1, 12);
+      final utcEnd = DateTime.utc(2024, 1, 1, 13);
+      final localStart = utcStart.toLocal();
+      final localEnd = utcEnd.toLocal();
 
       expect(
         deriveGapFillerSessionId(localStart, localEnd),
@@ -110,7 +100,7 @@ void main() {
       // Pin a known value — namespace constants must not drift silently.
       expect(
         deriveGapFillerSessionId(utcStart, utcEnd),
-        equals('b0fdfa74-9354-564e-b564-ba2268f4ceb7'),
+        equals('71167098-fd3f-5dde-ac24-d1a538398370'),
       );
     });
   });

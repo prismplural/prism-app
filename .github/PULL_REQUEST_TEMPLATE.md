@@ -8,10 +8,10 @@
 
 ## Testing
 
-<!-- List the commands you ran, or explain why a check was not run. -->
+<!-- List the commands you ran locally, or explain why a check was not run. CI runs analyzer warnings/errors, tests, visual regression checks, generated-code checks, and an arm64 Android debug build. -->
 
-- [ ] `flutter analyze`
-- [ ] `flutter test`
+- [ ] `flutter analyze --no-fatal-infos`
+- [ ] `flutter test --concurrency=2`
 
 ## UI Changes
 

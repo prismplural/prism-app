@@ -26,7 +26,7 @@ void main() {
               _session('s2', 'deleted'),
             ]),
           ),
-          activeMembersProvider.overrideWithValue(
+          activeMemberListProvider.overrideWithValue(
             AsyncValue.data([_member('live')]),
           ),
         ],

@@ -199,6 +199,7 @@ void main() {
         chatMessageRepositoryProvider.overrideWithValue(msgRepo),
         memberRepositoryProvider.overrideWithValue(memberRepo),
         activeMembersProvider.overrideWithValue(AsyncValue.data(members)),
+        activeMemberListProvider.overrideWithValue(AsyncValue.data(members)),
         activeSessionsProvider.overrideWithValue(AsyncValue.data(fronts)),
       ],
     );

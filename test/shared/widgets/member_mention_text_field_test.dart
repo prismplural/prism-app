@@ -381,6 +381,65 @@ void main() {
     },
   );
 
+  testWidgets('defers focused mention refresh when the controller updates', (
+    tester,
+  ) async {
+    final initialController = TextEditingController(text: 'plain text');
+    final mentionController = TextEditingController(text: '@a');
+    final focusNode = FocusNode();
+    addTearDown(initialController.dispose);
+    addTearDown(mentionController.dispose);
+    addTearDown(focusNode.dispose);
+
+    Widget buildField({
+      required TextEditingController controller,
+      required String hintText,
+    }) {
+      return ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 360,
+                child: MemberMentionTextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  mentionCandidates: [alice],
+                  hintText: hintText,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(
+      buildField(controller: initialController, hintText: 'Body'),
+    );
+    focusNode.requestFocus();
+    initialController.selection = TextSelection.collapsed(
+      offset: initialController.text.length,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('memberMentionOverlaySurface')), findsNothing);
+
+    mentionController.selection = TextSelection.collapsed(
+      offset: mentionController.text.length,
+    );
+    await tester.pumpWidget(
+      buildField(controller: mentionController, hintText: 'Updated body'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('memberMentionOverlaySurface')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('dismisses suggestions when the field loses focus', (
     tester,
   ) async {

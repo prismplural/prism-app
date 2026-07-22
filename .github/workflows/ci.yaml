@@ -1,0 +1,175 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FLUTTER_VERSION: '3.44.1'
+
+jobs:
+  analyze-test:
+    name: Analyze and test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang cmake ninja-build pkg-config \
+            libsecret-1-dev libsqlite3-dev libssl-dev
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@f133eefe930d61f0d9371efd474daf0125ed3dd1 # 1.95.0
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: ci-linux
+          workspaces: packages/prism_media_codec/rust
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Show tool versions
+        run: |
+          flutter --version
+          dart --version
+          rustc --version
+          cargo --version
+
+      - name: Fetch packages
+        run: flutter pub get
+
+      - name: Regenerate code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Verify generated files are committed
+        run: |
+          if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+            git status --short
+            git diff --stat
+            exit 1
+          fi
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: >
+          flutter test --reporter compact --concurrency=2
+          --exclude-tags="golden || integration || fixture-gen || slow"
+
+  visual-test:
+    name: Visual regression
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang cmake ninja-build pkg-config \
+            libsecret-1-dev libsqlite3-dev libssl-dev
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@f133eefe930d61f0d9371efd474daf0125ed3dd1 # 1.95.0
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: ci-visual-linux
+          workspaces: packages/prism_media_codec/rust
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Fetch packages
+        run: flutter pub get
+
+      - name: Compare visual baselines
+        run: flutter test --reporter compact --concurrency=1 test/goldens
+
+      - name: Prepare readable visual differences
+        if: failure()
+        run: |
+          dart run tool/golden_failure_report.dart test \
+            | tee golden-failure-summary.md
+          cat golden-failure-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload visual differences
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: visual-differences-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test/**/failures/**
+            test/golden_failure_report.json
+            golden-failure-summary.md
+          if-no-files-found: warn
+          retention-days: 14
+
+  android-debug:
+    name: Android debug build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang cmake ninja-build pkg-config \
+            libsqlite3-dev libssl-dev
+
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@f133eefe930d61f0d9371efd474daf0125ed3dd1 # 1.95.0
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          shared-key: ci-android
+          workspaces: packages/prism_media_codec/rust
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Show tool versions
+        run: |
+          flutter --version
+          java -version
+          rustc --version
+          cargo --version
+
+      - name: Fetch packages
+        run: flutter pub get
+
+      - name: Build debug APK
+        run: flutter build apk --debug --target-platform android-arm64 --no-tree-shake-icons

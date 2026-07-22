@@ -31,14 +31,13 @@ FrontingSession _s({
 DerivedPeriodsInputBundle _bundle(
   List<FrontingSession> sessions, {
   DateTime? rangeStart,
-  DateTime? referenceNow,
+  required DateTime referenceNow,
 }) {
-  final now = referenceNow ?? DateTime.now();
   return DerivedPeriodsInputBundle(
     sessions: sessions,
     rangeStart:
         rangeStart ??
-        now.subtract(const Duration(days: derivedPeriodsLookbackDays)),
+        referenceNow.subtract(const Duration(days: derivedPeriodsLookbackDays)),
   );
 }
 
@@ -52,10 +51,12 @@ void main() {
         overrides: [
           unifiedHistoryOverlapProvider.overrideWith(
             (ref) => Stream.value(
-              _bundle([_s(id: 's1', memberId: 'a', start: start, end: end)]),
+              _bundle([
+                _s(id: 's1', memberId: 'a', start: start, end: end),
+              ], referenceNow: DateTime(2026, 4, 2)),
             ),
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -71,7 +72,7 @@ void main() {
       );
       await container.read(unifiedHistoryOverlapProvider.future);
       // Read the members stream too so its first value is in.
-      await container.read(allMembersProvider.future);
+      await container.read(allMemberListProvider.future);
       // Microtask flush so the synchronous `Provider` recomputes against
       // the latest upstream values.
       await Future<void>.delayed(Duration.zero);
@@ -92,7 +93,7 @@ void main() {
           unifiedHistoryOverlapProvider.overrideWith(
             (ref) => controller.stream,
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -114,7 +115,7 @@ void main() {
             start: DateTime(2026, 4, 1, 10),
             end: DateTime(2026, 4, 1, 11),
           ),
-        ]),
+        ], referenceNow: DateTime(2026, 4, 2)),
       );
       // Pump twice: first to deliver the stream event, second to allow
       // the synchronous Provider to rebuild.
@@ -137,7 +138,7 @@ void main() {
             start: DateTime(2026, 4, 1, 11),
             end: DateTime(2026, 4, 1, 12),
           ),
-        ]),
+        ], referenceNow: DateTime(2026, 4, 2)),
       );
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
@@ -160,10 +161,10 @@ void main() {
                   start: DateTime(2026, 4, 1, 10),
                   end: DateTime(2026, 4, 1, 11),
                 ),
-              ]),
+              ], referenceNow: DateTime(2026, 4, 2)),
             ),
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -176,7 +177,7 @@ void main() {
         fireImmediately: true,
       );
       await container.read(unifiedHistoryOverlapProvider.future);
-      await container.read(allMembersProvider.future);
+      await container.read(allMemberListProvider.future);
       await Future<void>.delayed(Duration.zero);
       final a = container.read(derivedPeriodsProvider).value!;
       final b = container.read(derivedPeriodsProvider).value!;
@@ -203,10 +204,10 @@ void main() {
                   start: DateTime(2026, 4, 1, 14),
                   end: DateTime(2026, 4, 1, 15),
                 ),
-              ]),
+              ], referenceNow: DateTime(2026, 4, 2)),
             ),
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value([
               Member(
                 id: 'host',
@@ -227,7 +228,7 @@ void main() {
         fireImmediately: true,
       );
       await container.read(unifiedHistoryOverlapProvider.future);
-      await container.read(allMembersProvider.future);
+      await container.read(allMemberListProvider.future);
       await Future<void>.delayed(Duration.zero);
       final periods = container.read(derivedPeriodsProvider).value!;
       expect(periods, hasLength(1));
@@ -293,7 +294,7 @@ void main() {
           frontingSessionRepositoryProvider.overrideWith(
             (ref) => repo as FrontingSessionRepository,
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -308,7 +309,7 @@ void main() {
 
       // Wait for the overlap stream's first emission.
       final bundle = await container.read(unifiedHistoryOverlapProvider.future);
-      await container.read(allMembersProvider.future);
+      await container.read(allMemberListProvider.future);
       await Future<void>.delayed(Duration.zero);
 
       expect(
@@ -375,7 +376,7 @@ void main() {
           frontingSessionRepositoryProvider.overrideWith(
             (ref) => repo as FrontingSessionRepository,
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -441,7 +442,7 @@ void main() {
           frontingSessionRepositoryProvider.overrideWith(
             (ref) => repo as FrontingSessionRepository,
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -511,7 +512,7 @@ void main() {
               ),
             ),
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -524,7 +525,7 @@ void main() {
         fireImmediately: true,
       );
       await container.read(unifiedHistoryOverlapProvider.future);
-      await container.read(allMembersProvider.future);
+      await container.read(allMemberListProvider.future);
       await Future<void>.delayed(Duration.zero);
 
       final periods = container.read(derivedPeriodsProvider).value!;
@@ -574,7 +575,7 @@ void main() {
           frontingSessionRepositoryProvider.overrideWith(
             (ref) => repo as FrontingSessionRepository,
           ),
-          allMembersProvider.overrideWith(
+          allMemberListProvider.overrideWith(
             (ref) => Stream.value(const <Member>[]),
           ),
         ],
@@ -596,7 +597,7 @@ void main() {
 
       // Wait for the initial empty stream emission.
       await container.read(unifiedHistoryOverlapProvider.future);
-      await container.read(allMembersProvider.future);
+      await container.read(allMemberListProvider.future);
       await Future<void>.delayed(Duration.zero);
 
       final initial = container.read(derivedPeriodsProvider).value!;
@@ -674,7 +675,7 @@ void main() {
             frontingSessionRepositoryProvider.overrideWith(
               (ref) => repo as FrontingSessionRepository,
             ),
-            allMembersProvider.overrideWith(
+            allMemberListProvider.overrideWith(
               (ref) => Stream.value(const <Member>[]),
             ),
           ],
@@ -693,7 +694,7 @@ void main() {
         );
 
         await container.read(unifiedHistoryOverlapProvider.future);
-        await container.read(allMembersProvider.future);
+        await container.read(allMemberListProvider.future);
         await Future<void>.delayed(Duration.zero);
 
         // The open derived period ends ~now, not ~now + 30d.
@@ -758,7 +759,7 @@ void main() {
             frontingSessionRepositoryProvider.overrideWith(
               (ref) => repo as FrontingSessionRepository,
             ),
-            allMembersProvider.overrideWith(
+            allMemberListProvider.overrideWith(
               (ref) => Stream.value(const <Member>[]),
             ),
           ],
@@ -772,7 +773,7 @@ void main() {
         );
 
         await container.read(unifiedHistoryOverlapProvider.future);
-        await container.read(allMembersProvider.future);
+        await container.read(allMemberListProvider.future);
         await Future<void>.delayed(Duration.zero);
 
         final periods = container.read(derivedPeriodsProvider).value!;
@@ -808,7 +809,7 @@ void main() {
             unifiedHistoryOverlapProvider.overrideWith(
               (ref) => controller.stream,
             ),
-            allMembersProvider.overrideWith(
+            allMemberListProvider.overrideWith(
               (ref) => Stream.value(const <Member>[]),
             ),
           ],
@@ -829,7 +830,7 @@ void main() {
               start: DateTime(2026, 4, 1, 10),
               end: DateTime(2026, 4, 1, 11),
             ),
-          ]),
+          ], referenceNow: DateTime(2026, 4, 2)),
         );
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
@@ -854,7 +855,7 @@ void main() {
               start: DateTime(2026, 4, 1, 12),
               end: DateTime(2026, 4, 1, 13),
             ),
-          ]),
+          ], referenceNow: DateTime(2026, 4, 2)),
         );
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
@@ -898,7 +899,7 @@ void main() {
             frontingSessionRepositoryProvider.overrideWith(
               (ref) => repo as FrontingSessionRepository,
             ),
-            allMembersProvider.overrideWith(
+            allMemberListProvider.overrideWith(
               (ref) => Stream.value(const <Member>[]),
             ),
           ],
@@ -920,7 +921,7 @@ void main() {
         );
 
         await container.read(unifiedHistoryOverlapProvider.future);
-        await container.read(allMembersProvider.future);
+        await container.read(allMemberListProvider.future);
         await Future<void>.delayed(Duration.zero);
 
         final initial = container.read(derivedPeriodsProvider).value!;
