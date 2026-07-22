@@ -36,6 +36,8 @@ const kSyncDatabaseKeyStorageKey = 'prism_sync.sync_database_key';
 @visibleForTesting
 const prismSqliteBusyTimeoutMs = 5000;
 
+const _prismSqliteBusyRetryInterval = Duration(milliseconds: 10);
+
 // Internal cleanup-delete helper. Every delete in this file is a
 // best-effort cleanup of a DB-key slot (staging cleanup, full reset, etc.).
 // Cipher / unknown / transient failures during these deletes are not fatal —
@@ -954,5 +956,14 @@ void configurePrismSqliteConnection(raw.Database db, {String? hexKey}) {
     // build the PRAGMA key above is a no-op and the DB is plaintext — fail loud.
     _assertSqliteCipherCodecPresent(db);
   }
-  db.execute('PRAGMA busy_timeout = $prismSqliteBusyTimeoutMs;');
+  // Install the handler through SQLite's connection API instead of issuing a
+  // PRAGMA. This is available before Drift's first schema read even when the
+  // database was already exclusively locked when the connection opened.
+  db.busyHandler = (attempt) {
+    final elapsedMs =
+        attempt * _prismSqliteBusyRetryInterval.inMilliseconds;
+    if (elapsedMs >= prismSqliteBusyTimeoutMs) return false;
+    sleep(_prismSqliteBusyRetryInterval);
+    return true;
+  };
 }
