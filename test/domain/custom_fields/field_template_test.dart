@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/custom_fields/field_template.dart';
 import 'package:prism_plurality/domain/models/choice_option.dart';
