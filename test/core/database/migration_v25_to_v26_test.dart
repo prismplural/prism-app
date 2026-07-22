@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -53,6 +54,31 @@ void _insertGroup(raw.Database db, String id) {
     [id, id, nowSec, '{"mode":0,"order":[]}'],
   );
 }
+
+Future<({int version, bool hasAvatarColumn})> _runLockedMigration(
+  String dbPath,
+) => Isolate.run(() async {
+  final upgraded = AppDatabase(
+    NativeDatabase(File(dbPath), setup: configurePrismSqliteConnection),
+  );
+  try {
+    await upgraded.customSelect('SELECT 1').get();
+    final version = await upgraded
+        .customSelect('PRAGMA user_version')
+        .getSingle();
+    final cols = await upgraded
+        .customSelect('PRAGMA table_info(member_groups)')
+        .get();
+    return (
+      version: version.read<int>('user_version'),
+      hasAvatarColumn: cols.any(
+        (row) => row.read<String>('name') == 'avatar_image_data',
+      ),
+    );
+  } finally {
+    await upgraded.close();
+  }
+});
 
 void main() {
   group('schema v25 → v26: avatar_image_data migration', () {
@@ -203,27 +229,10 @@ void main() {
       });
       addTearDown(releaseLock.cancel);
 
-      final upgraded = AppDatabase(
-        NativeDatabase.createInBackground(
-          dbFile,
-          setup: configurePrismSqliteConnection,
-        ),
-      );
-      addTearDown(upgraded.close);
-      await upgraded.customSelect('SELECT 1').get();
+      final result = await _runLockedMigration(dbFile.path);
 
-      final version = await upgraded
-          .customSelect('PRAGMA user_version')
-          .getSingle();
-      expect(version.read<int>('user_version'), greaterThanOrEqualTo(27));
-
-      final cols = await upgraded
-          .customSelect('PRAGMA table_info(member_groups)')
-          .get();
-      expect(
-        cols.any((row) => row.read<String>('name') == 'avatar_image_data'),
-        isTrue,
-      );
+      expect(result.version, greaterThanOrEqualTo(27));
+      expect(result.hasAvatarColumn, isTrue);
     });
   });
 }
