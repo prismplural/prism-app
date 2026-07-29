@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -95,16 +94,13 @@ class _TermChoiceTile<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
     final foreground = selected
         ? primary
-        : isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.8)
-        : AppColors.warmBlack.withValues(alpha: 0.82);
+        : onSurface.withValues(alpha: isDark ? 0.8 : 0.82);
     final supporting = selected
         ? primary.withValues(alpha: 0.78)
-        : isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.52)
-        : AppColors.warmBlack.withValues(alpha: 0.50);
+        : onSurface.withValues(alpha: isDark ? 0.52 : 0.50);
 
     return Semantics(
       button: true,
@@ -119,8 +115,8 @@ class _TermChoiceTile<T> extends StatelessWidget {
             color: selected
                 ? primary.withValues(alpha: isDark ? 0.22 : 0.16)
                 : isDark
-                ? AppColors.warmWhite.withValues(alpha: 0.1)
-                : AppColors.parchmentElevated,
+                ? onSurface.withValues(alpha: 0.1)
+                : theme.colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(10),
             ),
