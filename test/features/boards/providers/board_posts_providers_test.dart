@@ -29,6 +29,9 @@ void main() {
           activeMembersProvider.overrideWithValue(
             AsyncValue.data([_member('live')]),
           ),
+          activeMemberListProvider.overrideWithValue(
+            AsyncValue.data([_member('live')]),
+          ),
         ],
       );
       addTearDown(container.dispose);

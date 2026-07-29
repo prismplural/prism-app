@@ -155,7 +155,7 @@ void main() {
       await tester.tap(find.byIcon(AppIcons.editOutlined));
       await tester.pumpAndSettle();
 
-      expect(find.text('Edit Session'), findsOneWidget);
+      expect(find.text('Fronting session'), findsOneWidget);
       expect(find.byKey(const Key('detailSideSheetPanel')), findsNWidgets(2));
     },
   );
@@ -206,7 +206,7 @@ void main() {
       await tester.tap(find.byIcon(AppIcons.editOutlined));
       await tester.pumpAndSettle();
 
-      expect(find.text('Edit Session'), findsOneWidget);
+      expect(find.text('Fronting session'), findsOneWidget);
       expect(find.byType(BottomSheet), findsNWidgets(2));
       expect(find.byKey(const Key('detailSideSheetPanel')), findsNothing);
     },

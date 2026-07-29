@@ -34,7 +34,7 @@ void main() {
     await tester.pumpWidget(buildSubject(container));
     await tester.pumpAndSettle();
 
-    expect(find.text('Terminology'), findsOneWidget);
+    expect(find.text('Member terminology'), findsOneWidget);
     expect(find.text('Accent Color'), findsNothing);
     expect(find.text('Fronting behavior'), findsNothing);
     expect(find.text('When adding a new front'), findsNothing);

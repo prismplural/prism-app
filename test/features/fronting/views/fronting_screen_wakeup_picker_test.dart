@@ -256,7 +256,7 @@ Widget _buildSubject({
   );
 }
 
-Finder _addButton() => find.byTooltip('Add fronting entry');
+Finder _addButton() => find.byTooltip('Log Front');
 
 Finder _confirmSelectionButton() => find.byWidgetPredicate(
   (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,

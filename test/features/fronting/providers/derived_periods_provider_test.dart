@@ -52,7 +52,10 @@ void main() {
         overrides: [
           unifiedHistoryOverlapProvider.overrideWith(
             (ref) => Stream.value(
-              _bundle([_s(id: 's1', memberId: 'a', start: start, end: end)]),
+              _bundle(
+                [_s(id: 's1', memberId: 'a', start: start, end: end)],
+                rangeStart: DateTime(2026, 4, 1),
+              ),
             ),
           ),
           allMembersProvider.overrideWith(
@@ -107,14 +110,17 @@ void main() {
       );
 
       controller.add(
-        _bundle([
-          _s(
-            id: 's1',
-            memberId: 'a',
-            start: DateTime(2026, 4, 1, 10),
-            end: DateTime(2026, 4, 1, 11),
-          ),
-        ]),
+        _bundle(
+          [
+            _s(
+              id: 's1',
+              memberId: 'a',
+              start: DateTime(2026, 4, 1, 10),
+              end: DateTime(2026, 4, 1, 11),
+            ),
+          ],
+          rangeStart: DateTime(2026, 4, 1),
+        ),
       );
       // Pump twice: first to deliver the stream event, second to allow
       // the synchronous Provider to rebuild.
@@ -124,20 +130,23 @@ void main() {
       expect(first, hasLength(1));
 
       controller.add(
-        _bundle([
-          _s(
-            id: 's1',
-            memberId: 'a',
-            start: DateTime(2026, 4, 1, 10),
-            end: DateTime(2026, 4, 1, 11),
-          ),
-          _s(
-            id: 's2',
-            memberId: 'b',
-            start: DateTime(2026, 4, 1, 11),
-            end: DateTime(2026, 4, 1, 12),
-          ),
-        ]),
+        _bundle(
+          [
+            _s(
+              id: 's1',
+              memberId: 'a',
+              start: DateTime(2026, 4, 1, 10),
+              end: DateTime(2026, 4, 1, 11),
+            ),
+            _s(
+              id: 's2',
+              memberId: 'b',
+              start: DateTime(2026, 4, 1, 11),
+              end: DateTime(2026, 4, 1, 12),
+            ),
+          ],
+          rangeStart: DateTime(2026, 4, 1),
+        ),
       );
       await Future<void>.delayed(Duration.zero);
       await Future<void>.delayed(Duration.zero);
@@ -153,14 +162,17 @@ void main() {
         overrides: [
           unifiedHistoryOverlapProvider.overrideWith(
             (ref) => Stream.value(
-              _bundle([
-                _s(
-                  id: 's1',
-                  memberId: 'a',
-                  start: DateTime(2026, 4, 1, 10),
-                  end: DateTime(2026, 4, 1, 11),
-                ),
-              ]),
+              _bundle(
+                [
+                  _s(
+                    id: 's1',
+                    memberId: 'a',
+                    start: DateTime(2026, 4, 1, 10),
+                    end: DateTime(2026, 4, 1, 11),
+                  ),
+                ],
+                rangeStart: DateTime(2026, 4, 1),
+              ),
             ),
           ),
           allMembersProvider.overrideWith(
@@ -190,20 +202,23 @@ void main() {
         overrides: [
           unifiedHistoryOverlapProvider.overrideWith(
             (ref) => Stream.value(
-              _bundle([
-                _s(
-                  id: 'host',
-                  memberId: 'host',
-                  start: DateTime(2025, 1, 1),
-                  end: null,
-                ),
-                _s(
-                  id: 'v',
-                  memberId: 'v',
-                  start: DateTime(2026, 4, 1, 14),
-                  end: DateTime(2026, 4, 1, 15),
-                ),
-              ]),
+              _bundle(
+                [
+                  _s(
+                    id: 'host',
+                    memberId: 'host',
+                    start: DateTime(2025, 1, 1),
+                    end: null,
+                  ),
+                  _s(
+                    id: 'v',
+                    memberId: 'v',
+                    start: DateTime(2026, 4, 1, 14),
+                    end: DateTime(2026, 4, 1, 15),
+                  ),
+                ],
+                rangeStart: DateTime(2026, 4, 1),
+              ),
             ),
           ),
           allMembersProvider.overrideWith(
@@ -822,14 +837,17 @@ void main() {
         );
 
         controller.add(
-          _bundle([
-            _s(
-              id: 's1',
-              memberId: 'a',
-              start: DateTime(2026, 4, 1, 10),
-              end: DateTime(2026, 4, 1, 11),
-            ),
-          ]),
+          _bundle(
+            [
+              _s(
+                id: 's1',
+                memberId: 'a',
+                start: DateTime(2026, 4, 1, 10),
+                end: DateTime(2026, 4, 1, 11),
+              ),
+            ],
+            rangeStart: DateTime(2026, 4, 1),
+          ),
         );
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);
@@ -841,20 +859,23 @@ void main() {
         // Simulate a mutation: the upstream stream re-emits with the
         // new row included. The provider must surface it.
         controller.add(
-          _bundle([
-            _s(
-              id: 's1',
-              memberId: 'a',
-              start: DateTime(2026, 4, 1, 10),
-              end: DateTime(2026, 4, 1, 11),
-            ),
-            _s(
-              id: 's2',
-              memberId: 'b',
-              start: DateTime(2026, 4, 1, 12),
-              end: DateTime(2026, 4, 1, 13),
-            ),
-          ]),
+          _bundle(
+            [
+              _s(
+                id: 's1',
+                memberId: 'a',
+                start: DateTime(2026, 4, 1, 10),
+                end: DateTime(2026, 4, 1, 11),
+              ),
+              _s(
+                id: 's2',
+                memberId: 'b',
+                start: DateTime(2026, 4, 1, 12),
+                end: DateTime(2026, 4, 1, 13),
+              ),
+            ],
+            rangeStart: DateTime(2026, 4, 1),
+          ),
         );
         await Future<void>.delayed(Duration.zero);
         await Future<void>.delayed(Duration.zero);

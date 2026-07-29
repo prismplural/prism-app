@@ -323,7 +323,10 @@ void main() {
     await tester.enterText(bodyField, body);
     await tester.pump();
     await tester.tap(find.byTooltip('Save note'));
-    await tester.pumpAndSettle();
+    // The save button keeps its loading spinner animating while the prompt
+    // awaits an answer, so pumpAndSettle would never settle here.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Save web images to Prism?'), findsOneWidget);
     await tester.tap(find.text('Cancel'));
@@ -355,7 +358,10 @@ void main() {
     await tester.enterText(bodyField, body);
     await tester.pump();
     await tester.tap(find.byTooltip('Save note'));
-    await tester.pumpAndSettle();
+    // The save button keeps its loading spinner animating while the prompt
+    // awaits an answer, so pumpAndSettle would never settle here.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Save web images to Prism?'), findsOneWidget);
     await tester.tap(find.text('Download'));
