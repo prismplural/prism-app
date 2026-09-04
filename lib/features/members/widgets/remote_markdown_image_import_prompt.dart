@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/utils/simply_plural_urls.dart';
 
 Future<bool> promptAndStageRemoteMarkdownImages({
   required BuildContext context,
@@ -15,7 +16,9 @@ Future<bool> promptAndStageRemoteMarkdownImages({
   required String sessionId,
 }) async {
   final dataRefs = findDataMarkdownImageRefs(controller.text);
-  final remoteRefs = findRemoteMarkdownImageRefs(controller.text);
+  final remoteRefs = findRemoteMarkdownImageRefs(
+    controller.text,
+  ).where((ref) => !isRetiredSimplyPluralMediaUrl(ref.url)).toList();
   if (dataRefs.isEmpty && remoteRefs.isEmpty) return true;
 
   final processor = ref.read(bioImageProcessorProvider(sessionId));
@@ -95,7 +98,9 @@ Future<bool> promptAndStageRemoteMarkdownImages({
     }
   }
 
-  final refs = findRemoteMarkdownImageRefs(controller.text);
+  final refs = findRemoteMarkdownImageRefs(
+    controller.text,
+  ).where((ref) => !isRetiredSimplyPluralMediaUrl(ref.url)).toList();
   if (refs.isEmpty) return true;
   final imports = buildRemoteMarkdownImageImports(
     refs,

@@ -88,6 +88,7 @@ import 'package:prism_plurality/features/migration/services/sp_avatar_zip_import
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/features/migration/services/sp_member_mapping.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
+import 'package:prism_plurality/shared/utils/simply_plural_urls.dart';
 
 /// Import progress state.
 enum ImportState {
@@ -105,6 +106,11 @@ enum ImportState {
 
 /// Result of a completed import.
 class ImportResult {
+  /// Stable prefix for warnings caused by media on retired Simply Plural
+  /// hosts. Presentation code can classify these without inspecting URLs.
+  static const retiredMediaWarningPrefix =
+      'Retired Simply Plural media skipped:';
+
   final int membersImported;
   final int membersLinked;
   final int sessionsImported;
@@ -162,6 +168,9 @@ class ImportResult {
     final normalized = warning.toLowerCase();
     return normalized.contains('avatar') && normalized.contains('download');
   }
+
+  static bool isRetiredMediaWarning(String warning) =>
+      warning.startsWith(retiredMediaWarningPrefix);
 
   bool get hasAvatarDownloadFailures => warnings.any(isAvatarDownloadWarning);
 
@@ -248,6 +257,12 @@ class SpImporter {
   final DateTime Function() _now;
   final SpAvatarZipImporter Function() _avatarZipImporterFactory;
 
+  // ZIP restoration happens before the remote fallback. Keep its outcome for
+  // the same-session retry so it never overwrites a ZIP-restored avatar or
+  // reports it as a newly downloaded remote avatar.
+  final Set<String> _memberIdsRestoredFromZip = <String>{};
+  bool _systemAvatarRestoredFromZip = false;
+
   /// True iff the caller injected a non-default `newId` or `now` seam.
   /// Used to decide whether parse+map can cross an isolate boundary via
   /// [compute] — injected seams cannot, default top-level functions can.
@@ -319,6 +334,8 @@ class SpImporter {
     void Function()? onAvatarZipSourceReady,
   }) async {
     final stopwatch = Stopwatch()..start();
+    _memberIdsRestoredFromZip.clear();
+    _systemAvatarRestoredFromZip = false;
 
     // Load existing SP→Prism ID mappings so a re-import reuses stable UUIDs.
     final existingMappings = await _loadExistingMappings(spImportDao);
@@ -1251,7 +1268,6 @@ class SpImporter {
     var systemAvatarDownloaded = false;
     var avatarsImportedFromZip = 0;
     var systemAvatarImportedFromZip = false;
-    var memberIdsRestoredFromZip = <String>{};
     final warnings = List<String>.of(mapped.warnings)
       ..addAll(duplicateMemberWarnings);
 
@@ -1308,11 +1324,12 @@ class SpImporter {
                 onProgress: onZipProgress,
               );
         avatarsImportedFromZip = zipResult.memberAvatarsUpdated;
-        memberIdsRestoredFromZip = {
+        _memberIdsRestoredFromZip.addAll({
           ...zipResult.memberIdsUpdated,
           ...zipResult.memberIdsUnchanged,
-        };
+        });
         systemAvatarImportedFromZip = zipResult.systemAvatarUpdated;
+        _systemAvatarRestoredFromZip = systemAvatarImportedFromZip;
         warnings.addAll(zipResult.warnings);
       } catch (e) {
         warnings.add('Could not import avatar ZIP: $e');
@@ -1327,15 +1344,19 @@ class SpImporter {
         settingsRepo != null &&
         mapped.systemAvatarUrl != null &&
         mapped.systemAvatarUrl!.isNotEmpty) {
-      final bytes = await fetchAvatarBytes(
-        mapped.systemAvatarUrl!,
-        client: _http,
-      );
-      if (bytes != null) {
-        await settingsRepo.updateSystemAvatarData(bytes);
-        systemAvatarDownloaded = true;
+      if (isRetiredSimplyPluralMediaUrl(mapped.systemAvatarUrl!)) {
+        warnings.add('${ImportResult.retiredMediaWarningPrefix} system avatar');
       } else {
-        warnings.add('System avatar failed to download');
+        final bytes = await fetchAvatarBytes(
+          mapped.systemAvatarUrl!,
+          client: _http,
+        );
+        if (bytes != null) {
+          await settingsRepo.updateSystemAvatarData(bytes);
+          systemAvatarDownloaded = true;
+        } else {
+          warnings.add('System avatar failed to download');
+        }
       }
     }
 
@@ -1346,7 +1367,7 @@ class SpImporter {
         memberRepo,
         skipMemberIds: {
           ...linkedExistingMemberIds,
-          ...memberIdsRestoredFromZip,
+          ..._memberIdsRestoredFromZip,
         },
         warnings: warnings,
         onProgress: (processed, total) {
@@ -1455,9 +1476,16 @@ class SpImporter {
     var systemAvatarDownloaded = false;
     final warnings = <String>[];
     final hasSystemAvatarUrl =
-        mapped.systemAvatarUrl != null && mapped.systemAvatarUrl!.isNotEmpty;
+        !_systemAvatarRestoredFromZip &&
+        mapped.systemAvatarUrl != null &&
+        mapped.systemAvatarUrl!.isNotEmpty &&
+        !isRetiredSimplyPluralMediaUrl(mapped.systemAvatarUrl!);
+    final retryableMemberAvatarCount = mapped.avatarUrls.entries.where((entry) {
+      return !_memberIdsRestoredFromZip.contains(entry.key) &&
+          !isRetiredSimplyPluralMediaUrl(entry.value);
+    }).length;
     final totalAvatarSources =
-        mapped.avatarUrls.length + (hasSystemAvatarUrl ? 1 : 0);
+        retryableMemberAvatarCount + (hasSystemAvatarUrl ? 1 : 0);
 
     if (settingsRepo != null && hasSystemAvatarUrl) {
       onProgress?.call(0, totalAvatarSources, 'Retrying system avatar...');
@@ -1478,6 +1506,8 @@ class SpImporter {
         mapped.members,
         mapped.avatarUrls,
         memberRepo,
+        skipMemberIds: _memberIdsRestoredFromZip,
+        reportRetiredWarnings: false,
         warnings: warnings,
         onProgress: (processed, total) {
           onProgress?.call(processed, total, 'Retrying avatars...');
@@ -1487,13 +1517,14 @@ class SpImporter {
       if (result.failed > 0) {
         warnings.add('${result.failed} avatar(s) failed to download');
       }
-      // Retry callers report the TOTAL number of members currently carrying
-      // avatar bytes (including avatars persisted by an earlier partial
-      // attempt), not just this retry's freshly-downloaded count. Read all
-      // referenced members in ONE query instead of the N-query loop the
-      // previous `_countMembersWithAvatars` helper used.
+      // Retry callers report the total remotely-restored avatars. ZIP-restored
+      // IDs are intentionally excluded: they were already restored before the
+      // remote fallback and must not be overwritten or recounted here.
       avatarsDownloaded = (await memberRepo.getMembersByIds(
-        mapped.members.map((m) => m.id).toList(),
+        mapped.members
+            .where((member) => !_memberIdsRestoredFromZip.contains(member.id))
+            .map((member) => member.id)
+            .toList(),
       )).where((m) => m.avatarImageData != null).length;
     }
 
@@ -1534,26 +1565,39 @@ class SpImporter {
   /// failed fetch (null bytes or a thrown exception) is recorded as a
   /// warning and that member is skipped — it does NOT poison the chunk
   /// or fail the import.
-  Future<({int downloaded, int failed})> _downloadAvatars(
+  Future<({int downloaded, int failed, int retired})> _downloadAvatars(
     List<Member> members,
     Map<String, String> avatarUrls,
     MemberRepository memberRepo, {
     Set<String> skipMemberIds = const {},
     List<String>? warnings,
+    bool reportRetiredWarnings = true,
     void Function(int processed, int total)? onProgress,
   }) async {
     final eligible = <Member>[];
     final urlsByMemberId = <String, String>{};
+    var retired = 0;
     for (final member in members) {
       if (skipMemberIds.contains(member.id)) continue;
       final url = avatarUrls[member.id];
       if (url == null) continue;
+      if (isRetiredSimplyPluralMediaUrl(url)) {
+        retired++;
+        continue;
+      }
       eligible.add(member);
       urlsByMemberId[member.id] = url;
     }
 
+    if (reportRetiredWarnings && retired > 0) {
+      warnings?.add(
+        '${ImportResult.retiredMediaWarningPrefix} '
+        '$retired member avatar(s)',
+      );
+    }
+
     if (eligible.isEmpty) {
-      return (downloaded: 0, failed: 0);
+      return (downloaded: 0, failed: 0, retired: retired);
     }
 
     // Track successful (member-id, bytes) pairs while downloads run. We do
@@ -1606,7 +1650,7 @@ class SpImporter {
     }
 
     if (successfulBytesByMemberId.isEmpty) {
-      return (downloaded: downloaded, failed: failed);
+      return (downloaded: downloaded, failed: failed, retired: retired);
     }
 
     // Re-read current DB rows ONLY for IDs whose downloads succeeded,
@@ -1658,7 +1702,7 @@ class SpImporter {
       }
     }
 
-    return (downloaded: downloaded, failed: failed);
+    return (downloaded: downloaded, failed: failed, retired: retired);
   }
 
   /// Post-transaction pass: fetch+encrypt external image URLs in member bios
@@ -1676,15 +1720,17 @@ class SpImporter {
     final eligible = members
         .where(
           (m) =>
-              !skipMemberIds.contains(m.id) &&
-              (m.bio?.contains('http') ?? false),
+              !skipMemberIds.contains(m.id) && (m.bio?.contains('![') ?? false),
         )
         .toList();
     if (eligible.isEmpty) return;
 
+    final skippedRetiredUrls = <String>{};
     final importer = BioImageImporter(
       mediaService: mediaService,
       repository: mediaAttachmentRepo,
+      skipImageUrl: isRetiredSimplyPluralMediaUrl,
+      onSkippedImageUrl: skippedRetiredUrls.add,
     );
 
     var processed = 0;
@@ -1704,6 +1750,13 @@ class SpImporter {
       processed++;
       onProgress?.call(processed, eligible.length);
       if (processed % _uiYieldEveryItems == 0) await _yieldToUi();
+    }
+
+    if (skippedRetiredUrls.isNotEmpty) {
+      warnings?.add(
+        '${ImportResult.retiredMediaWarningPrefix} '
+        '${skippedRetiredUrls.length} bio image(s)',
+      );
     }
   }
 

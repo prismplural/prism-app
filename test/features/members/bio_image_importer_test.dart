@@ -111,6 +111,33 @@ void main() {
         );
       },
     );
+
+    test('skips selected URLs without fetching or rewriting them', () async {
+      final fetched = <String>[];
+      final skipped = <String>[];
+      final importer = BioImageImporter(
+        mediaService: mediaService,
+        repository: repository,
+        fetchImageBytes: (url, {int maxBytes = 5 * 1024 * 1024}) async {
+          fetched.add(url);
+          return _bytesFor(url);
+        },
+        skipImageUrl: (url) => url.contains('apparyllis.com'),
+        onSkippedImageUrl: skipped.add,
+      );
+
+      const retired = 'https://serve.apparyllis.com/bio.png';
+      const thirdParty = 'https://cdn.example.com/ok.png';
+      final rewritten = await importer.processBio(
+        '![]($retired) ![]($thirdParty)',
+      );
+
+      expect(skipped, [retired]);
+      expect(fetched, [thirdParty]);
+      expect(rewritten, contains(retired));
+      expect(rewritten, isNot(contains(thirdParty)));
+      expect(importer.importedCount, 1);
+    });
   });
 }
 

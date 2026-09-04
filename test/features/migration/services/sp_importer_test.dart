@@ -1799,6 +1799,17 @@ void main() {
           retryProgress,
           contains((current: 1, total: 1, label: 'Avatar ZIP imported')),
         );
+
+        // The later avatar-download retry shares this importer session. ZIP
+        // IDs (including unchanged entries from the second import) must not
+        // be fetched, overwritten, or reported as remote downloads.
+        final avatarRetry = await importer.retryAvatarDownloads(
+          data: data,
+          memberRepo: memberRepo,
+          spImportDao: db.spImportDao,
+        );
+        expect(avatarRetry.avatarsDownloaded, 0);
+        expect(client.calls, isEmpty);
       },
     );
 
@@ -2124,6 +2135,41 @@ void main() {
     );
 
     test(
+      'skips retired Apparyllis avatars without making HTTP requests',
+      () async {
+        const avatarUrl = 'HTTPS://SERVE.APPARYLLIS.COM./avatars/sp-a/avatar';
+        const data = SpExportData(
+          members: [SpMember(id: 'sp-a', name: 'Alice', avatarUrl: avatarUrl)],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+        );
+        final client = _FakeHttpClient();
+        final db = _makeDb();
+        addTearDown(db.close);
+        final result = await SpImporter(httpClient: client).executeImport(
+          db: db,
+          data: data,
+          memberRepo: _FakeMemberRepository(),
+          sessionRepo: _FakeSessionRepository(),
+          conversationRepo: _FakeConversationRepository(),
+          messageRepo: _FakeChatMessageRepository(),
+          pollRepo: _FakePollRepository(),
+          downloadAvatars: true,
+        );
+
+        expect(client.calls, isEmpty);
+        expect(result.avatarsDownloaded, 0);
+        expect(result.warnings.where(ImportResult.isRetiredMediaWarning), [
+          'Retired Simply Plural media skipped: 1 member avatar(s)',
+        ]);
+      },
+    );
+
+    test(
       '200 + text/html → content-type guard rejects and emits warning',
       () async {
         const avatarUrl = 'https://example.com/redirect.html';
@@ -2197,6 +2243,10 @@ void main() {
         ),
         isFalse,
       );
+      const retiredWarning =
+          'Retired Simply Plural media skipped: 1 member avatar(s)';
+      expect(ImportResult.isAvatarDownloadWarning(retiredWarning), isFalse);
+      expect(ImportResult.isRetiredMediaWarning(retiredWarning), isTrue);
     });
 
     test(

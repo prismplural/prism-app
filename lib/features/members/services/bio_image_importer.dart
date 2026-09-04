@@ -26,13 +26,19 @@ class BioImageImporter {
     required MediaService mediaService,
     required DriftMediaAttachmentRepository repository,
     BioImageFetchBytes fetchImageBytes = fetchRemoteImageBytes,
+    bool Function(String url)? skipImageUrl,
+    void Function(String url)? onSkippedImageUrl,
   }) : _mediaService = mediaService,
        _repository = repository,
-       _fetchImageBytes = fetchImageBytes;
+       _fetchImageBytes = fetchImageBytes,
+       _skipImageUrl = skipImageUrl,
+       _onSkippedImageUrl = onSkippedImageUrl;
 
   final MediaService _mediaService;
   final DriftMediaAttachmentRepository _repository;
   final BioImageFetchBytes _fetchImageBytes;
+  final bool Function(String url)? _skipImageUrl;
+  final void Function(String url)? _onSkippedImageUrl;
 
   static const _uuid = Uuid();
   static const _maxBytesPerImage = 5 * 1024 * 1024;
@@ -55,6 +61,10 @@ class BioImageImporter {
     final successes = <String, String>{};
     for (final ref in refs) {
       if (successes.containsKey(ref.url)) continue;
+      if (_skipImageUrl?.call(ref.url) ?? false) {
+        _onSkippedImageUrl?.call(ref.url);
+        continue;
+      }
       final tag = await _importUrl(ref.url);
       if (tag == null) continue; // fetch failed — leave the original URL
       successes[ref.url] = tag;
