@@ -4,6 +4,53 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.0-rc.1] - 2026-09-04
+
+Release candidate. Terminology is now customizable and localized throughout
+Prism, migration and PluralKit sync paths are more resilient, and several
+custom-field data-integrity edge cases are repaired. The sync pin moves to
+`bfe45c3`.
+
+### Added
+- Member, system, and fronting terminology presets, plus custom terminology
+  editors with simplified and advanced fronting controls.
+- Complete English and Spanish terminology support, including localized preset
+  phrases and agreement-safe Spanish sentence templates.
+- Habit visibility filters for narrowing the habits shown in lists and today
+  views.
+- Import progress for large Simply Plural avatar archives and an explicit
+  mapping step when imported members have ambiguous local matches.
+
+### Changed
+- Selected terminology now updates later onboarding steps immediately and is
+  used across settings, appearance, boards, import previews, navigation,
+  notifications, analytics, history, empty states, and accessibility labels.
+- Custom terminology changes save inline without a separate save action.
+- Simply Plural avatar archives are streamed instead of loaded entirely into
+  memory.
+- Member names sort naturally, sheets stay above system navigation, popups stay
+  within window bounds, and fronting timelines keep their day context visible.
+- Image normalization now lives in an app-owned native package and accepts AVIF
+  input.
+
+### Fixed
+- Refilled or concurrently edited custom fields converge without reviving
+  deleted values, and deleting a member scrubs references from member fields.
+- Repeated Simply Plural imports reconcile custom-field definitions and values
+  instead of duplicating or silently dropping them.
+- PluralKit imports preserve stable member identities, page tied switch times,
+  repair replayed creates, and propagate member name updates.
+- Empty systems can complete onboarding, including after pairing from another
+  device.
+- Small-text markdown preserves line breaks, selectable icons remain bundled in
+  release builds, and platform storage and permission dependencies include the
+  reviewed Linux and Windows fixes.
+
+### Internal
+- Added focused coverage for terminology localization and onboarding flow,
+  import identity and custom-field reconciliation, sync atomicity, large avatar
+  archives, and timeline day boundaries.
+
 ## [0.14.0] - 2026-06-25
 
 Feature release. Field templates can now be shared and imported,
