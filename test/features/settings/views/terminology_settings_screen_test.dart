@@ -628,6 +628,39 @@ void main() {
     );
 
     testWidgets(
+      'selecting a preset after pristine Simple retains legacy terms',
+      (tester) async {
+        final appPrefs = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(testFrontingTermBundle),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Start Simple Setup'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Out'));
+        await tester.pumpAndSettle();
+
+        final storedPreset = await appPrefs.getStored(frontingTermsPreference);
+        expect(storedPreset?.preset, FrontingTermPreset.out);
+        expect(storedPreset?.custom, testFrontingTermBundle);
+
+        await tester.tap(find.text('Custom'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Edit every phrase Prism uses for this activity.'),
+          findsOneWidget,
+        );
+        final restored = await appPrefs.getStored(frontingTermsPreference);
+        expect(restored?.preset, isNull);
+        expect(restored?.custom, testFrontingTermBundle);
+      },
+    );
+
+    testWidgets(
       'starting Simple flushes a pending Advanced edit without saving defaults',
       (tester) async {
         final appPrefs = FakeAppPreferenceRepository()
@@ -695,6 +728,69 @@ void main() {
         expect(stored?.custom?.featureLabel, 'Latest draft');
         expect(stored?.authoring, isNull);
         expect(find.text('Activity name'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'an older preset write cannot restore a discarded custom draft',
+      (tester) async {
+        final appPrefs = _DelayedFirstFrontingSetAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(testFrontingTermBundle),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Out'));
+        await tester.pump();
+        await appPrefs.waitForFirstFrontingSet();
+
+        await tester.tap(find.text('Fronting'));
+        await tester.pump();
+        appPrefs.completeFirstFrontingSet();
+        await tester.pumpAndSettle();
+
+        expect(await appPrefs.getStored(frontingTermsPreference), isNull);
+      },
+    );
+
+    testWidgets(
+      'reconciles an external update after a missing stored echo times out',
+      (tester) async {
+        final appPrefs = _DelayedFirstFrontingSetAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(testFrontingTermBundle),
+          );
+        addTearDown(appPrefs.completeFirstFrontingSet);
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Primary labels'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).first, 'Orbiting');
+        await tester.pump(const Duration(milliseconds: 350));
+        await appPrefs.waitForFirstFrontingSet();
+
+        await tester.ensureVisible(find.text('Start Simple Setup'));
+        await tester.tap(find.text('Start Simple Setup'));
+        await tester.pump();
+        await appPrefs.setExternalFrontingTerms(
+          const FrontingTerms.preset(FrontingTermPreset.out),
+        );
+        await tester.pump();
+
+        expect(find.text('Activity name'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 16));
+
+        expect(find.text('Activity name'), findsNothing);
+        expect(
+          find.text('Edit every phrase Prism uses for this activity.'),
+          findsNothing,
+        );
       },
     );
 
@@ -934,6 +1030,36 @@ class _DelayedFrontingSetAppPreferenceRepository
           _secondFrontingSetStarted.complete();
           await _completeSecondFrontingSet.future;
       }
+    }
+    await super.set(definition, value);
+  }
+}
+
+class _DelayedFirstFrontingSetAppPreferenceRepository
+    extends FakeAppPreferenceRepository {
+  final _firstFrontingSetStarted = Completer<void>();
+  final _completeFirstFrontingSet = Completer<void>();
+  var _hasDelayedFrontingSet = false;
+
+  Future<void> waitForFirstFrontingSet() => _firstFrontingSetStarted.future;
+
+  void completeFirstFrontingSet() {
+    if (!_completeFirstFrontingSet.isCompleted) {
+      _completeFirstFrontingSet.complete();
+    }
+  }
+
+  Future<void> setExternalFrontingTerms(FrontingTerms terms) {
+    return super.set(frontingTermsPreference, terms);
+  }
+
+  @override
+  Future<void> set<T>(PreferenceDefinition<T> definition, T value) async {
+    if (definition.key == frontingTermsPreference.key &&
+        !_hasDelayedFrontingSet) {
+      _hasDelayedFrontingSet = true;
+      _firstFrontingSetStarted.complete();
+      await _completeFirstFrontingSet.future;
     }
     await super.set(definition, value);
   }

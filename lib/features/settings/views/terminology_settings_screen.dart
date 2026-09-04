@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/terminology_picker.dart';
@@ -143,12 +145,14 @@ class _FrontingTerminologyPickerState
   _FrontingEditorMode _editorMode = _FrontingEditorMode.simple;
   String _authoringLocale = 'en';
   FrontingTermPreset _authoringSeedPreset = FrontingTermPreset.fronting;
-  bool _suppressNextResetReload = false;
   int _selectionGeneration = 0;
   int _customSaveGeneration = 0;
+  int _ignoredStoredEchoGeneration = 0;
+  bool _hasIgnoredStoredEcho = false;
   FrontingTerms? _ignoredStoredEcho;
   Timer? _ignoredStoredEchoTimeout;
   FrontingTerms? _customDraft;
+  FrontingTerms? _desiredCustomDraft;
   Timer? _customSaveDebounce;
   final _persistenceQueue = _PersistenceQueue();
   late final SettingsNotifier _settingsNotifier;
@@ -261,16 +265,34 @@ class _FrontingTerminologyPickerState
 
   void _ignoreStoredEchoUntil(FrontingTerms? echo) {
     _ignoredStoredEchoTimeout?.cancel();
+    final generation = ++_ignoredStoredEchoGeneration;
+    _hasIgnoredStoredEcho = true;
     _ignoredStoredEcho = echo;
-    if (echo == null) return;
     _ignoredStoredEchoTimeout = Timer(_storedEchoIgnoreWindow, () {
-      if (_ignoredStoredEcho == echo) _ignoredStoredEcho = null;
+      unawaited(_reconcileIgnoredStoredEcho(generation));
     });
+  }
+
+  Future<void> _reconcileIgnoredStoredEcho(int generation) async {
+    if (!_hasIgnoredStoredEcho || generation != _ignoredStoredEchoGeneration) {
+      return;
+    }
+    final stored = await ref
+        .read(appPreferenceRepositoryProvider)
+        .getStored(frontingTermsPreference);
+    if (!mounted ||
+        !_hasIgnoredStoredEcho ||
+        generation != _ignoredStoredEchoGeneration) {
+      return;
+    }
+    _clearIgnoredStoredEcho();
+    if (!_dirty) _loadStored(stored, notify: true);
   }
 
   void _clearIgnoredStoredEcho() {
     _ignoredStoredEchoTimeout?.cancel();
     _ignoredStoredEchoTimeout = null;
+    _hasIgnoredStoredEcho = false;
     _ignoredStoredEcho = null;
   }
 
@@ -289,6 +311,7 @@ class _FrontingTerminologyPickerState
       if (_selectionGeneration == 0) {
         _desiredUseCustom = hasCustom;
         _desiredPreset = preset;
+        _desiredCustomDraft = customDraft;
       }
       _setControllersFromBundle(
         customDraft?.custom ??
@@ -302,7 +325,6 @@ class _FrontingTerminologyPickerState
       if (authoring != null) _setSimpleControllers(authoring);
       _dirty = false;
       _advancedDirty = false;
-      _suppressNextResetReload = false;
       _errorText = null;
       _initialized = true;
     }
@@ -381,12 +403,28 @@ class _FrontingTerminologyPickerState
   }
 
   FrontingTerms? _customDraftForStorage() {
-    final current = _currentCustomTerms();
-    if (current != null) return current;
+    if (_dirty) {
+      final current = _currentCustomTerms();
+      if (current != null) return current;
+    }
     final stored = _customDraft?.normalized();
     final custom = stored?.custom;
     if (custom == null) return null;
     return FrontingTerms.custom(custom, authoring: stored!.authoring);
+  }
+
+  FrontingTerms? _storedTermsForPreset(
+    FrontingTermPreset preset,
+    FrontingTerms? customDraft,
+  ) {
+    if (preset == FrontingTermPreset.fronting && customDraft == null) {
+      return null;
+    }
+    return FrontingTerms.preset(
+      preset,
+      custom: customDraft?.custom,
+      authoring: customDraft?.authoring,
+    ).normalized();
   }
 
   FrontingTermBundle _previewBundle() {
@@ -404,6 +442,7 @@ class _FrontingTerminologyPickerState
   void _selectFrontingChoice(_FrontingTermOption option) {
     if (option.custom && _useCustom) return;
 
+    _clearIgnoredStoredEcho();
     _customSaveDebounce?.cancel();
     _customSaveDebounce = null;
     ++_customSaveGeneration;
@@ -416,6 +455,7 @@ class _FrontingTerminologyPickerState
     _desiredPreset = option.custom
         ? customSeedPreset
         : option.preset ?? FrontingTermPreset.fronting;
+    _desiredCustomDraft = customDraft;
 
     setState(() {
       _useCustom = option.custom;
@@ -454,7 +494,7 @@ class _FrontingTerminologyPickerState
     }
     if (option.custom) return;
 
-    _suppressNextResetReload = true;
+    _ignoreStoredEchoUntil(_storedTermsForPreset(_selectedPreset, customDraft));
     unawaited(_persistFrontingChoice(_selectedPreset, generation, customDraft));
   }
 
@@ -481,10 +521,10 @@ class _FrontingTerminologyPickerState
     }
 
     final currentPreset = _desiredPreset;
+    final currentCustomDraft = _desiredCustomDraft;
     setState(() {
       _useCustom = false;
       _selectedPreset = currentPreset;
-      final currentCustomDraft = _customDraftForStorage();
       _customDraft = currentCustomDraft;
       if (currentCustomDraft == null) {
         _setControllersFromBundle(
@@ -492,7 +532,6 @@ class _FrontingTerminologyPickerState
         );
       }
     });
-    final currentCustomDraft = _customDraftForStorage();
     if (currentPreset == FrontingTermPreset.fronting &&
         currentCustomDraft == null) {
       await _persistenceQueue.add(notifier.resetFrontingTerminology);
@@ -573,6 +612,7 @@ class _FrontingTerminologyPickerState
     }
     setState(() {
       _customDraft = customTerms;
+      _desiredCustomDraft = customTerms;
       _dirty = false;
       _advancedDirty = false;
       _simpleAvailable = authoring != null;
@@ -626,19 +666,15 @@ class _FrontingTerminologyPickerState
       _loadStored(stored, notify: false);
     }
     ref.listen<FrontingTerms?>(frontingTermsSettingProvider, (previous, next) {
-      final ignoredEcho = _ignoredStoredEcho;
-      if (ignoredEcho != null) {
-        if (next?.normalized() != ignoredEcho) return;
+      if (_hasIgnoredStoredEcho) {
+        if (next?.normalized() != _ignoredStoredEcho) {
+          return;
+        }
         _clearIgnoredStoredEcho();
         return;
       }
       final currentCustom = _currentCustomTerms();
       if (currentCustom != null && next?.normalized() == currentCustom) return;
-      if (_suppressNextResetReload && next == null) {
-        _suppressNextResetReload = false;
-        return;
-      }
-      _suppressNextResetReload = false;
       if (!_dirty) _loadStored(next, notify: true);
     });
 
