@@ -460,7 +460,11 @@ final class FrontingTermBundle {
 final class FrontingTerms {
   const FrontingTerms({this.preset, this.custom, this.authoring});
 
-  const FrontingTerms.preset(FrontingTermPreset preset) : this(preset: preset);
+  const FrontingTerms.preset(
+    FrontingTermPreset preset, {
+    FrontingTermBundle? custom,
+    SimpleFrontingTermAuthoring? authoring,
+  }) : this(preset: preset, custom: custom, authoring: authoring);
 
   const FrontingTerms.custom(
     FrontingTermBundle custom, {
@@ -476,16 +480,21 @@ final class FrontingTerms {
   bool get isUnset => preset == null && custom == null;
 
   FrontingTerms normalized() {
-    if (preset != null) return FrontingTerms.preset(preset!);
     final bundle = custom?.normalized();
-    if (bundle == null || !bundle.isValid) return unset;
     final normalizedAuthoring = authoring?.normalized();
-    return FrontingTerms.custom(
-      bundle,
-      authoring: normalizedAuthoring?.isValid == true
-          ? normalizedAuthoring
-          : null,
-    );
+    final validBundle = bundle != null && bundle.isValid ? bundle : null;
+    final validAuthoring = normalizedAuthoring?.isValid == true
+        ? normalizedAuthoring
+        : null;
+    if (preset != null) {
+      return FrontingTerms.preset(
+        preset!,
+        custom: validBundle,
+        authoring: validBundle == null ? null : validAuthoring,
+      );
+    }
+    if (validBundle == null) return unset;
+    return FrontingTerms.custom(validBundle, authoring: validAuthoring);
   }
 
   Map<String, Object?> toJson() {
@@ -530,8 +539,13 @@ final class FrontingTermsPreferenceCodec
     final presetName = value['preset'];
     if (presetName is String) {
       final preset = _presetByName(presetName);
-      if (preset != null) return FrontingTerms.preset(preset);
-      return FrontingTerms.unset;
+      if (preset == null) return FrontingTerms.unset;
+      final custom = FrontingTermBundle.tryDecode(value['custom']);
+      return FrontingTerms.preset(
+        preset,
+        custom: custom,
+        authoring: SimpleFrontingTermAuthoring.tryDecode(value['authoring']),
+      );
     }
 
     final custom = FrontingTermBundle.tryDecode(value['custom']);

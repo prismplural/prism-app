@@ -107,6 +107,23 @@ void main() {
   });
 
   test(
+    'fronting terms codec retains an inactive custom draft with a preset',
+    () {
+      const codec = FrontingTermsPreferenceCodec();
+      final terms = FrontingTerms.preset(
+        FrontingTermPreset.out,
+        custom: testFrontingTermBundle,
+      );
+
+      expect(codec.decode(codec.encode(terms)), terms);
+      expect(codec.encode(terms), {
+        'preset': 'out',
+        'custom': testFrontingTermBundle.toJson(),
+      });
+    },
+  );
+
+  test(
     'fronting terms codec round-trips optional simple authoring metadata',
     () {
       const codec = FrontingTermsPreferenceCodec();

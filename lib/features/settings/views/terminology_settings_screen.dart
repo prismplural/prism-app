@@ -146,6 +146,7 @@ class _FrontingTerminologyPickerState
   int _selectionGeneration = 0;
   int _customSaveGeneration = 0;
   FrontingTerms? _ignoredStoredEcho;
+  FrontingTerms? _customDraft;
   Timer? _customSaveDebounce;
   final _persistenceQueue = _PersistenceQueue();
   late final SettingsNotifier _settingsNotifier;
@@ -220,6 +221,27 @@ class _FrontingTerminologyPickerState
     _errorText = null;
   }
 
+  void _restoreCustomDraft(FrontingTerms draft) {
+    final normalized = draft.normalized();
+    final custom = normalized.custom;
+    if (custom == null) return;
+    _setControllersFromBundle(custom);
+    if (normalized.authoring case final authoring?) {
+      _setSimpleControllers(authoring);
+    }
+    _customDraft = FrontingTerms.custom(
+      custom,
+      authoring: normalized.authoring,
+    );
+    _simpleAvailable = normalized.authoring != null;
+    _editorMode = _simpleAvailable
+        ? _FrontingEditorMode.simple
+        : _FrontingEditorMode.advanced;
+    _advancedDirty = false;
+    _dirty = false;
+    _errorText = null;
+  }
+
   void _startSimpleSetupFromAdvanced() {
     _customSaveDebounce?.cancel();
     _customSaveDebounce = null;
@@ -238,7 +260,10 @@ class _FrontingTerminologyPickerState
     void update() {
       final normalized = terms?.normalized() ?? FrontingTerms.unset;
       final custom = normalized.custom;
-      final hasCustom = custom != null && custom.isValid;
+      final customDraft = custom == null
+          ? null
+          : FrontingTerms.custom(custom, authoring: normalized.authoring);
+      final hasCustom = normalized.preset == null && customDraft != null;
       final authoring = normalized.authoring;
       final preset = normalized.preset ?? FrontingTermPreset.fronting;
       _useCustom = hasCustom;
@@ -248,8 +273,10 @@ class _FrontingTerminologyPickerState
         _desiredPreset = preset;
       }
       _setControllersFromBundle(
-        hasCustom ? custom : frontingTermBundleForPreset(context.l10n, preset),
+        customDraft?.custom ??
+            frontingTermBundleForPreset(context.l10n, preset),
       );
+      _customDraft = customDraft;
       _simpleAvailable = hasCustom && authoring != null;
       _editorMode = _simpleAvailable
           ? _FrontingEditorMode.simple
@@ -335,6 +362,15 @@ class _FrontingTerminologyPickerState
     return FrontingTerms.custom(bundle, authoring: authoring).normalized();
   }
 
+  FrontingTerms? _customDraftForStorage() {
+    final current = _currentCustomTerms();
+    if (current != null) return current;
+    final stored = _customDraft?.normalized();
+    final custom = stored?.custom;
+    if (custom == null) return null;
+    return FrontingTerms.custom(custom, authoring: stored!.authoring);
+  }
+
   FrontingTermBundle _previewBundle() {
     if (_useCustom) {
       if (_editorMode == _FrontingEditorMode.simple) {
@@ -353,6 +389,7 @@ class _FrontingTerminologyPickerState
     _customSaveDebounce?.cancel();
     _customSaveDebounce = null;
     ++_customSaveGeneration;
+    final customDraft = _customDraftForStorage();
     final generation = ++_selectionGeneration;
     final customSeedPreset = _selectedPreset;
     _desiredUseCustom = option.custom;
@@ -365,11 +402,18 @@ class _FrontingTerminologyPickerState
       _selectedPreset = _desiredPreset;
       _errorText = null;
       if (option.custom) {
-        _startSimpleSetup(customSeedPreset, dirty: false);
+        if (customDraft != null) {
+          _restoreCustomDraft(customDraft);
+        } else {
+          _startSimpleSetup(customSeedPreset, dirty: false);
+        }
       } else {
-        _setControllersFromBundle(
-          frontingTermBundleForPreset(context.l10n, _selectedPreset),
-        );
+        _customDraft = customDraft;
+        if (customDraft == null) {
+          _setControllersFromBundle(
+            frontingTermBundleForPreset(context.l10n, _selectedPreset),
+          );
+        }
         _dirty = false;
         _advancedDirty = false;
         _simpleAvailable = false;
@@ -379,19 +423,24 @@ class _FrontingTerminologyPickerState
     if (option.custom) return;
 
     _suppressNextResetReload = true;
-    unawaited(_persistFrontingChoice(_selectedPreset, generation));
+    unawaited(_persistFrontingChoice(_selectedPreset, generation, customDraft));
   }
 
   Future<void> _persistFrontingChoice(
     FrontingTermPreset preset,
     int generation,
+    FrontingTerms? customDraft,
   ) async {
     final notifier = _settingsNotifier;
-    if (preset == FrontingTermPreset.fronting) {
+    if (preset == FrontingTermPreset.fronting && customDraft == null) {
       await _persistenceQueue.add(notifier.resetFrontingTerminology);
     } else {
       await _persistenceQueue.add(
-        () => notifier.updateFrontingTerminologyPreset(preset),
+        () => notifier.updateFrontingTerminologyPreset(
+          preset,
+          custom: customDraft?.custom,
+          authoring: customDraft?.authoring,
+        ),
       );
     }
 
@@ -403,15 +452,25 @@ class _FrontingTerminologyPickerState
     setState(() {
       _useCustom = false;
       _selectedPreset = currentPreset;
-      _setControllersFromBundle(
-        frontingTermBundleForPreset(context.l10n, currentPreset),
-      );
+      final currentCustomDraft = _customDraftForStorage();
+      _customDraft = currentCustomDraft;
+      if (currentCustomDraft == null) {
+        _setControllersFromBundle(
+          frontingTermBundleForPreset(context.l10n, currentPreset),
+        );
+      }
     });
-    if (currentPreset == FrontingTermPreset.fronting) {
+    final currentCustomDraft = _customDraftForStorage();
+    if (currentPreset == FrontingTermPreset.fronting &&
+        currentCustomDraft == null) {
       await _persistenceQueue.add(notifier.resetFrontingTerminology);
     } else {
       await _persistenceQueue.add(
-        () => notifier.updateFrontingTerminologyPreset(currentPreset),
+        () => notifier.updateFrontingTerminologyPreset(
+          currentPreset,
+          custom: currentCustomDraft?.custom,
+          authoring: currentCustomDraft?.authoring,
+        ),
       );
     }
   }
@@ -467,6 +526,10 @@ class _FrontingTerminologyPickerState
     }
 
     final notifier = _settingsNotifier;
+    final customTerms = FrontingTerms.custom(
+      bundle,
+      authoring: authoring,
+    ).normalized();
     await _persistenceQueue.add(
       () => notifier.updateFrontingTerminologyCustom(
         bundle,
@@ -477,6 +540,7 @@ class _FrontingTerminologyPickerState
       return;
     }
     setState(() {
+      _customDraft = customTerms;
       _dirty = false;
       _advancedDirty = false;
       _simpleAvailable = authoring != null;

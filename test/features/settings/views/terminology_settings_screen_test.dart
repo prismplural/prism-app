@@ -418,6 +418,46 @@ void main() {
       expect(stored?.preset, isNull);
     });
 
+    testWidgets('preserves a custom draft when selecting a preset', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      final featureField = find.descendant(
+        of: find.byKey(const ValueKey('simple-fronting-featureLabel')),
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(featureField, 'Orbit');
+      await pumpTerminologyAutosave(tester);
+
+      await tester.tap(find.text('Out'));
+      await tester.pumpAndSettle();
+
+      final storedPreset = await appPrefs.getStored(frontingTermsPreference);
+      expect(storedPreset?.preset, FrontingTermPreset.out);
+      expect(storedPreset?.custom?.featureLabel, 'Orbit');
+      expect(storedPreset?.authoring?.featureLabel, 'Orbit');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextFormField>(featureField).controller!.text,
+        'Orbit',
+      );
+    });
+
     testWidgets('exploring Custom does not replace the selected preset', (
       tester,
     ) async {
@@ -635,7 +675,7 @@ void main() {
     );
 
     testWidgets(
-      'switching to Advanced before autosave preserves Simple authoring',
+      'switching Simple to Advanced and back preserves Simple authoring',
       (tester) async {
         const authoring = SimpleFrontingTermAuthoring(
           locale: 'en',
@@ -667,8 +707,17 @@ void main() {
         await tester.enterText(featureField, 'Orbit Activity');
         await tester.tap(find.text('Advanced'));
         await tester.pump();
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
+        expect(
+          find.text('Edit every phrase Prism uses for this activity.'),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Simple'));
+        await tester.pump();
+        expect(
+          tester.widget<TextFormField>(featureField).controller!.text,
+          'Orbit Activity',
+        );
+        await pumpTerminologyAutosave(tester);
 
         final stored = await appPrefs.getStored(frontingTermsPreference);
         expect(stored?.custom?.featureLabel, 'Orbit Activity');
