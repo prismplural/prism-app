@@ -61,6 +61,25 @@ void main() {
     expect(online.activePluralLabel, 'Online Members');
   });
 
+  test(
+    'resolveFrontingTerms keeps an active preset over a retained draft',
+    () async {
+      final en = await AppLocalizations.delegate.load(const Locale('en'));
+      final retainedDraft = frontingTermBundleForPreset(
+        en,
+        FrontingTermPreset.present,
+      );
+
+      expect(
+        resolveFrontingTerms(
+          en,
+          FrontingTerms.preset(FrontingTermPreset.out, custom: retainedDraft),
+        ),
+        frontingTermBundleForPreset(en, FrontingTermPreset.out),
+      );
+    },
+  );
+
   test('every preset resolves as Spanish without English leakage', () async {
     final es = await AppLocalizations.delegate.load(const Locale('es'));
     const expectedActiveLabels = {

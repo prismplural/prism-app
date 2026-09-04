@@ -387,6 +387,27 @@ void main() {
       expect(await appPrefs.getStored(frontingTermsPreference), isNull);
     });
 
+    testWidgets('uses Fronting to discard a retained custom draft', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(
+          frontingTermsPreference,
+          FrontingTerms.preset(
+            FrontingTermPreset.online,
+            custom: testFrontingTermBundle,
+          ),
+        );
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fronting'));
+      await tester.pumpAndSettle();
+
+      expect(await appPrefs.getStored(frontingTermsPreference), isNull);
+    });
+
     testWidgets('saves a generated simple custom fronting phrase bundle', (
       tester,
     ) async {
@@ -456,6 +477,9 @@ void main() {
         tester.widget<TextFormField>(featureField).controller!.text,
         'Orbit',
       );
+      final restored = await appPrefs.getStored(frontingTermsPreference);
+      expect(restored?.preset, isNull);
+      expect(restored?.custom?.featureLabel, 'Orbit');
     });
 
     testWidgets('exploring Custom does not replace the selected preset', (
@@ -718,6 +742,48 @@ void main() {
           'Orbit Activity',
         );
         await pumpTerminologyAutosave(tester);
+
+        final stored = await appPrefs.getStored(frontingTermsPreference);
+        expect(stored?.custom?.featureLabel, 'Orbit Activity');
+        expect(stored?.authoring?.featureLabel, 'Orbit Activity');
+      },
+    );
+
+    testWidgets(
+      'disposing after switching to Advanced flushes Simple authoring',
+      (tester) async {
+        const authoring = SimpleFrontingTermAuthoring(
+          locale: 'en',
+          seedPreset: FrontingTermPreset.fronting,
+          featureLabel: 'Orbit',
+          activeSectionLabel: 'In Orbit',
+          statePhrase: 'in orbit',
+          activeSingularLabel: 'Orbiter',
+          activePluralLabel: 'Orbiters',
+          sessionSingular: 'Orbit session',
+          sessionPlural: 'Orbit sessions',
+        );
+        final appPrefs = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(
+              generateSimpleFrontingBundle(authoring),
+              authoring: authoring,
+            ),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        final featureField = find.descendant(
+          of: find.byKey(const ValueKey('simple-fronting-featureLabel')),
+          matching: find.byType(TextFormField),
+        );
+        await tester.enterText(featureField, 'Orbit Activity');
+        await tester.tap(find.text('Advanced'));
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
 
         final stored = await appPrefs.getStored(frontingTermsPreference);
         expect(stored?.custom?.featureLabel, 'Orbit Activity');

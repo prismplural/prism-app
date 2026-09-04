@@ -39,6 +39,7 @@ const _simpleFrontingFieldKeys = [
 ];
 
 const _terminologyAutosaveDelay = Duration(milliseconds: 300);
+const _storedEchoIgnoreWindow = Duration(seconds: 15);
 
 final class _PersistenceQueue {
   Future<void>? _tail;
@@ -146,6 +147,7 @@ class _FrontingTerminologyPickerState
   int _selectionGeneration = 0;
   int _customSaveGeneration = 0;
   FrontingTerms? _ignoredStoredEcho;
+  Timer? _ignoredStoredEchoTimeout;
   FrontingTerms? _customDraft;
   Timer? _customSaveDebounce;
   final _persistenceQueue = _PersistenceQueue();
@@ -161,6 +163,7 @@ class _FrontingTerminologyPickerState
   @override
   void dispose() {
     _customSaveDebounce?.cancel();
+    _ignoredStoredEchoTimeout?.cancel();
     _persistCustomOnDispose();
     for (final controller in _controllers.values) {
       controller.dispose();
@@ -246,7 +249,7 @@ class _FrontingTerminologyPickerState
     _customSaveDebounce?.cancel();
     _customSaveDebounce = null;
     if (_dirty && _useCustom) {
-      _ignoredStoredEcho = _currentCustomTerms();
+      _ignoreStoredEchoUntil(_currentCustomTerms());
       final generation = ++_customSaveGeneration;
       unawaited(_saveCustom(generation: generation));
     }
@@ -254,6 +257,21 @@ class _FrontingTerminologyPickerState
     setState(() {
       _startSimpleSetup(FrontingTermPreset.fronting, dirty: false);
     });
+  }
+
+  void _ignoreStoredEchoUntil(FrontingTerms? echo) {
+    _ignoredStoredEchoTimeout?.cancel();
+    _ignoredStoredEcho = echo;
+    if (echo == null) return;
+    _ignoredStoredEchoTimeout = Timer(_storedEchoIgnoreWindow, () {
+      if (_ignoredStoredEcho == echo) _ignoredStoredEcho = null;
+    });
+  }
+
+  void _clearIgnoredStoredEcho() {
+    _ignoredStoredEchoTimeout?.cancel();
+    _ignoredStoredEchoTimeout = null;
+    _ignoredStoredEcho = null;
   }
 
   void _loadStored(FrontingTerms? terms, {required bool notify}) {
@@ -389,7 +407,9 @@ class _FrontingTerminologyPickerState
     _customSaveDebounce?.cancel();
     _customSaveDebounce = null;
     ++_customSaveGeneration;
-    final customDraft = _customDraftForStorage();
+    final customDraft = option.preset == FrontingTermPreset.fronting
+        ? null
+        : _customDraftForStorage();
     final generation = ++_selectionGeneration;
     final customSeedPreset = _selectedPreset;
     _desiredUseCustom = option.custom;
@@ -420,6 +440,18 @@ class _FrontingTerminologyPickerState
       }
     });
 
+    if (option.custom && customDraft != null) {
+      _ignoreStoredEchoUntil(customDraft);
+      unawaited(
+        _persistenceQueue.add(
+          () => _settingsNotifier.updateFrontingTerminologyCustom(
+            customDraft.custom!,
+            authoring: customDraft.authoring,
+          ),
+        ),
+      );
+      return;
+    }
     if (option.custom) return;
 
     _suppressNextResetReload = true;
@@ -597,7 +629,7 @@ class _FrontingTerminologyPickerState
       final ignoredEcho = _ignoredStoredEcho;
       if (ignoredEcho != null) {
         if (next?.normalized() != ignoredEcho) return;
-        _ignoredStoredEcho = null;
+        _clearIgnoredStoredEcho();
         return;
       }
       final currentCustom = _currentCustomTerms();
