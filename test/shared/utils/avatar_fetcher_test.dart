@@ -1,3 +1,4 @@
+import 'dart:io' show InternetAddress;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -5,8 +6,18 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
+import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
+
+final _testPublicAddress = InternetAddress('93.184.216.34');
+
+Future<List<InternetAddress>> _testPublicLookup(String _) async => [
+  _testPublicAddress,
+];
 
 void main() {
+  setUpAll(() => setRemoteImageHostLookupForTesting(_testPublicLookup));
+  tearDownAll(() => setRemoteImageHostLookupForTesting(null));
+
   group('fetchAvatarBytes', () {
     test('returns bytes on 2xx image response', () async {
       final body = Uint8List.fromList(List<int>.generate(64, (i) => i));

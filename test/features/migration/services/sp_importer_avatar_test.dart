@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show InternetAddress;
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
@@ -17,10 +18,18 @@ import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
+  final testPublicAddress = InternetAddress('93.184.216.34');
+  Future<List<InternetAddress>> testPublicLookup(String _) async => [
+    testPublicAddress,
+  ];
+  setUpAll(() => setRemoteImageHostLookupForTesting(testPublicLookup));
+  tearDownAll(() => setRemoteImageHostLookupForTesting(null));
+
   AppDatabase makeDb() => AppDatabase(NativeDatabase.memory());
 
   SpExportData exportWithSystemAvatar(String? url) => SpExportData(

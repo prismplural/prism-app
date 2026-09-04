@@ -34,6 +34,7 @@ import 'package:prism_plurality/features/migration/services/sp_import_warning_cl
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_member_mapping.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 
 import '../../../helpers/fake_repositories.dart';
 
@@ -829,6 +830,13 @@ Future<String> _writeAvatarZip(Map<String, Uint8List> files) async {
 // =============================================================================
 
 void main() {
+  final testPublicAddress = InternetAddress('93.184.216.34');
+  Future<List<InternetAddress>> testPublicLookup(String _) async => [
+    testPublicAddress,
+  ];
+  setUpAll(() => setRemoteImageHostLookupForTesting(testPublicLookup));
+  tearDownAll(() => setRemoteImageHostLookupForTesting(null));
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // ---------------------------------------------------------------------------

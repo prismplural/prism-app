@@ -28,6 +28,29 @@ const _allowedMimeTypes = {
   'image/gif',
 };
 
+/// DNS lookup used by the pre-request SSRF guard.
+///
+/// Production always uses [InternetAddress.lookup]. Tests that provide a mock
+/// HTTP client can replace it with a deterministic resolver, but the resolved
+/// addresses still go through [_isPrivateAddress]; this hook cannot bypass the
+/// private-address policy.
+typedef RemoteImageHostLookup =
+    Future<List<InternetAddress>> Function(String host);
+
+RemoteImageHostLookup? _hostLookupForTesting;
+
+/// Replaces the DNS lookup used by pre-request SSRF validation in tests.
+///
+/// Pass `null` to restore the production resolver. Kept test-only so mocked
+/// transport tests do not depend on the host machine's DNS configuration.
+@visibleForTesting
+void setRemoteImageHostLookupForTesting(RemoteImageHostLookup? hostLookup) {
+  _hostLookupForTesting = hostLookup;
+}
+
+Future<List<InternetAddress>> _lookupHost(String host) =>
+    (_hostLookupForTesting ?? InternetAddress.lookup)(host);
+
 /// Why a remote image fetch did not yield bytes. Callers map this to a
 /// user-facing message so "that's a web page" ([notAnImage]) and "the host is
 /// unreachable" ([unreachable]) read as the different problems they are.
@@ -141,7 +164,7 @@ Future<bool> _isPrivateHost(String host) async {
 
   // Hostname: resolve and reject if any resolved address is private.
   try {
-    final resolved = await InternetAddress.lookup(host);
+    final resolved = await _lookupHost(host);
     if (resolved.isEmpty) return true; // unresolvable → block
     for (final addr in resolved) {
       if (_isPrivateAddress(addr)) return true;

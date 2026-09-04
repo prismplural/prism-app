@@ -8,7 +8,16 @@ import 'package:http/testing.dart';
 
 import 'package:prism_plurality/shared/utils/remote_image_fetcher.dart';
 
+final _testPublicAddress = InternetAddress('93.184.216.34');
+
+Future<List<InternetAddress>> _testPublicLookup(String _) async => [
+  _testPublicAddress,
+];
+
 void main() {
+  setUpAll(() => setRemoteImageHostLookupForTesting(_testPublicLookup));
+  tearDownAll(() => setRemoteImageHostLookupForTesting(null));
+
   group('fetchRemoteImageBytes', () {
     test('returns bytes for image responses', () async {
       final body = Uint8List.fromList([1, 2, 3]);
@@ -481,6 +490,36 @@ void main() {
       );
       expect(result.error, RemoteImageFetchError.blockedHost);
     });
+
+    test(
+      'still blocks a hostname resolved to a private address in tests',
+      () async {
+        var calls = 0;
+        final client = MockClient((request) async {
+          calls++;
+          return http.Response.bytes(
+            Uint8List.fromList([1, 2, 3]),
+            200,
+            headers: {'content-type': 'image/png'},
+          );
+        });
+        setRemoteImageHostLookupForTesting(
+          (_) async => [InternetAddress.loopbackIPv4],
+        );
+        addTearDown(
+          () => setRemoteImageHostLookupForTesting(_testPublicLookup),
+        );
+
+        final result = await fetchRemoteImageResult(
+          'https://example.com/private-dns.png',
+          client: client,
+        );
+
+        expect(result.bytes, isNull);
+        expect(result.error, RemoteImageFetchError.blockedHost);
+        expect(calls, 0);
+      },
+    );
 
     // ── og:image link-preview fallback (pasted page, not raw image) ─────────
     test('falls back to og:image when the URL is a web page', () async {
