@@ -57,6 +57,8 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 const _kMembersViewSettingsBannerSeenKey =
     'prism.members.view_settings_banner_seen';
 
+const _kFrontingPillMinimumLabelWidth = 96.0;
+
 String _memberOptimisticKey(Member member) => member.id;
 
 enum _MemberDetailPaneMode { detail, edit, customFieldGroup }
@@ -1304,86 +1306,127 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         '${memberTilePrefs.frontingTerms.replaceCurrentAction}: $resolvedName',
     };
 
-    return BlurPopupAnchor(
+    return LayoutBuilder(
       key: reorderIndex != null ? ValueKey(member.id) : null,
-      trigger: BlurPopupTrigger.longPress,
-      width: 220,
-      maxHeight: 320,
-      semanticLabel: context.l10n.memberMoreOptionsTooltip,
-      itemCount: actions.length,
-      itemBuilder: (context, index, close) {
-        final action = actions[index];
-        return PrismListRow(
-          dense: true,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          leading: Icon(action.icon, size: 20),
-          title: Text(action.label),
-          destructive: action.destructive,
-          onTap: () {
-            close();
-            unawaited(Future<void>.sync(action.onSelected));
+      builder: (context, constraints) {
+        // Grouped rows can be indented; use the tile width.
+        final maxTrailingWidth = constraints.maxWidth * 0.4;
+        return BlurPopupAnchor(
+          trigger: BlurPopupTrigger.longPress,
+          width: 220,
+          maxHeight: 320,
+          semanticLabel: context.l10n.memberMoreOptionsTooltip,
+          itemCount: actions.length,
+          itemBuilder: (context, index, close) {
+            final action = actions[index];
+            return PrismListRow(
+              dense: true,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              leading: Icon(action.icon, size: 20),
+              title: Text(action.label),
+              destructive: action.destructive,
+              onTap: () {
+                close();
+                unawaited(Future<void>.sync(action.onSelected));
+              },
+            );
           },
+          child: MemberCard(
+            member: member,
+            resolvedName: resolvedName,
+            subtitleName: alternateNameFor(
+              member,
+              memberTilePrefs.namePresentation,
+            ),
+            deferAvatarLookup: true,
+            showPronouns: memberTilePrefs.showPronouns,
+            selected: isDetailSelected(member.id),
+            onTap: () => _selectMember(
+              member.id,
+              navigate: () => unawaited(context.push(_memberPath(member.id))),
+            ),
+            trailing: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxTrailingWidth),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isFronting) ...[
+                    Flexible(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final label =
+                              memberTilePrefs.frontingTerms.activeSectionLabel;
+                          final iconOnly =
+                              constraints.maxWidth <
+                              _kFrontingPillMinimumLabelWidth;
+                          final pill = PrismPill(
+                            label: iconOnly ? '' : label,
+                            icon: AppIcons.flashOn,
+                            color: AppColors.fronting(theme.brightness),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                          );
+                          if (!iconOnly) return pill;
+                          return Semantics(
+                            container: true,
+                            label: label,
+                            child: Tooltip(
+                              message: label,
+                              child: ExcludeSemantics(child: pill),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (memberTilePrefs.showFrontButtons && !isFronting) ...[
+                    IconButton(
+                      tooltip: frontButtonLabel,
+                      icon: Icon(AppIcons.add),
+                      onPressed: memberTilePrefs.frontingActionBusy
+                          ? null
+                          : () {
+                              Haptics.selection();
+                              unawaited(_startFronting(member));
+                            },
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (reorderIndex != null)
+                    Semantics(
+                      container: true,
+                      label: context.l10n.groupMemberDragHandleLabel,
+                      hint: context.l10n.groupMemberDragHandleHintManual,
+                      child: Tooltip(
+                        message: context.l10n.groupMemberDragHandleTooltip,
+                        child: ReorderableDragStartListener(
+                          index: reorderIndex,
+                          child: SizedBox(
+                            width: 48,
+                            height: 48,
+                            child: ColoredBox(
+                              color: Colors.transparent,
+                              child: Center(
+                                child: Icon(
+                                  AppIcons.dragHandle,
+                                  color: theme.colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.4),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
         );
       },
-      child: MemberCard(
-        member: member,
-        resolvedName: resolvedName,
-        subtitleName: alternateNameFor(
-          member,
-          memberTilePrefs.namePresentation,
-        ),
-        deferAvatarLookup: true,
-        showPronouns: memberTilePrefs.showPronouns,
-        selected: isDetailSelected(member.id),
-        onTap: () => _selectMember(
-          member.id,
-          navigate: () => unawaited(context.push(_memberPath(member.id))),
-        ),
-        trailing: Flexible(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isFronting) ...[
-                Flexible(
-                  child: PrismPill(
-                    label: memberTilePrefs.frontingTerms.activeSectionLabel,
-                    icon: AppIcons.flashOn,
-                    color: AppColors.fronting(theme.brightness),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-              ],
-              if (memberTilePrefs.showFrontButtons && !isFronting) ...[
-                IconButton(
-                  tooltip: frontButtonLabel,
-                  icon: Icon(AppIcons.add),
-                  onPressed: memberTilePrefs.frontingActionBusy
-                      ? null
-                      : () {
-                          Haptics.selection();
-                          unawaited(_startFronting(member));
-                        },
-                ),
-                const SizedBox(width: 4),
-              ],
-              if (reorderIndex != null)
-                ReorderableDragStartListener(
-                  index: reorderIndex,
-                  child: Icon(
-                    AppIcons.dragHandle,
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.4,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

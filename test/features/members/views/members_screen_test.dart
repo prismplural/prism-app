@@ -40,8 +40,10 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 
 import '../../../helpers/fake_repositories.dart';
 import '../../../helpers/fronting_term_fixtures.dart';
@@ -61,13 +63,18 @@ Member _member(
   isActive: isActive,
 );
 
-MemberGroup _group(String id, String name, {int displayOrder = 0}) =>
-    MemberGroup(
-      id: id,
-      name: name,
-      displayOrder: displayOrder,
-      createdAt: DateTime(2024),
-    );
+MemberGroup _group(
+  String id,
+  String name, {
+  int displayOrder = 0,
+  String? parentGroupId,
+}) => MemberGroup(
+  id: id,
+  name: name,
+  displayOrder: displayOrder,
+  parentGroupId: parentGroupId,
+  createdAt: DateTime(2024),
+);
 
 Widget _buildSubject({
   required List<Member> members,
@@ -1706,6 +1713,178 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
+    expect(find.byType(PrismPill), findsOneWidget);
+  });
+
+  testWidgets('narrow member cards collapse the fronting label to an icon', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final customBundle = FrontingTermBundle.tryDecode({
+      ...testFrontingTermBundle.toJson(),
+      'activeSectionLabel': 'On deck',
+    })!;
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+        frontingTerms: FrontingTerms.custom(customBundle),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(AppIcons.flashOn), findsOneWidget);
+    expect(find.text('On deck'), findsNothing);
+    expect(find.byTooltip('On deck'), findsOneWidget);
+  });
+
+  testWidgets('long custom fronting labels fit in the wide member-list pane', (
+    tester,
+  ) async {
+    _setWideWindow(tester);
+
+    final customBundle = FrontingTermBundle.tryDecode({
+      ...testFrontingTermBundle.toJson(),
+      'activeSectionLabel':
+          'Members currently participating in this very long activity',
+    })!;
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+        frontingTerms: FrontingTerms.custom(customBundle),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(PrismPill), findsOneWidget);
+    expect(tester.getSize(find.text('Member alice')).width, greaterThan(0));
+  });
+
+  testWidgets('deep grouped rows reserve room for inactive fronting members', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final groups = List.generate(
+      7,
+      (index) => _group(
+        'group-$index',
+        'Group $index',
+        displayOrder: index,
+        parentGroupId: index == 0 ? null : 'group-${index - 1}',
+      ),
+    );
+    final member = _member('alice', isActive: false);
+    final customBundle = FrontingTermBundle.tryDecode({
+      ...testFrontingTermBundle.toJson(),
+      'activeSectionLabel':
+          'Members currently participating in this very long activity',
+    })!;
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(
+          membersListViewMode: MembersListViewMode.groupedSections,
+          membersShowFrontButtons: true,
+        ),
+        members: [member],
+        groups: groups,
+        entries: const [
+          MemberGroupEntry(
+            id: 'entry-alice',
+            groupId: 'group-6',
+            memberId: 'alice',
+          ),
+        ],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+        frontingTerms: FrontingTerms.custom(customBundle),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scope = ProviderScope.containerOf(
+      tester.element(find.byType(MembersScreen)),
+      listen: false,
+    );
+    scope.read(showInactiveMembersProvider.notifier).set(true);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(
+        const ValueKey(('members-grouped-member', 'group-6', 'alice')),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('member list trailing actions stay at the card edge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: [_member('alice'), _member('bob', displayOrder: 1)],
+        groups: const [],
+        entries: const [],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+        frontingTerms: const FrontingTerms.preset(FrontingTermPreset.out),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final bobCard = find.ancestor(
+      of: find.text('Member bob'),
+      matching: find.byType(MemberCard),
+    );
+    final bobDragHandleTarget = find.descendant(
+      of: bobCard,
+      matching: find.byType(ReorderableDragStartListener),
+    );
+    final cardBounds = tester.getRect(bobCard);
+    final dragHandleBounds = tester.getRect(bobDragHandleTarget);
+    expect(dragHandleBounds.right, closeTo(cardBounds.right - 32, 0.1));
   });
 
   testWidgets('long-press set as fronter follows replace preference', (
