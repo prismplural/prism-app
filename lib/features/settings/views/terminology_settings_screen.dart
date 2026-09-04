@@ -532,8 +532,9 @@ class _FrontingTerminologyPickerState
     ref.listen<FrontingTerms?>(frontingTermsSettingProvider, (previous, next) {
       final ignoredEcho = _ignoredStoredEcho;
       if (ignoredEcho != null) {
+        if (next?.normalized() != ignoredEcho) return;
         _ignoredStoredEcho = null;
-        if (next?.normalized() == ignoredEcho) return;
+        return;
       }
       final currentCustom = _currentCustomTerms();
       if (currentCustom != null && next?.normalized() == currentCustom) return;

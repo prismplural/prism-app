@@ -590,6 +590,51 @@ void main() {
     );
 
     testWidgets(
+      'starting Simple ignores stale Advanced saves while its flush is queued',
+      (tester) async {
+        final appPrefs = _DelayedFrontingSetAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(testFrontingTermBundle),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Primary labels'));
+        await tester.pumpAndSettle();
+
+        final featureField = find.byType(TextFormField).first;
+        await tester.enterText(featureField, 'First draft');
+        await tester.pump(const Duration(milliseconds: 350));
+        await appPrefs.waitForFirstFrontingSet();
+
+        await tester.enterText(featureField, 'Latest draft');
+        await tester.ensureVisible(find.text('Start Simple Setup'));
+        await tester.tap(find.text('Start Simple Setup'));
+        await tester.pump();
+
+        appPrefs.completeFirstFrontingSet();
+        await appPrefs.waitForSecondFrontingSet();
+        await tester.pump();
+
+        expect(find.text('Activity name'), findsOneWidget);
+        expect(
+          find.text('Edit every phrase Prism uses for this activity.'),
+          findsNothing,
+        );
+
+        appPrefs.completeSecondFrontingSet();
+        await tester.pumpAndSettle();
+
+        final stored = await appPrefs.getStored(frontingTermsPreference);
+        expect(stored?.custom?.featureLabel, 'Latest draft');
+        expect(stored?.authoring, isNull);
+        expect(find.text('Activity name'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'switching to Advanced before autosave preserves Simple authoring',
       (tester) async {
         const authoring = SimpleFrontingTermAuthoring(
@@ -736,5 +781,45 @@ class _DelayedResetAppPreferenceRepository extends FakeAppPreferenceRepository {
     }
     await _completeReset.future;
     await super.reset(definition);
+  }
+}
+
+class _DelayedFrontingSetAppPreferenceRepository
+    extends FakeAppPreferenceRepository {
+  final _firstFrontingSetStarted = Completer<void>();
+  final _secondFrontingSetStarted = Completer<void>();
+  final _completeFirstFrontingSet = Completer<void>();
+  final _completeSecondFrontingSet = Completer<void>();
+  var _frontingSetCount = 0;
+
+  Future<void> waitForFirstFrontingSet() => _firstFrontingSetStarted.future;
+
+  Future<void> waitForSecondFrontingSet() => _secondFrontingSetStarted.future;
+
+  void completeFirstFrontingSet() {
+    if (!_completeFirstFrontingSet.isCompleted) {
+      _completeFirstFrontingSet.complete();
+    }
+  }
+
+  void completeSecondFrontingSet() {
+    if (!_completeSecondFrontingSet.isCompleted) {
+      _completeSecondFrontingSet.complete();
+    }
+  }
+
+  @override
+  Future<void> set<T>(PreferenceDefinition<T> definition, T value) async {
+    if (definition.key == frontingTermsPreference.key) {
+      switch (_frontingSetCount++) {
+        case 0:
+          _firstFrontingSetStarted.complete();
+          await _completeFirstFrontingSet.future;
+        case 1:
+          _secondFrontingSetStarted.complete();
+          await _completeSecondFrontingSet.future;
+      }
+    }
+    await super.set(definition, value);
   }
 }
