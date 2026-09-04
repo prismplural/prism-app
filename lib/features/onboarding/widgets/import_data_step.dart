@@ -1824,8 +1824,6 @@ class _SimplyPluralImportFlowState
         };
         break;
       case sp_importer.ImportState.parsing:
-      case sp_importer.ImportState.verifying:
-      case sp_importer.ImportState.fetching:
       case sp_importer.ImportState.importing:
       case sp_importer.ImportState.downloadingAvatars:
         // Keep the outer onboarding Continue button from advancing past the
@@ -1918,7 +1916,7 @@ class _SimplyPluralImportFlowState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    context.l10n.onboardingSimplyPluralHowToExport,
+                    context.l10n.onboardingSimplyPluralSavedExportTitle,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isDark
@@ -1929,22 +1927,22 @@ class _SimplyPluralImportFlowState
                   const SizedBox(height: 8),
                   _InstructionRow(
                     number: '1',
-                    text: context.l10n.onboardingSimplyPluralStep1,
+                    text: context.l10n.onboardingSimplyPluralSavedExportStep1,
                   ),
                   _InstructionRow(
                     number: '2',
-                    text: context.l10n.onboardingSimplyPluralStep2,
+                    text: context.l10n.onboardingSimplyPluralSavedExportStep2,
                   ),
                   _InstructionRow(
                     number: '3',
-                    text: context.l10n.onboardingSimplyPluralStep3,
+                    text: context.l10n.onboardingSimplyPluralSavedExportStep3,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             _ActionButton(
-              label: context.l10n.onboardingSimplyPluralSelectFile,
+              label: context.l10n.onboardingSimplyPluralSelectSavedExport,
               onPressed: () {
                 ref.read(importerProvider.notifier).selectAndParseFile();
               },
@@ -1958,9 +1956,7 @@ class _SimplyPluralImportFlowState
               label: _spPendingStatusLabel(context, migration),
             ),
 
-          if (migration.step == sp_importer.ImportState.verifying ||
-              migration.step == sp_importer.ImportState.fetching ||
-              migration.step == sp_importer.ImportState.matchMembers)
+          if (migration.step == sp_importer.ImportState.matchMembers)
             _SpImportProgressView(
               color: textColor,
               label: _spPendingStatusLabel(context, migration),
@@ -2296,11 +2292,6 @@ String _spPendingStatusLabel(BuildContext context, MigrationState migration) {
   return switch (migration.step) {
     sp_importer.ImportState.parsing =>
       context.l10n.onboardingSimplyPluralReadingFile,
-    sp_importer.ImportState.verifying => context.l10n.migrationVerifyingToken,
-    sp_importer.ImportState.fetching =>
-      migration.progressLabel.isNotEmpty
-          ? migration.progressLabel
-          : context.l10n.migrationFetchingData,
     sp_importer.ImportState.matchMembers =>
       context.l10n.onboardingSimplyPluralPreparingMemberChoices,
     sp_importer.ImportState.importing =>

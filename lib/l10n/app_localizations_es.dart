@@ -6640,22 +6640,24 @@ class AppLocalizationsEs extends AppLocalizations {
       'Importando tu exportación de Prism...';
 
   @override
-  String get onboardingSimplyPluralHowToExport =>
-      'Cómo exportar desde Simply Plural:';
+  String get onboardingSimplyPluralSavedExportTitle =>
+      'Usa una exportación guardada de Simply Plural';
 
   @override
-  String get onboardingSimplyPluralStep1 => 'Abre la app Simply Plural';
+  String get onboardingSimplyPluralSavedExportStep1 =>
+      'Elige una exportación JSON que hayas guardado antes desde Simply Plural.';
 
   @override
-  String get onboardingSimplyPluralStep2 => 'Ve a Ajustes → Exportar datos';
+  String get onboardingSimplyPluralSavedExportStep2 =>
+      'Ten cerca el ZIP de avatares correspondiente si lo tienes.';
 
   @override
-  String get onboardingSimplyPluralStep3 =>
-      'Guarda el archivo JSON y selecciónalo abajo';
+  String get onboardingSimplyPluralSavedExportStep3 =>
+      'Selecciona la exportación JSON abajo y añade el ZIP opcional después de revisarla.';
 
   @override
-  String get onboardingSimplyPluralSelectFile =>
-      'Seleccionar archivo de exportación';
+  String get onboardingSimplyPluralSelectSavedExport =>
+      'Seleccionar exportación guardada';
 
   @override
   String get onboardingSimplyPluralReadingFile => 'Leyendo archivo...';
@@ -7607,31 +7609,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationReadingFile => 'Leyendo archivo…';
 
   @override
-  String get migrationVerifyingToken => 'Verificando token…';
-
-  @override
   String get migrationImportFromSimplyPlural => 'Importar desde Simply Plural';
 
   @override
   String get migrationImportDescription =>
-      'Trae tus datos existentes a Prism. Elige cómo importar tus datos de Simply Plural.';
-
-  @override
-  String get migrationConnectWithApi => 'Conectar con API';
-
-  @override
-  String get migrationConnectWithApiSubtitle =>
-      'No necesitas exportar un archivo — importa directamente desde tu cuenta';
+      'Importa una exportación JSON guardada de Simply Plural. Puedes añadir un ZIP de avatares correspondiente después de revisarla.';
 
   @override
   String get migrationRecommended => 'Recomendado';
 
   @override
-  String get migrationImportFromFile => 'Importar desde archivo';
+  String get migrationImportFromFile => 'Seleccionar exportación JSON';
 
   @override
   String get migrationImportFromFileSubtitle =>
-      'Usa un archivo de exportación JSON de Simply Plural';
+      'Usa una exportación JSON guardada de Simply Plural';
 
   @override
   String get migrationSupportedDataTypes => 'Tipos de datos compatibles';
@@ -7682,52 +7674,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get migrationSupportedReminders => 'Recordatorios';
 
   @override
-  String get migrationConnectToSimplyPlural => 'Conectar con Simply Plural';
-
-  @override
-  String get migrationEnterTokenDescription =>
-      'Introduce tu token de API para importar datos directamente.';
-
-  @override
-  String get migrationApiTokenLabel => 'Token de API';
-
-  @override
-  String get migrationPasteTokenHint => 'Pega tu token aquí';
-
-  @override
-  String get migrationShowToken => 'Mostrar token';
-
-  @override
-  String get migrationHideToken => 'Ocultar token';
-
-  @override
-  String get migrationPasteFromClipboard => 'Pegar desde portapapeles';
-
-  @override
-  String get migrationWhereDoIFindThis => '¿Dónde encuentro esto?';
-
-  @override
-  String get migrationTokenHelpText =>
-      'En Simply Plural, ve a Ajustes → Cuenta → Tokens. Crea un nuevo token con permiso de Lectura y cópialo.';
-
-  @override
-  String get migrationVerifyToken => 'Verificar token';
-
-  @override
-  String get migrationConnected => 'Conectado';
-
-  @override
-  String migrationSignedInAs(String username) {
-    return 'Sesión iniciada como $username';
-  }
-
-  @override
-  String get migrationContinue => 'Continuar';
-
-  @override
-  String get migrationFetchingData => 'Obteniendo datos de Simply Plural…';
-
-  @override
   String get migrationPreviewImport => 'Vista previa de importación';
 
   @override
@@ -7737,10 +7683,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get migrationImportInfoNote =>
       'Los datos importados se añadirán junto a los datos existentes. Nada será sobreescrito.';
-
-  @override
-  String get migrationRemindersApiNote =>
-      'Los recordatorios no están disponibles vía API. Para importar recordatorios, usa una exportación de archivo.';
 
   @override
   String get migrationEncryptedChatsTitle => 'Chats cifrados de Simply Plural';
@@ -7890,9 +7832,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get migrationImportFailed => 'Fallo en la importación';
-
-  @override
-  String get migrationTryFileImport => 'Probar importación desde archivo';
 
   @override
   String get migrationUnknownError => 'Ocurrió un error desconocido.';

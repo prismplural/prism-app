@@ -10,7 +10,6 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
-import 'package:prism_plurality/features/migration/services/sp_api_client.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_analysis.dart';
 import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
@@ -26,7 +25,6 @@ const _unsetAvatarZipBytes = Object();
 /// Current import state exposed to the UI.
 class MigrationState {
   final ImportState step;
-  final ImportSource source;
   final SpExportData? exportData;
   final ImportResult? result;
   final String? error;
@@ -36,7 +34,6 @@ class MigrationState {
   final int current;
   final int total;
   final String progressLabel;
-  final String? spUsername;
 
   /// Whether the user chose "Start Fresh" (wipe existing data). Carried across
   /// the disposition step so the eventual import uses the right mode.
@@ -44,7 +41,6 @@ class MigrationState {
 
   const MigrationState({
     this.step = ImportState.idle,
-    this.source = ImportSource.file,
     this.exportData,
     this.result,
     this.error,
@@ -54,7 +50,6 @@ class MigrationState {
     this.current = 0,
     this.total = 0,
     this.progressLabel = '',
-    this.spUsername,
     this.pendingResetFirst = false,
   });
 
@@ -62,7 +57,6 @@ class MigrationState {
 
   MigrationState copyWith({
     ImportState? step,
-    ImportSource? source,
     SpExportData? exportData,
     ImportResult? result,
     String? error,
@@ -72,12 +66,10 @@ class MigrationState {
     int? current,
     int? total,
     String? progressLabel,
-    String? spUsername,
     bool? pendingResetFirst,
   }) {
     return MigrationState(
       step: step ?? this.step,
-      source: source ?? this.source,
       exportData: exportData ?? this.exportData,
       result: result ?? this.result,
       error: error ?? this.error,
@@ -93,7 +85,6 @@ class MigrationState {
       current: current ?? this.current,
       total: total ?? this.total,
       progressLabel: progressLabel ?? this.progressLabel,
-      spUsername: spUsername ?? this.spUsername,
       pendingResetFirst: pendingResetFirst ?? this.pendingResetFirst,
     );
   }
@@ -102,7 +93,6 @@ class MigrationState {
 /// Notifier managing the SP import workflow.
 class ImporterNotifier extends Notifier<MigrationState> {
   final _importer = SpImporter();
-  SpApiClient? _apiClient;
 
   @override
   MigrationState build() => const MigrationState();
@@ -119,10 +109,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
           .pickFile(allowedExtensions: const ['json']);
       if (handle == null) return;
 
-      state = state.copyWith(
-        step: ImportState.parsing,
-        source: ImportSource.file,
-      );
+      state = state.copyWith(step: ImportState.parsing);
 
       final path = handle.path;
       final exportData = path != null
@@ -201,128 +188,6 @@ class ImporterNotifier extends Notifier<MigrationState> {
   Future<void> chooseFreshFileImport() async {
     reset();
     await selectAndParseFile();
-  }
-
-  // ---------------------------------------------------------------------------
-  // API import flow
-  // ---------------------------------------------------------------------------
-
-  /// Verify an SP API token. On success, transitions to [ImportState.verifying]
-  /// then to [ImportState.previewing] equivalent — actually a confirmation step
-  /// showing the connected username.
-  Future<void> verifyToken(String token) async {
-    final trimmed = token.trim();
-    if (trimmed.isEmpty) {
-      state = state.copyWith(
-        step: ImportState.error,
-        source: ImportSource.api,
-        error: 'Please enter your Simply Plural API token.',
-      );
-      return;
-    }
-
-    state = state.copyWith(
-      step: ImportState.verifying,
-      source: ImportSource.api,
-      progressLabel: 'Verifying token\u2026',
-    );
-
-    try {
-      _apiClient?.dispose();
-      _apiClient = SpApiClient(token: trimmed);
-      final result = await _apiClient!.verifyToken();
-
-      state = state.copyWith(
-        step: ImportState.verifying,
-        spUsername: result.username ?? result.systemId,
-      );
-    } on SpAuthError {
-      _apiClient?.dispose();
-      _apiClient = null;
-      state = state.copyWith(
-        step: ImportState.error,
-        error:
-            'Invalid token. Make sure you copied the full token from '
-            'Simply Plural (Settings \u2192 Account \u2192 Tokens) and that '
-            'it has Read permission.',
-      );
-    } on TimeoutException {
-      _apiClient?.dispose();
-      _apiClient = null;
-      state = state.copyWith(
-        step: ImportState.error,
-        error:
-            'Could not reach Simply Plural\u2019s servers. They may be '
-            'temporarily unavailable. Try again in a few minutes, or use '
-            'a file import instead.',
-      );
-    } catch (_) {
-      _apiClient?.dispose();
-      _apiClient = null;
-      state = state.copyWith(
-        step: ImportState.error,
-        error:
-            'Could not connect to Simply Plural. Check your internet '
-            'connection and try again.',
-      );
-    }
-  }
-
-  /// Fetch all data from the SP API after successful token verification.
-  Future<void> fetchFromApi() async {
-    final client = _apiClient;
-    if (client == null) return;
-
-    state = state.copyWith(
-      step: ImportState.fetching,
-      current: 0,
-      total: 0,
-      progressLabel: 'Connecting\u2026',
-    );
-
-    try {
-      final exportData = await client.fetchAll(
-        onProgress: (collection, count) {
-          state = state.copyWith(
-            progressLabel: '$collection\u2026 $count items',
-          );
-        },
-      );
-
-      if (exportData.isEmpty) {
-        state = state.copyWith(
-          step: ImportState.error,
-          error: 'No data found in your Simply Plural account.',
-        );
-        return;
-      }
-
-      state = state.copyWith(
-        step: ImportState.previewing,
-        exportData: exportData,
-      );
-    } on SpAuthError {
-      state = state.copyWith(
-        step: ImportState.error,
-        error:
-            'Your token was revoked or expired during the fetch. '
-            'Please generate a new token in Simply Plural.',
-      );
-    } on TimeoutException {
-      state = state.copyWith(
-        step: ImportState.error,
-        error:
-            'Simply Plural\u2019s servers stopped responding. '
-            'Try again later or use a file import instead.',
-      );
-    } catch (_) {
-      state = state.copyWith(
-        step: ImportState.error,
-        error:
-            'Something went wrong while fetching your data. '
-            'Try again, or use a file import instead.',
-      );
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -561,8 +426,6 @@ class ImporterNotifier extends Notifier<MigrationState> {
 
   /// Reset to initial state and clean up resources.
   void reset() {
-    _apiClient?.dispose();
-    _apiClient = null;
     ref.read(cfDispositionControllerProvider).clear();
     ref.read(spMemberMappingControllerProvider).clear();
     state = const MigrationState();

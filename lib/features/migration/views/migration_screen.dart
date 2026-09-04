@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
@@ -19,7 +17,6 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/sp_import_warning_summary.dart';
-import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -27,11 +24,10 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 /// Migration screen for importing data from Simply Plural.
 ///
 /// Guides the user through a multi-step flow:
-/// 1. Choose import method (API or file)
-/// 2. (API) Enter token -> verify -> fetch
-/// 3. Preview detected data
-/// 4. Import progress
-/// 5. Completion summary
+/// 1. Select a JSON export file
+/// 2. Preview detected data
+/// 3. Import progress
+/// 4. Completion summary
 class MigrationScreen extends ConsumerWidget {
   const MigrationScreen({super.key});
 
@@ -50,11 +46,6 @@ class MigrationScreen extends ConsumerWidget {
         ImportState.parsing => _LoadingView(
           message: context.l10n.migrationReadingFile,
         ),
-        ImportState.verifying =>
-          migration.spUsername != null
-              ? _ConnectedView(username: migration.spUsername!, ref: ref)
-              : _LoadingView(message: context.l10n.migrationVerifyingToken),
-        ImportState.fetching => _FetchingView(state: migration),
         ImportState.encryptedChatsDetected => _EncryptedChatWarningView(
           data: migration.exportData!,
           ref: ref,
@@ -78,7 +69,6 @@ class MigrationScreen extends ConsumerWidget {
         ImportState.error => _ErrorView(
           message: migration.error ?? context.l10n.migrationUnknownError,
           ref: ref,
-          source: migration.source,
         ),
       },
     );
@@ -121,61 +111,16 @@ class _IdleView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
 
-        // Option 1: API import
-        _ImportMethodCard(
-          icon: AppIcons.cloudDownloadOutlined,
-          title: context.l10n.migrationConnectWithApi,
-          subtitle: context.l10n.migrationConnectWithApiSubtitle,
-          recommended: true,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => _TokenInputScreen(ref: ref),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-
-        // Option 2: File import
         _ImportMethodCard(
           icon: AppIcons.fileUploadOutlined,
           title: context.l10n.migrationImportFromFile,
           subtitle: context.l10n.migrationImportFromFileSubtitle,
-          recommended: false,
+          recommended: true,
           onTap: () {
             ref.read(importerProvider.notifier).selectAndParseFile();
           },
         ),
         const SizedBox(height: 16),
-
-        // Reminders trade-off note — surfaced before the user picks a method
-        // so reminder-heavy systems don't pick API and then realize too late.
-        PrismSurface(
-          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ),
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Icon(
-                AppIcons.infoOutline,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  context.l10n.migrationRemindersApiNote,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
 
         // Supported data note
         PrismSectionCard(
@@ -328,308 +273,6 @@ class _ImportMethodCard extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Token input (API flow)
-// ---------------------------------------------------------------------------
-
-class _TokenInputScreen extends ConsumerStatefulWidget {
-  const _TokenInputScreen({required this.ref});
-
-  final WidgetRef ref;
-
-  @override
-  ConsumerState<_TokenInputScreen> createState() => _TokenInputScreenState();
-}
-
-class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
-  final _tokenController = TextEditingController();
-  bool _obscured = true;
-  bool _showHelp = false;
-
-  @override
-  void dispose() {
-    _tokenController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    // Listen for state changes to pop back when verification succeeds or
-    // transitions to a non-idle state that the main screen handles.
-    final migration = ref.watch(importerProvider);
-    if (migration.step != ImportState.idle &&
-        migration.step != ImportState.verifying) {
-      // Pop after build completes so we don't interfere with the widget tree.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-      });
-    }
-    // If verification succeeded and username is set, pop to show _ConnectedView.
-    if (migration.step == ImportState.verifying &&
-        migration.spUsername != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-        }
-      });
-    }
-
-    final isVerifying =
-        migration.step == ImportState.verifying && migration.spUsername == null;
-
-    return PrismPageScaffold(
-      topBar: PrismTopBar(
-        title: context.l10n.migrationConnectToSimplyPlural,
-        showBackButton: true,
-      ),
-      bodyPadding: EdgeInsets.zero,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Icon(
-            AppIcons.cloudDownloadOutlined,
-            size: 48,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.l10n.migrationConnectToSimplyPlural,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.migrationEnterTokenDescription,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Token input
-          PrismTextField(
-            controller: _tokenController,
-            obscureText: _obscured,
-            labelText: context.l10n.migrationApiTokenLabel,
-            hintText: context.l10n.migrationPasteTokenHint,
-            suffix: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                PrismFieldIconButton(
-                  icon: _obscured
-                      ? AppIcons.visibilityOff
-                      : AppIcons.visibility,
-                  tooltip: _obscured
-                      ? context.l10n.migrationShowToken
-                      : context.l10n.migrationHideToken,
-                  onPressed: () {
-                    setState(() => _obscured = !_obscured);
-                  },
-                ),
-                PrismFieldIconButton(
-                  icon: AppIcons.paste,
-                  onPressed: () async {
-                    final data = await Clipboard.getData('text/plain');
-                    if (data?.text != null) {
-                      _tokenController.text = data!.text!;
-                    }
-                  },
-                  tooltip: context.l10n.migrationPasteFromClipboard,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Help expandable
-          GestureDetector(
-            onTap: () {
-              setState(() => _showHelp = !_showHelp);
-            },
-            child: Row(
-              children: [
-                Icon(
-                  _showHelp ? AppIcons.expandLess : AppIcons.expandMore,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  context.l10n.migrationWhereDoIFindThis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_showHelp) ...[
-            const SizedBox(height: 8),
-            PrismSurface(
-              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.5,
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                context.l10n.migrationTokenHelpText,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-
-          // Verify button
-          PrismButton(
-            onPressed: () {
-              ref
-                  .read(importerProvider.notifier)
-                  .verifyToken(_tokenController.text);
-            },
-            icon: AppIcons.verifiedOutlined,
-            label: context.l10n.migrationVerifyToken,
-            tone: PrismButtonTone.filled,
-            expanded: true,
-            isLoading: isVerifying,
-            enabled: !isVerifying,
-          ),
-          const SizedBox(height: 8),
-
-          // Back button
-          PrismButton(
-            onPressed: () {
-              ref.read(importerProvider.notifier).reset();
-              Navigator.of(context).pop();
-            },
-            label: context.l10n.back,
-            tone: PrismButtonTone.outlined,
-            expanded: true,
-            enabled: !isVerifying,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Connected view (after token verification)
-// ---------------------------------------------------------------------------
-
-class _ConnectedView extends StatelessWidget {
-  const _ConnectedView({required this.username, required this.ref});
-
-  final String username;
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(AppIcons.checkCircle, size: 64, color: Colors.green.shade600),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.migrationConnected,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.migrationSignedInAs(username),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 32),
-            PrismButton(
-              onPressed: () {
-                ref.read(importerProvider.notifier).fetchFromApi();
-              },
-              icon: AppIcons.download,
-              label: context.l10n.migrationContinue,
-              tone: PrismButtonTone.filled,
-              expanded: true,
-            ),
-            const SizedBox(height: 8),
-            PrismButton(
-              onPressed: () {
-                ref.read(importerProvider.notifier).reset();
-              },
-              label: context.l10n.cancel,
-              tone: PrismButtonTone.outlined,
-              expanded: true,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Fetching view (API data download)
-// ---------------------------------------------------------------------------
-
-class _FetchingView extends StatelessWidget {
-  const _FetchingView({required this.state});
-
-  final MigrationState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            PrismSpinner(
-              color: Theme.of(context).colorScheme.primary,
-              size: 80,
-              dotCount: 8,
-              duration: const Duration(milliseconds: 3000),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              context.l10n.migrationFetchingData,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              state.progressLabel,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -843,38 +486,6 @@ class _PreviewView extends StatelessWidget {
             ],
           ),
         ),
-
-        // API limitation note — reminders aren't available via the API
-        if (migration.source == ImportSource.api &&
-            data.automatedTimers.isEmpty &&
-            data.repeatedTimers.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: PrismSurface(
-              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.5,
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Icon(
-                    AppIcons.infoOutline,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      context.l10n.migrationRemindersApiNote,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
 
         const SizedBox(height: 24),
 
@@ -1155,9 +766,11 @@ class _CompleteView extends StatelessWidget {
           SpImportWarningSummary(
             warnings: result.warnings,
             onRetryAvatars: result.hasAvatarDownloadFailures
-                ? () => ref.read(importerProvider.notifier).retryAvatarDownloads()
+                ? () =>
+                      ref.read(importerProvider.notifier).retryAvatarDownloads()
                 : null,
-            retryInProgress: ref.watch(importerProvider).step ==
+            retryInProgress:
+                ref.watch(importerProvider).step ==
                 ImportState.downloadingAvatars,
           ),
         ],
@@ -1357,15 +970,10 @@ class _ResultRow extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({
-    required this.message,
-    required this.ref,
-    required this.source,
-  });
+  const _ErrorView({required this.message, required this.ref});
 
   final String message;
   final WidgetRef ref;
-  final ImportSource source;
 
   @override
   Widget build(BuildContext context) {
@@ -1405,22 +1013,6 @@ class _ErrorView extends StatelessWidget {
               label: context.l10n.tryAgain,
               tone: PrismButtonTone.filled,
             ),
-            if (source == ImportSource.api) ...[
-              const SizedBox(height: 8),
-              PrismButton(
-                onPressed: () {
-                  ref.read(importerProvider.notifier).reset();
-                  // After resetting, the idle view will show with both options.
-                  // The user can then tap "Import from file".
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    ref.read(importerProvider.notifier).selectAndParseFile();
-                  });
-                },
-                icon: AppIcons.fileUploadOutlined,
-                label: context.l10n.migrationTryFileImport,
-                tone: PrismButtonTone.outlined,
-              ),
-            ],
           ],
         ),
       ),

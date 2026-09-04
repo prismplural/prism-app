@@ -7753,25 +7753,25 @@
   "@onboardingPrismExportImporting": {
     "description": "Loading text while importing a Prism export"
   },
-  "onboardingSimplyPluralHowToExport": "How to export from Simply Plural:",
-  "@onboardingSimplyPluralHowToExport": {
-    "description": "Section header in Simply Plural import instructions"
+  "onboardingSimplyPluralSavedExportTitle": "Use a saved Simply Plural export",
+  "@onboardingSimplyPluralSavedExportTitle": {
+    "description": "Section header in saved Simply Plural export instructions"
   },
-  "onboardingSimplyPluralStep1": "Open Simply Plural app",
-  "@onboardingSimplyPluralStep1": {
-    "description": "Simply Plural instruction step 1"
+  "onboardingSimplyPluralSavedExportStep1": "Choose a JSON export you previously saved from Simply Plural.",
+  "@onboardingSimplyPluralSavedExportStep1": {
+    "description": "First instruction for importing a saved Simply Plural export"
   },
-  "onboardingSimplyPluralStep2": "Go to Settings → Export Data",
-  "@onboardingSimplyPluralStep2": {
-    "description": "Simply Plural instruction step 2"
+  "onboardingSimplyPluralSavedExportStep2": "Keep the matching avatar ZIP nearby if you have one.",
+  "@onboardingSimplyPluralSavedExportStep2": {
+    "description": "Second instruction for importing a saved Simply Plural export"
   },
-  "onboardingSimplyPluralStep3": "Save the JSON file and select it below",
-  "@onboardingSimplyPluralStep3": {
-    "description": "Simply Plural instruction step 3"
+  "onboardingSimplyPluralSavedExportStep3": "Select the JSON export below, then add the optional ZIP after previewing it.",
+  "@onboardingSimplyPluralSavedExportStep3": {
+    "description": "Third instruction for importing a saved Simply Plural export"
   },
-  "onboardingSimplyPluralSelectFile": "Select Export File",
-  "@onboardingSimplyPluralSelectFile": {
-    "description": "Button label to pick a Simply Plural export file"
+  "onboardingSimplyPluralSelectSavedExport": "Select Saved Export",
+  "@onboardingSimplyPluralSelectSavedExport": {
+    "description": "Button label to pick a saved Simply Plural export"
   },
   "onboardingSimplyPluralReadingFile": "Reading file...",
   "@onboardingSimplyPluralReadingFile": {
@@ -8999,21 +8999,15 @@
   "@migrationImportData": { "description": "Migration screen top bar title" },
   "migrationReadingFile": "Reading file…",
   "@migrationReadingFile": { "description": "Loading message while reading an import file" },
-  "migrationVerifyingToken": "Verifying token…",
-  "@migrationVerifyingToken": { "description": "Loading message while verifying the Simply Plural token" },
   "migrationImportFromSimplyPlural": "Import from Simply Plural",
   "@migrationImportFromSimplyPlural": { "description": "Headline on the migration idle view" },
-  "migrationImportDescription": "Bring your existing data into Prism. Choose how you would like to import your Simply Plural data.",
+  "migrationImportDescription": "Import a saved Simply Plural JSON export. You can add a matching avatar ZIP after previewing it.",
   "@migrationImportDescription": { "description": "Body text on the migration idle view" },
-  "migrationConnectWithApi": "Connect with API",
-  "@migrationConnectWithApi": { "description": "Import method card title for API import" },
-  "migrationConnectWithApiSubtitle": "No file export needed — imports directly from your account",
-  "@migrationConnectWithApiSubtitle": { "description": "Import method card subtitle for API import" },
   "migrationRecommended": "Recommended",
   "@migrationRecommended": { "description": "Chip label shown on the recommended import method" },
-  "migrationImportFromFile": "Import from file",
+  "migrationImportFromFile": "Select JSON export",
   "@migrationImportFromFile": { "description": "Import method card title for file import" },
-  "migrationImportFromFileSubtitle": "Use a JSON export file from Simply Plural",
+  "migrationImportFromFileSubtitle": "Use a saved JSON export from Simply Plural",
   "@migrationImportFromFileSubtitle": { "description": "Import method card subtitle for file import" },
   "migrationSupportedDataTypes": "Supported data types",
   "@migrationSupportedDataTypes": { "description": "Section heading for supported data types list" },
@@ -9052,47 +9046,12 @@
   "@migrationSupportedComments": { "description": "Supported data type: comments on front sessions" },
   "migrationSupportedReminders": "Reminders",
   "@migrationSupportedReminders": { "description": "Supported data type: reminders" },
-  "migrationConnectToSimplyPlural": "Connect to Simply Plural",
-  "@migrationConnectToSimplyPlural": { "description": "Token input screen title" },
-  "migrationEnterTokenDescription": "Enter your API token to import data directly.",
-  "@migrationEnterTokenDescription": { "description": "Body text on the token input screen" },
-  "migrationApiTokenLabel": "API Token",
-  "@migrationApiTokenLabel": { "description": "Label for the API token input field" },
-  "migrationPasteTokenHint": "Paste your token here",
-  "@migrationPasteTokenHint": { "description": "Hint text for the API token input field" },
-  "migrationShowToken": "Show token",
-  "@migrationShowToken": { "description": "Tooltip to show the API token" },
-  "migrationHideToken": "Hide token",
-  "@migrationHideToken": { "description": "Tooltip to hide the API token" },
-  "migrationPasteFromClipboard": "Paste from clipboard",
-  "@migrationPasteFromClipboard": { "description": "Tooltip for the paste-from-clipboard button" },
-  "migrationWhereDoIFindThis": "Where do I find this?",
-  "@migrationWhereDoIFindThis": { "description": "Expandable help link label on the token input screen" },
-  "migrationTokenHelpText": "In Simply Plural, go to Settings → Account → Tokens. Create a new token with Read permission and copy it.",
-  "@migrationTokenHelpText": { "description": "Help text explaining where to find the Simply Plural API token" },
-  "migrationVerifyToken": "Verify Token",
-  "@migrationVerifyToken": { "description": "Button label to verify the API token" },
-  "migrationConnected": "Connected",
-  "@migrationConnected": { "description": "Status label shown when the Simply Plural token is verified" },
-  "migrationSignedInAs": "Signed in as {username}",
-  "@migrationSignedInAs": {
-    "description": "Label showing the connected Simply Plural username",
-    "placeholders": {
-      "username": { "type": "String" }
-    }
-  },
-  "migrationContinue": "Continue",
-  "@migrationContinue": { "description": "Button label to continue after token verification" },
-  "migrationFetchingData": "Fetching data from Simply Plural…",
-  "@migrationFetchingData": { "description": "Headline shown while fetching data from Simply Plural API" },
   "migrationPreviewImport": "Preview Import",
   "@migrationPreviewImport": { "description": "Headline on the import preview step" },
   "migrationPreviewDescription": "Review what was found before importing.",
   "@migrationPreviewDescription": { "description": "Body text on the import preview step" },
   "migrationImportInfoNote": "Imported data will be added alongside any existing data. Nothing will be overwritten.",
   "@migrationImportInfoNote": { "description": "Info note on the import preview step" },
-  "migrationRemindersApiNote": "Reminders are not available via the API. To import reminders, use a file export instead.",
-  "@migrationRemindersApiNote": { "description": "Note shown when the API cannot provide reminders" },
   "migrationEncryptedChatsTitle": "Encrypted Simply Plural chats",
   "@migrationEncryptedChatsTitle": { "description": "Title for the warning shown when an old Simply Plural file export contains encrypted chat messages" },
   "migrationEncryptedChatsDescription": "{count, plural, =1{This JSON export has 1 encrypted chat message from an older Simply Plural export. Prism cannot decrypt it.} other{This JSON export has {count} encrypted chat messages from an older Simply Plural export. Prism cannot decrypt them.}}",
@@ -9194,8 +9153,6 @@
   "@migrationNotImportedFrontRulesDetail": { "description": "Explanation for why front rules weren't imported" },
   "migrationImportFailed": "Import Failed",
   "@migrationImportFailed": { "description": "Headline shown when import fails" },
-  "migrationTryFileImport": "Try file import instead",
-  "@migrationTryFileImport": { "description": "Button to switch to file import after API import fails" },
   "migrationUnknownError": "An unknown error occurred.",
   "@migrationUnknownError": { "description": "Fallback error message" },
   "migrationPreviewSystem": "System: {name}",

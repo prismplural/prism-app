@@ -93,8 +93,6 @@ import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 enum ImportState {
   idle,
   parsing,
-  verifying,
-  fetching,
   encryptedChatsDetected,
   previewing,
   matchMembers,
@@ -104,9 +102,6 @@ enum ImportState {
   complete,
   error,
 }
-
-/// Where the import data came from.
-enum ImportSource { file, api }
 
 /// Result of a completed import.
 class ImportResult {

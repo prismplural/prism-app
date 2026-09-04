@@ -9838,35 +9838,35 @@ abstract class AppLocalizations {
   /// **'Importing your Prism export...'**
   String get onboardingPrismExportImporting;
 
-  /// Section header in Simply Plural import instructions
+  /// Section header in saved Simply Plural export instructions
   ///
   /// In en, this message translates to:
-  /// **'How to export from Simply Plural:'**
-  String get onboardingSimplyPluralHowToExport;
+  /// **'Use a saved Simply Plural export'**
+  String get onboardingSimplyPluralSavedExportTitle;
 
-  /// Simply Plural instruction step 1
+  /// First instruction for importing a saved Simply Plural export
   ///
   /// In en, this message translates to:
-  /// **'Open Simply Plural app'**
-  String get onboardingSimplyPluralStep1;
+  /// **'Choose a JSON export you previously saved from Simply Plural.'**
+  String get onboardingSimplyPluralSavedExportStep1;
 
-  /// Simply Plural instruction step 2
+  /// Second instruction for importing a saved Simply Plural export
   ///
   /// In en, this message translates to:
-  /// **'Go to Settings → Export Data'**
-  String get onboardingSimplyPluralStep2;
+  /// **'Keep the matching avatar ZIP nearby if you have one.'**
+  String get onboardingSimplyPluralSavedExportStep2;
 
-  /// Simply Plural instruction step 3
+  /// Third instruction for importing a saved Simply Plural export
   ///
   /// In en, this message translates to:
-  /// **'Save the JSON file and select it below'**
-  String get onboardingSimplyPluralStep3;
+  /// **'Select the JSON export below, then add the optional ZIP after previewing it.'**
+  String get onboardingSimplyPluralSavedExportStep3;
 
-  /// Button label to pick a Simply Plural export file
+  /// Button label to pick a saved Simply Plural export
   ///
   /// In en, this message translates to:
-  /// **'Select Export File'**
-  String get onboardingSimplyPluralSelectFile;
+  /// **'Select Saved Export'**
+  String get onboardingSimplyPluralSelectSavedExport;
 
   /// Loading text while parsing a Simply Plural file
   ///
@@ -11444,12 +11444,6 @@ abstract class AppLocalizations {
   /// **'Reading file…'**
   String get migrationReadingFile;
 
-  /// Loading message while verifying the Simply Plural token
-  ///
-  /// In en, this message translates to:
-  /// **'Verifying token…'**
-  String get migrationVerifyingToken;
-
   /// Headline on the migration idle view
   ///
   /// In en, this message translates to:
@@ -11459,20 +11453,8 @@ abstract class AppLocalizations {
   /// Body text on the migration idle view
   ///
   /// In en, this message translates to:
-  /// **'Bring your existing data into Prism. Choose how you would like to import your Simply Plural data.'**
+  /// **'Import a saved Simply Plural JSON export. You can add a matching avatar ZIP after previewing it.'**
   String get migrationImportDescription;
-
-  /// Import method card title for API import
-  ///
-  /// In en, this message translates to:
-  /// **'Connect with API'**
-  String get migrationConnectWithApi;
-
-  /// Import method card subtitle for API import
-  ///
-  /// In en, this message translates to:
-  /// **'No file export needed — imports directly from your account'**
-  String get migrationConnectWithApiSubtitle;
 
   /// Chip label shown on the recommended import method
   ///
@@ -11483,13 +11465,13 @@ abstract class AppLocalizations {
   /// Import method card title for file import
   ///
   /// In en, this message translates to:
-  /// **'Import from file'**
+  /// **'Select JSON export'**
   String get migrationImportFromFile;
 
   /// Import method card subtitle for file import
   ///
   /// In en, this message translates to:
-  /// **'Use a JSON export file from Simply Plural'**
+  /// **'Use a saved JSON export from Simply Plural'**
   String get migrationImportFromFileSubtitle;
 
   /// Section heading for supported data types list
@@ -11576,90 +11558,6 @@ abstract class AppLocalizations {
   /// **'Reminders'**
   String get migrationSupportedReminders;
 
-  /// Token input screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Connect to Simply Plural'**
-  String get migrationConnectToSimplyPlural;
-
-  /// Body text on the token input screen
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your API token to import data directly.'**
-  String get migrationEnterTokenDescription;
-
-  /// Label for the API token input field
-  ///
-  /// In en, this message translates to:
-  /// **'API Token'**
-  String get migrationApiTokenLabel;
-
-  /// Hint text for the API token input field
-  ///
-  /// In en, this message translates to:
-  /// **'Paste your token here'**
-  String get migrationPasteTokenHint;
-
-  /// Tooltip to show the API token
-  ///
-  /// In en, this message translates to:
-  /// **'Show token'**
-  String get migrationShowToken;
-
-  /// Tooltip to hide the API token
-  ///
-  /// In en, this message translates to:
-  /// **'Hide token'**
-  String get migrationHideToken;
-
-  /// Tooltip for the paste-from-clipboard button
-  ///
-  /// In en, this message translates to:
-  /// **'Paste from clipboard'**
-  String get migrationPasteFromClipboard;
-
-  /// Expandable help link label on the token input screen
-  ///
-  /// In en, this message translates to:
-  /// **'Where do I find this?'**
-  String get migrationWhereDoIFindThis;
-
-  /// Help text explaining where to find the Simply Plural API token
-  ///
-  /// In en, this message translates to:
-  /// **'In Simply Plural, go to Settings → Account → Tokens. Create a new token with Read permission and copy it.'**
-  String get migrationTokenHelpText;
-
-  /// Button label to verify the API token
-  ///
-  /// In en, this message translates to:
-  /// **'Verify Token'**
-  String get migrationVerifyToken;
-
-  /// Status label shown when the Simply Plural token is verified
-  ///
-  /// In en, this message translates to:
-  /// **'Connected'**
-  String get migrationConnected;
-
-  /// Label showing the connected Simply Plural username
-  ///
-  /// In en, this message translates to:
-  /// **'Signed in as {username}'**
-  String migrationSignedInAs(String username);
-
-  /// Button label to continue after token verification
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get migrationContinue;
-
-  /// Headline shown while fetching data from Simply Plural API
-  ///
-  /// In en, this message translates to:
-  /// **'Fetching data from Simply Plural…'**
-  String get migrationFetchingData;
-
   /// Headline on the import preview step
   ///
   /// In en, this message translates to:
@@ -11677,12 +11575,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Imported data will be added alongside any existing data. Nothing will be overwritten.'**
   String get migrationImportInfoNote;
-
-  /// Note shown when the API cannot provide reminders
-  ///
-  /// In en, this message translates to:
-  /// **'Reminders are not available via the API. To import reminders, use a file export instead.'**
-  String get migrationRemindersApiNote;
 
   /// Title for the warning shown when an old Simply Plural file export contains encrypted chat messages
   ///
@@ -11911,12 +11803,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import Failed'**
   String get migrationImportFailed;
-
-  /// Button to switch to file import after API import fails
-  ///
-  /// In en, this message translates to:
-  /// **'Try file import instead'**
-  String get migrationTryFileImport;
 
   /// Fallback error message
   ///

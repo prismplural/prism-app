@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
@@ -13,6 +12,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/native_reset_keys.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
@@ -2087,7 +2087,9 @@ void main() {
       addTearDown(harness.dispose);
 
       await harness.seedAllData();
-      await harness.container.read(importerProvider.notifier).verifyToken('');
+      await harness.container
+          .read(importerProvider.notifier)
+          .selectAndParseFile();
       harness.container
           .read(onboardingProvider.notifier)
           .showImportedDataReady(const OnboardingDataCounts(members: 3));
@@ -2151,7 +2153,9 @@ void main() {
       addTearDown(harness.dispose);
 
       await harness.seedAllData();
-      await harness.container.read(importerProvider.notifier).verifyToken('');
+      await harness.container
+          .read(importerProvider.notifier)
+          .selectAndParseFile();
       harness.container
           .read(onboardingProvider.notifier)
           .setSystemName('Old import');
@@ -2830,6 +2834,9 @@ class _ResetHarness {
         resetMediaCacheDirectoryProvider.overrideWith(
           (ref) async => mediaCacheDir,
         ),
+        prismFileDialogServiceProvider.overrideWithValue(
+          const _InvalidJsonFileDialogService(),
+        ),
         resetSyncHandleProvider.overrideWithValue(handleOverride),
         if (syncStartupReportOverride != null)
           sync.syncDatabaseStartupReportStateProvider.overrideWith(
@@ -3416,6 +3423,39 @@ class _ResetHarness {
       await tempDir.delete(recursive: true);
     }
   }
+}
+
+class _InvalidJsonFileDialogService implements PrismFileDialogService {
+  const _InvalidJsonFileDialogService();
+
+  @override
+  Future<PickedFileHandle?> pickFile({
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+  }) async {
+    return PickedFileHandle(
+      name: 'invalid-sp-export.json',
+      readAsBytes: () async => Uint8List.fromList('{'.codeUnits),
+      openRead: null,
+    );
+  }
+
+  @override
+  Future<PickedFileHandle?> pickImageFile({String? dialogTitle}) async => null;
+
+  @override
+  Future<SaveFileOutcome> saveBytes({
+    required Uint8List bytes,
+    required String suggestedName,
+    required List<String> allowedExtensions,
+    String? dialogTitle,
+    String? mimeType,
+  }) async => const SaveFileOutcome(status: SaveFileStatus.cancelled);
+
+  @override
+  Future<SaveFileOutcome> saveExistingFile(
+    ExistingFileSaveRequest request,
+  ) async => const SaveFileOutcome(status: SaveFileStatus.cancelled);
 }
 
 class _FakeResetSecureStore implements ResetSecureStore {
