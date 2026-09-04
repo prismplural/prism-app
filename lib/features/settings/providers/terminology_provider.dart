@@ -152,6 +152,15 @@ const systemTermPresetChoices = [
 // Locale-aware resolution
 // ---------------------------------------------------------------------------
 
+/// Resolve generated localizations with the same English fallback used by the
+/// app when the device locale is not yet supported.
+AppLocalizations appLocalizationsForLocale(Locale locale) {
+  final supported = AppLocalizations.supportedLocales.any(
+    (candidate) => candidate.languageCode == locale.languageCode,
+  );
+  return lookupAppLocalizations(Locale(supported ? locale.languageCode : 'en'));
+}
+
 /// Resolve a locale-aware [Terminology] from [l10n] and the user's setting.
 ///
 /// For standard terms, the strings come from [l10n] (so they're correctly
@@ -240,6 +249,20 @@ Terminology resolveTerminology(
   );
 }
 
+String systemInfoLabel(
+  AppLocalizations l10n,
+  SystemTerms? terms,
+  String resolvedSystemTerm,
+) {
+  final normalized = terms?.normalized() ?? SystemTerms.unset;
+  final kind =
+      normalized.preset?.name ??
+      (const SystemTermsPreferenceCodec().isValid(normalized)
+          ? 'custom'
+          : 'system');
+  return l10n.systemInfoTitle(kind, resolvedSystemTerm);
+}
+
 const frontingTermPresetChoices = [
   FrontingTermPreset.fronting,
   FrontingTermPreset.present,
@@ -247,23 +270,205 @@ const frontingTermPresetChoices = [
   FrontingTermPreset.online,
 ];
 
-String frontingTermPresetChoiceLabel(FrontingTermPreset preset) {
-  return switch (preset) {
-    FrontingTermPreset.fronting => 'Fronting',
-    FrontingTermPreset.present => 'Present',
-    FrontingTermPreset.out => 'Out',
-    FrontingTermPreset.online => 'Online',
-  };
+String frontingTermPresetChoiceLabel(
+  AppLocalizations l10n,
+  FrontingTermPreset preset,
+) {
+  return l10n.terminologyFrontingPresetChoiceLabel(preset.name);
 }
 
-FrontingTermBundle resolveFrontingTerms(FrontingTerms? custom) {
-  final normalized = custom?.normalized() ?? FrontingTerms.unset;
+FrontingTermBundle resolveFrontingTerms(
+  AppLocalizations l10n,
+  FrontingTerms? terms,
+) {
+  final normalized = terms?.normalized() ?? FrontingTerms.unset;
   if (normalized.preset != null) {
-    return frontingTermBundleForPreset(normalized.preset!);
+    return frontingTermBundleForPreset(l10n, normalized.preset!);
   }
   final customBundle = normalized.custom;
   if (customBundle != null && customBundle.isValid) return customBundle;
-  return defaultFrontingTermBundle;
+  return frontingTermBundleForPreset(l10n, FrontingTermPreset.fronting);
+}
+
+FrontingTermBundle frontingTermBundleForPreset(
+  AppLocalizations l10n,
+  FrontingTermPreset preset,
+) {
+  final key = preset.name;
+  return FrontingTermBundle.fromFields(
+    featureLabel: l10n.terminologyFrontingPresetFeatureLabel(key),
+    featureLower: l10n.terminologyFrontingPresetFeatureLower(key),
+    currentQuestion: l10n.terminologyFrontingPresetCurrentQuestion(key),
+    currentQuestionNow: l10n.terminologyFrontingPresetCurrentQuestionNow(key),
+    emptyCurrentState: l10n.terminologyFrontingPresetEmptyCurrentState(key),
+    activeSingularLabel: l10n.terminologyFrontingPresetActiveSingularLabel(key),
+    activePluralLabel: l10n.terminologyFrontingPresetActivePluralLabel(key),
+    activeSectionLabel: l10n.terminologyFrontingPresetActiveSectionLabel(key),
+    currentActiveLabel: l10n.terminologyFrontingPresetCurrentActiveLabel(key),
+    latestActiveLabel: l10n.terminologyFrontingPresetLatestActiveLabel(key),
+    unknownActiveLabel: l10n.terminologyFrontingPresetUnknownActiveLabel(key),
+    currentlyActivePhrase: l10n.terminologyFrontingPresetCurrentlyActivePhrase(
+      key,
+    ),
+    logAction: l10n.terminologyFrontingPresetLogAction(key),
+    logPastAction: l10n.terminologyFrontingPresetLogPastAction(key),
+    quickAction: l10n.terminologyFrontingPresetQuickAction(key),
+    holdToStartHint: l10n.terminologyFrontingPresetHoldToStartHint(key),
+    addAction: l10n.terminologyFrontingPresetAddAction(key),
+    setAsAction: l10n.terminologyFrontingPresetSetAsAction(key),
+    replaceCurrentAction: l10n.terminologyFrontingPresetReplaceCurrentAction(
+      key,
+    ),
+    endWithoutAction: l10n.terminologyFrontingPresetEndWithoutAction(key),
+    endCurrentAction: l10n.terminologyFrontingPresetEndCurrentAction(key),
+    keepCurrentAction: l10n.terminologyFrontingPresetKeepCurrentAction(key),
+    directButtonLabel: l10n.terminologyFrontingPresetDirectButtonLabel(key),
+    historyLabel: l10n.terminologyFrontingPresetHistoryLabel(key),
+    dataLabel: l10n.terminologyFrontingPresetDataLabel(key),
+    entryLabel: l10n.terminologyFrontingPresetEntryLabel(key),
+    sessionSingular: l10n.terminologyFrontingPresetSessionSingular(key),
+    sessionPlural: l10n.terminologyFrontingPresetSessionPlural(key),
+    sessionCommentSingular: l10n
+        .terminologyFrontingPresetSessionCommentSingular(key),
+    sessionCommentPlural: l10n.terminologyFrontingPresetSessionCommentPlural(
+      key,
+    ),
+    statsLabel: l10n.terminologyFrontingPresetStatsLabel(key),
+    timeLabel: l10n.terminologyFrontingPresetTimeLabel(key),
+    lastActiveLabel: l10n.terminologyFrontingPresetLastActiveLabel(key),
+    mostActiveSortLabel: l10n.terminologyFrontingPresetMostActiveSortLabel(key),
+    leastActiveSortLabel: l10n.terminologyFrontingPresetLeastActiveSortLabel(
+      key,
+    ),
+    statusLabel: l10n.terminologyFrontingPresetStatusLabel(key),
+    togetherStateLabel: l10n.terminologyFrontingPresetTogetherStateLabel(key),
+    togetherActiveSingularLabel: l10n
+        .terminologyFrontingPresetTogetherActiveSingularLabel(key),
+    togetherActivePluralLabel: l10n
+        .terminologyFrontingPresetTogetherActivePluralLabel(key),
+    togetherPastLabel: l10n.terminologyFrontingPresetTogetherPastLabel(key),
+    addTogetherAction: l10n.terminologyFrontingPresetAddTogetherAction(key),
+    overlapOptionLabel: l10n.terminologyFrontingPresetOverlapOptionLabel(key),
+    overlapSubtitle: l10n.terminologyFrontingPresetOverlapSubtitle(key),
+    changeSingular: l10n.terminologyFrontingPresetChangeSingular(key),
+    changePlural: l10n.terminologyFrontingPresetChangePlural(key),
+    anyChangeLabel: l10n.terminologyFrontingPresetAnyChangeLabel(key),
+    onChangeLabel: l10n.terminologyFrontingPresetOnChangeLabel(key),
+    delayAfterChangeLabel: l10n.terminologyFrontingPresetDelayAfterChangeLabel(
+      key,
+    ),
+    reminderLabel: l10n.terminologyFrontingPresetReminderLabel(key),
+    logChangeReminderAction: l10n
+        .terminologyFrontingPresetLogChangeReminderAction(key),
+    alwaysActiveLabel: l10n.terminologyFrontingPresetAlwaysActiveLabel(key),
+    alwaysPresentHeaderLabel: l10n
+        .terminologyFrontingPresetAlwaysPresentHeaderLabel(key),
+    longRunningLabel: l10n.terminologyFrontingPresetLongRunningLabel(key),
+    longRunningHeaderLabel: l10n
+        .terminologyFrontingPresetLongRunningHeaderLabel(key),
+    quickCorrectionLabel: l10n.terminologyFrontingPresetQuickCorrectionLabel(
+      key,
+    ),
+    quickCorrectionWindowTitle: l10n
+        .terminologyFrontingPresetQuickCorrectionWindowTitle(key),
+    switchEventLabel: l10n.terminologyFrontingPresetSwitchEventLabel(key),
+  );
+}
+
+SimpleFrontingTermAuthoring simpleFrontingAuthoringForPreset(
+  AppLocalizations l10n,
+  FrontingTermPreset preset,
+) {
+  final bundle = frontingTermBundleForPreset(l10n, preset);
+  return SimpleFrontingTermAuthoring(
+    locale: l10n.localeName.startsWith('es') ? 'es' : 'en',
+    seedPreset: preset,
+    featureLabel: bundle.featureLabel,
+    activeSectionLabel: bundle.activeSectionLabel,
+    statePhrase: l10n.terminologyFrontingPresetStatePhrase(preset.name),
+    activeSingularLabel: bundle.activeSingularLabel,
+    activePluralLabel: bundle.activePluralLabel,
+    sessionSingular: bundle.sessionSingular,
+    sessionPlural: bundle.sessionPlural,
+  );
+}
+
+FrontingTermBundle generateSimpleFrontingBundle(
+  SimpleFrontingTermAuthoring rawAuthoring,
+) {
+  final authoring = rawAuthoring.normalized();
+  final l10n = appLocalizationsForLocale(Locale(authoring.locale));
+
+  String generated(String field) => l10n.terminologyFrontingSimpleGenerated(
+    field,
+    authoring.featureLabel,
+    authoring.activeSectionLabel,
+    authoring.statePhrase,
+    authoring.activeSingularLabel,
+    authoring.activePluralLabel,
+    authoring.sessionSingular,
+    authoring.sessionPlural,
+  );
+
+  return FrontingTermBundle.fromFields(
+    featureLabel: authoring.featureLabel,
+    featureLower: authoring.featureLabel.toLowerCase(),
+    currentQuestion: generated('currentQuestion'),
+    currentQuestionNow: generated('currentQuestionNow'),
+    emptyCurrentState: generated('emptyCurrentState'),
+    activeSingularLabel: authoring.activeSingularLabel,
+    activePluralLabel: authoring.activePluralLabel,
+    activeSectionLabel: authoring.activeSectionLabel,
+    currentActiveLabel: generated('currentActiveLabel'),
+    latestActiveLabel: generated('latestActiveLabel'),
+    unknownActiveLabel: generated('unknownActiveLabel'),
+    currentlyActivePhrase: generated('currentlyActivePhrase'),
+    logAction: generated('logAction'),
+    logPastAction: generated('logPastAction'),
+    quickAction: generated('quickAction'),
+    holdToStartHint: generated('holdToStartHint'),
+    addAction: generated('addAction'),
+    setAsAction: generated('setAsAction'),
+    replaceCurrentAction: generated('replaceCurrentAction'),
+    endWithoutAction: generated('endWithoutAction'),
+    endCurrentAction: generated('endCurrentAction'),
+    keepCurrentAction: generated('keepCurrentAction'),
+    directButtonLabel: generated('directButtonLabel'),
+    historyLabel: generated('historyLabel'),
+    dataLabel: generated('dataLabel'),
+    entryLabel: generated('entryLabel'),
+    sessionSingular: authoring.sessionSingular,
+    sessionPlural: authoring.sessionPlural,
+    sessionCommentSingular: generated('sessionCommentSingular'),
+    sessionCommentPlural: generated('sessionCommentPlural'),
+    statsLabel: generated('statsLabel'),
+    timeLabel: generated('timeLabel'),
+    lastActiveLabel: generated('lastActiveLabel'),
+    mostActiveSortLabel: generated('mostActiveSortLabel'),
+    leastActiveSortLabel: generated('leastActiveSortLabel'),
+    statusLabel: generated('statusLabel'),
+    togetherStateLabel: generated('togetherStateLabel'),
+    togetherActiveSingularLabel: generated('togetherActiveSingularLabel'),
+    togetherActivePluralLabel: generated('togetherActivePluralLabel'),
+    togetherPastLabel: generated('togetherPastLabel'),
+    addTogetherAction: generated('addTogetherAction'),
+    overlapOptionLabel: generated('overlapOptionLabel'),
+    overlapSubtitle: generated('overlapSubtitle'),
+    changeSingular: generated('changeSingular'),
+    changePlural: generated('changePlural'),
+    anyChangeLabel: generated('anyChangeLabel'),
+    onChangeLabel: generated('onChangeLabel'),
+    delayAfterChangeLabel: generated('delayAfterChangeLabel'),
+    reminderLabel: generated('reminderLabel'),
+    logChangeReminderAction: generated('logChangeReminderAction'),
+    alwaysActiveLabel: generated('alwaysActiveLabel'),
+    alwaysPresentHeaderLabel: generated('alwaysPresentHeaderLabel'),
+    longRunningLabel: generated('longRunningLabel'),
+    longRunningHeaderLabel: generated('longRunningHeaderLabel'),
+    quickCorrectionLabel: generated('quickCorrectionLabel'),
+    quickCorrectionWindowTitle: generated('quickCorrectionWindowTitle'),
+    switchEventLabel: generated('switchEventLabel'),
+  );
 }
 
 /// Always returns English strings regardless of device locale.
@@ -368,8 +573,11 @@ Terminology watchFullTerminology(BuildContext context, WidgetRef ref) {
   );
 }
 
-FrontingTermBundle watchFrontingTerms(WidgetRef ref) {
-  return resolveFrontingTerms(ref.watch(frontingTermsSettingProvider));
+FrontingTermBundle watchFrontingTerms(BuildContext context, WidgetRef ref) {
+  return resolveFrontingTerms(
+    context.l10n,
+    ref.watch(frontingTermsSettingProvider),
+  );
 }
 
 /// Read the current locale-aware [Terminology] in a callback (non-reactive).
@@ -407,6 +615,9 @@ Terminology readFullTerminology(BuildContext context, WidgetRef ref) {
   );
 }
 
-FrontingTermBundle readFrontingTerms(WidgetRef ref) {
-  return resolveFrontingTerms(ref.read(frontingTermsSettingProvider));
+FrontingTermBundle readFrontingTerms(BuildContext context, WidgetRef ref) {
+  return resolveFrontingTerms(
+    context.l10n,
+    ref.read(frontingTermsSettingProvider),
+  );
 }

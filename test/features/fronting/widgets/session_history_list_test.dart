@@ -175,6 +175,8 @@ void main() {
             ),
           ],
           child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: CustomScrollView(
                 slivers: [MemberFrontingHistoryList(memberId: 'a')],

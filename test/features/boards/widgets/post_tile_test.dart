@@ -255,7 +255,7 @@ void main() {
     });
 
     testWidgets(
-        'renders "Removed member" when authorId is null and no member resolves',
+        'renders a terminology-neutral fallback when no author resolves',
         (tester) async {
       await tester.pumpWidget(
         _buildTile(
@@ -266,7 +266,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Removed member'), findsOneWidget);
+      expect(find.text('Removed profile'), findsOneWidget);
     });
 
     testWidgets('renders authorId string as fallback when member not loaded',

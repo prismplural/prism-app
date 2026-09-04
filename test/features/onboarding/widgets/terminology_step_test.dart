@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/widgets/terminology_step.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -194,14 +195,20 @@ void main() {
           find.text(l10n.onboardingPreferencesFrontingTerminology),
           findsOneWidget,
         );
-        expect(find.text('Fronting'), findsWidgets);
-        expect(find.text('Fronters'), findsOneWidget);
-        expect(find.text('Present'), findsOneWidget);
-        expect(find.text('Present Members'), findsOneWidget);
-        expect(find.text('Out'), findsOneWidget);
-        expect(find.text('Out Members'), findsOneWidget);
-        expect(find.text('Online'), findsOneWidget);
-        expect(find.text('Online Members'), findsOneWidget);
+        for (final preset in FrontingTermPreset.values) {
+          final terms = frontingTermBundleForPreset(l10n, preset);
+          expect(
+            find.text(frontingTermPresetChoiceLabel(l10n, preset)),
+            findsOneWidget,
+          );
+          expect(find.text(terms.activePluralLabel), findsOneWidget);
+        }
+        if (locale.languageCode == 'es') {
+          expect(find.text('Fronting'), findsNothing);
+          expect(find.text('Present Members'), findsNothing);
+          expect(find.text('Out Members'), findsNothing);
+          expect(find.text('Online Members'), findsNothing);
+        }
         expect(tester.takeException(), isNull);
       },
     );

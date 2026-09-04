@@ -965,7 +965,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
     required Set<String> sessionIdsToEnd,
   }) {
     final l10n = context.l10n;
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     return PrismDialog.show<_AlwaysFrontingSessionChoice>(
       context: context,
       title: '${frontingTerms.endCurrentAction}?',
@@ -1667,7 +1667,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
   List<Widget> _buildMainViewChildren() {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final l10n = context.l10n;
 
     return [

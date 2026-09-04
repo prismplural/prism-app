@@ -1,8 +1,163 @@
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 
 const frontingTermMaxLength = 120;
+const simpleFrontingTermMaxLength = 80;
 
 enum FrontingTermPreset { fronting, present, out, online }
+
+final class SimpleFrontingTermAuthoring {
+  const SimpleFrontingTermAuthoring({
+    required this.locale,
+    required this.seedPreset,
+    required this.featureLabel,
+    required this.activeSectionLabel,
+    required this.statePhrase,
+    required this.activeSingularLabel,
+    required this.activePluralLabel,
+    required this.sessionSingular,
+    required this.sessionPlural,
+  });
+
+  static const version = 1;
+
+  final String locale;
+  final FrontingTermPreset seedPreset;
+  final String featureLabel;
+  final String activeSectionLabel;
+  final String statePhrase;
+  final String activeSingularLabel;
+  final String activePluralLabel;
+  final String sessionSingular;
+  final String sessionPlural;
+
+  List<String> get _inputValues => [
+    featureLabel,
+    activeSectionLabel,
+    statePhrase,
+    activeSingularLabel,
+    activePluralLabel,
+    sessionSingular,
+    sessionPlural,
+  ];
+
+  bool get isValid {
+    if (locale != 'en' && locale != 'es') return false;
+    return _inputValues.every((value) {
+      final normalized = value.trim();
+      return normalized.isNotEmpty &&
+          normalized.length <= simpleFrontingTermMaxLength;
+    });
+  }
+
+  SimpleFrontingTermAuthoring normalized() {
+    return SimpleFrontingTermAuthoring(
+      locale: locale,
+      seedPreset: seedPreset,
+      featureLabel: featureLabel.trim(),
+      activeSectionLabel: activeSectionLabel.trim(),
+      statePhrase: statePhrase.trim(),
+      activeSingularLabel: activeSingularLabel.trim(),
+      activePluralLabel: activePluralLabel.trim(),
+      sessionSingular: sessionSingular.trim(),
+      sessionPlural: sessionPlural.trim(),
+    );
+  }
+
+  Map<String, Object?> toJson() => {
+    'kind': 'simple',
+    'version': version,
+    'locale': locale,
+    'seedPreset': seedPreset.name,
+    'inputs': {
+      'featureLabel': featureLabel,
+      'activeSectionLabel': activeSectionLabel,
+      'statePhrase': statePhrase,
+      'activeSingularLabel': activeSingularLabel,
+      'activePluralLabel': activePluralLabel,
+      'sessionSingular': sessionSingular,
+      'sessionPlural': sessionPlural,
+    },
+  };
+
+  static SimpleFrontingTermAuthoring? tryDecode(Object? value) {
+    if (value is! Map ||
+        value['kind'] != 'simple' ||
+        value['version'] != version) {
+      return null;
+    }
+    final locale = value['locale'];
+    final seedPresetName = value['seedPreset'];
+    final inputs = value['inputs'];
+    if (locale is! String || seedPresetName is! String || inputs is! Map) {
+      return null;
+    }
+    final seedPreset = FrontingTermsPreferenceCodec._presetByName(
+      seedPresetName,
+    );
+    if (seedPreset == null) return null;
+
+    String? input(String key) {
+      final result = inputs[key];
+      return result is String ? result : null;
+    }
+
+    final featureLabel = input('featureLabel');
+    final activeSectionLabel = input('activeSectionLabel');
+    final statePhrase = input('statePhrase');
+    final activeSingularLabel = input('activeSingularLabel');
+    final activePluralLabel = input('activePluralLabel');
+    final sessionSingular = input('sessionSingular');
+    final sessionPlural = input('sessionPlural');
+    if (featureLabel == null ||
+        activeSectionLabel == null ||
+        statePhrase == null ||
+        activeSingularLabel == null ||
+        activePluralLabel == null ||
+        sessionSingular == null ||
+        sessionPlural == null) {
+      return null;
+    }
+    final authoring = SimpleFrontingTermAuthoring(
+      locale: locale,
+      seedPreset: seedPreset,
+      featureLabel: featureLabel,
+      activeSectionLabel: activeSectionLabel,
+      statePhrase: statePhrase,
+      activeSingularLabel: activeSingularLabel,
+      activePluralLabel: activePluralLabel,
+      sessionSingular: sessionSingular,
+      sessionPlural: sessionPlural,
+    ).normalized();
+    return authoring.isValid ? authoring : null;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SimpleFrontingTermAuthoring &&
+          other.locale == locale &&
+          other.seedPreset == seedPreset &&
+          other.featureLabel == featureLabel &&
+          other.activeSectionLabel == activeSectionLabel &&
+          other.statePhrase == statePhrase &&
+          other.activeSingularLabel == activeSingularLabel &&
+          other.activePluralLabel == activePluralLabel &&
+          other.sessionSingular == sessionSingular &&
+          other.sessionPlural == sessionPlural;
+
+  @override
+  int get hashCode => Object.hash(
+    locale,
+    seedPreset,
+    featureLabel,
+    activeSectionLabel,
+    statePhrase,
+    activeSingularLabel,
+    activePluralLabel,
+    sessionSingular,
+    sessionPlural,
+  );
+}
 
 final class FrontingTermBundle {
   FrontingTermBundle._(Map<String, String> values)
@@ -218,6 +373,8 @@ final class FrontingTermBundle {
   String get entryLabel => _values['entryLabel']!;
   String get sessionSingular => _values['sessionSingular']!;
   String get sessionPlural => _values['sessionPlural']!;
+  String get sessionSingularLower => sessionSingular.toLowerCase();
+  String get sessionPluralLower => sessionPlural.toLowerCase();
   String get sessionCommentSingular => _values['sessionCommentSingular']!;
   String get sessionCommentPlural => _values['sessionCommentPlural']!;
   String get statsLabel => _values['statsLabel']!;
@@ -301,16 +458,20 @@ final class FrontingTermBundle {
 }
 
 final class FrontingTerms {
-  const FrontingTerms({this.preset, this.custom});
+  const FrontingTerms({this.preset, this.custom, this.authoring});
 
   const FrontingTerms.preset(FrontingTermPreset preset) : this(preset: preset);
 
-  const FrontingTerms.custom(FrontingTermBundle custom) : this(custom: custom);
+  const FrontingTerms.custom(
+    FrontingTermBundle custom, {
+    SimpleFrontingTermAuthoring? authoring,
+  }) : this(custom: custom, authoring: authoring);
 
   static const unset = FrontingTerms();
 
   final FrontingTermPreset? preset;
   final FrontingTermBundle? custom;
+  final SimpleFrontingTermAuthoring? authoring;
 
   bool get isUnset => preset == null && custom == null;
 
@@ -318,7 +479,13 @@ final class FrontingTerms {
     if (preset != null) return FrontingTerms.preset(preset!);
     final bundle = custom?.normalized();
     if (bundle == null || !bundle.isValid) return unset;
-    return FrontingTerms.custom(bundle);
+    final normalizedAuthoring = authoring?.normalized();
+    return FrontingTerms.custom(
+      bundle,
+      authoring: normalizedAuthoring?.isValid == true
+          ? normalizedAuthoring
+          : null,
+    );
   }
 
   Map<String, Object?> toJson() {
@@ -326,6 +493,8 @@ final class FrontingTerms {
     return {
       if (normalized.preset != null) 'preset': normalized.preset!.name,
       if (normalized.custom != null) 'custom': normalized.custom!.toJson(),
+      if (normalized.authoring != null)
+        'authoring': normalized.authoring!.toJson(),
     };
   }
 
@@ -334,13 +503,15 @@ final class FrontingTerms {
       identical(this, other) ||
       other is FrontingTerms &&
           other.preset == preset &&
-          other.custom == custom;
+          other.custom == custom &&
+          other.authoring == authoring;
 
   @override
-  int get hashCode => Object.hash(preset, custom);
+  int get hashCode => Object.hash(preset, custom, authoring);
 
   @override
-  String toString() => 'FrontingTerms(preset: $preset, custom: $custom)';
+  String toString() =>
+      'FrontingTerms(preset: $preset, custom: $custom, authoring: $authoring)';
 }
 
 final class FrontingTermsPreferenceCodec
@@ -365,7 +536,10 @@ final class FrontingTermsPreferenceCodec
 
     final custom = FrontingTermBundle.tryDecode(value['custom']);
     if (custom == null) return FrontingTerms.unset;
-    return FrontingTerms.custom(custom);
+    return FrontingTerms.custom(
+      custom,
+      authoring: SimpleFrontingTermAuthoring.tryDecode(value['authoring']),
+    );
   }
 
   @override
@@ -382,254 +556,3 @@ final class FrontingTermsPreferenceCodec
     return null;
   }
 }
-
-FrontingTermBundle frontingTermBundleForPreset(FrontingTermPreset preset) {
-  return switch (preset) {
-    FrontingTermPreset.fronting => _frontingBundle,
-    FrontingTermPreset.present => _presentBundle,
-    FrontingTermPreset.out => _outBundle,
-    FrontingTermPreset.online => _onlineBundle,
-  };
-}
-
-FrontingTermBundle get defaultFrontingTermBundle => _frontingBundle;
-
-final _frontingBundle = FrontingTermBundle.fromFields(
-  featureLabel: 'Fronting',
-  featureLower: 'fronting',
-  currentQuestion: "Who's fronting?",
-  currentQuestionNow: "Who's fronting now?",
-  emptyCurrentState: "No one's fronting",
-  activeSingularLabel: 'Fronter',
-  activePluralLabel: 'Fronters',
-  activeSectionLabel: 'Fronting',
-  currentActiveLabel: 'Current fronter',
-  latestActiveLabel: 'Latest fronter',
-  unknownActiveLabel: 'Unknown fronter',
-  currentlyActivePhrase: 'currently fronting',
-  logAction: 'Log Front',
-  logPastAction: 'Log Past Session',
-  quickAction: 'Quick Front',
-  holdToStartHint: 'Hold to start fronting',
-  addAction: 'Add as fronter',
-  setAsAction: 'Set as fronter',
-  replaceCurrentAction: 'Replace current fronters',
-  endWithoutAction: 'End without fronting',
-  endCurrentAction: 'End front',
-  keepCurrentAction: 'Keep fronting',
-  directButtonLabel: 'Front buttons',
-  historyLabel: 'Fronting history',
-  dataLabel: 'Fronting data',
-  entryLabel: 'Fronting entry',
-  sessionSingular: 'Fronting session',
-  sessionPlural: 'Fronting sessions',
-  sessionCommentSingular: 'Front session comment',
-  sessionCommentPlural: 'Front session comments',
-  statsLabel: 'Fronting Stats',
-  timeLabel: 'Fronting time',
-  lastActiveLabel: 'Last fronted',
-  mostActiveSortLabel: 'Most fronting',
-  leastActiveSortLabel: 'Least fronting',
-  statusLabel: 'Front status',
-  togetherStateLabel: 'Co-fronting',
-  togetherActiveSingularLabel: 'Co-fronter',
-  togetherActivePluralLabel: 'Co-fronters',
-  togetherPastLabel: 'Co-fronted',
-  addTogetherAction: 'Add Fronter',
-  overlapOptionLabel: 'Create overlapping fronts',
-  overlapSubtitle: 'Split the overlapping time into shared fronting segments.',
-  changeSingular: 'Front change',
-  changePlural: 'Front changes',
-  anyChangeLabel: 'Any front change',
-  onChangeLabel: 'On front change',
-  delayAfterChangeLabel: 'Delay after front change',
-  reminderLabel: 'Fronting reminder',
-  logChangeReminderAction: 'Log fronting change',
-  alwaysActiveLabel: 'Always fronting',
-  alwaysPresentHeaderLabel: 'Always present',
-  longRunningLabel: 'Long-running',
-  longRunningHeaderLabel: 'Long-running fronts',
-  quickCorrectionLabel: 'Quick Switch',
-  quickCorrectionWindowTitle: 'Quick Switch Window',
-  switchEventLabel: 'Switch',
-);
-
-final _presentBundle = FrontingTermBundle.fromFields(
-  featureLabel: 'Presence',
-  featureLower: 'presence',
-  currentQuestion: "Who's present?",
-  currentQuestionNow: "Who's present now?",
-  emptyCurrentState: "No one's present",
-  activeSingularLabel: 'Present member',
-  activePluralLabel: 'Present Members',
-  activeSectionLabel: 'Present',
-  currentActiveLabel: 'Current present member',
-  latestActiveLabel: 'Latest present member',
-  unknownActiveLabel: 'Unknown present member',
-  currentlyActivePhrase: 'currently present',
-  logAction: 'Mark Present',
-  logPastAction: 'Log Past Presence',
-  quickAction: 'Quick Presence',
-  holdToStartHint: 'Hold to mark present',
-  addAction: 'Mark present',
-  setAsAction: 'Mark present',
-  replaceCurrentAction: 'Replace present members',
-  endWithoutAction: 'End without marking present',
-  endCurrentAction: 'End presence',
-  keepCurrentAction: 'Keep present',
-  directButtonLabel: 'Presence buttons',
-  historyLabel: 'Presence history',
-  dataLabel: 'Presence data',
-  entryLabel: 'Presence entry',
-  sessionSingular: 'Presence session',
-  sessionPlural: 'Presence sessions',
-  sessionCommentSingular: 'Presence session comment',
-  sessionCommentPlural: 'Presence session comments',
-  statsLabel: 'Presence Stats',
-  timeLabel: 'Presence time',
-  lastActiveLabel: 'Last present',
-  mostActiveSortLabel: 'Most present',
-  leastActiveSortLabel: 'Least present',
-  statusLabel: 'Presence status',
-  togetherStateLabel: 'Present together',
-  togetherActiveSingularLabel: 'Present-together member',
-  togetherActivePluralLabel: 'Present-together members',
-  togetherPastLabel: 'Present together',
-  addTogetherAction: 'Add Present Member',
-  overlapOptionLabel: 'Create overlapping presence',
-  overlapSubtitle: 'Split the overlapping time into shared presence segments.',
-  changeSingular: 'Presence change',
-  changePlural: 'Presence changes',
-  anyChangeLabel: 'Any presence change',
-  onChangeLabel: 'On presence change',
-  delayAfterChangeLabel: 'Delay after presence change',
-  reminderLabel: 'Presence reminder',
-  logChangeReminderAction: 'Log presence change',
-  alwaysActiveLabel: 'Always present',
-  alwaysPresentHeaderLabel: 'Always present',
-  longRunningLabel: 'Long-running',
-  longRunningHeaderLabel: 'Long-running presence',
-  quickCorrectionLabel: 'Quick Switch',
-  quickCorrectionWindowTitle: 'Quick Switch Window',
-  switchEventLabel: 'Switch',
-);
-
-final _outBundle = FrontingTermBundle.fromFields(
-  featureLabel: 'Out',
-  featureLower: 'out',
-  currentQuestion: "Who's out?",
-  currentQuestionNow: "Who's out now?",
-  emptyCurrentState: "No one's out",
-  activeSingularLabel: 'Out member',
-  activePluralLabel: 'Out Members',
-  activeSectionLabel: 'Out',
-  currentActiveLabel: 'Current out member',
-  latestActiveLabel: 'Latest out member',
-  unknownActiveLabel: 'Unknown out member',
-  currentlyActivePhrase: 'currently out',
-  logAction: 'Mark Out',
-  logPastAction: 'Log Past Out Session',
-  quickAction: 'Quick Out',
-  holdToStartHint: 'Hold to mark out',
-  addAction: 'Mark out',
-  setAsAction: 'Mark out',
-  replaceCurrentAction: 'Replace current out members',
-  endWithoutAction: 'End without anyone out',
-  endCurrentAction: 'End out',
-  keepCurrentAction: 'Keep out',
-  directButtonLabel: 'Out buttons',
-  historyLabel: 'Out history',
-  dataLabel: 'Out data',
-  entryLabel: 'Out entry',
-  sessionSingular: 'Out session',
-  sessionPlural: 'Out sessions',
-  sessionCommentSingular: 'Out session comment',
-  sessionCommentPlural: 'Out session comments',
-  statsLabel: 'Out Stats',
-  timeLabel: 'Out time',
-  lastActiveLabel: 'Last out',
-  mostActiveSortLabel: 'Most out',
-  leastActiveSortLabel: 'Least out',
-  statusLabel: 'Out status',
-  togetherStateLabel: 'Out together',
-  togetherActiveSingularLabel: 'Out-together member',
-  togetherActivePluralLabel: 'Out-together members',
-  togetherPastLabel: 'Out together',
-  addTogetherAction: 'Add Out Member',
-  overlapOptionLabel: 'Create overlapping out sessions',
-  overlapSubtitle: 'Split the overlapping time into shared out segments.',
-  changeSingular: 'Out change',
-  changePlural: 'Out changes',
-  anyChangeLabel: 'Any out change',
-  onChangeLabel: 'On out change',
-  delayAfterChangeLabel: 'Delay after out change',
-  reminderLabel: 'Out reminder',
-  logChangeReminderAction: 'Log out change',
-  alwaysActiveLabel: 'Always out',
-  alwaysPresentHeaderLabel: 'Always out',
-  longRunningLabel: 'Long-running',
-  longRunningHeaderLabel: 'Long-running out sessions',
-  quickCorrectionLabel: 'Quick Switch',
-  quickCorrectionWindowTitle: 'Quick Switch Window',
-  switchEventLabel: 'Switch',
-);
-
-final _onlineBundle = FrontingTermBundle.fromFields(
-  featureLabel: 'Online',
-  featureLower: 'online',
-  currentQuestion: "Who's online?",
-  currentQuestionNow: "Who's online now?",
-  emptyCurrentState: "No one's online",
-  activeSingularLabel: 'Online member',
-  activePluralLabel: 'Online Members',
-  activeSectionLabel: 'Online',
-  currentActiveLabel: 'Current online member',
-  latestActiveLabel: 'Latest online member',
-  unknownActiveLabel: 'Unknown online member',
-  currentlyActivePhrase: 'currently online',
-  logAction: 'Mark Online',
-  logPastAction: 'Log Past Online Session',
-  quickAction: 'Quick Online',
-  holdToStartHint: 'Hold to mark online',
-  addAction: 'Mark online',
-  setAsAction: 'Mark online',
-  replaceCurrentAction: 'Replace online members',
-  endWithoutAction: 'End without anyone online',
-  endCurrentAction: 'End online',
-  keepCurrentAction: 'Keep online',
-  directButtonLabel: 'Online buttons',
-  historyLabel: 'Online history',
-  dataLabel: 'Online data',
-  entryLabel: 'Online entry',
-  sessionSingular: 'Online session',
-  sessionPlural: 'Online sessions',
-  sessionCommentSingular: 'Online session comment',
-  sessionCommentPlural: 'Online session comments',
-  statsLabel: 'Online Stats',
-  timeLabel: 'Online time',
-  lastActiveLabel: 'Last online',
-  mostActiveSortLabel: 'Most online',
-  leastActiveSortLabel: 'Least online',
-  statusLabel: 'Online status',
-  togetherStateLabel: 'Online together',
-  togetherActiveSingularLabel: 'Online-together member',
-  togetherActivePluralLabel: 'Online-together members',
-  togetherPastLabel: 'Online together',
-  addTogetherAction: 'Add Online Member',
-  overlapOptionLabel: 'Create overlapping online sessions',
-  overlapSubtitle: 'Split the overlapping time into shared online segments.',
-  changeSingular: 'Online change',
-  changePlural: 'Online changes',
-  anyChangeLabel: 'Any online change',
-  onChangeLabel: 'On online change',
-  delayAfterChangeLabel: 'Delay after online change',
-  reminderLabel: 'Online reminder',
-  logChangeReminderAction: 'Log online change',
-  alwaysActiveLabel: 'Always online',
-  alwaysPresentHeaderLabel: 'Always online',
-  longRunningLabel: 'Long-running',
-  longRunningHeaderLabel: 'Long-running online sessions',
-  quickCorrectionLabel: 'Quick Switch',
-  quickCorrectionWindowTitle: 'Quick Switch Window',
-  switchEventLabel: 'Switch',
-);

@@ -126,7 +126,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
 
   Future<void> _openTargetPicker(List<Member> members) async {
     final groups = readMemberSearchGroups(ref, members);
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
@@ -160,7 +160,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     // Non-fronting picker: hide the Unknown sentinel — you don't set a
     // reminder for the placeholder member.
     final membersAsync = ref.watch(userVisibleMemberListProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return ListenableBuilder(
       listenable: Listenable.merge([_nameController, _messageController]),

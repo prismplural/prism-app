@@ -37,14 +37,17 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   ) {
     final options = [
       (0, context.l10n.featureFrontingQuickSwitchOff),
-      (15, '15 seconds'),
-      (30, '30 seconds'),
-      (60, '1 minute'),
+      (15, _quickSwitchLabel(context, 15)),
+      (30, _quickSwitchLabel(context, 30)),
+      (60, _quickSwitchLabel(context, 60)),
     ];
     PrismDialog.show<void>(
       context: context,
       title: frontingTerms.quickCorrectionWindowTitle,
-      message: _quickSwitchMessage(frontingTerms),
+      message: context.l10n.featureFrontingQuickSwitchMessage(
+        frontingTerms.activePluralLabel.toLowerCase(),
+        frontingTerms.sessionSingularLower,
+      ),
       builder: (ctx) {
         return RadioGroup<int>(
           groupValue: current,
@@ -88,19 +91,19 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   }
 
   static String _listViewModeDescription(
+    AppLocalizations l10n,
     FrontingTermBundle frontingTerms,
     FrontingListViewMode mode,
   ) {
     switch (mode) {
       case FrontingListViewMode.combinedPeriods:
-        return 'Avatar stacks for each unique '
-            '${frontingTerms.activeSingularLabel.toLowerCase()} group';
+        return l10n.settingsFrontingListViewModeCombinedPeriodsDescription(
+          frontingTerms.sessionPluralLower,
+        );
       case FrontingListViewMode.perMemberRows:
-        return 'One row per '
-            '${frontingTerms.activeSingularLabel.toLowerCase()} '
-            '${frontingTerms.sessionSingular.toLowerCase()}, side-by-side';
+        return l10n.settingsFrontingListViewModePerMemberRowsDescription;
       case FrontingListViewMode.timeline:
-        return 'Bar chart view of ${frontingTerms.featureLower} over time';
+        return l10n.settingsFrontingListViewModeTimelineDescription;
     }
   }
 
@@ -117,16 +120,19 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   }
 
   static String _addFrontBehaviorDescription(
+    AppLocalizations l10n,
     FrontingTermBundle frontingTerms,
     FrontStartBehavior behavior,
   ) {
     switch (behavior) {
       case FrontStartBehavior.additive:
-        return 'New ${frontingTerms.sessionPlural.toLowerCase()} '
-            'join existing ones';
+        return l10n.settingsAddFrontDefaultBehaviorAdditiveDescription(
+          frontingTerms.sessionPluralLower,
+        );
       case FrontStartBehavior.replace:
-        return 'End all current ${frontingTerms.sessionPlural.toLowerCase()} '
-            'before starting new ones';
+        return l10n.settingsAddFrontDefaultBehaviorReplaceDescription(
+          frontingTerms.sessionPluralLower,
+        );
     }
   }
 
@@ -173,7 +179,11 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                       _listViewModeLabel(context.l10n, mode, memberTermLower),
                     ),
                     subtitle: Text(
-                      _listViewModeDescription(frontingTerms, mode),
+                      _listViewModeDescription(
+                        context.l10n,
+                        frontingTerms,
+                        mode,
+                      ),
                     ),
                   ),
                 )
@@ -192,7 +202,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   ) {
     PrismDialog.show<void>(
       context: context,
-      title: _addFrontBehaviorSettingLabel(frontingTerms),
+      title: context.l10n.settingsAddFrontDefaultBehaviorLabel,
       builder: (ctx) {
         return RadioGroup<FrontStartBehavior>(
           groupValue: current,
@@ -214,7 +224,11 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                       _addFrontBehaviorLabel(frontingTerms, behavior),
                     ),
                     subtitle: Text(
-                      _addFrontBehaviorDescription(frontingTerms, behavior),
+                      _addFrontBehaviorDescription(
+                        context.l10n,
+                        frontingTerms,
+                        behavior,
+                      ),
                     ),
                   ),
                 )
@@ -247,8 +261,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   ) {
     switch (mode) {
       case ComposerDefaultMember.latestFronter:
-        return 'Open as the most recent '
-            '${frontingTerms.activeSingularLabel.toLowerCase()}';
+        return l10n.settingsComposerDefaultMemberLatestFronterDescription;
       case ComposerDefaultMember.lastUsed:
         return l10n.settingsComposerDefaultMemberLastUsedDescription;
       case ComposerDefaultMember.askEachTime:
@@ -311,7 +324,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   ) {
     PrismDialog.show<void>(
       context: context,
-      title: _quickFrontBehaviorSettingLabel(frontingTerms),
+      title: context.l10n.settingsQuickFrontDefaultBehaviorLabel,
       builder: (ctx) {
         return RadioGroup<FrontStartBehavior>(
           groupValue: current,
@@ -355,7 +368,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
       autoPromoteLongFrontingSessionsProvider,
     );
     final terms = watchTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final memberTermLower = terms.singularLower;
     final theme = Theme.of(context);
 
@@ -371,8 +384,9 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Configure how ${frontingTerms.sessionPlural.toLowerCase()} '
-              'work.',
+              context.l10n.featureFrontingDescription(
+                frontingTerms.sessionPluralLower,
+              ),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -387,9 +401,11 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                     icon: AppIcons.flashOn,
                     iconColor: Colors.purple,
                     title: frontingTerms.quickAction,
-                    subtitle:
-                        'Show ${frontingTerms.quickAction.toLowerCase()} '
-                        'tap-and-hold shortcuts for ${terms.pluralLower}',
+                    subtitle: context.l10n
+                        .featureFrontingShowQuickFrontSubtitle(
+                          frontingTerms.quickAction.toLowerCase(),
+                          terms.pluralLower,
+                        ),
                     value: showQuickFront,
                     onChanged: (value) => ref
                         .read(settingsNotifierProvider.notifier)
@@ -413,9 +429,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
             ),
           ),
           PrismSection(
-            title:
-                '${frontingTerms.sessionSingular} display & '
-                '${frontingTerms.featureLower} behavior',
+            title: context.l10n.settingsFrontingSessionDisplaySectionTitle,
             child: PrismGroupedSectionCard(
               child: Column(
                 children: [
@@ -440,7 +454,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                   PrismSettingsRow(
                     icon: AppIcons.addCircle,
                     iconColor: Colors.purple,
-                    title: _addFrontBehaviorSettingLabel(frontingTerms),
+                    title: context.l10n.settingsAddFrontDefaultBehaviorLabel,
                     subtitle: _addFrontBehaviorLabel(
                       frontingTerms,
                       addFrontBehavior,
@@ -456,7 +470,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                   PrismSettingsRow(
                     icon: AppIcons.flashOn,
                     iconColor: Colors.purple,
-                    title: _quickFrontBehaviorSettingLabel(frontingTerms),
+                    title: context.l10n.settingsQuickFrontDefaultBehaviorLabel,
                     subtitle: _quickFrontBehaviorLabel(
                       frontingTerms,
                       quickFrontBehavior,
@@ -489,16 +503,15 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                   PrismSwitchRow(
                     icon: AppIcons.schedule,
                     iconColor: Colors.purple,
-                    title:
-                        'Show '
-                        '${frontingTerms.longRunningHeaderLabel.toLowerCase()} '
-                        'in header',
-                    subtitle:
-                        'After 7 days, show active '
-                        '${frontingTerms.sessionPlural.toLowerCase()} in the '
-                        'pinned header without marking them '
-                        '${frontingTerms.alwaysActiveLabel} or hiding them '
-                        'from history.',
+                    title: context.l10n
+                        .settingsAutoPromoteLongFrontingSessionsLabel(
+                          frontingTerms.longRunningHeaderLabel,
+                        ),
+                    subtitle: context.l10n
+                        .settingsAutoPromoteLongFrontingSessionsDescription(
+                          frontingTerms.sessionPluralLower,
+                          frontingTerms.alwaysActiveLabel,
+                        ),
                     value: autoPromoteLongFrontingSessions,
                     onChanged: (value) => ref
                         .read(settingsNotifierProvider.notifier)
@@ -512,19 +525,4 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-String _quickSwitchMessage(FrontingTermBundle frontingTerms) {
-  return 'If you change ${frontingTerms.activePluralLabel.toLowerCase()} '
-      'within this window, Prism corrects the current '
-      '${frontingTerms.sessionSingular.toLowerCase()} instead of creating '
-      'a new one.';
-}
-
-String _addFrontBehaviorSettingLabel(FrontingTermBundle frontingTerms) {
-  return 'When adding a new ${frontingTerms.activeSingularLabel.toLowerCase()}';
-}
-
-String _quickFrontBehaviorSettingLabel(FrontingTermBundle frontingTerms) {
-  return 'When using ${frontingTerms.quickAction.toLowerCase()}';
 }

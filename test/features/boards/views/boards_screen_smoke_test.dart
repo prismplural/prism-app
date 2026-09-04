@@ -305,7 +305,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.textContaining("No one's fronting right now"),
+          find.textContaining("No one's fronting. Start a session"),
           findsOneWidget,
         );
       },
@@ -325,8 +325,14 @@ void main() {
       await tester.tap(find.text('Inbox'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining("No one's out right now"), findsOneWidget);
-      expect(find.textContaining("No one's fronting right now"), findsNothing);
+      expect(
+        find.textContaining("No one's out. Start a session"),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining("No one's fronting. Start a session"),
+        findsNothing,
+      );
     });
 
     testWidgets('inbox shows all-members filter when members are active', (

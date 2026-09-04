@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -27,14 +28,21 @@ class FrontingDefaultsStep extends ConsumerWidget {
   String _listViewModeDescription(
     BuildContext context,
     FrontingListViewMode mode,
+    FrontingTermBundle frontingTerms,
   ) {
     return switch (mode) {
       FrontingListViewMode.combinedPeriods =>
-        context.l10n.onboardingFrontingViewCombinedDescription,
+        context.l10n.onboardingFrontingViewCombinedDescription(
+          frontingTerms.sessionPlural.toLowerCase(),
+        ),
       FrontingListViewMode.perMemberRows =>
-        context.l10n.onboardingFrontingViewIndividualDescription,
+        context.l10n.onboardingFrontingViewIndividualDescription(
+          frontingTerms.sessionSingular.toLowerCase(),
+        ),
       FrontingListViewMode.timeline =>
-        context.l10n.onboardingFrontingViewTimelineDescription,
+        context.l10n.onboardingFrontingViewTimelineDescription(
+          frontingTerms.historyLabel.toLowerCase(),
+        ),
     };
   }
 
@@ -78,6 +86,10 @@ class FrontingDefaultsStep extends ConsumerWidget {
       customPlural: onboarding.customTermPlural,
       useEnglish: onboarding.terminologyUseEnglish,
     );
+    final frontingTerms = resolveFrontingTerms(
+      context.l10n,
+      onboarding.pendingFrontingTerms,
+    );
     final listViewMode =
         onboarding.frontingListViewMode ??
         settings?.frontingListViewMode ??
@@ -103,11 +115,14 @@ class FrontingDefaultsStep extends ConsumerWidget {
           const SizedBox(height: 10),
           _ChoiceCard(
             title: context.l10n.onboardingFrontingDefaultsHomeViewTitle,
-            description:
-                context.l10n.onboardingFrontingDefaultsHomeViewDescription,
+            description: context.l10n
+                .onboardingFrontingDefaultsHomeViewDescription(
+                  frontingTerms.historyLabel.toLowerCase(),
+                ),
             selectedDescription: _listViewModeDescription(
               context,
               listViewMode,
+              frontingTerms,
             ),
             isDark: isDark,
             primary: primary,
@@ -131,7 +146,9 @@ class FrontingDefaultsStep extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _ChoiceCard(
-            title: context.l10n.onboardingAddFrontBehaviorTitle,
+            title: context.l10n.onboardingAddFrontBehaviorTitle(
+              frontingTerms.logAction,
+            ),
             description: context.l10n.onboardingAddFrontBehaviorDescription,
             selectedDescription: _frontBehaviorDescription(
               context,
@@ -147,9 +164,12 @@ class FrontingDefaultsStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _ChoiceCard(
-            title: context.l10n.onboardingQuickFrontBehaviorTitle,
+            title: context.l10n.onboardingQuickFrontBehaviorTitle(
+              frontingTerms.quickAction,
+            ),
             description: context.l10n.onboardingQuickFrontBehaviorDescription(
               terms.singularLower,
+              frontingTerms.currentlyActivePhrase,
             ),
             selectedDescription: _frontBehaviorDescription(
               context,

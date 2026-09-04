@@ -211,7 +211,10 @@ void main() {
       ],
     );
 
-    expect(find.text('Imported current front: Alex, Bea'), findsOneWidget);
+    expect(
+      find.text('Profiles imported under \u201cFronting\u201d: Alex, Bea'),
+      findsOneWidget,
+    );
     expect(find.text('Skip for now'), findsOneWidget);
   });
 

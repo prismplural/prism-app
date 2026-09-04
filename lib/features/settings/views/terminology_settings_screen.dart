@@ -18,12 +18,51 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_term_choice_grid.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 typedef _SystemTermOption = ({SystemTermPreset? preset, bool custom});
 typedef _FrontingTermOption = ({FrontingTermPreset? preset, bool custom});
+
+enum _FrontingEditorMode { simple, advanced }
+
+const _simpleFrontingFieldKeys = [
+  'featureLabel',
+  'activeSectionLabel',
+  'statePhrase',
+  'activeSingularLabel',
+  'activePluralLabel',
+  'sessionSingular',
+  'sessionPlural',
+];
+
+const _terminologyAutosaveDelay = Duration(milliseconds: 300);
+
+final class _PersistenceQueue {
+  Future<void>? _tail;
+
+  Future<void> add(Future<void> Function() action) {
+    final previous = _tail;
+    late final Future<void> result;
+    if (previous == null) {
+      try {
+        result = action();
+      } catch (error, stackTrace) {
+        result = Future<void>.error(error, stackTrace);
+      }
+    } else {
+      result = previous.then((_) => action());
+    }
+    final settled = result.then<void>((_) {}, onError: (_, _) {});
+    _tail = settled;
+    settled.then((_) {
+      if (identical(_tail, settled)) _tail = null;
+    });
+    return result;
+  }
+}
 
 class TerminologySettingsScreen extends ConsumerWidget {
   const TerminologySettingsScreen({super.key});
@@ -88,6 +127,9 @@ class _FrontingTerminologyPickerState
     for (final key in FrontingTermBundle.fieldKeys)
       key: TextEditingController(),
   };
+  late final Map<String, TextEditingController> _simpleControllers = {
+    for (final key in _simpleFrontingFieldKeys) key: TextEditingController(),
+  };
 
   bool _initialized = false;
   bool _useCustom = false;
@@ -95,13 +137,34 @@ class _FrontingTerminologyPickerState
   FrontingTermPreset _desiredPreset = FrontingTermPreset.fronting;
   bool _desiredUseCustom = false;
   bool _dirty = false;
+  bool _advancedDirty = false;
+  bool _simpleAvailable = false;
+  _FrontingEditorMode _editorMode = _FrontingEditorMode.simple;
+  String _authoringLocale = 'en';
+  FrontingTermPreset _authoringSeedPreset = FrontingTermPreset.fronting;
   bool _suppressNextResetReload = false;
   int _selectionGeneration = 0;
+  int _customSaveGeneration = 0;
+  FrontingTerms? _ignoredStoredEcho;
+  Timer? _customSaveDebounce;
+  final _persistenceQueue = _PersistenceQueue();
+  late final SettingsNotifier _settingsNotifier;
   String? _errorText;
 
   @override
+  void initState() {
+    super.initState();
+    _settingsNotifier = ref.read(settingsNotifierProvider.notifier);
+  }
+
+  @override
   void dispose() {
+    _customSaveDebounce?.cancel();
+    _persistCustomOnDispose();
     for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _simpleControllers.values) {
       controller.dispose();
     }
     super.dispose();
@@ -114,11 +177,69 @@ class _FrontingTerminologyPickerState
     }
   }
 
+  void _setSimpleControllers(SimpleFrontingTermAuthoring authoring) {
+    final values = {
+      'featureLabel': authoring.featureLabel,
+      'activeSectionLabel': authoring.activeSectionLabel,
+      'statePhrase': authoring.statePhrase,
+      'activeSingularLabel': authoring.activeSingularLabel,
+      'activePluralLabel': authoring.activePluralLabel,
+      'sessionSingular': authoring.sessionSingular,
+      'sessionPlural': authoring.sessionPlural,
+    };
+    for (final key in _simpleFrontingFieldKeys) {
+      _simpleControllers[key]!.text = values[key]!;
+    }
+    _authoringLocale = authoring.locale;
+    _authoringSeedPreset = authoring.seedPreset;
+  }
+
+  SimpleFrontingTermAuthoring _simpleAuthoringFromControllers() {
+    return SimpleFrontingTermAuthoring(
+      locale: _authoringLocale,
+      seedPreset: _authoringSeedPreset,
+      featureLabel: _simpleControllers['featureLabel']!.text.trim(),
+      activeSectionLabel: _simpleControllers['activeSectionLabel']!.text.trim(),
+      statePhrase: _simpleControllers['statePhrase']!.text.trim(),
+      activeSingularLabel: _simpleControllers['activeSingularLabel']!.text
+          .trim(),
+      activePluralLabel: _simpleControllers['activePluralLabel']!.text.trim(),
+      sessionSingular: _simpleControllers['sessionSingular']!.text.trim(),
+      sessionPlural: _simpleControllers['sessionPlural']!.text.trim(),
+    );
+  }
+
+  void _startSimpleSetup(FrontingTermPreset preset, {required bool dirty}) {
+    final authoring = simpleFrontingAuthoringForPreset(context.l10n, preset);
+    _setSimpleControllers(authoring);
+    _setControllersFromBundle(generateSimpleFrontingBundle(authoring));
+    _simpleAvailable = true;
+    _editorMode = _FrontingEditorMode.simple;
+    _advancedDirty = false;
+    _dirty = dirty;
+    _errorText = null;
+  }
+
+  void _startSimpleSetupFromAdvanced() {
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    if (_dirty && _useCustom) {
+      _ignoredStoredEcho = _currentCustomTerms();
+      final generation = ++_customSaveGeneration;
+      unawaited(_saveCustom(generation: generation));
+    }
+    ++_customSaveGeneration;
+    setState(() {
+      _startSimpleSetup(FrontingTermPreset.fronting, dirty: false);
+    });
+  }
+
   void _loadStored(FrontingTerms? terms, {required bool notify}) {
     void update() {
       final normalized = terms?.normalized() ?? FrontingTerms.unset;
       final custom = normalized.custom;
       final hasCustom = custom != null && custom.isValid;
+      final authoring = normalized.authoring;
       final preset = normalized.preset ?? FrontingTermPreset.fronting;
       _useCustom = hasCustom;
       _selectedPreset = preset;
@@ -127,9 +248,15 @@ class _FrontingTerminologyPickerState
         _desiredPreset = preset;
       }
       _setControllersFromBundle(
-        hasCustom ? custom : frontingTermBundleForPreset(preset),
+        hasCustom ? custom : frontingTermBundleForPreset(context.l10n, preset),
       );
+      _simpleAvailable = hasCustom && authoring != null;
+      _editorMode = _simpleAvailable
+          ? _FrontingEditorMode.simple
+          : _FrontingEditorMode.advanced;
+      if (authoring != null) _setSimpleControllers(authoring);
       _dirty = false;
+      _advancedDirty = false;
       _suppressNextResetReload = false;
       _errorText = null;
       _initialized = true;
@@ -142,11 +269,43 @@ class _FrontingTerminologyPickerState
     }
   }
 
-  void _markDirty() {
+  void _markAdvancedDirty() {
     setState(() {
       _dirty = true;
+      _advancedDirty = true;
+      _simpleAvailable = false;
       _errorText = null;
     });
+    _scheduleCustomSave();
+  }
+
+  void _markSimpleDirty() {
+    setState(() {
+      _dirty = true;
+      _advancedDirty = false;
+      _errorText = null;
+      final authoring = _simpleAuthoringFromControllers();
+      if (authoring.isValid) {
+        _setControllersFromBundle(generateSimpleFrontingBundle(authoring));
+      }
+    });
+    _scheduleCustomSave();
+  }
+
+  void _scheduleCustomSave() {
+    _customSaveDebounce?.cancel();
+    final generation = ++_customSaveGeneration;
+    _customSaveDebounce = Timer(_terminologyAutosaveDelay, () {
+      _customSaveDebounce = null;
+      unawaited(_saveCustom(generation: generation));
+    });
+  }
+
+  void _submitCustomSave() {
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    final generation = ++_customSaveGeneration;
+    unawaited(_saveCustom(generation: generation));
   }
 
   FrontingTermBundle? _bundleFromControllers() {
@@ -157,30 +316,63 @@ class _FrontingTerminologyPickerState
     return FrontingTermBundle.tryDecode(values);
   }
 
+  FrontingTerms? _currentCustomTerms() {
+    if (!_useCustom) return null;
+    SimpleFrontingTermAuthoring? authoring;
+    FrontingTermBundle? bundle;
+    if (_editorMode == _FrontingEditorMode.simple) {
+      authoring = _simpleAuthoringFromControllers().normalized();
+      if (!authoring.isValid) return null;
+      bundle = generateSimpleFrontingBundle(authoring);
+    } else {
+      bundle = _bundleFromControllers();
+      if (_simpleAvailable && !_advancedDirty) {
+        final candidate = _simpleAuthoringFromControllers().normalized();
+        if (candidate.isValid) authoring = candidate;
+      }
+    }
+    if (bundle == null) return null;
+    return FrontingTerms.custom(bundle, authoring: authoring).normalized();
+  }
+
   FrontingTermBundle _previewBundle() {
     if (_useCustom) {
+      if (_editorMode == _FrontingEditorMode.simple) {
+        final authoring = _simpleAuthoringFromControllers();
+        if (authoring.isValid) return generateSimpleFrontingBundle(authoring);
+      }
       return _bundleFromControllers() ??
-          frontingTermBundleForPreset(_selectedPreset);
+          frontingTermBundleForPreset(context.l10n, _selectedPreset);
     }
-    return frontingTermBundleForPreset(_selectedPreset);
+    return frontingTermBundleForPreset(context.l10n, _selectedPreset);
   }
 
   void _selectFrontingChoice(_FrontingTermOption option) {
+    if (option.custom && _useCustom) return;
+
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    ++_customSaveGeneration;
     final generation = ++_selectionGeneration;
+    final customSeedPreset = _selectedPreset;
     _desiredUseCustom = option.custom;
-    _desiredPreset = option.preset ?? FrontingTermPreset.fronting;
-    final nextBundle = _previewBundle();
+    _desiredPreset = option.custom
+        ? customSeedPreset
+        : option.preset ?? FrontingTermPreset.fronting;
 
     setState(() {
       _useCustom = option.custom;
       _selectedPreset = _desiredPreset;
       _errorText = null;
       if (option.custom) {
-        _setControllersFromBundle(nextBundle);
-        _dirty = false;
+        _startSimpleSetup(customSeedPreset, dirty: false);
       } else {
-        _setControllersFromBundle(frontingTermBundleForPreset(_selectedPreset));
+        _setControllersFromBundle(
+          frontingTermBundleForPreset(context.l10n, _selectedPreset),
+        );
         _dirty = false;
+        _advancedDirty = false;
+        _simpleAvailable = false;
       }
     });
 
@@ -194,14 +386,13 @@ class _FrontingTerminologyPickerState
     FrontingTermPreset preset,
     int generation,
   ) async {
+    final notifier = _settingsNotifier;
     if (preset == FrontingTermPreset.fronting) {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .resetFrontingTerminology();
+      await _persistenceQueue.add(notifier.resetFrontingTerminology);
     } else {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .updateFrontingTerminologyPreset(preset);
+      await _persistenceQueue.add(
+        () => notifier.updateFrontingTerminologyPreset(preset),
+      );
     }
 
     if (!mounted || generation == _selectionGeneration || _desiredUseCustom) {
@@ -212,53 +403,122 @@ class _FrontingTerminologyPickerState
     setState(() {
       _useCustom = false;
       _selectedPreset = currentPreset;
-      _setControllersFromBundle(frontingTermBundleForPreset(currentPreset));
+      _setControllersFromBundle(
+        frontingTermBundleForPreset(context.l10n, currentPreset),
+      );
     });
     if (currentPreset == FrontingTermPreset.fronting) {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .resetFrontingTerminology();
+      await _persistenceQueue.add(notifier.resetFrontingTerminology);
     } else {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .updateFrontingTerminologyPreset(currentPreset);
+      await _persistenceQueue.add(
+        () => notifier.updateFrontingTerminologyPreset(currentPreset),
+      );
     }
   }
 
-  Future<void> _saveCustom() async {
+  Future<void> _saveCustom({required int generation}) async {
+    SimpleFrontingTermAuthoring? authoring;
+    if (_editorMode == _FrontingEditorMode.simple) {
+      authoring = _simpleAuthoringFromControllers().normalized();
+      if (!authoring.isValid) {
+        if (mounted && generation == _customSaveGeneration) {
+          setState(() {
+            _errorText = context.l10n.terminologyFrontingSimpleRequired;
+          });
+        }
+        return;
+      }
+      _setControllersFromBundle(generateSimpleFrontingBundle(authoring));
+    } else if (_simpleAvailable && !_advancedDirty) {
+      final candidate = _simpleAuthoringFromControllers().normalized();
+      if (candidate.isValid) authoring = candidate;
+    }
     final values = <String, String>{
       for (final key in FrontingTermBundle.fieldKeys)
         key: _controllers[key]!.text.trim(),
     };
     if (values.values.any((value) => value.isEmpty)) {
-      setState(() {
-        _errorText = context.l10n.terminologyFrontingCustomRequired;
-      });
+      if (mounted && generation == _customSaveGeneration) {
+        setState(() {
+          _errorText = context.l10n.terminologyFrontingCustomRequired;
+        });
+      }
       return;
     }
     if (values.values.any((value) => value.length > frontingTermMaxLength)) {
-      setState(() {
-        _errorText = context.l10n.terminologyFrontingCustomTooLong(
-          frontingTermMaxLength,
-        );
-      });
+      if (mounted && generation == _customSaveGeneration) {
+        setState(() {
+          _errorText = context.l10n.terminologyFrontingCustomTooLong(
+            frontingTermMaxLength,
+          );
+        });
+      }
       return;
     }
 
     final bundle = FrontingTermBundle.tryDecode(values);
     if (bundle == null) {
-      setState(() {
-        _errorText = context.l10n.terminologyFrontingCustomRequired;
-      });
+      if (mounted && generation == _customSaveGeneration) {
+        setState(() {
+          _errorText = context.l10n.terminologyFrontingCustomRequired;
+        });
+      }
       return;
     }
 
-    await ref
-        .read(settingsNotifierProvider.notifier)
-        .updateFrontingTerminologyCustom(bundle);
-    if (!mounted) return;
+    final notifier = _settingsNotifier;
+    await _persistenceQueue.add(
+      () => notifier.updateFrontingTerminologyCustom(
+        bundle,
+        authoring: authoring,
+      ),
+    );
+    if (!mounted || generation != _customSaveGeneration || !_desiredUseCustom) {
+      return;
+    }
     setState(() {
       _dirty = false;
+      _advancedDirty = false;
+      _simpleAvailable = authoring != null;
+      _errorText = null;
+    });
+  }
+
+  void _persistCustomOnDispose() {
+    if (!_dirty || !_useCustom) return;
+    SimpleFrontingTermAuthoring? authoring;
+    if (_editorMode == _FrontingEditorMode.simple) {
+      authoring = _simpleAuthoringFromControllers().normalized();
+      if (!authoring.isValid) return;
+      _setControllersFromBundle(generateSimpleFrontingBundle(authoring));
+    } else if (_simpleAvailable && !_advancedDirty) {
+      final candidate = _simpleAuthoringFromControllers().normalized();
+      if (candidate.isValid) authoring = candidate;
+    }
+    final bundle = _bundleFromControllers();
+    if (bundle == null) return;
+    final notifier = _settingsNotifier;
+    unawaited(
+      _persistenceQueue.add(
+        () => notifier.updateFrontingTerminologyCustom(
+          bundle,
+          authoring: authoring,
+        ),
+      ),
+    );
+  }
+
+  void _selectEditorMode(_FrontingEditorMode mode) {
+    if (mode == _editorMode) return;
+    if (mode == _FrontingEditorMode.simple && !_simpleAvailable) return;
+    setState(() {
+      if (mode == _FrontingEditorMode.advanced) {
+        final authoring = _simpleAuthoringFromControllers();
+        if (authoring.isValid) {
+          _setControllersFromBundle(generateSimpleFrontingBundle(authoring));
+        }
+      }
+      _editorMode = mode;
       _errorText = null;
     });
   }
@@ -266,11 +526,17 @@ class _FrontingTerminologyPickerState
   @override
   Widget build(BuildContext context) {
     final stored = ref.watch(frontingTermsSettingProvider);
-    final notifierState = ref.watch(settingsNotifierProvider);
     if (!_initialized && !_dirty) {
       _loadStored(stored, notify: false);
     }
     ref.listen<FrontingTerms?>(frontingTermsSettingProvider, (previous, next) {
+      final ignoredEcho = _ignoredStoredEcho;
+      if (ignoredEcho != null) {
+        _ignoredStoredEcho = null;
+        if (next?.normalized() == ignoredEcho) return;
+      }
+      final currentCustom = _currentCustomTerms();
+      if (currentCustom != null && next?.normalized() == currentCustom) return;
       if (_suppressNextResetReload && next == null) {
         _suppressNextResetReload = false;
         return;
@@ -294,8 +560,11 @@ class _FrontingTerminologyPickerState
             for (final preset in frontingTermPresetChoices)
               PrismTermChoice<_FrontingTermOption>(
                 value: (preset: preset, custom: false),
-                label: frontingTermPresetChoiceLabel(preset),
-                subtitle: frontingTermBundleForPreset(preset).activePluralLabel,
+                label: frontingTermPresetChoiceLabel(context.l10n, preset),
+                subtitle: frontingTermBundleForPreset(
+                  context.l10n,
+                  preset,
+                ).activePluralLabel,
               ),
             PrismTermChoice<_FrontingTermOption>(
               value: (preset: null, custom: true),
@@ -307,48 +576,104 @@ class _FrontingTerminologyPickerState
         ),
         if (_useCustom) ...[
           const SizedBox(height: 16),
+          if (_simpleAvailable)
+            PrismSegmentedControl<_FrontingEditorMode>(
+              segments: [
+                PrismSegment(
+                  value: _FrontingEditorMode.simple,
+                  label: context.l10n.terminologyFrontingModeSimple,
+                ),
+                PrismSegment(
+                  value: _FrontingEditorMode.advanced,
+                  label: context.l10n.terminologyFrontingModeAdvanced,
+                ),
+              ],
+              selected: _editorMode,
+              onChanged: _selectEditorMode,
+            )
+          else
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: PrismButton(
+                label: context.l10n.terminologyFrontingStartSimple,
+                icon: AppIcons.tuneOutlined,
+                density: PrismControlDensity.compact,
+                onPressed: _startSimpleSetupFromAdvanced,
+              ),
+            ),
+          const SizedBox(height: 12),
           Text(
-            context.l10n.terminologyFrontingCustomIntro,
+            _editorMode == _FrontingEditorMode.simple
+                ? context.l10n.terminologyFrontingSimpleIntro
+                : context.l10n.terminologyFrontingCustomIntro,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 12),
-          for (final (index, group) in _frontingTermGroups(
-            context,
-          ).indexed) ...[
-            if (index > 0) const SizedBox(height: 8),
-            PrismExpandableSection(
-              initiallyExpanded: index == 0,
-              dense: true,
-              fillColor: Colors.transparent,
-              borderColor: theme.colorScheme.outlineVariant.withValues(
-                alpha: 0.35,
+          if (_editorMode == _FrontingEditorMode.simple) ...[
+            for (final key in _simpleFrontingFieldKeys) ...[
+              PrismTextField(
+                key: ValueKey('simple-fronting-$key'),
+                controller: _simpleControllers[key],
+                labelText: context.l10n.terminologyFrontingSimpleFieldLabel(
+                  key,
+                ),
+                hintText: context.l10n.terminologyFrontingSimpleFieldHint(key),
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(simpleFrontingTermMaxLength),
+                ],
+                isDense: true,
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) => _markSimpleDirty(),
+                onSubmitted: (_) => _submitCustomSave(),
               ),
-              headerPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
+              const SizedBox(height: 10),
+            ],
+            Text(
+              context.l10n.terminologyFrontingSimpleRegenerationNote,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-              contentPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              contentSpacing: 10,
-              title: Text(group.title),
-              subtitle: Text(group.subtitle),
-              children: [
-                for (final field in group.fields)
-                  PrismTextField(
-                    controller: _controllers[field.key],
-                    labelText: field.label,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(frontingTermMaxLength),
-                    ],
-                    isDense: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    textInputAction: TextInputAction.next,
-                    onChanged: (_) => _markDirty(),
-                    onSubmitted: (_) => unawaited(_saveCustom()),
-                  ),
-              ],
             ),
+          ] else ...[
+            for (final (index, group) in _frontingTermGroups(
+              context,
+            ).indexed) ...[
+              if (index > 0) const SizedBox(height: 8),
+              PrismExpandableSection(
+                initiallyExpanded: false,
+                dense: true,
+                fillColor: Colors.transparent,
+                borderColor: theme.colorScheme.outlineVariant.withValues(
+                  alpha: 0.35,
+                ),
+                headerPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                contentPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                contentSpacing: 10,
+                title: Text(group.title),
+                subtitle: Text(group.subtitle),
+                children: [
+                  for (final field in group.fields)
+                    PrismTextField(
+                      controller: _controllers[field.key],
+                      labelText: field.label,
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(frontingTermMaxLength),
+                      ],
+                      isDense: true,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => _markAdvancedDirty(),
+                      onSubmitted: (_) => _submitCustomSave(),
+                    ),
+                ],
+              ),
+            ],
           ],
           if (_errorText != null) ...[
             const SizedBox(height: 12),
@@ -360,19 +685,6 @@ class _FrontingTerminologyPickerState
               ),
             ),
           ],
-          const SizedBox(height: 12),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: PrismButton(
-              label: context.l10n.save,
-              icon: AppIcons.check,
-              density: PrismControlDensity.compact,
-              tone: PrismButtonTone.filled,
-              enabled: _dirty,
-              isLoading: notifierState.isLoading,
-              onPressed: () => unawaited(_saveCustom()),
-            ),
-          ),
         ],
         const SizedBox(height: 16),
         Container(
@@ -432,10 +744,22 @@ class _SystemTerminologyPickerState
   bool _dirty = false;
   bool _suppressNextResetReload = false;
   int _selectionGeneration = 0;
+  int _customSaveGeneration = 0;
+  Timer? _customSaveDebounce;
+  final _persistenceQueue = _PersistenceQueue();
+  late final SettingsNotifier _settingsNotifier;
   String? _errorText;
 
   @override
+  void initState() {
+    super.initState();
+    _settingsNotifier = ref.read(settingsNotifierProvider.notifier);
+  }
+
+  @override
   void dispose() {
+    _customSaveDebounce?.cancel();
+    _persistCustomOnDispose();
     _singularController.dispose();
     _pluralController.dispose();
     super.dispose();
@@ -473,9 +797,31 @@ class _SystemTerminologyPickerState
       _dirty = true;
       _errorText = null;
     });
+    _scheduleCustomSave();
+  }
+
+  void _scheduleCustomSave() {
+    _customSaveDebounce?.cancel();
+    final generation = ++_customSaveGeneration;
+    _customSaveDebounce = Timer(_terminologyAutosaveDelay, () {
+      _customSaveDebounce = null;
+      unawaited(_saveCustom(generation: generation));
+    });
+  }
+
+  void _submitCustomSave() {
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    final generation = ++_customSaveGeneration;
+    unawaited(_saveCustom(generation: generation));
   }
 
   void _selectSystemChoice(_SystemTermOption option) {
+    if (option.custom && _useCustom) return;
+
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    ++_customSaveGeneration;
     final generation = ++_selectionGeneration;
     _desiredUseCustom = option.custom;
     _desiredPreset = option.preset;
@@ -500,14 +846,13 @@ class _SystemTerminologyPickerState
     _SystemTermOption option,
     int generation,
   ) async {
+    final notifier = _settingsNotifier;
     if (option.preset == null) {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .resetSystemTerminology();
+      await _persistenceQueue.add(notifier.resetSystemTerminology);
     } else {
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .updateSystemTerminologyPreset(option.preset!);
+      await _persistenceQueue.add(
+        () => notifier.updateSystemTerminologyPreset(option.preset!),
+      );
     }
 
     if (!mounted || generation == _selectionGeneration || _desiredUseCustom) {
@@ -520,49 +865,88 @@ class _SystemTerminologyPickerState
         _useCustom = false;
         _selectedPreset = currentPreset;
       });
-      await ref
-          .read(settingsNotifierProvider.notifier)
-          .updateSystemTerminologyPreset(currentPreset);
+      await _persistenceQueue.add(
+        () => notifier.updateSystemTerminologyPreset(currentPreset),
+      );
     }
   }
 
-  Future<void> _saveCustom() async {
+  Future<void> _saveCustom({required int generation}) async {
     final l10n = context.l10n;
     final singular = _singularController.text.trim();
     final plural = _pluralController.text.trim();
     if (singular.isEmpty || plural.isEmpty) {
-      setState(() {
-        _errorText = l10n.terminologySystemCustomRequired;
-      });
+      if (mounted && generation == _customSaveGeneration) {
+        setState(() {
+          _errorText = l10n.terminologySystemCustomRequired;
+        });
+      }
       return;
     }
     if (singular.length > systemTermMaxLength ||
         plural.length > systemTermMaxLength) {
-      setState(() {
-        _errorText = l10n.terminologySystemCustomTooLong(systemTermMaxLength);
-      });
+      if (mounted && generation == _customSaveGeneration) {
+        setState(() {
+          _errorText = l10n.terminologySystemCustomTooLong(systemTermMaxLength);
+        });
+      }
       return;
     }
 
-    await ref
-        .read(settingsNotifierProvider.notifier)
-        .updateSystemTerminology(singular: singular, plural: plural);
-    if (!mounted) return;
+    final notifier = _settingsNotifier;
+    await _persistenceQueue.add(
+      () =>
+          notifier.updateSystemTerminology(singular: singular, plural: plural),
+    );
+    if (!mounted || generation != _customSaveGeneration || !_desiredUseCustom) {
+      return;
+    }
     setState(() {
       _dirty = false;
       _errorText = null;
     });
   }
 
+  void _persistCustomOnDispose() {
+    if (!_dirty || !_useCustom) return;
+    final singular = _singularController.text.trim();
+    final plural = _pluralController.text.trim();
+    if (singular.isEmpty ||
+        plural.isEmpty ||
+        singular.length > systemTermMaxLength ||
+        plural.length > systemTermMaxLength) {
+      return;
+    }
+    final notifier = _settingsNotifier;
+    unawaited(
+      _persistenceQueue.add(
+        () => notifier.updateSystemTerminology(
+          singular: singular,
+          plural: plural,
+        ),
+      ),
+    );
+  }
+
+  bool _matchesCurrentCustomTerms(SystemTerms? terms) {
+    if (!_useCustom) return false;
+    final current = SystemTerms.custom(
+      singular: _singularController.text,
+      plural: _pluralController.text,
+    ).normalized();
+    if (!const SystemTermsPreferenceCodec().isValid(current)) return false;
+    return terms?.normalized() == current;
+  }
+
   @override
   Widget build(BuildContext context) {
     final stored = ref.watch(systemTermsSettingProvider);
-    final notifierState = ref.watch(settingsNotifierProvider);
     final terms = watchFullTerminology(context, ref);
     if (!_initialized && !_dirty) {
       _loadStored(stored, notify: false);
     }
     ref.listen<SystemTerms?>(systemTermsSettingProvider, (previous, next) {
+      if (_matchesCurrentCustomTerms(next)) return;
       if (_suppressNextResetReload && next == null) {
         _suppressNextResetReload = false;
         return;
@@ -583,6 +967,19 @@ class _SystemTerminologyPickerState
           )
         : selectedPresetTerms?.singular ?? terms.systemSingular;
     final previewSystemLower = previewSystemSingular.toLowerCase();
+    final previewSystemTerms = _useCustom
+        ? SystemTerms.custom(
+            singular: _singularController.text.trim(),
+            plural: _pluralController.text.trim(),
+          )
+        : _selectedPreset == null
+        ? SystemTerms.unset
+        : SystemTerms.preset(_selectedPreset!);
+    final previewInfoLabel = systemInfoLabel(
+      context.l10n,
+      previewSystemTerms,
+      previewSystemSingular,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -621,7 +1018,7 @@ class _SystemTerminologyPickerState
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.next,
             onChanged: (_) => _markDirty(),
-            onSubmitted: (_) => unawaited(_saveCustom()),
+            onSubmitted: (_) => _submitCustomSave(),
           ),
           const SizedBox(height: 12),
           PrismTextField(
@@ -633,20 +1030,7 @@ class _SystemTerminologyPickerState
             textCapitalization: TextCapitalization.words,
             textInputAction: TextInputAction.done,
             onChanged: (_) => _markDirty(),
-            onSubmitted: (_) => unawaited(_saveCustom()),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: PrismButton(
-              label: context.l10n.save,
-              icon: AppIcons.check,
-              density: PrismControlDensity.compact,
-              tone: PrismButtonTone.filled,
-              enabled: _dirty,
-              isLoading: notifierState.isLoading,
-              onPressed: () => unawaited(_saveCustom()),
-            ),
+            onSubmitted: (_) => _submitCustomSave(),
           ),
         ],
         const SizedBox(height: 16),
@@ -671,7 +1055,7 @@ class _SystemTerminologyPickerState
               const SizedBox(height: 4),
               Text(
                 context.l10n.terminologySystemPreview(
-                  previewSystemSingular,
+                  previewInfoLabel,
                   previewSystemLower,
                   terms.singularLower,
                 ),
@@ -713,103 +1097,112 @@ List<_FrontingTermFieldGroup> _frontingTermGroups(BuildContext context) {
     _FrontingTermFieldGroup(
       title: l10n.terminologyFrontingGroupPrimary,
       subtitle: l10n.terminologyFrontingGroupPrimarySubtitle,
-      fields: const [
-        _FrontingTermField('featureLabel', 'Feature label'),
-        _FrontingTermField('featureLower', 'Feature label, lowercase'),
-        _FrontingTermField('currentQuestion', 'Current question'),
-        _FrontingTermField('currentQuestionNow', 'Current question now'),
-        _FrontingTermField('emptyCurrentState', 'Empty current state'),
-        _FrontingTermField('activeSingularLabel', 'Active singular label'),
-        _FrontingTermField('activePluralLabel', 'Active plural label'),
-        _FrontingTermField('activeSectionLabel', 'Active section label'),
-        _FrontingTermField('currentActiveLabel', 'Current active label'),
-        _FrontingTermField('latestActiveLabel', 'Latest active label'),
-        _FrontingTermField('unknownActiveLabel', 'Unknown active label'),
-        _FrontingTermField('currentlyActivePhrase', 'Currently active phrase'),
+      fields: [
+        for (final key in const [
+          'featureLabel',
+          'featureLower',
+          'currentQuestion',
+          'currentQuestionNow',
+          'emptyCurrentState',
+          'activeSingularLabel',
+          'activePluralLabel',
+          'activeSectionLabel',
+          'currentActiveLabel',
+          'latestActiveLabel',
+          'unknownActiveLabel',
+          'currentlyActivePhrase',
+        ])
+          _FrontingTermField(key, l10n.terminologyFrontingFieldLabel(key)),
       ],
     ),
     _FrontingTermFieldGroup(
       title: l10n.terminologyFrontingGroupActions,
       subtitle: l10n.terminologyFrontingGroupActionsSubtitle,
-      fields: const [
-        _FrontingTermField('logAction', 'Log action'),
-        _FrontingTermField('logPastAction', 'Log past action'),
-        _FrontingTermField('quickAction', 'Quick action'),
-        _FrontingTermField('holdToStartHint', 'Hold-to-start hint'),
-        _FrontingTermField('addAction', 'Add action'),
-        _FrontingTermField('setAsAction', 'Set-as action'),
-        _FrontingTermField('replaceCurrentAction', 'Replace current action'),
-        _FrontingTermField('endWithoutAction', 'End without action'),
-        _FrontingTermField('endCurrentAction', 'End current action'),
-        _FrontingTermField('keepCurrentAction', 'Keep current action'),
-        _FrontingTermField('directButtonLabel', 'Direct button label'),
+      fields: [
+        for (final key in const [
+          'logAction',
+          'logPastAction',
+          'quickAction',
+          'holdToStartHint',
+          'addAction',
+          'setAsAction',
+          'replaceCurrentAction',
+          'endWithoutAction',
+          'endCurrentAction',
+          'keepCurrentAction',
+          'directButtonLabel',
+        ])
+          _FrontingTermField(key, l10n.terminologyFrontingFieldLabel(key)),
       ],
     ),
     _FrontingTermFieldGroup(
       title: l10n.terminologyFrontingGroupHistory,
       subtitle: l10n.terminologyFrontingGroupHistorySubtitle,
-      fields: const [
-        _FrontingTermField('historyLabel', 'History label'),
-        _FrontingTermField('dataLabel', 'Data label'),
-        _FrontingTermField('entryLabel', 'Entry label'),
-        _FrontingTermField('sessionSingular', 'Session singular'),
-        _FrontingTermField('sessionPlural', 'Session plural'),
-        _FrontingTermField('sessionCommentSingular', 'Session comment'),
-        _FrontingTermField('sessionCommentPlural', 'Session comments'),
-        _FrontingTermField('statsLabel', 'Stats label'),
-        _FrontingTermField('timeLabel', 'Time label'),
-        _FrontingTermField('lastActiveLabel', 'Last active label'),
-        _FrontingTermField('mostActiveSortLabel', 'Most active sort label'),
-        _FrontingTermField('leastActiveSortLabel', 'Least active sort label'),
-        _FrontingTermField('statusLabel', 'Status label'),
+      fields: [
+        for (final key in const [
+          'historyLabel',
+          'dataLabel',
+          'entryLabel',
+          'sessionSingular',
+          'sessionPlural',
+          'sessionCommentSingular',
+          'sessionCommentPlural',
+          'statsLabel',
+          'timeLabel',
+          'lastActiveLabel',
+          'mostActiveSortLabel',
+          'leastActiveSortLabel',
+          'statusLabel',
+        ])
+          _FrontingTermField(key, l10n.terminologyFrontingFieldLabel(key)),
       ],
     ),
     _FrontingTermFieldGroup(
       title: l10n.terminologyFrontingGroupTogether,
       subtitle: l10n.terminologyFrontingGroupTogetherSubtitle,
-      fields: const [
-        _FrontingTermField('togetherStateLabel', 'Together state label'),
-        _FrontingTermField(
+      fields: [
+        for (final key in const [
+          'togetherStateLabel',
           'togetherActiveSingularLabel',
-          'Together active singular',
-        ),
-        _FrontingTermField(
           'togetherActivePluralLabel',
-          'Together active plural',
-        ),
-        _FrontingTermField('togetherPastLabel', 'Together past label'),
-        _FrontingTermField('addTogetherAction', 'Add together action'),
-        _FrontingTermField('overlapOptionLabel', 'Overlap option label'),
-        _FrontingTermField('overlapSubtitle', 'Overlap subtitle'),
+          'togetherPastLabel',
+          'addTogetherAction',
+          'overlapOptionLabel',
+          'overlapSubtitle',
+        ])
+          _FrontingTermField(key, l10n.terminologyFrontingFieldLabel(key)),
       ],
     ),
     _FrontingTermFieldGroup(
       title: l10n.terminologyFrontingGroupChanges,
       subtitle: l10n.terminologyFrontingGroupChangesSubtitle,
-      fields: const [
-        _FrontingTermField('changeSingular', 'Change singular'),
-        _FrontingTermField('changePlural', 'Change plural'),
-        _FrontingTermField('anyChangeLabel', 'Any change label'),
-        _FrontingTermField('onChangeLabel', 'On-change label'),
-        _FrontingTermField('delayAfterChangeLabel', 'Delay label'),
-        _FrontingTermField('reminderLabel', 'Reminder label'),
-        _FrontingTermField('logChangeReminderAction', 'Reminder action'),
+      fields: [
+        for (final key in const [
+          'changeSingular',
+          'changePlural',
+          'anyChangeLabel',
+          'onChangeLabel',
+          'delayAfterChangeLabel',
+          'reminderLabel',
+          'logChangeReminderAction',
+        ])
+          _FrontingTermField(key, l10n.terminologyFrontingFieldLabel(key)),
       ],
     ),
     _FrontingTermFieldGroup(
       title: l10n.terminologyFrontingGroupPinned,
       subtitle: l10n.terminologyFrontingGroupPinnedSubtitle,
-      fields: const [
-        _FrontingTermField('alwaysActiveLabel', 'Always active label'),
-        _FrontingTermField('alwaysPresentHeaderLabel', 'Always present header'),
-        _FrontingTermField('longRunningLabel', 'Long-running label'),
-        _FrontingTermField('longRunningHeaderLabel', 'Long-running header'),
-        _FrontingTermField('quickCorrectionLabel', 'Quick correction label'),
-        _FrontingTermField(
+      fields: [
+        for (final key in const [
+          'alwaysActiveLabel',
+          'alwaysPresentHeaderLabel',
+          'longRunningLabel',
+          'longRunningHeaderLabel',
+          'quickCorrectionLabel',
           'quickCorrectionWindowTitle',
-          'Quick correction window',
-        ),
-        _FrontingTermField('switchEventLabel', 'Switch event label'),
+          'switchEventLabel',
+        ])
+          _FrontingTermField(key, l10n.terminologyFrontingFieldLabel(key)),
       ],
     ),
   ];

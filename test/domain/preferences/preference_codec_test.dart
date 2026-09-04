@@ -3,6 +3,8 @@ import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_codec.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
+import '../../helpers/fronting_term_fixtures.dart';
+
 void main() {
   test('primitive codecs round-trip valid values', () {
     expect(const BoolPreferenceCodec().decode(true), isTrue);
@@ -84,7 +86,7 @@ void main() {
 
   test('fronting terms codec validates presets and custom bundles', () {
     const codec = FrontingTermsPreferenceCodec();
-    final custom = FrontingTerms.custom(defaultFrontingTermBundle);
+    final custom = FrontingTerms.custom(testFrontingTermBundle);
 
     expect(codec.isValid(custom), isTrue);
     expect(codec.decode(codec.encode(custom)), custom);
@@ -104,9 +106,45 @@ void main() {
     expect(codec.isValid(FrontingTerms.unset), isFalse);
   });
 
+  test(
+    'fronting terms codec round-trips optional simple authoring metadata',
+    () {
+      const codec = FrontingTermsPreferenceCodec();
+      const authoring = SimpleFrontingTermAuthoring(
+        locale: 'en',
+        seedPreset: FrontingTermPreset.fronting,
+        featureLabel: 'Orbit',
+        activeSectionLabel: 'In Orbit',
+        statePhrase: 'in orbit',
+        activeSingularLabel: 'Orbiter',
+        activePluralLabel: 'Orbiters',
+        sessionSingular: 'Orbit session',
+        sessionPlural: 'Orbit sessions',
+      );
+      final terms = FrontingTerms.custom(
+        testFrontingTermBundle,
+        authoring: authoring,
+      );
+
+      expect(codec.decode(codec.encode(terms)), terms);
+      expect((codec.encode(terms)! as Map)['authoring'], authoring.toJson());
+    },
+  );
+
+  test('malformed simple metadata does not invalidate a custom bundle', () {
+    const codec = FrontingTermsPreferenceCodec();
+    final decoded = codec.decode({
+      'custom': testFrontingTermBundle.toJson(),
+      'authoring': {'kind': 'simple', 'version': 999, 'locale': 'en'},
+    });
+
+    expect(decoded.custom, testFrontingTermBundle);
+    expect(decoded.authoring, isNull);
+  });
+
   test('fronting terms codec decodes malformed values to unset', () {
     const codec = FrontingTermsPreferenceCodec();
-    final encoded = defaultFrontingTermBundle.toJson();
+    final encoded = testFrontingTermBundle.toJson();
 
     expect(codec.decode(null), FrontingTerms.unset);
     expect(codec.decode('not a map'), FrontingTerms.unset);

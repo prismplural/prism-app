@@ -4,7 +4,15 @@ import 'package:prism_plurality/core/services/fronting_notification_service.dart
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 
 class _FakeLocalNotificationService extends LocalNotificationService {
-  final List<({int id, String title, String body, Duration interval})>
+  final List<
+    ({
+      int id,
+      String title,
+      String body,
+      Duration interval,
+      NotificationDetails details,
+    })
+  >
   scheduleRepeatingWithDurationCalls = [];
   final List<int> cancelCalls = [];
 
@@ -21,6 +29,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
       title: title,
       body: body,
       interval: interval,
+      details: details,
     ));
   }
 
@@ -64,6 +73,37 @@ void main() {
       expect(
         fake.scheduleRepeatingWithDurationCalls.single.interval,
         const Duration(hours: 8),
+      );
+    });
+
+    test('uses localized terminology supplied by the provider', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = FrontingNotificationService(
+        fake,
+        reminderTitle: 'Recordatorio de presencia',
+        reminderBody: 'Abre Prism para comprobar: ¿Quién está presente ahora?',
+        reminderChannelName: 'Recordatorios de actividad de Prism',
+        reminderChannelDescription:
+            'Recordatorios periódicos de actividad de Prism.',
+      );
+
+      await service.scheduleFrontingReminder(
+        interval: const Duration(hours: 1),
+      );
+
+      final call = fake.scheduleRepeatingWithDurationCalls.single;
+      expect(call.title, 'Recordatorio de presencia');
+      expect(
+        call.body,
+        'Abre Prism para comprobar: ¿Quién está presente ahora?',
+      );
+      expect(
+        call.details.android?.channelName,
+        'Recordatorios de actividad de Prism',
+      );
+      expect(
+        call.details.android?.channelDescription,
+        'Recordatorios periódicos de actividad de Prism.',
       );
     });
   });

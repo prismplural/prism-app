@@ -271,6 +271,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
 
   Widget _buildIdle(ThemeData theme) {
     final terms = readTerminology(context, ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -292,7 +293,10 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         ),
         const SizedBox(height: 8),
         Text(
-          context.l10n.dataManagementExportDescription(terms.pluralLower),
+          context.l10n.dataManagementExportDescription(
+            terms.pluralLower,
+            frontingTerms.sessionPluralLower,
+          ),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,

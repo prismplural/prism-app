@@ -638,7 +638,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
         : _displayMembers(membersAsync.value!);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final terms = watchFullTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     // Build a set of currently-fronting member IDs.
     final frontingIds =
@@ -1339,42 +1339,49 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           member.id,
           navigate: () => unawaited(context.push(_memberPath(member.id))),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isFronting) ...[
-              PrismPill(
-                label: memberTilePrefs.frontingTerms.activeSectionLabel,
-                icon: AppIcons.flashOn,
-                color: AppColors.fronting(theme.brightness),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
-              const SizedBox(width: 4),
-            ],
-            if (memberTilePrefs.showFrontButtons && !isFronting) ...[
-              IconButton(
-                tooltip: frontButtonLabel,
-                icon: Icon(AppIcons.add),
-                onPressed: memberTilePrefs.frontingActionBusy
-                    ? null
-                    : () {
-                        Haptics.selection();
-                        unawaited(_startFronting(member));
-                      },
-              ),
-              const SizedBox(width: 4),
-            ],
-            if (reorderIndex != null)
-              ReorderableDragStartListener(
-                index: reorderIndex,
-                child: Icon(
-                  AppIcons.dragHandle,
-                  color: theme.colorScheme.onSurfaceVariant.withValues(
-                    alpha: 0.4,
+        trailing: Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isFronting) ...[
+                Flexible(
+                  child: PrismPill(
+                    label: memberTilePrefs.frontingTerms.activeSectionLabel,
+                    icon: AppIcons.flashOn,
+                    color: AppColors.fronting(theme.brightness),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                   ),
                 ),
-              ),
-          ],
+                const SizedBox(width: 4),
+              ],
+              if (memberTilePrefs.showFrontButtons && !isFronting) ...[
+                IconButton(
+                  tooltip: frontButtonLabel,
+                  icon: Icon(AppIcons.add),
+                  onPressed: memberTilePrefs.frontingActionBusy
+                      ? null
+                      : () {
+                          Haptics.selection();
+                          unawaited(_startFronting(member));
+                        },
+                ),
+                const SizedBox(width: 4),
+              ],
+              if (reorderIndex != null)
+                ReorderableDragStartListener(
+                  index: reorderIndex,
+                  child: Icon(
+                    AppIcons.dragHandle,
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1453,7 +1460,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
           await notifier.replaceFronting([member.id]);
       }
       if (!mounted) return;
-      final frontingTerms = readFrontingTerms(ref);
+      final frontingTerms = readFrontingTerms(context, ref);
       PrismToast.show(
         context,
         message:

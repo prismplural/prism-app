@@ -5,6 +5,8 @@ import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
+import '../../helpers/fronting_term_fixtures.dart';
+
 void main() {
   test('app registry includes hide member counts preference', () {
     expect(
@@ -123,7 +125,7 @@ void main() {
     );
     expect(
       frontingTermsPreference.codec.isValid(
-        FrontingTerms.custom(defaultFrontingTermBundle),
+        FrontingTerms.custom(testFrontingTermBundle),
       ),
       isTrue,
     );

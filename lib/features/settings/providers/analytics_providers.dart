@@ -5,11 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_table_ticker_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/models/analytics_insight.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 /// Wraps a DateTimeRange with an isAllTime flag so providers can
 /// suppress prior-period comparisons when "All" is selected.
@@ -744,6 +745,7 @@ List<AnalyticsInsight> computeInsights(
   String? sessionPluralLower,
   String? togetherPastLabelLower,
   String? activeTimeLabelLower,
+  AppLocalizations? l10n,
 }) {
   final insights = <AnalyticsInsight>[];
 
@@ -759,8 +761,13 @@ List<AnalyticsInsight> computeInsights(
           type: AnalyticsInsightType.gapAlert,
           iconType: AnalyticsInsightIconType.clockCountdown,
           headline:
+              l10n?.analyticsInsightGapHeadline(
+                _fmtDuration(current.totalGapTime),
+              ) ??
               '${_fmtDuration(current.totalGapTime)} untracked this period',
-          body: '${(gapPct * 100).round()}% of the time wasn\'t logged.',
+          body:
+              l10n?.analyticsInsightGapBody((gapPct * 100).round()) ??
+              '${(gapPct * 100).round()}% of the time wasn\'t logged.',
           signalStrength: 80,
         ),
       );
@@ -773,19 +780,33 @@ List<AnalyticsInsight> computeInsights(
     final nameA = _name(names, top.memberIdA);
     final nameB = _name(names, top.memberIdB);
     final togetherPast = togetherPastLabelLower;
-    final headline = togetherPast == null
+    final fallbackHeadline = togetherPast == null
         ? (nameA != null && nameB != null)
               ? '$nameA & $nameB co-fronted a lot this period'
               : 'Two $termPluralLower co-fronted a lot this period'
         : (nameA != null && nameB != null)
         ? '$nameA & $nameB $togetherPast a lot this period'
         : 'Two $termPluralLower $togetherPast a lot this period';
+    final headline = nameA != null && nameB != null
+        ? l10n?.analyticsInsightTogetherNamed(
+                nameA,
+                nameB,
+                togetherPast ?? 'co-fronted',
+              ) ??
+              fallbackHeadline
+        : l10n?.analyticsInsightTogetherGeneric(
+                termPluralLower,
+                togetherPast ?? 'co-fronted',
+              ) ??
+              fallbackHeadline;
     insights.add(
       AnalyticsInsight(
         type: AnalyticsInsightType.coFrontingHighlight,
         iconType: AnalyticsInsightIconType.usersThree,
         headline: headline,
-        body: '${_fmtDuration(top.totalTime)} together.',
+        body:
+            l10n?.analyticsInsightTogetherBody(_fmtDuration(top.totalTime)) ??
+            '${_fmtDuration(top.totalTime)} together.',
         signalStrength: 30,
       ),
     );
@@ -812,14 +833,23 @@ List<AnalyticsInsight> computeInsights(
         AnalyticsInsight(
           type: AnalyticsInsightType.quietMember,
           iconType: AnalyticsInsightIconType.moonStars,
-          headline: sessions == null
+          headline: l10n != null && sessions != null
+              ? name != null
+                    ? l10n.analyticsInsightQuietNamed(name, sessions)
+                    : l10n.analyticsInsightQuietGeneric(
+                        termSingularLower,
+                        sessions,
+                      )
+              : sessions == null
               ? name != null
                     ? '$name hasn\'t fronted this period'
                     : 'One $termSingularLower hasn\'t fronted this period'
               : name != null
               ? '$name has no $sessions this period'
               : 'One $termSingularLower has no $sessions this period',
-          body: 'They were active in the last one.',
+          body:
+              l10n?.analyticsInsightQuietBody ??
+              'They were active in the last one.',
           signalStrength: 70,
         ),
       );
@@ -838,7 +868,21 @@ List<AnalyticsInsight> computeInsights(
         final longer = change > 0;
         final name = _name(names, curr.memberId);
         final sessions = sessionPluralLower;
-        final headline = sessions == null
+        final direction = longer ? 'longer' : 'shorter';
+        final localizedDirection = l10n?.analyticsInsightDirection(direction);
+        final headline = l10n != null && sessions != null
+            ? name != null
+                  ? l10n.analyticsInsightDriftNamed(
+                      name,
+                      sessions,
+                      localizedDirection!,
+                    )
+                  : l10n.analyticsInsightDriftGeneric(
+                      sessions,
+                      localizedDirection!,
+                      termSingularLower,
+                    )
+            : sessions == null
             ? name != null
                   ? '$name\'s sessions are running ${longer ? "longer" : "shorter"}'
                   : 'Session lengths are ${longer ? "longer" : "shorter"} for a $termSingularLower'
@@ -851,6 +895,11 @@ List<AnalyticsInsight> computeInsights(
             iconType: AnalyticsInsightIconType.arrowsHorizontal,
             headline: headline,
             body:
+                l10n?.analyticsInsightDriftBody(
+                  _fmtDuration(curr.averageDuration),
+                  l10n.analyticsInsightTrend(longer ? 'up' : 'down'),
+                  _fmtDuration(prev.averageDuration),
+                ) ??
                 '${_fmtDuration(curr.averageDuration)} avg, ${longer ? "up" : "down"} from ${_fmtDuration(prev.averageDuration)}.',
             signalStrength: 60,
           ),
@@ -877,7 +926,14 @@ List<AnalyticsInsight> computeInsights(
             iconType: isNightward
                 ? AnalyticsInsightIconType.moon
                 : AnalyticsInsightIconType.sun,
-            headline: timeLabel == null
+            headline: l10n != null && timeLabel != null
+                ? name != null
+                      ? l10n.analyticsInsightTimeShiftNamed(name, timeLabel)
+                      : l10n.analyticsInsightTimeShiftGeneric(
+                          termSingularLower,
+                          timeLabel,
+                        )
+                : timeLabel == null
                 ? name != null
                       ? '$name is fronting at a different time'
                       : 'A $termSingularLower\'s fronting time of day shifted'
@@ -885,6 +941,10 @@ List<AnalyticsInsight> computeInsights(
                 ? '$name\'s $timeLabel of day shifted'
                 : 'A $termSingularLower\'s $timeLabel of day shifted',
             body:
+                l10n?.analyticsInsightTimeShiftBody(
+                  l10n.analyticsInsightTimeBucket(currModal),
+                  l10n.analyticsInsightTimeBucket(prevModal),
+                ) ??
                 'Mostly ${_bucketLabel(currModal)} lately — ${_bucketLabel(prevModal)} is more typical.',
             signalStrength: 40,
           ),
@@ -951,59 +1011,30 @@ final analyticsInsightsProvider = FutureProvider<List<AnalyticsInsight>>((
   final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
   final members = await ref.watch(allMemberListProvider.future);
   final terms = ref.watch(terminologySettingProvider);
+  final locale =
+      ref.watch(localeOverrideProvider) ?? PlatformDispatcher.instance.locale;
+  final l10n = appLocalizationsForLocale(locale);
   final frontingTerms = resolveFrontingTerms(
+    l10n,
     ref.watch(frontingTermsSettingProvider),
   );
   final names = <String, String>{for (final m in members) m.id: m.name};
-  final englishTerms = _analyticsTerms(
+  final localizedTerms = resolveTerminology(
+    l10n,
     terms.term,
     customSingular: terms.customSingular,
     customPlural: terms.customPlural,
+    useEnglish: terms.useEnglish,
   );
   return computeInsights(
     current,
     previous,
     names: names,
-    termSingularLower: englishTerms.singularLower,
-    termPluralLower: englishTerms.pluralLower,
+    termSingularLower: localizedTerms.singularLower,
+    termPluralLower: localizedTerms.pluralLower,
     sessionPluralLower: frontingTerms.sessionPlural.toLowerCase(),
     togetherPastLabelLower: frontingTerms.togetherPastLabel.toLowerCase(),
     activeTimeLabelLower: frontingTerms.timeLabel.toLowerCase(),
+    l10n: l10n,
   );
 });
-
-({String singularLower, String pluralLower}) _analyticsTerms(
-  SystemTerminology term, {
-  String? customSingular,
-  String? customPlural,
-}) {
-  if (term == SystemTerminology.custom) {
-    final singular = customSingular?.trim();
-    final plural = customPlural?.trim();
-    return (
-      singularLower: singular?.isNotEmpty == true
-          ? singular!.toLowerCase()
-          : 'member',
-      pluralLower: plural?.isNotEmpty == true
-          ? plural!.toLowerCase()
-          : 'members',
-    );
-  }
-  return switch (term) {
-    SystemTerminology.members => (
-      singularLower: 'member',
-      pluralLower: 'members',
-    ),
-    SystemTerminology.headmates => (
-      singularLower: 'headmate',
-      pluralLower: 'headmates',
-    ),
-    SystemTerminology.alters => (singularLower: 'alter', pluralLower: 'alters'),
-    SystemTerminology.parts => (singularLower: 'part', pluralLower: 'parts'),
-    SystemTerminology.facets => (singularLower: 'facet', pluralLower: 'facets'),
-    SystemTerminology.custom => (
-      singularLower: 'member',
-      pluralLower: 'members',
-    ),
-  };
-}

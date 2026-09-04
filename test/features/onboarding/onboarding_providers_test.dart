@@ -17,6 +17,8 @@ import 'package:prism_plurality/domain/preferences/system_terms.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/l10n/app_localizations_en.dart';
 
 import '../../helpers/fake_repositories.dart';
 
@@ -33,6 +35,11 @@ OnboardingCommitService _commitServiceWithFakeAppPreferences({
     frontingRepository: FakeFrontingSessionRepository(),
   );
 }
+
+FrontingTermBundle _defaultFrontingBundle() => frontingTermBundleForPreset(
+  AppLocalizationsEn(),
+  FrontingTermPreset.fronting,
+);
 
 void main() {
   group('OnboardingNotifier', () {
@@ -258,12 +265,6 @@ void main() {
       expect(
         container.read(onboardingProvider).pendingFrontingTerms,
         const FrontingTerms.preset(FrontingTermPreset.present),
-      );
-
-      notifier.setCustomFrontingTerms(defaultFrontingTermBundle);
-      expect(
-        container.read(onboardingProvider).pendingFrontingTerms,
-        FrontingTerms.custom(defaultFrontingTermBundle),
       );
 
       notifier.resetFrontingTerms();
@@ -633,7 +634,7 @@ void main() {
           db: db,
           appPreferences: appPreferences,
         );
-        final custom = FrontingTerms.custom(defaultFrontingTermBundle);
+        final custom = FrontingTerms.custom(_defaultFrontingBundle());
 
         await service.complete(
           OnboardingState(

@@ -124,7 +124,7 @@ class MemberFrontingHistoryList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final historyAsync = ref.watch(memberFrontingHistoryProvider(memberId));
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return historyAsync.when(
       skipLoadingOnReload: true,
@@ -153,7 +153,9 @@ class MemberFrontingHistoryList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'No ${_lowerFirst(frontingTerms.sessionPlural)} yet.',
+                    context.l10n.memberFrontingHistoryEmpty(
+                      frontingTerms.sessionPluralLower,
+                    ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
@@ -604,7 +606,7 @@ class _CombinedPeriodsList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final sessionsAsync = ref.watch(unifiedHistoryProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final sessions = sessionsAsync.value;
     if (sessions != null) {
       BootTimings.markOnce(
@@ -659,7 +661,9 @@ class _CombinedPeriodsList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'No ${_lowerFirst(frontingTerms.historyLabel)} yet',
+                    context.l10n.memberFrontingHistoryEmpty(
+                      frontingTerms.historyLabel.toLowerCase(),
+                    ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
@@ -741,7 +745,7 @@ class _PerMemberRowsList extends ConsumerWidget {
     final bundleAsync = ref.watch(unifiedHistoryOverlapProvider);
     final unifiedAsync = ref.watch(unifiedHistoryProvider);
     final alwaysPresentAsync = ref.watch(alwaysPresentMembersProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final unifiedSessions = unifiedAsync.value;
     if (unifiedSessions != null) {
       BootTimings.markOnce(
@@ -837,7 +841,9 @@ class _PerMemberRowsList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'No ${_lowerFirst(frontingTerms.historyLabel)} yet',
+                    context.l10n.memberFrontingHistoryEmpty(
+                      frontingTerms.historyLabel.toLowerCase(),
+                    ),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
@@ -1239,7 +1245,7 @@ class _PerMemberSessionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final memberId = session.memberId;
     final member = memberId == null ? null : membersMap[memberId];
     final isUnknown = member == null;
@@ -1560,7 +1566,7 @@ class _PeriodTile extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     // Edit hidden on multi-contributor periods: there's no period-level edit
     // UI today, so an Edit action would silently route to sessionIds.first —
     // the same first-of-N silent-drop bug Delete was fixed for. Long-press
@@ -1592,7 +1598,7 @@ class _PeriodTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     final avatarMembers = <Member>[];
     final rosterNames = <String>[];
@@ -2025,9 +2031,6 @@ String _cappedRosterLabel(
   if (hiddenNameCount <= 0) return visibleLabel;
   return '$visibleLabel, +$hiddenNameCount more';
 }
-
-String _lowerFirst(String value) =>
-    value.isEmpty ? value : '${value[0].toLowerCase()}${value.substring(1)}';
 
 class _TileContextAction {
   const _TileContextAction({

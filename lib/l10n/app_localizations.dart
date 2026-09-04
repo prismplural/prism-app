@@ -374,12 +374,6 @@ abstract class AppLocalizations {
   /// **'Data'**
   String get settingsSectionData;
 
-  /// Settings link: System Information
-  ///
-  /// In en, this message translates to:
-  /// **'{systemTerm} Information'**
-  String settingsSystemInformation(String systemTerm);
-
   /// Settings link: Groups
   ///
   /// In en, this message translates to:
@@ -857,8 +851,8 @@ abstract class AppLocalizations {
   /// Small navigation surface hint in the palette preview
   ///
   /// In en, this message translates to:
-  /// **'Home · Members · Settings'**
-  String get palettePreviewNavHint;
+  /// **'Home · {termPlural} · Settings'**
+  String palettePreviewNavHint(String termPlural);
 
   /// Palette reset section title
   ///
@@ -911,7 +905,7 @@ abstract class AppLocalizations {
   /// Appearance settings section: which member name to show
   ///
   /// In en, this message translates to:
-  /// **'Member names'**
+  /// **'Names'**
   String get appearanceMemberNamesTitle;
 
   /// Member name display option: show the full name
@@ -929,7 +923,7 @@ abstract class AppLocalizations {
   /// Description text for the member name display picker
   ///
   /// In en, this message translates to:
-  /// **'Choose which name to show for members across the app.'**
+  /// **'Choose which name Prism shows across the app.'**
   String get appearanceMemberNamesDescription;
 
   /// Toggle title for showing both full name and canonical name where space allows
@@ -1019,7 +1013,7 @@ abstract class AppLocalizations {
   /// Settings section description for member terminology
   ///
   /// In en, this message translates to:
-  /// **'Controls labels for people in Prism.'**
+  /// **'Choose what Prism calls your members.'**
   String get terminologyMemberSectionDescription;
 
   /// Settings section title for terminology used for the user's collective/system
@@ -1031,7 +1025,7 @@ abstract class AppLocalizations {
   /// Settings section description for system terminology
   ///
   /// In en, this message translates to:
-  /// **'Controls labels for your collective across Prism.'**
+  /// **'Choose what Prism calls your system.'**
   String get terminologySystemSectionDescription;
 
   /// Default singular collective/system terminology
@@ -1151,9 +1145,9 @@ abstract class AppLocalizations {
   /// Live preview for custom system terminology settings
   ///
   /// In en, this message translates to:
-  /// **'\"{systemTerm} Information\" · \"Add your first {systemTermLower} {memberTermLower}\"'**
+  /// **'\"{infoLabel}\" · \"Add a {memberTermLower} to your {systemTermLower}\"'**
   String terminologySystemPreview(
-    String systemTerm,
+    String infoLabel,
     String systemTermLower,
     String memberTermLower,
   );
@@ -1167,25 +1161,25 @@ abstract class AppLocalizations {
   /// Settings section description for fronting terminology
   ///
   /// In en, this message translates to:
-  /// **'Controls labels for who\'s active now, related actions, history, and reminders.'**
+  /// **'Choose how Prism describes fronting and related activity.'**
   String get terminologyFrontingSectionDescription;
 
   /// Subtitle for custom fronting terminology choice tile
   ///
   /// In en, this message translates to:
-  /// **'Full phrase editor'**
+  /// **'Simple or advanced'**
   String get terminologyFrontingCustomSubtitle;
 
   /// Intro text above custom fronting terminology fields
   ///
   /// In en, this message translates to:
-  /// **'Advanced mode lets you edit every phrase Prism derives from this terminology.'**
+  /// **'Edit every phrase Prism uses for this activity.'**
   String get terminologyFrontingCustomIntro;
 
   /// Validation message when a custom fronting phrase bundle is incomplete
   ///
   /// In en, this message translates to:
-  /// **'Fill in every fronting phrase before saving.'**
+  /// **'Fill in every fronting phrase.'**
   String get terminologyFrontingCustomRequired;
 
   /// Validation message when a custom fronting phrase is too long
@@ -1193,6 +1187,69 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Use {maxLength} characters or fewer per phrase.'**
   String terminologyFrontingCustomTooLong(int maxLength);
+
+  /// Simple custom fronting editor mode
+  ///
+  /// In en, this message translates to:
+  /// **'Simple'**
+  String get terminologyFrontingModeSimple;
+
+  /// Advanced custom fronting editor mode
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get terminologyFrontingModeAdvanced;
+
+  /// Action that replaces an advanced custom draft with a new simple setup draft
+  ///
+  /// In en, this message translates to:
+  /// **'Start Simple Setup'**
+  String get terminologyFrontingStartSimple;
+
+  /// Intro above the simple custom fronting editor
+  ///
+  /// In en, this message translates to:
+  /// **'Set the core words and phrases. Prism fills in the rest.'**
+  String get terminologyFrontingSimpleIntro;
+
+  /// Note explaining how the simple and advanced fronting editors interact
+  ///
+  /// In en, this message translates to:
+  /// **'Changing these fields refreshes the generated phrases in Advanced.'**
+  String get terminologyFrontingSimpleRegenerationNote;
+
+  /// Validation message for incomplete simple fronting terminology
+  ///
+  /// In en, this message translates to:
+  /// **'Fill in every Simple field.'**
+  String get terminologyFrontingSimpleRequired;
+
+  /// Localized label for a simple fronting terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'{field, select, featureLabel{Activity name} activeSectionLabel{Short status label} statePhrase{Phrase after “is”} activeSingularLabel{One active person} activePluralLabel{Active people} sessionSingular{One session} sessionPlural{Multiple sessions} other{Term}}'**
+  String terminologyFrontingSimpleFieldLabel(String field);
+
+  /// Localized example for a simple fronting terminology field
+  ///
+  /// In en, this message translates to:
+  /// **'{field, select, featureLabel{Fronting} activeSectionLabel{Fronting} statePhrase{fronting} activeSingularLabel{Fronter} activePluralLabel{Fronters} sessionSingular{Fronting session} sessionPlural{Fronting sessions} other{Term}}'**
+  String terminologyFrontingSimpleFieldHint(String field);
+
+  /// Complete localized templates used to generate an advanced fronting phrase bundle from Simple inputs
+  ///
+  /// In en, this message translates to:
+  /// **'{field, select, currentQuestion{Who\'s {statePhrase}?} currentQuestionNow{Who\'s {statePhrase} now?} emptyCurrentState{No one is {statePhrase}} currentActiveLabel{Current: {activeSingular}} latestActiveLabel{Latest: {activeSingular}} unknownActiveLabel{Unknown: {activeSingular}} currentlyActivePhrase{currently {statePhrase}} logAction{Log: {sessionSingular}} logPastAction{Log Past: {sessionSingular}} quickAction{Quick {activeSection}} holdToStartHint{Hold to start: {activeSection}} addAction{Add: {activeSingular}} setAsAction{Set as: {activeSingular}} replaceCurrentAction{Replace: {activePlural}} endWithoutAction{End without adding anyone} endCurrentAction{End: {activeSection}} keepCurrentAction{Keep: {activeSection}} directButtonLabel{{activeSection} Buttons} historyLabel{{featureLabel} History} dataLabel{{featureLabel} Data} entryLabel{{featureLabel} Entry} sessionCommentSingular{Comment: {sessionSingular}} sessionCommentPlural{Comments: {sessionPlural}} statsLabel{{featureLabel} Stats} timeLabel{{featureLabel} Time} lastActiveLabel{Last: {activeSection}} mostActiveSortLabel{Most Time: {activeSection}} leastActiveSortLabel{Least Time: {activeSection}} statusLabel{Status: {activeSection}} togetherStateLabel{Together: {activeSection}} togetherActiveSingularLabel{Together: {activeSingular}} togetherActivePluralLabel{Together: {activePlural}} togetherPastLabel{were {statePhrase} together} addTogetherAction{Add: {activeSingular}} overlapOptionLabel{Create overlapping activity} overlapSubtitle{Split overlapping time into shared activity segments.} changeSingular{Change: {featureLabel}} changePlural{Changes: {featureLabel}} anyChangeLabel{Any Change: {featureLabel}} onChangeLabel{On Change: {featureLabel}} delayAfterChangeLabel{Delay After Change: {featureLabel}} reminderLabel{{featureLabel} Reminder} logChangeReminderAction{Log Change: {featureLabel}} alwaysActiveLabel{Always: {activeSection}} alwaysPresentHeaderLabel{Always {activeSection}} longRunningLabel{Long-running: {activeSection}} longRunningHeaderLabel{Long-running {activeSection}} quickCorrectionLabel{Quick Correction: {activeSection}} quickCorrectionWindowTitle{Quick Correction Window} switchEventLabel{Change: {featureLabel}} other{{featureLabel}}}'**
+  String terminologyFrontingSimpleGenerated(
+    String field,
+    String featureLabel,
+    String activeSection,
+    String statePhrase,
+    String activeSingular,
+    String activePlural,
+    String sessionSingular,
+    String sessionPlural,
+  );
 
   /// Live preview for fronting terminology settings
   ///
@@ -1204,6 +1261,366 @@ abstract class AppLocalizations {
     String logAction,
     String historyLabel,
   );
+
+  /// Localized fronting terminology preset name
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting} present{Present} out{Out} online{Online} other{Fronting}}'**
+  String terminologyFrontingPresetChoiceLabel(String preset);
+
+  /// Localized fronting preset phrase: Feature name
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting} present{Presence} out{Out} online{Online} other{Fronting}}'**
+  String terminologyFrontingPresetFeatureLabel(String preset);
+
+  /// Localized fronting preset phrase: Lowercase feature name
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{fronting} present{presence} out{out} online{online} other{fronting}}'**
+  String terminologyFrontingPresetFeatureLower(String preset);
+
+  /// Localized fronting preset phrase that completes an is/está clause
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{fronting} present{present} out{out} online{online} other{fronting}}'**
+  String terminologyFrontingPresetStatePhrase(String preset);
+
+  /// Localized fronting preset phrase: Current-status question
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Who\'s fronting?} present{Who\'s present?} out{Who\'s out?} online{Who\'s online?} other{Who\'s fronting?}}'**
+  String terminologyFrontingPresetCurrentQuestion(String preset);
+
+  /// Localized fronting preset phrase: Current-status question with now
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Who\'s fronting now?} present{Who\'s present now?} out{Who\'s out now?} online{Who\'s online now?} other{Who\'s fronting now?}}'**
+  String terminologyFrontingPresetCurrentQuestionNow(String preset);
+
+  /// Localized fronting preset phrase: Empty current-state message
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{No one\'s fronting} present{No one\'s present} out{No one\'s out} online{No one\'s online} other{No one\'s fronting}}'**
+  String terminologyFrontingPresetEmptyCurrentState(String preset);
+
+  /// Localized fronting preset phrase: Active person, singular
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronter} present{Present member} out{Out member} online{Online member} other{Fronter}}'**
+  String terminologyFrontingPresetActiveSingularLabel(String preset);
+
+  /// Localized fronting preset phrase: Active people, plural
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronters} present{Present Members} out{Out Members} online{Online Members} other{Fronters}}'**
+  String terminologyFrontingPresetActivePluralLabel(String preset);
+
+  /// Localized fronting preset phrase: Active-section title
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting} present{Present} out{Out} online{Online} other{Fronting}}'**
+  String terminologyFrontingPresetActiveSectionLabel(String preset);
+
+  /// Localized fronting preset phrase: Current active person
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Current fronter} present{Current present member} out{Current out member} online{Current online member} other{Current fronter}}'**
+  String terminologyFrontingPresetCurrentActiveLabel(String preset);
+
+  /// Localized fronting preset phrase: Most recently active person
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Latest fronter} present{Latest present member} out{Latest out member} online{Latest online member} other{Latest fronter}}'**
+  String terminologyFrontingPresetLatestActiveLabel(String preset);
+
+  /// Localized fronting preset phrase: Unknown active person
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Unknown fronter} present{Unknown present member} out{Unknown out member} online{Unknown online member} other{Unknown fronter}}'**
+  String terminologyFrontingPresetUnknownActiveLabel(String preset);
+
+  /// Localized fronting preset phrase: Currently-active phrase
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{currently fronting} present{currently present} out{currently out} online{currently online} other{currently fronting}}'**
+  String terminologyFrontingPresetCurrentlyActivePhrase(String preset);
+
+  /// Localized fronting preset phrase: Log action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Log Front} present{Mark Present} out{Mark Out} online{Mark Online} other{Log Front}}'**
+  String terminologyFrontingPresetLogAction(String preset);
+
+  /// Localized fronting preset phrase: Log-past-session action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Log Past Session} present{Log Past Presence} out{Log Past Out Session} online{Log Past Online Session} other{Log Past Session}}'**
+  String terminologyFrontingPresetLogPastAction(String preset);
+
+  /// Localized fronting preset phrase: Quick action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Quick Front} present{Quick Presence} out{Quick Out} online{Quick Online} other{Quick Front}}'**
+  String terminologyFrontingPresetQuickAction(String preset);
+
+  /// Localized fronting preset phrase: Hold-to-start hint
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Hold to start fronting} present{Hold to mark present} out{Hold to mark out} online{Hold to mark online} other{Hold to start fronting}}'**
+  String terminologyFrontingPresetHoldToStartHint(String preset);
+
+  /// Localized fronting preset phrase: Add-as-active action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Add as fronter} present{Mark present} out{Mark out} online{Mark online} other{Add as fronter}}'**
+  String terminologyFrontingPresetAddAction(String preset);
+
+  /// Localized fronting preset phrase: Set-as-active action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Set as fronter} present{Mark present} out{Mark out} online{Mark online} other{Set as fronter}}'**
+  String terminologyFrontingPresetSetAsAction(String preset);
+
+  /// Localized fronting preset phrase: Replace-current action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Replace current fronters} present{Replace present members} out{Replace current out members} online{Replace online members} other{Replace current fronters}}'**
+  String terminologyFrontingPresetReplaceCurrentAction(String preset);
+
+  /// Localized fronting preset phrase: End-without action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{End without fronting} present{End without marking present} out{End without anyone out} online{End without anyone online} other{End without fronting}}'**
+  String terminologyFrontingPresetEndWithoutAction(String preset);
+
+  /// Localized fronting preset phrase: End-current action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{End front} present{End presence} out{End out} online{End online} other{End front}}'**
+  String terminologyFrontingPresetEndCurrentAction(String preset);
+
+  /// Localized fronting preset phrase: Keep-current action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Keep fronting} present{Keep present} out{Keep out} online{Keep online} other{Keep fronting}}'**
+  String terminologyFrontingPresetKeepCurrentAction(String preset);
+
+  /// Localized fronting preset phrase: Direct-action buttons
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Front buttons} present{Presence buttons} out{Out buttons} online{Online buttons} other{Front buttons}}'**
+  String terminologyFrontingPresetDirectButtonLabel(String preset);
+
+  /// Localized fronting preset phrase: History title
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting history} present{Presence history} out{Out history} online{Online history} other{Fronting history}}'**
+  String terminologyFrontingPresetHistoryLabel(String preset);
+
+  /// Localized fronting preset phrase: Data label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting data} present{Presence data} out{Out data} online{Online data} other{Fronting data}}'**
+  String terminologyFrontingPresetDataLabel(String preset);
+
+  /// Localized fronting preset phrase: Entry label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting entry} present{Presence entry} out{Out entry} online{Online entry} other{Fronting entry}}'**
+  String terminologyFrontingPresetEntryLabel(String preset);
+
+  /// Localized fronting preset phrase: Session name, singular
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting session} present{Presence session} out{Out session} online{Online session} other{Fronting session}}'**
+  String terminologyFrontingPresetSessionSingular(String preset);
+
+  /// Localized fronting preset phrase: Session name, plural
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting sessions} present{Presence sessions} out{Out sessions} online{Online sessions} other{Fronting sessions}}'**
+  String terminologyFrontingPresetSessionPlural(String preset);
+
+  /// Localized fronting preset phrase: Session comment, singular
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Front session comment} present{Presence session comment} out{Out session comment} online{Online session comment} other{Front session comment}}'**
+  String terminologyFrontingPresetSessionCommentSingular(String preset);
+
+  /// Localized fronting preset phrase: Session comments, plural
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Front session comments} present{Presence session comments} out{Out session comments} online{Online session comments} other{Front session comments}}'**
+  String terminologyFrontingPresetSessionCommentPlural(String preset);
+
+  /// Localized fronting preset phrase: Statistics title
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting Stats} present{Presence Stats} out{Out Stats} online{Online Stats} other{Fronting Stats}}'**
+  String terminologyFrontingPresetStatsLabel(String preset);
+
+  /// Localized fronting preset phrase: Time label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting time} present{Presence time} out{Out time} online{Online time} other{Fronting time}}'**
+  String terminologyFrontingPresetTimeLabel(String preset);
+
+  /// Localized fronting preset phrase: Last-active label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Last fronted} present{Last present} out{Last out} online{Last online} other{Last fronted}}'**
+  String terminologyFrontingPresetLastActiveLabel(String preset);
+
+  /// Localized fronting preset phrase: Most-active sort option
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Most fronting} present{Most present} out{Most out} online{Most online} other{Most fronting}}'**
+  String terminologyFrontingPresetMostActiveSortLabel(String preset);
+
+  /// Localized fronting preset phrase: Least-active sort option
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Least fronting} present{Least present} out{Least out} online{Least online} other{Least fronting}}'**
+  String terminologyFrontingPresetLeastActiveSortLabel(String preset);
+
+  /// Localized fronting preset phrase: Status label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Front status} present{Presence status} out{Out status} online{Online status} other{Front status}}'**
+  String terminologyFrontingPresetStatusLabel(String preset);
+
+  /// Localized fronting preset phrase: Shared-activity state
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Co-fronting} present{Present together} out{Out together} online{Online together} other{Co-fronting}}'**
+  String terminologyFrontingPresetTogetherStateLabel(String preset);
+
+  /// Localized fronting preset phrase: Shared-active person, singular
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Co-fronter} present{Member present together} out{Member out together} online{Member online together} other{Co-fronter}}'**
+  String terminologyFrontingPresetTogetherActiveSingularLabel(String preset);
+
+  /// Localized fronting preset phrase: Shared-active people, plural
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Co-fronters} present{Present Together} out{Out Together} online{Online Together} other{Co-fronters}}'**
+  String terminologyFrontingPresetTogetherActivePluralLabel(String preset);
+
+  /// Localized fronting preset phrase: Shared-activity past-tense phrase
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{co-fronted} present{were present together} out{were out together} online{were online together} other{co-fronted}}'**
+  String terminologyFrontingPresetTogetherPastLabel(String preset);
+
+  /// Localized fronting preset phrase: Add-to-shared-activity action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Add Fronter} present{Add Present Member} out{Add Out Member} online{Add Online Member} other{Add Fronter}}'**
+  String terminologyFrontingPresetAddTogetherAction(String preset);
+
+  /// Localized fronting preset phrase: Create-overlap option
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Create overlapping fronts} present{Create overlapping presence} out{Create overlapping out sessions} online{Create overlapping online sessions} other{Create overlapping fronts}}'**
+  String terminologyFrontingPresetOverlapOptionLabel(String preset);
+
+  /// Localized fronting preset phrase: Overlap-option description
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Split the overlapping time into shared fronting segments.} present{Split the overlapping time into shared presence segments.} out{Split the overlapping time into shared out segments.} online{Split the overlapping time into shared online segments.} other{Split the overlapping time into shared fronting segments.}}'**
+  String terminologyFrontingPresetOverlapSubtitle(String preset);
+
+  /// Localized fronting preset phrase: Change name, singular
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Front change} present{Presence change} out{Out change} online{Online change} other{Front change}}'**
+  String terminologyFrontingPresetChangeSingular(String preset);
+
+  /// Localized fronting preset phrase: Change name, plural
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Front changes} present{Presence changes} out{Out changes} online{Online changes} other{Front changes}}'**
+  String terminologyFrontingPresetChangePlural(String preset);
+
+  /// Localized fronting preset phrase: Any-change option
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Any front change} present{Any presence change} out{Any out change} online{Any online change} other{Any front change}}'**
+  String terminologyFrontingPresetAnyChangeLabel(String preset);
+
+  /// Localized fronting preset phrase: On-change option
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{On front change} present{On presence change} out{On out change} online{On online change} other{On front change}}'**
+  String terminologyFrontingPresetOnChangeLabel(String preset);
+
+  /// Localized fronting preset phrase: Delay-after-change label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Delay after front change} present{Delay after presence change} out{Delay after out change} online{Delay after online change} other{Delay after front change}}'**
+  String terminologyFrontingPresetDelayAfterChangeLabel(String preset);
+
+  /// Localized fronting preset phrase: Reminder name
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Fronting reminder} present{Presence reminder} out{Out reminder} online{Online reminder} other{Fronting reminder}}'**
+  String terminologyFrontingPresetReminderLabel(String preset);
+
+  /// Localized fronting preset phrase: Reminder logging action
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Log fronting change} present{Log presence change} out{Log out change} online{Log online change} other{Log fronting change}}'**
+  String terminologyFrontingPresetLogChangeReminderAction(String preset);
+
+  /// Localized fronting preset phrase: Always-active label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Always fronting} present{Always present} out{Always out} online{Always online} other{Always fronting}}'**
+  String terminologyFrontingPresetAlwaysActiveLabel(String preset);
+
+  /// Localized fronting preset phrase: Always-active header
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Always present} present{Always present} out{Always out} online{Always online} other{Always present}}'**
+  String terminologyFrontingPresetAlwaysPresentHeaderLabel(String preset);
+
+  /// Localized fronting preset phrase: Long-running label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Long-running} present{Long-running} out{Long-running} online{Long-running} other{Long-running}}'**
+  String terminologyFrontingPresetLongRunningLabel(String preset);
+
+  /// Localized fronting preset phrase: Long-running header
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Long-running fronts} present{Long-running presence} out{Long-running out sessions} online{Long-running online sessions} other{Long-running fronts}}'**
+  String terminologyFrontingPresetLongRunningHeaderLabel(String preset);
+
+  /// Localized fronting preset phrase: Quick-correction label
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Quick Switch} present{Quick Switch} out{Quick Switch} online{Quick Switch} other{Quick Switch}}'**
+  String terminologyFrontingPresetQuickCorrectionLabel(String preset);
+
+  /// Localized fronting preset phrase: Quick-correction window title
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Quick Switch Window} present{Quick Switch Window} out{Quick Switch Window} online{Quick Switch Window} other{Quick Switch Window}}'**
+  String terminologyFrontingPresetQuickCorrectionWindowTitle(String preset);
+
+  /// Localized fronting preset phrase: Change-event name
+  ///
+  /// In en, this message translates to:
+  /// **'{preset, select, fronting{Switch} present{Switch} out{Switch} online{Switch} other{Switch}}'**
+  String terminologyFrontingPresetSwitchEventLabel(String preset);
+
+  /// Localized label for an advanced fronting phrase field
+  ///
+  /// In en, this message translates to:
+  /// **'{field, select, featureLabel{Feature name} featureLower{Lowercase feature name} currentQuestion{Current-status question} currentQuestionNow{Current-status question with now} emptyCurrentState{Empty current-state message} activeSingularLabel{Active person, singular} activePluralLabel{Active people, plural} activeSectionLabel{Active-section title} currentActiveLabel{Current active person} latestActiveLabel{Most recently active person} unknownActiveLabel{Unknown active person} currentlyActivePhrase{Currently-active phrase} logAction{Log action} logPastAction{Log-past-session action} quickAction{Quick action} holdToStartHint{Hold-to-start hint} addAction{Add-as-active action} setAsAction{Set-as-active action} replaceCurrentAction{Replace-current action} endWithoutAction{End-without action} endCurrentAction{End-current action} keepCurrentAction{Keep-current action} directButtonLabel{Direct-action buttons} historyLabel{History title} dataLabel{Data label} entryLabel{Entry label} sessionSingular{Session name, singular} sessionPlural{Session name, plural} sessionCommentSingular{Session comment, singular} sessionCommentPlural{Session comments, plural} statsLabel{Statistics title} timeLabel{Time label} lastActiveLabel{Last-active label} mostActiveSortLabel{Most-active sort option} leastActiveSortLabel{Least-active sort option} statusLabel{Status label} togetherStateLabel{Shared-activity state} togetherActiveSingularLabel{Shared-active person, singular} togetherActivePluralLabel{Shared-active people, plural} togetherPastLabel{Shared-activity past-tense phrase} addTogetherAction{Add-to-shared-activity action} overlapOptionLabel{Create-overlap option} overlapSubtitle{Overlap-option description} changeSingular{Change name, singular} changePlural{Change name, plural} anyChangeLabel{Any-change option} onChangeLabel{On-change option} delayAfterChangeLabel{Delay-after-change label} reminderLabel{Reminder name} logChangeReminderAction{Reminder logging action} alwaysActiveLabel{Always-active label} alwaysPresentHeaderLabel{Always-active header} longRunningLabel{Long-running label} longRunningHeaderLabel{Long-running header} quickCorrectionLabel{Quick-correction label} quickCorrectionWindowTitle{Quick-correction window title} switchEventLabel{Change-event name} other{Phrase}}'**
+  String terminologyFrontingFieldLabel(String field);
 
   /// Custom fronting terminology field group title
   ///
@@ -2177,11 +2594,11 @@ abstract class AppLocalizations {
   /// **'Fronting reminders'**
   String get notificationsFrontingRemindersTitle;
 
-  /// Fronting reminders toggle subtitle
+  /// Activity reminders toggle subtitle
   ///
   /// In en, this message translates to:
-  /// **'Get reminded to log fronting changes'**
-  String get notificationsFrontingRemindersSubtitle;
+  /// **'Get periodic reminders for: {logAction}.'**
+  String notificationsFrontingRemindersSubtitle(String logAction);
 
   /// Reminder interval row title
   ///
@@ -2204,8 +2621,8 @@ abstract class AppLocalizations {
   /// Subtitle explaining the suppress-after-recent-log behavior
   ///
   /// In en, this message translates to:
-  /// **'Don\'t remind if you logged a front recently'**
-  String get notificationsSuppressIfRecentSubtitle;
+  /// **'Skip after a recent log: {changeLabelLower}.'**
+  String notificationsSuppressIfRecentSubtitle(String changeLabelLower);
 
   /// Option label meaning the suppress-window is disabled
   ///
@@ -2318,8 +2735,30 @@ abstract class AppLocalizations {
   /// About text at the bottom of notification settings
   ///
   /// In en, this message translates to:
-  /// **'Fronting reminders send periodic notifications to help you stay aware of who is fronting. This can be useful for logging switches and maintaining awareness throughout the day.'**
-  String get notificationsAboutText;
+  /// **'Periodic notifications for “{reminderLabel}” help you answer “{currentQuestion}” They can also prompt the action “{logAction}”.'**
+  String notificationsAboutText(
+    String reminderLabel,
+    String currentQuestion,
+    String logAction,
+  );
+
+  /// Body of a scheduled activity reminder notification
+  ///
+  /// In en, this message translates to:
+  /// **'Open Prism to check: {currentQuestionNow}'**
+  String notificationsScheduledReminderBody(String currentQuestionNow);
+
+  /// Android notification channel name for periodic activity reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Prism activity reminders'**
+  String get notificationsReminderChannelName;
+
+  /// Android notification channel description for periodic activity reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Periodic activity reminders from Prism.'**
+  String get notificationsReminderChannelDescription;
 
   /// Android-only footnote below notification settings about text
   ///
@@ -2396,13 +2835,19 @@ abstract class AppLocalizations {
   /// Confirmation message when resetting all data
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete all your data including {termPluralLower}, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.'**
-  String resetDataConfirmAll(String termPluralLower);
+  /// **'This will permanently delete all your data including {termPluralLower}, {sessionPluralLower}, messages, polls, habits, sleep data, and settings. This action cannot be undone.'**
+  String resetDataConfirmAll(String termPluralLower, String sessionPluralLower);
+
+  /// Confirmation title before disconnecting sync while retaining local data
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect sync from this device?'**
+  String get resetDataConfirmSyncTitle;
 
   /// Confirmation message when resetting sync
   ///
   /// In en, this message translates to:
-  /// **'This keeps your local app data, but removes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.'**
+  /// **'Prism will keep all local data on this device and stop syncing it. Prism will also make a best-effort attempt to remove this device from the relay, or delete the relay group only when the relay says this was the last device.'**
   String get resetDataConfirmSync;
 
   /// Confirmation message when resetting a specific category
@@ -2420,8 +2865,26 @@ abstract class AppLocalizations {
   /// Confirm button label when resetting sync
   ///
   /// In en, this message translates to:
-  /// **'Reset Sync'**
+  /// **'Disconnect Sync, Keep Data'**
   String get resetDataConfirmSync2;
+
+  /// Success message after disconnecting sync while retaining local data
+  ///
+  /// In en, this message translates to:
+  /// **'Sync disconnected. This device is staying local.'**
+  String get resetDataSyncDisconnected;
+
+  /// Localized label for a reset-data category
+  ///
+  /// In en, this message translates to:
+  /// **'{category, select, chat{Chat} polls{Polls} habits{Habits} sleep{Sleep Sessions} customFields{Custom Fields} sync{Disconnect Sync} all{All Data} other{Data}}'**
+  String resetDataCategoryLabel(String category);
+
+  /// Localized description for a reset-data category
+  ///
+  /// In en, this message translates to:
+  /// **'{category, select, chat{Deletes all conversations and messages.} polls{Deletes all polls, options, and votes.} habits{Deletes all habits and completion records.} sleep{Deletes all sleep tracking data.} customFields{Deletes all custom fields and their values.} sync{Stops syncing on this device while keeping local Prism data.} all{Permanently deletes everything and resets the app.} other{Deletes this category\'s data.}}'**
+  String resetDataCategoryDescription(String category);
 
   /// Toast message after successful data reset
   ///
@@ -3155,11 +3618,11 @@ abstract class AppLocalizations {
   /// **'Error details copied'**
   String get errorHistoryCopied;
 
-  /// System Information screen title
+  /// System information link and screen title
   ///
   /// In en, this message translates to:
-  /// **'{systemTerm} Information'**
-  String systemInfoTitle(String systemTerm);
+  /// **'{kind, select, system{System Info} collective{Collective Info} community{Community Info} network{Network Info} constellation{Constellation Info} custom{{systemTerm} Info} other{{systemTerm} Info}}'**
+  String systemInfoTitle(String kind, String systemTerm);
 
   /// Avatar action: change avatar
   ///
@@ -3422,7 +3885,7 @@ abstract class AppLocalizations {
   /// Hint text for system name field
   ///
   /// In en, this message translates to:
-  /// **'{systemTerm} name'**
+  /// **'Name of your {systemTerm}'**
   String systemInfoSystemNameHint(String systemTerm);
 
   /// Tooltip for save system name button
@@ -3446,7 +3909,7 @@ abstract class AppLocalizations {
   /// Hint text for system description field
   ///
   /// In en, this message translates to:
-  /// **'{systemTerm} description'**
+  /// **'Description of your {systemTerm}'**
   String systemInfoDescriptionHint(String systemTerm);
 
   /// Placeholder text when no description is set
@@ -3464,8 +3927,8 @@ abstract class AppLocalizations {
   /// Label for the system tag field
   ///
   /// In en, this message translates to:
-  /// **'{systemTerm} tag'**
-  String systemInfoTagLabel(String systemTerm);
+  /// **'Tag'**
+  String get systemInfoTagLabel;
 
   /// Placeholder for the system tag field
   ///
@@ -3482,8 +3945,8 @@ abstract class AppLocalizations {
   /// Label for the system color row
   ///
   /// In en, this message translates to:
-  /// **'{systemTerm} color'**
-  String systemInfoColorLabel(String systemTerm);
+  /// **'Color'**
+  String get systemInfoColorLabel;
 
   /// Button label / dialog title for picking a system color
   ///
@@ -3512,8 +3975,8 @@ abstract class AppLocalizations {
   /// Helper text for hiding member count displays
   ///
   /// In en, this message translates to:
-  /// **'Hides member totals in Settings, {systemTerm} Information, Statistics, diagnostics, and group or folder count chips.'**
-  String systemInfoHideTotalMemberCountSubtitle(String systemTerm);
+  /// **'Hides member totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.'**
+  String get systemInfoHideTotalMemberCountSubtitle;
 
   /// Device management screen title
   ///
@@ -4181,11 +4644,11 @@ abstract class AppLocalizations {
   /// **'Send voice messages in chat'**
   String get featureChatVoiceNotesSubtitle;
 
-  /// Description text on fronting feature settings screen
+  /// Description text on the activity feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'Configure how fronting sessions work.'**
-  String get featureFrontingDescription;
+  /// **'Configure how {sessionPluralLower} work.'**
+  String featureFrontingDescription(String sessionPluralLower);
 
   /// Section title: options on fronting feature screen
   ///
@@ -4223,11 +4686,14 @@ abstract class AppLocalizations {
   /// **'Quick Switch Window'**
   String get featureFrontingQuickSwitchTitle;
 
-  /// Dialog message for quick switch picker
+  /// Dialog message for the quick-correction picker
   ///
   /// In en, this message translates to:
-  /// **'If you switch fronters within this window, it corrects the current session instead of creating a new one.'**
-  String get featureFrontingQuickSwitchMessage;
+  /// **'If you change {activePluralLabelLower} within this window, Prism corrects the current {sessionSingularLower} instead of creating a new one.'**
+  String featureFrontingQuickSwitchMessage(
+    String activePluralLabelLower,
+    String sessionSingularLower,
+  );
 
   /// Label for the show/hide Quick Front toggle in fronting settings
   ///
@@ -4238,8 +4704,11 @@ abstract class AppLocalizations {
   /// Subtitle for the show/hide Quick Front toggle
   ///
   /// In en, this message translates to:
-  /// **'Show frequently fronting {termPluralLower} as tap-and-hold shortcuts'**
-  String featureFrontingShowQuickFrontSubtitle(String termPluralLower);
+  /// **'Show {quickActionLower} tap-and-hold shortcuts for {termPluralLower}'**
+  String featureFrontingShowQuickFrontSubtitle(
+    String quickActionLower,
+    String termPluralLower,
+  );
 
   /// Description text on habits feature settings screen
   ///
@@ -4718,7 +5187,7 @@ abstract class AppLocalizations {
   /// Subtitle on empty system view (uses terminology term for member)
   ///
   /// In en, this message translates to:
-  /// **'Add your first {systemTermLower} {member} to get started'**
+  /// **'Add a {member} to your {systemTermLower} to get started'**
   String frontingWelcomeSubtitle(String systemTermLower, String member);
 
   /// Semantics label for a quick-front avatar button
@@ -5617,17 +6086,17 @@ abstract class AppLocalizations {
   /// **'{member}\'s Sessions'**
   String memberFrontingHistoryTitle(String member);
 
-  /// Empty state text for a member's full fronting history screen
+  /// Empty state text for an activity history screen
   ///
   /// In en, this message translates to:
-  /// **'No fronting sessions yet.'**
-  String get memberFrontingHistoryEmpty;
+  /// **'No {activityLabelLower} yet.'**
+  String memberFrontingHistoryEmpty(String activityLabelLower);
 
-  /// Toast shown when the member history go-to-day action cannot find sessions on the selected date
+  /// Toast shown when an activity history go-to-day action cannot find sessions on the selected date
   ///
   /// In en, this message translates to:
-  /// **'No fronting sessions found for that day.'**
-  String get memberFrontingHistoryNoSessionsOnDate;
+  /// **'No {sessionPluralLower} found for that day.'**
+  String memberFrontingHistoryNoSessionsOnDate(String sessionPluralLower);
 
   /// Section header for conversations on member detail screen
   ///
@@ -7997,7 +8466,7 @@ abstract class AppLocalizations {
   /// Hint text for the group name text field
   ///
   /// In en, this message translates to:
-  /// **'e.g., {systemTerm} Discussion'**
+  /// **'e.g., {systemTerm} conversation'**
   String chatCreateGroupNameHint(String systemTerm);
 
   /// Header for participant selection in group chat creation
@@ -9054,8 +9523,8 @@ abstract class AppLocalizations {
   /// Feature toggle description for message boards in features step
   ///
   /// In en, this message translates to:
-  /// **'Short messages between headmates — public timeline plus private inbox.'**
-  String get onboardingFeaturesBoardsDescription;
+  /// **'Short messages between {termPluralLower} — a public timeline and private inbox.'**
+  String onboardingFeaturesBoardsDescription(String termPluralLower);
 
   /// Feature toggle description when Simply Plural board posts were imported and boards cannot be disabled
   ///
@@ -9621,17 +10090,20 @@ abstract class AppLocalizations {
   /// **'We pulled this from your import — edit it if you\'d like something different.'**
   String get onboardingSystemNameHelperTextImported;
 
-  /// Hint text above the fronter grid in whos fronting step
+  /// Hint text above the activity picker in onboarding
   ///
   /// In en, this message translates to:
-  /// **'Tap to select who is currently fronting'**
-  String get onboardingWhosFrontingSelectHint;
+  /// **'Tap to answer: {currentQuestionNow}'**
+  String onboardingWhosFrontingSelectHint(String currentQuestionNow);
 
   /// Message shown on onboarding when an import already created active current fronting sessions
   ///
   /// In en, this message translates to:
-  /// **'Imported current front: {names}'**
-  String onboardingWhosFrontingImportedCurrent(String names);
+  /// **'Profiles imported under “{activeLabel}”: {names}'**
+  String onboardingWhosFrontingImportedCurrent(
+    String activeLabel,
+    String names,
+  );
 
   /// Secondary action on the onboarding who's-fronting step that continues without setting a new current fronter
   ///
@@ -9720,17 +10192,19 @@ abstract class AppLocalizations {
   /// **'Home view'**
   String get onboardingFrontingDefaultsHomeViewSection;
 
-  /// Title for the onboarding preference that controls the default Home fronting view mode
+  /// Title for the onboarding preference that controls the default Home activity view mode
   ///
   /// In en, this message translates to:
-  /// **'Home fronting view'**
+  /// **'Home Display'**
   String get onboardingFrontingDefaultsHomeViewTitle;
 
-  /// Description for the onboarding preference that controls the default Home fronting view mode
+  /// Description for the onboarding preference that controls the default Home activity view mode
   ///
   /// In en, this message translates to:
-  /// **'Choose the view Home uses for fronting history.'**
-  String get onboardingFrontingDefaultsHomeViewDescription;
+  /// **'Choose how Home displays {historyLabelLower}.'**
+  String onboardingFrontingDefaultsHomeViewDescription(
+    String historyLabelLower,
+  );
 
   /// Segment label for showing fronting history as combined periods
   ///
@@ -9750,53 +10224,58 @@ abstract class AppLocalizations {
   /// **'Timeline'**
   String get onboardingFrontingViewTimeline;
 
-  /// Selected-state explanation for the combined Home fronting view mode
+  /// Selected-state explanation for the combined Home activity view mode
   ///
   /// In en, this message translates to:
-  /// **'Groups overlapping fronts into one combined period.'**
-  String get onboardingFrontingViewCombinedDescription;
+  /// **'Groups overlapping {sessionPluralLower} into one combined period.'**
+  String onboardingFrontingViewCombinedDescription(String sessionPluralLower);
 
-  /// Selected-state explanation for the individual Home fronting view mode
+  /// Selected-state explanation for the individual Home activity view mode
   ///
   /// In en, this message translates to:
-  /// **'Shows each fronting session as its own row.'**
-  String get onboardingFrontingViewIndividualDescription;
+  /// **'Shows each {sessionSingularLower} on its own row.'**
+  String onboardingFrontingViewIndividualDescription(
+    String sessionSingularLower,
+  );
 
-  /// Selected-state explanation for the timeline Home fronting view mode
+  /// Selected-state explanation for the timeline Home activity view mode
   ///
   /// In en, this message translates to:
-  /// **'Shows fronting as a visual timeline over time.'**
-  String get onboardingFrontingViewTimelineDescription;
+  /// **'Shows {historyLabelLower} on a visual timeline.'**
+  String onboardingFrontingViewTimelineDescription(String historyLabelLower);
 
   /// Section header for onboarding controls that configure how fronting starts
   ///
   /// In en, this message translates to:
-  /// **'Starting fronts'**
+  /// **'Starting Activity'**
   String get onboardingFrontingDefaultsStartingSection;
 
-  /// Title for onboarding preference that controls the Add Front sheet default behavior
+  /// Title for onboarding preference that controls the full activity sheet default behavior
   ///
   /// In en, this message translates to:
-  /// **'When adding a new front'**
-  String get onboardingAddFrontBehaviorTitle;
+  /// **'{logAction}'**
+  String onboardingAddFrontBehaviorTitle(String logAction);
 
   /// Description for onboarding preference that controls the Add Front sheet default behavior
   ///
   /// In en, this message translates to:
-  /// **'Choose what happens when you start a front from the full Add Front sheet.'**
+  /// **'Choose whether this adds to or replaces the current group.'**
   String get onboardingAddFrontBehaviorDescription;
 
-  /// Title for onboarding preference that controls the quick-front shortcut default behavior
+  /// Title for onboarding preference that controls the quick activity shortcut default behavior
   ///
   /// In en, this message translates to:
-  /// **'When using quick front'**
-  String get onboardingQuickFrontBehaviorTitle;
+  /// **'{quickAction}'**
+  String onboardingQuickFrontBehaviorTitle(String quickAction);
 
   /// Description for onboarding preference that controls the quick-front shortcut default behavior
   ///
   /// In en, this message translates to:
-  /// **'Choose what happens when you hold a quick-front button for a {termSingularLower} who is not already fronting.'**
-  String onboardingQuickFrontBehaviorDescription(String termSingularLower);
+  /// **'Choose whether this adds to or replaces the current group for a {termSingularLower} who is not {currentlyActivePhrase}.'**
+  String onboardingQuickFrontBehaviorDescription(
+    String termSingularLower,
+    String currentlyActivePhrase,
+  );
 
   /// Segment label for adding a member while keeping current fronters active
   ///
@@ -9813,13 +10292,13 @@ abstract class AppLocalizations {
   /// Selected-state explanation for additive fronting behavior
   ///
   /// In en, this message translates to:
-  /// **'Keeps everyone currently fronting and adds the new member as a fronter.'**
+  /// **'Keeps the current group and adds the selected person.'**
   String get onboardingFrontBehaviorAdditiveDescription;
 
   /// Selected-state explanation for replace fronting behavior
   ///
   /// In en, this message translates to:
-  /// **'Ends the current front first, then starts the new member.'**
+  /// **'Ends the current activity, then starts the selected person.'**
   String get onboardingFrontBehaviorReplaceDescription;
 
   /// Section header for theme brightness and OLED appearance choices in onboarding
@@ -12883,8 +13362,11 @@ abstract class AppLocalizations {
   /// Body text on the export idle state
   ///
   /// In en, this message translates to:
-  /// **'Create a password-protected backup of all your data including {termPluralLower}, fronting sessions, messages, polls, and settings.'**
-  String dataManagementExportDescription(String termPluralLower);
+  /// **'Create a password-protected backup of all your data including {termPluralLower}, {sessionPluralLower}, messages, polls, and settings.'**
+  String dataManagementExportDescription(
+    String termPluralLower,
+    String sessionPluralLower,
+  );
 
   /// Button label to start the export flow
   ///
@@ -13141,13 +13623,13 @@ abstract class AppLocalizations {
   /// Import preview row label for member groups
   ///
   /// In en, this message translates to:
-  /// **'Member Groups'**
+  /// **'Groups'**
   String get dataManagementPreviewMemberGroups;
 
   /// Import preview row label for member group membership records
   ///
   /// In en, this message translates to:
-  /// **'Member Group Entries'**
+  /// **'Group Memberships'**
   String get dataManagementPreviewMemberGroupEntries;
 
   /// Import preview row label for custom fields
@@ -13168,11 +13650,11 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get dataManagementPreviewNotes;
 
-  /// Import preview row label for front session comments
+  /// Import preview row label for comments on activity sessions
   ///
   /// In en, this message translates to:
-  /// **'Front Session Comments'**
-  String get dataManagementPreviewFrontSessionComments;
+  /// **'{sessionSingularLower} comments'**
+  String dataManagementPreviewFrontSessionComments(String sessionSingularLower);
 
   /// Import preview row label for conversation categories
   ///
@@ -13201,7 +13683,7 @@ abstract class AppLocalizations {
   /// Import preview row label for member board posts
   ///
   /// In en, this message translates to:
-  /// **'Member Board Posts'**
+  /// **'Board Posts'**
   String get dataManagementPreviewMemberBoardPosts;
 
   /// Import preview row label for app preferences
@@ -14041,11 +14523,11 @@ abstract class AppLocalizations {
   /// Description paragraph in the About section
   ///
   /// In en, this message translates to:
-  /// **'A privacy-focused app for managing plural {systemTermPluralLower}. Track fronting, communicate between {termPluralLower}, and keep your {systemTermLower} organized.'**
+  /// **'A privacy-focused app for plural {systemTermPluralLower}. Track {sessionPluralLower}, support conversations among {termPluralLower}, and stay organized.'**
   String settingsAboutDescription(
-    String termPluralLower,
-    String systemTermLower,
     String systemTermPluralLower,
+    String sessionPluralLower,
+    String termPluralLower,
   );
 
   /// Website chip label in About section
@@ -15433,7 +15915,7 @@ abstract class AppLocalizations {
   /// Header title for the onboarding welcome step
   ///
   /// In en, this message translates to:
-  /// **'Together in Prism.'**
+  /// **'Welcome to Prism.'**
   String get onboardingWelcomeTitle;
 
   /// Header subtitle for the onboarding welcome step
@@ -15499,13 +15981,13 @@ abstract class AppLocalizations {
   /// Header title for the onboarding system-name step
   ///
   /// In en, this message translates to:
-  /// **'Name this profile'**
+  /// **'Name your profile'**
   String get onboardingSystemNameTitle;
 
   /// Header subtitle for the onboarding system-name step
   ///
   /// In en, this message translates to:
-  /// **'Whatever feels right.'**
+  /// **'You can change this later.'**
   String get onboardingSystemNameSubtitle;
 
   /// Header title for the onboarding terminology step
@@ -15517,7 +15999,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding terminology step
   ///
   /// In en, this message translates to:
-  /// **'This changes labels throughout Prism.'**
+  /// **'Choose the words Prism uses.'**
   String get onboardingTerminologySubtitle;
 
   /// Header title for the onboarding add-members step
@@ -15529,7 +16011,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding add-members step
   ///
   /// In en, this message translates to:
-  /// **'Add your people.'**
+  /// **'Add anyone you’d like to include.'**
   String get onboardingAddMembersSubtitle;
 
   /// Header title for the onboarding features step
@@ -15556,17 +16038,17 @@ abstract class AppLocalizations {
   /// **'Move less-used items into More,\nthe three-dot button opens that menu.'**
   String get onboardingNavigationMoreHint;
 
-  /// Header title for the onboarding fronting defaults step
+  /// Header title for the onboarding activity defaults step
   ///
   /// In en, this message translates to:
-  /// **'Fronting defaults'**
-  String get onboardingFrontingDefaultsTitle;
+  /// **'{featureLabel} defaults'**
+  String onboardingFrontingDefaultsTitle(String featureLabel);
 
-  /// Header subtitle for the onboarding fronting defaults step
+  /// Header subtitle for the onboarding activity defaults step
   ///
   /// In en, this message translates to:
-  /// **'Choose how Home shows and starts fronts.'**
-  String get onboardingFrontingDefaultsSubtitle;
+  /// **'Choose how Home displays and starts {sessionPluralLower}.'**
+  String onboardingFrontingDefaultsSubtitle(String sessionPluralLower);
 
   /// Header title for the onboarding chat-setup step
   ///
@@ -15577,7 +16059,7 @@ abstract class AppLocalizations {
   /// Header subtitle for the onboarding chat-setup step
   ///
   /// In en, this message translates to:
-  /// **'Channels to talk.'**
+  /// **'Create spaces for conversations.'**
   String get onboardingChatSetupSubtitle;
 
   /// Header title for the onboarding appearance step
@@ -15745,7 +16227,7 @@ abstract class AppLocalizations {
   /// Members empty state subtitle — {term} is user's chosen singular lowercase
   ///
   /// In en, this message translates to:
-  /// **'Add your first {systemTermLower} {term} to get started'**
+  /// **'Add a {term} to your {systemTermLower} to get started'**
   String terminologyAddFirstSubtitle(String term, String systemTermLower);
 
   /// Toast when trying to vote without selecting a member to vote as — {term} is user's chosen singular lowercase
@@ -17112,10 +17594,10 @@ abstract class AppLocalizations {
   /// **'Switches found (not imported)'**
   String get pkFileImportSwitchesSkippedLabel;
 
-  /// Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences.
+  /// Section header grouping activity display and behavior preferences.
   ///
   /// In en, this message translates to:
-  /// **'Session display & front behavior'**
+  /// **'Display & Behavior'**
   String get settingsFrontingSessionDisplaySectionTitle;
 
   /// Row title for the home-screen session list view-mode preference (combined periods / per-member rows / timeline).
@@ -17133,8 +17615,10 @@ abstract class AppLocalizations {
   /// Option subtitle for the combined-periods session list view mode.
   ///
   /// In en, this message translates to:
-  /// **'Avatar stacks for each unique fronter group'**
-  String get settingsFrontingListViewModeCombinedPeriodsDescription;
+  /// **'Combines overlapping {sessionPluralLower} into shared periods.'**
+  String settingsFrontingListViewModeCombinedPeriodsDescription(
+    String sessionPluralLower,
+  );
 
   /// Option label: render the home-screen session list as one row per fronter session, side-by-side. {term} is the user's chosen singular member terminology (lowercase).
   ///
@@ -17145,7 +17629,7 @@ abstract class AppLocalizations {
   /// Option subtitle for the per-member-rows session list view mode.
   ///
   /// In en, this message translates to:
-  /// **'One row per fronter session, side-by-side'**
+  /// **'Shows each profile on a separate row.'**
   String get settingsFrontingListViewModePerMemberRowsDescription;
 
   /// Option label: render the home-screen session list as a timeline / bar chart over time.
@@ -17157,13 +17641,13 @@ abstract class AppLocalizations {
   /// Option subtitle for the timeline session list view mode.
   ///
   /// In en, this message translates to:
-  /// **'Bar chart view of fronting over time'**
+  /// **'Shows activity over time.'**
   String get settingsFrontingListViewModeTimelineDescription;
 
-  /// Row title for the default behavior preference when starting a new front from the add-front sheet.
+  /// Row title for the default behavior preference when starting new activity.
   ///
   /// In en, this message translates to:
-  /// **'When adding a new front'**
+  /// **'Default Start Behavior'**
   String get settingsAddFrontDefaultBehaviorLabel;
 
   /// Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter.
@@ -17172,11 +17656,13 @@ abstract class AppLocalizations {
   /// **'Add as fronter'**
   String get settingsAddFrontDefaultBehaviorAdditive;
 
-  /// Option subtitle for the additive add-front default behavior.
+  /// Option subtitle for additive activity behavior.
   ///
   /// In en, this message translates to:
-  /// **'New fronts join existing ones'**
-  String get settingsAddFrontDefaultBehaviorAdditiveDescription;
+  /// **'New {sessionPluralLower} join existing ones'**
+  String settingsAddFrontDefaultBehaviorAdditiveDescription(
+    String sessionPluralLower,
+  );
 
   /// Option label: starting a new front ends all existing fronts before the new member begins.
   ///
@@ -17184,29 +17670,36 @@ abstract class AppLocalizations {
   /// **'Replace current fronters'**
   String get settingsAddFrontDefaultBehaviorReplace;
 
-  /// Option subtitle for the replace add-front default behavior.
+  /// Option subtitle for replacement activity behavior.
   ///
   /// In en, this message translates to:
-  /// **'End all current fronts before starting new ones'**
-  String get settingsAddFrontDefaultBehaviorReplaceDescription;
+  /// **'End all current {sessionPluralLower} before starting new ones'**
+  String settingsAddFrontDefaultBehaviorReplaceDescription(
+    String sessionPluralLower,
+  );
 
-  /// Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut).
+  /// Row title for the default behavior preference when using the quick activity action.
   ///
   /// In en, this message translates to:
-  /// **'When using quick front'**
+  /// **'Quick Action Behavior'**
   String get settingsQuickFrontDefaultBehaviorLabel;
 
-  /// Switch label for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in.
+  /// Switch label for whether long-running activity sessions appear in the pinned header.
   ///
   /// In en, this message translates to:
-  /// **'Show long-running fronts in header'**
-  String get settingsAutoPromoteLongFrontingSessionsLabel;
+  /// **'{longRunningHeaderLabel}'**
+  String settingsAutoPromoteLongFrontingSessionsLabel(
+    String longRunningHeaderLabel,
+  );
 
-  /// Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in.
+  /// Switch subtitle for whether long-running activity sessions appear in the pinned header.
   ///
   /// In en, this message translates to:
-  /// **'After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.'**
-  String get settingsAutoPromoteLongFrontingSessionsDescription;
+  /// **'After 7 days, show active {sessionPluralLower} in the pinned header without marking them {alwaysActiveLabel} or hiding them from history.'**
+  String settingsAutoPromoteLongFrontingSessionsDescription(
+    String sessionPluralLower,
+    String alwaysActiveLabel,
+  );
 
   /// Option label: quick front leaves existing fronts in place; the tapped member joins as a co-fronter.
   ///
@@ -17223,7 +17716,7 @@ abstract class AppLocalizations {
   /// Settings row + dialog title for how chat and message-board composers pick the default member you act as.
   ///
   /// In en, this message translates to:
-  /// **'Default when composing'**
+  /// **'Default Author'**
   String get settingsComposerDefaultMemberLabel;
 
   /// Option label: default to the most recently started front.
@@ -17232,10 +17725,10 @@ abstract class AppLocalizations {
   /// **'Latest fronter'**
   String get settingsComposerDefaultMemberLatestFronter;
 
-  /// Option subtitle for the latest-fronter composer default.
+  /// Option subtitle for the latest active profile composer default.
   ///
   /// In en, this message translates to:
-  /// **'Open as whoever started fronting most recently'**
+  /// **'Open with the most recently active profile'**
   String get settingsComposerDefaultMemberLatestFronterDescription;
 
   /// Option label: default to whoever you last acted as.
@@ -17277,8 +17770,8 @@ abstract class AppLocalizations {
   /// Description shown at the top of the Message Boards feature settings screen.
   ///
   /// In en, this message translates to:
-  /// **'Short messages between headmates — public timeline plus private inbox.'**
-  String get featureBoardsDescription;
+  /// **'Short messages between {termPluralLower} — a public timeline and private inbox.'**
+  String featureBoardsDescription(String termPluralLower);
 
   /// Toggle row title for enabling the Message Boards feature.
   ///
@@ -17319,7 +17812,7 @@ abstract class AppLocalizations {
   /// Fallback name shown when the author or target member of a board post no longer exists.
   ///
   /// In en, this message translates to:
-  /// **'Removed member'**
+  /// **'Removed profile'**
   String get boardsTileRemovedMember;
 
   /// Edit action label in the board post detail sheet and context menu.
@@ -17400,11 +17893,11 @@ abstract class AppLocalizations {
   /// **'No private posts right now.'**
   String get boardsEmptyInbox;
 
-  /// Hint shown in the Inbox empty state when no members are currently fronting.
+  /// Hint shown in the Inbox empty state when no profiles are currently active.
   ///
   /// In en, this message translates to:
-  /// **'No one\'s fronting right now — start a session to post.'**
-  String get boardsComposeNoFronterHint;
+  /// **'{emptyCurrentState}. Start a session to post.'**
+  String boardsComposeNoFronterHint(String emptyCurrentState);
 
   /// Toast shown when the inbox view-filter member stops fronting, resetting the filter.
   ///
@@ -20528,6 +21021,202 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Media thumbnail'**
   String get imageSemanticThumbnail;
+
+  /// No description provided for @analyticsInsightGapHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} untracked this period'**
+  String analyticsInsightGapHeadline(String duration);
+
+  /// No description provided for @analyticsInsightGapBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}% of the time wasn\'t logged.'**
+  String analyticsInsightGapBody(int percent);
+
+  /// No description provided for @analyticsInsightTogetherNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'{nameA} and {nameB} {togetherPast} often this period'**
+  String analyticsInsightTogetherNamed(
+    String nameA,
+    String nameB,
+    String togetherPast,
+  );
+
+  /// No description provided for @analyticsInsightTogetherGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Two {termPluralLower} {togetherPast} often this period'**
+  String analyticsInsightTogetherGeneric(
+    String termPluralLower,
+    String togetherPast,
+  );
+
+  /// No description provided for @analyticsInsightTogetherBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{duration} together.'**
+  String analyticsInsightTogetherBody(String duration);
+
+  /// No description provided for @analyticsInsightQuietNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has no {sessionPluralLower} this period'**
+  String analyticsInsightQuietNamed(String name, String sessionPluralLower);
+
+  /// No description provided for @analyticsInsightQuietGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'One {termSingularLower} has no {sessionPluralLower} this period'**
+  String analyticsInsightQuietGeneric(
+    String termSingularLower,
+    String sessionPluralLower,
+  );
+
+  /// No description provided for @analyticsInsightQuietBody.
+  ///
+  /// In en, this message translates to:
+  /// **'They were active in the previous period.'**
+  String get analyticsInsightQuietBody;
+
+  /// No description provided for @analyticsInsightDirection.
+  ///
+  /// In en, this message translates to:
+  /// **'{direction, select, longer{longer} shorter{shorter} other{different}}'**
+  String analyticsInsightDirection(String direction);
+
+  /// No description provided for @analyticsInsightDriftNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s {sessionPluralLower} are running {direction}'**
+  String analyticsInsightDriftNamed(
+    String name,
+    String sessionPluralLower,
+    String direction,
+  );
+
+  /// No description provided for @analyticsInsightDriftGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'{sessionPlural} are {direction} for one {termSingularLower}'**
+  String analyticsInsightDriftGeneric(
+    String sessionPlural,
+    String direction,
+    String termSingularLower,
+  );
+
+  /// No description provided for @analyticsInsightTrend.
+  ///
+  /// In en, this message translates to:
+  /// **'{trend, select, up{up} down{down} other{changed}}'**
+  String analyticsInsightTrend(String trend);
+
+  /// No description provided for @analyticsInsightDriftBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{currentAverage} average, {trend} from {previousAverage}.'**
+  String analyticsInsightDriftBody(
+    String currentAverage,
+    String trend,
+    String previousAverage,
+  );
+
+  /// No description provided for @analyticsInsightTimeShiftNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'s {timeLabelLower} shifted'**
+  String analyticsInsightTimeShiftNamed(String name, String timeLabelLower);
+
+  /// No description provided for @analyticsInsightTimeShiftGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'One {termSingularLower}\'s {timeLabelLower} shifted'**
+  String analyticsInsightTimeShiftGeneric(
+    String termSingularLower,
+    String timeLabelLower,
+  );
+
+  /// No description provided for @analyticsInsightTimeBucket.
+  ///
+  /// In en, this message translates to:
+  /// **'{bucket, select, morning{mornings} afternoon{afternoons} evening{evenings} night{nights} other{{bucket}}}'**
+  String analyticsInsightTimeBucket(String bucket);
+
+  /// No description provided for @analyticsInsightTimeShiftBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Mostly {currentBucket} lately — {previousBucket} was more typical before.'**
+  String analyticsInsightTimeShiftBody(
+    String currentBucket,
+    String previousBucket,
+  );
+
+  /// No description provided for @memberListFrontButtonsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a direct {featureLower} action next to each profile in the list.'**
+  String memberListFrontButtonsDescription(String featureLower);
+
+  /// No description provided for @memberListFrontButtonsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show “{directButtonLabel}”'**
+  String memberListFrontButtonsTitle(String directButtonLabel);
+
+  /// No description provided for @memberListFrontButtonsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds “{directButtonLabel}” to profiles that are not {currentlyActivePhrase}.'**
+  String memberListFrontButtonsSubtitle(
+    String directButtonLabel,
+    String currentlyActivePhrase,
+  );
+
+  /// No description provided for @resetDataMembersDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes all {termPluralLower}. {sessionPlural} will show an unknown profile.'**
+  String resetDataMembersDescription(
+    String termPluralLower,
+    String sessionPlural,
+  );
+
+  /// No description provided for @resetDataFrontingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Deletes all “{historyLabel}” data.'**
+  String resetDataFrontingDescription(String historyLabel);
+
+  /// No description provided for @analyticsError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load analytics: {error}'**
+  String analyticsError(Object error);
+
+  /// No description provided for @analyticsNoSessionsInRange.
+  ///
+  /// In en, this message translates to:
+  /// **'No {sessionPluralLower} in this date range.'**
+  String analyticsNoSessionsInRange(String sessionPluralLower);
+
+  /// No description provided for @analyticsPreviousPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} in the previous period'**
+  String analyticsPreviousPeriod(String value);
+
+  /// No description provided for @profileHeaderSemantic.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile header for {name}'**
+  String profileHeaderSemantic(String name);
+
+  /// No description provided for @frontingActionFor.
+  ///
+  /// In en, this message translates to:
+  /// **'{action} for {name}'**
+  String frontingActionFor(String action, String name);
 }
 
 class _AppLocalizationsDelegate

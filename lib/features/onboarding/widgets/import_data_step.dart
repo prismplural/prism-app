@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
@@ -1623,7 +1624,7 @@ class _PrismExportImportFlowState
                 count: preview.headmates,
               ),
               _PreviewRow(
-                label: context.l10n.onboardingImportPreviewFrontingSessions,
+                label: readFrontingTerms(context, ref).sessionPlural,
                 count: preview.frontSessions,
               ),
               if (preview.sleepSessions > 0)
@@ -2081,7 +2082,7 @@ class _SimplyPluralImportFlowState
                       count: migration.exportData!.customFronts.length,
                     ),
                   _PreviewRow(
-                    label: context.l10n.onboardingImportPreviewFrontingSessions,
+                    label: readFrontingTerms(context, ref).sessionPlural,
                     count: migration.exportData!.frontHistory.length,
                   ),
                   if (migration.exportData!.groups.isNotEmpty)

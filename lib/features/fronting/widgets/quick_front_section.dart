@@ -614,7 +614,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     final theme = Theme.of(context);
     final member = widget.member;
     final prefer = ref.watch(memberNamePreferDisplayProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final memberName = member.effectiveName(preferDisplayName: prefer);
     final ringSize = widget.ringSize;
     final avatarSize = (ringSize - _kAvatarRingInset).clamp(0.0, ringSize);

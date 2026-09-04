@@ -105,7 +105,9 @@ class FeaturesStep extends ConsumerWidget {
                   title: context.l10n.onboardingFeaturesBoards,
                   description: hasImportedSimplyPluralBoardPosts
                       ? context.l10n.onboardingFeaturesBoardsImportedDescription
-                      : context.l10n.onboardingFeaturesBoardsDescription,
+                      : context.l10n.onboardingFeaturesBoardsDescription(
+                          terms.pluralLower,
+                        ),
                   value: hasImportedSimplyPluralBoardPosts
                       ? true
                       : onboarding.boardsEnabled,

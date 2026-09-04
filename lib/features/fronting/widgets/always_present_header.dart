@@ -30,7 +30,7 @@ class AlwaysPresentHeader extends ConsumerWidget {
     }
 
     final theme = Theme.of(context);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final members = qualifying.map((q) => q.member).toList(growable: false);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     final names = _joinNames(

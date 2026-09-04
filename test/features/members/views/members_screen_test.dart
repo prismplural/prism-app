@@ -44,6 +44,7 @@ import 'package:prism_plurality/shared/providers/member_avatar_image_provider.da
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import '../../../helpers/fake_repositories.dart';
+import '../../../helpers/fronting_term_fixtures.dart';
 
 Member _member(
   String id, {
@@ -984,7 +985,7 @@ void main() {
     expect(find.text('Display'), findsOneWidget);
     expect(find.text('Show pronouns'), findsOneWidget);
     expect(find.text('Front buttons'), findsOneWidget);
-    expect(find.text('Show front buttons'), findsOneWidget);
+    expect(find.text('Show \u201cFront buttons\u201d'), findsOneWidget);
     expect(
       find.text('Show a direct front action next to each member in the list.'),
       findsNothing,
@@ -1185,7 +1186,7 @@ void main() {
     expect(find.text('Front buttons'), findsOneWidget);
     expect(
       find.text(
-        'Show a direct fronting action next to each member in the list.',
+        'Show a direct fronting action next to each profile in the list.',
       ),
       findsOneWidget,
     );
@@ -1669,7 +1670,42 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Out buttons'), findsOneWidget);
-    expect(find.text('Show out buttons'), findsOneWidget);
+    expect(find.text('Show \u201cOut buttons\u201d'), findsOneWidget);
+  });
+
+  testWidgets('long custom fronting labels do not overflow member cards', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final customBundle = FrontingTermBundle.tryDecode({
+      ...testFrontingTermBundle.toJson(),
+      'activeSectionLabel':
+          'Members currently participating in this very long activity',
+    })!;
+
+    await tester.pumpWidget(
+      _buildSubject(
+        settings: const SystemSettings(membersShowFrontButtons: true),
+        members: [_member('alice')],
+        groups: const [],
+        entries: const [],
+        activeSessions: [
+          FrontingSession(
+            id: 'session-alice',
+            memberId: 'alice',
+            startTime: DateTime(2024),
+          ),
+        ],
+        frontingTerms: FrontingTerms.custom(customBundle),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('long-press set as fronter follows replace preference', (

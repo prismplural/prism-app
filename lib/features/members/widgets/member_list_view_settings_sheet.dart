@@ -30,7 +30,7 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
     final showPronouns = ref.watch(membersShowPronounsProvider);
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -192,15 +192,20 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                   _SettingsSection(
                     title: frontingTerms.directButtonLabel,
                     description: showFrontButtons
-                        ? 'Show a direct ${frontingTerms.featureLower} action next to each member in the list.'
+                        ? l10n.memberListFrontButtonsDescription(
+                            frontingTerms.featureLower,
+                          )
                         : null,
                     child: Column(
                       children: [
                         PrismSwitchRow(
-                          title:
-                              'Show ${frontingTerms.directButtonLabel.toLowerCase()}',
-                          subtitle:
-                              'Adds ${frontingTerms.directButtonLabel.toLowerCase()} to rows that are not ${frontingTerms.currentlyActivePhrase}.',
+                          title: l10n.memberListFrontButtonsTitle(
+                            frontingTerms.directButtonLabel,
+                          ),
+                          subtitle: l10n.memberListFrontButtonsSubtitle(
+                            frontingTerms.directButtonLabel,
+                            frontingTerms.currentlyActivePhrase,
+                          ),
                           value: showFrontButtons,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           onChanged: (value) {

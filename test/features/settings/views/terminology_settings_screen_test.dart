@@ -16,8 +16,14 @@ import 'package:prism_plurality/features/settings/views/terminology_settings_scr
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import '../../../helpers/fake_repositories.dart';
+import '../../../helpers/fronting_term_fixtures.dart';
 
 void main() {
+  Future<void> pumpTerminologyAutosave(WidgetTester tester) async {
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+  }
+
   Widget buildSubject(
     FakeAppPreferenceRepository appPrefs, {
     Locale locale = const Locale('en'),
@@ -82,8 +88,8 @@ void main() {
           find.byType(TextFormField).at(1),
           ' collectives ',
         );
-        await tester.tap(find.text('Save'));
-        await tester.pumpAndSettle();
+        expect(find.text('Save'), findsNothing);
+        await pumpTerminologyAutosave(tester);
 
         expect(
           await appPrefs.getStored(systemTermsPreference),
@@ -108,8 +114,7 @@ void main() {
 
         await tester.enterText(find.byType(TextFormField).at(0), 'team');
         await tester.enterText(find.byType(TextFormField).at(1), 'teams');
-        await tester.tap(find.text('Save'));
-        await tester.pumpAndSettle();
+        await pumpTerminologyAutosave(tester);
 
         expect(
           await appPrefs.getStored(systemTermsPreference),
@@ -158,7 +163,7 @@ void main() {
       expect(find.text('Singular'), findsNothing);
       expect(find.text('Plural'), findsNothing);
       expect(find.byType(TextFormField), findsNothing);
-      expect(find.textContaining('Network Information'), findsOneWidget);
+      expect(find.textContaining('"Network Info"'), findsOneWidget);
     });
 
     testWidgets('requires a complete custom term pair', (tester) async {
@@ -171,16 +176,63 @@ void main() {
       await tester.tap(find.text('Custom'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, 'Collective');
-      await tester.pump();
-      await tester.ensureVisible(find.text('Save'));
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
+      expect(find.text('Save'), findsNothing);
+      await pumpTerminologyAutosave(tester);
 
       expect(
         find.text('Enter both singular and plural terms.'),
         findsOneWidget,
       );
       expect(await appPrefs.getStored(systemTermsPreference), isNull);
+    });
+
+    testWidgets('retapping Custom preserves pending system-term autosave', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), 'Team');
+      await tester.enterText(find.byType(TextFormField).at(1), 'Teams');
+      await tester.tap(find.text('Custom'));
+      await pumpTerminologyAutosave(tester);
+
+      expect(
+        await appPrefs.getStored(systemTermsPreference),
+        const SystemTerms.custom(singular: 'Team', plural: 'Teams'),
+      );
+    });
+
+    testWidgets('autosave preserves trailing text and caret state', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).at(0), 'Collective ');
+      await tester.enterText(find.byType(TextFormField).at(1), 'Collectives');
+      final singularField = tester.widget<TextFormField>(
+        find.byType(TextFormField).at(0),
+      );
+      final selectionBefore = singularField.controller!.selection;
+
+      await pumpTerminologyAutosave(tester);
+
+      expect(singularField.controller!.text, 'Collective ');
+      expect(singularField.controller!.selection, selectionBefore);
+      expect(
+        await appPrefs.getStored(systemTermsPreference),
+        const SystemTerms.custom(singular: 'Collective', plural: 'Collectives'),
+      );
     });
   });
 
@@ -245,10 +297,12 @@ void main() {
           );
 
           for (final preset in frontingTermPresetChoices) {
-            await tester.tap(find.text(frontingTermPresetChoiceLabel(preset)));
+            await tester.tap(
+              find.text(frontingTermPresetChoiceLabel(l10n, preset)),
+            );
             await tester.pumpAndSettle();
 
-            final terms = frontingTermBundleForPreset(preset);
+            final terms = frontingTermBundleForPreset(l10n, preset);
             expect(
               find.text(
                 l10n.terminologyFrontingPreview(
@@ -266,55 +320,20 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(
-            find.text(l10n.terminologyFrontingCustomIntro),
+            find.text(l10n.terminologyFrontingSimpleIntro),
+            findsOneWidget,
+          );
+          expect(find.text(l10n.terminologyFrontingModeSimple), findsOneWidget);
+          expect(
+            find.text(l10n.terminologyFrontingModeAdvanced),
             findsOneWidget,
           );
           expect(
-            find.text(l10n.terminologyFrontingGroupPrimary),
+            find.text(l10n.terminologyFrontingSimpleFieldLabel('featureLabel')),
             findsOneWidget,
           );
           expect(
-            find.text(l10n.terminologyFrontingGroupPrimarySubtitle),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupActions),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupActionsSubtitle),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupHistory),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupHistorySubtitle),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupTogether),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupTogetherSubtitle),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupChanges),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupChangesSubtitle),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupPinned),
-            findsOneWidget,
-          );
-          expect(
-            find.text(l10n.terminologyFrontingGroupPinnedSubtitle),
+            find.text(l10n.terminologyFrontingSimpleRegenerationNote),
             findsOneWidget,
           );
           expect(find.textContaining('{question}'), findsNothing);
@@ -338,6 +357,7 @@ void main() {
       expect(find.text('Out'), findsOneWidget);
       expect(find.text('Online'), findsOneWidget);
       expect(find.text('Out Members'), findsOneWidget);
+      expect(find.text('Simple or advanced'), findsOneWidget);
 
       await tester.tap(find.text('Out'));
       await tester.pumpAndSettle();
@@ -367,7 +387,7 @@ void main() {
       expect(await appPrefs.getStored(frontingTermsPreference), isNull);
     });
 
-    testWidgets('saves an advanced custom fronting phrase bundle', (
+    testWidgets('saves a generated simple custom fronting phrase bundle', (
       tester,
     ) async {
       final appPrefs = FakeAppPreferenceRepository();
@@ -379,20 +399,320 @@ void main() {
       await tester.tap(find.text('Custom'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Primary labels'), findsOneWidget);
-      expect(find.text('Actions'), findsOneWidget);
-      expect(find.text('Feature label'), findsOneWidget);
+      expect(find.text('Simple'), findsOneWidget);
+      expect(find.text('Advanced'), findsOneWidget);
+      expect(find.text('Activity name'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextFormField).first, 'At Front');
-      await tester.pump();
-      await tester.ensureVisible(find.text('Save'));
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('simple-fronting-featureLabel')),
+        'Orbit',
+      );
+      expect(find.text('Save'), findsNothing);
+      await pumpTerminologyAutosave(tester);
 
       final stored = await appPrefs.getStored(frontingTermsPreference);
-      expect(stored?.custom?.featureLabel, 'At Front');
+      expect(stored?.custom?.featureLabel, 'Orbit');
       expect(stored?.custom?.activePluralLabel, 'Fronters');
+      expect(stored?.custom?.historyLabel, 'Orbit History');
+      expect(stored?.authoring?.featureLabel, 'Orbit');
       expect(stored?.preset, isNull);
+    });
+
+    testWidgets('exploring Custom does not replace the selected preset', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(
+          frontingTermsPreference,
+          const FrontingTerms.preset(FrontingTermPreset.online),
+        );
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      final featureField = find.descendant(
+        of: find.byKey(const ValueKey('simple-fronting-featureLabel')),
+        matching: find.byType(TextFormField),
+      );
+      expect(
+        tester.widget<TextFormField>(featureField).controller!.text,
+        'Online',
+      );
+
+      expect(
+        await appPrefs.getStored(frontingTermsPreference),
+        const FrontingTerms.preset(FrontingTermPreset.online),
+      );
+    });
+
+    testWidgets('retapping Custom preserves the draft and pending autosave', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      final featureField = find.descendant(
+        of: find.byKey(const ValueKey('simple-fronting-featureLabel')),
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(featureField, 'Orbit');
+      await tester.tap(find.text('Custom'));
+      await pumpTerminologyAutosave(tester);
+
+      expect(
+        tester.widget<TextFormField>(featureField).controller!.text,
+        'Orbit',
+      );
+      expect(
+        (await appPrefs.getStored(
+          frontingTermsPreference,
+        ))?.custom?.featureLabel,
+        'Orbit',
+      );
+    });
+
+    testWidgets('autosave preserves trailing text and caret state', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+
+      final wrapperFinder = find.byKey(
+        const ValueKey('simple-fronting-featureLabel'),
+      );
+      final fieldFinder = find.descendant(
+        of: wrapperFinder,
+        matching: find.byType(TextFormField),
+      );
+      await tester.enterText(fieldFinder, 'Orbit ');
+      final field = tester.widget<TextFormField>(fieldFinder);
+      final selectionBefore = field.controller!.selection;
+
+      await pumpTerminologyAutosave(tester);
+
+      expect(field.controller!.text, 'Orbit ');
+      expect(field.controller!.selection, selectionBefore);
+      expect(
+        (await appPrefs.getStored(
+          frontingTermsPreference,
+        ))?.custom?.featureLabel,
+        'Orbit',
+      );
+    });
+
+    testWidgets('loads a legacy custom bundle in Advanced unchanged', (
+      tester,
+    ) async {
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(
+          frontingTermsPreference,
+          FrontingTerms.custom(testFrontingTermBundle),
+        );
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Edit every phrase Prism uses for this activity.'),
+        findsOneWidget,
+      );
+      expect(find.text('Start Simple Setup'), findsOneWidget);
+      expect(find.text('Primary labels'), findsOneWidget);
+      expect(find.text('Activity name'), findsNothing);
+      expect(
+        await appPrefs.getStored(frontingTermsPreference),
+        FrontingTerms.custom(testFrontingTermBundle),
+      );
+    });
+
+    testWidgets(
+      'starting Simple does not overwrite legacy terms until edited',
+      (tester) async {
+        final appPrefs = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(testFrontingTermBundle),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Start Simple Setup'));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+
+        expect(
+          await appPrefs.getStored(frontingTermsPreference),
+          FrontingTerms.custom(testFrontingTermBundle),
+        );
+      },
+    );
+
+    testWidgets(
+      'starting Simple flushes a pending Advanced edit without saving defaults',
+      (tester) async {
+        final appPrefs = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(testFrontingTermBundle),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Primary labels'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextFormField).first, 'Orbiting');
+        await tester.ensureVisible(find.text('Start Simple Setup'));
+        await tester.tap(find.text('Start Simple Setup'));
+        await pumpTerminologyAutosave(tester);
+
+        final stored = await appPrefs.getStored(frontingTermsPreference);
+        expect(stored?.custom?.featureLabel, 'Orbiting');
+        expect(stored?.authoring, isNull);
+        expect(find.text('Activity name'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'switching to Advanced before autosave preserves Simple authoring',
+      (tester) async {
+        const authoring = SimpleFrontingTermAuthoring(
+          locale: 'en',
+          seedPreset: FrontingTermPreset.fronting,
+          featureLabel: 'Orbit',
+          activeSectionLabel: 'In Orbit',
+          statePhrase: 'in orbit',
+          activeSingularLabel: 'Orbiter',
+          activePluralLabel: 'Orbiters',
+          sessionSingular: 'Orbit session',
+          sessionPlural: 'Orbit sessions',
+        );
+        final appPrefs = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(
+              generateSimpleFrontingBundle(authoring),
+              authoring: authoring,
+            ),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        final featureField = find.descendant(
+          of: find.byKey(const ValueKey('simple-fronting-featureLabel')),
+          matching: find.byType(TextFormField),
+        );
+        await tester.enterText(featureField, 'Orbit Activity');
+        await tester.tap(find.text('Advanced'));
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+
+        final stored = await appPrefs.getStored(frontingTermsPreference);
+        expect(stored?.custom?.featureLabel, 'Orbit Activity');
+        expect(stored?.authoring?.featureLabel, 'Orbit Activity');
+      },
+    );
+
+    testWidgets(
+      'pending Simple autosave does not bounce Advanced back to Simple',
+      (tester) async {
+        const authoring = SimpleFrontingTermAuthoring(
+          locale: 'en',
+          seedPreset: FrontingTermPreset.fronting,
+          featureLabel: 'Orbit',
+          activeSectionLabel: 'In Orbit',
+          statePhrase: 'in orbit',
+          activeSingularLabel: 'Orbiter',
+          activePluralLabel: 'Orbiters',
+          sessionSingular: 'Orbit session',
+          sessionPlural: 'Orbit sessions',
+        );
+        final appPrefs = FakeAppPreferenceRepository()
+          ..seed(
+            frontingTermsPreference,
+            FrontingTerms.custom(
+              generateSimpleFrontingBundle(authoring),
+              authoring: authoring,
+            ),
+          );
+        addTearDown(appPrefs.close);
+
+        await tester.pumpWidget(buildFrontingSubject(appPrefs));
+        await tester.pumpAndSettle();
+        final featureField = find.descendant(
+          of: find.byKey(const ValueKey('simple-fronting-featureLabel')),
+          matching: find.byType(TextFormField),
+        );
+        await tester.enterText(featureField, 'Orbit Activity');
+        await tester.tap(find.text('Advanced'));
+        await pumpTerminologyAutosave(tester);
+
+        expect(
+          find.text('Edit every phrase Prism uses for this activity.'),
+          findsOneWidget,
+        );
+        expect(find.text('Activity name'), findsNothing);
+        final stored = await appPrefs.getStored(frontingTermsPreference);
+        expect(stored?.custom?.featureLabel, 'Orbit Activity');
+        expect(stored?.authoring?.featureLabel, 'Orbit Activity');
+      },
+    );
+
+    testWidgets('an Advanced override drops stale Simple metadata', (
+      tester,
+    ) async {
+      const authoring = SimpleFrontingTermAuthoring(
+        locale: 'en',
+        seedPreset: FrontingTermPreset.fronting,
+        featureLabel: 'Orbit',
+        activeSectionLabel: 'In Orbit',
+        statePhrase: 'in orbit',
+        activeSingularLabel: 'Orbiter',
+        activePluralLabel: 'Orbiters',
+        sessionSingular: 'Orbit session',
+        sessionPlural: 'Orbit sessions',
+      );
+      final appPrefs = FakeAppPreferenceRepository()
+        ..seed(
+          frontingTermsPreference,
+          FrontingTerms.custom(
+            generateSimpleFrontingBundle(authoring),
+            authoring: authoring,
+          ),
+        );
+      addTearDown(appPrefs.close);
+
+      await tester.pumpWidget(buildFrontingSubject(appPrefs));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Primary labels'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'Orbiting');
+      expect(find.text('Save'), findsNothing);
+      await pumpTerminologyAutosave(tester);
+
+      final stored = await appPrefs.getStored(frontingTermsPreference);
+      expect(stored?.custom?.featureLabel, 'Orbiting');
+      expect(stored?.authoring, isNull);
     });
   });
 }

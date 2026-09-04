@@ -337,6 +337,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   Widget _buildPreview(ThemeData theme) {
     final p = _preview!;
     final terms = readTerminology(context, ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -367,7 +368,12 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final row in _previewCountRows(p, terms.plural))
+              for (final row in _previewCountRows(
+                p,
+                terms.plural,
+                frontingTerms.sessionPlural,
+                frontingTerms.sessionSingularLower,
+              ))
                 _previewRow(row.label, row.count),
               const Divider(),
               _previewRow(
@@ -406,15 +412,14 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   List<({String label, int count})> _previewCountRows(
     ImportPreview p,
     String membersPlural,
+    String sessionPlural,
+    String sessionSingularLower,
   ) => [
     (
       label: context.l10n.dataManagementPreviewMembers(membersPlural),
       count: p.headmates,
     ),
-    (
-      label: context.l10n.dataManagementPreviewFrontSessions,
-      count: p.frontSessions,
-    ),
+    (label: sessionPlural, count: p.frontSessions),
     (
       label: context.l10n.dataManagementPreviewSleepSessions,
       count: p.sleepSessions,
@@ -456,7 +461,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     ),
     (label: context.l10n.dataManagementPreviewNotes, count: p.notes),
     (
-      label: context.l10n.dataManagementPreviewFrontSessionComments,
+      label: context.l10n.dataManagementPreviewFrontSessionComments(
+        sessionSingularLower,
+      ),
       count: p.frontSessionComments,
     ),
     (
@@ -520,6 +527,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   Widget _buildComplete(ThemeData theme) {
     final r = _result!;
     final terms = readTerminology(context, ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -544,7 +552,12 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final row in _resultCountRows(r, terms.plural))
+              for (final row in _resultCountRows(
+                r,
+                terms.plural,
+                frontingTerms.sessionPlural,
+                frontingTerms.sessionSingularLower,
+              ))
                 _previewRow(row.label, row.count),
               const Divider(),
               _previewRow(
@@ -578,15 +591,14 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   List<({String label, int count})> _resultCountRows(
     ImportResult r,
     String membersPlural,
+    String sessionPlural,
+    String sessionSingularLower,
   ) => [
     (
       label: context.l10n.dataManagementPreviewMembers(membersPlural),
       count: r.membersCreated,
     ),
-    (
-      label: context.l10n.dataManagementPreviewFrontSessions,
-      count: r.frontSessionsCreated,
-    ),
+    (label: sessionPlural, count: r.frontSessionsCreated),
     (
       label: context.l10n.dataManagementPreviewSleepSessions,
       count: r.sleepSessionsCreated,
@@ -631,7 +643,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     ),
     (label: context.l10n.dataManagementPreviewNotes, count: r.notesCreated),
     (
-      label: context.l10n.dataManagementPreviewFrontSessionComments,
+      label: context.l10n.dataManagementPreviewFrontSessionComments(
+        sessionSingularLower,
+      ),
       count: r.frontSessionCommentsCreated,
     ),
     (

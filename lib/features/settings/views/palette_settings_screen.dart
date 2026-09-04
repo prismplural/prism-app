@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart'
     hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_presets.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -156,6 +157,8 @@ class PaletteSettingsScreen extends ConsumerWidget {
             viewSettings,
             source: paletteSource,
           );
+          final terms = watchTerminology(context, ref);
+          final frontingTerms = watchFrontingTerms(context, ref);
 
           return ListView(
             padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -234,7 +237,12 @@ class PaletteSettingsScreen extends ConsumerWidget {
                 child: PrismSectionCard(
                   padding: const EdgeInsets.all(14),
                   accentColor: selectedPreview.primary,
-                  child: _PaletteLivePreview(preview: selectedPreview),
+                  child: _PaletteLivePreview(
+                    preview: selectedPreview,
+                    termPlural: terms.plural,
+                    activePhrase: frontingTerms.currentlyActivePhrase,
+                    activeLabel: frontingTerms.activeSectionLabel,
+                  ),
                 ),
               ),
               PrismSection(
@@ -510,9 +518,17 @@ class PaletteDots extends StatelessWidget {
 }
 
 class _PaletteLivePreview extends StatelessWidget {
-  const _PaletteLivePreview({required this.preview});
+  const _PaletteLivePreview({
+    required this.preview,
+    required this.termPlural,
+    required this.activePhrase,
+    required this.activeLabel,
+  });
 
   final PalettePreview preview;
+  final String termPlural;
+  final String activePhrase;
+  final String activeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -525,9 +541,9 @@ class _PaletteLivePreview extends StatelessWidget {
         _PreviewMemberRow(
           emoji: '\u{1F338}',
           title: context.l10n.palettePreviewMemberOne,
-          subtitle: context.l10n.palettePreviewMemberOneDetail,
+          subtitle: activePhrase,
           color: scheme.primary,
-          badge: context.l10n.palettePreviewChip,
+          badge: activeLabel,
         ),
         const SizedBox(height: 10),
         _PreviewMemberRow(
@@ -553,7 +569,7 @@ class _PaletteLivePreview extends StatelessWidget {
               ),
             ),
             PrismPill(
-              label: context.l10n.palettePreviewChip,
+              label: activeLabel,
               tone: PrismPillTone.accent,
               color: scheme.tertiary,
             ),
@@ -594,7 +610,7 @@ class _PaletteLivePreview extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  context.l10n.palettePreviewNavHint,
+                  context.l10n.palettePreviewNavHint(termPlural),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -682,17 +698,24 @@ class _PreviewMemberRow extends StatelessWidget {
           ),
           if (badge != null) ...[
             const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(shapes.radius(999)),
-              ),
-              child: Text(
-                badge!,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(shapes.radius(999)),
+                ),
+                child: Text(
+                  badge!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

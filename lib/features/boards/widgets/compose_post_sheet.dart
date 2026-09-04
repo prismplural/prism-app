@@ -419,7 +419,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     );
     final members = ref.read(userVisibleMemberListProvider).value ?? [];
     final groups = readMemberSearchGroups(ref, members);
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     final fronterIds =
         ref
             .read(activeSessionsProvider)

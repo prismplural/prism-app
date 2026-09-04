@@ -22,27 +22,26 @@ String _labelForKey(String key, BuildContext context) {
       // label instead of flipping from a default to the user's term mid-sync.
       return context.l10n.onboardingSyncMembersLabel;
     case 'fronting_sessions':
-      return 'Fronting sessions';
+      return context.l10n.onboardingDataReadyFrontingSessions;
     case 'conversations':
-      return 'Conversations';
+      return context.l10n.onboardingDataReadyConversations;
     case 'chat_messages':
-      return 'Messages';
+      return context.l10n.onboardingDataReadyMessages;
     case 'habits':
-      return 'Habits';
+      return context.l10n.onboardingDataReadyHabits;
     case 'notes':
-      return 'Notes';
+      return context.l10n.onboardingDataReadyNotes;
     default:
       final words = key.split('_');
       if (words.isEmpty) return key;
-      return '${words.first[0].toUpperCase()}${words.first.substring(1)} ${words.skip(1).join(' ')}'.trim();
+      return '${words.first[0].toUpperCase()}${words.first.substring(1)} ${words.skip(1).join(' ')}'
+          .trim();
   }
 }
 
 /// Selects up to 4 entries from [counts] by priority, excluding zero values.
 List<MapEntry<String, int>> _pickRows(Map<String, int> counts) {
-  final nonZero = Map.fromEntries(
-    counts.entries.where((e) => e.value > 0),
-  );
+  final nonZero = Map.fromEntries(counts.entries.where((e) => e.value > 0));
   if (nonZero.isEmpty) return [];
 
   final result = <MapEntry<String, int>>[];
@@ -67,10 +66,7 @@ List<MapEntry<String, int>> _pickRows(Map<String, int> counts) {
 class LiveCountCard extends StatefulWidget {
   final Map<String, int> counts;
 
-  const LiveCountCard({
-    required this.counts,
-    super.key,
-  });
+  const LiveCountCard({required this.counts, super.key});
 
   @override
   State<LiveCountCard> createState() => _LiveCountCardState();
@@ -101,7 +97,9 @@ class _LiveCountCardState extends State<LiveCountCard> {
     }
 
     final disableAnim = MediaQuery.of(context).disableAnimations;
-    final animDuration = disableAnim ? Duration.zero : const Duration(milliseconds: 300);
+    final animDuration = disableAnim
+        ? Duration.zero
+        : const Duration(milliseconds: 300);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -117,7 +115,9 @@ class _LiveCountCardState extends State<LiveCountCard> {
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.1)
                       : AppColors.parchmentElevated,
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(16),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

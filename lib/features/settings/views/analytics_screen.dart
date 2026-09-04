@@ -32,7 +32,7 @@ class AnalyticsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsAsync = ref.watch(frontingAnalyticsProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -48,14 +48,17 @@ class AnalyticsScreen extends ConsumerWidget {
           Expanded(
             child: analyticsAsync.when(
               loading: () => const PrismLoadingState(),
-              error: (e, _) => Center(child: Text('Error: $e')),
+              error: (e, _) =>
+                  Center(child: Text(context.l10n.analyticsError(e))),
               data: (analytics) {
                 if (analytics.totalSessions == 0) {
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Text(
-                        'No ${frontingTerms.sessionPlural.toLowerCase()} in this date range',
+                        context.l10n.analyticsNoSessionsInRange(
+                          frontingTerms.sessionPluralLower,
+                        ),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
@@ -122,7 +125,9 @@ class _AnalyticsBody extends ConsumerWidget {
                           label: context.l10n.statisticsMedianSessionLabel,
                           value: _fmt(analytics.medianSession),
                           priorLabel: previousPeriod != null
-                              ? '${_fmt(previousPeriod.medianSession)} last period'
+                              ? context.l10n.analyticsPreviousPeriod(
+                                  _fmt(previousPeriod.medianSession),
+                                )
                               : null,
                           theme: theme,
                         ),
@@ -130,7 +135,9 @@ class _AnalyticsBody extends ConsumerWidget {
                           label: context.l10n.statisticsGapTimeLabel,
                           value: _fmt(analytics.totalGapTime),
                           priorLabel: previousPeriod != null
-                              ? '${_fmt(previousPeriod.totalGapTime)} last period'
+                              ? context.l10n.analyticsPreviousPeriod(
+                                  _fmt(previousPeriod.totalGapTime),
+                                )
                               : null,
                           theme: theme,
                         ),
@@ -143,7 +150,11 @@ class _AnalyticsBody extends ConsumerWidget {
                           label: context.l10n.statisticsSwitchesPerDayLabel,
                           value: analytics.switchesPerDay.toStringAsFixed(1),
                           priorLabel: previousPeriod != null
-                              ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
+                              ? context.l10n.analyticsPreviousPeriod(
+                                  previousPeriod.switchesPerDay.toStringAsFixed(
+                                    1,
+                                  ),
+                                )
                               : null,
                           theme: theme,
                         ),
@@ -153,7 +164,9 @@ class _AnalyticsBody extends ConsumerWidget {
                           ),
                           value: '${analytics.uniqueFronters}',
                           priorLabel: previousPeriod != null
-                              ? '${previousPeriod.uniqueFronters} last period'
+                              ? context.l10n.analyticsPreviousPeriod(
+                                  '${previousPeriod.uniqueFronters}',
+                                )
                               : null,
                           theme: theme,
                         ),
@@ -455,16 +468,16 @@ class _StatsGrid extends StatelessWidget {
     return Table(
       children: [
         _row(theme, [
-          ('Sessions', '${stat.sessionCount}'),
-          ('Total', _fmt(stat.totalTime)),
+          (context.l10n.statisticsDurationSessions, '${stat.sessionCount}'),
+          (context.l10n.statisticsDurationTotal, _fmt(stat.totalTime)),
         ]),
         _row(theme, [
-          ('Average', _fmt(stat.averageDuration)),
-          ('Median', _fmt(stat.medianDuration)),
+          (context.l10n.statisticsDurationAverage, _fmt(stat.averageDuration)),
+          (context.l10n.statisticsDurationMedian, _fmt(stat.medianDuration)),
         ], topPadding: 10),
         _row(theme, [
-          ('Shortest', _fmt(stat.shortestSession)),
-          ('Longest', _fmt(stat.longestSession)),
+          (context.l10n.statisticsDurationShortest, _fmt(stat.shortestSession)),
+          (context.l10n.statisticsDurationLongest, _fmt(stat.longestSession)),
         ], topPadding: 10),
       ],
     );

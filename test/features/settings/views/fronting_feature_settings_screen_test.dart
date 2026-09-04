@@ -44,14 +44,11 @@ void main() {
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Fronting session display & fronting behavior'),
-        findsOneWidget,
-      );
+      expect(find.text('Display & Behavior'), findsOneWidget);
       expect(find.text('Session list view'), findsOneWidget);
-      expect(find.text('When adding a new fronter'), findsOneWidget);
-      expect(find.text('When using quick front'), findsOneWidget);
-      expect(find.text('Show long-running fronts in header'), findsOneWidget);
+      expect(find.text('Default Start Behavior'), findsOneWidget);
+      expect(find.text('Quick Action Behavior'), findsOneWidget);
+      expect(find.text('Long-running fronts'), findsOneWidget);
     });
 
     testWidgets('subtitles reflect the saved enum values', (tester) async {
@@ -88,13 +85,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Out'), findsOneWidget);
-      expect(find.text('Out session display & out behavior'), findsOneWidget);
-      expect(find.text('When adding a new out member'), findsOneWidget);
-      expect(find.text('When using quick out'), findsOneWidget);
-      expect(
-        find.text('Show long-running out sessions in header'),
-        findsOneWidget,
-      );
+      expect(find.text('Display & Behavior'), findsOneWidget);
+      expect(find.text('Default Start Behavior'), findsOneWidget);
+      expect(find.text('Quick Action Behavior'), findsOneWidget);
+      expect(find.text('Long-running out sessions'), findsOneWidget);
     });
 
     testWidgets('tapping list-view-mode picker writes the selected value', (
@@ -106,6 +100,18 @@ void main() {
 
       await tester.tap(find.text('Session list view'));
       await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'Combines overlapping fronting sessions into shared periods.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Shows each profile on a separate row.'),
+        findsOneWidget,
+      );
+      expect(find.text('Shows activity over time.'), findsOneWidget);
 
       // Pick "Timeline" — appears in the dialog as a RadioListTile title.
       await tester.tap(find.text('Timeline').last);
@@ -121,7 +127,7 @@ void main() {
       await tester.pumpWidget(buildSubject(repo));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('When adding a new fronter'));
+      await tester.tap(find.text('Default Start Behavior'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Replace current fronters').last);
@@ -142,7 +148,7 @@ void main() {
         await tester.pumpWidget(buildSubject(repo));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text('When using quick front'));
+        await tester.tap(find.text('Quick Action Behavior'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Replace current fronters').last);

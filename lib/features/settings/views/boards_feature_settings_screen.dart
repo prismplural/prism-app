@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -21,10 +22,14 @@ class BoardsFeatureSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final boardsEnabled = ref.watch(boardsEnabledProvider);
+    final terms = watchTerminology(context, ref);
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: context.l10n.featureBoardsTitle, showBackButton: true),
+      topBar: PrismTopBar(
+        title: context.l10n.featureBoardsTitle,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -32,7 +37,7 @@ class BoardsFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              context.l10n.featureBoardsDescription,
+              context.l10n.featureBoardsDescription(terms.pluralLower),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

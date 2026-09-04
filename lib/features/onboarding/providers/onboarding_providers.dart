@@ -58,48 +58,6 @@ enum OnboardingStep {
   whosFronting,
   complete;
 
-  String get title => switch (this) {
-    welcome => 'Welcome to Prism',
-    pinSetup => 'Set your PIN',
-    recoveryPhrase => 'Save your recovery phrase',
-    biometricSetup => 'Enable biometrics',
-    syncDevice => 'Sync From Device',
-    importedDataReady => 'Data Ready',
-    importData => 'Already have data?',
-    systemName => 'Name your system',
-    terminology => 'Choose your words',
-    addMembers => "Who's here?",
-    features => 'Pick your tools',
-    navigation => 'Arrange navigation',
-    frontingDefaults => 'Fronting defaults',
-    chatSetup => 'Set up chat',
-    appearance => 'Make it yours',
-    permissions => 'One more thing',
-    whosFronting => "Who's fronting?",
-    complete => 'Ready when you are',
-  };
-
-  String get subtitle => switch (this) {
-    welcome => 'Your system, your way.',
-    pinSetup => 'Protects your app and sync.',
-    recoveryPhrase => 'Write these 12 words somewhere safe.',
-    biometricSetup => 'Use Face ID or Touch ID to unlock.',
-    syncDevice => 'Pair with an existing device',
-    importedDataReady => 'Your imported system is ready to use',
-    importData => 'Bring your system with you.',
-    systemName => 'Whatever feels right.',
-    terminology => 'This changes labels throughout Prism.',
-    addMembers => 'Add the people in your system.',
-    features => 'Turn on what you need. Change anytime.',
-    navigation => '',
-    frontingDefaults => 'Choose how Home shows and starts fronts.',
-    chatSetup => 'Channels for your system to talk.',
-    appearance => 'Colors, theme, the small things.',
-    permissions => 'Optional permissions for the best experience.',
-    whosFronting => "Tap whoever's here right now.",
-    complete => "Your system is set up. Here's what to explore.",
-  };
-
   IconData get icon => switch (this) {
     welcome => AppIcons.duotoneStar,
     pinSetup => AppIcons.duotoneLock,
@@ -860,10 +818,6 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setFrontingTermPreset(FrontingTermPreset preset) {
     state = state.copyWith(pendingFrontingTerms: FrontingTerms.preset(preset));
-  }
-
-  void setCustomFrontingTerms(FrontingTermBundle bundle) {
-    state = state.copyWith(pendingFrontingTerms: FrontingTerms.custom(bundle));
   }
 
   void resetFrontingTerms() {

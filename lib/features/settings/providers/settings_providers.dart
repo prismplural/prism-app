@@ -148,12 +148,16 @@ class SettingsNotifier extends AsyncNotifier<void> {
   }
 
   Future<void> updateFrontingTerminologyCustom(
-    FrontingTermBundle bundle,
-  ) async {
+    FrontingTermBundle bundle, {
+    SimpleFrontingTermAuthoring? authoring,
+  }) async {
     state = await AsyncValue.guard(() async {
       await ref
           .read(appPreferenceRepositoryProvider)
-          .set(frontingTermsPreference, FrontingTerms.custom(bundle));
+          .set(
+            frontingTermsPreference,
+            FrontingTerms.custom(bundle, authoring: authoring),
+          );
     });
   }
 

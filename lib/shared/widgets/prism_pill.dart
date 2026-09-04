@@ -56,12 +56,16 @@ class PrismPill extends StatelessWidget {
             Icon(icon, size: 14, color: colors.foreground),
             const SizedBox(width: 6),
           ],
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: colors.foreground,
-              fontWeight: FontWeight.w700,
-              height: 1,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colors.foreground,
+                fontWeight: FontWeight.w700,
+                height: 1,
+              ),
             ),
           ),
         ],

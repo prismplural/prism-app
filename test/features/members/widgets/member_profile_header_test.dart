@@ -59,7 +59,8 @@ Widget _wrap(Widget child, {FrontingTerms? frontingTerms}) {
 }
 
 Finder get _headerImages => find.byWidgetPredicate(
-  (widget) => widget is Image && widget.semanticLabel == 'Alice profile header',
+  (widget) =>
+      widget is Image && widget.semanticLabel == 'Profile header for Alice',
 );
 
 void main() {

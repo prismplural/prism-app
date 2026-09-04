@@ -150,6 +150,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Widget _buildListPane(BuildContext context) {
     final settingsAsync = ref.watch(systemSettingsProvider);
     final terms = watchFullTerminology(context, ref);
+    final systemTerms = ref.watch(systemTermsSettingProvider);
     // System card displays member count + avatar stack — exclude the Unknown
     // sentinel so it doesn't inflate the count or appear in the stack.
     final membersAsync = ref.watch(userVisibleMemberListProvider);
@@ -193,7 +194,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _leafLink(
                       icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
-                      title: context.l10n.settingsSystemInformation(
+                      title: systemInfoLabel(
+                        context.l10n,
+                        systemTerms,
                         terms.systemSingular,
                       ),
                       selectionKey: 'system-info',

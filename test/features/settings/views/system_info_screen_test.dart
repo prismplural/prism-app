@@ -90,9 +90,9 @@ void main() {
       await tester.pumpWidget(buildSubject(appPrefs: appPrefs));
       await tester.pumpAndSettle();
 
-      expect(find.text('Collective Information'), findsOneWidget);
-      expect(find.text('Collective tag'), findsOneWidget);
-      expect(find.text('Collective color'), findsOneWidget);
+      expect(find.text('Collective Info'), findsOneWidget);
+      expect(find.text('Tag'), findsOneWidget);
+      expect(find.text('Color'), findsOneWidget);
     });
 
     testWidgets('uses preset system terminology for labels', (tester) async {
@@ -106,9 +106,9 @@ void main() {
       await tester.pumpWidget(buildSubject(appPrefs: appPrefs));
       await tester.pumpAndSettle();
 
-      expect(find.text('Collective Information'), findsOneWidget);
-      expect(find.text('Collective tag'), findsOneWidget);
-      expect(find.text('Collective color'), findsOneWidget);
+      expect(find.text('Collective Info'), findsOneWidget);
+      expect(find.text('Tag'), findsOneWidget);
+      expect(find.text('Color'), findsOneWidget);
     });
 
     testWidgets(

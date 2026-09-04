@@ -188,7 +188,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     final paneScope = ListDetailPaneScope.maybeOf(context);
     final canPopPane = paneScope?.canPopPane ?? false;
     final terms = watchTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final namePresentation = ref.watch(memberNamePresentationProvider);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
     final allGroupsAsync = ref.watch(allGroupsProvider);

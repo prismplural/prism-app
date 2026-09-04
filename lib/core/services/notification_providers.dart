@@ -1,15 +1,31 @@
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show PlatformDispatcher, debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/services/fronting_notification_service.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 
 /// Provides the [FrontingNotificationService] singleton instance.
 final frontingNotificationServiceProvider =
     Provider<FrontingNotificationService>((ref) {
+      final locale =
+          ref.watch(localeOverrideProvider) ??
+          PlatformDispatcher.instance.locale;
+      final l10n = appLocalizationsForLocale(locale);
+      final frontingTerms = resolveFrontingTerms(
+        l10n,
+        ref.watch(frontingTermsSettingProvider),
+      );
       return FrontingNotificationService(
         ref.watch(localNotificationServiceProvider),
+        reminderTitle: frontingTerms.reminderLabel,
+        reminderBody: l10n.notificationsScheduledReminderBody(
+          frontingTerms.currentQuestionNow,
+        ),
+        reminderChannelName: l10n.notificationsReminderChannelName,
+        reminderChannelDescription:
+            l10n.notificationsReminderChannelDescription,
       );
     });
 

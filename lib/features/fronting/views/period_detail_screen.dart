@@ -495,7 +495,7 @@ class _CoFrontersSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     // Resolve all sessions; skip loading/error — render nothing until data
     // arrives (the header provides instant content from hint, so there's no
     // blank screen).
@@ -632,7 +632,7 @@ class _CoFronterRow extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) {
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     return [
       if (session.isActive)
         _ContextAction(
@@ -1047,7 +1047,7 @@ class _AlwaysPresentSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final periodsAsync = ref.watch(derivedPeriodsProvider);
     final matchedPeriod = periodsAsync.whenOrNull(
       data: (periods) => findPeriodBySessionIds(periods, sessionIds),

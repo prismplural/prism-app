@@ -59,7 +59,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     final nodeIdAsync = ref.watch(nodeIdProvider);
     final pendingAsync = ref.watch(_pendingChangesCountProvider);
     final lastSyncTime = ref.watch(lastSyncTimeProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.debugTitle, showBackButton: true),
@@ -509,7 +509,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   }
 
   Future<void> _repairFrontingSessions(BuildContext context) async {
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     setState(() => _isRepairingFronting = true);
     try {
       final result = await ref

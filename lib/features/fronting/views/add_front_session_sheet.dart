@@ -261,7 +261,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final membersAsync = ref.watch(activeMemberListProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
@@ -689,7 +689,7 @@ class _MemberGridState extends ConsumerState<_MemberGrid> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Unknown',
+              context.l10n.unknown,
               style: theme.textTheme.labelMedium?.copyWith(
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),

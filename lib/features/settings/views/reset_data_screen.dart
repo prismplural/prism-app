@@ -105,12 +105,12 @@ class ResetDataScreen extends ConsumerWidget {
     bool enabled = true,
   }) {
     final terms = readTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     return PrismSettingsRow(
       icon: icon,
       iconColor: iconColor,
-      title: _categoryLabel(category, terms, frontingTerms),
-      subtitle: _categoryDescription(category, terms, frontingTerms),
+      title: _categoryLabel(context, category, terms, frontingTerms),
+      subtitle: _categoryDescription(context, category, terms, frontingTerms),
       destructive: destructive,
       enabled: enabled,
       onTap: enabled ? () => _showConfirmation(context, ref, category) : null,
@@ -126,29 +126,29 @@ class ResetDataScreen extends ConsumerWidget {
     final isSync = category == ResetCategory.sync;
     final isCustomFields = category == ResetCategory.customFields;
     final terms = readTerminology(context, ref);
-    final frontingTerms = readFrontingTerms(ref);
-    final label = _categoryLabel(category, terms, frontingTerms);
+    final frontingTerms = readFrontingTerms(context, ref);
+    final label = _categoryLabel(context, category, terms, frontingTerms);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: isSync
-          ? 'Disconnect sync from this device?'
+          ? context.l10n.resetDataConfirmSyncTitle
           : isCustomFields
           ? context.l10n.resetDataConfirmCustomFieldsTitle
           : context.l10n.resetDataConfirmTitle(label),
       message: isAll
-          ? context.l10n.resetDataConfirmAll(terms.pluralLower)
+          ? context.l10n.resetDataConfirmAll(
+              terms.pluralLower,
+              frontingTerms.sessionPluralLower,
+            )
           : isSync
-          ? 'Prism will keep all local data on this device and stop syncing it. '
-                'This also makes a best-effort attempt to remove this device '
-                'from the relay, or delete the relay group only when the relay '
-                'says this was the last device.'
+          ? context.l10n.resetDataConfirmSync
           : isCustomFields
           ? context.l10n.resetDataConfirmCustomFieldsBody
           : context.l10n.resetDataConfirmCategory(label.toLowerCase()),
       confirmLabel: isAll
           ? context.l10n.resetDataConfirmEverything
           : isSync
-          ? 'Disconnect Sync, Keep Data'
+          ? context.l10n.resetDataConfirmSync2
           : context.l10n.delete,
       destructive: true,
     );
@@ -197,7 +197,7 @@ class ResetDataScreen extends ConsumerWidget {
       PrismToast.show(
         context,
         message: isSync
-            ? 'Sync disconnected. This device is staying local.'
+            ? context.l10n.resetDataSyncDisconnected
             : context.l10n.resetDataSuccess(label),
       );
     } catch (e) {
@@ -207,26 +207,30 @@ class ResetDataScreen extends ConsumerWidget {
   }
 
   String _categoryLabel(
+    BuildContext context,
     ResetCategory category,
     Terminology terms,
     FrontingTermBundle frontingTerms,
   ) => switch (category) {
     ResetCategory.members => terms.plural,
     ResetCategory.fronting => frontingTerms.sessionPlural,
-    _ => category.label,
+    _ => context.l10n.resetDataCategoryLabel(category.name),
   };
 
   String _categoryDescription(
+    BuildContext context,
     ResetCategory category,
     Terminology terms,
     FrontingTermBundle frontingTerms,
   ) => switch (category) {
-    ResetCategory.members =>
-      'Removes all ${terms.pluralLower}. '
-          '${frontingTerms.sessionPlural} will show as unknown.',
-    ResetCategory.fronting =>
-      'Deletes all ${frontingTerms.historyLabel.toLowerCase()}.',
-    _ => category.description,
+    ResetCategory.members => context.l10n.resetDataMembersDescription(
+      terms.pluralLower,
+      frontingTerms.sessionPlural,
+    ),
+    ResetCategory.fronting => context.l10n.resetDataFrontingDescription(
+      frontingTerms.historyLabel,
+    ),
+    _ => context.l10n.resetDataCategoryDescription(category.name),
   };
 }
 

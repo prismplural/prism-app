@@ -328,6 +328,7 @@ class _PreviewCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return PrismSectionCard(
       child: Padding(
@@ -356,7 +357,7 @@ class _PreviewCard extends ConsumerWidget {
                 ],
               ),
             ),
-            PrismPill(label: context.l10n.appearanceFronting),
+            Flexible(child: PrismPill(label: frontingTerms.activeSectionLabel)),
           ],
         ),
       ),

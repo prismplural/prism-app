@@ -163,11 +163,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSectionData => 'Data';
 
   @override
-  String settingsSystemInformation(String systemTerm) {
-    return '$systemTerm Information';
-  }
-
-  @override
   String get settingsGroups => 'Groups';
 
   @override
@@ -430,7 +425,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get palettePreviewChip => 'Fronting';
 
   @override
-  String get palettePreviewNavHint => 'Home · Members · Settings';
+  String palettePreviewNavHint(String termPlural) {
+    return 'Home · $termPlural · Settings';
+  }
 
   @override
   String get paletteResetTitle => 'Reset';
@@ -459,7 +456,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose between rounded or square corners throughout the app.';
 
   @override
-  String get appearanceMemberNamesTitle => 'Member names';
+  String get appearanceMemberNamesTitle => 'Names';
 
   @override
   String get appearanceMemberNamesDisplay => 'Full Name';
@@ -469,7 +466,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appearanceMemberNamesDescription =>
-      'Choose which name to show for members across the app.';
+      'Choose which name Prism shows across the app.';
 
   @override
   String get appearanceMemberNamesShowAlternateTitle => 'Show alternate name';
@@ -523,14 +520,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get terminologyMemberSectionDescription =>
-      'Controls labels for people in Prism.';
+      'Choose what Prism calls your members.';
 
   @override
   String get terminologySystemSectionTitle => 'System terminology';
 
   @override
   String get terminologySystemSectionDescription =>
-      'Controls labels for your collective across Prism.';
+      'Choose what Prism calls your system.';
 
   @override
   String get terminologySystemDefaultSingular => 'System';
@@ -594,11 +591,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String terminologySystemPreview(
-    String systemTerm,
+    String infoLabel,
     String systemTermLower,
     String memberTermLower,
   ) {
-    return '\"$systemTerm Information\" · \"Add your first $systemTermLower $memberTermLower\"';
+    return '\"$infoLabel\" · \"Add a $memberTermLower to your $systemTermLower\"';
   }
 
   @override
@@ -606,22 +603,140 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get terminologyFrontingSectionDescription =>
-      'Controls labels for who\'s active now, related actions, history, and reminders.';
+      'Choose how Prism describes fronting and related activity.';
 
   @override
-  String get terminologyFrontingCustomSubtitle => 'Full phrase editor';
+  String get terminologyFrontingCustomSubtitle => 'Simple or advanced';
 
   @override
   String get terminologyFrontingCustomIntro =>
-      'Advanced mode lets you edit every phrase Prism derives from this terminology.';
+      'Edit every phrase Prism uses for this activity.';
 
   @override
   String get terminologyFrontingCustomRequired =>
-      'Fill in every fronting phrase before saving.';
+      'Fill in every fronting phrase.';
 
   @override
   String terminologyFrontingCustomTooLong(int maxLength) {
     return 'Use $maxLength characters or fewer per phrase.';
+  }
+
+  @override
+  String get terminologyFrontingModeSimple => 'Simple';
+
+  @override
+  String get terminologyFrontingModeAdvanced => 'Advanced';
+
+  @override
+  String get terminologyFrontingStartSimple => 'Start Simple Setup';
+
+  @override
+  String get terminologyFrontingSimpleIntro =>
+      'Set the core words and phrases. Prism fills in the rest.';
+
+  @override
+  String get terminologyFrontingSimpleRegenerationNote =>
+      'Changing these fields refreshes the generated phrases in Advanced.';
+
+  @override
+  String get terminologyFrontingSimpleRequired => 'Fill in every Simple field.';
+
+  @override
+  String terminologyFrontingSimpleFieldLabel(String field) {
+    String _temp0 = intl.Intl.selectLogic(field, {
+      'featureLabel': 'Activity name',
+      'activeSectionLabel': 'Short status label',
+      'statePhrase': 'Phrase after “is”',
+      'activeSingularLabel': 'One active person',
+      'activePluralLabel': 'Active people',
+      'sessionSingular': 'One session',
+      'sessionPlural': 'Multiple sessions',
+      'other': 'Term',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingSimpleFieldHint(String field) {
+    String _temp0 = intl.Intl.selectLogic(field, {
+      'featureLabel': 'Fronting',
+      'activeSectionLabel': 'Fronting',
+      'statePhrase': 'fronting',
+      'activeSingularLabel': 'Fronter',
+      'activePluralLabel': 'Fronters',
+      'sessionSingular': 'Fronting session',
+      'sessionPlural': 'Fronting sessions',
+      'other': 'Term',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingSimpleGenerated(
+    String field,
+    String featureLabel,
+    String activeSection,
+    String statePhrase,
+    String activeSingular,
+    String activePlural,
+    String sessionSingular,
+    String sessionPlural,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(field, {
+      'currentQuestion': 'Who\'s $statePhrase?',
+      'currentQuestionNow': 'Who\'s $statePhrase now?',
+      'emptyCurrentState': 'No one is $statePhrase',
+      'currentActiveLabel': 'Current: $activeSingular',
+      'latestActiveLabel': 'Latest: $activeSingular',
+      'unknownActiveLabel': 'Unknown: $activeSingular',
+      'currentlyActivePhrase': 'currently $statePhrase',
+      'logAction': 'Log: $sessionSingular',
+      'logPastAction': 'Log Past: $sessionSingular',
+      'quickAction': 'Quick $activeSection',
+      'holdToStartHint': 'Hold to start: $activeSection',
+      'addAction': 'Add: $activeSingular',
+      'setAsAction': 'Set as: $activeSingular',
+      'replaceCurrentAction': 'Replace: $activePlural',
+      'endWithoutAction': 'End without adding anyone',
+      'endCurrentAction': 'End: $activeSection',
+      'keepCurrentAction': 'Keep: $activeSection',
+      'directButtonLabel': '$activeSection Buttons',
+      'historyLabel': '$featureLabel History',
+      'dataLabel': '$featureLabel Data',
+      'entryLabel': '$featureLabel Entry',
+      'sessionCommentSingular': 'Comment: $sessionSingular',
+      'sessionCommentPlural': 'Comments: $sessionPlural',
+      'statsLabel': '$featureLabel Stats',
+      'timeLabel': '$featureLabel Time',
+      'lastActiveLabel': 'Last: $activeSection',
+      'mostActiveSortLabel': 'Most Time: $activeSection',
+      'leastActiveSortLabel': 'Least Time: $activeSection',
+      'statusLabel': 'Status: $activeSection',
+      'togetherStateLabel': 'Together: $activeSection',
+      'togetherActiveSingularLabel': 'Together: $activeSingular',
+      'togetherActivePluralLabel': 'Together: $activePlural',
+      'togetherPastLabel': 'were $statePhrase together',
+      'addTogetherAction': 'Add: $activeSingular',
+      'overlapOptionLabel': 'Create overlapping activity',
+      'overlapSubtitle':
+          'Split overlapping time into shared activity segments.',
+      'changeSingular': 'Change: $featureLabel',
+      'changePlural': 'Changes: $featureLabel',
+      'anyChangeLabel': 'Any Change: $featureLabel',
+      'onChangeLabel': 'On Change: $featureLabel',
+      'delayAfterChangeLabel': 'Delay After Change: $featureLabel',
+      'reminderLabel': '$featureLabel Reminder',
+      'logChangeReminderAction': 'Log Change: $featureLabel',
+      'alwaysActiveLabel': 'Always: $activeSection',
+      'alwaysPresentHeaderLabel': 'Always $activeSection',
+      'longRunningLabel': 'Long-running: $activeSection',
+      'longRunningHeaderLabel': 'Long-running $activeSection',
+      'quickCorrectionLabel': 'Quick Correction: $activeSection',
+      'quickCorrectionWindowTitle': 'Quick Correction Window',
+      'switchEventLabel': 'Change: $featureLabel',
+      'other': '$featureLabel',
+    });
+    return '$_temp0';
   }
 
   @override
@@ -632,6 +747,779 @@ class AppLocalizationsEn extends AppLocalizations {
     String historyLabel,
   ) {
     return '\"$question\" · \"$activePlural\" · \"$logAction\" · \"$historyLabel\"';
+  }
+
+  @override
+  String terminologyFrontingPresetChoiceLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting',
+      'present': 'Present',
+      'out': 'Out',
+      'online': 'Online',
+      'other': 'Fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetFeatureLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting',
+      'present': 'Presence',
+      'out': 'Out',
+      'online': 'Online',
+      'other': 'Fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetFeatureLower(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'fronting',
+      'present': 'presence',
+      'out': 'out',
+      'online': 'online',
+      'other': 'fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetStatePhrase(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'fronting',
+      'present': 'present',
+      'out': 'out',
+      'online': 'online',
+      'other': 'fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetCurrentQuestion(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Who\'s fronting?',
+      'present': 'Who\'s present?',
+      'out': 'Who\'s out?',
+      'online': 'Who\'s online?',
+      'other': 'Who\'s fronting?',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetCurrentQuestionNow(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Who\'s fronting now?',
+      'present': 'Who\'s present now?',
+      'out': 'Who\'s out now?',
+      'online': 'Who\'s online now?',
+      'other': 'Who\'s fronting now?',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetEmptyCurrentState(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'No one\'s fronting',
+      'present': 'No one\'s present',
+      'out': 'No one\'s out',
+      'online': 'No one\'s online',
+      'other': 'No one\'s fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetActiveSingularLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronter',
+      'present': 'Present member',
+      'out': 'Out member',
+      'online': 'Online member',
+      'other': 'Fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetActivePluralLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronters',
+      'present': 'Present Members',
+      'out': 'Out Members',
+      'online': 'Online Members',
+      'other': 'Fronters',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetActiveSectionLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting',
+      'present': 'Present',
+      'out': 'Out',
+      'online': 'Online',
+      'other': 'Fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetCurrentActiveLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Current fronter',
+      'present': 'Current present member',
+      'out': 'Current out member',
+      'online': 'Current online member',
+      'other': 'Current fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLatestActiveLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Latest fronter',
+      'present': 'Latest present member',
+      'out': 'Latest out member',
+      'online': 'Latest online member',
+      'other': 'Latest fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetUnknownActiveLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Unknown fronter',
+      'present': 'Unknown present member',
+      'out': 'Unknown out member',
+      'online': 'Unknown online member',
+      'other': 'Unknown fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetCurrentlyActivePhrase(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'currently fronting',
+      'present': 'currently present',
+      'out': 'currently out',
+      'online': 'currently online',
+      'other': 'currently fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLogAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Log Front',
+      'present': 'Mark Present',
+      'out': 'Mark Out',
+      'online': 'Mark Online',
+      'other': 'Log Front',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLogPastAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Log Past Session',
+      'present': 'Log Past Presence',
+      'out': 'Log Past Out Session',
+      'online': 'Log Past Online Session',
+      'other': 'Log Past Session',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetQuickAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Quick Front',
+      'present': 'Quick Presence',
+      'out': 'Quick Out',
+      'online': 'Quick Online',
+      'other': 'Quick Front',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetHoldToStartHint(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Hold to start fronting',
+      'present': 'Hold to mark present',
+      'out': 'Hold to mark out',
+      'online': 'Hold to mark online',
+      'other': 'Hold to start fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetAddAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Add as fronter',
+      'present': 'Mark present',
+      'out': 'Mark out',
+      'online': 'Mark online',
+      'other': 'Add as fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetSetAsAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Set as fronter',
+      'present': 'Mark present',
+      'out': 'Mark out',
+      'online': 'Mark online',
+      'other': 'Set as fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetReplaceCurrentAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Replace current fronters',
+      'present': 'Replace present members',
+      'out': 'Replace current out members',
+      'online': 'Replace online members',
+      'other': 'Replace current fronters',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetEndWithoutAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'End without fronting',
+      'present': 'End without marking present',
+      'out': 'End without anyone out',
+      'online': 'End without anyone online',
+      'other': 'End without fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetEndCurrentAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'End front',
+      'present': 'End presence',
+      'out': 'End out',
+      'online': 'End online',
+      'other': 'End front',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetKeepCurrentAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Keep fronting',
+      'present': 'Keep present',
+      'out': 'Keep out',
+      'online': 'Keep online',
+      'other': 'Keep fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetDirectButtonLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Front buttons',
+      'present': 'Presence buttons',
+      'out': 'Out buttons',
+      'online': 'Online buttons',
+      'other': 'Front buttons',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetHistoryLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting history',
+      'present': 'Presence history',
+      'out': 'Out history',
+      'online': 'Online history',
+      'other': 'Fronting history',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetDataLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting data',
+      'present': 'Presence data',
+      'out': 'Out data',
+      'online': 'Online data',
+      'other': 'Fronting data',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetEntryLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting entry',
+      'present': 'Presence entry',
+      'out': 'Out entry',
+      'online': 'Online entry',
+      'other': 'Fronting entry',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetSessionSingular(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting session',
+      'present': 'Presence session',
+      'out': 'Out session',
+      'online': 'Online session',
+      'other': 'Fronting session',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetSessionPlural(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting sessions',
+      'present': 'Presence sessions',
+      'out': 'Out sessions',
+      'online': 'Online sessions',
+      'other': 'Fronting sessions',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetSessionCommentSingular(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Front session comment',
+      'present': 'Presence session comment',
+      'out': 'Out session comment',
+      'online': 'Online session comment',
+      'other': 'Front session comment',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetSessionCommentPlural(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Front session comments',
+      'present': 'Presence session comments',
+      'out': 'Out session comments',
+      'online': 'Online session comments',
+      'other': 'Front session comments',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetStatsLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting Stats',
+      'present': 'Presence Stats',
+      'out': 'Out Stats',
+      'online': 'Online Stats',
+      'other': 'Fronting Stats',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetTimeLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting time',
+      'present': 'Presence time',
+      'out': 'Out time',
+      'online': 'Online time',
+      'other': 'Fronting time',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLastActiveLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Last fronted',
+      'present': 'Last present',
+      'out': 'Last out',
+      'online': 'Last online',
+      'other': 'Last fronted',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetMostActiveSortLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Most fronting',
+      'present': 'Most present',
+      'out': 'Most out',
+      'online': 'Most online',
+      'other': 'Most fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLeastActiveSortLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Least fronting',
+      'present': 'Least present',
+      'out': 'Least out',
+      'online': 'Least online',
+      'other': 'Least fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetStatusLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Front status',
+      'present': 'Presence status',
+      'out': 'Out status',
+      'online': 'Online status',
+      'other': 'Front status',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetTogetherStateLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Co-fronting',
+      'present': 'Present together',
+      'out': 'Out together',
+      'online': 'Online together',
+      'other': 'Co-fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetTogetherActiveSingularLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Co-fronter',
+      'present': 'Member present together',
+      'out': 'Member out together',
+      'online': 'Member online together',
+      'other': 'Co-fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetTogetherActivePluralLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Co-fronters',
+      'present': 'Present Together',
+      'out': 'Out Together',
+      'online': 'Online Together',
+      'other': 'Co-fronters',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetTogetherPastLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'co-fronted',
+      'present': 'were present together',
+      'out': 'were out together',
+      'online': 'were online together',
+      'other': 'co-fronted',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetAddTogetherAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Add Fronter',
+      'present': 'Add Present Member',
+      'out': 'Add Out Member',
+      'online': 'Add Online Member',
+      'other': 'Add Fronter',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetOverlapOptionLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Create overlapping fronts',
+      'present': 'Create overlapping presence',
+      'out': 'Create overlapping out sessions',
+      'online': 'Create overlapping online sessions',
+      'other': 'Create overlapping fronts',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetOverlapSubtitle(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Split the overlapping time into shared fronting segments.',
+      'present': 'Split the overlapping time into shared presence segments.',
+      'out': 'Split the overlapping time into shared out segments.',
+      'online': 'Split the overlapping time into shared online segments.',
+      'other': 'Split the overlapping time into shared fronting segments.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetChangeSingular(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Front change',
+      'present': 'Presence change',
+      'out': 'Out change',
+      'online': 'Online change',
+      'other': 'Front change',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetChangePlural(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Front changes',
+      'present': 'Presence changes',
+      'out': 'Out changes',
+      'online': 'Online changes',
+      'other': 'Front changes',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetAnyChangeLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Any front change',
+      'present': 'Any presence change',
+      'out': 'Any out change',
+      'online': 'Any online change',
+      'other': 'Any front change',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetOnChangeLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'On front change',
+      'present': 'On presence change',
+      'out': 'On out change',
+      'online': 'On online change',
+      'other': 'On front change',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetDelayAfterChangeLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Delay after front change',
+      'present': 'Delay after presence change',
+      'out': 'Delay after out change',
+      'online': 'Delay after online change',
+      'other': 'Delay after front change',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetReminderLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Fronting reminder',
+      'present': 'Presence reminder',
+      'out': 'Out reminder',
+      'online': 'Online reminder',
+      'other': 'Fronting reminder',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLogChangeReminderAction(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Log fronting change',
+      'present': 'Log presence change',
+      'out': 'Log out change',
+      'online': 'Log online change',
+      'other': 'Log fronting change',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetAlwaysActiveLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Always fronting',
+      'present': 'Always present',
+      'out': 'Always out',
+      'online': 'Always online',
+      'other': 'Always fronting',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetAlwaysPresentHeaderLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Always present',
+      'present': 'Always present',
+      'out': 'Always out',
+      'online': 'Always online',
+      'other': 'Always present',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLongRunningLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Long-running',
+      'present': 'Long-running',
+      'out': 'Long-running',
+      'online': 'Long-running',
+      'other': 'Long-running',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetLongRunningHeaderLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Long-running fronts',
+      'present': 'Long-running presence',
+      'out': 'Long-running out sessions',
+      'online': 'Long-running online sessions',
+      'other': 'Long-running fronts',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetQuickCorrectionLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Quick Switch',
+      'present': 'Quick Switch',
+      'out': 'Quick Switch',
+      'online': 'Quick Switch',
+      'other': 'Quick Switch',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetQuickCorrectionWindowTitle(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Quick Switch Window',
+      'present': 'Quick Switch Window',
+      'out': 'Quick Switch Window',
+      'online': 'Quick Switch Window',
+      'other': 'Quick Switch Window',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingPresetSwitchEventLabel(String preset) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Switch',
+      'present': 'Switch',
+      'out': 'Switch',
+      'online': 'Switch',
+      'other': 'Switch',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String terminologyFrontingFieldLabel(String field) {
+    String _temp0 = intl.Intl.selectLogic(field, {
+      'featureLabel': 'Feature name',
+      'featureLower': 'Lowercase feature name',
+      'currentQuestion': 'Current-status question',
+      'currentQuestionNow': 'Current-status question with now',
+      'emptyCurrentState': 'Empty current-state message',
+      'activeSingularLabel': 'Active person, singular',
+      'activePluralLabel': 'Active people, plural',
+      'activeSectionLabel': 'Active-section title',
+      'currentActiveLabel': 'Current active person',
+      'latestActiveLabel': 'Most recently active person',
+      'unknownActiveLabel': 'Unknown active person',
+      'currentlyActivePhrase': 'Currently-active phrase',
+      'logAction': 'Log action',
+      'logPastAction': 'Log-past-session action',
+      'quickAction': 'Quick action',
+      'holdToStartHint': 'Hold-to-start hint',
+      'addAction': 'Add-as-active action',
+      'setAsAction': 'Set-as-active action',
+      'replaceCurrentAction': 'Replace-current action',
+      'endWithoutAction': 'End-without action',
+      'endCurrentAction': 'End-current action',
+      'keepCurrentAction': 'Keep-current action',
+      'directButtonLabel': 'Direct-action buttons',
+      'historyLabel': 'History title',
+      'dataLabel': 'Data label',
+      'entryLabel': 'Entry label',
+      'sessionSingular': 'Session name, singular',
+      'sessionPlural': 'Session name, plural',
+      'sessionCommentSingular': 'Session comment, singular',
+      'sessionCommentPlural': 'Session comments, plural',
+      'statsLabel': 'Statistics title',
+      'timeLabel': 'Time label',
+      'lastActiveLabel': 'Last-active label',
+      'mostActiveSortLabel': 'Most-active sort option',
+      'leastActiveSortLabel': 'Least-active sort option',
+      'statusLabel': 'Status label',
+      'togetherStateLabel': 'Shared-activity state',
+      'togetherActiveSingularLabel': 'Shared-active person, singular',
+      'togetherActivePluralLabel': 'Shared-active people, plural',
+      'togetherPastLabel': 'Shared-activity past-tense phrase',
+      'addTogetherAction': 'Add-to-shared-activity action',
+      'overlapOptionLabel': 'Create-overlap option',
+      'overlapSubtitle': 'Overlap-option description',
+      'changeSingular': 'Change name, singular',
+      'changePlural': 'Change name, plural',
+      'anyChangeLabel': 'Any-change option',
+      'onChangeLabel': 'On-change option',
+      'delayAfterChangeLabel': 'Delay-after-change label',
+      'reminderLabel': 'Reminder name',
+      'logChangeReminderAction': 'Reminder logging action',
+      'alwaysActiveLabel': 'Always-active label',
+      'alwaysPresentHeaderLabel': 'Always-active header',
+      'longRunningLabel': 'Long-running label',
+      'longRunningHeaderLabel': 'Long-running header',
+      'quickCorrectionLabel': 'Quick-correction label',
+      'quickCorrectionWindowTitle': 'Quick-correction window title',
+      'switchEventLabel': 'Change-event name',
+      'other': 'Phrase',
+    });
+    return '$_temp0';
   }
 
   @override
@@ -1182,8 +2070,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationsFrontingRemindersTitle => 'Fronting reminders';
 
   @override
-  String get notificationsFrontingRemindersSubtitle =>
-      'Get reminded to log fronting changes';
+  String notificationsFrontingRemindersSubtitle(String logAction) {
+    return 'Get periodic reminders for: $logAction.';
+  }
 
   @override
   String get notificationsReminderIntervalTitle => 'Reminder interval';
@@ -1196,8 +2085,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationsSuppressIfRecentTitle => 'Skip if logged recently';
 
   @override
-  String get notificationsSuppressIfRecentSubtitle =>
-      'Don\'t remind if you logged a front recently';
+  String notificationsSuppressIfRecentSubtitle(String changeLabelLower) {
+    return 'Skip after a recent log: $changeLabelLower.';
+  }
 
   @override
   String get notificationsSuppressOff => 'Off';
@@ -1270,8 +2160,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notificationsRequest => 'Request';
 
   @override
-  String get notificationsAboutText =>
-      'Fronting reminders send periodic notifications to help you stay aware of who is fronting. This can be useful for logging switches and maintaining awareness throughout the day.';
+  String notificationsAboutText(
+    String reminderLabel,
+    String currentQuestion,
+    String logAction,
+  ) {
+    return 'Periodic notifications for “$reminderLabel” help you answer “$currentQuestion” They can also prompt the action “$logAction”.';
+  }
+
+  @override
+  String notificationsScheduledReminderBody(String currentQuestionNow) {
+    return 'Open Prism to check: $currentQuestionNow';
+  }
+
+  @override
+  String get notificationsReminderChannelName => 'Prism activity reminders';
+
+  @override
+  String get notificationsReminderChannelDescription =>
+      'Periodic activity reminders from Prism.';
 
   @override
   String get notificationsAndroidFootnote =>
@@ -1314,13 +2221,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String resetDataConfirmAll(String termPluralLower) {
-    return 'This will permanently delete all your data including $termPluralLower, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.';
+  String resetDataConfirmAll(
+    String termPluralLower,
+    String sessionPluralLower,
+  ) {
+    return 'This will permanently delete all your data including $termPluralLower, $sessionPluralLower, messages, polls, habits, sleep data, and settings. This action cannot be undone.';
   }
 
   @override
+  String get resetDataConfirmSyncTitle => 'Disconnect sync from this device?';
+
+  @override
   String get resetDataConfirmSync =>
-      'This keeps your local app data, but removes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.';
+      'Prism will keep all local data on this device and stop syncing it. Prism will also make a best-effort attempt to remove this device from the relay, or delete the relay group only when the relay says this was the last device.';
 
   @override
   String resetDataConfirmCategory(String category) {
@@ -1331,7 +2244,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get resetDataConfirmEverything => 'Reset Everything';
 
   @override
-  String get resetDataConfirmSync2 => 'Reset Sync';
+  String get resetDataConfirmSync2 => 'Disconnect Sync, Keep Data';
+
+  @override
+  String get resetDataSyncDisconnected =>
+      'Sync disconnected. This device is staying local.';
+
+  @override
+  String resetDataCategoryLabel(String category) {
+    String _temp0 = intl.Intl.selectLogic(category, {
+      'chat': 'Chat',
+      'polls': 'Polls',
+      'habits': 'Habits',
+      'sleep': 'Sleep Sessions',
+      'customFields': 'Custom Fields',
+      'sync': 'Disconnect Sync',
+      'all': 'All Data',
+      'other': 'Data',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String resetDataCategoryDescription(String category) {
+    String _temp0 = intl.Intl.selectLogic(category, {
+      'chat': 'Deletes all conversations and messages.',
+      'polls': 'Deletes all polls, options, and votes.',
+      'habits': 'Deletes all habits and completion records.',
+      'sleep': 'Deletes all sleep tracking data.',
+      'customFields': 'Deletes all custom fields and their values.',
+      'sync': 'Stops syncing on this device while keeping local Prism data.',
+      'all': 'Permanently deletes everything and resets the app.',
+      'other': 'Deletes this category\'s data.',
+    });
+    return '$_temp0';
+  }
 
   @override
   String resetDataSuccess(String category) {
@@ -1744,8 +2691,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorHistoryCopied => 'Error details copied';
 
   @override
-  String systemInfoTitle(String systemTerm) {
-    return '$systemTerm Information';
+  String systemInfoTitle(String kind, String systemTerm) {
+    String _temp0 = intl.Intl.selectLogic(kind, {
+      'system': 'System Info',
+      'collective': 'Collective Info',
+      'community': 'Community Info',
+      'network': 'Network Info',
+      'constellation': 'Constellation Info',
+      'custom': '$systemTerm Info',
+      'other': '$systemTerm Info',
+    });
+    return '$_temp0';
   }
 
   @override
@@ -1887,7 +2843,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String systemInfoSystemNameHint(String systemTerm) {
-    return '$systemTerm name';
+    return 'Name of your $systemTerm';
   }
 
   @override
@@ -1903,7 +2859,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String systemInfoDescriptionHint(String systemTerm) {
-    return '$systemTerm description';
+    return 'Description of your $systemTerm';
   }
 
   @override
@@ -1913,9 +2869,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoSaveDescription => 'Save description';
 
   @override
-  String systemInfoTagLabel(String systemTerm) {
-    return '$systemTerm tag';
-  }
+  String get systemInfoTagLabel => 'Tag';
 
   @override
   String get systemInfoTagHint => 'e.g. | Skylars';
@@ -1924,9 +2878,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoTagHelper => 'Appended to proxied messages';
 
   @override
-  String systemInfoColorLabel(String systemTerm) {
-    return '$systemTerm color';
-  }
+  String get systemInfoColorLabel => 'Color';
 
   @override
   String get systemInfoColorPickAction => 'Pick color';
@@ -1941,9 +2893,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoHideTotalMemberCountTitle => 'Hide member counts';
 
   @override
-  String systemInfoHideTotalMemberCountSubtitle(String systemTerm) {
-    return 'Hides member totals in Settings, $systemTerm Information, Statistics, diagnostics, and group or folder count chips.';
-  }
+  String get systemInfoHideTotalMemberCountSubtitle =>
+      'Hides member totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.';
 
   @override
   String get devicesTitle => 'Manage Devices';
@@ -2354,8 +3305,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureChatVoiceNotesSubtitle => 'Send voice messages in chat';
 
   @override
-  String get featureFrontingDescription =>
-      'Configure how fronting sessions work.';
+  String featureFrontingDescription(String sessionPluralLower) {
+    return 'Configure how $sessionPluralLower work.';
+  }
 
   @override
   String get featureFrontingOptions => 'Options';
@@ -2380,15 +3332,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureFrontingQuickSwitchTitle => 'Quick Switch Window';
 
   @override
-  String get featureFrontingQuickSwitchMessage =>
-      'If you switch fronters within this window, it corrects the current session instead of creating a new one.';
+  String featureFrontingQuickSwitchMessage(
+    String activePluralLabelLower,
+    String sessionSingularLower,
+  ) {
+    return 'If you change $activePluralLabelLower within this window, Prism corrects the current $sessionSingularLower instead of creating a new one.';
+  }
 
   @override
   String get featureFrontingShowQuickFront => 'Quick Front';
 
   @override
-  String featureFrontingShowQuickFrontSubtitle(String termPluralLower) {
-    return 'Show frequently fronting $termPluralLower as tap-and-hold shortcuts';
+  String featureFrontingShowQuickFrontSubtitle(
+    String quickActionLower,
+    String termPluralLower,
+  ) {
+    return 'Show $quickActionLower tap-and-hold shortcuts for $termPluralLower';
   }
 
   @override
@@ -2725,7 +3684,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String frontingWelcomeSubtitle(String systemTermLower, String member) {
-    return 'Add your first $systemTermLower $member to get started';
+    return 'Add a $member to your $systemTermLower to get started';
   }
 
   @override
@@ -3280,11 +4239,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get memberFrontingHistoryEmpty => 'No fronting sessions yet.';
+  String memberFrontingHistoryEmpty(String activityLabelLower) {
+    return 'No $activityLabelLower yet.';
+  }
 
   @override
-  String get memberFrontingHistoryNoSessionsOnDate =>
-      'No fronting sessions found for that day.';
+  String memberFrontingHistoryNoSessionsOnDate(String sessionPluralLower) {
+    return 'No $sessionPluralLower found for that day.';
+  }
 
   @override
   String get memberSectionConversations => 'Conversations';
@@ -4742,7 +5704,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String chatCreateGroupNameHint(String systemTerm) {
-    return 'e.g., $systemTerm Discussion';
+    return 'e.g., $systemTerm conversation';
   }
 
   @override
@@ -5389,8 +6351,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingFeaturesBoards => 'Message Boards';
 
   @override
-  String get onboardingFeaturesBoardsDescription =>
-      'Short messages between headmates — public timeline plus private inbox.';
+  String onboardingFeaturesBoardsDescription(String termPluralLower) {
+    return 'Short messages between $termPluralLower — a public timeline and private inbox.';
+  }
 
   @override
   String get onboardingFeaturesBoardsImportedDescription =>
@@ -5718,12 +6681,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'We pulled this from your import — edit it if you\'d like something different.';
 
   @override
-  String get onboardingWhosFrontingSelectHint =>
-      'Tap to select who is currently fronting';
+  String onboardingWhosFrontingSelectHint(String currentQuestionNow) {
+    return 'Tap to answer: $currentQuestionNow';
+  }
 
   @override
-  String onboardingWhosFrontingImportedCurrent(String names) {
-    return 'Imported current front: $names';
+  String onboardingWhosFrontingImportedCurrent(
+    String activeLabel,
+    String names,
+  ) {
+    return 'Profiles imported under “$activeLabel”: $names';
   }
 
   @override
@@ -5778,11 +6745,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingFrontingDefaultsHomeViewSection => 'Home view';
 
   @override
-  String get onboardingFrontingDefaultsHomeViewTitle => 'Home fronting view';
+  String get onboardingFrontingDefaultsHomeViewTitle => 'Home Display';
 
   @override
-  String get onboardingFrontingDefaultsHomeViewDescription =>
-      'Choose the view Home uses for fronting history.';
+  String onboardingFrontingDefaultsHomeViewDescription(
+    String historyLabelLower,
+  ) {
+    return 'Choose how Home displays $historyLabelLower.';
+  }
 
   @override
   String get onboardingFrontingViewCombined => 'Combined';
@@ -5794,33 +6764,45 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingFrontingViewTimeline => 'Timeline';
 
   @override
-  String get onboardingFrontingViewCombinedDescription =>
-      'Groups overlapping fronts into one combined period.';
+  String onboardingFrontingViewCombinedDescription(String sessionPluralLower) {
+    return 'Groups overlapping $sessionPluralLower into one combined period.';
+  }
 
   @override
-  String get onboardingFrontingViewIndividualDescription =>
-      'Shows each fronting session as its own row.';
+  String onboardingFrontingViewIndividualDescription(
+    String sessionSingularLower,
+  ) {
+    return 'Shows each $sessionSingularLower on its own row.';
+  }
 
   @override
-  String get onboardingFrontingViewTimelineDescription =>
-      'Shows fronting as a visual timeline over time.';
+  String onboardingFrontingViewTimelineDescription(String historyLabelLower) {
+    return 'Shows $historyLabelLower on a visual timeline.';
+  }
 
   @override
-  String get onboardingFrontingDefaultsStartingSection => 'Starting fronts';
+  String get onboardingFrontingDefaultsStartingSection => 'Starting Activity';
 
   @override
-  String get onboardingAddFrontBehaviorTitle => 'When adding a new front';
+  String onboardingAddFrontBehaviorTitle(String logAction) {
+    return '$logAction';
+  }
 
   @override
   String get onboardingAddFrontBehaviorDescription =>
-      'Choose what happens when you start a front from the full Add Front sheet.';
+      'Choose whether this adds to or replaces the current group.';
 
   @override
-  String get onboardingQuickFrontBehaviorTitle => 'When using quick front';
+  String onboardingQuickFrontBehaviorTitle(String quickAction) {
+    return '$quickAction';
+  }
 
   @override
-  String onboardingQuickFrontBehaviorDescription(String termSingularLower) {
-    return 'Choose what happens when you hold a quick-front button for a $termSingularLower who is not already fronting.';
+  String onboardingQuickFrontBehaviorDescription(
+    String termSingularLower,
+    String currentlyActivePhrase,
+  ) {
+    return 'Choose whether this adds to or replaces the current group for a $termSingularLower who is not $currentlyActivePhrase.';
   }
 
   @override
@@ -5831,11 +6813,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingFrontBehaviorAdditiveDescription =>
-      'Keeps everyone currently fronting and adds the new member as a fronter.';
+      'Keeps the current group and adds the selected person.';
 
   @override
   String get onboardingFrontBehaviorReplaceDescription =>
-      'Ends the current front first, then starts the new member.';
+      'Ends the current activity, then starts the selected person.';
 
   @override
   String get onboardingAppearanceTheme => 'Theme';
@@ -7972,8 +8954,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementExportYourData => 'Export Your Data';
 
   @override
-  String dataManagementExportDescription(String termPluralLower) {
-    return 'Create a password-protected backup of all your data including $termPluralLower, fronting sessions, messages, polls, and settings.';
+  String dataManagementExportDescription(
+    String termPluralLower,
+    String sessionPluralLower,
+  ) {
+    return 'Create a password-protected backup of all your data including $termPluralLower, $sessionPluralLower, messages, polls, and settings.';
   }
 
   @override
@@ -8116,10 +9101,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementPreviewHabitCompletions => 'Habit Completions';
 
   @override
-  String get dataManagementPreviewMemberGroups => 'Member Groups';
+  String get dataManagementPreviewMemberGroups => 'Groups';
 
   @override
-  String get dataManagementPreviewMemberGroupEntries => 'Member Group Entries';
+  String get dataManagementPreviewMemberGroupEntries => 'Group Memberships';
 
   @override
   String get dataManagementPreviewCustomFields => 'Custom Fields';
@@ -8131,8 +9116,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementPreviewNotes => 'Notes';
 
   @override
-  String get dataManagementPreviewFrontSessionComments =>
-      'Front Session Comments';
+  String dataManagementPreviewFrontSessionComments(
+    String sessionSingularLower,
+  ) {
+    return '$sessionSingularLower comments';
+  }
 
   @override
   String get dataManagementPreviewConversationCategories =>
@@ -8148,7 +9136,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dataManagementPreviewMediaAttachments => 'Media Attachments';
 
   @override
-  String get dataManagementPreviewMemberBoardPosts => 'Member Board Posts';
+  String get dataManagementPreviewMemberBoardPosts => 'Board Posts';
 
   @override
   String get dataManagementPreviewAppPreferences => 'App Preferences';
@@ -8651,11 +9639,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String settingsAboutDescription(
-    String termPluralLower,
-    String systemTermLower,
     String systemTermPluralLower,
+    String sessionPluralLower,
+    String termPluralLower,
   ) {
-    return 'A privacy-focused app for managing plural $systemTermPluralLower. Track fronting, communicate between $termPluralLower, and keep your $systemTermLower organized.';
+    return 'A privacy-focused app for plural $systemTermPluralLower. Track $sessionPluralLower, support conversations among $termPluralLower, and stay organized.';
   }
 
   @override
@@ -9451,7 +10439,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cancelHistoricalSleep => 'Cancel';
 
   @override
-  String get onboardingWelcomeTitle => 'Together in Prism.';
+  String get onboardingWelcomeTitle => 'Welcome to Prism.';
 
   @override
   String get onboardingWelcomeSubtitle =>
@@ -9488,23 +10476,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingImportDataSubtitle => 'Bring your data with you.';
 
   @override
-  String get onboardingSystemNameTitle => 'Name this profile';
+  String get onboardingSystemNameTitle => 'Name your profile';
 
   @override
-  String get onboardingSystemNameSubtitle => 'Whatever feels right.';
+  String get onboardingSystemNameSubtitle => 'You can change this later.';
 
   @override
   String get onboardingTerminologyTitle => 'Choose your words';
 
   @override
-  String get onboardingTerminologySubtitle =>
-      'This changes labels throughout Prism.';
+  String get onboardingTerminologySubtitle => 'Choose the words Prism uses.';
 
   @override
   String get onboardingAddMembersTitle => 'Who\'s here?';
 
   @override
-  String get onboardingAddMembersSubtitle => 'Add your people.';
+  String get onboardingAddMembersSubtitle =>
+      'Add anyone you’d like to include.';
 
   @override
   String get onboardingFeaturesTitle => 'Pick your tools';
@@ -9521,17 +10509,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Move less-used items into More,\nthe three-dot button opens that menu.';
 
   @override
-  String get onboardingFrontingDefaultsTitle => 'Fronting defaults';
+  String onboardingFrontingDefaultsTitle(String featureLabel) {
+    return '$featureLabel defaults';
+  }
 
   @override
-  String get onboardingFrontingDefaultsSubtitle =>
-      'Choose how Home shows and starts fronts.';
+  String onboardingFrontingDefaultsSubtitle(String sessionPluralLower) {
+    return 'Choose how Home displays and starts $sessionPluralLower.';
+  }
 
   @override
   String get onboardingChatSetupTitle => 'Set up chat';
 
   @override
-  String get onboardingChatSetupSubtitle => 'Channels to talk.';
+  String get onboardingChatSetupSubtitle => 'Create spaces for conversations.';
 
   @override
   String get onboardingAppearanceTitle => 'Make it yours';
@@ -9646,7 +10637,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String terminologyAddFirstSubtitle(String term, String systemTermLower) {
-    return 'Add your first $systemTermLower $term to get started';
+    return 'Add a $term to your $systemTermLower to get started';
   }
 
   @override
@@ -10679,8 +11670,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Switches found (not imported)';
 
   @override
-  String get settingsFrontingSessionDisplaySectionTitle =>
-      'Session display & front behavior';
+  String get settingsFrontingSessionDisplaySectionTitle => 'Display & Behavior';
 
   @override
   String get settingsFrontingListViewModeLabel => 'Session list view';
@@ -10689,8 +11679,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsFrontingListViewModeCombinedPeriods => 'Combined periods';
 
   @override
-  String get settingsFrontingListViewModeCombinedPeriodsDescription =>
-      'Avatar stacks for each unique fronter group';
+  String settingsFrontingListViewModeCombinedPeriodsDescription(
+    String sessionPluralLower,
+  ) {
+    return 'Combines overlapping $sessionPluralLower into shared periods.';
+  }
 
   @override
   String settingsFrontingListViewModePerMemberRows(String term) {
@@ -10699,43 +11692,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsFrontingListViewModePerMemberRowsDescription =>
-      'One row per fronter session, side-by-side';
+      'Shows each profile on a separate row.';
 
   @override
   String get settingsFrontingListViewModeTimeline => 'Timeline';
 
   @override
   String get settingsFrontingListViewModeTimelineDescription =>
-      'Bar chart view of fronting over time';
+      'Shows activity over time.';
 
   @override
-  String get settingsAddFrontDefaultBehaviorLabel => 'When adding a new front';
+  String get settingsAddFrontDefaultBehaviorLabel => 'Default Start Behavior';
 
   @override
   String get settingsAddFrontDefaultBehaviorAdditive => 'Add as fronter';
 
   @override
-  String get settingsAddFrontDefaultBehaviorAdditiveDescription =>
-      'New fronts join existing ones';
+  String settingsAddFrontDefaultBehaviorAdditiveDescription(
+    String sessionPluralLower,
+  ) {
+    return 'New $sessionPluralLower join existing ones';
+  }
 
   @override
   String get settingsAddFrontDefaultBehaviorReplace =>
       'Replace current fronters';
 
   @override
-  String get settingsAddFrontDefaultBehaviorReplaceDescription =>
-      'End all current fronts before starting new ones';
+  String settingsAddFrontDefaultBehaviorReplaceDescription(
+    String sessionPluralLower,
+  ) {
+    return 'End all current $sessionPluralLower before starting new ones';
+  }
 
   @override
-  String get settingsQuickFrontDefaultBehaviorLabel => 'When using quick front';
+  String get settingsQuickFrontDefaultBehaviorLabel => 'Quick Action Behavior';
 
   @override
-  String get settingsAutoPromoteLongFrontingSessionsLabel =>
-      'Show long-running fronts in header';
+  String settingsAutoPromoteLongFrontingSessionsLabel(
+    String longRunningHeaderLabel,
+  ) {
+    return '$longRunningHeaderLabel';
+  }
 
   @override
-  String get settingsAutoPromoteLongFrontingSessionsDescription =>
-      'After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.';
+  String settingsAutoPromoteLongFrontingSessionsDescription(
+    String sessionPluralLower,
+    String alwaysActiveLabel,
+  ) {
+    return 'After 7 days, show active $sessionPluralLower in the pinned header without marking them $alwaysActiveLabel or hiding them from history.';
+  }
 
   @override
   String get settingsQuickFrontDefaultBehaviorAdditive => 'Add as fronter';
@@ -10745,14 +11751,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Replace current fronters';
 
   @override
-  String get settingsComposerDefaultMemberLabel => 'Default when composing';
+  String get settingsComposerDefaultMemberLabel => 'Default Author';
 
   @override
   String get settingsComposerDefaultMemberLatestFronter => 'Latest fronter';
 
   @override
   String get settingsComposerDefaultMemberLatestFronterDescription =>
-      'Open as whoever started fronting most recently';
+      'Open with the most recently active profile';
 
   @override
   String get settingsComposerDefaultMemberLastUsed => 'Last used';
@@ -10775,8 +11781,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureBoardsTitle => 'Message Boards';
 
   @override
-  String get featureBoardsDescription =>
-      'Short messages between headmates — public timeline plus private inbox.';
+  String featureBoardsDescription(String termPluralLower) {
+    return 'Short messages between $termPluralLower — a public timeline and private inbox.';
+  }
 
   @override
   String get featureBoardsEnable => 'Enable Message Boards';
@@ -10798,7 +11805,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsTileEveryone => 'everyone';
 
   @override
-  String get boardsTileRemovedMember => 'Removed member';
+  String get boardsTileRemovedMember => 'Removed profile';
 
   @override
   String get boardsDetailEdit => 'Edit';
@@ -10842,8 +11849,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsEmptyInbox => 'No private posts right now.';
 
   @override
-  String get boardsComposeNoFronterHint =>
-      'No one\'s fronting right now — start a session to post.';
+  String boardsComposeNoFronterHint(String emptyCurrentState) {
+    return '$emptyCurrentState. Start a session to post.';
+  }
 
   @override
   String boardsToastFronterDeFronted(String name) {
@@ -12761,4 +13769,189 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get imageSemanticThumbnail => 'Media thumbnail';
+
+  @override
+  String analyticsInsightGapHeadline(String duration) {
+    return '$duration untracked this period';
+  }
+
+  @override
+  String analyticsInsightGapBody(int percent) {
+    return '$percent% of the time wasn\'t logged.';
+  }
+
+  @override
+  String analyticsInsightTogetherNamed(
+    String nameA,
+    String nameB,
+    String togetherPast,
+  ) {
+    return '$nameA and $nameB $togetherPast often this period';
+  }
+
+  @override
+  String analyticsInsightTogetherGeneric(
+    String termPluralLower,
+    String togetherPast,
+  ) {
+    return 'Two $termPluralLower $togetherPast often this period';
+  }
+
+  @override
+  String analyticsInsightTogetherBody(String duration) {
+    return '$duration together.';
+  }
+
+  @override
+  String analyticsInsightQuietNamed(String name, String sessionPluralLower) {
+    return '$name has no $sessionPluralLower this period';
+  }
+
+  @override
+  String analyticsInsightQuietGeneric(
+    String termSingularLower,
+    String sessionPluralLower,
+  ) {
+    return 'One $termSingularLower has no $sessionPluralLower this period';
+  }
+
+  @override
+  String get analyticsInsightQuietBody =>
+      'They were active in the previous period.';
+
+  @override
+  String analyticsInsightDirection(String direction) {
+    String _temp0 = intl.Intl.selectLogic(direction, {
+      'longer': 'longer',
+      'shorter': 'shorter',
+      'other': 'different',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String analyticsInsightDriftNamed(
+    String name,
+    String sessionPluralLower,
+    String direction,
+  ) {
+    return '$name\'s $sessionPluralLower are running $direction';
+  }
+
+  @override
+  String analyticsInsightDriftGeneric(
+    String sessionPlural,
+    String direction,
+    String termSingularLower,
+  ) {
+    return '$sessionPlural are $direction for one $termSingularLower';
+  }
+
+  @override
+  String analyticsInsightTrend(String trend) {
+    String _temp0 = intl.Intl.selectLogic(trend, {
+      'up': 'up',
+      'down': 'down',
+      'other': 'changed',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String analyticsInsightDriftBody(
+    String currentAverage,
+    String trend,
+    String previousAverage,
+  ) {
+    return '$currentAverage average, $trend from $previousAverage.';
+  }
+
+  @override
+  String analyticsInsightTimeShiftNamed(String name, String timeLabelLower) {
+    return '$name\'s $timeLabelLower shifted';
+  }
+
+  @override
+  String analyticsInsightTimeShiftGeneric(
+    String termSingularLower,
+    String timeLabelLower,
+  ) {
+    return 'One $termSingularLower\'s $timeLabelLower shifted';
+  }
+
+  @override
+  String analyticsInsightTimeBucket(String bucket) {
+    String _temp0 = intl.Intl.selectLogic(bucket, {
+      'morning': 'mornings',
+      'afternoon': 'afternoons',
+      'evening': 'evenings',
+      'night': 'nights',
+      'other': '$bucket',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String analyticsInsightTimeShiftBody(
+    String currentBucket,
+    String previousBucket,
+  ) {
+    return 'Mostly $currentBucket lately — $previousBucket was more typical before.';
+  }
+
+  @override
+  String memberListFrontButtonsDescription(String featureLower) {
+    return 'Show a direct $featureLower action next to each profile in the list.';
+  }
+
+  @override
+  String memberListFrontButtonsTitle(String directButtonLabel) {
+    return 'Show “$directButtonLabel”';
+  }
+
+  @override
+  String memberListFrontButtonsSubtitle(
+    String directButtonLabel,
+    String currentlyActivePhrase,
+  ) {
+    return 'Adds “$directButtonLabel” to profiles that are not $currentlyActivePhrase.';
+  }
+
+  @override
+  String resetDataMembersDescription(
+    String termPluralLower,
+    String sessionPlural,
+  ) {
+    return 'Removes all $termPluralLower. $sessionPlural will show an unknown profile.';
+  }
+
+  @override
+  String resetDataFrontingDescription(String historyLabel) {
+    return 'Deletes all “$historyLabel” data.';
+  }
+
+  @override
+  String analyticsError(Object error) {
+    return 'Could not load analytics: $error';
+  }
+
+  @override
+  String analyticsNoSessionsInRange(String sessionPluralLower) {
+    return 'No $sessionPluralLower in this date range.';
+  }
+
+  @override
+  String analyticsPreviousPeriod(String value) {
+    return '$value in the previous period';
+  }
+
+  @override
+  String profileHeaderSemantic(String name) {
+    return 'Profile header for $name';
+  }
+
+  @override
+  String frontingActionFor(String action, String name) {
+    return '$action for $name';
+  }
 }

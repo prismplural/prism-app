@@ -453,7 +453,7 @@ class _QuickFrontHomeBlock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final showInstruction = ref.watch(quickFrontHoldInstructionVisibleProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final labelStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
       fontWeight: FontWeight.w400,
@@ -531,7 +531,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   @override
   Widget build(BuildContext context) {
     final terms = watchTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final pkState = ref.watch(pluralKitSyncProvider);
     final pkReady = pkState.canAutoSync && !pkState.isSyncing;
 

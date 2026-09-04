@@ -77,7 +77,7 @@ class _MemberFrontingHistoryScreenState
   @override
   Widget build(BuildContext context) {
     final memberAsync = ref.watch(activeMemberByIdProvider(widget.memberId));
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     ref.listen(memberFrontingHistoryProvider(widget.memberId), (_, next) {
       if (_pendingJumpDayKey == null || !next.hasValue) return;
@@ -245,11 +245,12 @@ class _MemberFrontingHistoryScreenState
     }
 
     _pendingJumpDayKey = null;
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     PrismToast.show(
       context,
-      message:
-          'No ${frontingTerms.sessionPlural.toLowerCase()} found for that day.',
+      message: context.l10n.memberFrontingHistoryNoSessionsOnDate(
+        frontingTerms.sessionPluralLower,
+      ),
     );
   }
 }

@@ -40,4 +40,22 @@ void main() {
     expect(find.text('3 active'), findsOneWidget);
     expect(find.byIcon(AppIcons.people), findsOneWidget);
   });
+
+  testWidgets('PrismPill ellipsizes long labels in constrained layouts', (
+    tester,
+  ) async {
+    const label = 'A very long user-authored custom status label';
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 100, child: PrismPill(label: label)),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(find.text(label));
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -1,7 +1,9 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/features/settings/models/analytics_insight.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 void main() {
   group('computeInsights', () {
@@ -43,6 +45,28 @@ void main() {
       longestSession: const Duration(minutes: 30),
       timeOfDayBreakdown: timeOfDay ?? {'morning': 60},
     );
+
+    test('Spanish insight shells do not leak English', () async {
+      final es = await AppLocalizations.delegate.load(const Locale('es'));
+      const pair = CoFrontingPair(
+        memberIdA: 'a',
+        memberIdB: 'b',
+        totalTime: Duration(hours: 2),
+      );
+
+      final insight = computeInsights(
+        makeAnalytics(topCoFrontingPairs: [pair]),
+        null,
+        names: const {'a': 'Ana', 'b': 'Bea'},
+        termPluralLower: 'integrantes',
+        togetherPastLabelLower: 'estuvieron fuera a la vez',
+        l10n: es,
+      ).single;
+
+      expect(insight.headline, contains('a menudo en este período'));
+      expect(insight.headline, isNot(contains('this period')));
+      expect(insight.body, '2h 0m en actividad conjunta.');
+    });
 
     test('no sessions produces no insights', () {
       final current = makeAnalytics();

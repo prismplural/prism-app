@@ -211,7 +211,7 @@ class _CreateConversationSheetState
   ) async {
     final speakingAs = ref.read(speakingAsProvider);
     final termPlural = readTerminology(context, ref).plural;
-    final frontingTerms = readFrontingTerms(ref);
+    final frontingTerms = readFrontingTerms(context, ref);
     final groups = readMemberSearchGroups(ref, members);
 
     final frontingLabel = frontingTerms.activeSectionLabel;
@@ -417,7 +417,7 @@ class _CreateConversationSheetState
                 controller: _titleController,
                 labelText: context.l10n.chatCreateGroupName,
                 hintText: context.l10n.chatCreateGroupNameHint(
-                  terms.systemSingular,
+                  terms.systemSingularLower,
                 ),
                 onChanged: (_) => setState(() {}),
               ),

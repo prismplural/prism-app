@@ -146,7 +146,7 @@ class _CompactMemberProfileHeader extends ConsumerWidget {
           Positioned.fill(
             child: _HeaderImage(
               imageData: imageData!,
-              semanticLabel: '$resolvedName profile header',
+              semanticLabel: context.l10n.profileHeaderSemantic(resolvedName),
             ),
           ),
           Positioned.fill(
@@ -221,7 +221,9 @@ class _ClassicMemberProfileHeader extends ConsumerWidget {
                 aspectRatio: 3,
                 child: _HeaderImage(
                   imageData: imageData,
-                  semanticLabel: '$resolvedName profile header',
+                  semanticLabel: context.l10n.profileHeaderSemantic(
+                    resolvedName,
+                  ),
                 ),
               ),
             ),
@@ -381,7 +383,7 @@ class _MemberHeaderMetadata extends ConsumerWidget {
     final secondary = secondaryColor ?? theme.colorScheme.onSurfaceVariant;
     final birthday = _birthdayDisplay(context, member);
     final shadows = applyTextShadow ? _onImageShadows : null;
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     final namePresentation = ref.watch(memberNamePresentationProvider);
     final primaryTitle = primaryNameFor(member, namePresentation);

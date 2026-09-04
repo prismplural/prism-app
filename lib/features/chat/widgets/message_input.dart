@@ -791,7 +791,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             .whenOrNull(data: (v) => v) ??
         false;
     final terms = watchTerminology(context, ref);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     final members = membersAsync.value ?? [];
     final conversation = conversationAsync.value;

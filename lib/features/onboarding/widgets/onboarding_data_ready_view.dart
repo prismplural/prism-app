@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-class OnboardingDataReadyView extends StatelessWidget {
+class OnboardingDataReadyView extends ConsumerWidget {
   const OnboardingDataReadyView({
     super.key,
     required this.title,
@@ -28,7 +30,7 @@ class OnboardingDataReadyView extends StatelessWidget {
   final Widget? notice;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     return SingleChildScrollView(
@@ -68,7 +70,9 @@ class OnboardingDataReadyView extends StatelessWidget {
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.1)
                       : AppColors.parchmentElevated,
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(16),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,18 +88,30 @@ class OnboardingDataReadyView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    OnboardingCountRow(label: context.l10n.onboardingDataReadyMembers, count: counts!.members),
                     OnboardingCountRow(
-                      label: context.l10n.onboardingDataReadyFrontingSessions,
+                      label: context.l10n.onboardingDataReadyMembers,
+                      count: counts!.members,
+                    ),
+                    OnboardingCountRow(
+                      label: watchFrontingTerms(context, ref).sessionPlural,
                       count: counts!.frontingSessions,
                     ),
                     OnboardingCountRow(
                       label: context.l10n.onboardingDataReadyConversations,
                       count: counts!.conversations,
                     ),
-                    OnboardingCountRow(label: context.l10n.onboardingDataReadyMessages, count: counts!.messages),
-                    OnboardingCountRow(label: context.l10n.onboardingDataReadyHabits, count: counts!.habits),
-                    OnboardingCountRow(label: context.l10n.onboardingDataReadyNotes, count: counts!.notes),
+                    OnboardingCountRow(
+                      label: context.l10n.onboardingDataReadyMessages,
+                      count: counts!.messages,
+                    ),
+                    OnboardingCountRow(
+                      label: context.l10n.onboardingDataReadyHabits,
+                      count: counts!.habits,
+                    ),
+                    OnboardingCountRow(
+                      label: context.l10n.onboardingDataReadyNotes,
+                      count: counts!.notes,
+                    ),
                   ],
                 ),
               ),
@@ -151,7 +167,8 @@ class OnboardingCountRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Flexible(
-            child: countWidget ??
+            child:
+                countWidget ??
                 Text(
                   '$count',
                   textAlign: TextAlign.end,

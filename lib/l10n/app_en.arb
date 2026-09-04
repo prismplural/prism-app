@@ -230,15 +230,6 @@
   "@settingsSectionData": {
     "description": "Settings section header: Data"
   },
-  "settingsSystemInformation": "{systemTerm} Information",
-  "@settingsSystemInformation": {
-    "description": "Settings link: System Information",
-    "placeholders": {
-      "systemTerm": {
-        "type": "String"
-      }
-    }
-  },
   "settingsGroups": "Groups",
   "@settingsGroups": {
     "description": "Settings link: Groups"
@@ -591,9 +582,10 @@
   "@palettePreviewChip": {
     "description": "Sample chip label in the palette preview"
   },
-  "palettePreviewNavHint": "Home · Members · Settings",
+  "palettePreviewNavHint": "Home · {termPlural} · Settings",
   "@palettePreviewNavHint": {
-    "description": "Small navigation surface hint in the palette preview"
+    "description": "Small navigation surface hint in the palette preview",
+    "placeholders": { "termPlural": { "type": "String" } }
   },
   "paletteResetTitle": "Reset",
   "@paletteResetTitle": {
@@ -627,7 +619,7 @@
   "@appearanceCornerStyleDescription": {
     "description": "Description text for the corner style picker"
   },
-  "appearanceMemberNamesTitle": "Member names",
+  "appearanceMemberNamesTitle": "Names",
   "@appearanceMemberNamesTitle": {
     "description": "Appearance settings section: which member name to show"
   },
@@ -639,7 +631,7 @@
   "@appearanceMemberNamesLegacy": {
     "description": "Member name display option: show the canonical name"
   },
-  "appearanceMemberNamesDescription": "Choose which name to show for members across the app.",
+  "appearanceMemberNamesDescription": "Choose which name Prism shows across the app.",
   "@appearanceMemberNamesDescription": {
     "description": "Description text for the member name display picker"
   },
@@ -709,7 +701,7 @@
   "@terminologyMemberSectionTitle": {
     "description": "Settings section title for terminology used for people/members"
   },
-  "terminologyMemberSectionDescription": "Controls labels for people in Prism.",
+  "terminologyMemberSectionDescription": "Choose what Prism calls your members.",
   "@terminologyMemberSectionDescription": {
     "description": "Settings section description for member terminology"
   },
@@ -717,7 +709,7 @@
   "@terminologySystemSectionTitle": {
     "description": "Settings section title for terminology used for the user's collective/system"
   },
-  "terminologySystemSectionDescription": "Controls labels for your collective across Prism.",
+  "terminologySystemSectionDescription": "Choose what Prism calls your system.",
   "@terminologySystemSectionDescription": {
     "description": "Settings section description for system terminology"
   },
@@ -802,11 +794,11 @@
       }
     }
   },
-  "terminologySystemPreview": "\"{systemTerm} Information\" · \"Add your first {systemTermLower} {memberTermLower}\"",
+  "terminologySystemPreview": "\"{infoLabel}\" · \"Add a {memberTermLower} to your {systemTermLower}\"",
   "@terminologySystemPreview": {
     "description": "Live preview for custom system terminology settings",
     "placeholders": {
-      "systemTerm": {
+      "infoLabel": {
         "type": "String"
       },
       "systemTermLower": {
@@ -821,19 +813,19 @@
   "@terminologyFrontingSectionTitle": {
     "description": "Settings section title for terminology used for fronting/presence/activity"
   },
-  "terminologyFrontingSectionDescription": "Controls labels for who's active now, related actions, history, and reminders.",
+  "terminologyFrontingSectionDescription": "Choose how Prism describes fronting and related activity.",
   "@terminologyFrontingSectionDescription": {
     "description": "Settings section description for fronting terminology"
   },
-  "terminologyFrontingCustomSubtitle": "Full phrase editor",
+  "terminologyFrontingCustomSubtitle": "Simple or advanced",
   "@terminologyFrontingCustomSubtitle": {
     "description": "Subtitle for custom fronting terminology choice tile"
   },
-  "terminologyFrontingCustomIntro": "Advanced mode lets you edit every phrase Prism derives from this terminology.",
+  "terminologyFrontingCustomIntro": "Edit every phrase Prism uses for this activity.",
   "@terminologyFrontingCustomIntro": {
     "description": "Intro text above custom fronting terminology fields"
   },
-  "terminologyFrontingCustomRequired": "Fill in every fronting phrase before saving.",
+  "terminologyFrontingCustomRequired": "Fill in every fronting phrase.",
   "@terminologyFrontingCustomRequired": {
     "description": "Validation message when a custom fronting phrase bundle is incomplete"
   },
@@ -844,6 +836,54 @@
       "maxLength": {
         "type": "int"
       }
+    }
+  },
+  "terminologyFrontingModeSimple": "Simple",
+  "@terminologyFrontingModeSimple": {
+    "description": "Simple custom fronting editor mode"
+  },
+  "terminologyFrontingModeAdvanced": "Advanced",
+  "@terminologyFrontingModeAdvanced": {
+    "description": "Advanced custom fronting editor mode"
+  },
+  "terminologyFrontingStartSimple": "Start Simple Setup",
+  "@terminologyFrontingStartSimple": {
+    "description": "Action that replaces an advanced custom draft with a new simple setup draft"
+  },
+  "terminologyFrontingSimpleIntro": "Set the core words and phrases. Prism fills in the rest.",
+  "@terminologyFrontingSimpleIntro": {
+    "description": "Intro above the simple custom fronting editor"
+  },
+  "terminologyFrontingSimpleRegenerationNote": "Changing these fields refreshes the generated phrases in Advanced.",
+  "@terminologyFrontingSimpleRegenerationNote": {
+    "description": "Note explaining how the simple and advanced fronting editors interact"
+  },
+  "terminologyFrontingSimpleRequired": "Fill in every Simple field.",
+  "@terminologyFrontingSimpleRequired": {
+    "description": "Validation message for incomplete simple fronting terminology"
+  },
+  "terminologyFrontingSimpleFieldLabel": "{field, select, featureLabel{Activity name} activeSectionLabel{Short status label} statePhrase{Phrase after “is”} activeSingularLabel{One active person} activePluralLabel{Active people} sessionSingular{One session} sessionPlural{Multiple sessions} other{Term}}",
+  "@terminologyFrontingSimpleFieldLabel": {
+    "description": "Localized label for a simple fronting terminology field",
+    "placeholders": {"field": {"type": "String"}}
+  },
+  "terminologyFrontingSimpleFieldHint": "{field, select, featureLabel{Fronting} activeSectionLabel{Fronting} statePhrase{fronting} activeSingularLabel{Fronter} activePluralLabel{Fronters} sessionSingular{Fronting session} sessionPlural{Fronting sessions} other{Term}}",
+  "@terminologyFrontingSimpleFieldHint": {
+    "description": "Localized example for a simple fronting terminology field",
+    "placeholders": {"field": {"type": "String"}}
+  },
+  "terminologyFrontingSimpleGenerated": "{field, select, currentQuestion{Who's {statePhrase}?} currentQuestionNow{Who's {statePhrase} now?} emptyCurrentState{No one is {statePhrase}} currentActiveLabel{Current: {activeSingular}} latestActiveLabel{Latest: {activeSingular}} unknownActiveLabel{Unknown: {activeSingular}} currentlyActivePhrase{currently {statePhrase}} logAction{Log: {sessionSingular}} logPastAction{Log Past: {sessionSingular}} quickAction{Quick {activeSection}} holdToStartHint{Hold to start: {activeSection}} addAction{Add: {activeSingular}} setAsAction{Set as: {activeSingular}} replaceCurrentAction{Replace: {activePlural}} endWithoutAction{End without adding anyone} endCurrentAction{End: {activeSection}} keepCurrentAction{Keep: {activeSection}} directButtonLabel{{activeSection} Buttons} historyLabel{{featureLabel} History} dataLabel{{featureLabel} Data} entryLabel{{featureLabel} Entry} sessionCommentSingular{Comment: {sessionSingular}} sessionCommentPlural{Comments: {sessionPlural}} statsLabel{{featureLabel} Stats} timeLabel{{featureLabel} Time} lastActiveLabel{Last: {activeSection}} mostActiveSortLabel{Most Time: {activeSection}} leastActiveSortLabel{Least Time: {activeSection}} statusLabel{Status: {activeSection}} togetherStateLabel{Together: {activeSection}} togetherActiveSingularLabel{Together: {activeSingular}} togetherActivePluralLabel{Together: {activePlural}} togetherPastLabel{were {statePhrase} together} addTogetherAction{Add: {activeSingular}} overlapOptionLabel{Create overlapping activity} overlapSubtitle{Split overlapping time into shared activity segments.} changeSingular{Change: {featureLabel}} changePlural{Changes: {featureLabel}} anyChangeLabel{Any Change: {featureLabel}} onChangeLabel{On Change: {featureLabel}} delayAfterChangeLabel{Delay After Change: {featureLabel}} reminderLabel{{featureLabel} Reminder} logChangeReminderAction{Log Change: {featureLabel}} alwaysActiveLabel{Always: {activeSection}} alwaysPresentHeaderLabel{Always {activeSection}} longRunningLabel{Long-running: {activeSection}} longRunningHeaderLabel{Long-running {activeSection}} quickCorrectionLabel{Quick Correction: {activeSection}} quickCorrectionWindowTitle{Quick Correction Window} switchEventLabel{Change: {featureLabel}} other{{featureLabel}}}",
+  "@terminologyFrontingSimpleGenerated": {
+    "description": "Complete localized templates used to generate an advanced fronting phrase bundle from Simple inputs",
+    "placeholders": {
+      "field": {"type": "String"},
+      "featureLabel": {"type": "String"},
+      "activeSection": {"type": "String"},
+      "statePhrase": {"type": "String"},
+      "activeSingular": {"type": "String"},
+      "activePlural": {"type": "String"},
+      "sessionSingular": {"type": "String"},
+      "sessionPlural": {"type": "String"}
     }
   },
   "terminologyFrontingPreview": "\"{question}\" · \"{activePlural}\" · \"{logAction}\" · \"{historyLabel}\"",
@@ -864,6 +904,126 @@
       }
     }
   },
+  "terminologyFrontingPresetChoiceLabel": "{preset, select, fronting{Fronting} present{Present} out{Out} online{Online} other{Fronting}}",
+  "@terminologyFrontingPresetChoiceLabel": { "description": "Localized fronting terminology preset name", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetFeatureLabel": "{preset, select, fronting{Fronting} present{Presence} out{Out} online{Online} other{Fronting}}",
+  "@terminologyFrontingPresetFeatureLabel": { "description": "Localized fronting preset phrase: Feature name", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetFeatureLower": "{preset, select, fronting{fronting} present{presence} out{out} online{online} other{fronting}}",
+  "@terminologyFrontingPresetFeatureLower": { "description": "Localized fronting preset phrase: Lowercase feature name", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetStatePhrase": "{preset, select, fronting{fronting} present{present} out{out} online{online} other{fronting}}",
+  "@terminologyFrontingPresetStatePhrase": { "description": "Localized fronting preset phrase that completes an is/está clause", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetCurrentQuestion": "{preset, select, fronting{Who's fronting?} present{Who's present?} out{Who's out?} online{Who's online?} other{Who's fronting?}}",
+  "@terminologyFrontingPresetCurrentQuestion": { "description": "Localized fronting preset phrase: Current-status question", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetCurrentQuestionNow": "{preset, select, fronting{Who's fronting now?} present{Who's present now?} out{Who's out now?} online{Who's online now?} other{Who's fronting now?}}",
+  "@terminologyFrontingPresetCurrentQuestionNow": { "description": "Localized fronting preset phrase: Current-status question with now", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetEmptyCurrentState": "{preset, select, fronting{No one's fronting} present{No one's present} out{No one's out} online{No one's online} other{No one's fronting}}",
+  "@terminologyFrontingPresetEmptyCurrentState": { "description": "Localized fronting preset phrase: Empty current-state message", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetActiveSingularLabel": "{preset, select, fronting{Fronter} present{Present member} out{Out member} online{Online member} other{Fronter}}",
+  "@terminologyFrontingPresetActiveSingularLabel": { "description": "Localized fronting preset phrase: Active person, singular", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetActivePluralLabel": "{preset, select, fronting{Fronters} present{Present Members} out{Out Members} online{Online Members} other{Fronters}}",
+  "@terminologyFrontingPresetActivePluralLabel": { "description": "Localized fronting preset phrase: Active people, plural", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetActiveSectionLabel": "{preset, select, fronting{Fronting} present{Present} out{Out} online{Online} other{Fronting}}",
+  "@terminologyFrontingPresetActiveSectionLabel": { "description": "Localized fronting preset phrase: Active-section title", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetCurrentActiveLabel": "{preset, select, fronting{Current fronter} present{Current present member} out{Current out member} online{Current online member} other{Current fronter}}",
+  "@terminologyFrontingPresetCurrentActiveLabel": { "description": "Localized fronting preset phrase: Current active person", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLatestActiveLabel": "{preset, select, fronting{Latest fronter} present{Latest present member} out{Latest out member} online{Latest online member} other{Latest fronter}}",
+  "@terminologyFrontingPresetLatestActiveLabel": { "description": "Localized fronting preset phrase: Most recently active person", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetUnknownActiveLabel": "{preset, select, fronting{Unknown fronter} present{Unknown present member} out{Unknown out member} online{Unknown online member} other{Unknown fronter}}",
+  "@terminologyFrontingPresetUnknownActiveLabel": { "description": "Localized fronting preset phrase: Unknown active person", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetCurrentlyActivePhrase": "{preset, select, fronting{currently fronting} present{currently present} out{currently out} online{currently online} other{currently fronting}}",
+  "@terminologyFrontingPresetCurrentlyActivePhrase": { "description": "Localized fronting preset phrase: Currently-active phrase", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLogAction": "{preset, select, fronting{Log Front} present{Mark Present} out{Mark Out} online{Mark Online} other{Log Front}}",
+  "@terminologyFrontingPresetLogAction": { "description": "Localized fronting preset phrase: Log action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLogPastAction": "{preset, select, fronting{Log Past Session} present{Log Past Presence} out{Log Past Out Session} online{Log Past Online Session} other{Log Past Session}}",
+  "@terminologyFrontingPresetLogPastAction": { "description": "Localized fronting preset phrase: Log-past-session action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetQuickAction": "{preset, select, fronting{Quick Front} present{Quick Presence} out{Quick Out} online{Quick Online} other{Quick Front}}",
+  "@terminologyFrontingPresetQuickAction": { "description": "Localized fronting preset phrase: Quick action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetHoldToStartHint": "{preset, select, fronting{Hold to start fronting} present{Hold to mark present} out{Hold to mark out} online{Hold to mark online} other{Hold to start fronting}}",
+  "@terminologyFrontingPresetHoldToStartHint": { "description": "Localized fronting preset phrase: Hold-to-start hint", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetAddAction": "{preset, select, fronting{Add as fronter} present{Mark present} out{Mark out} online{Mark online} other{Add as fronter}}",
+  "@terminologyFrontingPresetAddAction": { "description": "Localized fronting preset phrase: Add-as-active action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetSetAsAction": "{preset, select, fronting{Set as fronter} present{Mark present} out{Mark out} online{Mark online} other{Set as fronter}}",
+  "@terminologyFrontingPresetSetAsAction": { "description": "Localized fronting preset phrase: Set-as-active action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetReplaceCurrentAction": "{preset, select, fronting{Replace current fronters} present{Replace present members} out{Replace current out members} online{Replace online members} other{Replace current fronters}}",
+  "@terminologyFrontingPresetReplaceCurrentAction": { "description": "Localized fronting preset phrase: Replace-current action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetEndWithoutAction": "{preset, select, fronting{End without fronting} present{End without marking present} out{End without anyone out} online{End without anyone online} other{End without fronting}}",
+  "@terminologyFrontingPresetEndWithoutAction": { "description": "Localized fronting preset phrase: End-without action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetEndCurrentAction": "{preset, select, fronting{End front} present{End presence} out{End out} online{End online} other{End front}}",
+  "@terminologyFrontingPresetEndCurrentAction": { "description": "Localized fronting preset phrase: End-current action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetKeepCurrentAction": "{preset, select, fronting{Keep fronting} present{Keep present} out{Keep out} online{Keep online} other{Keep fronting}}",
+  "@terminologyFrontingPresetKeepCurrentAction": { "description": "Localized fronting preset phrase: Keep-current action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetDirectButtonLabel": "{preset, select, fronting{Front buttons} present{Presence buttons} out{Out buttons} online{Online buttons} other{Front buttons}}",
+  "@terminologyFrontingPresetDirectButtonLabel": { "description": "Localized fronting preset phrase: Direct-action buttons", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetHistoryLabel": "{preset, select, fronting{Fronting history} present{Presence history} out{Out history} online{Online history} other{Fronting history}}",
+  "@terminologyFrontingPresetHistoryLabel": { "description": "Localized fronting preset phrase: History title", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetDataLabel": "{preset, select, fronting{Fronting data} present{Presence data} out{Out data} online{Online data} other{Fronting data}}",
+  "@terminologyFrontingPresetDataLabel": { "description": "Localized fronting preset phrase: Data label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetEntryLabel": "{preset, select, fronting{Fronting entry} present{Presence entry} out{Out entry} online{Online entry} other{Fronting entry}}",
+  "@terminologyFrontingPresetEntryLabel": { "description": "Localized fronting preset phrase: Entry label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetSessionSingular": "{preset, select, fronting{Fronting session} present{Presence session} out{Out session} online{Online session} other{Fronting session}}",
+  "@terminologyFrontingPresetSessionSingular": { "description": "Localized fronting preset phrase: Session name, singular", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetSessionPlural": "{preset, select, fronting{Fronting sessions} present{Presence sessions} out{Out sessions} online{Online sessions} other{Fronting sessions}}",
+  "@terminologyFrontingPresetSessionPlural": { "description": "Localized fronting preset phrase: Session name, plural", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetSessionCommentSingular": "{preset, select, fronting{Front session comment} present{Presence session comment} out{Out session comment} online{Online session comment} other{Front session comment}}",
+  "@terminologyFrontingPresetSessionCommentSingular": { "description": "Localized fronting preset phrase: Session comment, singular", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetSessionCommentPlural": "{preset, select, fronting{Front session comments} present{Presence session comments} out{Out session comments} online{Online session comments} other{Front session comments}}",
+  "@terminologyFrontingPresetSessionCommentPlural": { "description": "Localized fronting preset phrase: Session comments, plural", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetStatsLabel": "{preset, select, fronting{Fronting Stats} present{Presence Stats} out{Out Stats} online{Online Stats} other{Fronting Stats}}",
+  "@terminologyFrontingPresetStatsLabel": { "description": "Localized fronting preset phrase: Statistics title", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetTimeLabel": "{preset, select, fronting{Fronting time} present{Presence time} out{Out time} online{Online time} other{Fronting time}}",
+  "@terminologyFrontingPresetTimeLabel": { "description": "Localized fronting preset phrase: Time label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLastActiveLabel": "{preset, select, fronting{Last fronted} present{Last present} out{Last out} online{Last online} other{Last fronted}}",
+  "@terminologyFrontingPresetLastActiveLabel": { "description": "Localized fronting preset phrase: Last-active label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetMostActiveSortLabel": "{preset, select, fronting{Most fronting} present{Most present} out{Most out} online{Most online} other{Most fronting}}",
+  "@terminologyFrontingPresetMostActiveSortLabel": { "description": "Localized fronting preset phrase: Most-active sort option", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLeastActiveSortLabel": "{preset, select, fronting{Least fronting} present{Least present} out{Least out} online{Least online} other{Least fronting}}",
+  "@terminologyFrontingPresetLeastActiveSortLabel": { "description": "Localized fronting preset phrase: Least-active sort option", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetStatusLabel": "{preset, select, fronting{Front status} present{Presence status} out{Out status} online{Online status} other{Front status}}",
+  "@terminologyFrontingPresetStatusLabel": { "description": "Localized fronting preset phrase: Status label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetTogetherStateLabel": "{preset, select, fronting{Co-fronting} present{Present together} out{Out together} online{Online together} other{Co-fronting}}",
+  "@terminologyFrontingPresetTogetherStateLabel": { "description": "Localized fronting preset phrase: Shared-activity state", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetTogetherActiveSingularLabel": "{preset, select, fronting{Co-fronter} present{Member present together} out{Member out together} online{Member online together} other{Co-fronter}}",
+  "@terminologyFrontingPresetTogetherActiveSingularLabel": { "description": "Localized fronting preset phrase: Shared-active person, singular", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetTogetherActivePluralLabel": "{preset, select, fronting{Co-fronters} present{Present Together} out{Out Together} online{Online Together} other{Co-fronters}}",
+  "@terminologyFrontingPresetTogetherActivePluralLabel": { "description": "Localized fronting preset phrase: Shared-active people, plural", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetTogetherPastLabel": "{preset, select, fronting{co-fronted} present{were present together} out{were out together} online{were online together} other{co-fronted}}",
+  "@terminologyFrontingPresetTogetherPastLabel": { "description": "Localized fronting preset phrase: Shared-activity past-tense phrase", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetAddTogetherAction": "{preset, select, fronting{Add Fronter} present{Add Present Member} out{Add Out Member} online{Add Online Member} other{Add Fronter}}",
+  "@terminologyFrontingPresetAddTogetherAction": { "description": "Localized fronting preset phrase: Add-to-shared-activity action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetOverlapOptionLabel": "{preset, select, fronting{Create overlapping fronts} present{Create overlapping presence} out{Create overlapping out sessions} online{Create overlapping online sessions} other{Create overlapping fronts}}",
+  "@terminologyFrontingPresetOverlapOptionLabel": { "description": "Localized fronting preset phrase: Create-overlap option", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetOverlapSubtitle": "{preset, select, fronting{Split the overlapping time into shared fronting segments.} present{Split the overlapping time into shared presence segments.} out{Split the overlapping time into shared out segments.} online{Split the overlapping time into shared online segments.} other{Split the overlapping time into shared fronting segments.}}",
+  "@terminologyFrontingPresetOverlapSubtitle": { "description": "Localized fronting preset phrase: Overlap-option description", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetChangeSingular": "{preset, select, fronting{Front change} present{Presence change} out{Out change} online{Online change} other{Front change}}",
+  "@terminologyFrontingPresetChangeSingular": { "description": "Localized fronting preset phrase: Change name, singular", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetChangePlural": "{preset, select, fronting{Front changes} present{Presence changes} out{Out changes} online{Online changes} other{Front changes}}",
+  "@terminologyFrontingPresetChangePlural": { "description": "Localized fronting preset phrase: Change name, plural", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetAnyChangeLabel": "{preset, select, fronting{Any front change} present{Any presence change} out{Any out change} online{Any online change} other{Any front change}}",
+  "@terminologyFrontingPresetAnyChangeLabel": { "description": "Localized fronting preset phrase: Any-change option", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetOnChangeLabel": "{preset, select, fronting{On front change} present{On presence change} out{On out change} online{On online change} other{On front change}}",
+  "@terminologyFrontingPresetOnChangeLabel": { "description": "Localized fronting preset phrase: On-change option", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetDelayAfterChangeLabel": "{preset, select, fronting{Delay after front change} present{Delay after presence change} out{Delay after out change} online{Delay after online change} other{Delay after front change}}",
+  "@terminologyFrontingPresetDelayAfterChangeLabel": { "description": "Localized fronting preset phrase: Delay-after-change label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetReminderLabel": "{preset, select, fronting{Fronting reminder} present{Presence reminder} out{Out reminder} online{Online reminder} other{Fronting reminder}}",
+  "@terminologyFrontingPresetReminderLabel": { "description": "Localized fronting preset phrase: Reminder name", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLogChangeReminderAction": "{preset, select, fronting{Log fronting change} present{Log presence change} out{Log out change} online{Log online change} other{Log fronting change}}",
+  "@terminologyFrontingPresetLogChangeReminderAction": { "description": "Localized fronting preset phrase: Reminder logging action", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetAlwaysActiveLabel": "{preset, select, fronting{Always fronting} present{Always present} out{Always out} online{Always online} other{Always fronting}}",
+  "@terminologyFrontingPresetAlwaysActiveLabel": { "description": "Localized fronting preset phrase: Always-active label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetAlwaysPresentHeaderLabel": "{preset, select, fronting{Always present} present{Always present} out{Always out} online{Always online} other{Always present}}",
+  "@terminologyFrontingPresetAlwaysPresentHeaderLabel": { "description": "Localized fronting preset phrase: Always-active header", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLongRunningLabel": "{preset, select, fronting{Long-running} present{Long-running} out{Long-running} online{Long-running} other{Long-running}}",
+  "@terminologyFrontingPresetLongRunningLabel": { "description": "Localized fronting preset phrase: Long-running label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetLongRunningHeaderLabel": "{preset, select, fronting{Long-running fronts} present{Long-running presence} out{Long-running out sessions} online{Long-running online sessions} other{Long-running fronts}}",
+  "@terminologyFrontingPresetLongRunningHeaderLabel": { "description": "Localized fronting preset phrase: Long-running header", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetQuickCorrectionLabel": "{preset, select, fronting{Quick Switch} present{Quick Switch} out{Quick Switch} online{Quick Switch} other{Quick Switch}}",
+  "@terminologyFrontingPresetQuickCorrectionLabel": { "description": "Localized fronting preset phrase: Quick-correction label", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetQuickCorrectionWindowTitle": "{preset, select, fronting{Quick Switch Window} present{Quick Switch Window} out{Quick Switch Window} online{Quick Switch Window} other{Quick Switch Window}}",
+  "@terminologyFrontingPresetQuickCorrectionWindowTitle": { "description": "Localized fronting preset phrase: Quick-correction window title", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingPresetSwitchEventLabel": "{preset, select, fronting{Switch} present{Switch} out{Switch} online{Switch} other{Switch}}",
+  "@terminologyFrontingPresetSwitchEventLabel": { "description": "Localized fronting preset phrase: Change-event name", "placeholders": { "preset": { "type": "String" } } },
+  "terminologyFrontingFieldLabel": "{field, select, featureLabel{Feature name} featureLower{Lowercase feature name} currentQuestion{Current-status question} currentQuestionNow{Current-status question with now} emptyCurrentState{Empty current-state message} activeSingularLabel{Active person, singular} activePluralLabel{Active people, plural} activeSectionLabel{Active-section title} currentActiveLabel{Current active person} latestActiveLabel{Most recently active person} unknownActiveLabel{Unknown active person} currentlyActivePhrase{Currently-active phrase} logAction{Log action} logPastAction{Log-past-session action} quickAction{Quick action} holdToStartHint{Hold-to-start hint} addAction{Add-as-active action} setAsAction{Set-as-active action} replaceCurrentAction{Replace-current action} endWithoutAction{End-without action} endCurrentAction{End-current action} keepCurrentAction{Keep-current action} directButtonLabel{Direct-action buttons} historyLabel{History title} dataLabel{Data label} entryLabel{Entry label} sessionSingular{Session name, singular} sessionPlural{Session name, plural} sessionCommentSingular{Session comment, singular} sessionCommentPlural{Session comments, plural} statsLabel{Statistics title} timeLabel{Time label} lastActiveLabel{Last-active label} mostActiveSortLabel{Most-active sort option} leastActiveSortLabel{Least-active sort option} statusLabel{Status label} togetherStateLabel{Shared-activity state} togetherActiveSingularLabel{Shared-active person, singular} togetherActivePluralLabel{Shared-active people, plural} togetherPastLabel{Shared-activity past-tense phrase} addTogetherAction{Add-to-shared-activity action} overlapOptionLabel{Create-overlap option} overlapSubtitle{Overlap-option description} changeSingular{Change name, singular} changePlural{Change name, plural} anyChangeLabel{Any-change option} onChangeLabel{On-change option} delayAfterChangeLabel{Delay-after-change label} reminderLabel{Reminder name} logChangeReminderAction{Reminder logging action} alwaysActiveLabel{Always-active label} alwaysPresentHeaderLabel{Always-active header} longRunningLabel{Long-running label} longRunningHeaderLabel{Long-running header} quickCorrectionLabel{Quick-correction label} quickCorrectionWindowTitle{Quick-correction window title} switchEventLabel{Change-event name} other{Phrase}}",
+  "@terminologyFrontingFieldLabel": { "description": "Localized label for an advanced fronting phrase field", "placeholders": { "field": { "type": "String" } } },
   "terminologyFrontingGroupPrimary": "Primary labels",
   "@terminologyFrontingGroupPrimary": {
     "description": "Custom fronting terminology field group title"
@@ -1553,9 +1713,10 @@
   "@notificationsFrontingRemindersTitle": {
     "description": "Fronting reminders toggle title"
   },
-  "notificationsFrontingRemindersSubtitle": "Get reminded to log fronting changes",
+  "notificationsFrontingRemindersSubtitle": "Get periodic reminders for: {logAction}.",
   "@notificationsFrontingRemindersSubtitle": {
-    "description": "Fronting reminders toggle subtitle"
+    "description": "Activity reminders toggle subtitle",
+    "placeholders": {"logAction": {"type": "String"}}
   },
   "notificationsReminderIntervalTitle": "Reminder interval",
   "@notificationsReminderIntervalTitle": {
@@ -1569,9 +1730,10 @@
   "@notificationsSuppressIfRecentTitle": {
     "description": "Title for the row that lets the user set how long to skip the fronting reminder after a recent front log"
   },
-  "notificationsSuppressIfRecentSubtitle": "Don't remind if you logged a front recently",
+  "notificationsSuppressIfRecentSubtitle": "Skip after a recent log: {changeLabelLower}.",
   "@notificationsSuppressIfRecentSubtitle": {
-    "description": "Subtitle explaining the suppress-after-recent-log behavior"
+    "description": "Subtitle explaining the suppress-after-recent-log behavior",
+    "placeholders": {"changeLabelLower": {"type": "String"}}
   },
   "notificationsSuppressOff": "Off",
   "@notificationsSuppressOff": {
@@ -1665,9 +1827,27 @@
   "@notificationsRequest": {
     "description": "Button to request notification permission"
   },
-  "notificationsAboutText": "Fronting reminders send periodic notifications to help you stay aware of who is fronting. This can be useful for logging switches and maintaining awareness throughout the day.",
+  "notificationsAboutText": "Periodic notifications for “{reminderLabel}” help you answer “{currentQuestion}” They can also prompt the action “{logAction}”.",
   "@notificationsAboutText": {
-    "description": "About text at the bottom of notification settings"
+    "description": "About text at the bottom of notification settings",
+    "placeholders": {
+      "reminderLabel": {"type": "String"},
+      "currentQuestion": {"type": "String"},
+      "logAction": {"type": "String"}
+    }
+  },
+  "notificationsScheduledReminderBody": "Open Prism to check: {currentQuestionNow}",
+  "@notificationsScheduledReminderBody": {
+    "description": "Body of a scheduled activity reminder notification",
+    "placeholders": { "currentQuestionNow": { "type": "String" } }
+  },
+  "notificationsReminderChannelName": "Prism activity reminders",
+  "@notificationsReminderChannelName": {
+    "description": "Android notification channel name for periodic activity reminders"
+  },
+  "notificationsReminderChannelDescription": "Periodic activity reminders from Prism.",
+  "@notificationsReminderChannelDescription": {
+    "description": "Android notification channel description for periodic activity reminders"
   },
   "notificationsAndroidFootnote": "On Android, reminders may arrive a few minutes late.",
   "@notificationsAndroidFootnote": {
@@ -1722,16 +1902,23 @@
       }
     }
   },
-  "resetDataConfirmAll": "This will permanently delete all your data including {termPluralLower}, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.",
+  "resetDataConfirmAll": "This will permanently delete all your data including {termPluralLower}, {sessionPluralLower}, messages, polls, habits, sleep data, and settings. This action cannot be undone.",
   "@resetDataConfirmAll": {
     "description": "Confirmation message when resetting all data",
     "placeholders": {
       "termPluralLower": {
         "type": "String"
+      },
+      "sessionPluralLower": {
+        "type": "String"
       }
     }
   },
-  "resetDataConfirmSync": "This keeps your local app data, but removes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.",
+  "resetDataConfirmSyncTitle": "Disconnect sync from this device?",
+  "@resetDataConfirmSyncTitle": {
+    "description": "Confirmation title before disconnecting sync while retaining local data"
+  },
+  "resetDataConfirmSync": "Prism will keep all local data on this device and stop syncing it. Prism will also make a best-effort attempt to remove this device from the relay, or delete the relay group only when the relay says this was the last device.",
   "@resetDataConfirmSync": {
     "description": "Confirmation message when resetting sync"
   },
@@ -1748,9 +1935,23 @@
   "@resetDataConfirmEverything": {
     "description": "Confirm button label when resetting all data"
   },
-  "resetDataConfirmSync2": "Reset Sync",
+  "resetDataConfirmSync2": "Disconnect Sync, Keep Data",
   "@resetDataConfirmSync2": {
     "description": "Confirm button label when resetting sync"
+  },
+  "resetDataSyncDisconnected": "Sync disconnected. This device is staying local.",
+  "@resetDataSyncDisconnected": {
+    "description": "Success message after disconnecting sync while retaining local data"
+  },
+  "resetDataCategoryLabel": "{category, select, chat{Chat} polls{Polls} habits{Habits} sleep{Sleep Sessions} customFields{Custom Fields} sync{Disconnect Sync} all{All Data} other{Data}}",
+  "@resetDataCategoryLabel": {
+    "description": "Localized label for a reset-data category",
+    "placeholders": {"category": {"type": "String"}}
+  },
+  "resetDataCategoryDescription": "{category, select, chat{Deletes all conversations and messages.} polls{Deletes all polls, options, and votes.} habits{Deletes all habits and completion records.} sleep{Deletes all sleep tracking data.} customFields{Deletes all custom fields and their values.} sync{Stops syncing on this device while keeping local Prism data.} all{Permanently deletes everything and resets the app.} other{Deletes this category's data.}}",
+  "@resetDataCategoryDescription": {
+    "description": "Localized description for a reset-data category",
+    "placeholders": {"category": {"type": "String"}}
   },
   "resetDataSuccess": "{category} reset successfully",
   "@resetDataSuccess": {
@@ -2316,10 +2517,13 @@
   "@errorHistoryCopied": {
     "description": "Toast after copying error details"
   },
-  "systemInfoTitle": "{systemTerm} Information",
+  "systemInfoTitle": "{kind, select, system{System Info} collective{Collective Info} community{Community Info} network{Network Info} constellation{Constellation Info} custom{{systemTerm} Info} other{{systemTerm} Info}}",
   "@systemInfoTitle": {
-    "description": "System Information screen title",
+    "description": "System information link and screen title",
     "placeholders": {
+      "kind": {
+        "type": "String"
+      },
       "systemTerm": {
         "type": "String"
       }
@@ -2502,7 +2706,7 @@
   "@systemInfoNameLabel": {
     "description": "System name field label"
   },
-  "systemInfoSystemNameHint": "{systemTerm} name",
+  "systemInfoSystemNameHint": "Name of your {systemTerm}",
   "@systemInfoSystemNameHint": {
     "description": "Hint text for system name field",
     "placeholders": {
@@ -2528,7 +2732,7 @@
   "@systemInfoDescriptionLabel": {
     "description": "System description field label"
   },
-  "systemInfoDescriptionHint": "{systemTerm} description",
+  "systemInfoDescriptionHint": "Description of your {systemTerm}",
   "@systemInfoDescriptionHint": {
     "description": "Hint text for system description field",
     "placeholders": {
@@ -2545,14 +2749,9 @@
   "@systemInfoSaveDescription": {
     "description": "Tooltip for save description button"
   },
-  "systemInfoTagLabel": "{systemTerm} tag",
+  "systemInfoTagLabel": "Tag",
   "@systemInfoTagLabel": {
-    "description": "Label for the system tag field",
-    "placeholders": {
-      "systemTerm": {
-        "type": "String"
-      }
-    }
+    "description": "Label for the system tag field"
   },
   "systemInfoTagHint": "e.g. | Skylars",
   "@systemInfoTagHint": {
@@ -2562,14 +2761,9 @@
   "@systemInfoTagHelper": {
     "description": "Helper text below the system tag field"
   },
-  "systemInfoColorLabel": "{systemTerm} color",
+  "systemInfoColorLabel": "Color",
   "@systemInfoColorLabel": {
-    "description": "Label for the system color row",
-    "placeholders": {
-      "systemTerm": {
-        "type": "String"
-      }
-    }
+    "description": "Label for the system color row"
   },
   "systemInfoColorPickAction": "Pick color",
   "@systemInfoColorPickAction": {
@@ -2587,14 +2781,9 @@
   "@systemInfoHideTotalMemberCountTitle": {
     "description": "Switch label for hiding member count totals and group count chips"
   },
-  "systemInfoHideTotalMemberCountSubtitle": "Hides member totals in Settings, {systemTerm} Information, Statistics, diagnostics, and group or folder count chips.",
+  "systemInfoHideTotalMemberCountSubtitle": "Hides member totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.",
   "@systemInfoHideTotalMemberCountSubtitle": {
-    "description": "Helper text for hiding member count displays",
-    "placeholders": {
-      "systemTerm": {
-        "type": "String"
-      }
-    }
+    "description": "Helper text for hiding member count displays"
   },
   "devicesTitle": "Manage Devices",
   "@devicesTitle": {
@@ -3143,9 +3332,10 @@
   "@featureChatVoiceNotesSubtitle": {
     "description": "Subtitle for voice notes feature toggle"
   },
-  "featureFrontingDescription": "Configure how fronting sessions work.",
+  "featureFrontingDescription": "Configure how {sessionPluralLower} work.",
   "@featureFrontingDescription": {
-    "description": "Description text on fronting feature settings screen"
+    "description": "Description text on the activity feature settings screen",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
   },
   "featureFrontingOptions": "Options",
   "@featureFrontingOptions": {
@@ -3181,18 +3371,25 @@
   "@featureFrontingQuickSwitchTitle": {
     "description": "Dialog title for quick switch picker"
   },
-  "featureFrontingQuickSwitchMessage": "If you switch fronters within this window, it corrects the current session instead of creating a new one.",
+  "featureFrontingQuickSwitchMessage": "If you change {activePluralLabelLower} within this window, Prism corrects the current {sessionSingularLower} instead of creating a new one.",
   "@featureFrontingQuickSwitchMessage": {
-    "description": "Dialog message for quick switch picker"
+    "description": "Dialog message for the quick-correction picker",
+    "placeholders": {
+      "activePluralLabelLower": { "type": "String" },
+      "sessionSingularLower": { "type": "String" }
+    }
   },
   "featureFrontingShowQuickFront": "Quick Front",
   "@featureFrontingShowQuickFront": {
     "description": "Label for the show/hide Quick Front toggle in fronting settings"
   },
-  "featureFrontingShowQuickFrontSubtitle": "Show frequently fronting {termPluralLower} as tap-and-hold shortcuts",
+  "featureFrontingShowQuickFrontSubtitle": "Show {quickActionLower} tap-and-hold shortcuts for {termPluralLower}",
   "@featureFrontingShowQuickFrontSubtitle": {
     "description": "Subtitle for the show/hide Quick Front toggle",
     "placeholders": {
+      "quickActionLower": {
+        "type": "String"
+      },
       "termPluralLower": {
         "type": "String"
       }
@@ -3619,7 +3816,7 @@
   "@frontingWelcomeTitle": {
     "description": "Title on empty system view when no members exist"
   },
-  "frontingWelcomeSubtitle": "Add your first {systemTermLower} {member} to get started",
+  "frontingWelcomeSubtitle": "Add a {member} to your {systemTermLower} to get started",
   "@frontingWelcomeSubtitle": {
     "description": "Subtitle on empty system view (uses terminology term for member)",
     "placeholders": {
@@ -4395,13 +4592,15 @@
       }
     }
   },
-  "memberFrontingHistoryEmpty": "No fronting sessions yet.",
+  "memberFrontingHistoryEmpty": "No {activityLabelLower} yet.",
   "@memberFrontingHistoryEmpty": {
-    "description": "Empty state text for a member's full fronting history screen"
+    "description": "Empty state text for an activity history screen",
+    "placeholders": { "activityLabelLower": { "type": "String" } }
   },
-  "memberFrontingHistoryNoSessionsOnDate": "No fronting sessions found for that day.",
+  "memberFrontingHistoryNoSessionsOnDate": "No {sessionPluralLower} found for that day.",
   "@memberFrontingHistoryNoSessionsOnDate": {
-    "description": "Toast shown when the member history go-to-day action cannot find sessions on the selected date"
+    "description": "Toast shown when an activity history go-to-day action cannot find sessions on the selected date",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
   },
   "memberSectionConversations": "Conversations",
   "@memberSectionConversations": {
@@ -6433,7 +6632,7 @@
   "@chatCreateGroupName": {
     "description": "Label for the group name text field"
   },
-  "chatCreateGroupNameHint": "e.g., {systemTerm} Discussion",
+  "chatCreateGroupNameHint": "e.g., {systemTerm} conversation",
   "@chatCreateGroupNameHint": {
     "description": "Hint text for the group name text field",
     "placeholders": {
@@ -7318,9 +7517,10 @@
   "@onboardingFeaturesBoards": {
     "description": "Feature toggle label for message boards in features step"
   },
-  "onboardingFeaturesBoardsDescription": "Short messages between headmates — public timeline plus private inbox.",
+  "onboardingFeaturesBoardsDescription": "Short messages between {termPluralLower} — a public timeline and private inbox.",
   "@onboardingFeaturesBoardsDescription": {
-    "description": "Feature toggle description for message boards in features step"
+    "description": "Feature toggle description for message boards in features step",
+    "placeholders": {"termPluralLower": {"type": "String"}}
   },
   "onboardingFeaturesBoardsImportedDescription": "Imported Simply Plural message-board posts are already in Prism and stay enabled.",
   "@onboardingFeaturesBoardsImportedDescription": {
@@ -7721,14 +7921,16 @@
   "@onboardingSystemNameHelperTextImported": {
     "description": "Helper text on the name-your-system step when the name was pre-filled from an import"
   },
-  "onboardingWhosFrontingSelectHint": "Tap to select who is currently fronting",
+  "onboardingWhosFrontingSelectHint": "Tap to answer: {currentQuestionNow}",
   "@onboardingWhosFrontingSelectHint": {
-    "description": "Hint text above the fronter grid in whos fronting step"
+    "description": "Hint text above the activity picker in onboarding",
+    "placeholders": { "currentQuestionNow": { "type": "String" } }
   },
-  "onboardingWhosFrontingImportedCurrent": "Imported current front: {names}",
+  "onboardingWhosFrontingImportedCurrent": "Profiles imported under \u201c{activeLabel}\u201d: {names}",
   "@onboardingWhosFrontingImportedCurrent": {
     "description": "Message shown on onboarding when an import already created active current fronting sessions",
     "placeholders": {
+      "activeLabel": { "type": "String" },
       "names": { "type": "String" }
     }
   },
@@ -7796,13 +7998,14 @@
   "@onboardingFrontingDefaultsHomeViewSection": {
     "description": "Section header for the onboarding screen that configures how the Home fronting view is displayed"
   },
-  "onboardingFrontingDefaultsHomeViewTitle": "Home fronting view",
+  "onboardingFrontingDefaultsHomeViewTitle": "Home Display",
   "@onboardingFrontingDefaultsHomeViewTitle": {
-    "description": "Title for the onboarding preference that controls the default Home fronting view mode"
+    "description": "Title for the onboarding preference that controls the default Home activity view mode"
   },
-  "onboardingFrontingDefaultsHomeViewDescription": "Choose the view Home uses for fronting history.",
+  "onboardingFrontingDefaultsHomeViewDescription": "Choose how Home displays {historyLabelLower}.",
   "@onboardingFrontingDefaultsHomeViewDescription": {
-    "description": "Description for the onboarding preference that controls the default Home fronting view mode"
+    "description": "Description for the onboarding preference that controls the default Home activity view mode",
+    "placeholders": { "historyLabelLower": { "type": "String" } }
   },
   "onboardingFrontingViewCombined": "Combined",
   "@onboardingFrontingViewCombined": {
@@ -7816,39 +8019,45 @@
   "@onboardingFrontingViewTimeline": {
     "description": "Segment label for showing fronting history as a timeline"
   },
-  "onboardingFrontingViewCombinedDescription": "Groups overlapping fronts into one combined period.",
+  "onboardingFrontingViewCombinedDescription": "Groups overlapping {sessionPluralLower} into one combined period.",
   "@onboardingFrontingViewCombinedDescription": {
-    "description": "Selected-state explanation for the combined Home fronting view mode"
+    "description": "Selected-state explanation for the combined Home activity view mode",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
   },
-  "onboardingFrontingViewIndividualDescription": "Shows each fronting session as its own row.",
+  "onboardingFrontingViewIndividualDescription": "Shows each {sessionSingularLower} on its own row.",
   "@onboardingFrontingViewIndividualDescription": {
-    "description": "Selected-state explanation for the individual Home fronting view mode"
+    "description": "Selected-state explanation for the individual Home activity view mode",
+    "placeholders": { "sessionSingularLower": { "type": "String" } }
   },
-  "onboardingFrontingViewTimelineDescription": "Shows fronting as a visual timeline over time.",
+  "onboardingFrontingViewTimelineDescription": "Shows {historyLabelLower} on a visual timeline.",
   "@onboardingFrontingViewTimelineDescription": {
-    "description": "Selected-state explanation for the timeline Home fronting view mode"
+    "description": "Selected-state explanation for the timeline Home activity view mode",
+    "placeholders": { "historyLabelLower": { "type": "String" } }
   },
-  "onboardingFrontingDefaultsStartingSection": "Starting fronts",
+  "onboardingFrontingDefaultsStartingSection": "Starting Activity",
   "@onboardingFrontingDefaultsStartingSection": {
     "description": "Section header for onboarding controls that configure how fronting starts"
   },
-  "onboardingAddFrontBehaviorTitle": "When adding a new front",
+  "onboardingAddFrontBehaviorTitle": "{logAction}",
   "@onboardingAddFrontBehaviorTitle": {
-    "description": "Title for onboarding preference that controls the Add Front sheet default behavior"
+    "description": "Title for onboarding preference that controls the full activity sheet default behavior",
+    "placeholders": { "logAction": { "type": "String" } }
   },
-  "onboardingAddFrontBehaviorDescription": "Choose what happens when you start a front from the full Add Front sheet.",
+  "onboardingAddFrontBehaviorDescription": "Choose whether this adds to or replaces the current group.",
   "@onboardingAddFrontBehaviorDescription": {
     "description": "Description for onboarding preference that controls the Add Front sheet default behavior"
   },
-  "onboardingQuickFrontBehaviorTitle": "When using quick front",
+  "onboardingQuickFrontBehaviorTitle": "{quickAction}",
   "@onboardingQuickFrontBehaviorTitle": {
-    "description": "Title for onboarding preference that controls the quick-front shortcut default behavior"
+    "description": "Title for onboarding preference that controls the quick activity shortcut default behavior",
+    "placeholders": { "quickAction": { "type": "String" } }
   },
-  "onboardingQuickFrontBehaviorDescription": "Choose what happens when you hold a quick-front button for a {termSingularLower} who is not already fronting.",
+  "onboardingQuickFrontBehaviorDescription": "Choose whether this adds to or replaces the current group for a {termSingularLower} who is not {currentlyActivePhrase}.",
   "@onboardingQuickFrontBehaviorDescription": {
     "description": "Description for onboarding preference that controls the quick-front shortcut default behavior",
     "placeholders": {
-      "termSingularLower": { "type": "String" }
+      "termSingularLower": { "type": "String" },
+      "currentlyActivePhrase": { "type": "String" }
     }
   },
   "onboardingFrontBehaviorAdditive": "Add",
@@ -7859,11 +8068,11 @@
   "@onboardingFrontBehaviorReplace": {
     "description": "Segment label for replacing current fronters with the new member"
   },
-  "onboardingFrontBehaviorAdditiveDescription": "Keeps everyone currently fronting and adds the new member as a fronter.",
+  "onboardingFrontBehaviorAdditiveDescription": "Keeps the current group and adds the selected person.",
   "@onboardingFrontBehaviorAdditiveDescription": {
     "description": "Selected-state explanation for additive fronting behavior"
   },
-  "onboardingFrontBehaviorReplaceDescription": "Ends the current front first, then starts the new member.",
+  "onboardingFrontBehaviorReplaceDescription": "Ends the current activity, then starts the selected person.",
   "@onboardingFrontBehaviorReplaceDescription": {
     "description": "Selected-state explanation for replace fronting behavior"
   },
@@ -9508,10 +9717,13 @@
   "@dataManagementSimplyPluralRowSubtitle": { "description": "Settings row subtitle for Simply Plural import" },
   "dataManagementExportYourData": "Export Your Data",
   "@dataManagementExportYourData": { "description": "Headline on the export idle state" },
-  "dataManagementExportDescription": "Create a password-protected backup of all your data including {termPluralLower}, fronting sessions, messages, polls, and settings.",
+  "dataManagementExportDescription": "Create a password-protected backup of all your data including {termPluralLower}, {sessionPluralLower}, messages, polls, and settings.",
   "@dataManagementExportDescription": {
     "description": "Body text on the export idle state",
-    "placeholders": { "termPluralLower": { "type": "String" } }
+    "placeholders": {
+      "termPluralLower": { "type": "String" },
+      "sessionPluralLower": { "type": "String" }
+    }
   },
   "dataManagementExportButton": "Export Data",
   "@dataManagementExportButton": { "description": "Button label to start the export flow" },
@@ -9605,9 +9817,9 @@
   "@dataManagementPreviewHabits": { "description": "Import preview row label for habits" },
   "dataManagementPreviewHabitCompletions": "Habit Completions",
   "@dataManagementPreviewHabitCompletions": { "description": "Import preview row label for habit completions" },
-  "dataManagementPreviewMemberGroups": "Member Groups",
+  "dataManagementPreviewMemberGroups": "Groups",
   "@dataManagementPreviewMemberGroups": { "description": "Import preview row label for member groups" },
-  "dataManagementPreviewMemberGroupEntries": "Member Group Entries",
+  "dataManagementPreviewMemberGroupEntries": "Group Memberships",
   "@dataManagementPreviewMemberGroupEntries": { "description": "Import preview row label for member group membership records" },
   "dataManagementPreviewCustomFields": "Custom Fields",
   "@dataManagementPreviewCustomFields": { "description": "Import preview row label for custom fields" },
@@ -9615,8 +9827,11 @@
   "@dataManagementPreviewCustomFieldValues": { "description": "Import preview row label for custom field values" },
   "dataManagementPreviewNotes": "Notes",
   "@dataManagementPreviewNotes": { "description": "Import preview row label for notes" },
-  "dataManagementPreviewFrontSessionComments": "Front Session Comments",
-  "@dataManagementPreviewFrontSessionComments": { "description": "Import preview row label for front session comments" },
+  "dataManagementPreviewFrontSessionComments": "{sessionSingularLower} comments",
+  "@dataManagementPreviewFrontSessionComments": {
+    "description": "Import preview row label for comments on activity sessions",
+    "placeholders": { "sessionSingularLower": { "type": "String" } }
+  },
   "dataManagementPreviewConversationCategories": "Conversation Categories",
   "@dataManagementPreviewConversationCategories": { "description": "Import preview row label for conversation categories" },
   "dataManagementPreviewReminders": "Reminders",
@@ -9625,7 +9840,7 @@
   "@dataManagementPreviewFriends": { "description": "Import preview row label for friend records" },
   "dataManagementPreviewMediaAttachments": "Media Attachments",
   "@dataManagementPreviewMediaAttachments": { "description": "Import preview row label for media attachments" },
-  "dataManagementPreviewMemberBoardPosts": "Member Board Posts",
+  "dataManagementPreviewMemberBoardPosts": "Board Posts",
   "@dataManagementPreviewMemberBoardPosts": { "description": "Import preview row label for member board posts" },
   "dataManagementPreviewAppPreferences": "App Preferences",
   "@dataManagementPreviewAppPreferences": { "description": "Import preview row label for app preferences" },
@@ -10010,13 +10225,13 @@
     "description": "App version string in About section",
     "placeholders": { "version": { "type": "String" } }
   },
-  "settingsAboutDescription": "A privacy-focused app for managing plural {systemTermPluralLower}. Track fronting, communicate between {termPluralLower}, and keep your {systemTermLower} organized.",
+  "settingsAboutDescription": "A privacy-focused app for plural {systemTermPluralLower}. Track {sessionPluralLower}, support conversations among {termPluralLower}, and stay organized.",
   "@settingsAboutDescription": {
     "description": "Description paragraph in the About section",
     "placeholders": {
-      "termPluralLower": { "type": "String" },
-      "systemTermLower": { "type": "String" },
-      "systemTermPluralLower": { "type": "String" }
+      "systemTermPluralLower": { "type": "String" },
+      "sessionPluralLower": { "type": "String" },
+      "termPluralLower": { "type": "String" }
     }
   },
   "settingsAboutWebsite": "Website",
@@ -10560,7 +10775,7 @@
   "cancelHistoricalSleep": "Cancel",
   "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
 
-  "onboardingWelcomeTitle": "Together in Prism.",
+  "onboardingWelcomeTitle": "Welcome to Prism.",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
   "onboardingWelcomeSubtitle": "Fronting, chat, notes, habits, and decisions in one private place.",
   "@onboardingWelcomeSubtitle": { "description": "Header subtitle for the onboarding welcome step" },
@@ -10584,17 +10799,17 @@
   "@onboardingImportDataTitle": { "description": "Header title for the onboarding import-data step" },
   "onboardingImportDataSubtitle": "Bring your data with you.",
   "@onboardingImportDataSubtitle": { "description": "Header subtitle for the onboarding import-data step" },
-  "onboardingSystemNameTitle": "Name this profile",
+  "onboardingSystemNameTitle": "Name your profile",
   "@onboardingSystemNameTitle": { "description": "Header title for the onboarding system-name step" },
-  "onboardingSystemNameSubtitle": "Whatever feels right.",
+  "onboardingSystemNameSubtitle": "You can change this later.",
   "@onboardingSystemNameSubtitle": { "description": "Header subtitle for the onboarding system-name step" },
   "onboardingTerminologyTitle": "Choose your words",
   "@onboardingTerminologyTitle": { "description": "Header title for the onboarding terminology step" },
-  "onboardingTerminologySubtitle": "This changes labels throughout Prism.",
+  "onboardingTerminologySubtitle": "Choose the words Prism uses.",
   "@onboardingTerminologySubtitle": { "description": "Header subtitle for the onboarding terminology step" },
   "onboardingAddMembersTitle": "Who's here?",
   "@onboardingAddMembersTitle": { "description": "Header title for the onboarding add-members step" },
-  "onboardingAddMembersSubtitle": "Add your people.",
+  "onboardingAddMembersSubtitle": "Add anyone you’d like to include.",
   "@onboardingAddMembersSubtitle": { "description": "Header subtitle for the onboarding add-members step" },
   "onboardingFeaturesTitle": "Pick your tools",
   "@onboardingFeaturesTitle": { "description": "Header title for the onboarding features step" },
@@ -10604,13 +10819,19 @@
   "@onboardingNavigationTitle": { "description": "Header title for the onboarding navigation step" },
   "onboardingNavigationMoreHint": "Move less-used items into More,\nthe three-dot button opens that menu.",
   "@onboardingNavigationMoreHint": { "description": "Inline hint explaining the onboarding navigation More menu" },
-  "onboardingFrontingDefaultsTitle": "Fronting defaults",
-  "@onboardingFrontingDefaultsTitle": { "description": "Header title for the onboarding fronting defaults step" },
-  "onboardingFrontingDefaultsSubtitle": "Choose how Home shows and starts fronts.",
-  "@onboardingFrontingDefaultsSubtitle": { "description": "Header subtitle for the onboarding fronting defaults step" },
+  "onboardingFrontingDefaultsTitle": "{featureLabel} defaults",
+  "@onboardingFrontingDefaultsTitle": {
+    "description": "Header title for the onboarding activity defaults step",
+    "placeholders": { "featureLabel": { "type": "String" } }
+  },
+  "onboardingFrontingDefaultsSubtitle": "Choose how Home displays and starts {sessionPluralLower}.",
+  "@onboardingFrontingDefaultsSubtitle": {
+    "description": "Header subtitle for the onboarding activity defaults step",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
+  },
   "onboardingChatSetupTitle": "Set up chat",
   "@onboardingChatSetupTitle": { "description": "Header title for the onboarding chat-setup step" },
-  "onboardingChatSetupSubtitle": "Channels to talk.",
+  "onboardingChatSetupSubtitle": "Create spaces for conversations.",
   "@onboardingChatSetupSubtitle": { "description": "Header subtitle for the onboarding chat-setup step" },
   "onboardingAppearanceTitle": "Make it yours",
   "@onboardingAppearanceTitle": { "description": "Header title for the onboarding appearance step" },
@@ -10730,7 +10951,7 @@
       "error": { "type": "String" }
     }
   },
-  "terminologyAddFirstSubtitle": "Add your first {systemTermLower} {term} to get started",
+  "terminologyAddFirstSubtitle": "Add a {term} to your {systemTermLower} to get started",
   "@terminologyAddFirstSubtitle": {
     "description": "Members empty state subtitle — {term} is user's chosen singular lowercase",
     "placeholders": {
@@ -11590,9 +11811,9 @@
   "@pkFileImportSwitchesSkippedLabel": {
     "description": "PluralKit file import result row: count of switches found in the export but not imported from file. 'Switches' is PluralKit-internal vocabulary."
   },
-  "settingsFrontingSessionDisplaySectionTitle": "Session display & front behavior",
+  "settingsFrontingSessionDisplaySectionTitle": "Display & Behavior",
   "@settingsFrontingSessionDisplaySectionTitle": {
-    "description": "Section header on the fronting feature settings screen, grouping the list view-mode preference and the add-front / quick-front default behavior preferences."
+    "description": "Section header grouping activity display and behavior preferences."
   },
   "settingsFrontingListViewModeLabel": "Session list view",
   "@settingsFrontingListViewModeLabel": {
@@ -11602,9 +11823,10 @@
   "@settingsFrontingListViewModeCombinedPeriods": {
     "description": "Option label: render the home-screen session list as combined periods (avatar stacks per unique fronter group)."
   },
-  "settingsFrontingListViewModeCombinedPeriodsDescription": "Avatar stacks for each unique fronter group",
+  "settingsFrontingListViewModeCombinedPeriodsDescription": "Combines overlapping {sessionPluralLower} into shared periods.",
   "@settingsFrontingListViewModeCombinedPeriodsDescription": {
-    "description": "Option subtitle for the combined-periods session list view mode."
+    "description": "Option subtitle for the combined-periods session list view mode.",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
   },
   "settingsFrontingListViewModePerMemberRows": "Per-{term} rows",
   "@settingsFrontingListViewModePerMemberRows": {
@@ -11615,7 +11837,7 @@
       }
     }
   },
-  "settingsFrontingListViewModePerMemberRowsDescription": "One row per fronter session, side-by-side",
+  "settingsFrontingListViewModePerMemberRowsDescription": "Shows each profile on a separate row.",
   "@settingsFrontingListViewModePerMemberRowsDescription": {
     "description": "Option subtitle for the per-member-rows session list view mode."
   },
@@ -11623,41 +11845,48 @@
   "@settingsFrontingListViewModeTimeline": {
     "description": "Option label: render the home-screen session list as a timeline / bar chart over time."
   },
-  "settingsFrontingListViewModeTimelineDescription": "Bar chart view of fronting over time",
+  "settingsFrontingListViewModeTimelineDescription": "Shows activity over time.",
   "@settingsFrontingListViewModeTimelineDescription": {
     "description": "Option subtitle for the timeline session list view mode."
   },
-  "settingsAddFrontDefaultBehaviorLabel": "When adding a new front",
+  "settingsAddFrontDefaultBehaviorLabel": "Default Start Behavior",
   "@settingsAddFrontDefaultBehaviorLabel": {
-    "description": "Row title for the default behavior preference when starting a new front from the add-front sheet."
+    "description": "Row title for the default behavior preference when starting new activity."
   },
   "settingsAddFrontDefaultBehaviorAdditive": "Add as fronter",
   "@settingsAddFrontDefaultBehaviorAdditive": {
     "description": "Option label: starting a new front leaves any existing fronts in place; the new member joins as a co-fronter."
   },
-  "settingsAddFrontDefaultBehaviorAdditiveDescription": "New fronts join existing ones",
+  "settingsAddFrontDefaultBehaviorAdditiveDescription": "New {sessionPluralLower} join existing ones",
   "@settingsAddFrontDefaultBehaviorAdditiveDescription": {
-    "description": "Option subtitle for the additive add-front default behavior."
+    "description": "Option subtitle for additive activity behavior.",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
   },
   "settingsAddFrontDefaultBehaviorReplace": "Replace current fronters",
   "@settingsAddFrontDefaultBehaviorReplace": {
     "description": "Option label: starting a new front ends all existing fronts before the new member begins."
   },
-  "settingsAddFrontDefaultBehaviorReplaceDescription": "End all current fronts before starting new ones",
+  "settingsAddFrontDefaultBehaviorReplaceDescription": "End all current {sessionPluralLower} before starting new ones",
   "@settingsAddFrontDefaultBehaviorReplaceDescription": {
-    "description": "Option subtitle for the replace add-front default behavior."
+    "description": "Option subtitle for replacement activity behavior.",
+    "placeholders": { "sessionPluralLower": { "type": "String" } }
   },
-  "settingsQuickFrontDefaultBehaviorLabel": "When using quick front",
+  "settingsQuickFrontDefaultBehaviorLabel": "Quick Action Behavior",
   "@settingsQuickFrontDefaultBehaviorLabel": {
-    "description": "Row title for the default behavior preference when triggering quick front (the per-member quick-action shortcut)."
+    "description": "Row title for the default behavior preference when using the quick activity action."
   },
-  "settingsAutoPromoteLongFrontingSessionsLabel": "Show long-running fronts in header",
+  "settingsAutoPromoteLongFrontingSessionsLabel": "{longRunningHeaderLabel}",
   "@settingsAutoPromoteLongFrontingSessionsLabel": {
-    "description": "Switch label for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
+    "description": "Switch label for whether long-running activity sessions appear in the pinned header.",
+    "placeholders": { "longRunningHeaderLabel": { "type": "String" } }
   },
-  "settingsAutoPromoteLongFrontingSessionsDescription": "After 7 days, show active fronts in the pinned header without marking them Always fronting or hiding them from history.",
+  "settingsAutoPromoteLongFrontingSessionsDescription": "After 7 days, show active {sessionPluralLower} in the pinned header without marking them {alwaysActiveLabel} or hiding them from history.",
   "@settingsAutoPromoteLongFrontingSessionsDescription": {
-    "description": "Switch subtitle for whether long-running fronting sessions should appear in the pinned header even without explicit always-fronting opt-in."
+    "description": "Switch subtitle for whether long-running activity sessions appear in the pinned header.",
+    "placeholders": {
+      "sessionPluralLower": { "type": "String" },
+      "alwaysActiveLabel": { "type": "String" }
+    }
   },
   "settingsQuickFrontDefaultBehaviorAdditive": "Add as fronter",
   "@settingsQuickFrontDefaultBehaviorAdditive": {
@@ -11667,7 +11896,7 @@
   "@settingsQuickFrontDefaultBehaviorReplace": {
     "description": "Option label: quick front ends all existing fronts before the tapped member begins."
   },
-  "settingsComposerDefaultMemberLabel": "Default when composing",
+  "settingsComposerDefaultMemberLabel": "Default Author",
   "@settingsComposerDefaultMemberLabel": {
     "description": "Settings row + dialog title for how chat and message-board composers pick the default member you act as."
   },
@@ -11675,9 +11904,9 @@
   "@settingsComposerDefaultMemberLatestFronter": {
     "description": "Option label: default to the most recently started front."
   },
-  "settingsComposerDefaultMemberLatestFronterDescription": "Open as whoever started fronting most recently",
+  "settingsComposerDefaultMemberLatestFronterDescription": "Open with the most recently active profile",
   "@settingsComposerDefaultMemberLatestFronterDescription": {
-    "description": "Option subtitle for the latest-fronter composer default."
+    "description": "Option subtitle for the latest active profile composer default."
   },
   "settingsComposerDefaultMemberLastUsed": "Last used",
   "@settingsComposerDefaultMemberLastUsed": {
@@ -11703,9 +11932,10 @@
   "@featureBoardsTitle": {
     "description": "Title of the Message Boards feature settings screen."
   },
-  "featureBoardsDescription": "Short messages between headmates — public timeline plus private inbox.",
+  "featureBoardsDescription": "Short messages between {termPluralLower} — a public timeline and private inbox.",
   "@featureBoardsDescription": {
-    "description": "Description shown at the top of the Message Boards feature settings screen."
+    "description": "Description shown at the top of the Message Boards feature settings screen.",
+    "placeholders": {"termPluralLower": {"type": "String"}}
   },
   "featureBoardsEnable": "Enable Message Boards",
   "@featureBoardsEnable": {
@@ -11731,7 +11961,7 @@
   "@boardsTileEveryone": {
     "description": "Recipient name shown after the to connector on public board posts with no specific target member."
   },
-  "boardsTileRemovedMember": "Removed member",
+  "boardsTileRemovedMember": "Removed profile",
   "@boardsTileRemovedMember": {
     "description": "Fallback name shown when the author or target member of a board post no longer exists."
   },
@@ -11793,9 +12023,10 @@
   "@boardsEmptyInbox": {
     "description": "Empty state subtitle for the Inbox sub-tab when there are no private posts."
   },
-  "boardsComposeNoFronterHint": "No one's fronting right now — start a session to post.",
+  "boardsComposeNoFronterHint": "{emptyCurrentState}. Start a session to post.",
   "@boardsComposeNoFronterHint": {
-    "description": "Hint shown in the Inbox empty state when no members are currently fronting."
+    "description": "Hint shown in the Inbox empty state when no profiles are currently active.",
+    "placeholders": {"emptyCurrentState": {"type": "String"}}
   },
   "boardsToastFronterDeFronted": "{name} de-fronted — showing all",
   "@boardsToastFronterDeFronted": {
@@ -13616,5 +13847,59 @@
   "imageSemanticExpired": "Image expired",
   "@imageSemanticExpired": { "description": "Screen-reader label and visible caption for an image whose remote blob has expired and is no longer available" },
   "imageSemanticThumbnail": "Media thumbnail",
-  "@imageSemanticThumbnail": { "description": "Screen-reader label for a small image thumbnail" }
+  "@imageSemanticThumbnail": { "description": "Screen-reader label for a small image thumbnail" },
+
+  "analyticsInsightGapHeadline": "{duration} untracked this period",
+  "@analyticsInsightGapHeadline": {"placeholders": {"duration": {"type": "String"}}},
+  "analyticsInsightGapBody": "{percent}% of the time wasn't logged.",
+  "@analyticsInsightGapBody": {"placeholders": {"percent": {"type": "int"}}},
+  "analyticsInsightTogetherNamed": "{nameA} and {nameB} {togetherPast} often this period",
+  "@analyticsInsightTogetherNamed": {"placeholders": {"nameA": {"type": "String"}, "nameB": {"type": "String"}, "togetherPast": {"type": "String"}}},
+  "analyticsInsightTogetherGeneric": "Two {termPluralLower} {togetherPast} often this period",
+  "@analyticsInsightTogetherGeneric": {"placeholders": {"termPluralLower": {"type": "String"}, "togetherPast": {"type": "String"}}},
+  "analyticsInsightTogetherBody": "{duration} together.",
+  "@analyticsInsightTogetherBody": {"placeholders": {"duration": {"type": "String"}}},
+  "analyticsInsightQuietNamed": "{name} has no {sessionPluralLower} this period",
+  "@analyticsInsightQuietNamed": {"placeholders": {"name": {"type": "String"}, "sessionPluralLower": {"type": "String"}}},
+  "analyticsInsightQuietGeneric": "One {termSingularLower} has no {sessionPluralLower} this period",
+  "@analyticsInsightQuietGeneric": {"placeholders": {"termSingularLower": {"type": "String"}, "sessionPluralLower": {"type": "String"}}},
+  "analyticsInsightQuietBody": "They were active in the previous period.",
+  "analyticsInsightDirection": "{direction, select, longer{longer} shorter{shorter} other{different}}",
+  "@analyticsInsightDirection": {"placeholders": {"direction": {"type": "String"}}},
+  "analyticsInsightDriftNamed": "{name}'s {sessionPluralLower} are running {direction}",
+  "@analyticsInsightDriftNamed": {"placeholders": {"name": {"type": "String"}, "sessionPluralLower": {"type": "String"}, "direction": {"type": "String"}}},
+  "analyticsInsightDriftGeneric": "{sessionPlural} are {direction} for one {termSingularLower}",
+  "@analyticsInsightDriftGeneric": {"placeholders": {"sessionPlural": {"type": "String"}, "direction": {"type": "String"}, "termSingularLower": {"type": "String"}}},
+  "analyticsInsightTrend": "{trend, select, up{up} down{down} other{changed}}",
+  "@analyticsInsightTrend": {"placeholders": {"trend": {"type": "String"}}},
+  "analyticsInsightDriftBody": "{currentAverage} average, {trend} from {previousAverage}.",
+  "@analyticsInsightDriftBody": {"placeholders": {"currentAverage": {"type": "String"}, "trend": {"type": "String"}, "previousAverage": {"type": "String"}}},
+  "analyticsInsightTimeShiftNamed": "{name}'s {timeLabelLower} shifted",
+  "@analyticsInsightTimeShiftNamed": {"placeholders": {"name": {"type": "String"}, "timeLabelLower": {"type": "String"}}},
+  "analyticsInsightTimeShiftGeneric": "One {termSingularLower}'s {timeLabelLower} shifted",
+  "@analyticsInsightTimeShiftGeneric": {"placeholders": {"termSingularLower": {"type": "String"}, "timeLabelLower": {"type": "String"}}},
+  "analyticsInsightTimeBucket": "{bucket, select, morning{mornings} afternoon{afternoons} evening{evenings} night{nights} other{{bucket}}}",
+  "@analyticsInsightTimeBucket": {"placeholders": {"bucket": {"type": "String"}}},
+  "analyticsInsightTimeShiftBody": "Mostly {currentBucket} lately — {previousBucket} was more typical before.",
+  "@analyticsInsightTimeShiftBody": {"placeholders": {"currentBucket": {"type": "String"}, "previousBucket": {"type": "String"}}},
+  "memberListFrontButtonsDescription": "Show a direct {featureLower} action next to each profile in the list.",
+  "@memberListFrontButtonsDescription": {"placeholders": {"featureLower": {"type": "String"}}},
+  "memberListFrontButtonsTitle": "Show \u201c{directButtonLabel}\u201d",
+  "@memberListFrontButtonsTitle": {"placeholders": {"directButtonLabel": {"type": "String"}}},
+  "memberListFrontButtonsSubtitle": "Adds “{directButtonLabel}” to profiles that are not {currentlyActivePhrase}.",
+  "@memberListFrontButtonsSubtitle": {"placeholders": {"directButtonLabel": {"type": "String"}, "currentlyActivePhrase": {"type": "String"}}},
+  "resetDataMembersDescription": "Removes all {termPluralLower}. {sessionPlural} will show an unknown profile.",
+  "@resetDataMembersDescription": {"placeholders": {"termPluralLower": {"type": "String"}, "sessionPlural": {"type": "String"}}},
+  "resetDataFrontingDescription": "Deletes all “{historyLabel}” data.",
+  "@resetDataFrontingDescription": {"placeholders": {"historyLabel": {"type": "String"}}},
+  "analyticsError": "Could not load analytics: {error}",
+  "@analyticsError": {"placeholders": {"error": {"type": "Object"}}},
+  "analyticsNoSessionsInRange": "No {sessionPluralLower} in this date range.",
+  "@analyticsNoSessionsInRange": {"placeholders": {"sessionPluralLower": {"type": "String"}}},
+  "analyticsPreviousPeriod": "{value} in the previous period",
+  "@analyticsPreviousPeriod": {"placeholders": {"value": {"type": "String"}}},
+  "profileHeaderSemantic": "Profile header for {name}",
+  "@profileHeaderSemantic": {"placeholders": {"name": {"type": "String"}}},
+  "frontingActionFor": "{action} for {name}",
+  "@frontingActionFor": {"placeholders": {"action": {"type": "String"}, "name": {"type": "String"}}}
 }

@@ -11,6 +11,8 @@ import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
 
+import '../../helpers/fronting_term_fixtures.dart';
+
 const _density = PreferenceDefinition<String>(
   key: 'appearance.sidebar_density',
   scope: PreferenceScope.appSynced,
@@ -240,7 +242,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     final repo = DriftAppPreferenceRepository(PreferenceValuesDao(db), null);
-    final custom = FrontingTerms.custom(defaultFrontingTermBundle);
+    final custom = FrontingTerms.custom(testFrontingTermBundle);
 
     await repo.set(frontingTermsPreference, custom);
 

@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
@@ -38,6 +39,10 @@ class WhosFrontingStep extends ConsumerWidget {
       customSingular: onboarding.customTermSingular,
       customPlural: onboarding.customTermPlural,
       useEnglish: onboarding.terminologyUseEnglish,
+    );
+    final frontingTerms = resolveFrontingTerms(
+      context.l10n,
+      onboarding.pendingFrontingTerms,
     );
 
     return membersAsync.when(
@@ -94,6 +99,7 @@ class WhosFrontingStep extends ConsumerWidget {
                 _StepIntro(
                   importedActiveNames: importedActiveNames,
                   isDark: isDark,
+                  frontingTerms: frontingTerms,
                 ),
                 const SizedBox(height: 16),
                 Expanded(
@@ -130,6 +136,7 @@ class WhosFrontingStep extends ConsumerWidget {
               _StepIntro(
                 importedActiveNames: importedActiveNames,
                 isDark: isDark,
+                frontingTerms: frontingTerms,
               ),
               const SizedBox(height: 16),
               Align(
@@ -249,10 +256,15 @@ class WhosFrontingStep extends ConsumerWidget {
 }
 
 class _StepIntro extends StatelessWidget {
-  const _StepIntro({required this.importedActiveNames, required this.isDark});
+  const _StepIntro({
+    required this.importedActiveNames,
+    required this.isDark,
+    required this.frontingTerms,
+  });
 
   final List<String> importedActiveNames;
   final bool isDark;
+  final FrontingTermBundle frontingTerms;
 
   @override
   Widget build(BuildContext context) {
@@ -264,6 +276,7 @@ class _StepIntro extends StatelessWidget {
         if (importedActiveNames.isNotEmpty) ...[
           Text(
             context.l10n.onboardingWhosFrontingImportedCurrent(
+              frontingTerms.activeSectionLabel,
               importedActiveNames.join(', '),
             ),
             textAlign: TextAlign.center,
@@ -276,7 +289,9 @@ class _StepIntro extends StatelessWidget {
           const SizedBox(height: 6),
         ],
         Text(
-          context.l10n.onboardingWhosFrontingSelectHint,
+          context.l10n.onboardingWhosFrontingSelectHint(
+            frontingTerms.currentQuestionNow,
+          ),
           textAlign: TextAlign.center,
           style: TextStyle(color: hintColor, fontSize: 14),
         ),

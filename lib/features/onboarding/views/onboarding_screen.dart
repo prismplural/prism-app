@@ -31,6 +31,7 @@ import 'package:prism_plurality/features/onboarding/services/onboarding_commit_s
 import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -78,6 +79,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final isDark = theme.brightness == Brightness.dark;
     final primary = colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
+    final pendingFrontingTerms = resolveFrontingTerms(
+      context.l10n,
+      onboarding.pendingFrontingTerms,
+    );
     final notifier = ref.read(onboardingProvider.notifier);
     final step = onboarding.currentStep;
     final isFirstStep = step == OnboardingStep.welcome;
@@ -231,7 +236,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Text(
-                        step.localizedTitle(context),
+                        step.localizedTitle(
+                          context,
+                          frontingTerms: pendingFrontingTerms,
+                        ),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
@@ -240,7 +248,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             ),
                       ),
                     ),
-                    if (step.localizedSubtitle(context)
+                    if (step.localizedSubtitle(
+                          context,
+                          frontingTerms: pendingFrontingTerms,
+                        )
                         case final subtitle?) ...[
                       const SizedBox(height: 4),
                       Padding(

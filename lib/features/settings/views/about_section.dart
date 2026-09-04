@@ -42,6 +42,7 @@ class AboutSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final terms = watchFullTerminology(context, ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final version = ref
         .watch(_packageInfoProvider)
         .maybeWhen(data: _formatPackageVersion, orElse: _buildInfoVersion);
@@ -93,9 +94,9 @@ class AboutSection extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
             context.l10n.settingsAboutDescription(
-              terms.pluralLower,
-              terms.systemSingularLower,
               terms.systemPluralLower,
+              frontingTerms.sessionPluralLower,
+              terms.pluralLower,
             ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(

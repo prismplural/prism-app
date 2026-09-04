@@ -37,13 +37,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Home view'), findsOneWidget);
-    expect(find.text('Home fronting view'), findsOneWidget);
+    expect(find.text('Home Display'), findsOneWidget);
     expect(find.text('Combined'), findsOneWidget);
     expect(find.text('Individual'), findsOneWidget);
     expect(find.text('Timeline'), findsOneWidget);
-    expect(find.text('Starting fronts'), findsOneWidget);
-    expect(find.text('When adding a new front'), findsOneWidget);
-    expect(find.text('When using quick front'), findsOneWidget);
+    expect(find.text('Log Front'), findsOneWidget);
+    expect(find.text('Starting Activity'), findsOneWidget);
+    expect(find.text('Log Front'), findsOneWidget);
+    expect(find.text('Quick Front'), findsOneWidget);
   });
 
   testWidgets('updates onboarding state independently', (tester) async {
@@ -105,11 +106,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Shows each fronting session as its own row.'),
+      find.text('Shows each fronting session on its own row.'),
       findsOneWidget,
     );
     expect(
-      find.text('Ends the current front first, then starts the new member.'),
+      find.text('Ends the current activity, then starts the selected person.'),
       findsNWidgets(2),
     );
   });

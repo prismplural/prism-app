@@ -30,7 +30,7 @@ class RemindersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final remindersAsync = ref.watch(remindersProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -105,7 +105,7 @@ class _ReminderTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final notifier = ref.read(remindersNotifierProvider.notifier);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final isActive = reminder.isActive;
 
     String? targetName;

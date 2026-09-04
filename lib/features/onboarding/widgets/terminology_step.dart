@@ -266,8 +266,9 @@ class _TerminologyStepState extends ConsumerState<TerminologyStep> {
               for (final preset in frontingTermPresetChoices)
                 PrismTermChoice<FrontingTermPreset>(
                   value: preset,
-                  label: frontingTermPresetChoiceLabel(preset),
+                  label: frontingTermPresetChoiceLabel(context.l10n, preset),
                   subtitle: frontingTermBundleForPreset(
+                    context.l10n,
                     preset,
                   ).activePluralLabel,
                 ),

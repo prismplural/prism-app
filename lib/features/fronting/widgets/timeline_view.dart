@@ -122,7 +122,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     final theme = Theme.of(context);
     final timelineState = ref.watch(timelineStateProvider);
     final rowsAsync = ref.watch(timelineRowsProvider);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
 
     // Listen (not watch) for jump target — fires only on change, avoids
     // duplicate addPostFrameCallback registrations on rebuild.
@@ -170,7 +170,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         padding: EdgeInsets.only(bottom: bottomInset),
         child: EmptyState(
           icon: Icon(AppIcons.navTimeline),
-          title: 'No ${_lowerFirst(frontingTerms.historyLabel)}',
+          title: context.l10n.memberFrontingHistoryEmpty(
+            frontingTerms.historyLabel.toLowerCase(),
+          ),
           subtitle: context.l10n.frontingTimelineNoHistorySubtitle,
         ),
       );
@@ -527,9 +529,6 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   }
 }
 
-String _lowerFirst(String value) =>
-    value.isEmpty ? value : '${value[0].toLowerCase()}${value.substring(1)}';
-
 /// Preview bottom sheet shown when a session bar is tapped in the timeline.
 ///
 /// Displays member avatar, name, start time, duration, and a button to navigate
@@ -561,9 +560,9 @@ class _SessionPreviewSheet extends ConsumerWidget {
 
     final String displayName;
     if (session.memberId == null) {
-      displayName = 'Unknown';
+      displayName = context.l10n.unknown;
     } else {
-      displayName = memberName ?? 'Unknown';
+      displayName = memberName ?? context.l10n.unknown;
     }
 
     final startLabel = context.formatTime(session.startTime);

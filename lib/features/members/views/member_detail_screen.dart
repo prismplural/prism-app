@@ -290,7 +290,7 @@ class _MemberDetailBody extends ConsumerWidget {
             member.id,
           ]);
           if (context.mounted) {
-            final frontingTerms = readFrontingTerms(ref);
+            final frontingTerms = readFrontingTerms(context, ref);
             PrismToast.show(
               context,
               message:
@@ -426,7 +426,7 @@ class _FrontingStatsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final statsAsync = ref.watch(memberFrontingStatsProvider(memberId));
 
     return statsAsync.when(
@@ -502,7 +502,7 @@ class _RecentSessionsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final sessionsAsync = ref.watch(memberRecentSessionsProvider(memberId));
 
     return sessionsAsync.when(
@@ -984,7 +984,7 @@ class _MoreMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final items = [
       (
         action: _MenuAction.setFronter,

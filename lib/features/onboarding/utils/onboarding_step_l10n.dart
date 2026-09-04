@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -8,7 +9,10 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 /// Keeps l10n lookups in the presentation layer, leaving the domain enum
 /// free of Flutter imports.
 extension OnboardingStepL10n on OnboardingStep {
-  String localizedTitle(BuildContext context) => switch (this) {
+  String localizedTitle(
+    BuildContext context, {
+    required FrontingTermBundle frontingTerms,
+  }) => switch (this) {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeTitle,
     OnboardingStep.pinSetup => context.l10n.onboardingPinSetupTitle,
     OnboardingStep.recoveryPhrase => context.l10n.onboardingRecoveryPhraseTitle,
@@ -23,15 +27,18 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.features => context.l10n.onboardingFeaturesTitle,
     OnboardingStep.navigation => context.l10n.onboardingNavigationTitle,
     OnboardingStep.frontingDefaults =>
-      context.l10n.onboardingFrontingDefaultsTitle,
+      context.l10n.onboardingFrontingDefaultsTitle(frontingTerms.featureLabel),
     OnboardingStep.chatSetup => context.l10n.onboardingChatSetupTitle,
     OnboardingStep.appearance => context.l10n.onboardingAppearanceTitle,
     OnboardingStep.permissions => context.l10n.onboardingPermissionsTitle,
-    OnboardingStep.whosFronting => context.l10n.onboardingWhosFrontingTitle,
+    OnboardingStep.whosFronting => frontingTerms.currentQuestion,
     OnboardingStep.complete => context.l10n.onboardingCompleteTitle,
   };
 
-  String? localizedSubtitle(BuildContext context) => switch (this) {
+  String? localizedSubtitle(
+    BuildContext context, {
+    required FrontingTermBundle frontingTerms,
+  }) => switch (this) {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeSubtitle,
     OnboardingStep.pinSetup => context.l10n.onboardingPinSetupSubtitle,
     OnboardingStep.recoveryPhrase => null,
@@ -47,7 +54,9 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.features => context.l10n.onboardingFeaturesSubtitle,
     OnboardingStep.navigation => null,
     OnboardingStep.frontingDefaults =>
-      context.l10n.onboardingFrontingDefaultsSubtitle,
+      context.l10n.onboardingFrontingDefaultsSubtitle(
+        frontingTerms.sessionPlural.toLowerCase(),
+      ),
     OnboardingStep.chatSetup => context.l10n.onboardingChatSetupSubtitle,
     OnboardingStep.appearance => context.l10n.onboardingAppearanceSubtitle,
     OnboardingStep.permissions => context.l10n.onboardingPermissionsSubtitle,

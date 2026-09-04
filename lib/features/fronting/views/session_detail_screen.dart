@@ -533,7 +533,9 @@ class _FronterSection extends ConsumerWidget {
                         (MediaQuery.sizeOf(context).width *
                                 MediaQuery.devicePixelRatioOf(context))
                             .ceil(),
-                    semanticLabel: '$memberName profile header',
+                    semanticLabel: context.l10n.profileHeaderSemantic(
+                      memberName,
+                    ),
                     errorBuilder: (_, _, _) => const SizedBox.shrink(),
                   ),
                 ),
@@ -727,7 +729,7 @@ Future<void> _handleEndSession(
   if (active == null) return;
 
   final notifier = ref.read(frontingNotifierProvider.notifier);
-  final frontingTerms = readFrontingTerms(ref);
+  final frontingTerms = readFrontingTerms(context, ref);
   Haptics.medium();
 
   Future<bool> safeEnd() async {
@@ -824,12 +826,14 @@ class _FloatingEndSessionButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final pillRadius = BorderRadius.circular(PrismTokens.radiusPill);
-    final label = watchFrontingTerms(ref).endCurrentAction;
+    final label = watchFrontingTerms(context, ref).endCurrentAction;
 
     return Semantics(
       button: true,
       enabled: true,
-      label: memberName.isEmpty ? label : '$label for $memberName',
+      label: memberName.isEmpty
+          ? label
+          : context.l10n.frontingActionFor(label, memberName),
       child: GlassSurface(
         borderRadius: pillRadius,
         tint: tintColor,

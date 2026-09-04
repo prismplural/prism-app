@@ -287,7 +287,7 @@ class _EditFrontSessionScreenState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final termPlural = watchTerminology(context, ref).plural;
-    final frontingTerms = watchFrontingTerms(ref);
+    final frontingTerms = watchFrontingTerms(context, ref);
     final sessionAsync = ref.watch(sessionByIdProvider(widget.sessionId));
     final membersAsync = ref.watch(activeMemberListProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);

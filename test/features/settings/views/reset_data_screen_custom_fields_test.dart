@@ -30,18 +30,17 @@ class _FakeCustomFieldsRepository implements repo_iface.CustomFieldsRepository {
   Future<List<CustomField>> getAllFields() async => List.of(_fields);
 
   @override
-  Stream<CustomField?> watchFieldById(String id) =>
-      Stream.value(_fields.cast<CustomField?>().firstWhere(
-            (f) => f?.id == id,
-            orElse: () => null,
-          ));
+  Stream<CustomField?> watchFieldById(String id) => Stream.value(
+    _fields.cast<CustomField?>().firstWhere(
+      (f) => f?.id == id,
+      orElse: () => null,
+    ),
+  );
 
   @override
-  Future<CustomField?> getFieldById(String id) async =>
-      _fields.cast<CustomField?>().firstWhere(
-            (f) => f?.id == id,
-            orElse: () => null,
-          );
+  Future<CustomField?> getFieldById(String id) async => _fields
+      .cast<CustomField?>()
+      .firstWhere((f) => f?.id == id, orElse: () => null);
 
   @override
   Future<void> createField(CustomField field) async => _fields.add(field);
@@ -146,6 +145,7 @@ final _oneField = CustomField(
 Widget _buildSubject({
   required List<CustomField> fields,
   _FakeCustomFieldsRepository? fakeRepo,
+  Locale locale = const Locale('en'),
 }) {
   final repo = fakeRepo ?? _FakeCustomFieldsRepository(fields);
   return ProviderScope(
@@ -155,10 +155,11 @@ Widget _buildSubject({
       ),
       customFieldsRepositoryProvider.overrideWithValue(repo),
     ],
-    child: const MaterialApp(
+    child: MaterialApp(
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: [Locale('en')],
-      home: ResetDataScreen(),
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const ResetDataScreen(),
     ),
   );
 }
@@ -195,59 +196,89 @@ void main() {
     });
 
     testWidgets(
-        'Custom Fields row opens confirmation dialog with custom copy when tapped',
-        (tester) async {
-      await tester.pumpWidget(_buildSubject(fields: [_oneField]));
-      await tester.pumpAndSettle();
+      'Custom Fields row opens confirmation dialog with custom copy when tapped',
+      (tester) async {
+        await tester.pumpWidget(_buildSubject(fields: [_oneField]));
+        await tester.pumpAndSettle();
 
-      // Scroll the row into view — it's the 7th granular category row
-      await tester.scrollUntilVisible(
-        find.text('Custom Fields'),
-        100,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Custom Fields'),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Custom Fields'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Custom Fields'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Reset Custom Fields?'), findsOneWidget);
-      expect(
-        find.textContaining('definitions and the values your members have'),
-        findsOneWidget,
-      );
-    });
+        expect(find.text('Reset Custom Fields?'), findsOneWidget);
+        expect(
+          find.textContaining('definitions and the values your members have'),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets(
-        'confirmed Custom Fields reset calls deleteAllFields on the repository',
-        (tester) async {
-      final fakeRepo = _FakeCustomFieldsRepository([_oneField]);
+      'confirmed Custom Fields reset calls deleteAllFields on the repository',
+      (tester) async {
+        final fakeRepo = _FakeCustomFieldsRepository([_oneField]);
 
+        await tester.pumpWidget(
+          _buildSubject(fields: [_oneField], fakeRepo: fakeRepo),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(
+          find.text('Custom Fields'),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Custom Fields'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Reset Custom Fields?'), findsOneWidget);
+
+        await tester.tap(find.text('Delete'));
+        await tester.pumpAndSettle(const Duration(seconds: 5));
+
+        expect(fakeRepo.deleteAllFieldsCallCount, equals(1));
+      },
+    );
+
+    testWidgets('sync reset confirmation is localized in Spanish', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        _buildSubject(fields: [_oneField], fakeRepo: fakeRepo),
+        _buildSubject(fields: [_oneField], locale: const Locale('es')),
       );
       await tester.pumpAndSettle();
 
-      // Scroll the row into view — it's the 7th granular category row
       await tester.scrollUntilVisible(
-        find.text('Custom Fields'),
+        find.text('Desconectar sincronización'),
         100,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(find.text('Desconectar sincronización'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Desconectar sincronización'));
       await tester.pumpAndSettle();
 
-      // Open dialog
-      await tester.tap(find.text('Custom Fields'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Reset Custom Fields?'), findsOneWidget);
-
-      // Tap the Delete button to confirm
-      await tester.tap(find.text('Delete'));
-      // Drain the async reset + the toast auto-dismiss timer (4 s)
-      await tester.pumpAndSettle(const Duration(seconds: 5));
-
-      expect(fakeRepo.deleteAllFieldsCallCount, equals(1));
+      expect(
+        find.text('¿Desconectar la sincronización de este dispositivo?'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Prism conservará todos los datos locales'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Desconectar sincronización y conservar datos'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Disconnect'), findsNothing);
     });
   });
 }

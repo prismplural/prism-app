@@ -138,7 +138,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
       context: context,
       title: l10n.systemInfoDescriptionLabel,
       initialText: _descriptionController.text,
-      hintText: l10n.systemInfoDescriptionHint(terms.systemSingular),
+      hintText: l10n.systemInfoDescriptionHint(terms.systemSingularLower),
     );
     if (result == null || !mounted) return;
     _descriptionController.text = result;
@@ -211,10 +211,11 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     final membersAsync = ref.watch(userVisibleMemberListProvider);
     final hideMemberCountsAsync = ref.watch(hideMemberCountsProvider);
     final terms = watchFullTerminology(context, ref);
+    final systemTerms = ref.watch(systemTermsSettingProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: context.l10n.systemInfoTitle(terms.systemSingular),
+        title: systemInfoLabel(context.l10n, systemTerms, terms.systemSingular),
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -326,7 +327,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               PrismTextField(
                 controller: _systemNameController,
                 labelText: l10n.systemInfoNameLabel,
-                hintText: l10n.systemInfoSystemNameHint(terms.systemSingular),
+                hintText: l10n.systemInfoSystemNameHint(
+                  terms.systemSingularLower,
+                ),
                 onChanged: (_) => _scheduleNameSave(),
                 onSubmitted: (_) => _saveNameNow(),
               ),
@@ -336,7 +339,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               // System tag
               PrismTextField(
                 controller: _systemTagController,
-                labelText: l10n.systemInfoTagLabel(terms.systemSingular),
+                labelText: l10n.systemInfoTagLabel,
                 hintText: l10n.systemInfoTagHint,
                 helperText: l10n.systemInfoTagHelper,
                 maxLength: 79,
@@ -367,7 +370,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               const SizedBox(height: 4),
               PrismTextField(
                 controller: _descriptionController,
-                hintText: l10n.systemInfoDescriptionHint(terms.systemSingular),
+                hintText: l10n.systemInfoDescriptionHint(
+                  terms.systemSingularLower,
+                ),
                 maxLines: 6,
                 minLines: 3,
                 textCapitalization: TextCapitalization.sentences,
@@ -387,7 +392,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.systemInfoColorLabel(terms.systemSingular),
+                      l10n.systemInfoColorLabel,
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -476,9 +481,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                   icon: AppIcons.visibilityOff,
                   iconColor: Colors.indigo,
                   title: l10n.systemInfoHideTotalMemberCountTitle,
-                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle(
-                    terms.systemSingular,
-                  ),
+                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle,
                   value: hideMemberCountsSwitchValue,
                   enabled: hideMemberCountsSwitchEnabled,
                   onChanged: (value) {
