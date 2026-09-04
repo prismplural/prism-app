@@ -226,6 +226,31 @@ void main() {
     expect(foundBoldSpan, isTrue, reason: 'bold span expected');
   });
 
+  testWidgets('bold link preserves both the link and bold styles', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host('**[resource](https://example.com)**'));
+
+    var foundBoldLink = false;
+    for (final richText in tester.widgetList<RichText>(find.byType(RichText))) {
+      richText.text.visitChildren((span) {
+        if (span is TextSpan &&
+            span.text == 'resource' &&
+            span.style?.fontWeight == FontWeight.bold &&
+            span.recognizer is TapGestureRecognizer) {
+          foundBoldLink = true;
+        }
+        return true;
+      });
+    }
+
+    expect(
+      foundBoldLink,
+      isTrue,
+      reason: 'a link nested in bold markdown must retain bold weight',
+    );
+  });
+
   testWidgets('member mention renders display name without raw token', (
     tester,
   ) async {
@@ -251,7 +276,7 @@ void main() {
         .map((t) => t.data ?? t.textSpan?.toPlainText() ?? '')
         .join();
     expect(allText, contains('@Alice'));
-    expect(allText, contains('](https://x.com)'));
+    expect(allText, isNot(contains('](https://x.com)')));
 
     var foundMentionSpan = false;
     final richTexts = tester.widgetList<RichText>(find.byType(RichText));
