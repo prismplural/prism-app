@@ -123,7 +123,9 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
             PrismButton(
               tone: PrismButtonTone.outlined,
               icon: AppIcons.refresh,
-              onPressed: widget.retryInProgress ? () {} : widget.onRetryAvatars!,
+              onPressed: widget.retryInProgress
+                  ? () {}
+                  : widget.onRetryAvatars!,
               enabled: !widget.retryInProgress,
               label: widget.retryInProgress
                   ? l10n.spImportWarningsRetrying
@@ -157,9 +159,7 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: severityColor.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(8),
-        ),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       ),
       child: Text(
         '${category.count}',
@@ -188,7 +188,9 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
     final showAll = _expandedKinds.contains(kind);
     final focusNode = _focusNodeFor(kind);
 
-    final displayCount = (warnings.length <= 10 || showAll) ? warnings.length : 10;
+    final displayCount = (warnings.length <= 10 || showAll)
+        ? warnings.length
+        : 10;
 
     final warningList = ListView.builder(
       shrinkWrap: true,
@@ -237,16 +239,15 @@ class _SpImportWarningSummaryState extends State<SpImportWarningSummary> {
       AppIcons.warningRounded,
       AppColors.warning,
     ),
-    SpImportWarningSeverity.error => (
-      AppIcons.errorOutline,
-      AppColors.error,
-    ),
+    SpImportWarningSeverity.error => (AppIcons.errorOutline, AppColors.error),
   };
 }
 
 String _headlineFor(SpImportWarningKind kind, AppLocalizations l10n) {
   return switch (kind) {
     SpImportWarningKind.avatars => l10n.spImportWarningsAvatarsHeadline,
+    SpImportWarningKind.retiredMedia =>
+      l10n.spImportWarningsRetiredMediaHeadline,
     SpImportWarningKind.missingReferences =>
       l10n.spImportWarningsMissingReferencesHeadline,
     SpImportWarningKind.duplicateMembers =>
@@ -265,6 +266,8 @@ String _headlineFor(SpImportWarningKind kind, AppLocalizations l10n) {
 String _explanationFor(SpImportWarningKind kind, AppLocalizations l10n) {
   return switch (kind) {
     SpImportWarningKind.avatars => l10n.spImportWarningsAvatarsExplanation,
+    SpImportWarningKind.retiredMedia =>
+      l10n.spImportWarningsRetiredMediaExplanation,
     SpImportWarningKind.missingReferences =>
       l10n.spImportWarningsMissingReferencesExplanation,
     SpImportWarningKind.duplicateMembers =>

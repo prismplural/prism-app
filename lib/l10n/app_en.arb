@@ -12746,6 +12746,14 @@
   "@spImportWarningsAvatarsExplanation": {
     "description": "Plain-language explanation for avatar download failures in the SP import warning summary."
   },
+  "spImportWarningsRetiredMediaHeadline": "Simply Plural media unavailable",
+  "@spImportWarningsRetiredMediaHeadline": {
+    "description": "Category headline for media URLs hosted by retired Simply Plural infrastructure."
+  },
+  "spImportWarningsRetiredMediaExplanation": "Some images in this export were hosted by Simply Plural and can no longer be downloaded. An optional avatar ZIP can restore member and system avatars, but not images embedded in bios.",
+  "@spImportWarningsRetiredMediaExplanation": {
+    "description": "Explains the intentional skip of retired Simply Plural media without suggesting that an avatar ZIP restores bio images."
+  },
   "spImportWarningsMissingReferencesHeadline": "Sessions missing a member",
   "@spImportWarningsMissingReferencesHeadline": {
     "description": "Category headline for missing-reference warnings in the SP import warning summary."

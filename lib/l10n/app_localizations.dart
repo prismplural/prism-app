@@ -18936,6 +18936,18 @@ abstract class AppLocalizations {
   /// **'Simply Plural is shutting down and these URLs no longer load. Pair this import with an avatar ZIP export to keep the pixels.'**
   String get spImportWarningsAvatarsExplanation;
 
+  /// Category headline for media URLs hosted by retired Simply Plural infrastructure.
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural media unavailable'**
+  String get spImportWarningsRetiredMediaHeadline;
+
+  /// Explains the intentional skip of retired Simply Plural media without suggesting that an avatar ZIP restores bio images.
+  ///
+  /// In en, this message translates to:
+  /// **'Some images in this export were hosted by Simply Plural and can no longer be downloaded. An optional avatar ZIP can restore member and system avatars, but not images embedded in bios.'**
+  String get spImportWarningsRetiredMediaExplanation;
+
   /// Category headline for missing-reference warnings in the SP import warning summary.
   ///
   /// In en, this message translates to:

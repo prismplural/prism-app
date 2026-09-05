@@ -5,8 +5,11 @@
 /// that ZIP-error messages embedding exception text don't misroute.
 library;
 
+import 'package:prism_plurality/features/migration/services/sp_importer.dart';
+
 enum SpImportWarningKind {
   avatars,
+  retiredMedia,
   missingReferences,
   duplicateMembers,
   customFrontAdjustments,
@@ -67,6 +70,9 @@ class SpImportWarningClassifier {
   }
 
   static SpImportWarningKind _classify(String lower) {
+    if (ImportResult.isRetiredMediaWarning(lower)) {
+      return SpImportWarningKind.retiredMedia;
+    }
     if ((lower.contains('avatar') &&
             (lower.contains('download') || lower.contains('zip'))) ||
         lower.contains('zip image') ||
@@ -109,6 +115,7 @@ class SpImportWarningClassifier {
   static SpImportWarningSeverity _severityFor(SpImportWarningKind kind) {
     return switch (kind) {
       SpImportWarningKind.avatars => SpImportWarningSeverity.warning,
+      SpImportWarningKind.retiredMedia => SpImportWarningSeverity.warning,
       SpImportWarningKind.missingReferences => SpImportWarningSeverity.warning,
       SpImportWarningKind.duplicateMembers => SpImportWarningSeverity.warning,
       SpImportWarningKind.customFrontAdjustments =>

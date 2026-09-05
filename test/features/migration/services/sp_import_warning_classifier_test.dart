@@ -16,6 +16,13 @@ void main() {
       expect(SpImportWarningClassifier.classify([]), isEmpty);
     });
 
+    test('retired Simply Plural media is distinct from avatar failures', () {
+      expect(
+        kindOf('Retired Simply Plural media skipped: 1 bio image(s)'),
+        SpImportWarningKind.retiredMedia,
+      );
+    });
+
     // ── avatars ──────────────────────────────────────────────────────────────
     // Sources: sp_importer.dart:1514, 1256, 1235, 1286
 
@@ -40,18 +47,21 @@ void main() {
       );
     });
 
-    test('avatar ZIP import error with embedded exception → avatars, not missingReferences', () {
-      // Verifies that the zip-error path (which may embed an exception string
-      // containing "not found") is classified as avatars, not missingReferences.
-      // Source: sp_importer.dart:1286 — 'Could not import avatar ZIP: $e'
-      expect(
-        kindOf(
-          'Could not import avatar ZIP: '
-          'FormatException: Could not read avatar ZIP: invalid ZIP',
-        ),
-        SpImportWarningKind.avatars,
-      );
-    });
+    test(
+      'avatar ZIP import error with embedded exception → avatars, not missingReferences',
+      () {
+        // Verifies that the zip-error path (which may embed an exception string
+        // containing "not found") is classified as avatars, not missingReferences.
+        // Source: sp_importer.dart:1286 — 'Could not import avatar ZIP: $e'
+        expect(
+          kindOf(
+            'Could not import avatar ZIP: '
+            'FormatException: Could not read avatar ZIP: invalid ZIP',
+          ),
+          SpImportWarningKind.avatars,
+        );
+      },
+    );
 
     // ── avatars: ZIP-image warnings from sp_avatar_zip_importer.dart ─────────
     // These strings contain "zip image" but no "avatar"; without the extended
@@ -188,22 +198,28 @@ void main() {
       );
     });
 
-    test('duplicate-start sleep entries collapsed → customFrontAdjustments', () {
-      expect(
-        kindOf('4 duplicate-start SP sleep entries collapsed.'),
-        SpImportWarningKind.customFrontAdjustments,
-      );
-    });
+    test(
+      'duplicate-start sleep entries collapsed → customFrontAdjustments',
+      () {
+        expect(
+          kindOf('4 duplicate-start SP sleep entries collapsed.'),
+          SpImportWarningKind.customFrontAdjustments,
+        );
+      },
+    );
 
-    test('CF synthetic fallbacks (handled as notes) → customFrontAdjustments', () {
-      expect(
-        kindOf(
-          '1 front-history references pointed to custom fronts deleted in SP '
-          '— handled as notes.',
-        ),
-        SpImportWarningKind.customFrontAdjustments,
-      );
-    });
+    test(
+      'CF synthetic fallbacks (handled as notes) → customFrontAdjustments',
+      () {
+        expect(
+          kindOf(
+            '1 front-history references pointed to custom fronts deleted in SP '
+            '— handled as notes.',
+          ),
+          SpImportWarningKind.customFrontAdjustments,
+        );
+      },
+    );
 
     test('sleep sessions overlap → customFrontAdjustments', () {
       // Actual emit-site (sp_mapper.dart:831-835) differs from plan fixture;
@@ -281,9 +297,7 @@ void main() {
 
     test('comment front session not found → missingReferences', () {
       expect(
-        kindOf(
-          'Comment xyz: front session "def" not found, comment skipped.',
-        ),
+        kindOf('Comment xyz: front session "def" not found, comment skipped.'),
         SpImportWarningKind.missingReferences,
       );
     });
@@ -292,9 +306,7 @@ void main() {
       // Actual emit-site (sp_mapper.dart:1240-1241) says "membership skipped."
       // — plan had "skipping group membership." Both contain "not found".
       expect(
-        kindOf(
-          'Group "Family": member "abc" not found, membership skipped.',
-        ),
+        kindOf('Group "Family": member "abc" not found, membership skipped.'),
         SpImportWarningKind.missingReferences,
       );
     });
@@ -334,38 +346,47 @@ void main() {
 
     // ── ordering: first-match wins ───────────────────────────────────────────
 
-    test('warning matching both avatars and missingReferences → avatars (rule 1 beats rule 6)', () {
-      // "avatar download" matches rule 1; "not found" also present but rule 1
-      // fires first.
-      final result = SpImportWarningClassifier.classify([
-        'Avatar download failed for some-id: not found on CDN',
-      ]);
-      expect(result, hasLength(1));
-      expect(result.first.kind, SpImportWarningKind.avatars);
-    });
+    test(
+      'warning matching both avatars and missingReferences → avatars (rule 1 beats rule 6)',
+      () {
+        // "avatar download" matches rule 1; "not found" also present but rule 1
+        // fires first.
+        final result = SpImportWarningClassifier.classify([
+          'Avatar download failed for some-id: not found on CDN',
+        ]);
+        expect(result, hasLength(1));
+        expect(result.first.kind, SpImportWarningKind.avatars);
+      },
+    );
 
     // ── multi-warning input ───────────────────────────────────────────────────
 
-    test('multiple warnings from different categories produce multiple categories', () {
-      final result = SpImportWarningClassifier.classify([
-        'Avatar download failed for abc',
-        'Front entry x: member "y" not found, session will have no primary fronter.',
-        "Some new warning we don't recognize",
-      ]);
-      final kinds = result.map((c) => c.kind).toSet();
-      expect(kinds, containsAll([
-        SpImportWarningKind.avatars,
-        SpImportWarningKind.missingReferences,
-        SpImportWarningKind.other,
-      ]));
-    });
+    test(
+      'multiple warnings from different categories produce multiple categories',
+      () {
+        final result = SpImportWarningClassifier.classify([
+          'Avatar download failed for abc',
+          'Front entry x: member "y" not found, session will have no primary fronter.',
+          "Some new warning we don't recognize",
+        ]);
+        final kinds = result.map((c) => c.kind).toSet();
+        expect(
+          kinds,
+          containsAll([
+            SpImportWarningKind.avatars,
+            SpImportWarningKind.missingReferences,
+            SpImportWarningKind.other,
+          ]),
+        );
+      },
+    );
 
     test('result order matches SpImportWarningKind declaration order', () {
       // avatars (0), missingReferences (1), other (6) — should appear in that
       // order regardless of input order.
       final result = SpImportWarningClassifier.classify([
-        "Some new warning we don't recognize",        // other
-        'Avatar download failed for abc',             // avatars
+        "Some new warning we don't recognize", // other
+        'Avatar download failed for abc', // avatars
         'Front entry x: member "y" not found, session will have no primary fronter.', // missingReferences
       ]);
       expect(result.map((c) => c.kind).toList(), [
@@ -380,7 +401,7 @@ void main() {
     test('syncEmission has error severity', () {
       final result = SpImportWarningClassifier.classify([
         '1 sync emissions could not be replayed because the member repository '
-        'is not sync-enabled. Local data is correct.',
+            'is not sync-enabled. Local data is correct.',
       ]);
       expect(result.first.severity, SpImportWarningSeverity.error);
     });

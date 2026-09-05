@@ -170,7 +170,7 @@ class ImportResult {
   }
 
   static bool isRetiredMediaWarning(String warning) =>
-      warning.startsWith(retiredMediaWarningPrefix);
+      warning.toLowerCase().startsWith(retiredMediaWarningPrefix.toLowerCase());
 
   bool get hasAvatarDownloadFailures => warnings.any(isAvatarDownloadWarning);
 

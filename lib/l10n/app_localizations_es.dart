@@ -12717,6 +12717,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Simply Plural is shutting down and these URLs no longer load. Pair this import with an avatar ZIP export to keep the pixels.';
 
   @override
+  String get spImportWarningsRetiredMediaHeadline =>
+      'Contenido de Simply Plural no disponible';
+
+  @override
+  String get spImportWarningsRetiredMediaExplanation =>
+      'Algunas imágenes de esta exportación estaban alojadas en Simply Plural y ya no se pueden descargar. Un archivo ZIP de avatares opcional puede restaurar los avatares de miembros y del sistema, pero no las imágenes insertadas en las biografías.';
+
+  @override
   String get spImportWarningsMissingReferencesHeadline =>
       'Sessions missing a member';
 
