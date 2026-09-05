@@ -217,6 +217,7 @@ final class FrontingTermBundle {
     required String alwaysActiveLabel,
     required String alwaysPresentHeaderLabel,
     required String longRunningLabel,
+    String? longRunningHeaderSingularLabel,
     required String longRunningHeaderLabel,
     required String quickCorrectionLabel,
     required String quickCorrectionWindowTitle,
@@ -276,6 +277,8 @@ final class FrontingTermBundle {
       'alwaysActiveLabel': alwaysActiveLabel,
       'alwaysPresentHeaderLabel': alwaysPresentHeaderLabel,
       'longRunningLabel': longRunningLabel,
+      'longRunningHeaderSingularLabel':
+          longRunningHeaderSingularLabel ?? longRunningHeaderLabel,
       'longRunningHeaderLabel': longRunningHeaderLabel,
       'quickCorrectionLabel': quickCorrectionLabel,
       'quickCorrectionWindowTitle': quickCorrectionWindowTitle,
@@ -337,6 +340,7 @@ final class FrontingTermBundle {
     'alwaysActiveLabel',
     'alwaysPresentHeaderLabel',
     'longRunningLabel',
+    'longRunningHeaderSingularLabel',
     'longRunningHeaderLabel',
     'quickCorrectionLabel',
     'quickCorrectionWindowTitle',
@@ -401,6 +405,10 @@ final class FrontingTermBundle {
   String get alwaysActiveLabel => _values['alwaysActiveLabel']!;
   String get alwaysPresentHeaderLabel => _values['alwaysPresentHeaderLabel']!;
   String get longRunningLabel => _values['longRunningLabel']!;
+  String get longRunningHeaderSingularLabel =>
+      _values['longRunningHeaderSingularLabel'] ?? longRunningHeaderLabel;
+  bool get hasLongRunningHeaderSingularLabel =>
+      _values.containsKey('longRunningHeaderSingularLabel');
   String get longRunningHeaderLabel => _values['longRunningHeaderLabel']!;
   String get quickCorrectionLabel => _values['quickCorrectionLabel']!;
   String get quickCorrectionWindowTitle =>
@@ -409,13 +417,15 @@ final class FrontingTermBundle {
 
   FrontingTermBundle normalized() {
     return FrontingTermBundle._({
-      for (final key in fieldKeys) key: _values[key]!.trim(),
+      for (final key in fieldKeys)
+        if (_values.containsKey(key)) key: _values[key]!.trim(),
     });
   }
 
   bool get isValid {
     for (final key in fieldKeys) {
       final value = _values[key];
+      if (key == 'longRunningHeaderSingularLabel' && value == null) continue;
       if (value == null) return false;
       final trimmed = value.trim();
       if (trimmed.isEmpty) return false;
@@ -425,13 +435,18 @@ final class FrontingTermBundle {
   }
 
   Map<String, Object?> toJson() => {
-    for (final key in fieldKeys) key: _values[key],
+    for (final key in fieldKeys)
+      if (_values.containsKey(key)) key: _values[key],
   };
 
   static FrontingTermBundle? tryDecode(Object? value) {
     if (value is! Map) return null;
     final fields = <String, String>{};
     for (final key in fieldKeys) {
+      // Preserve absence to distinguish legacy bundles from user-authored text.
+      if (key == 'longRunningHeaderSingularLabel' && value[key] == null) {
+        continue;
+      }
       final field = value[key];
       if (field is! String) return null;
       fields[key] = field;

@@ -730,7 +730,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'alwaysActiveLabel': 'Always: $activeSection',
       'alwaysPresentHeaderLabel': 'Always $activeSection',
       'longRunningLabel': 'Long-running: $activeSection',
-      'longRunningHeaderLabel': 'Long-running $activeSection',
+      'longRunningHeaderSingularLabel': 'Long-running $activeSingular',
+      'longRunningHeaderLabel': 'Long-running $activePlural',
       'quickCorrectionLabel': 'Quick Correction: $activeSection',
       'quickCorrectionWindowTitle': 'Quick Correction Window',
       'switchEventLabel': 'Change: $featureLabel',
@@ -1410,6 +1411,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String terminologyFrontingPresetLongRunningHeaderSingularLabel(
+    String preset,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Long-running front',
+      'present': 'Long-running presence',
+      'out': 'Long-running out session',
+      'online': 'Long-running online session',
+      'other': 'Long-running front',
+    });
+    return '$_temp0';
+  }
+
+  @override
   String terminologyFrontingPresetLongRunningHeaderLabel(String preset) {
     String _temp0 = intl.Intl.selectLogic(preset, {
       'fronting': 'Long-running fronts',
@@ -1513,7 +1528,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'alwaysActiveLabel': 'Always-active label',
       'alwaysPresentHeaderLabel': 'Always-active header',
       'longRunningLabel': 'Long-running label',
-      'longRunningHeaderLabel': 'Long-running header',
+      'longRunningHeaderSingularLabel': 'Long-running header, singular',
+      'longRunningHeaderLabel': 'Long-running header, plural',
       'quickCorrectionLabel': 'Quick-correction label',
       'quickCorrectionWindowTitle': 'Quick-correction window title',
       'switchEventLabel': 'Change-event name',

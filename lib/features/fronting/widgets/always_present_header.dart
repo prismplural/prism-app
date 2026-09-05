@@ -15,10 +15,6 @@ import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 
 /// Sticky glass row in the home-screen scroll view, surfacing members who are
 /// currently pinned in the header.
-///
-/// Explicit `isAlwaysFronting` members keep the "Always present" label. Members
-/// surfaced only because their session has been running for a long time show
-/// just the duration, so the UI does not imply an explicit opt-in.
 class AlwaysPresentHeader extends ConsumerWidget {
   const AlwaysPresentHeader({super.key});
 
@@ -47,7 +43,9 @@ class AlwaysPresentHeader extends ConsumerWidget {
     final baseLabel = allExplicit
         ? frontingTerms.alwaysPresentHeaderLabel
         : noneExplicit
-        ? frontingTerms.longRunningHeaderLabel
+        ? qualifying.length == 1
+              ? frontingTerms.longRunningHeaderSingularLabel
+              : frontingTerms.longRunningHeaderLabel
         : '${frontingTerms.alwaysPresentHeaderLabel} + '
               '${frontingTerms.longRunningLabel.toLowerCase()}';
     final headerLabel = '$baseLabel · $durationLabel';

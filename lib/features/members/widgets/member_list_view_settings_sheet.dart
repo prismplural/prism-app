@@ -222,34 +222,30 @@ class MemberListViewSettingsSheet extends ConsumerWidget {
                                   padding: const EdgeInsets.only(top: 12),
                                   child: _LabeledControl(
                                     label: l10n.memberFrontButtonBehaviorLabel,
-                                    child:
-                                        PrismSegmentedControl<
-                                          FrontStartBehavior
-                                        >(
-                                          selected: frontButtonBehavior,
-                                          onChanged: (behavior) {
-                                            ref
-                                                .read(
-                                                  settingsNotifierProvider
-                                                      .notifier,
-                                                )
-                                                .updateMembersFrontButtonBehavior(
-                                                  behavior,
-                                                );
-                                          },
-                                          segments: [
-                                            PrismSegment(
-                                              value:
-                                                  FrontStartBehavior.additive,
-                                              label: frontingTerms.addAction,
-                                            ),
-                                            PrismSegment(
-                                              value: FrontStartBehavior.replace,
-                                              label: frontingTerms
-                                                  .replaceCurrentAction,
-                                            ),
-                                          ],
+                                    child: PrismSegmentedControl<FrontStartBehavior>(
+                                      selected: frontButtonBehavior,
+                                      onChanged: (behavior) {
+                                        ref
+                                            .read(
+                                              settingsNotifierProvider.notifier,
+                                            )
+                                            .updateMembersFrontButtonBehavior(
+                                              behavior,
+                                            );
+                                      },
+                                      segments: [
+                                        PrismSegment(
+                                          value: FrontStartBehavior.additive,
+                                          label:
+                                              l10n.memberFrontButtonBehaviorAdd,
                                         ),
+                                        PrismSegment(
+                                          value: FrontStartBehavior.replace,
+                                          label: l10n
+                                              .memberFrontButtonBehaviorReplace,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 )
                               : const SizedBox.shrink(),

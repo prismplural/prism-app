@@ -286,7 +286,20 @@ FrontingTermBundle resolveFrontingTerms(
     return frontingTermBundleForPreset(l10n, normalized.preset!);
   }
   final customBundle = normalized.custom;
-  if (customBundle != null && customBundle.isValid) return customBundle;
+  if (customBundle != null && customBundle.isValid) {
+    final authoring = normalized.authoring;
+    if (!customBundle.hasLongRunningHeaderSingularLabel && authoring != null) {
+      // Stored phrases may contain overrides; only fill the missing field.
+      final generated = generateSimpleFrontingBundle(authoring);
+      return FrontingTermBundle.tryDecode({
+            ...customBundle.toJson(),
+            'longRunningHeaderSingularLabel':
+                generated.longRunningHeaderSingularLabel,
+          }) ??
+          customBundle;
+    }
+    return customBundle;
+  }
   return frontingTermBundleForPreset(l10n, FrontingTermPreset.fronting);
 }
 
@@ -364,6 +377,8 @@ FrontingTermBundle frontingTermBundleForPreset(
     alwaysPresentHeaderLabel: l10n
         .terminologyFrontingPresetAlwaysPresentHeaderLabel(key),
     longRunningLabel: l10n.terminologyFrontingPresetLongRunningLabel(key),
+    longRunningHeaderSingularLabel: l10n
+        .terminologyFrontingPresetLongRunningHeaderSingularLabel(key),
     longRunningHeaderLabel: l10n
         .terminologyFrontingPresetLongRunningHeaderLabel(key),
     quickCorrectionLabel: l10n.terminologyFrontingPresetQuickCorrectionLabel(
@@ -464,6 +479,7 @@ FrontingTermBundle generateSimpleFrontingBundle(
     alwaysActiveLabel: generated('alwaysActiveLabel'),
     alwaysPresentHeaderLabel: generated('alwaysPresentHeaderLabel'),
     longRunningLabel: generated('longRunningLabel'),
+    longRunningHeaderSingularLabel: generated('longRunningHeaderSingularLabel'),
     longRunningHeaderLabel: generated('longRunningHeaderLabel'),
     quickCorrectionLabel: generated('quickCorrectionLabel'),
     quickCorrectionWindowTitle: generated('quickCorrectionWindowTitle'),

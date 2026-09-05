@@ -181,7 +181,9 @@ class _FrontingTerminologyPickerState
   void _setControllersFromBundle(FrontingTermBundle bundle) {
     final values = bundle.toJson();
     for (final key in FrontingTermBundle.fieldKeys) {
-      _controllers[key]!.text = values[key] as String;
+      _controllers[key]!.text = key == 'longRunningHeaderSingularLabel'
+          ? bundle.longRunningHeaderSingularLabel
+          : values[key] as String;
     }
   }
 
@@ -1330,6 +1332,7 @@ List<_FrontingTermFieldGroup> _frontingTermGroups(BuildContext context) {
           'alwaysActiveLabel',
           'alwaysPresentHeaderLabel',
           'longRunningLabel',
+          'longRunningHeaderSingularLabel',
           'longRunningHeaderLabel',
           'quickCorrectionLabel',
           'quickCorrectionWindowTitle',

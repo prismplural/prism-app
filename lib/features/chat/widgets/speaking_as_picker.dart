@@ -210,12 +210,14 @@ class SpeakingAsPicker extends ConsumerWidget {
               children: [
                 if (displayMember != null) ...[
                   MemberAvatar(
+                    memberId: displayMember.id,
                     memberName: displayName,
                     emoji: displayMember.emoji,
                     avatarImageData: displayMember.avatarImageData,
                     customColorEnabled: displayMember.customColorEnabled,
                     customColorHex: displayMember.customColorHex,
                     size: 24,
+                    deferAvatarLookup: true,
                   ),
                   const SizedBox(width: 8),
                   Text(displayName!, style: theme.textTheme.bodyMedium),

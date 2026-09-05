@@ -6,6 +6,130 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 void main() {
+  group('legacy custom singular headers', () {
+    const codec = FrontingTermsPreferenceCodec();
+
+    for (final locale in ['en', 'es']) {
+      test(
+        'fills only the missing display phrase using saved $locale inputs',
+        () {
+          final savedLocale = appLocalizationsForLocale(Locale(locale));
+          final authoring = simpleFrontingAuthoringForPreset(
+            savedLocale,
+            FrontingTermPreset.fronting,
+          );
+          final generated = generateSimpleFrontingBundle(authoring);
+          final legacy = generated.toJson()
+            ..remove('longRunningHeaderSingularLabel')
+            ..['longRunningHeaderLabel'] = 'Saved plural phrase'
+            ..['historyLabel'] = 'My saved history wording';
+          final payload = {'custom': legacy, 'authoring': authoring.toJson()};
+          final stored = codec.decode(payload);
+          final otherLocale = appLocalizationsForLocale(
+            Locale(locale == 'en' ? 'es' : 'en'),
+          );
+
+          for (var pass = 0; pass < 2; pass++) {
+            final reloaded = codec.decode(codec.encode(stored));
+            final resolved = resolveFrontingTerms(otherLocale, reloaded);
+            expect(
+              resolved.longRunningHeaderSingularLabel,
+              generated.longRunningHeaderSingularLabel,
+            );
+            expect(resolved.toJson(), {
+              ...legacy,
+              'longRunningHeaderSingularLabel':
+                  generated.longRunningHeaderSingularLabel,
+            });
+            expect(codec.encode(reloaded), payload);
+            expect(codec.encode(stored), payload);
+          }
+        },
+      );
+    }
+
+    test(
+      'preserves an explicitly saved singular even when it equals plural',
+      () {
+        final en = appLocalizationsForLocale(const Locale('en'));
+        final authoring = simpleFrontingAuthoringForPreset(
+          en,
+          FrontingTermPreset.fronting,
+        );
+        final bundle = generateSimpleFrontingBundle(authoring).toJson()
+          ..['longRunningHeaderSingularLabel'] = 'Our lasting presence'
+          ..['longRunningHeaderLabel'] = 'Our lasting presence';
+        final payload = {'custom': bundle, 'authoring': authoring.toJson()};
+        final stored = codec.decode(payload);
+
+        expect(resolveFrontingTerms(en, stored).toJson(), bundle);
+        expect(codec.encode(stored), payload);
+      },
+    );
+
+    test(
+      'keeps advanced wording when Simple inputs are missing or invalid',
+      () {
+        final en = appLocalizationsForLocale(const Locale('en'));
+        final legacy =
+            frontingTermBundleForPreset(
+                en,
+                FrontingTermPreset.fronting,
+              ).toJson()
+              ..remove('longRunningHeaderSingularLabel')
+              ..['longRunningHeaderLabel'] = 'Our lasting presence';
+        for (final metadata in [
+          null,
+          {'kind': 'simple', 'version': 999},
+        ]) {
+          final stored = codec.decode({
+            'custom': legacy,
+            'authoring': metadata,
+          });
+          final resolved = resolveFrontingTerms(en, stored);
+
+          expect(
+            resolved.longRunningHeaderSingularLabel,
+            'Our lasting presence',
+          );
+          expect(resolved.toJson(), legacy);
+          expect((codec.encode(stored)! as Map)['custom'], legacy);
+        }
+      },
+    );
+
+    test('retains a legacy draft while its preset is active', () {
+      final en = appLocalizationsForLocale(const Locale('en'));
+      final authoring = simpleFrontingAuthoringForPreset(
+        en,
+        FrontingTermPreset.fronting,
+      );
+      final generated = generateSimpleFrontingBundle(authoring);
+      final legacy = generated.toJson()
+        ..remove('longRunningHeaderSingularLabel');
+      final payload = {
+        'preset': 'out',
+        'custom': legacy,
+        'authoring': authoring.toJson(),
+      };
+      final stored = codec.decode(payload);
+
+      expect(
+        resolveFrontingTerms(en, stored),
+        frontingTermBundleForPreset(en, FrontingTermPreset.out),
+      );
+      expect(codec.encode(stored), payload);
+      final activated = FrontingTerms.custom(
+        stored.custom!,
+        authoring: stored.authoring,
+      );
+      expect(
+        resolveFrontingTerms(en, activated).longRunningHeaderSingularLabel,
+        generated.longRunningHeaderSingularLabel,
+      );
+    });
+  });
+
   test('unsupported device locales fall back to English safely', () {
     final l10n = appLocalizationsForLocale(const Locale('fr', 'FR'));
 
@@ -138,10 +262,20 @@ void main() {
     expect(enBundle.currentQuestionNow, "Who's in orbit now?");
     expect(enBundle.historyLabel, 'Orbit History');
     expect(enBundle.activePluralLabel, 'Orbiters');
+    expect(enBundle.longRunningHeaderSingularLabel, 'Long-running Orbiter');
+    expect(enBundle.longRunningHeaderLabel, 'Long-running Orbiters');
     expect(esBundle.isValid, isTrue);
     expect(esBundle.currentQuestionNow, '¿Quién está en órbita ahora?');
     expect(esBundle.historyLabel, 'Historial: Órbita');
     expect(esBundle.activePluralLabel, 'Personas en órbita');
+    expect(
+      esBundle.longRunningHeaderSingularLabel,
+      'Actividad prolongada: Persona en órbita',
+    );
+    expect(
+      esBundle.longRunningHeaderLabel,
+      'Actividad prolongada: Personas en órbita',
+    );
     expect(esBundle.toJson().values, everyElement(isNotEmpty));
     final spanishText = esBundle.toJson().values.join('\n');
     expect(spanishText, isNot(contains('del comunidad')));
@@ -254,6 +388,7 @@ void main() {
       alwaysActiveLabel: 'Always orbiting',
       alwaysPresentHeaderLabel: 'Always in orbit',
       longRunningLabel: 'Long-running',
+      longRunningHeaderSingularLabel: 'Long-running orbit',
       longRunningHeaderLabel: 'Long-running orbits',
       quickCorrectionLabel: 'Quick Correction',
       quickCorrectionWindowTitle: 'Quick Correction Window',
@@ -282,6 +417,8 @@ void main() {
     expect(resolved, custom);
     expect(resolvedInSpanish, custom);
     expect(resolved.activePluralLabel, 'Orbiters');
+    expect(resolved.longRunningHeaderSingularLabel, 'Long-running orbit');
+    expect(resolved.longRunningHeaderLabel, 'Long-running orbits');
     expect(resolved.quickCorrectionLabel, 'Quick Correction');
   });
 }

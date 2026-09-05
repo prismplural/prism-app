@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +16,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 // ---------------------------------------------------------------------------
@@ -48,7 +52,11 @@ class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
   }
 }
 
-Widget _buildSubject({required List<Member> members, String? speakingAs}) {
+Widget _buildSubject({
+  required List<Member> members,
+  String? speakingAs,
+  Uint8List? Function(String memberId)? avatarForMember,
+}) {
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
@@ -65,6 +73,10 @@ Widget _buildSubject({required List<Member> members, String? speakingAs}) {
       systemSettingsProvider.overrideWithValue(
         const AsyncValue.data(SystemSettings()),
       ),
+      if (avatarForMember != null)
+        memberAvatarImageDataProvider.overrideWith(
+          (ref, memberId) => Stream.value(avatarForMember(memberId)),
+        ),
     ],
     child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -152,6 +164,28 @@ void main() {
       await tester.pump();
 
       expect(find.text('Member 5'), findsOneWidget);
+    });
+
+    testWidgets('trigger hydrates the selected member avatar', (tester) async {
+      final members = _members(_kThreshold);
+      await tester.pumpWidget(
+        _buildSubject(
+          members: members,
+          speakingAs: 'id-5',
+          avatarForMember: (memberId) => memberId == 'id-5'
+              ? base64Decode(
+                  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+                )
+              : null,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final trigger = find.byKey(const Key('speakingAsSearchTrigger'));
+      expect(
+        find.descendant(of: trigger, matching: find.byType(Image)),
+        findsOneWidget,
+      );
     });
 
     testWidgets('trigger displays Unknown when selected', (tester) async {

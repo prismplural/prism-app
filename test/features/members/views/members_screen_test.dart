@@ -1197,8 +1197,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Add as fronter'), findsOneWidget);
-    expect(find.text('Replace current fronters'), findsOneWidget);
+    expect(find.text('Add'), findsOneWidget);
+    expect(find.text('Replace'), findsOneWidget);
   });
 
   testWidgets('member rows hide pronouns when disabled in view settings', (

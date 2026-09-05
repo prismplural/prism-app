@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/features/settings/views/terminology_picker.dart';
 import 'package:prism_plurality/features/settings/views/terminology_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import '../../../helpers/fake_repositories.dart';
 import '../../../helpers/fronting_term_fixtures.dart';
@@ -357,6 +358,79 @@ void main() {
   });
 
   group('FrontingTerminologyPicker', () {
+    for (final hasAuthoring in [false, true]) {
+      for (final retainedDraft in [false, true]) {
+        testWidgets('opens a legacy bundle without singular header '
+            '(Simple inputs: $hasAuthoring, retained draft: $retainedDraft)', (
+          tester,
+        ) async {
+          final en = appLocalizationsForLocale(const Locale('en'));
+          final authoring = simpleFrontingAuthoringForPreset(
+            en,
+            FrontingTermPreset.fronting,
+          );
+          final generated = generateSimpleFrontingBundle(authoring);
+          final legacy = generated.toJson()
+            ..remove('longRunningHeaderSingularLabel')
+            ..['longRunningHeaderLabel'] = 'Our lasting presence';
+          const codec = FrontingTermsPreferenceCodec();
+          final payload = {
+            if (retainedDraft) 'preset': 'out',
+            'custom': legacy,
+            if (hasAuthoring) 'authoring': authoring.toJson(),
+          };
+          final appPrefs = FakeAppPreferenceRepository()
+            ..seed(frontingTermsPreference, codec.decode(payload));
+          addTearDown(appPrefs.close);
+
+          await tester.pumpWidget(buildFrontingSubject(appPrefs));
+          await pumpTerminologyAutosave(tester);
+          expect(tester.takeException(), isNull);
+          expect(
+            codec.encode((await appPrefs.getStored(frontingTermsPreference))!),
+            payload,
+          );
+
+          if (retainedDraft) {
+            await tester.tap(find.text('Custom'));
+            await pumpTerminologyAutosave(tester);
+          }
+          if (hasAuthoring) {
+            expect(find.text('Activity name'), findsOneWidget);
+            await tester.tap(find.text('Advanced'));
+            await tester.pumpAndSettle();
+          }
+          final group = find.text(en.terminologyFrontingGroupPinned);
+          await tester.ensureVisible(group);
+          await tester.tap(group);
+          await tester.pumpAndSettle();
+          final label = en.terminologyFrontingFieldLabel(
+            'longRunningHeaderSingularLabel',
+          );
+          final field = tester.widget<PrismTextField>(
+            find.byWidgetPredicate(
+              (widget) => widget is PrismTextField && widget.labelText == label,
+            ),
+          );
+          expect(
+            field.controller!.text,
+            hasAuthoring
+                ? generated.longRunningHeaderSingularLabel
+                : 'Our lasting presence',
+          );
+          expect(tester.takeException(), isNull);
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          await pumpTerminologyAutosave(tester);
+          final saved = await appPrefs.getStored(frontingTermsPreference);
+          expect(codec.encode(saved!), {
+            'custom': legacy,
+            if (hasAuthoring) 'authoring': authoring.toJson(),
+          });
+        });
+      }
+    }
+
     testWidgets('uses compact three-column desktop tiles', (tester) async {
       tester.view.physicalSize = const Size(1000, 800);
       tester.view.devicePixelRatio = 1;

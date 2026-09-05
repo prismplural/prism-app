@@ -106,6 +106,29 @@ void main() {
     expect(codec.isValid(FrontingTerms.unset), isFalse);
   });
 
+  test('fronting terms codec preserves a missing legacy singular header', () {
+    const codec = FrontingTermsPreferenceCodec();
+    final legacyBundle = Map<String, Object?>.from(
+      testFrontingTermBundle.toJson(),
+    )..remove('longRunningHeaderSingularLabel');
+
+    final decoded = codec.decode({'custom': legacyBundle});
+
+    expect(decoded.custom, isNotNull);
+    expect(
+      decoded.custom!.longRunningHeaderSingularLabel,
+      decoded.custom!.longRunningHeaderLabel,
+    );
+    expect((codec.encode(decoded)! as Map)['custom'], legacyBundle);
+    expect(codec.decode(codec.encode(decoded)), decoded);
+    expect(
+      codec.decode({
+        'custom': {...legacyBundle, 'longRunningHeaderSingularLabel': null},
+      }),
+      decoded,
+    );
+  });
+
   test(
     'fronting terms codec retains an inactive custom draft with a preset',
     () {

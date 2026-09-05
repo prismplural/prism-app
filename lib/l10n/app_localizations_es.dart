@@ -735,7 +735,8 @@ class AppLocalizationsEs extends AppLocalizations {
       'alwaysActiveLabel': 'Siempre: $activeSection',
       'alwaysPresentHeaderLabel': 'Siempre: $activeSection',
       'longRunningLabel': 'Actividad prolongada: $activeSection',
-      'longRunningHeaderLabel': 'Actividad prolongada: $activeSection',
+      'longRunningHeaderSingularLabel': 'Actividad prolongada: $activeSingular',
+      'longRunningHeaderLabel': 'Actividad prolongada: $activePlural',
       'quickCorrectionLabel': 'Corrección rápida: $activeSection',
       'quickCorrectionWindowTitle': 'Ventana de corrección rápida',
       'switchEventLabel': 'Cambio: $featureLabel',
@@ -1420,6 +1421,20 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String terminologyFrontingPresetLongRunningHeaderSingularLabel(
+    String preset,
+  ) {
+    String _temp0 = intl.Intl.selectLogic(preset, {
+      'fronting': 'Frente prolongado',
+      'present': 'Presencia prolongada',
+      'out': 'Actividad prolongada fuera',
+      'online': 'Actividad prolongada en línea',
+      'other': 'Frente prolongado',
+    });
+    return '$_temp0';
+  }
+
+  @override
   String terminologyFrontingPresetLongRunningHeaderLabel(String preset) {
     String _temp0 = intl.Intl.selectLogic(preset, {
       'fronting': 'Frentes prolongados',
@@ -1524,7 +1539,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'alwaysActiveLabel': 'Etiqueta de actividad permanente',
       'alwaysPresentHeaderLabel': 'Encabezado de actividad permanente',
       'longRunningLabel': 'Etiqueta de larga duración',
-      'longRunningHeaderLabel': 'Encabezado de actividad prolongada',
+      'longRunningHeaderSingularLabel':
+          'Encabezado de actividad prolongada, singular',
+      'longRunningHeaderLabel': 'Encabezado de actividad prolongada, plural',
       'quickCorrectionLabel': 'Etiqueta de corrección rápida',
       'quickCorrectionWindowTitle': 'Título de la ventana de corrección rápida',
       'switchEventLabel': 'Nombre del evento de cambio',
