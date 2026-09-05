@@ -4,6 +4,30 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.0-rc.2] - 2026-09-05
+
+Release candidate. Includes fixes reported during RC1 testing. The sync pin
+remains on `bfe45c3`.
+
+### Changed
+- Simply Plural imports now use saved export files and skip unavailable media
+  from the retired service.
+
+### Fixed
+- Custom terminology drafts survive preset changes, and selecting a retained
+  draft activates it. Simple fronting terminology keeps its setup during saves.
+- Rapid terminology changes and text edits no longer apply stale updates.
+- Long-running fronting labels use the singular form for one profile while
+  preserving existing custom phrases.
+- Member-list behavior controls show Add and Replace, and trailing actions
+  align consistently.
+- The compact chat sender picker displays profile avatars.
+- Nested markdown links retain their custom-field text styles.
+
+### Internal
+- Mocked image-fetch tests no longer depend on external DNS resolution.
+- Updated the onboarding import test to match the saved-export button label.
+
 ## [0.15.0-rc.1] - 2026-09-04
 
 Release candidate. Terminology is now customizable and localized throughout
