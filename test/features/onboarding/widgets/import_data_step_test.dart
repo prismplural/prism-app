@@ -81,7 +81,7 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ImportDataStep)),
     );
-    expect(find.text('Select Export File'), findsOneWidget);
+    expect(find.text('Select Saved Export'), findsOneWidget);
     await tester.runAsync(() async {
       await container.read(importerProvider.notifier).selectAndParseFile();
     });
