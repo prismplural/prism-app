@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/chat/providers/voice_playback_provider.
 import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
 import 'package:prism_plurality/features/chat/utils/chat_author_options.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
@@ -293,8 +294,13 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final controller = ChatMarkdownEditingController(
       text: widget.message.content,
     );
+    final members =
+        ref.read(activeMemberListProvider).value ?? const <Member>[];
+    controller.updateMentionMembers({
+      for (final member in members) member.id: member,
+    }, preferDisplayName: ref.read(memberNamePreferDisplayProvider));
     var isSaving = false;
-    PrismDialog.show(
+    final dialog = PrismDialog.show<void>(
       context: context,
       title: context.l10n.chatEditMessageTitle,
       builder: (dialogContext) => StatefulBuilder(
@@ -309,6 +315,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                 autofocus: true,
                 maxLines: 4,
                 hintText: context.l10n.chatMessageContentHint,
+                inputFormatters: const [AtomicMentionFormatter()],
               ),
               const SizedBox(height: 16),
               Row(
@@ -352,6 +359,12 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
             ],
           );
         },
+      ),
+    );
+    unawaited(
+      dialog.then<void>(
+        (_) => controller.dispose(),
+        onError: (_, _) => controller.dispose(),
       ),
     );
   }

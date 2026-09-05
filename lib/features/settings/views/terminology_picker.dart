@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -10,6 +14,8 @@ import 'package:prism_plurality/shared/widgets/prism_term_choice_grid.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 typedef _TermOption = ({SystemTerminology term, bool useEnglish});
+
+const _customTerminologySaveDelay = Duration(milliseconds: 300);
 
 /// Widget for selecting the system's preferred terminology for members.
 ///
@@ -40,10 +46,18 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
   late bool _useEnglish;
   late TextEditingController _customController;
   late TextEditingController _customPluralController;
+  Timer? _customSaveDebounce;
+  Future<void>? _customSaveTail;
+  int _customDraftGeneration = 0;
+  bool _customDirty = false;
+  late final SettingsNotifier _settingsNotifier;
+  late final SystemSettingsRepository _settingsRepository;
 
   @override
   void initState() {
     super.initState();
+    _settingsNotifier = ref.read(settingsNotifierProvider.notifier);
+    _settingsRepository = ref.read(systemSettingsRepositoryProvider);
     _selected = widget.current;
     _useEnglish = widget.currentUseEnglish;
     _customController = TextEditingController(
@@ -63,49 +77,123 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
     if (oldWidget.currentUseEnglish != widget.currentUseEnglish) {
       _useEnglish = widget.currentUseEnglish;
     }
-    if (oldWidget.customTerminology != widget.customTerminology) {
-      _customController.text = widget.customTerminology ?? '';
+    if (!_customDirty &&
+        oldWidget.customTerminology != widget.customTerminology) {
+      _replaceControllerText(_customController, widget.customTerminology ?? '');
     }
-    if (oldWidget.customPluralTerminology != widget.customPluralTerminology) {
-      _customPluralController.text = widget.customPluralTerminology ?? '';
+    if (!_customDirty &&
+        oldWidget.customPluralTerminology != widget.customPluralTerminology) {
+      _replaceControllerText(
+        _customPluralController,
+        widget.customPluralTerminology ?? '',
+      );
     }
   }
 
   @override
   void dispose() {
+    _customSaveDebounce?.cancel();
+    _flushCustomSave();
     _customController.dispose();
     _customPluralController.dispose();
     super.dispose();
   }
 
   void _onChanged(_TermOption option) {
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    ++_customDraftGeneration;
     setState(() {
       _selected = option.term;
       _useEnglish = option.useEnglish;
+      _customDirty = false;
     });
-    ref
-        .read(settingsNotifierProvider.notifier)
-        .updateTerminology(
-          option.term,
-          customTerminology: option.term == SystemTerminology.custom
-              ? _customController.text
-              : null,
-          customPluralTerminology: option.term == SystemTerminology.custom
-              ? _customPluralController.text
-              : null,
-          useEnglish: option.useEnglish,
-        );
+    final save = _enqueueTerminologyWrite(
+      () => _settingsNotifier.updateTerminology(
+        option.term,
+        // Keep custom terms when choosing a preset. They are a user's
+        // reusable vocabulary, not preset-specific data, and clearing them
+        // here made switching back to Custom destructive.
+        customTerminology: _customController.text.trim(),
+        customPluralTerminology: _customPluralController.text.trim(),
+        useEnglish: option.useEnglish,
+      ),
+    );
+    unawaited(save.then<void>((_) {}, onError: (_, _) {}));
+  }
+
+  void _replaceControllerText(TextEditingController controller, String text) {
+    if (controller.text == text) return;
+    final selection = controller.selection;
+    final baseOffset = selection.isValid
+        ? selection.baseOffset.clamp(0, text.length).toInt()
+        : text.length;
+    final extentOffset = selection.isValid
+        ? selection.extentOffset.clamp(0, text.length).toInt()
+        : text.length;
+    controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection(
+        baseOffset: baseOffset,
+        extentOffset: extentOffset,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
+  void _onCustomChanged() {
+    setState(() {
+      _customDirty = true;
+      ++_customDraftGeneration;
+    });
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = Timer(_customTerminologySaveDelay, _flushCustomSave);
   }
 
   void _onCustomSubmitted() {
-    ref
-        .read(settingsNotifierProvider.notifier)
-        .updateTerminology(
-          SystemTerminology.custom,
-          customTerminology: _customController.text.trim(),
-          customPluralTerminology: _customPluralController.text.trim(),
-          useEnglish: false,
-        );
+    _customSaveDebounce?.cancel();
+    _customSaveDebounce = null;
+    _flushCustomSave();
+  }
+
+  void _flushCustomSave() {
+    if (!_customDirty) return;
+    final draftGeneration = _customDraftGeneration;
+    final singular = _customController.text.trim();
+    final plural = _customPluralController.text.trim();
+    final save = _enqueueTerminologyWrite(
+      () => _writeCustomTerminology(singular, plural),
+    );
+    unawaited(
+      save.then<void>((_) {
+        if (!mounted || draftGeneration != _customDraftGeneration) return;
+        setState(() => _customDirty = false);
+      }, onError: (_, _) {}),
+    );
+  }
+
+  Future<void> _enqueueTerminologyWrite(Future<void> Function() action) {
+    final previous = _customSaveTail;
+    final save = (previous ?? Future<void>.value()).then((_) => action());
+    _customSaveTail = save.then<void>((_) {}, onError: (_, _) {});
+    return save;
+  }
+
+  Future<void> _writeCustomTerminology(String singular, String plural) {
+    if (mounted) {
+      return _settingsNotifier.updateTerminology(
+        SystemTerminology.custom,
+        customTerminology: singular,
+        customPluralTerminology: plural,
+        useEnglish: false,
+      );
+    }
+    return _settingsRepository.updateTerminologyFields(
+      terminology: SystemTerminology.custom,
+      customTerminology: singular,
+      customPluralTerminology: plural,
+      useEnglish: false,
+    );
   }
 
   /// Localized (singular, plural) labels for the given terminology option.
@@ -246,7 +334,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
             hintText: context.l10n.settingsTerminologyCustomSingularHint,
             isDense: true,
             onSubmitted: (_) => _onCustomSubmitted(),
-            onChanged: (_) => _onCustomSubmitted(),
+            onChanged: (_) => _onCustomChanged(),
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: 12),
@@ -258,7 +346,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
                 : context.l10n.settingsTerminologyCustomPluralHint,
             isDense: true,
             onSubmitted: (_) => _onCustomSubmitted(),
-            onChanged: (_) => _onCustomSubmitted(),
+            onChanged: (_) => _onCustomChanged(),
             textInputAction: TextInputAction.done,
           ),
         ],

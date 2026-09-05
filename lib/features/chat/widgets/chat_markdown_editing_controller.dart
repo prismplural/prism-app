@@ -33,6 +33,41 @@ class ChatMarkdownEditingController extends TextEditingController {
 
   ChatMarkdownEditingController({super.text});
 
+  @override
+  set value(TextEditingValue newValue) {
+    super.value = _snapSelectionOutsideMention(newValue);
+  }
+
+  TextEditingValue _snapSelectionOutsideMention(TextEditingValue value) {
+    final selection = value.selection;
+    if (!selection.isValid) return value;
+
+    int snap(int offset) {
+      for (final match in mentionRegex.allMatches(value.text)) {
+        if (match.start < offset && offset < match.end) {
+          final leftDistance = offset - match.start;
+          final rightDistance = match.end - offset;
+          return leftDistance < rightDistance ? match.start : match.end;
+        }
+      }
+      return offset;
+    }
+
+    final baseOffset = snap(selection.baseOffset);
+    final extentOffset = snap(selection.extentOffset);
+    if (baseOffset == selection.baseOffset &&
+        extentOffset == selection.extentOffset) {
+      return value;
+    }
+    return value.copyWith(
+      selection: selection.copyWith(
+        baseOffset: baseOffset,
+        extentOffset: extentOffset,
+      ),
+      composing: TextRange.empty,
+    );
+  }
+
   void updateTheme(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     _onSurface = colorScheme.onSurface;
@@ -122,7 +157,13 @@ class ChatMarkdownEditingController extends TextEditingController {
       final memberId = mentionIdFromMatch(mention);
       final alias = broadcastAliasFromMatch(mention);
       if (memberId != null) {
-        spans.add(_buildMentionSpan(memberId, baseStyle));
+        spans.add(
+          _buildMentionSpan(
+            memberId,
+            baseStyle,
+            sourceLength: mention.end - mention.start,
+          ),
+        );
       } else if (alias != null) {
         spans.add(_buildBroadcastMentionSpan(alias, baseStyle));
       }
@@ -271,26 +312,65 @@ class ChatMarkdownEditingController extends TextEditingController {
     }
   }
 
-  TextSpan _buildMentionSpan(String memberId, TextStyle baseStyle) {
+  TextSpan _buildMentionSpan(
+    String memberId,
+    TextStyle baseStyle, {
+    required int sourceLength,
+  }) {
     final member = _mentionMembers[memberId];
     final name =
         member?.effectiveName(preferDisplayName: _preferDisplayName) ??
         'Unknown';
+    final display = _fitDisplayName('@$name', sourceLength);
     final mentionColor =
         member != null &&
             member.customColorEnabled &&
             member.customColorHex != null
         ? AppColors.fromHex(member.customColorHex!)
         : _mentionFallbackColor;
+    final hiddenLength = sourceLength - display.length;
     return TextSpan(
-      text: '@$name',
-      style: baseStyle.copyWith(
-        color: mentionColor,
-        fontWeight: FontWeight.w600,
-        backgroundColor: mentionColor.withValues(alpha: 0.16),
-      ),
-      semanticsLabel: '@$name',
+      children: [
+        TextSpan(
+          text: display,
+          style: baseStyle.copyWith(
+            color: mentionColor,
+            fontWeight: FontWeight.w600,
+            backgroundColor: mentionColor.withValues(alpha: 0.16),
+          ),
+          semanticsLabel: display,
+        ),
+        if (hiddenLength > 0)
+          TextSpan(
+            // EditableText maps selection and platform edit offsets through
+            // this span, so it must have the same code-unit length as the
+            // persisted `@[uuid]` token. Keep the padding invisible and out
+            // of accessibility output while preserving that mapping.
+            text: '\u200B' * hiddenLength,
+            style: baseStyle.copyWith(
+              color: Colors.transparent,
+              fontSize: 0,
+              height: 0,
+            ),
+            semanticsLabel: '',
+          ),
+      ],
     );
+  }
+
+  String _fitDisplayName(String display, int sourceLength) {
+    if (display.length <= sourceLength) return display;
+
+    // A durable UUID mention is 39 UTF-16 code units. Member names have no
+    // shorter invariant, so retain a visible, code-point-safe prefix and an
+    // ellipsis rather than letting a long display name break selection offsets.
+    final buffer = StringBuffer();
+    for (final rune in display.runes) {
+      final next = String.fromCharCode(rune);
+      if (buffer.length + next.length > sourceLength - 1) break;
+      buffer.write(next);
+    }
+    return '$buffer…';
   }
 
   TextSpan _buildBroadcastMentionSpan(String alias, TextStyle baseStyle) {

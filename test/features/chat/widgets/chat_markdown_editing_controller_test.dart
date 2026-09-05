@@ -119,11 +119,76 @@ void main() {
           expect(children!.length, 2);
           expect((children[0] as TextSpan).text, 'hi ');
           final mention = children[1] as TextSpan;
-          expect(mention.text, '@Alice');
-          expect(mention.style?.fontWeight, FontWeight.w600);
-          expect(mention.style?.backgroundColor, isNotNull);
+          final visibleMention = mention.children!.first as TextSpan;
+          expect(visibleMention.text, '@Alice');
+          expect(visibleMention.style?.fontWeight, FontWeight.w600);
+          expect(visibleMention.style?.backgroundColor, isNotNull);
         },
       );
+
+      testWidgets('preserves source offsets for editable member mentions', (
+        tester,
+      ) async {
+        const memberId = '00000000-0000-0000-0000-000000000001';
+        final controller = ChatMarkdownEditingController(
+          text: 'before @[$memberId] after',
+        );
+        controller.updateMentionMembers({
+          memberId: Member(
+            id: memberId,
+            name: 'Alice',
+            createdAt: DateTime(2025, 1, 1),
+            isActive: true,
+          ),
+        });
+        await tester.pumpWidget(buildApp(controller));
+        final context = tester.element(find.byType(TextField));
+        controller.updateTheme(context);
+        await tester.pump();
+
+        final span = controller.buildTextSpan(
+          context: context,
+          style: const TextStyle(fontSize: 14),
+          withComposing: false,
+        );
+
+        // EditableText maps selections and platform edits through the
+        // painted span. Its code-unit length must match the stored token,
+        // even though the visible mention is a display name.
+        expect(
+          span.toPlainText(includeSemanticsLabels: false).length,
+          controller.text.length,
+        );
+      });
+
+      testWidgets('long member names preserve editable mention offsets', (
+        tester,
+      ) async {
+        const memberId = '00000000-0000-0000-0000-000000000001';
+        final controller = ChatMarkdownEditingController(text: '@[$memberId]');
+        controller.updateMentionMembers({
+          memberId: Member(
+            id: memberId,
+            name: 'A' * 48,
+            createdAt: DateTime(2025, 1, 1),
+            isActive: true,
+          ),
+        });
+        await tester.pumpWidget(buildApp(controller));
+        final context = tester.element(find.byType(TextField));
+        controller.updateTheme(context);
+        await tester.pump();
+
+        final span = controller.buildTextSpan(
+          context: context,
+          style: const TextStyle(fontSize: 14),
+          withComposing: false,
+        );
+        final paintedText = span.toPlainText(includeSemanticsLabels: false);
+
+        expect(paintedText.length, controller.text.length);
+        expect(paintedText, endsWith('…'));
+      });
 
       testWidgets('renders broadcast aliases with mention styling', (
         tester,
@@ -331,6 +396,29 @@ void main() {
 
         // Same list identity on second call.
         expect(identical(span1.children, span2.children), isTrue);
+      });
+    });
+
+    group('mention selection', () {
+      testWidgets('snaps a caret inside a raw mention to its nearest edge', (
+        tester,
+      ) async {
+        const memberId = '123e4567-e89b-12d3-a456-426614174000';
+        final controller = ChatMarkdownEditingController(
+          text: 'before @[$memberId] after',
+        );
+        addTearDown(controller.dispose);
+
+        final mentionStart = controller.text.indexOf('@[');
+        controller.selection = TextSelection.collapsed(
+          offset: mentionStart + 2,
+        );
+        expect(controller.selection.baseOffset, mentionStart);
+
+        controller.selection = TextSelection.collapsed(
+          offset: mentionStart + 30,
+        );
+        expect(controller.selection.baseOffset, mentionStart + 39);
       });
     });
 

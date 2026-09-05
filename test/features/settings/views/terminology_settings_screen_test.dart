@@ -10,8 +10,10 @@ import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/preferences/preference_definition.dart';
 import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/preferences/system_terms.dart';
+import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/views/terminology_picker.dart';
 import 'package:prism_plurality/features/settings/views/terminology_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
@@ -63,6 +65,35 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: const Scaffold(
           body: SingleChildScrollView(child: FrontingTerminologyPicker()),
+        ),
+      ),
+    );
+  }
+
+  Widget buildMemberTerminologySubject(
+    SystemSettingsRepository settingsRepository,
+  ) {
+    return ProviderScope(
+      overrides: [
+        systemSettingsRepositoryProvider.overrideWithValue(settingsRepository),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Consumer(
+          builder: (context, ref, _) {
+            final settings =
+                ref.watch(systemSettingsProvider).value ??
+                const SystemSettings();
+            return Scaffold(
+              body: TerminologyPicker(
+                current: settings.terminology,
+                currentUseEnglish: settings.terminologyUseEnglish,
+                customTerminology: settings.customTerminology,
+                customPluralTerminology: settings.customPluralTerminology,
+              ),
+            );
+          },
         ),
       ),
     );
@@ -233,6 +264,95 @@ void main() {
         await appPrefs.getStored(systemTermsPreference),
         const SystemTerms.custom(singular: 'Collective', plural: 'Collectives'),
       );
+    });
+  });
+
+  group('TerminologyPicker', () {
+    testWidgets('ignores an older custom terminology save while typing', (
+      tester,
+    ) async {
+      final settingsRepository =
+          _DelayedCustomTerminologySystemSettingsRepository();
+      addTearDown(settingsRepository.close);
+
+      await tester.pumpWidget(
+        buildMemberTerminologySubject(settingsRepository),
+      );
+      await tester.pumpAndSettle();
+
+      final singularField = find.byType(TextFormField).first;
+      await tester.enterText(singularField, 'a');
+      await tester.pump(const Duration(milliseconds: 300));
+      await settingsRepository.waitForFirstCustomSave();
+
+      await tester.enterText(singularField, 'ab');
+      await tester.pumpAndSettle();
+      settingsRepository.completeFirstCustomSave();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextFormField>(singularField).controller!.text,
+        'ab',
+      );
+      expect(
+        tester
+            .widget<TextFormField>(singularField)
+            .controller!
+            .selection
+            .baseOffset,
+        2,
+      );
+      expect(settingsRepository.settings.customTerminology, 'ab');
+    });
+
+    testWidgets('a preset selection supersedes a pending custom-term save', (
+      tester,
+    ) async {
+      final settingsRepository =
+          _DelayedCustomTerminologySystemSettingsRepository();
+      addTearDown(settingsRepository.close);
+
+      await tester.pumpWidget(
+        buildMemberTerminologySubject(settingsRepository),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextFormField).first, 'crew');
+      await tester.pump(const Duration(milliseconds: 300));
+      await settingsRepository.waitForFirstCustomSave();
+      await tester.tap(find.text('Members'));
+      settingsRepository.completeFirstCustomSave();
+      await tester.pumpAndSettle();
+
+      expect(
+        settingsRepository.settings.terminology,
+        SystemTerminology.members,
+      );
+      expect(settingsRepository.settings.customTerminology, 'crew');
+    });
+
+    testWidgets('leaving with a pending custom draft does not throw', (
+      tester,
+    ) async {
+      final settingsRepository = FakeSystemSettingsRepository()
+        ..settings = const SystemSettings(
+          terminology: SystemTerminology.custom,
+          customTerminology: '',
+          customPluralTerminology: '',
+        );
+
+      await tester.pumpWidget(
+        buildMemberTerminologySubject(settingsRepository),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'crew');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(settingsRepository.settings.terminology, SystemTerminology.custom);
+      expect(settingsRepository.settings.customTerminology, 'crew');
     });
   });
 
@@ -1062,5 +1182,59 @@ class _DelayedFirstFrontingSetAppPreferenceRepository
       await _completeFirstFrontingSet.future;
     }
     await super.set(definition, value);
+  }
+}
+
+class _DelayedCustomTerminologySystemSettingsRepository
+    extends FakeSystemSettingsRepository {
+  _DelayedCustomTerminologySystemSettingsRepository() {
+    settings = const SystemSettings(
+      terminology: SystemTerminology.custom,
+      customTerminology: '',
+      customPluralTerminology: '',
+    );
+  }
+
+  final _changes = StreamController<SystemSettings>.broadcast();
+  final _firstCustomSaveStarted = Completer<void>();
+  final _completeFirstCustomSave = Completer<void>();
+  var _hasDelayedCustomSave = false;
+
+  Future<void> waitForFirstCustomSave() => _firstCustomSaveStarted.future;
+
+  void completeFirstCustomSave() {
+    if (!_completeFirstCustomSave.isCompleted) {
+      _completeFirstCustomSave.complete();
+    }
+  }
+
+  void close() => _changes.close();
+
+  @override
+  Stream<SystemSettings> watchSettings() async* {
+    yield settings;
+    yield* _changes.stream;
+  }
+
+  @override
+  Future<void> updateTerminologyFields({
+    required SystemTerminology terminology,
+    String? customTerminology,
+    String? customPluralTerminology,
+    bool useEnglish = false,
+  }) async {
+    final next = settings.copyWith(
+      terminology: terminology,
+      customTerminology: customTerminology,
+      customPluralTerminology: customPluralTerminology,
+      terminologyUseEnglish: useEnglish,
+    );
+    if (!_hasDelayedCustomSave) {
+      _hasDelayedCustomSave = true;
+      _firstCustomSaveStarted.complete();
+      await _completeFirstCustomSave.future;
+    }
+    settings = next;
+    _changes.add(settings);
   }
 }
