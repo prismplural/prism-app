@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'data_export_sheet.dart';
 import 'data_import_sheet.dart';
+import 'package:prism_plurality/features/pluralport/views/pluralport_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Main import/export screen with list of options.
@@ -63,6 +64,13 @@ class ImportExportScreen extends ConsumerWidget {
             child: PrismGroupedSectionCard(
               child: Column(
                 children: [
+                  PrismSettingsRow(
+                    icon: AppIcons.swapHoriz,
+                    title: 'PluralPort',
+                    subtitle: context.l10n.pluralPortRowDescription,
+                    onTap: () => showPluralPortSheet(context),
+                  ),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.cloudSync,
                     iconColor: Colors.deepPurple,

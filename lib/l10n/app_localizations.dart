@@ -21199,6 +21199,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{action} for {name}'**
   String frontingActionFor(String action, String name);
+
+  /// No description provided for @pluralPortDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Move data between plural apps. Imports add records and retain unsupported data for later export.'**
+  String get pluralPortDescription;
+
+  /// No description provided for @pluralPortPlaintextNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'PluralPort exports are not encrypted. They contain personal data and media.'**
+  String get pluralPortPlaintextNotice;
+
+  /// No description provided for @pluralPortChooseFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose import file'**
+  String get pluralPortChooseFile;
+
+  /// No description provided for @pluralPortReplaceProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace system profile'**
+  String get pluralPortReplaceProfile;
+
+  /// No description provided for @pluralPortReplaceProfileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the first system’s name, description, color and avatar.'**
+  String get pluralPortReplaceProfileDescription;
+
+  /// No description provided for @pluralPortImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get pluralPortImport;
+
+  /// No description provided for @pluralPortExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export PluralPort'**
+  String get pluralPortExport;
+
+  /// No description provided for @pluralPortSaveAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Save export again'**
+  String get pluralPortSaveAgain;
+
+  /// No description provided for @pluralPortSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Export saved.'**
+  String get pluralPortSaved;
+
+  /// No description provided for @pluralPortSaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save PluralPort export'**
+  String get pluralPortSaveTitle;
+
+  /// No description provided for @pluralPortRowDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Import and export data between plural apps'**
+  String get pluralPortRowDescription;
+
+  /// No description provided for @pluralPortPreviewCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 record available to import.} other{{count} records available to import.}}'**
+  String pluralPortPreviewCount(int count);
+
+  /// No description provided for @pluralPortImportComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Imported 1 record.} other{Imported {count} records.}} Unsupported data was retained for re-export.'**
+  String pluralPortImportComplete(int count);
+
+  /// No description provided for @pluralPortMoreWarnings.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} more warnings retained in the import archive.'**
+  String pluralPortMoreWarnings(int count);
+
+  /// No description provided for @pluralPortPreservedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Some data cannot be displayed in Prism. It will be kept for your next PluralPort export.'**
+  String get pluralPortPreservedNotice;
+
+  /// No description provided for @pluralPortMissingMediaNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Some media is missing from this file or available only by URL. Its references will be kept without downloading it.'**
+  String get pluralPortMissingMediaNotice;
+
+  /// No description provided for @pluralPortWarningDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Import details'**
+  String get pluralPortWarningDetails;
 }
 
 class _AppLocalizationsDelegate

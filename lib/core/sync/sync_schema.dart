@@ -172,6 +172,15 @@ const String prismSyncSchema = '''
         "bio_markdown_enabled": "Bool"
       }
     },
+    "plural_port_unsupported": {
+      "fields": {
+        "document_id": "String",
+        "chunk_index": "Int",
+        "chunk_count": "Int",
+        "payload": "String",
+        "is_deleted": "Bool"
+      }
+    },
     "app_preference_values": {
       "fields": {
         "value_type": "String",

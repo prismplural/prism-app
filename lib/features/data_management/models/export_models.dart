@@ -75,6 +75,7 @@ class V1Export {
     this.memberBoardPosts = const [],
     this.appPreferences = const [],
     this.rescueLegacyFields = false,
+    this.pluralPortArchives = const [],
   });
 
   final String formatVersion;
@@ -131,8 +132,10 @@ class V1Export {
   /// Per-row sniff stays as a fallback for genuinely-old PRISM1 files
   /// that pre-date this marker.
   final bool rescueLegacyFields;
+  final List<Map<String, dynamic>> pluralPortArchives;
 
   Map<String, dynamic> toJson() => {
+    if (pluralPortArchives.isNotEmpty) 'pluralPortArchives': pluralPortArchives,
     'formatVersion': formatVersion,
     'version': version,
     'appName': appName,
@@ -218,6 +221,9 @@ class V1Export {
     // of the per-row sniff.
     final rescueLegacy = json['rescueLegacyFields'] as bool? ?? false;
     return V1Export(
+      pluralPortArchives: (json['pluralPortArchives'] as List? ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
       formatVersion: formatVersion,
       version: json['version'] as String? ?? '1.0',
       appName: json['appName'] as String? ?? 'Prism Plurality',

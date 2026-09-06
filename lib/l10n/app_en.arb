@@ -13904,5 +13904,43 @@
   "sleepFrontingInfoBody": "Sleep can end your current fronting sessions or keep them running. You can change this in Sleep or Fronting settings.",
   "sleepFrontingInfoAction": "Sleep settings",
   "frontingActionFor": "{action} for {name}",
-  "@frontingActionFor": {"placeholders": {"action": {"type": "String"}, "name": {"type": "String"}}}
+  "@frontingActionFor": {"placeholders": {"action": {"type": "String"}, "name": {"type": "String"}}},
+  "pluralPortDescription": "Move data between plural apps. Imports add records and retain unsupported data for later export.",
+  "pluralPortPlaintextNotice": "PluralPort exports are not encrypted. They contain personal data and media.",
+  "pluralPortChooseFile": "Choose import file",
+  "pluralPortReplaceProfile": "Replace system profile",
+  "pluralPortReplaceProfileDescription": "Use the first system’s name, description, color and avatar.",
+  "pluralPortImport": "Import",
+  "pluralPortExport": "Export PluralPort",
+  "pluralPortSaveAgain": "Save export again",
+  "pluralPortSaved": "Export saved.",
+  "pluralPortSaveTitle": "Save PluralPort export",
+  "pluralPortRowDescription": "Import and export data between plural apps",
+  "pluralPortPreviewCount": "{count, plural, one{1 record available to import.} other{{count} records available to import.}}",
+  "@pluralPortPreviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortImportComplete": "{count, plural, one{Imported 1 record.} other{Imported {count} records.}} Unsupported data was retained for re-export.",
+  "@pluralPortImportComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortMoreWarnings": "{count} more warnings retained in the import archive.",
+  "@pluralPortMoreWarnings": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortPreservedNotice": "Some data cannot be displayed in Prism. It will be kept for your next PluralPort export.",
+  "pluralPortMissingMediaNotice": "Some media is missing from this file or available only by URL. Its references will be kept without downloading it.",
+  "pluralPortWarningDetails": "Import details"
 }

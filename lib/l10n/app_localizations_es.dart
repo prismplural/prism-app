@@ -14179,4 +14179,79 @@ class AppLocalizationsEs extends AppLocalizations {
   String frontingActionFor(String action, String name) {
     return '$action: $name';
   }
+
+  @override
+  String get pluralPortDescription =>
+      'Mueve datos entre aplicaciones plurales. Las importaciones añaden registros y conservan los datos no compatibles para exportarlos después.';
+
+  @override
+  String get pluralPortPlaintextNotice =>
+      'Las exportaciones de PluralPort no están cifradas. Contienen datos personales y archivos multimedia.';
+
+  @override
+  String get pluralPortChooseFile => 'Elegir archivo para importar';
+
+  @override
+  String get pluralPortReplaceProfile => 'Reemplazar el perfil del sistema';
+
+  @override
+  String get pluralPortReplaceProfileDescription =>
+      'Usar el nombre, la descripción, el color y el avatar del primer sistema.';
+
+  @override
+  String get pluralPortImport => 'Importar';
+
+  @override
+  String get pluralPortExport => 'Exportar PluralPort';
+
+  @override
+  String get pluralPortSaveAgain => 'Volver a guardar la exportación';
+
+  @override
+  String get pluralPortSaved => 'Exportación guardada.';
+
+  @override
+  String get pluralPortSaveTitle => 'Guardar exportación de PluralPort';
+
+  @override
+  String get pluralPortRowDescription =>
+      'Importar y exportar datos entre aplicaciones plurales';
+
+  @override
+  String pluralPortPreviewCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count registros disponibles para importar.',
+      one: '1 registro disponible para importar.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortImportComplete(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se importaron $count registros.',
+      one: 'Se importó 1 registro.',
+    );
+    return '$_temp0 Los datos no compatibles se conservaron para volver a exportarlos.';
+  }
+
+  @override
+  String pluralPortMoreWarnings(int count) {
+    return 'Se conservaron $count advertencias más en el archivo de importación.';
+  }
+
+  @override
+  String get pluralPortPreservedNotice =>
+      'Algunos datos no se pueden mostrar en Prism. Se conservarán para tu próxima exportación de PluralPort.';
+
+  @override
+  String get pluralPortMissingMediaNotice =>
+      'Faltan algunos archivos multimedia o solo están disponibles mediante URL. Sus referencias se conservarán sin descargarlos.';
+
+  @override
+  String get pluralPortWarningDetails => 'Detalles de la importación';
 }

@@ -232,6 +232,7 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _conversationsEntity(db, quarantine, pendingQuarantineWrites.add),
       _chatMessagesEntity(db, quarantine, pendingQuarantineWrites.add),
       _systemSettingsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _pluralPortUnsupportedEntity(db, quarantine, pendingQuarantineWrites.add),
       _appPreferenceValuesEntity(db, quarantine, pendingQuarantineWrites.add),
       _memberProfilePreferenceValuesEntity(
         db,
@@ -5586,3 +5587,69 @@ DriftSyncEntity _memberBoardPostsEntity(
     },
   );
 }
+
+
+DriftSyncEntity _pluralPortUnsupportedEntity(
+  AppDatabase db,
+  SyncQuarantineService? quarantine,
+  void Function(Future<void> write) trackQuarantineWrite,
+) => DriftSyncEntity(
+  tableName: 'plural_port_unsupported',
+  entityIdFor: (dynamic row) => (row as PluralPortUnsupportedRow).id,
+  toSyncFields: (dynamic row) {
+    final r = row as PluralPortUnsupportedRow;
+    return {
+      'document_id': r.documentId,
+      'chunk_index': r.chunkIndex,
+      'chunk_count': r.chunkCount,
+      'payload': r.payload,
+      'is_deleted': r.isDeleted,
+    };
+  },
+  applyFields: (String id, Map<String, dynamic> fields) async {
+    final f = _FieldContext(
+      entityType: 'plural_port_unsupported',
+      entityId: id,
+      fields: fields,
+      quarantine: quarantine,
+      trackQuarantineWrite: trackQuarantineWrite,
+    );
+    await _insertOrUpdateById(
+      db,
+      db.pluralPortUnsupported,
+      PluralPortUnsupportedCompanion(
+        id: Value(id),
+        documentId: f.stringField('document_id'),
+        chunkIndex: f.intField('chunk_index'),
+        chunkCount: f.intField('chunk_count'),
+        payload: f.stringField('payload'),
+        isDeleted: f.boolField('is_deleted'),
+      ),
+      (t) => t.id.equals(id),
+    );
+  },
+  hardDelete: (String id) async {
+    await (db.delete(
+      db.pluralPortUnsupported,
+    )..where((t) => t.id.equals(id))).go();
+  },
+  readRow: (String id) async {
+    final r = await (db.select(
+      db.pluralPortUnsupported,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (r == null) return null;
+    return {
+      'document_id': r.documentId,
+      'chunk_index': r.chunkIndex,
+      'chunk_count': r.chunkCount,
+      'payload': r.payload,
+      'is_deleted': r.isDeleted,
+    };
+  },
+  isDeleted: (String id) async {
+    final r = await (db.select(
+      db.pluralPortUnsupported,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    return r?.isDeleted ?? true;
+  },
+);

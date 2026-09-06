@@ -9705,6 +9705,430 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   }
 }
 
+class $PluralPortUnsupportedTable extends PluralPortUnsupported
+    with TableInfo<$PluralPortUnsupportedTable, PluralPortUnsupportedRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PluralPortUnsupportedTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _documentIdMeta = const VerificationMeta(
+    'documentId',
+  );
+  @override
+  late final GeneratedColumn<String> documentId = GeneratedColumn<String>(
+    'document_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chunkIndexMeta = const VerificationMeta(
+    'chunkIndex',
+  );
+  @override
+  late final GeneratedColumn<int> chunkIndex = GeneratedColumn<int>(
+    'chunk_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chunkCountMeta = const VerificationMeta(
+    'chunkCount',
+  );
+  @override
+  late final GeneratedColumn<int> chunkCount = GeneratedColumn<int>(
+    'chunk_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    documentId,
+    chunkIndex,
+    chunkCount,
+    payload,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plural_port_unsupported';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PluralPortUnsupportedRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('document_id')) {
+      context.handle(
+        _documentIdMeta,
+        documentId.isAcceptableOrUnknown(data['document_id']!, _documentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_documentIdMeta);
+    }
+    if (data.containsKey('chunk_index')) {
+      context.handle(
+        _chunkIndexMeta,
+        chunkIndex.isAcceptableOrUnknown(data['chunk_index']!, _chunkIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chunkIndexMeta);
+    }
+    if (data.containsKey('chunk_count')) {
+      context.handle(
+        _chunkCountMeta,
+        chunkCount.isAcceptableOrUnknown(data['chunk_count']!, _chunkCountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_chunkCountMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PluralPortUnsupportedRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PluralPortUnsupportedRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      documentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}document_id'],
+      )!,
+      chunkIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chunk_index'],
+      )!,
+      chunkCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chunk_count'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $PluralPortUnsupportedTable createAlias(String alias) {
+    return $PluralPortUnsupportedTable(attachedDatabase, alias);
+  }
+}
+
+class PluralPortUnsupportedRow extends DataClass
+    implements Insertable<PluralPortUnsupportedRow> {
+  final String id;
+  final String documentId;
+  final int chunkIndex;
+  final int chunkCount;
+  final String payload;
+  final bool isDeleted;
+  const PluralPortUnsupportedRow({
+    required this.id,
+    required this.documentId,
+    required this.chunkIndex,
+    required this.chunkCount,
+    required this.payload,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['document_id'] = Variable<String>(documentId);
+    map['chunk_index'] = Variable<int>(chunkIndex);
+    map['chunk_count'] = Variable<int>(chunkCount);
+    map['payload'] = Variable<String>(payload);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  PluralPortUnsupportedCompanion toCompanion(bool nullToAbsent) {
+    return PluralPortUnsupportedCompanion(
+      id: Value(id),
+      documentId: Value(documentId),
+      chunkIndex: Value(chunkIndex),
+      chunkCount: Value(chunkCount),
+      payload: Value(payload),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory PluralPortUnsupportedRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PluralPortUnsupportedRow(
+      id: serializer.fromJson<String>(json['id']),
+      documentId: serializer.fromJson<String>(json['documentId']),
+      chunkIndex: serializer.fromJson<int>(json['chunkIndex']),
+      chunkCount: serializer.fromJson<int>(json['chunkCount']),
+      payload: serializer.fromJson<String>(json['payload']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'documentId': serializer.toJson<String>(documentId),
+      'chunkIndex': serializer.toJson<int>(chunkIndex),
+      'chunkCount': serializer.toJson<int>(chunkCount),
+      'payload': serializer.toJson<String>(payload),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  PluralPortUnsupportedRow copyWith({
+    String? id,
+    String? documentId,
+    int? chunkIndex,
+    int? chunkCount,
+    String? payload,
+    bool? isDeleted,
+  }) => PluralPortUnsupportedRow(
+    id: id ?? this.id,
+    documentId: documentId ?? this.documentId,
+    chunkIndex: chunkIndex ?? this.chunkIndex,
+    chunkCount: chunkCount ?? this.chunkCount,
+    payload: payload ?? this.payload,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  PluralPortUnsupportedRow copyWithCompanion(
+    PluralPortUnsupportedCompanion data,
+  ) {
+    return PluralPortUnsupportedRow(
+      id: data.id.present ? data.id.value : this.id,
+      documentId: data.documentId.present
+          ? data.documentId.value
+          : this.documentId,
+      chunkIndex: data.chunkIndex.present
+          ? data.chunkIndex.value
+          : this.chunkIndex,
+      chunkCount: data.chunkCount.present
+          ? data.chunkCount.value
+          : this.chunkCount,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PluralPortUnsupportedRow(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('chunkIndex: $chunkIndex, ')
+          ..write('chunkCount: $chunkCount, ')
+          ..write('payload: $payload, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, documentId, chunkIndex, chunkCount, payload, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PluralPortUnsupportedRow &&
+          other.id == this.id &&
+          other.documentId == this.documentId &&
+          other.chunkIndex == this.chunkIndex &&
+          other.chunkCount == this.chunkCount &&
+          other.payload == this.payload &&
+          other.isDeleted == this.isDeleted);
+}
+
+class PluralPortUnsupportedCompanion
+    extends UpdateCompanion<PluralPortUnsupportedRow> {
+  final Value<String> id;
+  final Value<String> documentId;
+  final Value<int> chunkIndex;
+  final Value<int> chunkCount;
+  final Value<String> payload;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const PluralPortUnsupportedCompanion({
+    this.id = const Value.absent(),
+    this.documentId = const Value.absent(),
+    this.chunkIndex = const Value.absent(),
+    this.chunkCount = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PluralPortUnsupportedCompanion.insert({
+    required String id,
+    required String documentId,
+    required int chunkIndex,
+    required int chunkCount,
+    required String payload,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       documentId = Value(documentId),
+       chunkIndex = Value(chunkIndex),
+       chunkCount = Value(chunkCount),
+       payload = Value(payload);
+  static Insertable<PluralPortUnsupportedRow> custom({
+    Expression<String>? id,
+    Expression<String>? documentId,
+    Expression<int>? chunkIndex,
+    Expression<int>? chunkCount,
+    Expression<String>? payload,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (documentId != null) 'document_id': documentId,
+      if (chunkIndex != null) 'chunk_index': chunkIndex,
+      if (chunkCount != null) 'chunk_count': chunkCount,
+      if (payload != null) 'payload': payload,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PluralPortUnsupportedCompanion copyWith({
+    Value<String>? id,
+    Value<String>? documentId,
+    Value<int>? chunkIndex,
+    Value<int>? chunkCount,
+    Value<String>? payload,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return PluralPortUnsupportedCompanion(
+      id: id ?? this.id,
+      documentId: documentId ?? this.documentId,
+      chunkIndex: chunkIndex ?? this.chunkIndex,
+      chunkCount: chunkCount ?? this.chunkCount,
+      payload: payload ?? this.payload,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (documentId.present) {
+      map['document_id'] = Variable<String>(documentId.value);
+    }
+    if (chunkIndex.present) {
+      map['chunk_index'] = Variable<int>(chunkIndex.value);
+    }
+    if (chunkCount.present) {
+      map['chunk_count'] = Variable<int>(chunkCount.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PluralPortUnsupportedCompanion(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('chunkIndex: $chunkIndex, ')
+          ..write('chunkCount: $chunkCount, ')
+          ..write('payload: $payload, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PollsTable extends Polls with TableInfo<$PollsTable, Poll> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -28853,6 +29277,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ChatMessagesTable chatMessages = $ChatMessagesTable(this);
   late final $SystemSettingsTableTable systemSettingsTable =
       $SystemSettingsTableTable(this);
+  late final $PluralPortUnsupportedTable pluralPortUnsupported =
+      $PluralPortUnsupportedTable(this);
   late final $PollsTable polls = $PollsTable(this);
   late final $PollOptionsTable pollOptions = $PollOptionsTable(this);
   late final $PollVotesTable pollVotes = $PollVotesTable(this);
@@ -28986,6 +29412,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     conversations,
     chatMessages,
     systemSettingsTable,
+    pluralPortUnsupported,
     polls,
     pollOptions,
     pollVotes,
@@ -32998,6 +33425,250 @@ typedef $$SystemSettingsTableTableProcessedTableManager =
         >,
       ),
       SystemSettingsData,
+      PrefetchHooks Function()
+    >;
+typedef $$PluralPortUnsupportedTableCreateCompanionBuilder =
+    PluralPortUnsupportedCompanion Function({
+      required String id,
+      required String documentId,
+      required int chunkIndex,
+      required int chunkCount,
+      required String payload,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$PluralPortUnsupportedTableUpdateCompanionBuilder =
+    PluralPortUnsupportedCompanion Function({
+      Value<String> id,
+      Value<String> documentId,
+      Value<int> chunkIndex,
+      Value<int> chunkCount,
+      Value<String> payload,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$PluralPortUnsupportedTableFilterComposer
+    extends Composer<_$AppDatabase, $PluralPortUnsupportedTable> {
+  $$PluralPortUnsupportedTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get documentId => $composableBuilder(
+    column: $table.documentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chunkCount => $composableBuilder(
+    column: $table.chunkCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PluralPortUnsupportedTableOrderingComposer
+    extends Composer<_$AppDatabase, $PluralPortUnsupportedTable> {
+  $$PluralPortUnsupportedTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get documentId => $composableBuilder(
+    column: $table.documentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chunkCount => $composableBuilder(
+    column: $table.chunkCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PluralPortUnsupportedTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PluralPortUnsupportedTable> {
+  $$PluralPortUnsupportedTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get documentId => $composableBuilder(
+    column: $table.documentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get chunkIndex => $composableBuilder(
+    column: $table.chunkIndex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get chunkCount => $composableBuilder(
+    column: $table.chunkCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$PluralPortUnsupportedTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PluralPortUnsupportedTable,
+          PluralPortUnsupportedRow,
+          $$PluralPortUnsupportedTableFilterComposer,
+          $$PluralPortUnsupportedTableOrderingComposer,
+          $$PluralPortUnsupportedTableAnnotationComposer,
+          $$PluralPortUnsupportedTableCreateCompanionBuilder,
+          $$PluralPortUnsupportedTableUpdateCompanionBuilder,
+          (
+            PluralPortUnsupportedRow,
+            BaseReferences<
+              _$AppDatabase,
+              $PluralPortUnsupportedTable,
+              PluralPortUnsupportedRow
+            >,
+          ),
+          PluralPortUnsupportedRow,
+          PrefetchHooks Function()
+        > {
+  $$PluralPortUnsupportedTableTableManager(
+    _$AppDatabase db,
+    $PluralPortUnsupportedTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PluralPortUnsupportedTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$PluralPortUnsupportedTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$PluralPortUnsupportedTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> documentId = const Value.absent(),
+                Value<int> chunkIndex = const Value.absent(),
+                Value<int> chunkCount = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PluralPortUnsupportedCompanion(
+                id: id,
+                documentId: documentId,
+                chunkIndex: chunkIndex,
+                chunkCount: chunkCount,
+                payload: payload,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String documentId,
+                required int chunkIndex,
+                required int chunkCount,
+                required String payload,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PluralPortUnsupportedCompanion.insert(
+                id: id,
+                documentId: documentId,
+                chunkIndex: chunkIndex,
+                chunkCount: chunkCount,
+                payload: payload,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PluralPortUnsupportedTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PluralPortUnsupportedTable,
+      PluralPortUnsupportedRow,
+      $$PluralPortUnsupportedTableFilterComposer,
+      $$PluralPortUnsupportedTableOrderingComposer,
+      $$PluralPortUnsupportedTableAnnotationComposer,
+      $$PluralPortUnsupportedTableCreateCompanionBuilder,
+      $$PluralPortUnsupportedTableUpdateCompanionBuilder,
+      (
+        PluralPortUnsupportedRow,
+        BaseReferences<
+          _$AppDatabase,
+          $PluralPortUnsupportedTable,
+          PluralPortUnsupportedRow
+        >,
+      ),
+      PluralPortUnsupportedRow,
       PrefetchHooks Function()
     >;
 typedef $$PollsTableCreateCompanionBuilder =
@@ -42464,6 +43135,8 @@ class $AppDatabaseManager {
       $$ChatMessagesTableTableManager(_db, _db.chatMessages);
   $$SystemSettingsTableTableTableManager get systemSettingsTable =>
       $$SystemSettingsTableTableTableManager(_db, _db.systemSettingsTable);
+  $$PluralPortUnsupportedTableTableManager get pluralPortUnsupported =>
+      $$PluralPortUnsupportedTableTableManager(_db, _db.pluralPortUnsupported);
   $$PollsTableTableManager get polls =>
       $$PollsTableTableManager(_db, _db.polls);
   $$PollOptionsTableTableManager get pollOptions =>

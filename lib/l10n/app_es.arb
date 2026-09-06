@@ -5214,5 +5214,43 @@
   "sleepFrontingInfoTitle": "Elige qué ocurre durante el sueño",
   "sleepFrontingInfoBody": "Dormir puede terminar tus sesiones de fronting actuales o mantenerlas. Puedes cambiarlo en los ajustes de Sueño o Fronting.",
   "sleepFrontingInfoAction": "Ajustes de sueño",
-  "frontingActionFor": "{action}: {name}"
+  "frontingActionFor": "{action}: {name}",
+  "pluralPortDescription": "Mueve datos entre aplicaciones plurales. Las importaciones añaden registros y conservan los datos no compatibles para exportarlos después.",
+  "pluralPortPlaintextNotice": "Las exportaciones de PluralPort no están cifradas. Contienen datos personales y archivos multimedia.",
+  "pluralPortChooseFile": "Elegir archivo para importar",
+  "pluralPortReplaceProfile": "Reemplazar el perfil del sistema",
+  "pluralPortReplaceProfileDescription": "Usar el nombre, la descripción, el color y el avatar del primer sistema.",
+  "pluralPortImport": "Importar",
+  "pluralPortExport": "Exportar PluralPort",
+  "pluralPortSaveAgain": "Volver a guardar la exportación",
+  "pluralPortSaved": "Exportación guardada.",
+  "pluralPortSaveTitle": "Guardar exportación de PluralPort",
+  "pluralPortRowDescription": "Importar y exportar datos entre aplicaciones plurales",
+  "pluralPortPreviewCount": "{count, plural, one{1 registro disponible para importar.} other{{count} registros disponibles para importar.}}",
+  "@pluralPortPreviewCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortImportComplete": "{count, plural, one{Se importó 1 registro.} other{Se importaron {count} registros.}} Los datos no compatibles se conservaron para volver a exportarlos.",
+  "@pluralPortImportComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortMoreWarnings": "Se conservaron {count} advertencias más en el archivo de importación.",
+  "@pluralPortMoreWarnings": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortPreservedNotice": "Algunos datos no se pueden mostrar en Prism. Se conservarán para tu próxima exportación de PluralPort.",
+  "pluralPortMissingMediaNotice": "Faltan algunos archivos multimedia o solo están disponibles mediante URL. Sus referencias se conservarán sin descargarlos.",
+  "pluralPortWarningDetails": "Detalles de la importación"
 }

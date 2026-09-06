@@ -13970,4 +13970,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String frontingActionFor(String action, String name) {
     return '$action for $name';
   }
+
+  @override
+  String get pluralPortDescription =>
+      'Move data between plural apps. Imports add records and retain unsupported data for later export.';
+
+  @override
+  String get pluralPortPlaintextNotice =>
+      'PluralPort exports are not encrypted. They contain personal data and media.';
+
+  @override
+  String get pluralPortChooseFile => 'Choose import file';
+
+  @override
+  String get pluralPortReplaceProfile => 'Replace system profile';
+
+  @override
+  String get pluralPortReplaceProfileDescription =>
+      'Use the first system’s name, description, color and avatar.';
+
+  @override
+  String get pluralPortImport => 'Import';
+
+  @override
+  String get pluralPortExport => 'Export PluralPort';
+
+  @override
+  String get pluralPortSaveAgain => 'Save export again';
+
+  @override
+  String get pluralPortSaved => 'Export saved.';
+
+  @override
+  String get pluralPortSaveTitle => 'Save PluralPort export';
+
+  @override
+  String get pluralPortRowDescription =>
+      'Import and export data between plural apps';
+
+  @override
+  String pluralPortPreviewCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count records available to import.',
+      one: '1 record available to import.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortImportComplete(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count records.',
+      one: 'Imported 1 record.',
+    );
+    return '$_temp0 Unsupported data was retained for re-export.';
+  }
+
+  @override
+  String pluralPortMoreWarnings(int count) {
+    return '$count more warnings retained in the import archive.';
+  }
+
+  @override
+  String get pluralPortPreservedNotice =>
+      'Some data cannot be displayed in Prism. It will be kept for your next PluralPort export.';
+
+  @override
+  String get pluralPortMissingMediaNotice =>
+      'Some media is missing from this file or available only by URL. Its references will be kept without downloading it.';
+
+  @override
+  String get pluralPortWarningDetails => 'Import details';
 }

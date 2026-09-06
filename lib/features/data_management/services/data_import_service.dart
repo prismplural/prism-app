@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:prism_plurality/features/pluralport/services/pluralport_preservation.dart';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -500,6 +502,7 @@ class DataImportService {
     String json, {
     List<({String mediaId, Uint8List blob})> mediaBlobs = const [],
     bool preserveImportedOnboardingState = true,
+    Future<void> Function()? beforeCommit,
   }) async {
     final map = jsonDecode(json) as Map<String, dynamic>;
     final export = V1Export.fromJson(map);
@@ -2411,6 +2414,11 @@ class DataImportService {
           );
           memberBoardPostsCreated++;
           existingBoardPostIds.add(p.id);
+        }
+
+        await beforeCommit?.call();
+        for (final archive in export.pluralPortArchives) {
+          await PluralPortPreservation(db).retain(archive);
         }
 
         // Persist the captured emissions into the durable outbox INSIDE

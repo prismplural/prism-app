@@ -114,6 +114,7 @@ Map<String, Future<List<dynamic>> Function()> bootstrapTableQueries(
     'system_settings': () => (db.select(
       db.systemSettingsTable,
     )..where((t) => t.id.equals('singleton'))).get(),
+    'plural_port_unsupported': () => db.select(db.pluralPortUnsupported).get(),
     'app_preference_values': () => db.select(db.appPreferenceValues).get(),
     'member_profile_preference_values': () =>
         db.select(db.memberProfilePreferenceValues).get(),

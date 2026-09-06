@@ -462,6 +462,11 @@ const _repositoryFieldSources = <_RepoFieldSource>[
     helperName: '_settingsFields',
   ),
   _RepoFieldSource(
+    tableName: 'plural_port_unsupported',
+    file: 'lib/features/pluralport/services/pluralport_preservation.dart',
+    helperName: 'fields',
+  ),
+  _RepoFieldSource(
     tableName: 'app_preference_values',
     file: 'lib/data/repositories/drift_app_preference_repository.dart',
     helperName: '_appPreferenceValueFields',
@@ -691,6 +696,18 @@ Future<void> _seedDummyRows(AppDatabase db) async {
         ),
       );
 
+  await db
+      .into(db.pluralPortUnsupported)
+      .insert(
+        PluralPortUnsupportedCompanion.insert(
+          id: 'archive:0',
+          documentId: 'archive',
+          chunkIndex: 0,
+          chunkCount: 1,
+          payload: 'test',
+        ),
+      );
+
   // System settings has a 'singleton' row; insert explicitly with the id set.
   await db
       .into(db.systemSettingsTable)
@@ -901,6 +918,8 @@ Future<dynamic> _readDummyRow(AppDatabase db, String tableName) async {
       return (db.select(db.chatMessages)..limit(1)).getSingle();
     case 'system_settings':
       return (db.select(db.systemSettingsTable)..limit(1)).getSingle();
+    case 'plural_port_unsupported':
+      return (db.select(db.pluralPortUnsupported)..limit(1)).getSingle();
     case 'app_preference_values':
       return (db.select(db.appPreferenceValues)..limit(1)).getSingle();
     case 'member_profile_preference_values':
