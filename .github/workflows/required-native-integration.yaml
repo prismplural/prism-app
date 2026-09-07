@@ -1,0 +1,34 @@
+name: Required native integration
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.41.7'
+
+jobs:
+  pk-and-front-sync:
+    name: PK and front sync
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang cmake libsecret-1-dev libsqlite3-dev ninja-build pkg-config
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: required-native-integration
+      - name: Build exact resolved sync source and run required tests
+        run: scripts/run_required_native_integration.sh

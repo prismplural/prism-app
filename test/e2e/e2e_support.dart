@@ -17,6 +17,8 @@ String _libExt() => Platform.isMacOS
     : 'so';
 
 List<String> _ffiLibCandidates() {
+  final configured = Platform.environment['PRISM_SYNC_FFI_LIB'];
+  if (configured != null && configured.isNotEmpty) return [configured];
   final ext = _libExt();
   final name = Platform.isWindows ? 'prism_sync_ffi.$ext' : 'libprism_sync_ffi.$ext';
   final cwd = Directory.current.path; // prism-app worktree root
@@ -27,6 +29,8 @@ List<String> _ffiLibCandidates() {
 }
 
 String _relayBinPath() {
+  final configured = Platform.environment['PRISM_SYNC_TEST_RELAY'];
+  if (configured != null && configured.isNotEmpty) return configured;
   final name = Platform.isWindows ? 'test_relay.exe' : 'test_relay';
   return '${Directory.current.path}/../prism-sync/target/release/examples/$name';
 }
@@ -44,14 +48,18 @@ const String e2eBuildHint =
     'cargo build --release -p prism-sync-relay --example test_relay)';
 
 /// Skip reason if the host artifacts aren't built yet, else null. Pass to
-/// `test(..., skip: e2eSkip())` so CI runs that haven't built the Rust side are
-/// skipped (yellow), not failed (red). Run locally after [e2eBuildHint].
-String? e2eSkip() {
+/// `test(..., skip: e2eSkip())` for an optional local E2E. Tests designated by
+/// the required native integration gate pass `required: true`, which turns a
+/// missing prerequisite into a registration failure instead of a silent skip.
+String? e2eSkip({bool required = false}) {
   final missing = <String>[];
   if (_firstExisting(_ffiLibCandidates()) == null) missing.add('libprism_sync_ffi');
   if (!File(_relayBinPath()).existsSync()) missing.add('test_relay');
   if (missing.isEmpty) return null;
-  return 'E2E Rust artifacts not built (${missing.join(', ')}). Build: $e2eBuildHint';
+  final reason =
+      'E2E Rust artifacts not built (${missing.join(', ')}). Build: $e2eBuildHint';
+  if (required) throw StateError(reason);
+  return reason;
 }
 
 /// Absolute path to the host-built `libprism_sync_ffi` dynamic library.

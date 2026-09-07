@@ -65,6 +65,22 @@ flutter test test/core/sync/sync_schema_parity_test.dart
 For UI changes, include screenshots or a short screen recording when it helps
 reviewers understand the behavior.
 
+Changes to PluralKit import or polling, front recovery, or the native delivery
+boundary must pass the native integration gate:
+
+```bash
+scripts/run_required_native_integration.sh
+```
+
+The command uses the `prism_sync`, `prism_sync_drift`, and
+`prism_sync_flutter` checkout selected by `flutter pub get` (including local
+path overrides), requires all three to come from the same clean Git commit,
+rebuilds the FFI library and disposable localhost relay, and runs the required
+PK/front tests. It fails when a prerequisite or required test is missing and
+when any required test is skipped. The PK HTTP boundary is faked; no live PK
+credentials or public relay are used. Other E2E tests remain optional when
+their native artifacts have not been built.
+
 ## Project Shape
 
 The app uses Flutter, Riverpod, `go_router`, Drift, SQLite, Material 3, and the
