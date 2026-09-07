@@ -236,6 +236,16 @@ Future<void> quarantineConsumerDeliverySpill(
 ) async {
   for (final d in spill) {
     try {
+      if (!d.isDelete) {
+        await quarantine.deferConsumerDelivery(
+          entityType: d.table,
+          entityId: d.entityId,
+          fields: d.fields,
+          overCap: true,
+        );
+        continue;
+      }
+      await quarantine.clearDeferredConsumerDelivery(d.table, d.entityId);
       await quarantine.quarantineField(
         entityType: d.table,
         entityId: d.entityId,

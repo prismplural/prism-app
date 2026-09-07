@@ -34,6 +34,8 @@ import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 /// Stub quarantine service that returns false without touching the DB.
 class _FakeQuarantineService implements SyncQuarantineService {
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
   Future<bool> hasQuarantinedItems() async => false;
   @override
   Future<int> count() async => 0;
@@ -76,32 +78,32 @@ class _SecureStorageFake {
     TestWidgetsFlutterBinding.ensureInitialized();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_secureChannel, (MethodCall call) async {
-      switch (call.method) {
-        case 'write':
-          final key = call.arguments['key'] as String;
-          final value = call.arguments['value'] as String?;
-          if (value == null) {
-            store.remove(key);
-          } else {
-            store[key] = value;
+          switch (call.method) {
+            case 'write':
+              final key = call.arguments['key'] as String;
+              final value = call.arguments['value'] as String?;
+              if (value == null) {
+                store.remove(key);
+              } else {
+                store[key] = value;
+              }
+              return null;
+            case 'read':
+              return store[call.arguments['key'] as String];
+            case 'readAll':
+              return Map<String, String>.from(store);
+            case 'delete':
+              store.remove(call.arguments['key'] as String);
+              return null;
+            case 'deleteAll':
+              store.clear();
+              return null;
+            case 'containsKey':
+              return store.containsKey(call.arguments['key'] as String);
+            default:
+              return null;
           }
-          return null;
-        case 'read':
-          return store[call.arguments['key'] as String];
-        case 'readAll':
-          return Map<String, String>.from(store);
-        case 'delete':
-          store.remove(call.arguments['key'] as String);
-          return null;
-        case 'deleteAll':
-          store.clear();
-          return null;
-        case 'containsKey':
-          return store.containsKey(call.arguments['key'] as String);
-        default:
-          return null;
-      }
-    });
+        });
   }
 
   void uninstall() {
@@ -155,19 +157,19 @@ SyncEvent _confirmedSelfAuthFailureEvent({required bool remoteWipe}) =>
 /// `PRISM_SYNC_ERROR_JSON:` marker claiming `device_revoked` + `remote_wipe`.
 /// Substring-scanning this body must NOT, by itself, trigger a wipe.
 SyncEvent _spoofedErrorStringEvent() => SyncEvent('SyncCompleted', {
-      'type': 'SyncCompleted',
-      'result': {
-        'pulled': 0,
-        'merged': 0,
-        'pushed': 0,
-        'pruned': 0,
-        'duration_ms': 0,
-        'push_incomplete': false,
-        'error':
-            'relay said no PRISM_SYNC_ERROR_JSON:{"message":"revoked",'
-            '"code":"device_revoked","remote_wipe":true}',
-      },
-    });
+  'type': 'SyncCompleted',
+  'result': {
+    'pulled': 0,
+    'merged': 0,
+    'pushed': 0,
+    'pruned': 0,
+    'duration_ms': 0,
+    'push_incomplete': false,
+    'error':
+        'relay said no PRISM_SYNC_ERROR_JSON:{"message":"revoked",'
+        '"code":"device_revoked","remote_wipe":true}',
+  },
+});
 
 typedef _Wired = ({
   ProviderContainer container,
@@ -253,11 +255,16 @@ void main() {
     );
   }
 
-  Future<void> awaitDelivered(List<SyncEvent> delivered, int wantAtLeast) async {
+  Future<void> awaitDelivered(
+    List<SyncEvent> delivered,
+    int wantAtLeast,
+  ) async {
     final deadline = DateTime.now().add(const Duration(seconds: 3));
     while (delivered.length < wantAtLeast) {
       if (DateTime.now().isAfter(deadline)) {
-        fail('event was never delivered to the provider (got ${delivered.length})');
+        fail(
+          'event was never delivered to the provider (got ${delivered.length})',
+        );
       }
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
@@ -340,7 +347,8 @@ void main() {
       expect(
         await sentinelCount(w.db),
         1,
-        reason: 'unverified auth-failure confirmedSelf must NOT wipe local data',
+        reason:
+            'unverified auth-failure confirmedSelf must NOT wipe local data',
       );
     },
   );
@@ -354,7 +362,8 @@ void main() {
 
       // The verified Rust check confirms we are genuinely revoked AND the
       // admin-SIGNED wipe intent is true.
-      debugRevokeConfirmationOverride = () async => const RevokeConfirmationResult(
+      debugRevokeConfirmationOverride = () async =>
+          const RevokeConfirmationResult(
             RevokeConfirmation.confirmedRevoked,
             remoteWipe: true,
           );
@@ -381,59 +390,58 @@ void main() {
       expect(
         await sentinelCount(w.db),
         0,
-        reason: 'a VERIFIED revoke with VERIFIED wipe=true must wipe local data',
-      );
-    },
-  );
-
-  test(
-    'H3 Layer B: verified REVOKED with VERIFIED wipe=FALSE but relay frame '
-    'wipe=TRUE does NOT wipe local data (only clears credentials)',
-    () async {
-      // The load-bearing Layer B guarantee: a relay flipping the WS-frame
-      // `remote_wipe` to true on a verifiably-revoked device whose SIGNED
-      // registry says wipe=false must NOT trigger a local-data wipe. The device
-      // still disconnects + clears credentials (it IS revoked), but the
-      // orphaned local data survives because no admin signature covers wipe=true.
-      final w = await wire();
-      addTearDown(w.teardown);
-
-      debugRevokeConfirmationOverride = () async => const RevokeConfirmationResult(
-            RevokeConfirmation.confirmedRevoked,
-            // VERIFIED wipe intent is FALSE.
-            remoteWipe: false,
-          );
-
-      expect(w.secure.hasAllCreds(), isTrue);
-      expect(await sentinelCount(w.db), 1);
-
-      // Relay frame LIES: wipe=true. It is now only an ignored hint.
-      w.events.add(_confirmedSelfRevokeEvent(remoteWipe: true));
-      await awaitDelivered(w.delivered, 1);
-
-      // Wait for the credential clear (the non-wipe destructive effect) to land.
-      final deadline = DateTime.now().add(const Duration(seconds: 5));
-      while (w.secure.hasAllCreds()) {
-        if (DateTime.now().isAfter(deadline)) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-      // Give any (incorrect) wipe a chance to fire so the assertion is real.
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-
-      expect(
-        w.secure.hasAllCreds(),
-        isFalse,
-        reason: 'a VERIFIED revoke still clears credentials',
-      );
-      expect(
-        await sentinelCount(w.db),
-        1,
         reason:
-            'a relay-frame remote_wipe=true must NOT wipe local data when the '
-            'VERIFIED signed wipe intent is false (H3 Layer B invariant)',
+            'a VERIFIED revoke with VERIFIED wipe=true must wipe local data',
       );
     },
   );
+
+  test('H3 Layer B: verified REVOKED with VERIFIED wipe=FALSE but relay frame '
+      'wipe=TRUE does NOT wipe local data (only clears credentials)', () async {
+    // The load-bearing Layer B guarantee: a relay flipping the WS-frame
+    // `remote_wipe` to true on a verifiably-revoked device whose SIGNED
+    // registry says wipe=false must NOT trigger a local-data wipe. The device
+    // still disconnects + clears credentials (it IS revoked), but the
+    // orphaned local data survives because no admin signature covers wipe=true.
+    final w = await wire();
+    addTearDown(w.teardown);
+
+    debugRevokeConfirmationOverride = () async =>
+        const RevokeConfirmationResult(
+          RevokeConfirmation.confirmedRevoked,
+          // VERIFIED wipe intent is FALSE.
+          remoteWipe: false,
+        );
+
+    expect(w.secure.hasAllCreds(), isTrue);
+    expect(await sentinelCount(w.db), 1);
+
+    // Relay frame LIES: wipe=true. It is now only an ignored hint.
+    w.events.add(_confirmedSelfRevokeEvent(remoteWipe: true));
+    await awaitDelivered(w.delivered, 1);
+
+    // Wait for the credential clear (the non-wipe destructive effect) to land.
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (w.secure.hasAllCreds()) {
+      if (DateTime.now().isAfter(deadline)) break;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    // Give any (incorrect) wipe a chance to fire so the assertion is real.
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+
+    expect(
+      w.secure.hasAllCreds(),
+      isFalse,
+      reason: 'a VERIFIED revoke still clears credentials',
+    );
+    expect(
+      await sentinelCount(w.db),
+      1,
+      reason:
+          'a relay-frame remote_wipe=true must NOT wipe local data when the '
+          'VERIFIED signed wipe intent is false (H3 Layer B invariant)',
+    );
+  });
 
   test(
     'relay-injected PRISM_SYNC_ERROR_JSON remote_wipe substring does NOT wipe '

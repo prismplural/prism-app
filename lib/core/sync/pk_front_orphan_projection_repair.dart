@@ -119,6 +119,7 @@ class PkFrontOrphanProjectionRepair {
 
         final aliasResolution = await resolvePkFrontMemberAlias(_db, legacyId);
         String? targetId;
+        String? engineStableUuid;
         switch (aliasResolution.kind) {
           case PkFrontMemberAliasResolutionKind.resolved:
             targetId = aliasResolution.targetMemberId;
@@ -134,6 +135,7 @@ class PkFrontOrphanProjectionRepair {
             switch (engineResolution.kind) {
               case _EngineResolutionKind.resolved:
                 targetId = engineResolution.targetMemberId;
+                engineStableUuid = engineResolution.stablePkUuid;
               case _EngineResolutionKind.noEvidence:
                 noEvidence += frontCount;
                 continue;
@@ -173,6 +175,19 @@ class PkFrontOrphanProjectionRepair {
           ],
           updates: {_db.frontingSessions},
         );
+        if (changed > 0 && engineStableUuid != null) {
+          // The retained live winner and the unique local holder establish the
+          // same durable identity evidence as a normal redirect. Persist it in
+          // this transaction so a later hydrated payload carrying [legacyId]
+          // cannot undo the projection repair. The DAO records the validation
+          // time as provenance and this remains local-only sync metadata.
+          await _db.pkIdentitySyncAliasesDao.upsertAlias(
+            entityTable: 'members',
+            legacyEntityId: legacyId,
+            pkUuid: engineStableUuid,
+            targetRowId: targetId,
+          );
+        }
         repaired += changed;
       }
     });
@@ -228,7 +243,7 @@ class PkFrontOrphanProjectionRepair {
               ..limit(2))
             .get();
     if (holders.length != 1) return const _EngineResolution.ambiguous();
-    return _EngineResolution.resolved(holders.single.id);
+    return _EngineResolution.resolved(holders.single.id, uuid);
   }
 }
 
@@ -262,21 +277,26 @@ enum _EngineResolutionKind {
 }
 
 class _EngineResolution {
-  const _EngineResolution.resolved(this.targetMemberId)
+  const _EngineResolution.resolved(this.targetMemberId, this.stablePkUuid)
     : kind = _EngineResolutionKind.resolved;
   const _EngineResolution.noEvidence()
     : kind = _EngineResolutionKind.noEvidence,
-      targetMemberId = null;
+      targetMemberId = null,
+      stablePkUuid = null;
   const _EngineResolution.tombstoned()
     : kind = _EngineResolutionKind.tombstoned,
-      targetMemberId = null;
+      targetMemberId = null,
+      stablePkUuid = null;
   const _EngineResolution.ambiguous()
     : kind = _EngineResolutionKind.ambiguous,
-      targetMemberId = null;
+      targetMemberId = null,
+      stablePkUuid = null;
   const _EngineResolution.malformed()
     : kind = _EngineResolutionKind.malformed,
-      targetMemberId = null;
+      targetMemberId = null,
+      stablePkUuid = null;
 
   final _EngineResolutionKind kind;
   final String? targetMemberId;
+  final String? stablePkUuid;
 }

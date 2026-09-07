@@ -10,6 +10,8 @@ import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 /// Stub quarantine service that returns false without touching the DB.
 class _FakeQuarantineService implements SyncQuarantineService {
   @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  @override
   Future<bool> hasQuarantinedItems() async => false;
   @override
   Future<int> count() async => 0;

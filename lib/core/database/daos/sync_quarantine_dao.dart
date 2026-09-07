@@ -39,7 +39,10 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<SyncQuarantineData>> getAll() =>
-      select(syncQuarantineTable).get();
+      (select(syncQuarantineTable)..where(
+            (t) => t.receivedType.equals(kConsumerDeliveryTombstoneType).not(),
+          ))
+          .get();
 
   Future<List<SyncQuarantineData>> getConsumerDeliverySpillRows({
     int limit = 500,
@@ -49,9 +52,12 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
             (t) =>
                 t.expectedType.equals(kConsumerDeliverySpillExpectedType) &
                 t.fieldName.isNull() &
-                (t.receivedType.equals(kConsumerDeliverySpillApplyType) |
-                    t.receivedType.equals(kConsumerDeliverySpillDeleteType)) &
-                t.errorMessage.like(kConsumerDeliverySpillErrorLike),
+                (((t.receivedType.equals(kConsumerDeliverySpillApplyType) |
+                            t.receivedType.equals(
+                              kConsumerDeliverySpillDeleteType,
+                            )) &
+                        t.errorMessage.like(kConsumerDeliverySpillErrorLike)) |
+                    t.receivedType.equals(kConsumerDeliveryDeferredApplyType)),
           )
           ..orderBy([
             (t) =>
@@ -61,6 +67,96 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
           ])
           ..limit(limit))
         .get();
+  }
+
+  Future<List<SyncQuarantineData>> getDeferredConsumerDeliveries(
+    String entityType,
+    String entityId,
+  ) {
+    return (select(syncQuarantineTable)
+          ..where(
+            (t) =>
+                t.entityType.equals(entityType) &
+                t.entityId.equals(entityId) &
+                t.fieldName.isNull() &
+                (t.receivedType.equals(kConsumerDeliveryDeferredApplyType) |
+                    t.receivedType.equals(kConsumerDeliverySpillApplyType)),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+        .get();
+  }
+
+  Future<void> upsertDeferredConsumerDelivery({
+    required String id,
+    required String entityType,
+    required String entityId,
+    required String payload,
+    String receivedType = kConsumerDeliveryDeferredApplyType,
+    String errorMessage = kConsumerDeliveryDeferredErrorPrefix,
+  }) async {
+    await into(syncQuarantineTable).insertOnConflictUpdate(
+      SyncQuarantineTableCompanion.insert(
+        id: id,
+        entityType: entityType,
+        entityId: entityId,
+        fieldName: const Value(null),
+        expectedType: kConsumerDeliverySpillExpectedType,
+        receivedType: receivedType,
+        receivedValue: Value(payload),
+        createdAt: DateTime.now(),
+        errorMessage: Value(errorMessage),
+      ),
+    );
+  }
+
+  Future<void> clearDeferredConsumerDelivery(
+    String entityType,
+    String entityId,
+  ) async {
+    await (delete(syncQuarantineTable)..where(
+          (t) =>
+              t.entityType.equals(entityType) &
+              t.entityId.equals(entityId) &
+              (t.receivedType.equals(kConsumerDeliveryDeferredApplyType) |
+                  t.receivedType.equals(kConsumerDeliverySpillApplyType)),
+        ))
+        .go();
+  }
+
+  Future<bool> hasConsumerDeliveryTombstone(
+    String entityType,
+    String entityId,
+  ) async {
+    final row =
+        await (select(syncQuarantineTable)..where(
+              (t) =>
+                  t.entityType.equals(entityType) &
+                  t.entityId.equals(entityId) &
+                  t.receivedType.equals(kConsumerDeliveryTombstoneType),
+            ))
+            .getSingleOrNull();
+    return row != null;
+  }
+
+  Future<void> markConsumerDeliveryTombstone({
+    required String id,
+    required String entityType,
+    required String entityId,
+  }) async {
+    await into(syncQuarantineTable).insertOnConflictUpdate(
+      SyncQuarantineTableCompanion.insert(
+        id: id,
+        entityType: entityType,
+        entityId: entityId,
+        fieldName: const Value(null),
+        expectedType: 'deleted',
+        receivedType: kConsumerDeliveryTombstoneType,
+        createdAt: DateTime.now(),
+        errorMessage: const Value(
+          'absorbing consumer-delivery tombstone; delayed fields are subsumed',
+        ),
+      ),
+    );
   }
 
   Future<List<SyncQuarantineData>> getDeferredPkEntryUnresolved() {
@@ -145,7 +241,8 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> count() async {
     final result = await customSelect(
-      'SELECT COUNT(*) AS c FROM sync_quarantine',
+      'SELECT COUNT(*) AS c FROM sync_quarantine WHERE received_type != ?',
+      variables: [Variable.withString(kConsumerDeliveryTombstoneType)],
     ).getSingle();
     return result.read<int>('c');
   }
@@ -157,7 +254,11 @@ class SyncQuarantineDao extends DatabaseAccessor<AppDatabase>
         .go();
   }
 
-  Future<void> clearAll() => delete(syncQuarantineTable).go();
+  Future<void> clearAll() =>
+      (delete(syncQuarantineTable)..where(
+            (t) => t.receivedType.equals(kConsumerDeliveryTombstoneType).not(),
+          ))
+          .go();
 
   Future<void> deleteById(String id) =>
       (delete(syncQuarantineTable)..where((t) => t.id.equals(id))).go();

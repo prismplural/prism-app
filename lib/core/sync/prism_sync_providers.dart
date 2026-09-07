@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:synchronized/synchronized.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:drift/drift.dart'
@@ -3929,34 +3930,162 @@ Future<int> applyConsumerDeliveriesHealingUnappliable(
   List<ConsumerDelivery> deliveries, {
   bool strict = false,
   void Function(int applied, int total)? onProgress,
-}) async {
-  final applied = await applyConsumerDeliveries(
+}) => _consumerDeliveryLockFor(db).synchronized(
+  () => _applyConsumerDeliveriesHealingUnappliable(
     db,
     adapter,
+    quarantine,
     deliveries,
     strict: strict,
     onProgress: onProgress,
-  );
-  if (strict || applied >= deliveries.length) {
-    return applied;
-  }
+  ),
+);
 
-  // Re-run per row to identify poison deliveries.
-  var healedApplied = 0;
+final _consumerDeliveryLocks = LinkedHashMap<AppDatabase, Lock>.identity();
+
+Lock _consumerDeliveryLockFor(AppDatabase db) =>
+    _consumerDeliveryLocks.putIfAbsent(db, Lock.new);
+
+Future<int> _applyConsumerDeliveriesHealingUnappliable(
+  AppDatabase db,
+  DriftSyncAdapter adapter,
+  SyncQuarantineService quarantine,
+  List<ConsumerDelivery> deliveries, {
+  required bool strict,
+  void Function(int applied, int total)? onProgress,
+}) async {
+  var accepted = 0;
   final unappliable = <ConsumerDelivery>[];
   for (final delivery in deliveries) {
-    final rowApplied = await applyConsumerDeliveries(db, adapter, [
-      delivery,
-    ], strict: false);
-    if (rowApplied >= 1) {
-      healedApplied += rowApplied;
-    } else {
-      unappliable.add(delivery);
+    final carriesTombstone =
+        delivery.isDelete || _fieldsCarryRemoteTombstone(delivery.fields);
+    if (carriesTombstone) {
+      try {
+        await applyConsumerDeliveries(
+          db,
+          adapter,
+          [delivery],
+          strict: true,
+          skipUnknownSparsePatches: false,
+        );
+        await quarantine.clearDeferredConsumerDelivery(
+          delivery.table,
+          delivery.entityId,
+        );
+        await quarantine.markConsumerDeliveryTombstone(
+          delivery.table,
+          delivery.entityId,
+        );
+        accepted++;
+        onProgress?.call(accepted, deliveries.length);
+        continue;
+      } on StrictApplyFailure {
+        if (strict) rethrow;
+        unappliable.add(delivery);
+        continue;
+      }
+    }
+
+    if (await quarantine.hasConsumerDeliveryTombstone(
+      delivery.table,
+      delivery.entityId,
+    )) {
+      // Entity deletes are absorbing. A field fragment journaled before or
+      // alongside the winning delete cannot revive the burned entity id.
+      accepted++;
+      onProgress?.call(accepted, deliveries.length);
+      continue;
+    }
+
+    final deferred = delivery.isDelete
+        ? null
+        : await quarantine.getDeferredConsumerDelivery(
+            delivery.table,
+            delivery.entityId,
+          );
+    final candidate = deferred == null
+        ? delivery
+        : ConsumerDelivery(
+            id: delivery.id,
+            table: delivery.table,
+            entityId: delivery.entityId,
+            isDelete: false,
+            fields: {...deferred, ...delivery.fields},
+          );
+    if (!await _isCompleteConsumerCreate(adapter, candidate)) {
+      if (strict) {
+        throw StrictApplyFailure(
+          message:
+              'Incomplete consumer create for ${candidate.table}/'
+              '${candidate.entityId}; refusing strict pairing apply',
+          failedTables: [candidate.table],
+          table: candidate.table,
+          entityId: candidate.entityId,
+        );
+      }
+      await quarantine.deferConsumerDelivery(
+        entityType: candidate.table,
+        entityId: candidate.entityId,
+        fields: candidate.fields,
+      );
+      accepted++;
+      onProgress?.call(accepted, deliveries.length);
+      continue;
+    }
+    try {
+      await applyConsumerDeliveries(
+        db,
+        adapter,
+        [candidate],
+        strict: true,
+        skipUnknownSparsePatches: false,
+      );
+      await quarantine.clearDeferredConsumerDelivery(
+        delivery.table,
+        delivery.entityId,
+      );
+      accepted++;
+      onProgress?.call(accepted, deliveries.length);
+    } on StrictApplyFailure catch (error) {
+      if (strict) rethrow;
+      final isIncompleteCreate =
+          !candidate.isDelete &&
+          await _shouldSkipUnknownSparsePatchFailure(
+            adapter,
+            candidate.table,
+            candidate.entityId,
+            error.cause ?? error,
+          );
+      if (isIncompleteCreate) {
+        await quarantine.deferConsumerDelivery(
+          entityType: candidate.table,
+          entityId: candidate.entityId,
+          fields: candidate.fields,
+        );
+        accepted++;
+        onProgress?.call(accepted, deliveries.length);
+      } else {
+        unappliable.add(candidate);
+      }
     }
   }
 
   if (unappliable.isNotEmpty) {
-    await quarantineConsumerDeliverySpill(quarantine, unappliable);
+    for (final delivery in unappliable) {
+      await quarantine.quarantineField(
+        entityType: delivery.table,
+        entityId: delivery.entityId,
+        fieldName: null,
+        expectedType: kConsumerDeliverySpillExpectedType,
+        receivedType: delivery.isDelete
+            ? kConsumerDeliverySpillDeleteType
+            : kConsumerDeliverySpillApplyType,
+        receivedValue: jsonEncode(delivery.fields),
+        errorMessage:
+            '$kConsumerDeliverySpillErrorPrefix; un-appliable delivery '
+            'preserved for retry (id=${delivery.id})',
+      );
+    }
     ErrorReportingService.instance.report(
       'Routed ${unappliable.length} un-appliable consumer-delivery row(s) to '
       'the spill-quarantine lane so the journal can advance: '
@@ -3965,7 +4094,42 @@ Future<int> applyConsumerDeliveriesHealingUnappliable(
     );
   }
 
-  return healedApplied + unappliable.length;
+  return accepted + unappliable.length;
+}
+
+/// Whether a delivery has enough explicit state to create a currently absent
+/// consumer row without invoking create-time normalization. Existing rows are
+/// always patchable. Fronts need a table-specific contract because the adapter
+/// intentionally normalizes a complete orphan to Unknown; that recovery must
+/// never run for a partial projection.
+Future<bool> _isCompleteConsumerCreate(
+  DriftSyncAdapter adapter,
+  ConsumerDelivery delivery,
+) async {
+  final entity = adapter.entityForTable(delivery.table);
+  if (entity == null) return true;
+  final existing = await entity.readRow(delivery.entityId);
+  if (existing != null) return true;
+  if (delivery.table != 'fronting_sessions') return true;
+
+  final fields = delivery.fields;
+  if (!fields.containsKey('start_time') ||
+      !fields.containsKey('session_type')) {
+    return false;
+  }
+  final rawType = fields['session_type'];
+  final sessionType = rawType is int
+      ? rawType
+      : rawType is num
+      ? rawType.toInt()
+      : int.tryParse(rawType?.toString() ?? '');
+  if (sessionType == 1) {
+    // Sleep sessions intentionally have no member. Both an omitted member and
+    // an explicit null are complete once the type and start are authoritative.
+    return true;
+  }
+  if (sessionType != 0) return false;
+  return fields.containsKey('member_id') && fields['member_id'] != null;
 }
 
 final _consumerDeliverySpillRepairsInFlight =
@@ -3986,11 +4150,13 @@ Future<int> repairConsumerDeliverySpillQuarantineRows(
   if (inFlight != null) return inFlight;
 
   final repair = Future<int>.microtask(
-    () => _repairConsumerDeliverySpillQuarantineRows(
-      db,
-      syncAdapter,
-      dao,
-      limit: limit,
+    () => _consumerDeliveryLockFor(db).synchronized(
+      () => _repairConsumerDeliverySpillQuarantineRows(
+        db,
+        syncAdapter,
+        dao,
+        limit: limit,
+      ),
     ),
   );
   _consumerDeliverySpillRepairsInFlight[db] = repair;
@@ -4029,6 +4195,19 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
           strict: true,
           skipUnknownSparsePatches: false,
         );
+        if (delivery.isDelete) {
+          await dao.clearDeferredConsumerDelivery(
+            delivery.table,
+            delivery.entityId,
+          );
+          await dao.markConsumerDeliveryTombstone(
+            id:
+                'consumer-delivery-tombstone:${delivery.table}:'
+                '${delivery.entityId}',
+            entityType: delivery.table,
+            entityId: delivery.entityId,
+          );
+        }
         appliedIds.add(row.id);
       } catch (e, st) {
         failedIds.add(row.id);
