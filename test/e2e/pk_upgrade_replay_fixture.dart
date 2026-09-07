@@ -12,7 +12,11 @@ import 'package:sqlite3/sqlite3.dart' as raw;
 import 'e2e_fixture.dart';
 import 'e2e_support.dart';
 
+enum PkRestartUnlockMode { runtimeCache, password }
+
 Future<File> seedPkSchema39Fixture(Directory directory) async {
+  // Schema 40 changed only this member index and create_push_started_at; this
+  // reverses that exact migration delta before reopening through real Drift.
   final file = File('${directory.path}/app.sqlite');
   final db = AppDatabase(NativeDatabase(file));
   await db.customSelect('SELECT 1').get();
@@ -128,8 +132,14 @@ Future<E2EDevice> reopenPersistentDevice(
   TestRelay relay,
   E2EDevice device,
   String engineDbPath,
+  PkRestartUnlockMode mode,
 ) async {
+  final dek = await ffi.exportDek(handle: device.handle);
   final secureStore = await ffi.drainSecureStore(handle: device.handle);
+  final deviceSecret = secureStore['device_secret'];
+  if (deviceSecret == null) {
+    throw StateError('paired device did not export device_secret');
+  }
   device.dispose();
   final handle = await ffi.createPrismSync(
     relayUrl: relay.baseUrl,
@@ -138,14 +148,23 @@ Future<E2EDevice> reopenPersistentDevice(
     schemaJson: prismSyncSchema,
   );
   await ffi.seedSecureStore(handle: handle, entries: secureStore);
-  final secretKey = await ffi.mnemonicToBytes(
-    mnemonic: Uint8List.fromList(device.mnemonic),
-  );
-  await ffi.unlock(
-    handle: handle,
-    password: device.password,
-    secretKey: secretKey,
-  );
+  switch (mode) {
+    case PkRestartUnlockMode.runtimeCache:
+      await ffi.restoreRuntimeKeys(
+        handle: handle,
+        dek: dek,
+        deviceSecret: deviceSecret,
+      );
+    case PkRestartUnlockMode.password:
+      final secretKey = await ffi.mnemonicToBytes(
+        mnemonic: Uint8List.fromList(device.mnemonic),
+      );
+      await ffi.unlock(
+        handle: handle,
+        password: device.password,
+        secretKey: secretKey,
+      );
+  }
   await ffi.configureEngine(handle: handle);
   return E2EDevice(
     handle: handle,

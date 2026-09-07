@@ -93,290 +93,343 @@ void main() {
     if (e2eSkip() == null) RustLib.dispose();
   });
 
-  test(
-    'schema39 recovery survives page replay and real app plus engine restart',
-    skip: e2eSkip(),
-    timeout: const Timeout(Duration(minutes: 5)),
-    () async {
-      SharedPreferences.setMockInitialValues({});
-      final directory = await Directory.systemTemp.createTemp(
-        'prism-pk-upgrade-replay-',
-      );
-      final relay = await spawnRelay();
-      E2EDevice? source;
-      E2EDevice? receiver;
-      AppDatabase? appDb;
-      try {
-        final appDbFile = await seedPkSchema39Fixture(directory);
-        final engineDbPath = '${directory.path}/receiver-sync.sqlite';
-        source = await createDevice(relay);
-        receiver = await pairPersistentDevice(relay, source, engineDbPath);
-        var activeReceiver = receiver;
-
-        await ffi.recordCreate(
-          handle: source.handle,
-          table: 'members',
-          entityId: _remoteMember,
-          fieldsJson: jsonEncode(_memberFields()),
+  for (final restartMode in PkRestartUnlockMode.values) {
+    test(
+      'schema39 recovery survives page replay and real app plus engine restart '
+      '(${restartMode.name})',
+      skip: e2eSkip(),
+      timeout: const Timeout(Duration(minutes: 5)),
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final directory = await Directory.systemTemp.createTemp(
+          'prism-pk-upgrade-replay-',
         );
-        for (final id in ['historical-front', 'fresh-front']) {
+        final relay = await spawnRelay(
+          dbPath: '${directory.path}/relay.sqlite',
+        );
+        E2EDevice? source;
+        E2EDevice? receiver;
+        AppDatabase? appDb;
+        try {
+          final appDbFile = await seedPkSchema39Fixture(directory);
+          final engineDbPath = '${directory.path}/receiver-sync.sqlite';
+          source = await createDevice(relay);
+          receiver = await pairPersistentDevice(relay, source, engineDbPath);
+          var activeReceiver = receiver;
+          final sourceNodeId = await ffi.getNodeId(handle: source.handle);
+          final receiverNodeIdBeforeRestart = await ffi.getNodeId(
+            handle: activeReceiver.handle,
+          );
+          expect(receiverNodeIdBeforeRestart, isNot(sourceNodeId));
+
           await ffi.recordCreate(
             handle: source.handle,
-            table: 'fronting_sessions',
-            entityId: id,
-            fieldsJson: jsonEncode(_frontFields('source-$id')),
+            table: 'members',
+            entityId: _remoteMember,
+            fieldsJson: jsonEncode(_memberFields()),
           );
-        }
-        expect((await source.sync())['error'], anyOf(isNull, ''));
-        expect((await receiver.sync())['error'], anyOf(isNull, ''));
+          for (final id in ['historical-front', 'fresh-front']) {
+            await ffi.recordCreate(
+              handle: source.handle,
+              table: 'fronting_sessions',
+              entityId: id,
+              fieldsJson: jsonEncode(_frontFields('source-$id')),
+            );
+          }
+          expect((await source.sync())['error'], anyOf(isNull, ''));
+          expect((await receiver.sync())['error'], anyOf(isNull, ''));
 
-        var activeDb = AppDatabase(NativeDatabase(appDbFile));
-        appDb = activeDb;
-        await activeDb.customSelect('SELECT 1').get();
-        final version = await activeDb
-            .customSelect('PRAGMA user_version')
-            .getSingle();
-        expect(version.read<int>('user_version'), 40);
+          var activeDb = AppDatabase(NativeDatabase(appDbFile));
+          appDb = activeDb;
+          await activeDb.customSelect('SELECT 1').get();
+          final version = await activeDb
+              .customSelect('PRAGMA user_version')
+              .getSingle();
+          expect(version.read<int>('user_version'), 40);
 
-        // The upgrade-only pass cannot guess a pre-alias identity.
-        final upgrade = await repairPkFrontOrphansAfterUpgrade(
-          db: activeDb,
-          versionBefore: 39,
-          versionAfter: 40,
-        );
-        expect(upgrade?.noEvidence, 1);
-
-        // The real healthy hook reads retained native winners and persists the
-        // validated alias without any fresh incoming operation being required.
-        await runPostHealthySyncCatchUp(
-          handle: activeReceiver.handle,
-          db: activeDb,
-          failureLabel: 'upgrade replay catch-up failed',
-          drainOutbox: (_, _) async {},
-          reemitGroupChatVisibility: (_, _) async =>
-              const GroupChatVisibilitySyncReemitResult(),
-          reemitOversizedInlineImages: (_, _) async =>
-              const OversizedInlineImageReemitResult(),
-          repairQuarantinedPushBatches: (_) async {},
-          drainMigrationSyncRepairs: (_, _) async =>
-              const MigrationSyncRepairResult(),
-          catchUpPk: (_, _) async => const PkGroupSyncV2CatchupResult(),
-          drain: (_) async {},
-        );
-        expect(
-          (await activeDb.select(activeDb.frontingSessions).get())
-              .singleWhere((row) => row.id == 'historical-front')
-              .memberId,
-          _localMember,
-        );
-
-        var wrapped = buildSyncAdapterWithCompletion(activeDb);
-        var quarantine = SyncQuarantineService(activeDb.syncQuarantineDao);
-        var restarted = false;
-        while (true) {
-          final chunk = DrainChunk.fromJson(
-            jsonDecode(
-                  await ffi.takeUndeliveredChanges(
-                    handle: activeReceiver.handle,
-                    limit: 1,
-                  ),
-                )
-                as Map<String, dynamic>,
+          // The upgrade-only pass cannot guess a pre-alias identity.
+          final upgrade = await repairPkFrontOrphansAfterUpgrade(
+            db: activeDb,
+            versionBefore: 39,
+            versionAfter: 40,
           );
-          if (chunk.isEmpty) break;
-          wrapped.beginSyncBatch();
+          expect(upgrade?.noEvidence, 1);
+
+          // The real healthy hook reads retained native winners and persists the
+          // validated alias without any fresh incoming operation being required.
+          await runPostHealthySyncCatchUp(
+            handle: activeReceiver.handle,
+            db: activeDb,
+            failureLabel: 'upgrade replay catch-up failed',
+            drainOutbox: (_, _) async {},
+            reemitGroupChatVisibility: (_, _) async =>
+                const GroupChatVisibilitySyncReemitResult(),
+            reemitOversizedInlineImages: (_, _) async =>
+                const OversizedInlineImageReemitResult(),
+            repairQuarantinedPushBatches: (_) async {},
+            drainMigrationSyncRepairs: (_, _) async =>
+                const MigrationSyncRepairResult(),
+            catchUpPk: (_, _) async => const PkGroupSyncV2CatchupResult(),
+            drain: (_) async {},
+          );
+          expect(
+            (await activeDb.select(activeDb.frontingSessions).get())
+                .singleWhere((row) => row.id == 'historical-front')
+                .memberId,
+            _localMember,
+          );
+
+          var wrapped = buildSyncAdapterWithCompletion(activeDb);
+          var quarantine = SyncQuarantineService(activeDb.syncQuarantineDao);
+          var restarted = false;
+          while (true) {
+            final chunk = DrainChunk.fromJson(
+              jsonDecode(
+                    await ffi.takeUndeliveredChanges(
+                      handle: activeReceiver.handle,
+                      limit: 1,
+                    ),
+                  )
+                  as Map<String, dynamic>,
+            );
+            if (chunk.isEmpty) break;
+            wrapped.beginSyncBatch();
+            await applyConsumerDeliveriesHealingUnappliable(
+              activeDb,
+              wrapped.adapter,
+              quarantine,
+              chunk.deliveries,
+            );
+            await wrapped.completeSyncBatch();
+
+            if (!restarted &&
+                chunk.deliveries.any(
+                  (row) => row.table == 'fronting_sessions',
+                )) {
+              // Crash-window counterfactual: Drift committed the delivery, but
+              // the native high-water ACK did not. Close both real resources,
+              // reopen, then prove the same durable page replays harmlessly.
+              await activeDb.close();
+              appDb = null;
+              activeReceiver = await reopenPersistentDevice(
+                relay,
+                activeReceiver,
+                engineDbPath,
+                restartMode,
+              );
+              receiver = activeReceiver;
+              expect(
+                await ffi.getNodeId(handle: activeReceiver.handle),
+                receiverNodeIdBeforeRestart,
+                reason: 'native reopen must retain the paired device identity',
+              );
+              activeDb = AppDatabase(NativeDatabase(appDbFile));
+              appDb = activeDb;
+              await activeDb.customSelect('SELECT 1').get();
+              wrapped = buildSyncAdapterWithCompletion(activeDb);
+              quarantine = SyncQuarantineService(activeDb.syncQuarantineDao);
+              final replay = DrainChunk.fromJson(
+                jsonDecode(
+                      await ffi.takeUndeliveredChanges(
+                        handle: activeReceiver.handle,
+                        limit: 1,
+                      ),
+                    )
+                    as Map<String, dynamic>,
+              );
+              expect(replay.maxId, chunk.maxId);
+              wrapped.beginSyncBatch();
+              await applyConsumerDeliveriesHealingUnappliable(
+                activeDb,
+                wrapped.adapter,
+                quarantine,
+                replay.deliveries,
+              );
+              await wrapped.completeSyncBatch();
+              await ffi.ackConsumerDeliveries(
+                handle: activeReceiver.handle,
+                upToId: replay.maxId,
+              );
+              restarted = true;
+            } else {
+              await ffi.ackConsumerDeliveries(
+                handle: activeReceiver.handle,
+                upToId: chunk.maxId,
+              );
+            }
+          }
+          expect(restarted, isTrue);
+
+          // Reordered duplicate consumer replay models retry around an ACK
+          // boundary. The
+          // stale raw remote id must resolve through the persisted UUID alias.
           await applyConsumerDeliveriesHealingUnappliable(
             activeDb,
             wrapped.adapter,
             quarantine,
-            chunk.deliveries,
+            [
+              ConsumerDelivery(
+                id: 9002,
+                table: 'fronting_sessions',
+                entityId: 'fresh-front',
+                isDelete: false,
+                fields: _frontFields('newer duplicate'),
+              ),
+              const ConsumerDelivery(
+                id: 9001,
+                table: 'fronting_sessions',
+                entityId: 'fresh-front',
+                isDelete: false,
+                fields: {'member_id': _remoteMember},
+              ),
+            ],
           );
-          await wrapped.completeSyncBatch();
-          await ffi.ackConsumerDeliveries(
-            handle: activeReceiver.handle,
-            upToId: chunk.maxId,
+
+          final fronts = await activeDb.select(activeDb.frontingSessions).get();
+          expect(fronts, hasLength(3));
+          expect(
+            fronts
+                .where((row) => row.sessionType == 0)
+                .every((row) => row.memberId == _localMember),
+            isTrue,
+          );
+          final sleep = fronts.singleWhere(
+            (row) => row.id == 'intentional-sleep',
+          );
+          expect(sleep.memberId, isNull);
+          expect(sleep.sessionType, 1);
+          expect(await quarantine.count(), 0);
+
+          final reconciles = <Map<String, dynamic>>[];
+          await MigrationSyncRepairService(
+            db: activeDb,
+            recordReconcile:
+                ({required table, required entityId, required fields}) async {
+                  reconciles.add({
+                    'table': table,
+                    'entity': entityId,
+                    'fields': fields,
+                  });
+                  await ffi.recordReconcile(
+                    handle: activeReceiver.handle,
+                    table: table,
+                    entityId: entityId,
+                    fieldsJson: jsonEncode(fields),
+                    divergentFreshHlc: true,
+                  );
+                },
+          ).drain();
+          expect(
+            reconciles.where((row) => row['table'] == 'fronting_sessions'),
+            isEmpty,
+          );
+          expect((await activeReceiver.sync())['error'], anyOf(isNull, ''));
+          expect((await source.sync())['error'], anyOf(isNull, ''));
+          expect(
+            await ffi.readFieldValue(
+              handle: source.handle,
+              table: 'fronting_sessions',
+              entityId: 'historical-front',
+              field: 'member_id',
+            ),
+            jsonEncode(_remoteMember),
+            reason: 'local projection recovery must not emit a peer correction',
           );
 
-          if (!restarted &&
-              chunk.deliveries.any((row) => row.table == 'fronting_sessions')) {
-            // The durable projection and ACK are both committed before the
-            // actual app database and native handle are torn down.
-            await activeDb.close();
-            appDb = null;
-            activeReceiver = await reopenPersistentDevice(
-              relay,
-              activeReceiver,
-              engineDbPath,
-            );
-            receiver = activeReceiver;
-            activeDb = AppDatabase(NativeDatabase(appDbFile));
-            appDb = activeDb;
-            await activeDb.customSelect('SELECT 1').get();
-            wrapped = buildSyncAdapterWithCompletion(activeDb);
-            quarantine = SyncQuarantineService(activeDb.syncQuarantineDao);
-            restarted = true;
-          }
-        }
-        expect(restarted, isTrue);
-
-        // Reordered duplicates model relay retry around an ACK boundary. The
-        // stale raw remote id must resolve through the persisted UUID alias.
-        await applyConsumerDeliveriesHealingUnappliable(
-          activeDb,
-          wrapped.adapter,
-          quarantine,
-          [
-            ConsumerDelivery(
-              id: 9002,
-              table: 'fronting_sessions',
-              entityId: 'fresh-front',
-              isDelete: false,
-              fields: _frontFields('newer duplicate'),
-            ),
-            const ConsumerDelivery(
-              id: 9001,
-              table: 'fronting_sessions',
-              entityId: 'fresh-front',
-              isDelete: false,
-              fields: {'member_id': _remoteMember},
-            ),
-          ],
-        );
-
-        final fronts = await activeDb.select(activeDb.frontingSessions).get();
-        expect(fronts, hasLength(3));
-        expect(
-          fronts
-              .where((row) => row.sessionType == 0)
-              .every((row) => row.memberId == _localMember),
-          isTrue,
-        );
-        final sleep = fronts.singleWhere(
-          (row) => row.id == 'intentional-sleep',
-        );
-        expect(sleep.memberId, isNull);
-        expect(sleep.sessionType, 1);
-        expect(await quarantine.count(), 0);
-
-        final reconciles = <Map<String, dynamic>>[];
-        await MigrationSyncRepairService(
-          db: activeDb,
-          recordReconcile:
-              ({required table, required entityId, required fields}) async {
-                reconciles.add({
-                  'table': table,
-                  'entity': entityId,
-                  'fields': fields,
-                });
-              },
-        ).drain();
-        expect(
-          reconciles.where((row) => row['table'] == 'fronting_sessions'),
-          isEmpty,
-        );
-        expect(
-          await ffi.readFieldValue(
+          // Terminal member delivery purges the recovery alias. A later import
+          // with the same stable UUID is a new incarnation, and replaying the old
+          // legacy delete must not kill it.
+          await ffi.recordDelete(
             handle: source.handle,
-            table: 'fronting_sessions',
-            entityId: 'historical-front',
-            field: 'member_id',
-          ),
-          jsonEncode(_remoteMember),
-          reason: 'local projection recovery must not emit a peer correction',
-        );
-
-        // Terminal member delivery purges the recovery alias. A later import
-        // with the same stable UUID is a new incarnation, and replaying the old
-        // legacy delete must not kill it.
-        await ffi.recordDelete(
-          handle: source.handle,
-          table: 'members',
-          entityId: _remoteMember,
-        );
-        expect(
-          await ffi.readFieldValue(
-            handle: activeReceiver.handle,
             table: 'members',
             entityId: _remoteMember,
-            field: 'is_deleted',
-          ),
-          'false',
-        );
-        final deleteSourceSync = await source.sync();
-        expect(deleteSourceSync['error'], anyOf(isNull, ''));
-        expect(
-          (deleteSourceSync['pushed'] as num?)?.toInt() ?? 0,
-          greaterThan(0),
-          reason: 'source must publish the tombstone: $deleteSourceSync',
-        );
-        final deleteSyncs = <Map<String, dynamic>>[];
-        for (var attempt = 0; attempt < 3; attempt++) {
-          final result = await activeReceiver.sync();
-          deleteSyncs.add(result);
-          expect(result['error'], anyOf(isNull, ''));
-          if (((result['merged'] as num?)?.toInt() ?? 0) > 0) break;
+          );
+          expect(
+            await ffi.readFieldValue(
+              handle: activeReceiver.handle,
+              table: 'members',
+              entityId: _remoteMember,
+              field: 'is_deleted',
+            ),
+            'false',
+          );
+          final deleteSourceSync = await source.sync();
+          expect(deleteSourceSync['error'], anyOf(isNull, ''));
+          expect(
+            (deleteSourceSync['pushed'] as num?)?.toInt() ?? 0,
+            greaterThan(0),
+            reason: 'source must publish the tombstone: $deleteSourceSync',
+          );
+          final deleteSyncs = <Map<String, dynamic>>[];
+          for (var attempt = 0; attempt < 3; attempt++) {
+            final result = await activeReceiver.sync();
+            deleteSyncs.add(result);
+            expect(result['error'], anyOf(isNull, ''));
+            if (((result['merged'] as num?)?.toInt() ?? 0) > 0) break;
+          }
+          expect(
+            deleteSyncs.fold<int>(
+              0,
+              (sum, result) => sum + ((result['pulled'] as num?)?.toInt() ?? 0),
+            ),
+            greaterThan(0),
+            reason: 'the reopened receiver must pull the member tombstone',
+          );
+          expect(
+            await ffi.readFieldValue(
+              handle: activeReceiver.handle,
+              table: 'members',
+              entityId: _remoteMember,
+              field: 'is_deleted',
+            ),
+            'true',
+            reason: 'receiver state after sync: $deleteSyncs',
+          );
+          final deleteDeliveries = await _drainAll(
+            activeReceiver,
+            activeDb,
+            wrapped,
+            quarantine,
+          );
+          expect(
+            deleteDeliveries,
+            greaterThan(0),
+            reason: 'a pulled tombstone must survive into the durable journal',
+          );
+          expect(
+            await activeDb.pkIdentitySyncAliasesDao.getByLegacyEntityId(
+              'members',
+              _remoteMember,
+            ),
+            isNull,
+          );
+
+          await ffi.recordCreate(
+            handle: source.handle,
+            table: 'members',
+            entityId: 'remote-member-reimport',
+            fieldsJson: jsonEncode(_memberFields()),
+          );
+          expect((await source.sync())['error'], anyOf(isNull, ''));
+          expect((await activeReceiver.sync())['error'], anyOf(isNull, ''));
+          await _drainAll(activeReceiver, activeDb, wrapped, quarantine);
+          await wrapped.adapter.hardDelete('members', _remoteMember);
+          final reimport =
+              await (activeDb.select(activeDb.members)
+                    ..where((row) => row.id.equals('remote-member-reimport')))
+                  .getSingle();
+          expect(reimport.isDeleted, isFalse);
+          expect(reimport.pluralkitUuid, _memberUuid);
+        } finally {
+          await appDb?.close();
+          receiver?.dispose();
+          source?.dispose();
+          relay.stop();
+          if (directory.existsSync()) directory.deleteSync(recursive: true);
         }
-        expect(
-          deleteSyncs.fold<int>(
-            0,
-            (sum, result) => sum + ((result['pulled'] as num?)?.toInt() ?? 0),
-          ),
-          greaterThan(0),
-          reason: 'the reopened receiver must pull the member tombstone',
-        );
-        expect(
-          await ffi.readFieldValue(
-            handle: activeReceiver.handle,
-            table: 'members',
-            entityId: _remoteMember,
-            field: 'is_deleted',
-          ),
-          'true',
-          reason: 'receiver state after sync: $deleteSyncs',
-        );
-        final deleteDeliveries = await _drainAll(
-          activeReceiver,
-          activeDb,
-          wrapped,
-          quarantine,
-        );
-        expect(
-          deleteDeliveries,
-          greaterThan(0),
-          reason: 'a pulled tombstone must survive into the durable journal',
-        );
-        expect(
-          await activeDb.pkIdentitySyncAliasesDao.getByLegacyEntityId(
-            'members',
-            _remoteMember,
-          ),
-          isNull,
-        );
-
-        await ffi.recordCreate(
-          handle: source.handle,
-          table: 'members',
-          entityId: 'remote-member-reimport',
-          fieldsJson: jsonEncode(_memberFields()),
-        );
-        expect((await source.sync())['error'], anyOf(isNull, ''));
-        expect((await activeReceiver.sync())['error'], anyOf(isNull, ''));
-        await _drainAll(activeReceiver, activeDb, wrapped, quarantine);
-        await wrapped.adapter.hardDelete('members', _remoteMember);
-        final reimport = await (activeDb.select(
-          activeDb.members,
-        )..where((row) => row.id.equals('remote-member-reimport'))).getSingle();
-        expect(reimport.isDeleted, isFalse);
-        expect(reimport.pluralkitUuid, _memberUuid);
-      } finally {
-        await appDb?.close();
-        receiver?.dispose();
-        source?.dispose();
-        relay.stop();
-        if (directory.existsSync()) directory.deleteSync(recursive: true);
-      }
-    },
-  );
+      },
+    );
+  }
 
   test(
     'real retained tombstone and ambiguous holder evidence stay unresolved',
