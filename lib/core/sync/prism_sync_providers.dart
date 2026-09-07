@@ -4180,6 +4180,21 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
     for (final row in rows) {
       try {
         final delivery = _consumerDeliveryFromSpillQuarantine(row);
+        final carriesTombstone =
+            delivery.isDelete || _fieldsCarryRemoteTombstone(delivery.fields);
+        if (!carriesTombstone) {
+          if (await dao.hasConsumerDeliveryTombstone(
+            delivery.table,
+            delivery.entityId,
+          )) {
+            appliedIds.add(row.id);
+            continue;
+          }
+          if (!await _isCompleteConsumerCreate(syncAdapter.adapter, delivery)) {
+            failedIds.add(row.id);
+            continue;
+          }
+        }
         await applyConsumerDeliveries(
           db,
           syncAdapter.adapter,
@@ -4187,7 +4202,7 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
           strict: true,
           skipUnknownSparsePatches: false,
         );
-        if (delivery.isDelete) {
+        if (carriesTombstone) {
           await dao.clearDeferredConsumerDelivery(
             delivery.table,
             delivery.entityId,

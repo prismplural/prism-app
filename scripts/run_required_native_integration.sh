@@ -2,6 +2,7 @@
 set -euo pipefail
 
 readonly REQUIRED_TESTS=(
+  test/core/sync/front_delivery_boundary_review_test.dart
   test/e2e/front_sync_combined_e2e_test.dart
   test/e2e/pk_service_peer_e2e_test.dart
   test/e2e/pk_upgrade_replay_e2e_test.dart
