@@ -75,9 +75,12 @@ scripts/run_required_native_integration.sh
 The command uses the `prism_sync`, `prism_sync_drift`, and
 `prism_sync_flutter` checkout selected by `flutter pub get` (including local
 path overrides), requires all three to come from the same clean Git commit,
-rebuilds the FFI library and disposable localhost relay, and runs the required
+rebuilds the FFI library and disposable localhost relay in a fresh target
+directory, and runs the required
 PK/front tests. It fails when a prerequisite or required test is missing and
-when any required test is skipped. The PK HTTP boundary is faked; no live PK
+when any required suite does not run a real successful test or any required
+test is skipped. Its machine-readable report is retained at
+`build/reports/required-native-integration.jsonl`. The PK HTTP boundary is faked; no live PK
 credentials or public relay are used. Other E2E tests remain optional when
 their native artifacts have not been built.
 

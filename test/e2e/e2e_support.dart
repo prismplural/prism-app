@@ -48,8 +48,8 @@ const String e2eBuildHint =
     'cargo build --release -p prism-sync-relay --example test_relay)';
 
 /// Skip reason if the host artifacts aren't built yet, else null. Pass to
-/// `test(..., skip: e2eSkip())` for an optional local E2E. Tests designated by
-/// the required native integration gate pass `required: true`, which turns a
+/// `test(..., skip: e2eSkip())` for an optional local E2E. The required native
+/// integration gate sets `PRISM_REQUIRED_NATIVE_INTEGRATION=1`, which turns a
 /// missing prerequisite into a registration failure instead of a silent skip.
 String? e2eSkip({bool required = false}) {
   final missing = <String>[];
@@ -58,7 +58,9 @@ String? e2eSkip({bool required = false}) {
   if (missing.isEmpty) return null;
   final reason =
       'E2E Rust artifacts not built (${missing.join(', ')}). Build: $e2eBuildHint';
-  if (required) throw StateError(reason);
+  final gateRequiresArtifacts =
+      Platform.environment['PRISM_REQUIRED_NATIVE_INTEGRATION'] == '1';
+  if (required || gateRequiresArtifacts) throw StateError(reason);
   return reason;
 }
 

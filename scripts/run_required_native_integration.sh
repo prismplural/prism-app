@@ -50,12 +50,20 @@ for package_name in prism_sync_drift prism_sync_flutter; do
 done
 
 sync_ref=$(git -C "$sync_checkout" rev-parse HEAD)
-[[ -z "$(git -C "$sync_checkout" status --porcelain --untracked-files=no)" ]] || \
-  fail "resolved prism-sync checkout has tracked changes; commit them so provenance is exact: $sync_checkout"
+[[ -z "$(git -C "$sync_checkout" status --porcelain --untracked-files=all)" ]] || \
+  fail "resolved prism-sync checkout has source changes; commit or remove them so provenance is exact: $sync_checkout"
+ignored_non_target=$(git -C "$sync_checkout" status --ignored --porcelain | sed '/^!! target\/$/d')
+[[ -z "$ignored_non_target" ]] || \
+  fail "resolved prism-sync checkout has ignored non-target files that can affect the build: $ignored_non_target"
 printf 'PRISM_SYNC_GATE_SOURCE=%s\nPRISM_SYNC_GATE_REF=%s\n' "$sync_checkout" "$sync_ref"
 
-cargo build --locked --release --manifest-path "$sync_checkout/Cargo.toml" -p prism_sync_ffi
-cargo build --locked --release --manifest-path "$sync_checkout/Cargo.toml" \
+gate_target=$(mktemp -d "${TMPDIR:-/tmp}/prism-native-target.XXXXXX")
+trap 'rm -rf "$gate_target"' EXIT
+printf 'PRISM_SYNC_GATE_TARGET=%s\n' "$gate_target"
+cargo build --locked --release --target-dir "$gate_target" \
+  --manifest-path "$sync_checkout/Cargo.toml" -p prism_sync_ffi
+cargo build --locked --release --target-dir "$gate_target" \
+  --manifest-path "$sync_checkout/Cargo.toml" \
   -p prism-sync-relay --example test_relay
 
 case "$(uname -s)" in
@@ -66,22 +74,23 @@ case "$(uname -s)" in
 esac
 relay_name=test_relay
 [[ "$ffi_name" == *.dll ]] && relay_name=test_relay.exe
-export PRISM_SYNC_FFI_LIB="$sync_checkout/target/release/$ffi_name"
-export PRISM_SYNC_TEST_RELAY="$sync_checkout/target/release/examples/$relay_name"
+export PRISM_SYNC_FFI_LIB="$gate_target/release/$ffi_name"
+export PRISM_SYNC_TEST_RELAY="$gate_target/release/examples/$relay_name"
+export PRISM_REQUIRED_NATIVE_INTEGRATION=1
 [[ -f "$PRISM_SYNC_FFI_LIB" ]] || fail "FFI build did not produce $PRISM_SYNC_FFI_LIB"
 [[ -x "$PRISM_SYNC_TEST_RELAY" ]] || fail "relay build did not produce executable $PRISM_SYNC_TEST_RELAY"
 
-report=$(mktemp "${TMPDIR:-/tmp}/prism-required-native.XXXXXX.jsonl")
-trap 'rm -f "$report"' EXIT
+report=${PRISM_NATIVE_GATE_REPORT:-build/reports/required-native-integration.jsonl}
+mkdir -p "$(dirname "$report")"
+: > "$report"
+printf 'PRISM_NATIVE_GATE_REPORT=%s\n' "$report"
 set +e
 flutter test --no-pub --reporter=json "${REQUIRED_TESTS[@]}" | tee "$report"
 test_status=${PIPESTATUS[0]}
 set -e
 (( test_status == 0 )) || fail "required Flutter tests failed with exit $test_status"
 
-skipped=$(jq -s '[.[] | select(.type == "testDone" and (.result == "skipped" or .skipped == true))] | length' "$report")
-(( skipped == 0 )) || fail "$skipped required tests were skipped"
-completed=$(jq -s '[.[] | select(.type == "testDone" and .result == "success" and (.hidden != true))] | length' "$report")
-(( completed > 0 )) || fail 'test runner reported no successful required tests'
+completed=$(scripts/audit_required_native_report.sh "$report" "$app_root" "${REQUIRED_TESTS[@]}") || \
+  fail "required test protocol audit failed; inspect $report"
 printf 'Required native integration gate passed at prism-sync %s (%s successful test cases).\n' \
   "$sync_ref" "$completed"
