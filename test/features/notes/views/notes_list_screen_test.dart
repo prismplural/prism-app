@@ -77,6 +77,7 @@ void main() {
     _FakeNotesRepository? notesRepository,
     bool withParentRoute = false,
     TestBioImageInfra? imageInfra,
+    Locale locale = const Locale('en'),
   }) {
     final repository = notesRepository ?? _FakeNotesRepository(notes);
     final memberRepository = FakeMemberRepository()..seed(members);
@@ -98,7 +99,8 @@ void main() {
       ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('en')],
+        supportedLocales: const [Locale('en'), Locale('es')],
+        locale: locale,
         home: withParentRoute
             ? const _NotesRouteHost()
             : const NotesListScreen(),
@@ -125,6 +127,57 @@ void main() {
       expect(find.text('Test Note'), findsOneWidget);
       expect(find.text('Plain Note'), findsOneWidget);
       expect(find.text('Some body text'), findsOneWidget);
+    });
+
+    testWidgets('note cards use their production title fallback and locale', (
+      tester,
+    ) async {
+      final timestamp = DateTime(2026, 3, 21);
+      const cases = [
+        (title: 'My Note', body: 'some body', expected: 'My Note'),
+        (title: '', body: 'Hello world', expected: 'Hello world'),
+        (title: '', body: '\nHello', expected: 'Untitled'),
+        (title: '', body: '', expected: 'Untitled'),
+        (title: '', body: '  \n  ', expected: 'Untitled'),
+        (title: '', body: 'First line\nSecond line', expected: 'First line'),
+        (title: '', body: '  Padded  \nother', expected: 'Padded'),
+      ];
+
+      for (final testCase in cases) {
+        final note = Note(
+          id: '${testCase.title}-${testCase.body}',
+          title: testCase.title,
+          body: testCase.body,
+          date: timestamp,
+          createdAt: timestamp,
+          modifiedAt: timestamp,
+        );
+        await tester.pumpWidget(buildSubject(notes: [note]));
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel(
+            RegExp('^${RegExp.escape(testCase.expected)}\\.'),
+          ),
+          findsOneWidget,
+          reason: 'title=${testCase.title}, body=${testCase.body}',
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      }
+
+      final untitled = Note(
+        id: 'spanish-untitled',
+        title: '',
+        body: '',
+        date: timestamp,
+        createdAt: timestamp,
+        modifiedAt: timestamp,
+      );
+      await tester.pumpWidget(
+        buildSubject(notes: [untitled], locale: const Locale('es')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel(RegExp(r'^Sin título\.')), findsOneWidget);
     });
 
     testWidgets('wide detail pane prompts for selection when notes exist', (

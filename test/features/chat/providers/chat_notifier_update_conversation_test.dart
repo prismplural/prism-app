@@ -13,10 +13,25 @@ class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
   String? build() => 'alice';
 }
 
+class _RegularSpeakingAsNotifier extends SpeakingAsNotifier {
+  @override
+  String? build() => 'bob';
+}
+
+class _RecordingConversationRepository extends FakeConversationRepository {
+  int updateCalls = 0;
+
+  @override
+  Future<void> updateConversation(Conversation conversation) async {
+    updateCalls++;
+    await super.updateConversation(conversation);
+  }
+}
+
 void main() {
   test('adding emoji to an emoji-less conversation saves it', () async {
     final now = DateTime(2026, 5, 6);
-    final conversationRepo = FakeConversationRepository()
+    final conversationRepo = _RecordingConversationRepository()
       ..conversations.add(
         Conversation(
           id: 'conv-1',
@@ -44,11 +59,12 @@ void main() {
         .updateConversation('conv-1', emoji: '✨');
 
     expect(conversationRepo.conversations.single.emoji, '✨');
+    expect(conversationRepo.updateCalls, 1);
   });
 
   test('clearing emoji removes it', () async {
     final now = DateTime(2026, 5, 6);
-    final conversationRepo = FakeConversationRepository()
+    final conversationRepo = _RecordingConversationRepository()
       ..conversations.add(
         Conversation(
           id: 'conv-1',
@@ -81,7 +97,7 @@ void main() {
 
   test('changing category preserves existing emoji', () async {
     final now = DateTime(2026, 5, 6);
-    final conversationRepo = FakeConversationRepository()
+    final conversationRepo = _RecordingConversationRepository()
       ..conversations.add(
         Conversation(
           id: 'conv-1',
@@ -111,5 +127,41 @@ void main() {
 
     expect(conversationRepo.conversations.single.categoryId, 'category-1');
     expect(conversationRepo.conversations.single.emoji, '✨');
+  });
+
+  test('a regular participant cannot save a group title edit', () async {
+    final now = DateTime(2026, 5, 6);
+    final conversationRepo = _RecordingConversationRepository()
+      ..conversations.add(
+        Conversation(
+          id: 'conv-1',
+          createdAt: now,
+          lastActivityAt: now,
+          title: 'General',
+          creatorId: 'alice',
+          participantIds: const ['alice', 'bob'],
+        ),
+      );
+    final memberRepo = FakeMemberRepository()
+      ..seed([
+        Member(id: 'alice', name: 'Alice', createdAt: now),
+        Member(id: 'bob', name: 'Bob', createdAt: now),
+      ]);
+    final container = ProviderContainer(
+      overrides: [
+        conversationRepositoryProvider.overrideWithValue(conversationRepo),
+        memberRepositoryProvider.overrideWithValue(memberRepo),
+        speakingAsProvider.overrideWith(_RegularSpeakingAsNotifier.new),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container
+        .read(chatNotifierProvider.notifier)
+        .updateConversation('conv-1', title: 'Private draft');
+
+    expect(conversationRepo.conversations.single.title, 'General');
+    expect(conversationRepo.updateCalls, 0);
+    expect(container.read(chatNotifierProvider).hasError, isTrue);
   });
 }

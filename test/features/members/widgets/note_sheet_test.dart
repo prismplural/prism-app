@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -20,6 +21,59 @@ void main() {
   Member member({String id = 'member-1', String name = 'Alex'}) {
     return Member(id: id, name: name, createdAt: DateTime(2026, 1, 1));
   }
+
+  testWidgets('save availability follows the production title/body validator', (
+    tester,
+  ) async {
+    const cases = [
+      (title: 'Title', body: '', canSave: true),
+      (title: '', body: 'Body', canSave: true),
+      (title: 'Title', body: 'Body', canSave: true),
+      (title: '', body: '', canSave: false),
+      (title: '  ', body: '  ', canSave: false),
+      (title: '   ', body: 'Some body text', canSave: true),
+      (title: 'My title', body: '   ', canSave: true),
+    ];
+
+    for (final testCase in cases) {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentFronterProvider.overrideWithValue(
+              const AsyncValue.data(null),
+            ),
+            systemSettingsProvider.overrideWithValue(
+              const AsyncValue.data(
+                SystemSettings(terminology: SystemTerminology.members),
+              ),
+            ),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: Scaffold(body: NoteSheet()),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byType(EditableText).at(0), testCase.title);
+      await tester.enterText(find.byType(EditableText).at(1), testCase.body);
+      await tester.pump();
+
+      final saveButton = tester.widget<PrismGlassIconButton>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is PrismGlassIconButton && widget.tooltip == 'Save note',
+        ),
+      );
+      expect(
+        saveButton.enabled,
+        testCase.canSave,
+        reason: 'title=${testCase.title}, body=${testCase.body}',
+      );
+    }
+  });
 
   testWidgets('localizes the empty headmate picker semantics label', (
     tester,

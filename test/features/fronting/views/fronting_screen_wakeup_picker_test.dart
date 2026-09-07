@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +20,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/services/derive_periods.dart';
 import 'package:prism_plurality/features/fronting/views/fronting_screen.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -84,7 +87,7 @@ class _FakeFrontingNotifier extends FrontingNotifier {
 class _FakeShowFrontingViewToggleNotifier
     extends ShowFrontingViewToggleNotifier {
   @override
-  Future<bool> build() async => false;
+  Future<bool> build() async => true;
 }
 
 class _FakePluralKitSyncNotifier extends PluralKitSyncNotifier {
@@ -181,6 +184,7 @@ Widget _buildSubject({
       FrontingListViewMode.combinedPeriods,
   List<FrontingSession> timelineSessions = const [],
   List<FrontingPeriod> derivedPeriods = const [],
+  Stream<SystemSettings>? systemSettingsStream,
 }) {
   final memberRepo = FakeMemberRepository()..seed(members);
   final timelineRepo = FakeFrontingSessionRepository();
@@ -231,8 +235,9 @@ Widget _buildSubject({
       frontingMigrationModeProvider.overrideWith(
         (ref) => Stream.value('complete'),
       ),
-      showQuickFrontProvider.overrideWith((ref) => showQuickFront),
-      systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
+      systemSettingsProvider.overrideWith(
+        (ref) => systemSettingsStream ?? Stream.value(settings),
+      ),
       showFrontingViewToggleProvider.overrideWith(
         _FakeShowFrontingViewToggleNotifier.new,
       ),
@@ -277,6 +282,122 @@ void main() {
   tearDown(PrismToast.resetForTest);
 
   group('FrontingScreen quick front header', () {
+    testWidgets(
+      'starts in the real list screen for combined-period preference',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSubject(
+            sleepNotifier: _FakeSleepNotifier(),
+            frontingNotifier: _FakeFrontingNotifier(),
+            members: [_member('m1', 'Alice')],
+            frontingListViewMode: FrontingListViewMode.combinedPeriods,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TimelineView), findsNothing);
+        expect(find.byTooltip('Timeline view'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'starts in the real list screen for per-member rows preference',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSubject(
+            sleepNotifier: _FakeSleepNotifier(),
+            frontingNotifier: _FakeFrontingNotifier(),
+            members: [_member('m1', 'Alice')],
+            frontingListViewMode: FrontingListViewMode.perMemberRows,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(TimelineView), findsNothing);
+        expect(find.byTooltip('Timeline view'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'ignores a later synced preference change before any user toggle',
+      (tester) async {
+        final settings = StreamController<SystemSettings>();
+        addTearDown(settings.close);
+
+        await tester.pumpWidget(
+          _buildSubject(
+            sleepNotifier: _FakeSleepNotifier(),
+            frontingNotifier: _FakeFrontingNotifier(),
+            members: [_member('m1', 'Alice')],
+            systemSettingsStream: settings.stream,
+          ),
+        );
+        await tester.pump();
+
+        settings.add(
+          const SystemSettings(
+            frontingListViewMode: FrontingListViewMode.combinedPeriods,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(TimelineView), findsNothing);
+
+        settings.add(
+          const SystemSettings(
+            frontingListViewMode: FrontingListViewMode.timeline,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(TimelineView),
+          findsNothing,
+          reason: 'the first saved preference latches for this screen mount',
+        );
+      },
+    );
+
+    testWidgets(
+      'uses the real saved view preference and preserves a user toggle',
+      (tester) async {
+        final settings = StreamController<SystemSettings>();
+        addTearDown(settings.close);
+
+        await tester.pumpWidget(
+          _buildSubject(
+            sleepNotifier: _FakeSleepNotifier(),
+            frontingNotifier: _FakeFrontingNotifier(),
+            members: [_member('m1', 'Alice')],
+            systemSettingsStream: settings.stream,
+          ),
+        );
+        await tester.pump();
+
+        settings.add(
+          const SystemSettings(
+            frontingListViewMode: FrontingListViewMode.timeline,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(TimelineView), findsOneWidget);
+
+        await tester.tap(find.byTooltip('List view'));
+        await tester.pumpAndSettle();
+        expect(find.byType(TimelineView), findsNothing);
+
+        settings.add(
+          const SystemSettings(
+            frontingListViewMode: FrontingListViewMode.timeline,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(TimelineView),
+          findsNothing,
+          reason: 'later sync settings must not overwrite a local user toggle',
+        );
+      },
+    );
+
     testWidgets('timeline mode clamps the home app bar on wide layouts', (
       tester,
     ) async {

@@ -74,6 +74,60 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run
 ```
 
+## Test lanes
+
+Fetch dependencies with `flutter pub get` before running a lane. Each lane
+writes JSON events and environment details to `test-results/` (or
+`PRISM_TEST_RESULTS_DIR`).
+
+```bash
+scripts/test_fast.sh          # deterministic Dart/widget/golden coverage for PRs
+scripts/test_benchmark.sh     # explicit Drift measurement; not a timing gate
+PRISM_SYNC_DIR=/path/to/prism-sync scripts/test_native_benchmark.sh
+```
+
+The native lane excludes the assertion-free add-member timing probe and the
+full avatar-volume workload, but retains a three-avatar ZIP import-to-peer
+smoke. `test_native_benchmark.sh` runs the tagged native workloads with their
+full configurable inputs.
+
+The required native lane builds a clean `prism-sync` checkout at the exact git
+revision in `pubspec.lock`, builds the app-owned media codec Rust tests, and
+then runs the native-asset and two-peer relay tests with a recorded artifact
+provenance. It fails when the checkout, revision, or artifacts do not match.
+
+```bash
+PRISM_SYNC_DIR=/path/to/prism-sync scripts/test_native.sh
+```
+
+When a local path override selects an accepted sync candidate that differs from
+the lockfile's git source, state that candidate revision explicitly instead of
+letting the runner infer it. The provenance records both revisions:
+
+```bash
+PRISM_SYNC_DIR=/path/to/prism-sync \
+PRISM_EXPECTED_SYNC_REV="$(git -C /path/to/prism-sync rev-parse HEAD)" \
+scripts/test_native.sh
+```
+
+PluralKit integration tests are never enabled by an ambient `PK_TOKEN`. They
+require an explicit opt-in and a dedicated test-account token:
+
+```bash
+PRISM_ALLOW_LIVE_TESTS=1 PRISM_LIVE_TEST_TOKEN=... scripts/test_live.sh
+```
+
+`scripts/test_benchmark.sh` discovers tagged non-native benchmark files. It
+includes the Drift add-member workload and the two sweep-line analytics timing
+cases, while their ordinary analytics correctness cases remain in the fast lane.
+
+The checked-in PR workflow exercises the fast and native Linux lanes. Device
+integration, benchmark, and live-service coverage remain deliberate commands;
+they are not represented as cross-platform CI proof. The native lane is
+qualified on macOS and Linux only; Windows native E2E remains unqualified.
+The fast lane reports the current 132 non-error analyzer diagnostics but treats
+only analyzer errors as failures; reducing that baseline is separate cleanup.
+
 `build_runner` generates `*.freezed.dart`, `*.g.dart`, and Drift database code.
 Swap `build` for `watch` while you're actively making changes.
 

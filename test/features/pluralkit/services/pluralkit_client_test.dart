@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
   Future<http.Response> Function(http.Request req, int callIndex) handler, {
   String token = 'test-token',
   int maxRetries = 3,
+  PkRequestQueue? queue,
 }) {
   final requests = <http.Request>[];
   var callIndex = 0;
@@ -39,7 +40,9 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
   final client = PluralKitClient(
     token: token,
     httpClient: mock,
-    queue: PkRequestQueue(minInterval: Duration.zero, maxRetries: maxRetries),
+    queue:
+        queue ??
+        PkRequestQueue(minInterval: Duration.zero, maxRetries: maxRetries),
   );
 
   return (client: client, requests: requests);
@@ -122,39 +125,37 @@ void main() {
       expect(switches, isEmpty);
     });
 
-    test(
-      'getSwitch GETs /switches/{ref} and normalizes member objects to '
-      'short ids',
-      () async {
-        // PK inlines full member objects on this endpoint; PKSwitch.fromJson
-        // must normalize to short ids. Used by the deletion pusher (2026-06
-        // PK audit H2) for the PK-authoritative co-fronter snapshot.
-        const switchUuid = 'e6f1b9c2-0000-4000-8000-000000000001';
-        final h = buildClient((req, _) async {
-          expect(req.method, 'GET');
-          expect(req.url.path, '/v2/systems/@me/switches/$switchUuid');
-          expect(req.headers['Authorization'], 'test-token');
-          return jsonResponse({
-            'id': switchUuid,
-            'timestamp': '2026-04-01T12:00:00.000Z',
-            'members': [
-              {'id': 'aaaaa', 'uuid': 'u1', 'name': 'Alice'},
-              {'id': 'bbbbb', 'uuid': 'u2', 'name': 'Bob'},
-            ],
-          });
+    test('getSwitch GETs /switches/{ref} and normalizes member objects to '
+        'short ids', () async {
+      // PK inlines full member objects on this endpoint; PKSwitch.fromJson
+      // must normalize to short ids. Used by the deletion pusher (2026-06
+      // PK audit H2) for the PK-authoritative co-fronter snapshot.
+      const switchUuid = 'e6f1b9c2-0000-4000-8000-000000000001';
+      final h = buildClient((req, _) async {
+        expect(req.method, 'GET');
+        expect(req.url.path, '/v2/systems/@me/switches/$switchUuid');
+        expect(req.headers['Authorization'], 'test-token');
+        return jsonResponse({
+          'id': switchUuid,
+          'timestamp': '2026-04-01T12:00:00.000Z',
+          'members': [
+            {'id': 'aaaaa', 'uuid': 'u1', 'name': 'Alice'},
+            {'id': 'bbbbb', 'uuid': 'u2', 'name': 'Bob'},
+          ],
         });
+      });
 
-        final sw = await h.client.getSwitch(' $switchUuid ');
-        expect(sw.id, switchUuid);
-        expect(sw.members, ['aaaaa', 'bbbbb']);
-        expect(h.requests, hasLength(1));
-      },
-    );
+      final sw = await h.client.getSwitch(' $switchUuid ');
+      expect(sw.id, switchUuid);
+      expect(sw.members, ['aaaaa', 'bbbbb']);
+      expect(h.requests, hasLength(1));
+    });
 
     test('getSwitch is idempotent — retries a transient 5xx', () async {
       // getSwitch routes through _get, inheriting `idempotent: true` on the
       // request queue: a single Fly/Caddy blip must not abort a deletion
       // push pass.
+      final time = _ClientControlledTime();
       final h = buildClient((req, call) async {
         if (call == 0) return http.Response('blip', 502);
         return jsonResponse({
@@ -162,11 +163,12 @@ void main() {
           'timestamp': '2026-04-01T12:00:00.000Z',
           'members': <String>[],
         });
-      });
+      }, queue: time.queue());
 
       final sw = await h.client.getSwitch('sw-1');
       expect(sw.id, 'sw-1');
       expect(h.requests, hasLength(2), reason: 'one retry after the 502');
+      expect(time.delays, [const Duration(seconds: 1)]);
     });
 
     test('getSwitch maps a deleted switch to 404 with code 20007', () async {
@@ -314,28 +316,31 @@ void main() {
       },
     );
 
-    test('updateSwitchMembers surfaces a 400 40004 as PluralKitApiError', () async {
-      // Re-PATCHing the identical member list returns 400 with a JSON body
-      // embedding code 40004. The sync service matches `40004` against
-      // PluralKitApiError.message, so message must remain the raw body.
-      final h = buildClient(
-        (_, _) async => http.Response(
-          '{"message":"400: Bad Request","code":40004}',
-          400,
-          headers: {'content-type': 'application/json'},
-        ),
-        maxRetries: 0,
-      );
+    test(
+      'updateSwitchMembers surfaces a 400 40004 as PluralKitApiError',
+      () async {
+        // Re-PATCHing the identical member list returns 400 with a JSON body
+        // embedding code 40004. The sync service matches `40004` against
+        // PluralKitApiError.message, so message must remain the raw body.
+        final h = buildClient(
+          (_, _) async => http.Response(
+            '{"message":"400: Bad Request","code":40004}',
+            400,
+            headers: {'content-type': 'application/json'},
+          ),
+          maxRetries: 0,
+        );
 
-      try {
-        await h.client.updateSwitchMembers('sw-1', ['aaaaa']);
-        fail('expected PluralKitApiError');
-      } on PluralKitApiError catch (e) {
-        expect(e.statusCode, 400);
-        expect(e.message, contains('40004'));
-        expect(e.code, 40004);
-      }
-    });
+        try {
+          await h.client.updateSwitchMembers('sw-1', ['aaaaa']);
+          fail('expected PluralKitApiError');
+        } on PluralKitApiError catch (e) {
+          expect(e.statusCode, 400);
+          expect(e.message, contains('40004'));
+          expect(e.code, 40004);
+        }
+      },
+    );
 
     test('deleteSwitch sends DELETE to /switches/{id}', () async {
       final h = buildClient((req, _) async {
@@ -403,8 +408,11 @@ void main() {
       } on PluralKitApiError catch (e) {
         expect(e.statusCode, 400);
         expect(e.code, 40005);
-        expect(e.message, contains('40005'),
-            reason: 'message stays the raw body');
+        expect(
+          e.message,
+          contains('40005'),
+          reason: 'message stays the raw body',
+        );
       }
     });
 
@@ -503,8 +511,7 @@ void main() {
         }
 
         final mock = MockClient.streaming(
-          (request, bodyStream) async =>
-              http.StreamedResponse(endless(), 200),
+          (request, bodyStream) async => http.StreamedResponse(endless(), 200),
         );
         final client = PluralKitClient(
           token: 'test-token',
@@ -674,10 +681,7 @@ void main() {
           '{"message":"429","retry_after":500}',
           429,
           // Header says 7s; body says 500ms — body must win.
-          headers: {
-            'content-type': 'application/json',
-            'retry-after': '7',
-          },
+          headers: {'content-type': 'application/json', 'retry-after': '7'},
         ),
         maxRetries: 0,
       );
@@ -696,10 +700,7 @@ void main() {
         (_, _) async => http.Response(
           '<html>too many requests</html>',
           429,
-          headers: {
-            'content-type': 'text/html',
-            'retry-after': '3',
-          },
+          headers: {'content-type': 'text/html', 'retry-after': '3'},
         ),
         maxRetries: 0,
       );
@@ -712,28 +713,33 @@ void main() {
       }
     });
 
-    test('X-RateLimit-Reset > 10^12 is treated as epoch milliseconds', () async {
-      // Heuristic: a reset value too large to be epoch-seconds is ms.
-      final futureMs =
-          DateTime.now().toUtc().millisecondsSinceEpoch + 4000;
-      final h = buildClient(
-        (_, _) async => http.Response(
-          '',
-          429,
-          headers: {'x-ratelimit-reset': futureMs.toString()},
-        ),
-        maxRetries: 0,
-      );
+    test(
+      'X-RateLimit-Reset > 10^12 is treated as epoch milliseconds',
+      () async {
+        // Heuristic: a reset value too large to be epoch-seconds is ms.
+        final futureMs = DateTime.now().toUtc().millisecondsSinceEpoch + 4000;
+        final h = buildClient(
+          (_, _) async => http.Response(
+            '',
+            429,
+            headers: {'x-ratelimit-reset': futureMs.toString()},
+          ),
+          maxRetries: 0,
+        );
 
-      try {
-        await h.client.getSystem();
-        fail('expected PluralKitRateLimitError');
-      } on PluralKitRateLimitError catch (e) {
-        expect(e.retryAfter, isNotNull);
-        expect(e.retryAfter!.inSeconds, inInclusiveRange(1, 6),
-            reason: 'ms epoch must yield the ~4s delta, not a huge duration');
-      }
-    });
+        try {
+          await h.client.getSystem();
+          fail('expected PluralKitRateLimitError');
+        } on PluralKitRateLimitError catch (e) {
+          expect(e.retryAfter, isNotNull);
+          expect(
+            e.retryAfter!.inSeconds,
+            inInclusiveRange(1, 6),
+            reason: 'ms epoch must yield the ~4s delta, not a huge duration',
+          );
+        }
+      },
+    );
 
     test(
       'malformed Retry-After falls through to exponential backoff',
@@ -756,41 +762,32 @@ void main() {
     test('back-to-back calls are paced by the client-owned queue', () async {
       // Regression guard: if someone unwraps a client method from
       // _queue.enqueue(...), this test catches it. We inject a queue with a
-      // short but non-zero minInterval and measure elapsed wall time.
-      final requests = <http.Request>[];
+      // short but non-zero minInterval and assert controlled request times.
+      final time = _ClientControlledTime();
+      final requestTimes = <DateTime>[];
       final mock = MockClient((req) async {
-        requests.add(req);
+        requestTimes.add(time.now());
         return jsonResponse({'id': 'sys'});
       });
 
       final client = PluralKitClient(
         token: 't',
         httpClient: mock,
-        queue: PkRequestQueue(
+        queue: time.queue(
           minInterval: const Duration(milliseconds: 100),
           maxRetries: 0,
         ),
       );
 
-      final sw = Stopwatch()..start();
       await client.getSystem();
       await client.getSystem();
-      sw.stop();
 
-      expect(requests, hasLength(2));
-      // Second call must wait for the pacing window. Lower threshold
-      // accounts for timer imprecision; upper bound catches regressions
-      // where pacing accidentally stacks (e.g. 2x).
+      expect(requestTimes, hasLength(2));
       expect(
-        sw.elapsedMilliseconds,
-        greaterThanOrEqualTo(80),
-        reason: 'second call should be paced ~100ms after the first',
+        requestTimes[1].difference(requestTimes[0]),
+        const Duration(milliseconds: 100),
       );
-      expect(
-        sw.elapsedMilliseconds,
-        lessThan(500),
-        reason: 'pacing should be ~100ms, not stacked or mis-applied per call',
-      );
+      expect(time.delays, [const Duration(milliseconds: 100)]);
     });
 
     test('retries cover write endpoints (createMember)', () async {
@@ -829,10 +826,7 @@ void main() {
     });
 
     test('returns true for TimeoutException', () {
-      expect(
-        isPluralKitNetworkException(TimeoutException('stalled')),
-        isTrue,
-      );
+      expect(isPluralKitNetworkException(TimeoutException('stalled')), isTrue);
     });
 
     test('returns true for ClientException with SocketException', () {
@@ -1014,10 +1008,7 @@ void main() {
     });
 
     test('returns false for PluralKitAuthError', () {
-      expect(
-        isPluralKitNetworkException(const PluralKitAuthError()),
-        isFalse,
-      );
+      expect(isPluralKitNetworkException(const PluralKitAuthError()), isFalse);
     });
 
     test('returns false for PluralKitRateLimitError', () {
@@ -1028,10 +1019,7 @@ void main() {
     });
 
     test('returns false for StateError', () {
-      expect(
-        isPluralKitNetworkException(StateError('bad state')),
-        isFalse,
-      );
+      expect(isPluralKitNetworkException(StateError('bad state')), isFalse);
     });
 
     test('returns false for FormatException', () {
@@ -1056,4 +1044,28 @@ void main() {
       },
     );
   });
+}
+
+class _ClientControlledTime {
+  _ClientControlledTime() : _now = DateTime.utc(2026, 1, 1);
+
+  DateTime _now;
+  final delays = <Duration>[];
+
+  DateTime now() => _now;
+
+  Future<void> delay(Duration duration) async {
+    delays.add(duration);
+    _now = _now.add(duration);
+  }
+
+  PkRequestQueue queue({
+    Duration minInterval = Duration.zero,
+    int maxRetries = PkRequestQueue.defaultMaxRetries,
+  }) => PkRequestQueue(
+    minInterval: minInterval,
+    maxRetries: maxRetries,
+    now: now,
+    delay: delay,
+  );
 }

@@ -1,78 +1,90 @@
-// Shared helpers for the end-to-end FFI harness: resolve the host-built Rust
-// artifacts (built from the sibling prism-sync worktree) and spawn a throwaway
-// localhost relay.
-//
-// Build prerequisites (from the prism-sync worktree):
-//   cargo build --release -p prism_sync_ffi
-//   cargo build --release -p prism-sync-relay --example test_relay
+// Native E2E requires explicit artifacts with verified provenance.
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-String _libExt() => Platform.isMacOS
-    ? 'dylib'
-    : Platform.isWindows
-    ? 'dll'
-    : 'so';
+import 'package:crypto/crypto.dart';
 
-List<String> _ffiLibCandidates() {
-  final configured = Platform.environment['PRISM_SYNC_FFI_LIB'];
-  if (configured != null && configured.isNotEmpty) return [configured];
-  final ext = _libExt();
-  final name = Platform.isWindows ? 'prism_sync_ffi.$ext' : 'libprism_sync_ffi.$ext';
-  final cwd = Directory.current.path; // prism-app worktree root
-  return [
-    '$cwd/../prism-sync/target/release/$name',
-    '$cwd/../prism-sync/crates/prism-sync-ffi/target/release/$name',
-  ];
-}
+String get _nativeLaneHint =>
+    'PRISM_SYNC_DIR=/path/to/prism-sync scripts/test_native.sh';
 
-String _relayBinPath() {
-  final configured = Platform.environment['PRISM_SYNC_TEST_RELAY'];
-  if (configured != null && configured.isNotEmpty) return configured;
-  final name = Platform.isWindows ? 'test_relay.exe' : 'test_relay';
-  return '${Directory.current.path}/../prism-sync/target/release/examples/$name';
-}
-
-String? _firstExisting(List<String> paths) {
-  for (final p in paths) {
-    if (File(p).existsSync()) return p;
+String _requiredEnv(String name) {
+  final value = Platform.environment[name];
+  if (value == null || value.isEmpty) {
+    throw StateError('$name is required. Run: $_nativeLaneHint');
   }
+  return value;
+}
+
+String _canonicalExistingFile(String path, String name) {
+  final file = File(path);
+  if (!file.existsSync()) {
+    throw StateError('$name is missing: $path. Run: $_nativeLaneHint');
+  }
+  return file.resolveSymbolicLinksSync();
+}
+
+String _fileSha256(String path) =>
+    sha256.convert(File(path).readAsBytesSync()).toString();
+
+void _checkNativeProvenance() {
+  final manifestPath = _requiredEnv('PRISM_NATIVE_PROVENANCE');
+  final manifest = File(manifestPath);
+  if (!manifest.existsSync()) {
+    throw StateError('Native provenance record is missing: $manifestPath');
+  }
+  final data = jsonDecode(manifest.readAsStringSync()) as Map;
+  final expectedRevision = _requiredEnv('PRISM_EXPECTED_SYNC_REV');
+  if (data['sync_revision'] != expectedRevision) {
+    throw StateError(
+      'Native artifact revision ${data['sync_revision']} does not match '
+      'the resolved Prism Sync revision $expectedRevision.',
+    );
+  }
+  final ffiLibrary = _canonicalExistingFile(
+    _requiredEnv('PRISM_SYNC_FFI_LIB'),
+    'FFI library',
+  );
+  final relayBinary = _canonicalExistingFile(
+    _requiredEnv('PRISM_SYNC_RELAY_BIN'),
+    'relay binary',
+  );
+  if (data['ffi_library'] != ffiLibrary ||
+      data['relay_binary'] != relayBinary) {
+    throw StateError('Native artifact paths do not match $manifestPath.');
+  }
+  if (data['ffi_sha256'] != _fileSha256(ffiLibrary) ||
+      data['relay_sha256'] != _fileSha256(relayBinary)) {
+    throw StateError('Native artifact hashes do not match $manifestPath.');
+  }
+}
+
+/// Optional discovery skips; enabled lanes reject missing or mismatched artifacts.
+String? e2eSkip() {
+  if (Platform.environment['PRISM_ENABLE_NATIVE_E2E'] != '1') {
+    return 'Native E2E is disabled. Run: $_nativeLaneHint';
+  }
+  _checkNativeProvenance();
   return null;
 }
 
-/// The build command that produces the artifacts these tests need.
-const String e2eBuildHint =
-    '(cd ../prism-sync && cargo build --release -p prism_sync_ffi && '
-    'cargo build --release -p prism-sync-relay --example test_relay)';
-
-/// Skip reason if the host artifacts aren't built yet, else null. Pass to
-/// `test(..., skip: e2eSkip())` for an optional local E2E. The required native
-/// integration gate sets `PRISM_REQUIRED_NATIVE_INTEGRATION=1`, which turns a
-/// missing prerequisite into a registration failure instead of a silent skip.
-String? e2eSkip({bool required = false}) {
-  final missing = <String>[];
-  if (_firstExisting(_ffiLibCandidates()) == null) missing.add('libprism_sync_ffi');
-  if (!File(_relayBinPath()).existsSync()) missing.add('test_relay');
-  if (missing.isEmpty) return null;
-  final reason =
-      'E2E Rust artifacts not built (${missing.join(', ')}). Build: $e2eBuildHint';
-  final gateRequiresArtifacts =
-      Platform.environment['PRISM_REQUIRED_NATIVE_INTEGRATION'] == '1';
-  if (required || gateRequiresArtifacts) throw StateError(reason);
-  return reason;
+/// Absolute path to the provenance-checked `libprism_sync_ffi` dynamic library.
+String resolveFfiLib() {
+  _checkNativeProvenance();
+  return _canonicalExistingFile(
+    _requiredEnv('PRISM_SYNC_FFI_LIB'),
+    'FFI library',
+  );
 }
-
-/// Absolute path to the host-built `libprism_sync_ffi` dynamic library.
-String resolveFfiLib() =>
-    _firstExisting(_ffiLibCandidates()) ?? (throw StateError('FFI lib not built: $e2eBuildHint'));
 
 /// Absolute path to the host-built `test_relay` example binary.
 String resolveRelayBinary() {
-  final path = _relayBinPath();
-  if (File(path).existsSync()) return path;
-  throw StateError('test_relay not built: $e2eBuildHint');
+  _checkNativeProvenance();
+  return _canonicalExistingFile(
+    _requiredEnv('PRISM_SYNC_RELAY_BIN'),
+    'relay binary',
+  );
 }
 
 /// A spawned localhost relay. Call [stop] in teardown.
@@ -107,7 +119,9 @@ Future<TestRelay> spawnRelay({int? port, String? dbPath}) async {
     environment: env.isEmpty ? null : env,
   );
   final urlCompleter = Completer<String>();
-  proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((line) {
+  proc.stdout.transform(utf8.decoder).transform(const LineSplitter()).listen((
+    line,
+  ) {
     if (line.startsWith('RELAY_URL=') && !urlCompleter.isCompleted) {
       urlCompleter.complete(line.substring('RELAY_URL='.length).trim());
     }

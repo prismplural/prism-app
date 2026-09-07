@@ -58,6 +58,10 @@ void main() {
 
     test('isCreator is true', () => expect(perms.isCreator, isTrue));
     test('isParticipant is true', () => expect(perms.isParticipant, isTrue));
+    test(
+      'isAdmin is false for a non-admin creator',
+      () => expect(perms.isAdmin, isFalse),
+    );
     test('canManage is true', () => expect(perms.canManage, isTrue));
     test(
       'canTransferOwnership is true',
@@ -90,6 +94,10 @@ void main() {
       () => expect(perms.canEditMessage('member1'), isFalse),
     );
     test(
+      'canEditMessage with null author is false',
+      () => expect(perms.canEditMessage(null), isFalse),
+    );
+    test(
       'canDeleteMessage own',
       () => expect(perms.canDeleteMessage('creator'), isTrue),
     );
@@ -97,6 +105,59 @@ void main() {
       'canDeleteMessage others (creator manages)',
       () => expect(perms.canDeleteMessage('member1'), isTrue),
     );
+    test(
+      'canDeleteMessage with null author is true (creator manages)',
+      () => expect(perms.canDeleteMessage(null), isTrue),
+    );
+  });
+
+  group('ConversationPermissions — participating admin non-creator', () {
+    late ConversationPermissions perms;
+
+    setUp(() {
+      final conv = makeGroupConversation(
+        creatorId: 'creator',
+        participantIds: ['creator', 'admin1', 'member1'],
+      );
+      final member = makeMember(id: 'admin1', isAdmin: true);
+      perms = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'admin1',
+        speakingAsMember: member,
+      );
+    });
+
+    test('has the participant-admin write and moderation permissions', () {
+      expect(perms.isCreator, isFalse);
+      expect(perms.isParticipant, isTrue);
+      expect(perms.isAdmin, isTrue);
+      expect(perms.isAdminNonParticipantGroup, isFalse);
+      expect(perms.canView, isTrue);
+      expect(perms.canWrite, isTrue);
+      expect(perms.canReact, isTrue);
+      expect(perms.canSendMessages, isTrue);
+      expect(perms.canManage, isTrue);
+      expect(perms.canTransferOwnership, isTrue);
+      expect(perms.canEditTitleEmoji, isTrue);
+      expect(perms.canAddMembers, isTrue);
+      expect(perms.canRemoveMembers, isTrue);
+      expect(perms.canDeleteConversation, isTrue);
+      expect(perms.canLeave, isTrue);
+      expect(perms.canArchive, isTrue);
+      expect(perms.canMute, isTrue);
+      expect(perms.canMarkRead, isTrue);
+    });
+
+    test('can edit only own messages and delete any group message', () {
+      expect(perms.canEditMessage('admin1'), isTrue);
+      expect(perms.canEditMessage('creator'), isFalse);
+      expect(perms.canEditMessage('member1'), isFalse);
+      expect(perms.canEditMessage(null), isFalse);
+      expect(perms.canDeleteMessage('admin1'), isTrue);
+      expect(perms.canDeleteMessage('creator'), isTrue);
+      expect(perms.canDeleteMessage('member1'), isTrue);
+      expect(perms.canDeleteMessage(null), isTrue);
+    });
   });
 
   group('ConversationPermissions — admin non-creator', () {
@@ -285,6 +346,10 @@ void main() {
       'canDeleteMessage others is false',
       () => expect(perms.canDeleteMessage('creator'), isFalse),
     );
+    test('null-author messages cannot be edited or deleted', () {
+      expect(perms.canEditMessage(null), isFalse);
+      expect(perms.canDeleteMessage(null), isFalse);
+    });
   });
 
   group('ConversationPermissions — DM conversation', () {
@@ -374,6 +439,32 @@ void main() {
       'admin non-participant cannot delete DM conversation',
       () => expect(permsAdmin.canDeleteConversation, isFalse),
     );
+    test('a legacy DM owner can moderate another participant message', () {
+      final conv = Conversation(
+        id: 'legacy-owner-dm',
+        createdAt: now,
+        lastActivityAt: now,
+        isDirectMessage: true,
+        creatorId: 'member1',
+        participantIds: const ['member1', 'member2'],
+      );
+      final owner = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'member1',
+        speakingAsMember: makeMember(id: 'member1'),
+      );
+      final other = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'member2',
+        speakingAsMember: makeMember(id: 'member2'),
+      );
+
+      expect(owner.canEditMessage('member1'), isTrue);
+      expect(owner.canEditMessage('member2'), isFalse);
+      expect(other.canEditMessage('member2'), isTrue);
+      expect(owner.canDeleteMessage('member2'), isTrue);
+      expect(other.canDeleteMessage('member1'), isFalse);
+    });
   });
 
   group('ConversationPermissions — unscoped DM (empty participantIds)', () {
@@ -569,6 +660,21 @@ void main() {
       expect(perms.canManage, isFalse);
     });
 
+    test('a non-first admin can still manage the legacy group', () {
+      final conv = makeGroupConversation(
+        creatorId: null,
+        participantIds: ['first', 'admin', 'third'],
+      );
+      final perms = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'admin',
+        speakingAsMember: makeMember(id: 'admin', isAdmin: true),
+      );
+      expect(perms.isCreator, isFalse);
+      expect(perms.isAdmin, isTrue);
+      expect(perms.canManage, isTrue);
+    });
+
     test('empty participantIds with null creatorId yields no creator', () {
       final conv = Conversation(
         id: 'conv-empty',
@@ -603,6 +709,9 @@ void main() {
       expect(perms.canView, isFalse);
       expect(perms.canWrite, isFalse);
       expect(perms.canManage, isFalse);
+      expect(perms.canEditMessage(null), isFalse);
+      expect(perms.canEditMessage('creator'), isFalse);
+      expect(perms.canDeleteMessage('creator'), isFalse);
     });
 
     test('cannot view scoped DMs either', () {
@@ -926,23 +1035,19 @@ void main() {
       },
     );
 
-    test(
-      'returns true under canManage regardless of canWrite',
-      () {
-        // Admin non-participant: canManage is true, canWrite is false.
-        final conv = makeGroupConversation(creatorId: 'creator');
-        final admin = makeMember(id: 'admin1', isAdmin: true);
-        final perms = ConversationPermissions(
-          conversation: conv,
-          speakingAsMemberId: 'admin1',
-          speakingAsMember: admin,
-        );
-        expect(perms.canWrite, isFalse);
-        expect(perms.canManage, isTrue);
-        expect(perms.canChangeMessageAuthor('member1'), isTrue);
-        expect(perms.canChangeMessageAuthor('creator'), isTrue);
-      },
-    );
+    test('returns true under canManage regardless of canWrite', () {
+      final conv = makeGroupConversation(creatorId: 'creator');
+      final admin = makeMember(id: 'admin1', isAdmin: true);
+      final perms = ConversationPermissions(
+        conversation: conv,
+        speakingAsMemberId: 'admin1',
+        speakingAsMember: admin,
+      );
+      expect(perms.canWrite, isFalse);
+      expect(perms.canManage, isTrue);
+      expect(perms.canChangeMessageAuthor('member1'), isTrue);
+      expect(perms.canChangeMessageAuthor('creator'), isTrue);
+    });
 
     test(
       'returns false when both canWrite and canManage are false (read-only)',

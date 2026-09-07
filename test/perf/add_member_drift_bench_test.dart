@@ -13,6 +13,9 @@
 //
 // Run: flutter test test/perf/add_member_drift_bench_test.dart
 
+@Tags(['benchmark'])
+library;
+
 import 'dart:io';
 
 import 'package:drift/native.dart';

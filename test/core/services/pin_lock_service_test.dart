@@ -5,11 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/pin_lock_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Minimal method-channel fake for flutter_secure_storage so we can drive the
-/// real [PinLockService.enforceLegacyPinMigrationPolicy] against an in-memory
-/// keychain.
+/// Keeps the production secure-storage path while replacing the platform keychain.
 class _FakeKeychain {
   final Map<String, String> store = <String, String>{};
+  PlatformException? throwOnRead;
+  PlatformException? throwOnWrite;
 
   void install() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +19,7 @@ class _FakeKeychain {
           (MethodCall call) async {
             switch (call.method) {
               case 'write':
+                if (throwOnWrite != null) throw throwOnWrite!;
                 final key = call.arguments['key'] as String;
                 final value = call.arguments['value'] as String?;
                 if (value == null) {
@@ -28,6 +29,7 @@ class _FakeKeychain {
                 }
                 return null;
               case 'read':
+                if (throwOnRead != null) throw throwOnRead!;
                 return store[call.arguments['key'] as String];
               case 'readAll':
                 return Map<String, String>.from(store);
@@ -54,49 +56,6 @@ class _FakeKeychain {
         );
     store.clear();
   }
-}
-
-/// Simulates the verifyStoredPin logic using an in-memory storage map.
-///
-/// This mirrors the real [PinLockService.verifyStoredPin] flow without
-/// requiring a platform plugin for FlutterSecureStorage.
-bool _simulateVerifyStoredPin(
-  PinLockService service,
-  String pin,
-  Map<String, String> storage,
-) {
-  final hashBase64 = storage['prism.pin_hash'];
-  final salt = storage['prism.pin_salt'];
-  if (hashBase64 == null || salt == null) return false;
-
-  final storedHash = base64Decode(hashBase64);
-  final version = storage['prism.pin_hash_version'];
-
-  if (version == '2') {
-    // Argon2id verification
-    final computed = PinLockService.hashPinArgon2id(pin, salt);
-    return _constantTimeEquals(computed, storedHash);
-  }
-
-  // Legacy SHA-256 verification
-  if (!service.verifyPin(pin, storedHash, salt)) return false;
-
-  // Migration: re-hash with Argon2id on successful legacy verification
-  final newHash = PinLockService.hashPinArgon2id(pin, salt);
-  final newHashBase64 = base64Encode(Uint8List.fromList(newHash));
-  storage['prism.pin_hash'] = newHashBase64;
-  storage['prism.pin_hash_version'] = '2';
-
-  return true;
-}
-
-bool _constantTimeEquals(List<int> a, List<int> b) {
-  if (a.length != b.length) return false;
-  var result = 0;
-  for (var i = 0; i < a.length; i++) {
-    result |= a[i] ^ b[i];
-  }
-  return result == 0;
 }
 
 void main() {
@@ -218,184 +177,126 @@ void main() {
     });
   });
 
-  // ── verifyStoredPin (simulated with in-memory map) ─────────────────────
-  //
-  // PinLockService.verifyStoredPin uses the global `secureStorage` constant
-  // which requires a platform plugin. We replicate the same logic via
-  // _simulateVerifyStoredPin to test all four code paths.
+  group('stored PIN contract (real secure storage path)', () {
+    late _FakeKeychain keychain;
+    late PinLockService realService;
 
-  group('verifyStoredPin (simulated)', () {
-    test('version=2, correct PIN returns true', () {
-      const pin = '4567';
-      const salt = 'test-salt-fixed';
-      final hash = PinLockService.hashPinArgon2id(pin, salt);
-      final hashBase64 = base64Encode(Uint8List.fromList(hash));
-
-      final storage = <String, String>{
-        'prism.pin_hash': hashBase64,
-        'prism.pin_salt': salt,
-        'prism.pin_hash_version': '2',
-      };
-
-      expect(_simulateVerifyStoredPin(service, pin, storage), isTrue);
+    setUp(() {
+      keychain = _FakeKeychain()..install();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      realService = PinLockService();
     });
 
-    test('version=2, wrong PIN returns false', () {
-      const pin = '4567';
-      const salt = 'test-salt-fixed';
-      final hash = PinLockService.hashPinArgon2id(pin, salt);
-      final hashBase64 = base64Encode(Uint8List.fromList(hash));
+    tearDown(() => keychain.uninstall());
 
-      final storage = <String, String>{
-        'prism.pin_hash': hashBase64,
-        'prism.pin_salt': salt,
-        'prism.pin_hash_version': '2',
-      };
+    void seedLegacyPin({String pin = '1234', String salt = 'legacy-salt'}) {
+      keychain.store['prism.pin_hash'] = base64Encode(
+        realService.hashPin(pin, salt),
+      );
+      keychain.store['prism.pin_salt'] = salt;
+    }
 
-      expect(_simulateVerifyStoredPin(service, '0000', storage), isFalse);
+    test('missing PIN reports unset and rejects verification', () async {
+      expect(await realService.isPinSet(), isFalse);
+      expect(await realService.verifyStoredPin('1234'), isFalse);
     });
 
     test(
-      'no version (legacy), correct PIN returns true and migrates to Argon2id',
-      () {
-        const pin = '1234';
-        const salt = 'legacy-salt';
-        // Store SHA-256 hash (legacy format, no version key)
-        final legacyHash = service.hashPin(pin, salt);
-        final legacyHashBase64 = base64Encode(legacyHash);
+      'stores an Argon2id PIN and verifies only the matching value',
+      () async {
+        await realService.storePin('4567');
 
-        final storage = <String, String>{
-          'prism.pin_hash': legacyHashBase64,
-          'prism.pin_salt': salt,
-        };
-
-        // Should succeed
-        expect(_simulateVerifyStoredPin(service, pin, storage), isTrue);
-
-        // Should have migrated: version is now '2'
-        expect(storage['prism.pin_hash_version'], '2');
-
-        // Hash should have been updated (no longer the SHA-256 value)
-        expect(storage['prism.pin_hash'], isNot(equals(legacyHashBase64)));
+        expect(await realService.isPinSet(), isTrue);
+        expect(keychain.store['prism.pin_hash_version'], '2');
+        expect(keychain.store['prism.pin_hash'], isNotEmpty);
+        expect(keychain.store['prism.pin_salt'], isNotEmpty);
+        expect(await realService.verifyStoredPin('4567'), isTrue);
+        expect(await realService.verifyStoredPin('0000'), isFalse);
       },
     );
 
-    test('no version (legacy), wrong PIN returns false', () {
-      const pin = '1234';
-      const salt = 'legacy-salt';
-      final legacyHash = service.hashPin(pin, salt);
-      final legacyHashBase64 = base64Encode(legacyHash);
+    test('successful legacy verification migrates the stored slot', () async {
+      seedLegacyPin();
+      final legacyHash = keychain.store['prism.pin_hash'];
 
-      final storage = <String, String>{
-        'prism.pin_hash': legacyHashBase64,
-        'prism.pin_salt': salt,
-      };
-
-      expect(_simulateVerifyStoredPin(service, '9999', storage), isFalse);
-
-      // No migration should have occurred
-      expect(storage.containsKey('prism.pin_hash_version'), isFalse);
-      expect(storage['prism.pin_hash'], equals(legacyHashBase64));
-    });
-  });
-
-  // ── Migration persistence ──────────────────────────────────────────────
-
-  group('migration persistence', () {
-    test('after legacy migration, stored hash verifies with Argon2id', () {
-      const pin = '5678';
-      const salt = 'migration-salt';
-      // Start with legacy SHA-256 hash
-      final legacyHash = service.hashPin(pin, salt);
-      final legacyHashBase64 = base64Encode(legacyHash);
-
-      final storage = <String, String>{
-        'prism.pin_hash': legacyHashBase64,
-        'prism.pin_salt': salt,
-      };
-
-      // First verify triggers migration
-      _simulateVerifyStoredPin(service, pin, storage);
-
-      // Version key should be written as '2'
-      expect(storage['prism.pin_hash_version'], '2');
-
-      // The migrated hash should be a valid Argon2id hash that verifies
-      final migratedHash = base64Decode(storage['prism.pin_hash']!);
-      final expectedArgon2id = PinLockService.hashPinArgon2id(pin, salt);
-      expect(migratedHash, equals(expectedArgon2id));
-
-      // Subsequent verification with version=2 should also succeed
-      expect(_simulateVerifyStoredPin(service, pin, storage), isTrue);
+      expect(await realService.verifyStoredPin('1234'), isTrue);
+      expect(keychain.store['prism.pin_hash_version'], '2');
+      expect(keychain.store['prism.pin_hash'], isNot(legacyHash));
+      expect(await realService.verifyStoredPin('1234'), isTrue);
     });
 
-    test('migrated hash differs from original SHA-256 hash', () {
-      const pin = '9012';
-      const salt = 'diff-salt';
-      final sha256Hash = service.hashPin(pin, salt);
-      final argon2idHash = PinLockService.hashPinArgon2id(pin, salt);
+    test('wrong legacy PIN leaves the legacy slot untouched', () async {
+      seedLegacyPin();
+      final legacyHash = keychain.store['prism.pin_hash'];
 
-      // The two hashing algorithms must produce different outputs
-      expect(sha256Hash, isNot(equals(argon2idHash)));
-    });
-  });
-
-  // ── storePin / verifyStoredPin round-trip (simulated with in-memory map) ──
-
-  group('storePin + verifyStoredPin round-trip (simulated)', () {
-    test('isPinSet returns false when no PIN stored', () {
-      final storage = <String, String>{};
-      final hash = storage['prism.pin_hash'];
-      expect(hash == null || hash.isEmpty, isTrue);
+      expect(await realService.verifyStoredPin('9999'), isFalse);
+      expect(keychain.store['prism.pin_hash_version'], isNull);
+      expect(keychain.store['prism.pin_hash'], legacyHash);
     });
 
-    test('storePin + verifyStoredPin round-trip works with Argon2id', () {
-      const pin = '4567';
-      const salt = 'test-salt-fixed';
+    test('missing salt rejects a stored version-two hash', () async {
+      keychain.store['prism.pin_hash'] = base64Encode(
+        PinLockService.hashPinArgon2id('1234', 'missing-salt'),
+      );
+      keychain.store['prism.pin_hash_version'] = '2';
 
-      // Simulate storePin with Argon2id (current behavior)
-      final hash = PinLockService.hashPinArgon2id(pin, salt);
-      final hashBase64 = base64Encode(Uint8List.fromList(hash));
-
-      final storage = <String, String>{
-        'prism.pin_hash': hashBase64,
-        'prism.pin_salt': salt,
-        'prism.pin_hash_version': '2',
-      };
-
-      // Verify correct PIN succeeds
-      expect(_simulateVerifyStoredPin(service, pin, storage), isTrue);
-      // Verify wrong PIN fails
-      expect(_simulateVerifyStoredPin(service, '0000', storage), isFalse);
+      expect(await realService.verifyStoredPin('1234'), isFalse);
     });
 
-    test('isPinSet returns true after storePin', () {
-      final hash = PinLockService.hashPinArgon2id('1234', 'test-salt-8bytes');
-      final storage = <String, String>{
-        'prism.pin_hash': base64Encode(Uint8List.fromList(hash)),
-        'prism.pin_salt': 'test-salt-8bytes',
-        'prism.pin_hash_version': '2',
-      };
+    test(
+      'malformed stored hash preserves the production FormatException',
+      () async {
+        keychain.store['prism.pin_hash'] = 'not base64';
+        keychain.store['prism.pin_salt'] = 'salt';
+        keychain.store['prism.pin_hash_version'] = '2';
 
-      final storedHash = storage['prism.pin_hash'];
-      expect(storedHash != null && storedHash.isNotEmpty, isTrue);
+        expect(realService.verifyStoredPin('1234'), throwsFormatException);
+      },
+    );
+
+    test(
+      'transient secure-storage reads reject verification without leaking',
+      () async {
+        keychain.throwOnRead = PlatformException(
+          code: 'temporarily_unavailable',
+        );
+
+        expect(await realService.verifyStoredPin('1234'), isFalse);
+      },
+    );
+
+    test('failed storage writes leave no usable PIN slot', () async {
+      keychain.throwOnWrite = PlatformException(
+        code: 'temporarily_unavailable',
+      );
+
+      await realService.storePin('1234');
+
+      expect(keychain.store, isEmpty);
+      expect(await realService.isPinSet(), isFalse);
     });
 
-    test('after clearPin, isPinSet returns false', () {
-      final hash = PinLockService.hashPinArgon2id('1234', 'test-salt-8bytes');
-      final storage = <String, String>{
-        'prism.pin_hash': base64Encode(Uint8List.fromList(hash)),
-        'prism.pin_salt': 'test-salt-8bytes',
-        'prism.pin_hash_version': '2',
-      };
+    test(
+      'failed legacy migration keeps a verified legacy slot for retry',
+      () async {
+        seedLegacyPin();
+        final legacyHash = keychain.store['prism.pin_hash'];
+        keychain.throwOnWrite = PlatformException(
+          code: 'temporarily_unavailable',
+        );
 
-      // Simulate clearPin
-      storage.remove('prism.pin_hash');
-      storage.remove('prism.pin_salt');
-      storage.remove('prism.pin_hash_version');
+        expect(await realService.verifyStoredPin('1234'), isTrue);
+        expect(keychain.store['prism.pin_hash'], legacyHash);
+        expect(keychain.store['prism.pin_hash_version'], isNull);
+      },
+    );
 
-      final storedHash = storage['prism.pin_hash'];
-      expect(storedHash == null || storedHash.isEmpty, isTrue);
+    test('clearPin removes the real stored PIN slot', () async {
+      await realService.storePin('1234');
+      await realService.clearPin();
+
+      expect(await realService.isPinSet(), isFalse);
+      expect(keychain.store, isEmpty);
     });
   });
 
@@ -415,23 +316,22 @@ void main() {
     void seedLegacyPin() {
       // Legacy v1 slot: SHA-256 hash + salt, NO version key (== version 1).
       final hash = realService.hashPin('1234', 'salt0123456789ab');
-      keychain.store['prism.pin_hash'] = base64Encode(
-        Uint8List.fromList(hash),
-      );
+      keychain.store['prism.pin_hash'] = base64Encode(Uint8List.fromList(hash));
       keychain.store['prism.pin_salt'] = 'salt0123456789ab';
     }
 
     test('no-op when no PIN is set', () async {
       final invalidated = await realService.enforceLegacyPinMigrationPolicy();
       expect(invalidated, isFalse);
-      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+      expect(
+        keychain.store.containsKey('prism.pin_legacy_boot_count'),
+        isFalse,
+      );
     });
 
     test('no-op for an Argon2id (version 2) slot', () async {
       final hash = PinLockService.hashPinArgon2id('1234', 'salt0123456789ab');
-      keychain.store['prism.pin_hash'] = base64Encode(
-        Uint8List.fromList(hash),
-      );
+      keychain.store['prism.pin_hash'] = base64Encode(Uint8List.fromList(hash));
       keychain.store['prism.pin_salt'] = 'salt0123456789ab';
       keychain.store['prism.pin_hash_version'] = '2';
 
@@ -439,7 +339,10 @@ void main() {
       expect(invalidated, isFalse);
       // The Argon2id slot is untouched.
       expect(keychain.store.containsKey('prism.pin_hash'), isTrue);
-      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+      expect(
+        keychain.store.containsKey('prism.pin_legacy_boot_count'),
+        isFalse,
+      );
     });
 
     test('increments the boot counter while a legacy slot lingers', () async {
@@ -452,8 +355,7 @@ void main() {
       expect(keychain.store.containsKey('prism.pin_hash'), isTrue);
     });
 
-    test('force-invalidates the legacy slot after the boot threshold',
-        () async {
+    test('force-invalidates the legacy slot after the boot threshold', () async {
       seedLegacyPin();
 
       var invalidated = false;
@@ -468,7 +370,10 @@ void main() {
       expect(keychain.store.containsKey('prism.pin_salt'), isFalse);
       expect(keychain.store.containsKey('prism.pin_hash_version'), isFalse);
       // Counter is cleared after invalidation.
-      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+      expect(
+        keychain.store.containsKey('prism.pin_legacy_boot_count'),
+        isFalse,
+      );
       // And there is no PIN set anymore.
       expect(await realService.isPinSet(), isFalse);
     });
@@ -483,7 +388,10 @@ void main() {
       // User unlocks: legacy verify migrates to Argon2id and clears the counter.
       expect(await realService.verifyStoredPin('1234'), isTrue);
       expect(keychain.store['prism.pin_hash_version'], '2');
-      expect(keychain.store.containsKey('prism.pin_legacy_boot_count'), isFalse);
+      expect(
+        keychain.store.containsKey('prism.pin_legacy_boot_count'),
+        isFalse,
+      );
 
       // Subsequent policy runs are no-ops (now version 2).
       final invalidated = await realService.enforceLegacyPinMigrationPolicy();

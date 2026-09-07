@@ -499,6 +499,16 @@ void main() {
   // ─── Display tests ──────────────────────────────────────────────────────────
 
   group('ChoiceDisplay — read-only chip row', () {
+    testWidgets('renders nothing for an empty choice value', (tester) async {
+      final field = _choiceField(options: [_option('a', 'Apples')]);
+      final value = _value('{"options":[]}');
+
+      await tester.pumpWidget(_displaySubject(field: field, value: value));
+      await tester.pump();
+
+      expect(find.byType(PrismChip), findsNothing);
+    });
+
     testWidgets('renders selected options as chips', (tester) async {
       final field = _choiceField(
         options: [_option('a', 'Apples'), _option('b', 'Bananas')],
@@ -510,6 +520,17 @@ void main() {
 
       expect(find.text('Apples'), findsOneWidget);
       expect(find.text('Bananas'), findsOneWidget);
+    });
+
+    testWidgets('renders one selected option as its label', (tester) async {
+      final field = _choiceField(options: [_option('a', 'Apples')]);
+      final value = _value('{"options":["a"]}');
+
+      await tester.pumpWidget(_displaySubject(field: field, value: value));
+      await tester.pump();
+
+      expect(find.text('Apples'), findsOneWidget);
+      expect(find.byType(PrismChip), findsOneWidget);
     });
 
     testWidgets('renders selected options in settings order', (tester) async {
@@ -590,6 +611,22 @@ void main() {
   // ─── Compact tests ───────────────────────────────────────────────────────────
 
   group('ChoiceCompact — all selected options', () {
+    testWidgets('renders selected options and Other as chips', (tester) async {
+      final field = _choiceField(
+        options: [_option('a', 'Apples'), _option('b', 'Bananas')],
+        allowsOther: true,
+      );
+      final value = _value('{"options":["a","b"],"other":"Durian"}');
+
+      await tester.pumpWidget(_compactSubject(field: field, value: value));
+      await tester.pump();
+
+      expect(find.text('Apples'), findsOneWidget);
+      expect(find.text('Bananas'), findsOneWidget);
+      expect(find.text('Other: Durian'), findsOneWidget);
+      expect(find.byType(PrismChip), findsNWidgets(3));
+    });
+
     testWidgets('shows every selected chip without overflow text', (
       tester,
     ) async {

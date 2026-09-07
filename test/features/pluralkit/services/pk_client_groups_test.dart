@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart' as http_test;
 
+import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 void main() {
@@ -42,10 +43,7 @@ void main() {
 
     test('getGroupMembers falls back to /groups/<ref>/members', () async {
       final client = http_test.MockClient((request) async {
-        expect(
-          request.url.path,
-          endsWith('/groups/u1/members'),
-        );
+        expect(request.url.path, endsWith('/groups/u1/members'));
         return http.Response(
           jsonEncode([
             {'uuid': 'mem-1', 'id': 'mm111'},
@@ -77,26 +75,27 @@ void main() {
   // assumption flagged in review) and the rate-limit / error surface.
 
   group('PluralKitClient.addMembersToGroup', () {
-    test('POSTs to /groups/<ref>/members/add with raw JSON array body',
-        () async {
-      http.Request? captured;
-      final client = http_test.MockClient((request) async {
-        captured = request;
-        return http.Response('', 204);
-      });
-      final pk = PluralKitClient(token: 't0k', httpClient: client);
+    test(
+      'POSTs to /groups/<ref>/members/add with raw JSON array body',
+      () async {
+        http.Request? captured;
+        final client = http_test.MockClient((request) async {
+          captured = request;
+          return http.Response('', 204);
+        });
+        final pk = PluralKitClient(token: 't0k', httpClient: client);
 
-      await pk.addMembersToGroup('group-uuid', ['m1', 'm2']);
+        await pk.addMembersToGroup('group-uuid', ['m1', 'm2']);
 
-      expect(captured, isNotNull);
-      expect(captured!.method, 'POST');
-      expect(captured!.url.path, endsWith('/groups/group-uuid/members/add'));
-      // Body must be a raw JSON array — NOT {"members": [...]}.
-      expect(jsonDecode(captured!.body), ['m1', 'm2']);
-    });
+        expect(captured, isNotNull);
+        expect(captured!.method, 'POST');
+        expect(captured!.url.path, endsWith('/groups/group-uuid/members/add'));
+        // Body must be a raw JSON array — NOT {"members": [...]}.
+        expect(jsonDecode(captured!.body), ['m1', 'm2']);
+      },
+    );
 
-    test('returns without making a request when memberRefs is empty',
-        () async {
+    test('returns without making a request when memberRefs is empty', () async {
       var requestCount = 0;
       final client = http_test.MockClient((request) async {
         requestCount++;
@@ -115,10 +114,7 @@ void main() {
       );
       final pk = PluralKitClient(token: 't0k', httpClient: client);
 
-      await expectLater(
-        pk.addMembersToGroup('g', ['m1']),
-        completes,
-      );
+      await expectLater(pk.addMembersToGroup('g', ['m1']), completes);
     });
 
     test('401 → PluralKitAuthError', () async {
@@ -135,13 +131,14 @@ void main() {
 
     test('429 → PluralKitRateLimitError surfaces retry-after', () async {
       final client = http_test.MockClient(
-        (request) async => http.Response(
-          'rate limited',
-          429,
-          headers: {'retry-after': '5'},
-        ),
+        (request) async =>
+            http.Response('rate limited', 429, headers: {'retry-after': '5'}),
       );
-      final pk = PluralKitClient(token: 't0k', httpClient: client);
+      final pk = PluralKitClient(
+        token: 't0k',
+        httpClient: client,
+        queue: PkRequestQueue(maxRetries: 0),
+      );
 
       try {
         await pk.addMembersToGroup('g', ['m1']);
@@ -168,24 +165,28 @@ void main() {
   });
 
   group('PluralKitClient.removeMembersFromGroup', () {
-    test('POSTs to /groups/<ref>/members/remove with raw JSON array body',
-        () async {
-      http.Request? captured;
-      final client = http_test.MockClient((request) async {
-        captured = request;
-        return http.Response('', 204);
-      });
-      final pk = PluralKitClient(token: 't0k', httpClient: client);
+    test(
+      'POSTs to /groups/<ref>/members/remove with raw JSON array body',
+      () async {
+        http.Request? captured;
+        final client = http_test.MockClient((request) async {
+          captured = request;
+          return http.Response('', 204);
+        });
+        final pk = PluralKitClient(token: 't0k', httpClient: client);
 
-      await pk.removeMembersFromGroup('group-uuid', ['m1', 'm2']);
+        await pk.removeMembersFromGroup('group-uuid', ['m1', 'm2']);
 
-      expect(captured!.method, 'POST');
-      expect(captured!.url.path, endsWith('/groups/group-uuid/members/remove'));
-      expect(jsonDecode(captured!.body), ['m1', 'm2']);
-    });
+        expect(captured!.method, 'POST');
+        expect(
+          captured!.url.path,
+          endsWith('/groups/group-uuid/members/remove'),
+        );
+        expect(jsonDecode(captured!.body), ['m1', 'm2']);
+      },
+    );
 
-    test('returns without making a request when memberRefs is empty',
-        () async {
+    test('returns without making a request when memberRefs is empty', () async {
       var requestCount = 0;
       final client = http_test.MockClient((request) async {
         requestCount++;

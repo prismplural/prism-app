@@ -212,6 +212,74 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
+  testWidgets(
+    'choice previews use configured labels and preserve current locale prefix behavior',
+    (tester) async {
+      _useTallViewport(tester);
+      final database = db.AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.membersDao.insertMember(
+        db.MembersCompanion.insert(
+          id: 'm-1',
+          name: 'Alice',
+          createdAt: DateTime(2026, 1, 1),
+        ),
+      );
+      await database.customFieldsDao.createField(
+        db.CustomFieldsCompanion.insert(
+          id: 'fruit',
+          name: 'Fruit',
+          fieldType: 4,
+          fieldTypeId: const Value('choice'),
+          typeConfigJson: const Value(
+            '{"runtimeType":"choice","options":['
+            '{"id":"apple","label":"Apple","sortOrder":0,"isDeleted":false},'
+            '{"id":"banana","label":"Banana","sortOrder":1,"isDeleted":false}'
+            '],"allowsMultiple":true,"allowsOther":true}',
+          ),
+          createdAt: DateTime(2026, 1, 3),
+        ),
+      );
+      await database.customFieldsDao.upsertValue(
+        db.CustomFieldValuesCompanion.insert(
+          id: 'v-1',
+          customFieldId: 'fruit',
+          memberId: 'm-1',
+          value: '{"options":["apple","banana","unknown"],"other":"Mango"}',
+        ),
+      );
+
+      await tester.pumpWidget(
+        _testApp(database, const CustomFieldDetailScreen(fieldId: 'fruit')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Apple, Banana, Other: Mango'), findsOneWidget);
+      expect(find.textContaining('"options"'), findsNothing);
+      expect(find.textContaining('unknown'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+
+      await tester.pumpWidget(
+        _testApp(
+          database,
+          const CustomFieldDetailScreen(fieldId: 'fruit'),
+          locale: const Locale('es'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Apple, Banana, Other: Mango'),
+        findsOneWidget,
+        reason: 'Spanish currently keeps the shared Other prefix in English.',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
+
   testWidgets('filled-in members list builds rows lazily', (tester) async {
     tester.view.physicalSize = const Size(390, 720);
     tester.view.devicePixelRatio = 1.0;

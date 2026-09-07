@@ -1,0 +1,62 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    name: Fast Dart and widget tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake pkg-config libasound2-dev libsqlite3-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: scripts/test_fast.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-fast-results
+          path: test-results/
+          if-no-files-found: warn
+
+  native:
+    name: Native asset and relay tests (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake pkg-config libasound2-dev libsqlite3-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: prism-app-native-tests
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.1'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: scripts/test_native.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-native-results
+          path: test-results/
+          if-no-files-found: warn

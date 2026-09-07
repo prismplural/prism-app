@@ -983,7 +983,18 @@ void main() {
     'websocket auth events after verified revoke keep sync disconnected',
     () async {
       final ctx = bindContainer();
+      final disconnected = Completer<void>();
+      final healthSubscription = ctx.container.listen<SyncHealthState>(
+        syncHealthProvider,
+        (_, next) {
+          if (next == SyncHealthState.disconnected &&
+              !disconnected.isCompleted) {
+            disconnected.complete();
+          }
+        },
+      );
       addTearDown(() async {
+        healthSubscription.close();
         ctx.subscription.close();
         ctx.eventSubscription.close();
         ctx.container.dispose();
@@ -991,7 +1002,7 @@ void main() {
       });
 
       ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
-      await Future<void>.delayed(settleAfterDebounce);
+      await disconnected.future.timeout(const Duration(seconds: 2));
       expect(
         ctx.container.read(syncHealthProvider),
         SyncHealthState.disconnected,
@@ -1013,7 +1024,7 @@ void main() {
           'token': 'stale-token',
         }),
       );
-      await Future<void>.delayed(settleAfterDebounce);
+      await Future<void>.delayed(Duration.zero);
 
       expect(
         ctx.container.read(syncHealthProvider),

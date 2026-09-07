@@ -24,18 +24,28 @@ class PkRequestQueue {
   final Duration _minInterval;
   final int _maxRetries;
   final PkSyncEventBus? _bus;
+  final DateTime Function() _now;
+  final Future<void> Function(Duration duration) _delay;
 
   final _queue = <_QueueEntry<dynamic>>[];
   bool _processing = false;
   DateTime _lastRequestTime = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// When supplying [now] and [delay], keep their time progression consistent.
   PkRequestQueue({
     Duration minInterval = defaultMinInterval,
     int maxRetries = defaultMaxRetries,
     PkSyncEventBus? bus,
+    DateTime Function()? now,
+    Future<void> Function(Duration duration)? delay,
   }) : _minInterval = minInterval,
        _maxRetries = maxRetries,
-       _bus = bus;
+       _bus = bus,
+       _now = now ?? DateTime.now,
+       _delay = delay ?? _defaultDelay;
+
+  static Future<void> _defaultDelay(Duration duration) =>
+      Future<void>.delayed(duration);
 
   /// Enqueue a request. Returns a Future that completes with the result
   /// once the request has been executed (respecting rate limits).
@@ -81,16 +91,16 @@ class PkRequestQueue {
       // Always enforce the minimum inter-request interval — including
       // between retries — so a server-delayed retry followed by a short
       // server delay can never push us above 3/s for the *next* call.
-      final elapsed = DateTime.now().difference(_lastRequestTime);
+      final elapsed = _now().difference(_lastRequestTime);
       if (elapsed < _minInterval) {
-        await Future<void>.delayed(_minInterval - elapsed);
+        await _delay(_minInterval - elapsed);
       }
 
       try {
         final result = await entry.request();
         // Update after the attempt settles so pacing is enforced between
         // *every* completed HTTP exchange — see the catch block.
-        _lastRequestTime = DateTime.now();
+        _lastRequestTime = _now();
         entry.completer.complete(result);
         return;
       } catch (e) {
@@ -99,7 +109,7 @@ class PkRequestQueue {
         // entirely and burst at full speed; pacing now applies regardless of
         // outcome. Transport failures (no exchange) are also counted — pacing
         // them is harmless and keeps the rule simple.
-        _lastRequestTime = DateTime.now();
+        _lastRequestTime = _now();
 
         if (e is PluralKitRateLimitError && attempt < _maxRetries) {
           // Prefer server-provided delay (body retry_after / headers).
@@ -116,10 +126,10 @@ class PkRequestQueue {
               backoffSeconds: backoff.inSeconds,
             ),
           );
-          await Future<void>.delayed(backoff);
+          await _delay(backoff);
           // Treat the rate-limit event as a "request" for pacing purposes so
           // the next attempt also respects _minInterval from this moment.
-          _lastRequestTime = DateTime.now();
+          _lastRequestTime = _now();
           continue;
         }
 
@@ -129,8 +139,8 @@ class PkRequestQueue {
         if (errorRetriesLeft > 0 && _isRetriableError(e)) {
           errorRetriesLeft--;
           errorRetryNumber++;
-          await Future<void>.delayed(Duration(seconds: errorRetryNumber));
-          _lastRequestTime = DateTime.now();
+          await _delay(Duration(seconds: errorRetryNumber));
+          _lastRequestTime = _now();
           // Don't consume a 429 attempt slot for an error retry.
           attempt--;
           continue;

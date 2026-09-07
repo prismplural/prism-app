@@ -15,6 +15,9 @@
 //
 // Run: flutter test test/e2e/add_member_perf_bench_test.dart
 
+@Tags(['benchmark'])
+library;
+
 import 'dart:convert';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -33,7 +36,6 @@ String _avatarB64(int rawBytes) {
   }
   return base64Encode(bytes);
 }
-
 /// The real member field shape (mirrors DriftMemberRepository.memberFields):
 /// ~36 fields, with the avatar carried inline as base64. [avatarRaw] = 0 means
 /// no avatar. [fieldCount] lets us shrink the map to isolate the "x F" factor.
