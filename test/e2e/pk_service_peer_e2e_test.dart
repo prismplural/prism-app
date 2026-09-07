@@ -131,7 +131,6 @@ void main() {
         expect(editedOnB.notes, 'local peer edit');
         expect(editedOnB.memberId, bMember.id);
 
-        // A later real ongoing PK poll switches out all fronters.
         final switchOutAt = DateTime.utc(2026, 9, 1, 14);
         b.client.current = PKSwitch(
           id: '99999999-8888-7777-6666-555555555555',

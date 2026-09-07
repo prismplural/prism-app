@@ -29,47 +29,47 @@ void main() {
   });
 
   test('post-healthy catch-up runs the upgrade steps in order', () async {
-    final calls = <String>[];
+      final calls = <String>[];
 
-    await runPostHealthySyncCatchUp(
-      handle: const _FakePrismSyncHandle(),
-      db: db,
-      failureLabel: 'test catch-up failed',
-      onResume: (_) async => calls.add('onResume'),
+      await runPostHealthySyncCatchUp(
+        handle: const _FakePrismSyncHandle(),
+        db: db,
+        failureLabel: 'test catch-up failed',
+        onResume: (_) async => calls.add('onResume'),
       repairPkFrontOrphans: (_, _) async {
         calls.add('pkFrontOrphans');
         return const PkFrontOrphanProjectionRepairResult();
       },
-      reemitGroupChatVisibility: (_, _) async {
-        calls.add('groupVisibility');
-        return const GroupChatVisibilitySyncReemitResult();
-      },
-      reemitOversizedInlineImages: (_, _) async {
-        calls.add('oversizedImages');
-        return const OversizedInlineImageReemitResult();
-      },
-      repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
-      drainMigrationSyncRepairs: (_, _) async {
-        calls.add('migrationRepairs');
-        return const MigrationSyncRepairResult();
-      },
-      catchUpPk: (_, _) async {
-        calls.add('pkCatchUp');
-        return const PkGroupSyncV2CatchupResult();
-      },
-      drain: (_) async => calls.add('drain'),
-    );
+        reemitGroupChatVisibility: (_, _) async {
+          calls.add('groupVisibility');
+          return const GroupChatVisibilitySyncReemitResult();
+        },
+        reemitOversizedInlineImages: (_, _) async {
+          calls.add('oversizedImages');
+          return const OversizedInlineImageReemitResult();
+        },
+        repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+        drainMigrationSyncRepairs: (_, _) async {
+          calls.add('migrationRepairs');
+          return const MigrationSyncRepairResult();
+        },
+        catchUpPk: (_, _) async {
+          calls.add('pkCatchUp');
+          return const PkGroupSyncV2CatchupResult();
+        },
+        drain: (_) async => calls.add('drain'),
+      );
 
-    // Nothing was re-normalized, so the repair step is skipped.
-    expect(calls, [
-      'onResume',
+      // Nothing was re-normalized, so the repair step is skipped.
+      expect(calls, [
+        'onResume',
       'pkFrontOrphans',
-      'groupVisibility',
-      'oversizedImages',
-      'migrationRepairs',
-      'pkCatchUp',
-      'drain',
-    ]);
+        'groupVisibility',
+        'oversizedImages',
+        'migrationRepairs',
+        'pkCatchUp',
+        'drain',
+      ]);
   });
 
   test(

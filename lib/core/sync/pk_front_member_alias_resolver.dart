@@ -19,11 +19,8 @@ class PkFrontMemberAliasResolution {
   final String? targetMemberId;
 }
 
-/// Resolves a missing, device-local member id through durable alias evidence.
-///
-/// This deliberately requires the exact recorded holder and a stable PK UUID.
-/// Identity-wide or short-id re-resolution can attach history to a later
-/// re-import or to a different member after PK short-id reuse.
+/// Requires the recorded holder and stable PK UUID to avoid attaching history
+/// to a re-imported member or recycled short ID.
 Future<PkFrontMemberAliasResolution> resolvePkFrontMemberAlias(
   AppDatabase db,
   String legacyMemberId,

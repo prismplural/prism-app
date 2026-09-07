@@ -176,11 +176,7 @@ class PkFrontOrphanProjectionRepair {
           updates: {_db.frontingSessions},
         );
         if (changed > 0 && engineStableUuid != null) {
-          // The retained live winner and the unique local holder establish the
-          // same durable identity evidence as a normal redirect. Persist it in
-          // this transaction so a later hydrated payload carrying [legacyId]
-          // cannot undo the projection repair. The DAO records the validation
-          // time as provenance and this remains local-only sync metadata.
+          // Retain the alias atomically so later deliveries cannot undo the repair.
           await _db.pkIdentitySyncAliasesDao.upsertAlias(
             entityTable: 'members',
             legacyEntityId: legacyId,

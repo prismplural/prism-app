@@ -3170,9 +3170,7 @@ Future<MigrationSyncRepairResult> drainMigrationSyncRepairsOnceAfterHealthy(
   return service.drain();
 }
 
-/// Runs one local-only recovery pass after the engine is healthy. Retained
-/// field winners can identify pre-alias v0.14 member ids without a new network
-/// operation. The persisted gate bounds this to one completed pass per device.
+/// Recovers pre-alias identities from retained winners once per device.
 Future<PkFrontOrphanProjectionRepairResult>
 repairPkFrontOrphansOnceAfterHealthy(
   ffi.PrismSyncHandle handle,
@@ -3990,8 +3988,7 @@ Future<int> _applyConsumerDeliveriesHealingUnappliable(
       delivery.table,
       delivery.entityId,
     )) {
-      // Entity deletes are absorbing. A field fragment journaled before or
-      // alongside the winning delete cannot revive the burned entity id.
+      // Delayed fields must not revive a deleted entity.
       accepted++;
       onProgress?.call(accepted, deliveries.length);
       continue;
@@ -4097,11 +4094,7 @@ Future<int> _applyConsumerDeliveriesHealingUnappliable(
   return accepted + unappliable.length;
 }
 
-/// Whether a delivery has enough explicit state to create a currently absent
-/// consumer row without invoking create-time normalization. Existing rows are
-/// always patchable. Fronts need a table-specific contract because the adapter
-/// intentionally normalizes a complete orphan to Unknown; that recovery must
-/// never run for a partial projection.
+/// Prevents partial creates from triggering the adapter's Unknown-front repair.
 Future<bool> _isCompleteConsumerCreate(
   DriftSyncAdapter adapter,
   ConsumerDelivery delivery,
@@ -4124,8 +4117,7 @@ Future<bool> _isCompleteConsumerCreate(
       ? rawType.toInt()
       : int.tryParse(rawType?.toString() ?? '');
   if (sessionType == 1) {
-    // Sleep sessions intentionally have no member. Both an omitted member and
-    // an explicit null are complete once the type and start are authoritative.
+    // Sleep sessions allow an absent member.
     return true;
   }
   if (sessionType != 0) return false;

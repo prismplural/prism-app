@@ -155,8 +155,7 @@ void main() {
           );
           expect(upgrade?.noEvidence, 1);
 
-          // The real healthy hook reads retained native winners and persists the
-          // validated alias without any fresh incoming operation being required.
+          // Recovery must work without a new member operation.
           await runPostHealthySyncCatchUp(
             handle: activeReceiver.handle,
             db: activeDb,
@@ -206,9 +205,7 @@ void main() {
                 chunk.deliveries.any(
                   (row) => row.table == 'fronting_sessions',
                 )) {
-              // Crash-window counterfactual: Drift committed the delivery, but
-              // the native high-water ACK did not. Close both real resources,
-              // reopen, then prove the same durable page replays harmlessly.
+              // Reopen after apply but before ACK to exercise durable replay.
               await activeDb.close();
               appDb = null;
               activeReceiver = await reopenPersistentDevice(
@@ -260,9 +257,7 @@ void main() {
           }
           expect(restarted, isTrue);
 
-          // Reordered duplicate consumer replay models retry around an ACK
-          // boundary. The
-          // stale raw remote id must resolve through the persisted UUID alias.
+          // Reordered consumer retries must preserve the recovered alias.
           await applyConsumerDeliveriesHealingUnappliable(
             activeDb,
             wrapped.adapter,
@@ -336,9 +331,7 @@ void main() {
             reason: 'local projection recovery must not emit a peer correction',
           );
 
-          // Terminal member delivery purges the recovery alias. A later import
-          // with the same stable UUID is a new incarnation, and replaying the old
-          // legacy delete must not kill it.
+          // An old member's deletion must not kill a later re-import.
           await ffi.recordDelete(
             handle: source.handle,
             table: 'members',

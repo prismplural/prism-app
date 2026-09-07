@@ -97,8 +97,7 @@ void main() {
         expect((await sourceDevice.sync())['error'], anyOf(isNull, ''));
         expect((await receiverDevice.sync())['error'], anyOf(isNull, ''));
 
-        // Model a surviving 0.14 projection: the engine has the peer's member
-        // winners, but Drift never materialized that remote member ID or an alias.
+        // Reproduce a 0.14 orphan with retained native winners but no local alias.
         await adapter.adapter.applyFields(
           'fronting_sessions',
           'historical-front',
@@ -132,8 +131,7 @@ void main() {
         adapter.beginSyncBatch();
         try {
           await runRemoteDeliveryDrain(
-            // Force the smallest actual raw-field page, so every full create
-            // crosses a native journal boundary regardless of HashMap order.
+            // Split every create regardless of field ordering.
             take: (_) async {
               final chunk = DrainChunk.fromJson(
                 jsonDecode(
@@ -229,8 +227,7 @@ void main() {
           );
         }
 
-        // A later sparse edit yields another full native projection. Its raw
-        // member ID still must resolve through the persisted recovery evidence.
+        // Later hydration must preserve the recovered identity.
         await ffi.recordUpdate(
           handle: sourceDevice.handle,
           table: 'fronting_sessions',

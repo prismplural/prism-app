@@ -73,7 +73,7 @@ void main() {
       isNotEmpty,
     );
 
-    // A new adapter instance models process restart; deferred state is in Drift.
+    // Deferred state must survive adapter replacement.
     final afterRestart = buildSyncAdapterWithCompletion(db);
     afterRestart.beginSyncBatch();
     final accepted = await applyConsumerDeliveriesHealingUnappliable(
