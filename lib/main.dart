@@ -9,6 +9,7 @@ import 'package:flutter/services.dart'
     show FontLoader, SystemNavigator, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 import 'package:prism_sync/generated/frb_generated.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -109,9 +110,8 @@ void main() async {
   // both "was set when boot started" and "was the write-back attempted".
   final keychainRepairPendingBeforeBoot = await _safeIsKeychainRepairPending();
 
-  // The sync DB probe opens prism_sync.db through the Rust FFI, so FRB must
-  // be ready before probes run.
-  await _initRustLib();
+  // Initialize native bridges before database probes or media use.
+  await _initRustLibs();
   await _clearObsoleteBiometricDek();
 
   final appProbe = await _safeProbeAppDb();
@@ -425,8 +425,21 @@ Future<void> _maybeSeedDebugStressFixture(String? verifiedStartupKey) async {
   }
 }
 
-Future<void> _initRustLib() async {
+Future<void> _initRustLibs() async {
   await RustLib.init();
+  try {
+    await media_codec.initializeMediaCodec();
+  } catch (error, stackTrace) {
+    debugPrint(
+      '[BOOT] media codec initialization failed (non-fatal): '
+      '$error\n$stackTrace',
+    );
+    ErrorReportingService.instance.report(
+      'Media codec initialization failed: $error',
+      severity: ErrorSeverity.warning,
+      stackTrace: stackTrace,
+    );
+  }
 }
 
 /// Wraps [probeAppDatabaseStartup] so any unexpected throw becomes a synthetic
