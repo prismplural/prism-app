@@ -16,6 +16,7 @@ import 'package:prism_plurality/core/services/files/prism_file_dialog_service.da
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart' as sync;
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
@@ -1686,6 +1687,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'sync.enum_fields_reemit_v1': true,
         PkGroupSyncV2CatchupService.flagKey: true,
+        pkFrontOrphanEngineRecoveryCheckedKey: true,
         'unrelated_flag': true,
       });
       final harness = await _ResetHarness.create();
@@ -1697,6 +1699,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getBool('sync.enum_fields_reemit_v1'), isNull);
       expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isNull);
+      expect(prefs.getBool(pkFrontOrphanEngineRecoveryCheckedKey), isNull);
       expect(prefs.getBool('unrelated_flag'), isTrue);
     });
 

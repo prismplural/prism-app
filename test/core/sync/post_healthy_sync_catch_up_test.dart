@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/migration/services/group_chat_visibility_sync_reemit_service.dart';
 import 'package:prism_plurality/features/migration/services/migration_sync_repair_service.dart';
@@ -27,47 +28,49 @@ void main() {
     await db.close();
   });
 
-  test(
-    'post-healthy catch-up runs the upgrade steps in order',
-    () async {
-      final calls = <String>[];
+  test('post-healthy catch-up runs the upgrade steps in order', () async {
+    final calls = <String>[];
 
-      await runPostHealthySyncCatchUp(
-        handle: const _FakePrismSyncHandle(),
-        db: db,
-        failureLabel: 'test catch-up failed',
-        onResume: (_) async => calls.add('onResume'),
-        reemitGroupChatVisibility: (_, _) async {
-          calls.add('groupVisibility');
-          return const GroupChatVisibilitySyncReemitResult();
-        },
-        reemitOversizedInlineImages: (_, _) async {
-          calls.add('oversizedImages');
-          return const OversizedInlineImageReemitResult();
-        },
-        repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
-        drainMigrationSyncRepairs: (_, _) async {
-          calls.add('migrationRepairs');
-          return const MigrationSyncRepairResult();
-        },
-        catchUpPk: (_, _) async {
-          calls.add('pkCatchUp');
-          return const PkGroupSyncV2CatchupResult();
-        },
-        drain: (_) async => calls.add('drain'),
-      );
+    await runPostHealthySyncCatchUp(
+      handle: const _FakePrismSyncHandle(),
+      db: db,
+      failureLabel: 'test catch-up failed',
+      onResume: (_) async => calls.add('onResume'),
+      repairPkFrontOrphans: (_, _) async {
+        calls.add('pkFrontOrphans');
+        return const PkFrontOrphanProjectionRepairResult();
+      },
+      reemitGroupChatVisibility: (_, _) async {
+        calls.add('groupVisibility');
+        return const GroupChatVisibilitySyncReemitResult();
+      },
+      reemitOversizedInlineImages: (_, _) async {
+        calls.add('oversizedImages');
+        return const OversizedInlineImageReemitResult();
+      },
+      repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+      drainMigrationSyncRepairs: (_, _) async {
+        calls.add('migrationRepairs');
+        return const MigrationSyncRepairResult();
+      },
+      catchUpPk: (_, _) async {
+        calls.add('pkCatchUp');
+        return const PkGroupSyncV2CatchupResult();
+      },
+      drain: (_) async => calls.add('drain'),
+    );
 
-      // Nothing was re-normalized, so the repair step is skipped.
-      expect(calls, [
-        'onResume',
-        'groupVisibility',
-        'oversizedImages',
-        'migrationRepairs',
-        'pkCatchUp',
-        'drain',
-      ]);
-    },
-  );
+    // Nothing was re-normalized, so the repair step is skipped.
+    expect(calls, [
+      'onResume',
+      'pkFrontOrphans',
+      'groupVisibility',
+      'oversizedImages',
+      'migrationRepairs',
+      'pkCatchUp',
+      'drain',
+    ]);
+  });
 
   test(
     'repairs quarantined batches only after oversized images were re-normalized',
@@ -79,15 +82,23 @@ void main() {
         db: db,
         failureLabel: 'test catch-up failed',
         onResume: (_) async => calls.add('onResume'),
+        repairPkFrontOrphans: (_, _) async {
+          calls.add('pkFrontOrphans');
+          return const PkFrontOrphanProjectionRepairResult();
+        },
         reemitGroupChatVisibility: (_, _) async {
           calls.add('groupVisibility');
           return const GroupChatVisibilitySyncReemitResult();
         },
         reemitOversizedInlineImages: (_, _) async {
           calls.add('oversizedImages');
-          return const OversizedInlineImageReemitResult(membersRepaired: 1, fieldsReemitted: 1);
+          return const OversizedInlineImageReemitResult(
+            membersRepaired: 1,
+            fieldsReemitted: 1,
+          );
         },
-        repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+        repairQuarantinedPushBatches: (_) async =>
+            calls.add('repairQuarantine'),
         drainMigrationSyncRepairs: (_, _) async {
           calls.add('migrationRepairs');
           return const MigrationSyncRepairResult();
@@ -101,6 +112,7 @@ void main() {
 
       expect(calls, [
         'onResume',
+        'pkFrontOrphans',
         'groupVisibility',
         'oversizedImages',
         'repairQuarantine',
@@ -121,6 +133,10 @@ void main() {
         db: db,
         failureLabel: 'test catch-up failed',
         onResume: (_) async => calls.add('onResume'),
+        repairPkFrontOrphans: (_, _) async {
+          calls.add('pkFrontOrphans');
+          return const PkFrontOrphanProjectionRepairResult();
+        },
         reemitGroupChatVisibility: (_, _) async {
           calls.add('groupVisibility');
           throw StateError('boom');
@@ -129,7 +145,8 @@ void main() {
           calls.add('oversizedImages');
           return const OversizedInlineImageReemitResult();
         },
-        repairQuarantinedPushBatches: (_) async => calls.add('repairQuarantine'),
+        repairQuarantinedPushBatches: (_) async =>
+            calls.add('repairQuarantine'),
         drainMigrationSyncRepairs: (_, _) async {
           calls.add('migrationRepairs');
           return const MigrationSyncRepairResult();
@@ -141,7 +158,7 @@ void main() {
         drain: (_) async => calls.add('drain'),
       );
 
-      expect(calls, ['onResume', 'groupVisibility']);
+      expect(calls, ['onResume', 'pkFrontOrphans', 'groupVisibility']);
     },
   );
 }

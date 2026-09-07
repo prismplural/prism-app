@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/pk_alias_guards.dart';
+import 'package:prism_plurality/core/sync/pk_front_member_alias_resolver.dart';
 import 'package:prism_plurality/core/sync/pk_incarnation_ids.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/data/mappers/member_group_mapper.dart'
@@ -896,8 +897,13 @@ Future<String?> _remapFrontingMemberIdForApply(
             ..limit(1))
           .getSingleOrNull();
   if (live != null) return memberId;
-  final holderId = await _resolveRedirectedMemberHolderForApply(db, normalized);
-  if (holderId != null && holderId != normalized) return holderId;
+  final resolution = await resolvePkFrontMemberAlias(db, normalized);
+  final holderId = resolution.targetMemberId;
+  if (resolution.kind == PkFrontMemberAliasResolutionKind.resolved &&
+      holderId != null &&
+      holderId != normalized) {
+    return holderId;
+  }
   return memberId;
 }
 

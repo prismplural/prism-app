@@ -15,6 +15,7 @@ import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/services/secure_storage_diagnostic.dart';
+import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 
 // Re-export so existing callers that import database_provider.dart for the
 // SecureStorageDiagnostic type don't have to change their imports. The
@@ -170,6 +171,21 @@ final databaseReadyProvider = FutureProvider<DatabaseReadyReport>((ref) async {
   });
   await db.customSelect('SELECT 1').getSingle();
   final after = await _readDriftUserVersion(db);
+  try {
+    final repair = await repairPkFrontOrphansAfterUpgrade(
+      db: db,
+      versionBefore: before,
+      versionAfter: after,
+    );
+    if (repair != null && repair.scanned > 0) {
+      debugPrint(
+        '[PK_FRONT_ORPHAN_REPAIR] upgrade scan repaired=${repair.repaired} '
+        'unresolved=${repair.unresolved} ${repair.unresolvedSummary}',
+      );
+    }
+  } catch (error) {
+    debugPrint('[PK_FRONT_ORPHAN_REPAIR] upgrade scan failed: $error');
+  }
   return DatabaseReadyReport(
     schemaVersionBeforeOpen: before,
     schemaVersionAfterOpen: after,

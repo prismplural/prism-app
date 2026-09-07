@@ -33,6 +33,7 @@ import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
+import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
@@ -3168,6 +3169,38 @@ Future<MigrationSyncRepairResult> drainMigrationSyncRepairsOnceAfterHealthy(
   return service.drain();
 }
 
+/// Runs one local-only recovery pass after the engine is healthy. Retained
+/// field winners can identify pre-alias v0.14 member ids without a new network
+/// operation. The persisted gate bounds this to one completed pass per device.
+Future<PkFrontOrphanProjectionRepairResult>
+repairPkFrontOrphansOnceAfterHealthy(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) async {
+  final prefs = await SharedPreferences.getInstance();
+  final result = await runPkFrontOrphanEngineRecoveryOnce(
+    db: db,
+    getChecked: () async =>
+        prefs.getBool(pkFrontOrphanEngineRecoveryCheckedKey) == true,
+    setChecked: () =>
+        prefs.setBool(pkFrontOrphanEngineRecoveryCheckedKey, true),
+    readWinningField: ({required table, required entityId, required field}) =>
+        ffi.readFieldValue(
+          handle: handle,
+          table: table,
+          entityId: entityId,
+          field: field,
+        ),
+  );
+  if (result.scanned > 0) {
+    debugPrint(
+      '[PK_FRONT_ORPHAN_REPAIR] engine scan repaired=${result.repaired} '
+      'unresolved=${result.unresolved} ${result.unresolvedSummary}',
+    );
+  }
+  return result;
+}
+
 Future<void> runPostHealthySyncCatchUp({
   required ffi.PrismSyncHandle handle,
   required AppDatabase db,
@@ -3193,6 +3226,12 @@ Future<void> runPostHealthySyncCatchUp({
   )?
   drainMigrationSyncRepairs,
   @visibleForTesting
+  Future<PkFrontOrphanProjectionRepairResult> Function(
+    ffi.PrismSyncHandle handle,
+    AppDatabase db,
+  )?
+  repairPkFrontOrphans,
+  @visibleForTesting
   Future<void> Function(ffi.PrismSyncHandle handle)?
   repairQuarantinedPushBatches,
   @visibleForTesting
@@ -3213,6 +3252,10 @@ Future<void> runPostHealthySyncCatchUp({
   await (drainOutbox ?? triggerOutboxDrain)(db, handle);
   try {
     await (onResume ?? ((h) => ffi.onResume(handle: h)))(handle);
+    await (repairPkFrontOrphans ?? repairPkFrontOrphansOnceAfterHealthy)(
+      handle,
+      db,
+    );
     await (reemitGroupChatVisibility ??
         reemitGroupChatVisibilityOnceAfterUpgrade)(handle, db);
     // Re-normalize avatars/banners that were stored too large to fit one sync

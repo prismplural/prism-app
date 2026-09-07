@@ -19,6 +19,7 @@ import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
@@ -317,6 +318,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await prefs.remove('sync.enum_fields_reemit_v1');
       await prefs.remove(GroupChatVisibilitySyncReemitService.flagKey);
       await prefs.remove(PkGroupSyncV2CatchupService.flagKey);
+      await prefs.remove(pkFrontOrphanEngineRecoveryCheckedKey);
     } catch (e) {
       _log('SharedPreferences reset failed (non-fatal): $e');
     }
