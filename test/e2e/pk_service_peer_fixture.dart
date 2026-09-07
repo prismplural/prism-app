@@ -26,14 +26,24 @@ class SyntheticPluralKitClient implements PluralKitClient {
   List<PKSwitch> switches;
   PKSwitch? current;
   final List<List<String>> createdSwitchMembers = [];
+  final List<String> calls = [];
+  final List<String> deletedMembers = [];
+  final List<String> deletedSwitches = [];
 
   @override
   String get currentToken => 'synthetic-token';
   @override
-  Future<PKSystem> getSystem() async =>
-      const PKSystem(id: 'sys01', name: 'Synthetic');
+  Future<PKSystem> getSystem() async {
+    calls.add('getSystem');
+    return const PKSystem(id: 'sys01', name: 'Synthetic');
+  }
+
   @override
-  Future<List<PKMember>> getMembers() async => members;
+  Future<List<PKMember>> getMembers() async {
+    calls.add('getMembers');
+    return members;
+  }
+
   @override
   Future<PKMember> getMember(String ref) async =>
       members.firstWhere((m) => m.id == ref || m.uuid == ref);
@@ -46,17 +56,25 @@ class SyntheticPluralKitClient implements PluralKitClient {
     DateTime? before,
     int limit = 100,
   }) async {
+    calls.add('getSwitches');
     final eligible = before == null
         ? switches
         : switches.where((s) => s.timestamp.isBefore(before)).toList();
-    return eligible.take(limit).toList();
+    return (eligible.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp)))
+        .take(limit)
+        .toList();
   }
 
   @override
   Future<PKSwitch> getSwitch(String ref) async =>
       switches.firstWhere((s) => s.id == ref);
   @override
-  Future<PKSwitch?> getCurrentFronters() async => current;
+  Future<PKSwitch?> getCurrentFronters() async {
+    calls.add('getCurrentFronters');
+    return current;
+  }
+
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) async =>
       throw UnimplementedError();
@@ -64,7 +82,7 @@ class SyntheticPluralKitClient implements PluralKitClient {
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) async =>
       getMember(id);
   @override
-  Future<void> deleteMember(String id) async {}
+  Future<void> deleteMember(String id) async => deletedMembers.add(id);
   @override
   Future<PKSwitch> createSwitch(
     List<String> memberIds, {
@@ -89,7 +107,7 @@ class SyntheticPluralKitClient implements PluralKitClient {
     List<String> memberIds,
   ) async => throw UnimplementedError();
   @override
-  Future<void> deleteSwitch(String id) async {}
+  Future<void> deleteSwitch(String id) async => deletedSwitches.add(id);
   @override
   Future<List<int>> downloadBytes(String url) async => const [];
   @override
@@ -174,6 +192,24 @@ class PkServicePeer {
   Future<void> importAll() async {
     await activate();
     await service.performOneTimeFullImport(token: 'synthetic-token');
+    await outbox.drain(device.handle);
+  }
+
+  Future<void> connectAndImport() async {
+    await activate();
+    await service.setToken('synthetic-token');
+    await service.confirmDirection();
+    await service.acknowledgeMapping();
+    await service.performFullImport();
+    await outbox.drain(device.handle);
+  }
+
+  Future<void> pollAndDrain() async {
+    await activate();
+    final outcome = await service.pollFrontersOnly();
+    if (outcome != PkPollOutcome.ok) {
+      throw StateError('PK poll did not run: $outcome');
+    }
     await outbox.drain(device.handle);
   }
 

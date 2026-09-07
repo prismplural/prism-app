@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -11,15 +12,39 @@ import 'e2e_support.dart';
 import 'pk_service_peer_fixture.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  final secureValues = <String, String?>{};
+  var rustInitialized = false;
   setUpAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          (call) async {
+            final key = call.arguments['key'] as String?;
+            if (call.method == 'write') {
+              secureValues[key!] = call.arguments['value'] as String?;
+            } else if (call.method == 'read') {
+              return secureValues[key];
+            } else if (call.method == 'delete') {
+              secureValues.remove(key);
+            }
+            return null;
+          },
+        );
     if (e2eSkip() == null) {
       await RustLib.init(
         externalLibrary: ExternalLibrary.open(resolveFfiLib()),
       );
+      rustInitialized = true;
     }
   });
   tearDownAll(() {
-    if (e2eSkip() == null) RustLib.dispose();
+    if (rustInitialized) RustLib.dispose();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+          null,
+        );
   });
 
   test(
@@ -44,11 +69,6 @@ void main() {
           timestamp: DateTime.utc(2026, 9, 1, 12),
           members: const ['abcde'],
         ),
-        PKSwitch(
-          id: 'ffffffff-1111-2222-3333-444444444444',
-          timestamp: DateTime.utc(2026, 9, 1, 13),
-          members: const [],
-        ),
       ];
       try {
         aDevice = await createDevice(relay);
@@ -65,8 +85,8 @@ void main() {
           'b',
           SyntheticPluralKitClient(members: [pkMember], switches: switches),
         );
-        await a.importAll();
-        await b.importAll();
+        await a.connectAndImport();
+        await b.connectAndImport();
         final aMember = (await a.liveMembers()).single;
         final bMember = (await b.liveMembers()).single;
         expect(aMember.id, isNot(bMember.id));
@@ -79,8 +99,11 @@ void main() {
         }
         final aFronts = await a.sessions();
         final bFronts = await b.sessions();
-        expect(aFronts, isNotEmpty);
-        expect(bFronts, isNotEmpty);
+        expect(aFronts, hasLength(1));
+        expect(bFronts, hasLength(1));
+        expect(aFronts.single.id, bFronts.single.id);
+        expect(aFronts.single.endTime, isNull);
+        expect(bFronts.single.endTime, isNull);
         expect(aFronts.every((f) => f.memberId == aMember.id), isTrue);
         expect(bFronts.every((f) => f.memberId == bMember.id), isTrue);
         expect(
@@ -108,19 +131,14 @@ void main() {
         expect(editedOnB.notes, 'local peer edit');
         expect(editedOnB.memberId, bMember.id);
 
-        // A later real PK poll switches out all fronters; that close must sync
-        // without rewriting either peer's stable member association.
+        // A later real ongoing PK poll switches out all fronters.
+        final switchOutAt = DateTime.utc(2026, 9, 1, 14);
         b.client.current = PKSwitch(
           id: '99999999-8888-7777-6666-555555555555',
-          timestamp: DateTime.utc(2026, 9, 1, 14),
+          timestamp: switchOutAt,
           members: const [],
         );
-        await b.activate();
-        await b.service.loadState();
-        // One-time import deliberately does not connect ongoing sync, so use a
-        // full import with the updated history as the production service path.
-        b.client.switches = [...switches, b.client.current!];
-        await b.importAll();
+        await b.pollAndDrain();
         for (var i = 0; i < 3; i++) {
           await b.syncAndApply();
           await a.syncAndApply();
@@ -133,6 +151,45 @@ void main() {
           (await b.sessions()).every((f) => f.memberId == bMember.id),
           isTrue,
         );
+        final afterPollA = await a.sessions();
+        final afterPollB = await b.sessions();
+        expect(afterPollA, hasLength(1));
+        expect(afterPollB, hasLength(1));
+        expect(afterPollA.single.id, editedId);
+        expect(afterPollB.single.id, editedId);
+        expect(afterPollA.single.notes, 'local peer edit');
+        expect(afterPollB.single.notes, 'local peer edit');
+        expect(afterPollA.single.endTime?.toUtc(), switchOutAt);
+        expect(afterPollB.single.endTime?.toUtc(), switchOutAt);
+        expect(b.client.calls, contains('getCurrentFronters'));
+        expect(a.client.deletedMembers, isEmpty);
+        expect(b.client.deletedMembers, isEmpty);
+        expect(a.client.deletedSwitches, isEmpty);
+        expect(b.client.deletedSwitches, isEmpty);
+        expect(a.client.createdSwitchMembers, isEmpty);
+        expect(b.client.createdSwitchMembers, isEmpty);
+        expect(
+          (await a.runRepair()).where((e) => e['table'] == 'fronting_sessions'),
+          isEmpty,
+        );
+        expect(
+          (await b.runRepair()).where((e) => e['table'] == 'fronting_sessions'),
+          isEmpty,
+        );
+        await a.syncAndApply();
+        await b.syncAndApply();
+        final afterRepairA = await a.sessions();
+        final afterRepairB = await b.sessions();
+        expect(afterRepairA, hasLength(1));
+        expect(afterRepairB, hasLength(1));
+        expect(afterRepairA.single.id, editedId);
+        expect(afterRepairB.single.id, editedId);
+        expect(afterRepairA.single.memberId, aMember.id);
+        expect(afterRepairB.single.memberId, bMember.id);
+        expect(afterRepairA.single.notes, 'local peer edit');
+        expect(afterRepairB.single.notes, 'local peer edit');
+        expect(afterRepairA.single.endTime?.toUtc(), switchOutAt);
+        expect(afterRepairB.single.endTime?.toUtc(), switchOutAt);
 
         await b.activate();
         await b.fronts.deleteSession(editedId);
