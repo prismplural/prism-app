@@ -23,33 +23,88 @@ class PluralPortMapper {
     'chat.messages': 'messages',
     'boards.posts': 'memberBoardPosts',
   };
-  static const referenceKeys = {
-    'system_id',
-    'parent_system_id',
-    'member_id',
-    'parent_group_id',
-    'group_id',
-    'field_id',
-    'subject_id',
-    'avatar_asset_id',
-    'banner_asset_id',
-    'asset_id',
-    'front_period_id',
-    'front_event_id',
-    'author_member_id',
-    'conversation_id',
-    'creator_member_id',
-    'reply_to_message_id',
-    'target_member_id',
-    'parent_post_id',
-    'from_member_id',
-    'to_member_id',
-    'type_id',
-    'message_id',
-    'participant_member_ids',
-    'author_member_ids',
-    'attachment_asset_ids',
-    'member_ids',
+
+  /// Every file-local record identity. JSON nested under these rows is opaque
+  /// unless it appears in [coreReferenceTarget].
+  static final recordPaths = [
+    ...collections.keys,
+    'systems',
+    'assets',
+    'taxonomy_terms',
+    'taxonomy_assignments',
+    'front_events',
+    'chat.attachments',
+    'chat.reactions',
+    'relationships.types',
+    'relationships.edges',
+  ];
+
+  /// Declared top-level references, keyed by the record array that owns them.
+  /// This deliberately is not a global key list: a field called `member_id` in
+  /// an option, value, extension, or future module is arbitrary JSON.
+  static const coreReferences = <String, Map<String, String>>{
+    'systems': {
+      'parent_system_id': 'systems',
+      'avatar_asset_id': 'assets',
+      'banner_asset_id': 'assets',
+    },
+    'members': {
+      'system_id': 'systems',
+      'avatar_asset_id': 'assets',
+      'banner_asset_id': 'assets',
+    },
+    'groups': {
+      'system_id': 'systems',
+      'parent_group_id': 'groups',
+      'avatar_asset_id': 'assets',
+    },
+    'group_memberships': {'group_id': 'groups', 'member_id': 'members'},
+    'taxonomy_terms': {
+      'system_id': 'systems',
+      'parent_term_id': 'taxonomy_terms',
+    },
+    'taxonomy_assignments': {'term_id': 'taxonomy_terms'},
+    'custom_fields': {'system_id': 'systems'},
+    'custom_field_values': {'field_id': 'custom_fields'},
+    'notes': {
+      'system_id': 'systems',
+      'member_id': 'members',
+      'author_member_ids': 'members',
+      'attachment_asset_ids': 'assets',
+    },
+    'front_periods': {'system_id': 'systems'},
+    'front_events': {'system_id': 'systems'},
+    'front_comments': {
+      'system_id': 'systems',
+      'front_period_id': 'front_periods',
+      'front_event_id': 'front_events',
+      'author_member_id': 'members',
+    },
+    'chat.conversations': {
+      'system_id': 'systems',
+      'creator_member_id': 'members',
+      'participant_member_ids': 'members',
+    },
+    'chat.messages': {
+      'conversation_id': 'chat.conversations',
+      'author_member_id': 'members',
+      'reply_to_message_id': 'chat.messages',
+      'attachment_asset_ids': 'assets',
+    },
+    'chat.attachments': {'message_id': 'chat.messages', 'asset_id': 'assets'},
+    'chat.reactions': {'message_id': 'chat.messages', 'member_id': 'members'},
+    'boards.posts': {
+      'system_id': 'systems',
+      'target_member_id': 'members',
+      'author_member_id': 'members',
+    },
+    'relationships.types': {'system_id': 'systems'},
+    'relationships.edges': {
+      'system_id': 'systems',
+      'type_id': 'relationships.types',
+      'from_member_id': 'members',
+      'to_member_id': 'members',
+    },
   };
 
   static List<Json> rows(Json envelope, String path) {
@@ -89,18 +144,6 @@ class PluralPortMapper {
     ]);
     final namespace = sha256.convert(utf8.encode(origin)).toString();
     final ids = <String, String>{};
-    final recordPaths = [
-      ...collections.keys,
-      'systems',
-      'assets',
-      'taxonomy_terms',
-      'taxonomy_assignments',
-      'front_events',
-      'chat.attachments',
-      'chat.reactions',
-      'relationships.types',
-      'relationships.edges',
-    ];
     for (final path in recordPaths) {
       for (final row in rows(source, path)) {
         final id = row['id'];
@@ -130,26 +173,7 @@ class PluralPortMapper {
         'Multiple records claim the same Prism identity.',
       );
     }
-    // Extension payloads and source_refs are intentionally opaque. Core
-    // references are rewritten as one graph; foreign IDs survive in source_refs.
-    dynamic remap(dynamic value, [String? key]) {
-      if (key == 'extensions' || key == 'source_refs' || key == 'privacy') {
-        return value;
-      }
-      if (value is List) return value.map((v) => remap(v, key)).toList();
-      if (value is Map) {
-        return <String, dynamic>{
-          for (final e in value.entries)
-            e.key as String: remap(e.value, e.key as String),
-        };
-      }
-      if (value is String && (key == 'id' || referenceKeys.contains(key))) {
-        return ids[value] ?? value;
-      }
-      return value;
-    }
-
-    final document = remap(source) as Json;
+    final document = _remapCoreGraph(source, ids);
     for (final path in recordPaths) {
       final before = rows(source, path);
       final after = rows(document, path);
@@ -387,6 +411,66 @@ class PluralPortMapper {
     }, warnings);
   }
 
+  static Json _remapCoreGraph(Json source, Map<String, String> ids) {
+    final document = clone(source);
+    for (final path in recordPaths) {
+      for (final record in rows(document, path)) {
+        record['id'] = ids[record['id']] ?? record['id'];
+        for (final key in record.keys.toList()) {
+          if (coreReferenceTarget(path, record, key) == null) continue;
+          record[key] = _remapReference(record[key], ids);
+        }
+        if (path == 'front_periods' || path == 'front_events') {
+          final assignments = record['assignments'];
+          if (assignments is List) {
+            for (final assignment in assignments.whereType<Map>()) {
+              if (assignment['member_id'] is String) {
+                assignment['member_id'] =
+                    ids[assignment['member_id']] ?? assignment['member_id'];
+              }
+            }
+          }
+        }
+      }
+    }
+    return document;
+  }
+
+  static dynamic _remapReference(dynamic value, Map<String, String> ids) {
+    if (value is String) return ids[value] ?? value;
+    if (value is List) {
+      return [
+        for (final item in value) item is String ? ids[item] ?? item : item,
+      ];
+    }
+    return value;
+  }
+
+  /// Returns a target only when [key] is a declared reference on [path].
+  /// Typed subject references are intentionally resolved from their owning row;
+  /// no inference is made from keys inside a payload.
+  static String? coreReferenceTarget(String path, Json record, String key) {
+    final direct = coreReferences[path]?[key];
+    if (direct != null) return direct;
+    if (key != 'subject_id') return null;
+    return switch (path) {
+      'custom_field_values' => switch (record['subject_type']) {
+        'member' => 'members',
+        'system' => 'systems',
+        _ => null,
+      },
+      'taxonomy_assignments' => switch (record['subject_type']) {
+        'member' => 'members',
+        'note' => 'notes',
+        'asset' => 'assets',
+        'front_period' => 'front_periods',
+        'custom' => null,
+        _ => null,
+      },
+      _ => null,
+    };
+  }
+
   static Json emptyNative() => {
     'formatVersion': '1.0',
     'version': '1.0',
@@ -618,62 +702,44 @@ class PluralPortMapper {
 
   static void _validateReferences(Json doc) {
     final sets = <String, Set<String>>{
-      for (final path in [
-        ...collections.keys,
-        'systems',
-        'assets',
-        'front_events',
-      ])
+      for (final path in recordPaths)
         path: rows(doc, path).map((r) => r['id'] as String).toSet(),
     };
-    final targets = {
-      'system_id': 'systems',
-      'parent_system_id': 'systems',
-      'member_id': 'members',
-      'author_member_id': 'members',
-      'creator_member_id': 'members',
-      'target_member_id': 'members',
-      'group_id': 'groups',
-      'parent_group_id': 'groups',
-      'field_id': 'custom_fields',
-      'front_period_id': 'front_periods',
-      'front_event_id': 'front_events',
-      'conversation_id': 'chat.conversations',
-      'reply_to_message_id': 'chat.messages',
-      'asset_id': 'assets',
-      'message_id': 'chat.messages',
-      'avatar_asset_id': 'assets',
-      'banner_asset_id': 'assets',
-      'attachment_asset_ids': 'assets',
-      'participant_member_ids': 'members',
-      'author_member_ids': 'members',
-    };
-    void check(dynamic value) {
-      if (value is List) {
-        for (final v in value) {
-          check(v);
-        }
-      }
-      if (value is! Map) return;
-      for (final entry in value.entries) {
-        if (['extensions', 'source_refs', 'privacy'].contains(entry.key)) {
-          continue;
-        }
-        final target = targets[entry.key];
-        if (target != null && entry.value != null) {
-          for (final ref
-              in entry.value is List ? entry.value as List : [entry.value]) {
+    for (final path in recordPaths) {
+      for (final record in rows(doc, path)) {
+        for (final key in record.keys) {
+          final target = coreReferenceTarget(path, record, key);
+          if (target == null || record[key] == null) continue;
+          final refs = record[key] is List
+              ? record[key] as List
+              : [record[key]];
+          for (final ref in refs) {
             if (ref is! String || !sets[target]!.contains(ref)) {
-              throw FormatException('Unresolved ${entry.key}.');
+              throw FormatException('Unresolved $key.');
             }
           }
         }
-        check(entry.value);
+        if (path == 'front_periods' || path == 'front_events') {
+          final assignments = record['assignments'];
+          if (assignments is! List ||
+              (path == 'front_periods' && assignments.isEmpty)) {
+            throw FormatException(
+              path == 'front_periods'
+                  ? 'Front periods need member assignments; memberless sleep belongs in extensions.'
+                  : 'Front events need an assignments array.',
+            );
+          }
+          for (final assignment in assignments) {
+            if (assignment is! Map ||
+                assignment['member_id'] is! String ||
+                !sets['members']!.contains(assignment['member_id'])) {
+              throw const FormatException(
+                'Unresolved front assignment member_id.',
+              );
+            }
+          }
+        }
       }
-    }
-
-    for (final path in sets.keys) {
-      check(rows(doc, path));
     }
     for (final entry in {
       'groups': 'parent_group_id',
@@ -696,22 +762,10 @@ class PluralPortMapper {
       }
     }
     for (final p in rows(doc, 'front_periods')) {
-      final a = p['assignments'];
-      if (a is! List || a.isEmpty) {
-        throw const FormatException(
-          'Front periods need member assignments; memberless sleep belongs in extensions.',
-        );
-      }
       final start = DateTime.parse(time(p['started_at']));
       if (p['ended_at'] != null &&
           DateTime.parse(time(p['ended_at'])).isBefore(start)) {
         throw const FormatException('Front period ends before it starts.');
-      }
-    }
-    for (final r in rows(doc, 'custom_field_values')) {
-      final target = r['subject_type'] == 'member' ? 'members' : 'systems';
-      if (!sets[target]!.contains(r['subject_id'])) {
-        throw const FormatException('Unresolved custom-field subject.');
       }
     }
   }
