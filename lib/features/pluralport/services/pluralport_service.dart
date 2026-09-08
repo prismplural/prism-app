@@ -175,6 +175,7 @@ class PluralPortService {
       jsonEncode(data),
       mediaBlobs: blobs,
       preserveImportedOnboardingState: false,
+      beforeRows: _removeTombstonedNativeRows,
       beforeCommit: () async {
         final current = (await exporter.buildExport()).toJson();
         final baseline = <String, dynamic>{};
@@ -204,6 +205,136 @@ class PluralPortService {
         await PluralPortPreservation(db).retain(archive);
       },
     );
+  }
+
+  Future<void> _removeTombstonedNativeRows(Json data) async {
+    final members = await db.select(db.members).get();
+    final groups = await db.select(db.memberGroups).get();
+    final groupEntries = await db.select(db.memberGroupEntries).get();
+    final fields = await db.select(db.customFields).get();
+    final values = await db.select(db.customFieldValues).get();
+    final notes = await db.select(db.notes).get();
+    final sessions = await db.select(db.frontingSessions).get();
+    final comments = await db.select(db.frontSessionComments).get();
+    final conversations = await db.select(db.conversations).get();
+    final messages = await db.select(db.chatMessages).get();
+    final posts = await db.select(db.memberBoardPosts).get();
+    final attachments = await db.select(db.mediaAttachments).get();
+
+    Set<String> deletedIds(Iterable<dynamic> rows) => {
+      for (final row in rows)
+        if (row.isDeleted as bool) row.id as String,
+    };
+    String valueKey(String fieldId, String memberId) =>
+        '$fieldId\u0000$memberId';
+    void retain(String path, bool Function(Json row) keep) {
+      PluralPortMapper.setRows(
+        data,
+        path,
+        PluralPortMapper.rows(data, path).where(keep).toList(),
+      );
+    }
+
+    final deletedMembers = deletedIds(members);
+    final deletedGroups = deletedIds(groups);
+    final deletedEntries = deletedIds(groupEntries);
+    final deletedFields = deletedIds(fields);
+    final deletedNotes = deletedIds(notes);
+    final deletedSessions = deletedIds(sessions);
+    final deletedComments = deletedIds(comments);
+    final deletedConversations = deletedIds(conversations);
+    final deletedMessages = deletedIds(messages);
+    final deletedPosts = deletedIds(posts);
+    final deletedAttachments = deletedIds(attachments);
+    final deletedValuePairs = {
+      for (final value in values)
+        if (value.isDeleted) valueKey(value.customFieldId, value.memberId),
+    };
+
+    retain('headmates', (row) => !deletedMembers.contains(row['id']));
+
+    // Hierarchical groups and fields cannot outlive a deleted native parent.
+    // Calculate the complete blocked subtree before removing its records.
+    bool changed;
+    do {
+      changed = false;
+      for (final group in PluralPortMapper.rows(data, 'memberGroups')) {
+        if (deletedGroups.contains(group['id']) ||
+            deletedGroups.contains(group['parentGroupId'])) {
+          changed = deletedGroups.add(group['id'] as String) || changed;
+        }
+      }
+    } while (changed);
+    retain('memberGroups', (row) => !deletedGroups.contains(row['id']));
+    retain(
+      'memberGroupEntries',
+      (row) =>
+          !deletedEntries.contains(row['id']) &&
+          !deletedGroups.contains(row['groupId']) &&
+          !deletedMembers.contains(row['memberId']),
+    );
+
+    do {
+      changed = false;
+      for (final field in PluralPortMapper.rows(data, 'customFields')) {
+        if (deletedFields.contains(field['id']) ||
+            deletedFields.contains(field['parentFieldId'])) {
+          changed = deletedFields.add(field['id'] as String) || changed;
+        }
+      }
+    } while (changed);
+    retain('customFields', (row) => !deletedFields.contains(row['id']));
+    retain(
+      'customFieldValues',
+      (row) =>
+          !deletedFields.contains(row['customFieldId']) &&
+          !deletedMembers.contains(row['memberId']) &&
+          !deletedValuePairs.contains(
+            valueKey(row['customFieldId'] as String, row['memberId'] as String),
+          ),
+    );
+
+    retain('notes', (row) => !deletedNotes.contains(row['id']));
+    final blockedSessions = {...deletedSessions};
+    for (final session in PluralPortMapper.rows(data, 'frontSessions')) {
+      if (blockedSessions.contains(session['id']) ||
+          deletedMembers.contains(session['headmateId'])) {
+        blockedSessions.add(session['id'] as String);
+      }
+    }
+    retain(
+      'frontSessions',
+      (row) =>
+          !blockedSessions.contains(row['id']) &&
+          !deletedMembers.contains(row['headmateId']),
+    );
+    retain(
+      'frontSessionComments',
+      (row) =>
+          !deletedComments.contains(row['id']) &&
+          !blockedSessions.contains(row['sessionId']),
+    );
+    retain('conversations', (row) => !deletedConversations.contains(row['id']));
+    final blockedMessages = {...deletedMessages};
+    for (final message in PluralPortMapper.rows(data, 'messages')) {
+      if (blockedMessages.contains(message['id']) ||
+          deletedConversations.contains(message['conversationId'])) {
+        blockedMessages.add(message['id'] as String);
+      }
+    }
+    retain(
+      'messages',
+      (row) =>
+          !blockedMessages.contains(row['id']) &&
+          !deletedConversations.contains(row['conversationId']),
+    );
+    retain(
+      'mediaAttachments',
+      (row) =>
+          !deletedAttachments.contains(row['id']) &&
+          !blockedMessages.contains(row['messageId']),
+    );
+    retain('memberBoardPosts', (row) => !deletedPosts.contains(row['id']));
   }
 
   Future<PluralPortBundle> exportBundle() async {

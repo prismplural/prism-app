@@ -502,14 +502,15 @@ class DataImportService {
     String json, {
     List<({String mediaId, Uint8List blob})> mediaBlobs = const [],
     bool preserveImportedOnboardingState = true,
+    Future<void> Function(Map<String, dynamic> data)? beforeRows,
     Future<void> Function()? beforeCommit,
   }) async {
     final map = jsonDecode(json) as Map<String, dynamic>;
-    final export = V1Export.fromJson(map);
+    final initialExport = V1Export.fromJson(map);
 
-    if (!supportedVersions.contains(export.formatVersion)) {
+    if (!supportedVersions.contains(initialExport.formatVersion)) {
       throw FormatException(
-        'Unsupported export format version: ${export.formatVersion}. '
+        'Unsupported export format version: ${initialExport.formatVersion}. '
         'Supported versions: ${supportedVersions.join(', ')}',
       );
     }
@@ -541,6 +542,13 @@ class DataImportService {
     final ImportResult result;
     try {
       result = await SyncRecordMixin.runFencedEmissionTransaction(db, () async {
+        // Callers with a format-specific import policy can make the prepared
+        // row map agree with the current database state before this importer
+        // takes its active-only snapshots. Keeping it inside this existing
+        // fence makes the policy read and every row write atomic, while the
+        // media finalization and outbox drain below still run after commit.
+        await beforeRows?.call(map);
+        final export = V1Export.fromJson(map);
         // 1. Import members (first pass: create)
         //
         // Dedup against ALL local members, including soft-deleted tombstones.
