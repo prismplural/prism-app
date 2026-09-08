@@ -661,83 +661,208 @@ class PluralPortExporter {
   }
 
   void _removeDanglingReferences(Json envelope) {
-    Set<dynamic> ids(String path) =>
-        PluralPortMapper.rows(envelope, path).map((r) => r['id']).toSet();
-    final members = ids('members'),
-        groups = ids('groups'),
-        fields = ids('custom_fields');
-    // Local deletions can leave historical records in native exports. Remove
-    // dead optional links; records that require a deleted parent are omitted.
-    for (final path in PluralPortMapper.collections.keys) {
-      final records = <Json>[];
-      for (final row in PluralPortMapper.rows(envelope, path)) {
-        var keep = true;
-        if (path == 'group_memberships') {
-          keep =
-              members.contains(row['member_id']) &&
-              groups.contains(row['group_id']);
-        }
-        if (path == 'custom_field_values') {
-          keep =
-              fields.contains(row['field_id']) &&
-              (row['subject_type'] != 'member' ||
-                  members.contains(row['subject_id']));
-        }
-        if (path == 'front_periods') {
-          final assignments = (row['assignments'] as List)
-              .where((a) => members.contains((a as Map)['member_id']))
-              .toList();
-          row['assignments'] = assignments;
-          keep = assignments.isNotEmpty;
-        }
-        if (!keep) {
-          warnings.add(
-            'deleted_reference: $path record omitted after its parent was deleted.',
-          );
-          continue;
-        }
-        for (final key in [
-          'member_id',
-          'author_member_id',
-          'creator_member_id',
-          'target_member_id',
-        ]) {
-          if (row[key] != null && !members.contains(row[key])) row[key] = null;
-        }
-        if (row['parent_group_id'] != null &&
-            !groups.contains(row['parent_group_id'])) {
-          row['parent_group_id'] = null;
-        }
-        for (final key in ['participant_member_ids', 'author_member_ids']) {
-          if (row[key] is List) {
-            row[key] = (row[key] as List).where(members.contains).toList();
-          }
-        }
-        records.add(row);
-      }
-      PluralPortMapper.setRows(envelope, path, records);
-    }
-    final periods = ids('front_periods'),
-        conversations = ids('chat.conversations');
-    for (final r in PluralPortMapper.rows(envelope, 'front_comments')) {
-      if (r['front_period_id'] != null &&
-          !periods.contains(r['front_period_id'])) {
-        r['front_period_id'] = null;
-      }
-    }
-    PluralPortMapper.setRows(
-      envelope,
-      'chat.messages',
-      PluralPortMapper.rows(
-        envelope,
-        'chat.messages',
-      ).where((r) => conversations.contains(r['conversation_id'])).toList(),
+    final extensions = Map<String, dynamic>.from(
+      envelope['extensions'] as Map? ?? const {},
     );
-    final messages = ids('chat.messages');
-    for (final r in PluralPortMapper.rows(envelope, 'chat.messages')) {
-      if (r['reply_to_message_id'] != null &&
-          !messages.contains(r['reply_to_message_id'])) {
-        r['reply_to_message_id'] = null;
+    envelope['extensions'] = extensions;
+    final prism = Map<String, dynamic>.from(
+      extensions['prism'] as Map? ?? const {},
+    );
+    extensions['prism'] = prism;
+    final detached = List<dynamic>.from(
+      prism['detached_records'] as List? ?? const [],
+    );
+    prism['detached_records'] = detached;
+
+    const optionalReferences = <String>{
+      'systems.parent_system_id',
+      'systems.avatar_asset_id',
+      'systems.banner_asset_id',
+      'members.avatar_asset_id',
+      'members.banner_asset_id',
+      'groups.parent_group_id',
+      'groups.avatar_asset_id',
+      'notes.member_id',
+      'notes.author_member_ids',
+      'notes.attachment_asset_ids',
+      'taxonomy_terms.parent_term_id',
+      'front_comments.front_period_id',
+      'front_comments.front_event_id',
+      'front_comments.author_member_id',
+      'chat.conversations.creator_member_id',
+      'chat.conversations.participant_member_ids',
+      'chat.messages.author_member_id',
+      'chat.messages.reply_to_message_id',
+      'chat.messages.attachment_asset_ids',
+      'chat.reactions.member_id',
+      'boards.posts.target_member_id',
+      'boards.posts.author_member_id',
+    };
+
+    void preserveRemovedReference(
+      Json row,
+      String key,
+      String target,
+      dynamic original,
+      List<dynamic> removed,
+    ) {
+      if (removed.isEmpty) return;
+      final rowExtensions = Map<String, dynamic>.from(
+        row['extensions'] as Map? ?? const {},
+      );
+      row['extensions'] = rowExtensions;
+      final rowPrism = Map<String, dynamic>.from(
+        rowExtensions['prism'] as Map? ?? const {},
+      );
+      rowExtensions['prism'] = rowPrism;
+      final removedReferences = List<dynamic>.from(
+        rowPrism['removed_references'] as List? ?? const [],
+      );
+      rowPrism['removed_references'] = removedReferences;
+      final preserved = {
+        'field': key,
+        'target': target,
+        'original_value': jsonDecode(jsonEncode(original)),
+        'removed_values': jsonDecode(jsonEncode(removed)),
+        'reason': 'deleted_optional_reference',
+      };
+      if (!removedReferences.any(
+        (entry) => canonicalJson(entry) == canonicalJson(preserved),
+      )) {
+        removedReferences.add(preserved);
+      }
+    }
+
+    void detach(
+      String path,
+      Json row,
+      List<Json> missingReferences, {
+      String reason = 'deleted_required_reference',
+    }) {
+      final source = {
+        'record_path': path,
+        'record_id': row['id'],
+        'references': missingReferences,
+      };
+      final alreadyDetached = detached.any(
+        (entry) =>
+            entry is Map &&
+            entry['reason'] == reason &&
+            canonicalJson(entry['source']) == canonicalJson(source) &&
+            canonicalJson(entry['record']) == canonicalJson(row),
+      );
+      if (!alreadyDetached) {
+        detached.add({
+          'reason': reason,
+          'source': source,
+          'record': PluralPortMapper.clone(row),
+        });
+      }
+      warnings.add('deleted_reference: $path/${row['id']} detached: $reason.');
+    }
+
+    Set<String> ids(String path) => PluralPortMapper.rows(
+      envelope,
+      path,
+    ).map((row) => row['id'] as String).toSet();
+
+    // A deletion can orphan several layers (for example, an event, its
+    // comments, and a taxonomy assignment). Repeat until every declared graph
+    // position is either valid, cleared when optional, or archived intact.
+    var changed = true;
+    while (changed) {
+      changed = false;
+      final present = <String, Set<String>>{
+        for (final path in PluralPortMapper.recordPaths) path: ids(path),
+      };
+      for (final path in PluralPortMapper.recordPaths) {
+        final survivors = <Json>[];
+        for (final row in PluralPortMapper.rows(envelope, path)) {
+          final original = PluralPortMapper.clone(row);
+          if (path == 'front_periods' || path == 'front_events') {
+            final assignments = row['assignments'] as List;
+            final valid = assignments
+                .where(
+                  (assignment) =>
+                      assignment is Map &&
+                      assignment['member_id'] is String &&
+                      present['members']!.contains(assignment['member_id']),
+                )
+                .toList();
+            if (valid.length != assignments.length) {
+              final removed = assignments
+                  .where((assignment) => !valid.contains(assignment))
+                  .toList();
+              if (valid.isEmpty && assignments.isNotEmpty) {
+                // An event that lost all of its assignments is evidence of a
+                // deletion, not a switch-out event. Keep that evidence in the
+                // archive instead of changing its meaning.
+                detach(path, original, [
+                  {
+                    'field': 'assignments.member_id',
+                    'target': 'members',
+                    'ids': removed
+                        .whereType<Map>()
+                        .map((a) => a['member_id'])
+                        .toList(),
+                  },
+                ], reason: 'deleted_front_assignments');
+                changed = true;
+                continue;
+              }
+              row['assignments'] = valid;
+              preserveRemovedReference(
+                row,
+                'assignments.member_id',
+                'members',
+                assignments,
+                removed,
+              );
+              changed = true;
+            }
+          }
+
+          final missingRequired = <Json>[];
+          for (final key in row.keys.toList()) {
+            final target = PluralPortMapper.coreReferenceTarget(path, row, key);
+            final value = row[key];
+            if (target == null || value == null) continue;
+            final values = value is List ? value : [value];
+            final missing = values
+                .where(
+                  (value) =>
+                      value is! String || !present[target]!.contains(value),
+                )
+                .toList();
+            if (missing.isEmpty) continue;
+            if (!optionalReferences.contains('$path.$key')) {
+              missingRequired.add({
+                'field': key,
+                'target': target,
+                'values': missing,
+              });
+              continue;
+            }
+            if (value is List) {
+              row[key] = values
+                  .where((value) => !missing.contains(value))
+                  .toList();
+            } else {
+              row[key] = null;
+            }
+            preserveRemovedReference(row, key, target, value, missing);
+            changed = true;
+          }
+          if (missingRequired.isNotEmpty) {
+            detach(path, original, missingRequired);
+            changed = true;
+            continue;
+          }
+          survivors.add(row);
+        }
+        if (survivors.length != PluralPortMapper.rows(envelope, path).length) {
+          PluralPortMapper.setRows(envelope, path, survivors);
+        }
       }
     }
   }

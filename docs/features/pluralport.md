@@ -62,6 +62,16 @@ Deleting a native record does **not** erase the source archive from storage.
 Uninterpreted modules and files remain archival data, including any references
 inside opaque extensions.
 
+When a deletion leaves a declared portable record without a required endpoint,
+Prism removes that record from the live portable module and retains its complete
+source row at `extensions.prism.detached_records`, with a stable reason and the
+missing reference metadata. Optional declared links are cleared in the live row
+and their original values are retained at
+`extensions.prism.removed_references`. This cleanup applies only to declared
+PluralPort graph positions; unknown modules, extensions, and custom taxonomy
+subjects remain opaque. In particular, an event that loses every assigned member
+is detached rather than rewritten as a switch-out event.
+
 Conflicting opaque values from different origins are retained in
 `pluralport_preserved_conflicts` alongside the affected object. Conflicting file
 bytes at the same path stop portable export; a native Prism backup preserves
