@@ -104,6 +104,38 @@ class PluralPortExporter {
       );
       final bindings = archive['bindings'] as Map;
       final baseline = archive['baseline'] as Map;
+      final liveDefinitions = {
+        for (final row in PluralPortMapper.rows(native, 'customFields'))
+          row['id'] as String: row,
+      };
+      final liveValues = {
+        for (final row in PluralPortMapper.rows(native, 'customFieldValues'))
+          row['id'] as String: row,
+      };
+      bool changed(Json before, Json after) => {
+        ...before.keys,
+        ...after.keys,
+      }.any((key) => canonicalJson(before[key]) != canonicalJson(after[key]));
+      bool valueDependsOnEditedDefinition(String valueId) {
+        final value = liveValues[valueId];
+        final fieldId = value?['customFieldId'];
+        if (fieldId is! String) return false;
+        final current = liveDefinitions[fieldId];
+        final previous = baseline['customFields/$fieldId'];
+        return current != null &&
+            previous is Map &&
+            changed(previous.cast<String, dynamic>(), current);
+      }
+
+      Json? baselineDefinitionForValue(String valueId) {
+        final value = baseline['customFieldValues/$valueId'];
+        final fieldId = value is Map ? value['customFieldId'] : null;
+        final definition = fieldId is String
+            ? baseline['customFields/$fieldId']
+            : null;
+        return definition is Map ? definition.cast<String, dynamic>() : null;
+      }
+
       for (final entry in PluralPortMapper.collections.entries) {
         final live = {
           for (final row in PluralPortMapper.rows(native, entry.value))
@@ -128,12 +160,13 @@ class PluralPortExporter {
               survivors.length == linked.length &&
               survivors.every((id) {
                 final before = baseline['${entry.value}/$id'] as Map;
-                return {...before.keys, ...live[id]!.keys}.every(
-                  (key) =>
-                      canonicalJson(before[key]) ==
-                      canonicalJson(live[id]![key]),
-                );
-              });
+                return !changed(before.cast<String, dynamic>(), live[id]!);
+              }) &&
+              // Choice IDs are projected through their field definition. A
+              // definition edit can change a value's portable label or shape
+              // even when the value row itself is unchanged.
+              (entry.key != 'custom_field_values' ||
+                  !survivors.any(valueDependsOnEditedDefinition));
           if (unchanged) {
             updated.add(source);
             continue;
@@ -147,6 +180,9 @@ class PluralPortExporter {
               entry.key,
               (baseline['${entry.value}/$nativeId'] as Map)
                   .cast<String, dynamic>(),
+              fieldDefinition: entry.key == 'custom_field_values'
+                  ? baselineDefinitionForValue(nativeId)
+                  : null,
             );
             final copy = PluralPortMapper.clone(source);
             if (entry.key == 'front_periods') {
@@ -379,7 +415,7 @@ class PluralPortExporter {
     return PluralPortBundle(result, files: files);
   }
 
-  Json convert(String path, Json r) {
+  Json convert(String path, Json r, {Json? fieldDefinition}) {
     final common = <String, dynamic>{
       'id': r['id'],
       if (r['createdAt'] != null) 'created_at': r['createdAt'],
@@ -567,15 +603,20 @@ class PluralPortExporter {
       }
     }
     if (path == 'custom_field_values') {
-      final definition = PluralPortMapper.rows(
-        native,
-        'customFields',
-      ).where((f) => f['id'] == r['customFieldId']).firstOrNull;
+      final definition =
+          fieldDefinition ??
+          PluralPortMapper.rows(
+            native,
+            'customFields',
+          ).where((f) => f['id'] == r['customFieldId']).firstOrNull;
       final config = _decode(definition?['typeConfigJson'], null);
       if (config is Map && config['runtimeType'] == 'choice') {
         final value = _decode(r['value'], null);
         final names = {
-          for (final o in (config['options'] as List? ?? []).whereType<Map>())
+          for (final o
+              in (config['options'] as List? ?? []).whereType<Map>().where(
+                (o) => o['isDeleted'] != true,
+              ))
             o['id']: o['label'],
         };
         final selected = value is Map
