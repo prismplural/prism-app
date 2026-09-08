@@ -11,7 +11,11 @@ import 'package:prism_plurality/features/pluralport/services/pluralport_service.
 
 import 'harness.dart';
 
-Json document({bool includeDependents = true}) => {
+Json document({
+  bool includeDependents = true,
+  bool includeSecondMember = false,
+  String valueMemberId = 'member',
+}) => {
   'pluralport_version': '0.1',
   'producer': {'app': 'Tombstone fixture', 'app_id': 'tombstone-fixture'},
   'systems': [
@@ -19,6 +23,8 @@ Json document({bool includeDependents = true}) => {
   ],
   'members': [
     {'id': 'member', 'system_id': 'system', 'name': 'Deleted member'},
+    if (includeSecondMember)
+      {'id': 'member-2', 'system_id': 'system', 'name': 'Other member'},
   ],
   if (includeDependents) ...{
     'groups': [
@@ -40,7 +46,7 @@ Json document({bool includeDependents = true}) => {
         'id': 'value',
         'field_id': 'field',
         'subject_type': 'member',
-        'subject_id': 'member',
+        'subject_id': valueMemberId,
         'value': 'Deleted value',
       },
     ],
@@ -211,5 +217,24 @@ void main() {
     expect(await db.select(db.customFieldValues).get(), isEmpty);
     expect(await db.select(db.frontingSessions).get(), isEmpty);
     expect(await db.select(db.frontSessionComments).get(), isEmpty);
+  });
+
+  test('a deleted value ID cannot be reassigned to another member', () async {
+    final directory = await Directory.systemTemp.createTemp('pluralport-');
+    addTearDown(() => directory.delete(recursive: true));
+    final db = makeDb();
+    addTearDown(db.close);
+    final subject = service(db, directory);
+    await subject.importPlan(plan(document()));
+    await db
+        .update(db.customFieldValues)
+        .write(const CustomFieldValuesCompanion(isDeleted: drift.Value(true)));
+
+    await subject.importPlan(
+      plan(document(includeSecondMember: true, valueMemberId: 'member-2')),
+    );
+    final values = await db.select(db.customFieldValues).get();
+    expect(values, hasLength(1));
+    expect(values.single.isDeleted, isTrue);
   });
 }

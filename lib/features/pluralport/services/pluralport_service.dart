@@ -246,6 +246,7 @@ class PluralPortService {
     final deletedMessages = deletedIds(messages);
     final deletedPosts = deletedIds(posts);
     final deletedAttachments = deletedIds(attachments);
+    final deletedValueIds = deletedIds(values);
     final deletedValuePairs = {
       for (final value in values)
         if (value.isDeleted) valueKey(value.customFieldId, value.memberId),
@@ -287,6 +288,7 @@ class PluralPortService {
     retain(
       'customFieldValues',
       (row) =>
+          !deletedValueIds.contains(row['id']) &&
           !deletedFields.contains(row['customFieldId']) &&
           !deletedMembers.contains(row['memberId']) &&
           !deletedValuePairs.contains(
