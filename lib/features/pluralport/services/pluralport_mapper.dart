@@ -741,9 +741,18 @@ class PluralPortMapper {
         }
       }
     }
+    for (final assignment in rows(doc, 'taxonomy_assignments')) {
+      for (final key in ['term_id', 'subject_type', 'subject_id']) {
+        final value = assignment[key];
+        if (value is! String || value.isEmpty) {
+          throw FormatException('Taxonomy assignments need a $key.');
+        }
+      }
+    }
     for (final entry in {
       'groups': 'parent_group_id',
       'systems': 'parent_system_id',
+      'taxonomy_terms': 'parent_term_id',
     }.entries) {
       final parents = {
         for (final r in rows(doc, entry.key)) r['id']: r[entry.value],
