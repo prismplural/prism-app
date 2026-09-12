@@ -10829,7 +10829,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncRewrapSheetFailed =>
-      'PIN o frase de recuperación incorrectos.';
+      'No se pudo guardar la clave de emparejamiento restaurada. Inténtalo de nuevo.';
 
   @override
   String mnemonicFieldWordCounter(String filled) {

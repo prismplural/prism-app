@@ -10664,7 +10664,8 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter your PIN to finish restoring your pairing key.';
 
   @override
-  String get syncRewrapSheetFailed => 'Incorrect PIN or recovery phrase.';
+  String get syncRewrapSheetFailed =>
+      'Couldn\'t save the restored pairing key. Please try again.';
 
   @override
   String mnemonicFieldWordCounter(String filled) {

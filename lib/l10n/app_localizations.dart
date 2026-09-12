@@ -16236,10 +16236,10 @@ abstract class AppLocalizations {
   /// **'Enter your PIN to finish restoring your pairing key.'**
   String get syncRewrapSheetPinSubtitle;
 
-  /// Generic failure message for the recovery sheet that doesn't disclose which input was wrong.
+  /// Retryable failure message when the recovery sheet cannot persist the restored pairing key.
   ///
   /// In en, this message translates to:
-  /// **'Incorrect PIN or recovery phrase.'**
+  /// **'Couldn\'t save the restored pairing key. Please try again.'**
   String get syncRewrapSheetFailed;
 
   /// Counter showing how many of the 12 BIP39 words have been entered and recognized.

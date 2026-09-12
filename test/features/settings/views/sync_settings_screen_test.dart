@@ -84,6 +84,42 @@ class _GatingHarness extends ConsumerWidget {
 }
 
 void main() {
+  group('retryDeferredRuntimeDekRestore', () {
+    test('retries ensureConfigured for the deferred seed state', () async {
+      const handle = _FakePrismSyncHandle();
+      var calls = 0;
+
+      final result = await retryDeferredRuntimeDekRestore(
+        currentHealth: SyncHealthState.runtimeDekRestoreDeferred,
+        handle: handle,
+        ensureConfigured: (receivedHandle) async {
+          calls += 1;
+          expect(identical(receivedHandle, handle), isTrue);
+          return SyncHealthState.healthy;
+        },
+      );
+
+      expect(result, SyncHealthState.healthy);
+      expect(calls, 1);
+    });
+
+    test('does not turn deferred restore into password recovery', () async {
+      var calls = 0;
+
+      final result = await retryDeferredRuntimeDekRestore(
+        currentHealth: SyncHealthState.runtimeDekRestoreDeferred,
+        handle: null,
+        ensureConfigured: (_) async {
+          calls += 1;
+          return SyncHealthState.needsPassword;
+        },
+      );
+
+      expect(result, SyncHealthState.runtimeDekRestoreDeferred);
+      expect(calls, 0);
+    });
+  });
+
   test('fresh onboarding handle without sync identity is not configured', () {
     expect(
       isSyncSettingsConfigured(

@@ -2676,7 +2676,7 @@
   "syncRewrapSheetTitle": "Restaurar la clave de emparejamiento",
   "syncRewrapSheetMnemonicSubtitle": "No pudimos encontrar parte de tu clave de emparejamiento. Vuelve a ingresar tu frase de recuperación y PIN — tus datos están seguros.",
   "syncRewrapSheetPinSubtitle": "Ingresa tu PIN para terminar de restaurar la clave de emparejamiento.",
-  "syncRewrapSheetFailed": "PIN o frase de recuperación incorrectos.",
+  "syncRewrapSheetFailed": "No se pudo guardar la clave de emparejamiento restaurada. Inténtalo de nuevo.",
   "mnemonicFieldWordCounter": "{filled} de 12 palabras",
   "mnemonicFieldPaste": "Pegar frase",
   "mnemonicFieldShowWords": "Mostrar palabras",

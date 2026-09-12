@@ -213,6 +213,20 @@ bool shouldShowJoinOnlyReplaceState(SyncDisconnectMarker? marker) {
           SyncSetupConstraint.joinOnlyReplaceLocalData;
 }
 
+@visibleForTesting
+Future<SyncHealthState> retryDeferredRuntimeDekRestore({
+  required SyncHealthState currentHealth,
+  required ffi.PrismSyncHandle? handle,
+  required Future<SyncHealthState> Function(ffi.PrismSyncHandle handle)
+  ensureConfigured,
+}) async {
+  if (currentHealth != SyncHealthState.runtimeDekRestoreDeferred ||
+      handle == null) {
+    return currentHealth;
+  }
+  return ensureConfigured(handle);
+}
+
 class SyncSettingsScreen extends ConsumerWidget {
   const SyncSettingsScreen({super.key});
 
@@ -859,16 +873,28 @@ class _ConfiguredView extends ConsumerWidget {
                     icon: AppIcons.passwordOutlined,
                     title: 'Recover sync access',
                     subtitle:
-                        'Use your PIN and recovery phrase if the device key '
-                        'cannot be restored.',
-                    onTap: () {
-                      if (ref.read(syncHealthProvider) ==
-                          SyncHealthState.runtimeDekRestoreDeferred) {
-                        ref
-                            .read(syncHealthProvider.notifier)
-                            .setState(SyncHealthState.needsPassword);
-                      }
-                    },
+                        'Retry restoring the device key after unlocking '
+                        'your device.',
+                    onTap: handle == null
+                        ? null
+                        : () async {
+                            try {
+                              await retryDeferredRuntimeDekRestore(
+                                currentHealth: ref.read(syncHealthProvider),
+                                handle: handle,
+                                ensureConfigured: ref
+                                    .read(prismSyncHandleProvider.notifier)
+                                    .ensureConfigured,
+                              );
+                            } catch (_) {
+                              if (context.mounted) {
+                                PrismToast.error(
+                                  context,
+                                  message: context.l10n.syncStatusError,
+                                );
+                              }
+                            }
+                          },
                   ),
                 ],
                 if (handle != null) ...[

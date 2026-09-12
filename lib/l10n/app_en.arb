@@ -10996,9 +10996,9 @@
   "@syncRewrapSheetPinSubtitle": {
     "description": "Subtitle for step 2 of the recovery sheet (PIN entry)."
   },
-  "syncRewrapSheetFailed": "Incorrect PIN or recovery phrase.",
+  "syncRewrapSheetFailed": "Couldn't save the restored pairing key. Please try again.",
   "@syncRewrapSheetFailed": {
-    "description": "Generic failure message for the recovery sheet that doesn't disclose which input was wrong."
+    "description": "Retryable failure message when the recovery sheet cannot persist the restored pairing key."
   },
   "mnemonicFieldWordCounter": "{filled} of 12 words",
   "@mnemonicFieldWordCounter": {

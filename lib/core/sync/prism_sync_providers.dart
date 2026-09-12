@@ -992,9 +992,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     final pendingMigration = await _readPendingFrontingMigrationMode(ref);
     final migrationGateHealth = startupHealthForMigrationMode(pendingMigration);
     final migrationBlocksStartupSync = migrationGateHealth != null;
+    var seedComplete = true;
     if (!migrationBlocksStartupSync) {
       // Seed Rust's in-memory SecureStore from platform keychain.
-      await _seedRustStore(handle);
+      seedComplete = await seedRustStoreFromKeychain(handle);
     } else {
       debugPrint(
         '[SYNC] Skipping _seedRustStore — fronting migration is not complete; '
@@ -1064,6 +1065,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
         // drive resumeCleanup() which then transitions away from
         // `inProgress`.
         health = migrationGateHealth;
+      } else if (!seedComplete) {
+        // Draining a partial snapshot would delete unread keychain entries.
+        health = SyncHealthState.runtimeDekRestoreDeferred;
       } else {
         final future = _autoConfigureIfReady(handle);
         configureFuture = future;
@@ -1205,6 +1209,16 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   ) async {
     syncAutoConfigureInProgress.value = true;
     try {
+      if (ref.read(syncHealthProvider) ==
+          SyncHealthState.runtimeDekRestoreDeferred) {
+        final seedComplete = await seedRustStoreFromKeychain(handle);
+        if (!seedComplete) {
+          ref
+              .read(syncHealthProvider.notifier)
+              .setState(SyncHealthState.runtimeDekRestoreDeferred);
+          return SyncHealthState.runtimeDekRestoreDeferred;
+        }
+      }
       final health = await _autoConfigureIfReady(handle);
       final previousHealth = ref.read(syncHealthProvider);
       final effectiveHealth = syncHealthAfterManualEnsureConfigured(
@@ -1273,6 +1287,13 @@ SyncHealthState classifyPairReadinessFromWrappedDek(String? wrappedDek) {
     return SyncHealthState.needsRewrap;
   }
   return SyncHealthState.healthy;
+}
+
+/// Preserve the configured engine when pair readiness cannot be read.
+@visibleForTesting
+SyncHealthState classifyPairReadinessFromWrappedDekRead(SecureReadResult read) {
+  if (!read.ok) return SyncHealthState.healthy;
+  return classifyPairReadinessFromWrappedDek(read.value);
 }
 
 @visibleForTesting
@@ -1463,10 +1484,18 @@ Future<SyncHealthState> _autoConfigureIfReady(
     // pairing another device reads `wrapped_dek` to derive the joiner
     // bundle and would fail. Surface `needsRewrap` so the user can
     // regenerate it via PIN + mnemonic.
-    final wrappedDekAfterRestore = await _safeReadValue(
+    final wrappedDekAfterRestore = await safeSecureRead(
       '${_secureStorePrefix}wrapped_dek',
     );
-    return classifyPairReadinessFromWrappedDek(wrappedDekAfterRestore);
+    if (!wrappedDekAfterRestore.ok) {
+      ErrorReportingService.instance.report(
+        'wrapped_dek pair-readiness probe failed '
+        '(failure=${wrappedDekAfterRestore.failure?.name ?? 'unknown'}, '
+        'code=${wrappedDekAfterRestore.code})',
+        severity: ErrorSeverity.warning,
+      );
+    }
+    return classifyPairReadinessFromWrappedDekRead(wrappedDekAfterRestore);
   } catch (e, st) {
     ErrorReportingService.instance.report(
       'Auto-configure sync failed: $e',
@@ -1809,6 +1838,53 @@ Map<String, String> computeSeedEntries(Map<String, String> all) {
   return entries;
 }
 
+/// An all-or-nothing fallback snapshot after `readAll` fails.
+@visibleForTesting
+class StaticSeedFallbackResult {
+  const StaticSeedFallbackResult({
+    required this.entries,
+    required this.failedKeys,
+  });
+
+  final Map<String, String> entries;
+  final List<String> failedKeys;
+
+  bool get complete => failedKeys.isEmpty;
+}
+
+/// Return no entries if any static sync key cannot be read.
+@visibleForTesting
+Future<StaticSeedFallbackResult> collectStaticSeedFallback(
+  Future<SecureReadResult> Function(String key) read,
+) async {
+  final entries = <String, String>{};
+  final failedKeys = <String>[];
+  for (final key in _secureStoreKeys) {
+    final fullKey = '$_secureStorePrefix$key';
+    final result = await read(fullKey);
+    if (!result.ok) {
+      failedKeys.add(fullKey);
+      continue;
+    }
+    final value = result.value;
+    if (value != null) entries[fullKey] = value;
+  }
+  return StaticSeedFallbackResult(
+    entries: failedKeys.isEmpty ? entries : const <String, String>{},
+    failedKeys: failedKeys,
+  );
+}
+
+@visibleForTesting
+bool hasPersistedSyncCredentials(Map<String, String> all) {
+  return classifyHealthFromKeychain(
+        syncId: all[kSyncIdKey],
+        deviceId: all[kSyncDeviceIdKey],
+        deviceSecret: all[kSyncDeviceSecretKey],
+      ) ==
+      null;
+}
+
 /// Compute the full-keychain keys that should be deleted by the
 /// reset/revoke cleanup path, given the current keychain contents.
 ///
@@ -1835,31 +1911,37 @@ List<String> computeKeysToClearOnReset(Map<String, String> all) {
 /// `_dynamicSecureStorePrefixes` (`epoch_key_*`, `runtime_keys_*`). The
 /// `readAll()` scan catches every entry regardless of how many epoch keys
 /// have accumulated across rekey cycles.
-Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
+@visibleForTesting
+Future<bool> seedRustStoreFromKeychain(ffi.PrismSyncHandle handle) async {
   Map<String, String> all;
   try {
     all = await _safeReadAllEntries();
   } catch (e, st) {
-    // `readAll()` is best-effort: if the keychain fails we still try
-    // the static keys individually. The auto-sync driver will recover
-    // any missing epoch key via `recover_epoch_key` on the next
-    // WebSocket notification.
+    // A partial fallback could delete unread keys during the next drain.
     ErrorReportingService.instance.report(
       'Dynamic secure-store seed scan failed (non-fatal): $e',
       severity: ErrorSeverity.warning,
       stackTrace: st,
     );
-    all = <String, String>{};
-    for (final key in _secureStoreKeys) {
-      final value = await _safeReadValue('$_secureStorePrefix$key');
-      if (value != null) all['$_secureStorePrefix$key'] = value;
+    final fallback = await collectStaticSeedFallback(safeSecureRead);
+    if (!fallback.complete) {
+      ErrorReportingService.instance.report(
+        'Secure-store seed deferred because static key reads failed: '
+        '${fallback.failedKeys.join(', ')}',
+        severity: ErrorSeverity.warning,
+      );
+      return false;
     }
+    all = fallback.entries;
   }
 
   final entries = buildSeedEntries(all);
   if (entries != null) {
     await ffi.seedSecureStore(handle: handle, entries: entries);
   }
+  // Reopen durable outbox capture after a successful retry.
+  syncCredentialsPersisted.value = hasPersistedSyncCredentials(all);
+  return true;
 }
 
 /// Read the current `pending_fronting_migration_mode` from the
@@ -2749,12 +2831,7 @@ Future<void> drainRustStore(
 /// failure without string-matching the message.
 enum DrainPartialWritePhase { delete, write }
 
-/// Thrown by [drainRustStoreWithSnapshotRollback] (and the lower-level
-/// [applyDrainedEntriesWithSnapshotRollback] used in tests) when the
-/// keychain mirror failed mid-flight AND the caller-owned snapshot
-/// rollback ran. The original storage error is preserved as [cause];
-/// [failedKey] / [phase] tell the caller which mutation tripped the
-/// rollback so logs / setup-failure UX can be specific.
+/// Reports the keychain mutation that failed after rollback.
 class DrainPartialWriteException implements Exception {
   final String failedKey;
   final DrainPartialWritePhase phase;
@@ -2980,6 +3057,74 @@ Future<void> drainRustStoreWithSnapshotRollback(
     writeKey: _checkedWriteValue,
     readCurrentNamespace: () => readPrefixed(_secureStorePrefix),
     shouldAbort: shouldAbort,
+  );
+}
+
+const _rewrapSecureStoreKeys = <String>['wrapped_dek', 'dek_salt'];
+
+/// Persist and roll back only the keys owned by `rewrapDek`.
+@visibleForTesting
+Future<void> applyRewrappedEntriesWithSnapshotRollback({
+  required Map<String, String> entries,
+  required Map<String, String> rollbackSnapshot,
+  required Future<void> Function(String fullKey) deleteKey,
+  required Future<void> Function(String fullKey, String value) writeKey,
+}) async {
+  for (final key in _rewrapSecureStoreKeys) {
+    if (!entries.containsKey(key)) {
+      throw StateError('Rewrap did not produce $key');
+    }
+  }
+
+  Future<void> rollback({
+    required String failedKey,
+    required Object cause,
+    required StackTrace stackTrace,
+  }) async {
+    for (final key in _rewrapSecureStoreKeys) {
+      final fullKey = '$_secureStorePrefix$key';
+      final previous = rollbackSnapshot[fullKey];
+      try {
+        if (previous == null) {
+          await deleteKey(fullKey);
+        } else {
+          await writeKey(fullKey, previous);
+        }
+      } catch (e) {
+        debugPrint('[SYNC] rewrap rollback failed for $fullKey: $e');
+      }
+    }
+    Error.throwWithStackTrace(
+      DrainPartialWriteException(
+        failedKey: failedKey,
+        phase: DrainPartialWritePhase.write,
+        cause: cause,
+        causeStackTrace: stackTrace,
+      ),
+      stackTrace,
+    );
+  }
+
+  for (final key in _rewrapSecureStoreKeys) {
+    final fullKey = '$_secureStorePrefix$key';
+    try {
+      await writeKey(fullKey, entries[key]!);
+    } catch (e, st) {
+      await rollback(failedKey: fullKey, cause: e, stackTrace: st);
+    }
+  }
+}
+
+Future<void> persistRewrappedDekWithSnapshotRollback(
+  ffi.PrismSyncHandle handle, {
+  required Map<String, String> rollbackSnapshot,
+}) async {
+  final drained = await ffi.drainSecureStore(handle: handle);
+  await applyRewrappedEntriesWithSnapshotRollback(
+    entries: encodeDrainedEntries(drained),
+    rollbackSnapshot: rollbackSnapshot,
+    deleteKey: _checkedDeleteKey,
+    writeKey: _checkedWriteValue,
   );
 }
 
@@ -4930,23 +5075,20 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
     }
   }
 
-  /// Recovery: re-derive `wrapped_dek` + `dek_salt` from the in-memory DEK.
+  /// Re-derive `wrapped_dek` and `dek_salt` from the in-memory DEK.
   ///
-  /// Used when the engine is still unlocked (runtime DEK survived) but the
-  /// keychain `wrapped_dek` slot is empty — pairing another device needs
-  /// `wrapped_dek` to derive the joiner bundle. The caller collects the
-  /// user's PIN and recovery phrase; this method recomputes the secret key
-  /// from the mnemonic, calls the `rewrap_dek` FFI, drains the new entries
-  /// back to the platform keychain, and flips state to `healthy`.
-  ///
-  /// Returns true on success. On failure (wrong PIN/mnemonic, missing
-  /// handle, FFI error) returns false and leaves state untouched.
+  /// [pin] is the sync unlock PIN, not the optional app-lock PIN. The caller
+  /// confirms it before this irreversible rewrap.
   Future<bool> attemptRewrap({
     required String pin,
     required String mnemonic,
   }) async {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return false;
+
+    // The coupled writes need an authoritative rollback snapshot.
+    final rollbackSnapshot = await snapshotPrismSyncKeychain();
+    if (rollbackSnapshot == null) return false;
 
     final normalized = mnemonic.trim().toLowerCase();
     Uint8List? mnemonicBytes;
@@ -4979,8 +5121,11 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
         secretKeyBytes = null;
       }
 
-      // Persist the new wrapped_dek + dek_salt back to the platform keychain.
-      await drainRustStore(handle);
+      // Preserve concurrent session and epoch rotations.
+      await persistRewrappedDekWithSnapshotRollback(
+        handle,
+        rollbackSnapshot: rollbackSnapshot,
+      );
 
       state = SyncHealthState.healthy;
       return true;

@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/runtime_dek_store.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -235,6 +236,113 @@ void main() {
     test('ignores non-dynamic prefixed entries that are not allow-listed', () {
       final result = computeSeedEntries({'prism_sync.unknown_key': 'bogus'});
       expect(result, isEmpty);
+    });
+  });
+
+  group('collectStaticSeedFallback', () {
+    test(
+      'returns an authoritative seed when every static probe succeeds',
+      () async {
+        final values = <String, String?>{
+          'prism_sync.wrapped_dek': 'd3JhcHBlZA==',
+          'prism_sync.sync_id': 'c3luYy0x',
+        };
+
+        final result = await collectStaticSeedFallback((key) async {
+          return SecureReadResult(value: values[key]);
+        });
+
+        expect(result.complete, isTrue);
+        expect(result.failedKeys, isEmpty);
+        expect(result.entries, {
+          'prism_sync.wrapped_dek': 'd3JhcHBlZA==',
+          'prism_sync.sync_id': 'c3luYy0x',
+        });
+      },
+    );
+
+    test('withholds the entire seed when wrapped_dek cannot be read', () async {
+      final result = await collectStaticSeedFallback((key) async {
+        if (key == 'prism_sync.wrapped_dek') {
+          return const SecureReadResult(
+            failure: SecureStorageFailure.transient,
+            code: 'errSecInteractionNotAllowed',
+          );
+        }
+        return const SecureReadResult(value: 'cHJlc2VudA==');
+      });
+
+      expect(result.complete, isFalse);
+      expect(result.failedKeys, contains('prism_sync.wrapped_dek'));
+      expect(
+        result.entries,
+        isEmpty,
+        reason: 'a partial Rust seed must never become an authoritative drain',
+      );
+    });
+
+    test(
+      'withholds the entire seed for failure of every static slot',
+      () async {
+        final probedKeys = <String>[];
+        await collectStaticSeedFallback((key) async {
+          probedKeys.add(key);
+          return const SecureReadResult(value: 'cHJlc2VudA==');
+        });
+
+        expect(probedKeys, isNotEmpty);
+        for (final failedKey in probedKeys) {
+          final result = await collectStaticSeedFallback((key) async {
+            if (key == failedKey) {
+              return const SecureReadResult(
+                failure: SecureStorageFailure.transient,
+                code: 'errSecInteractionNotAllowed',
+              );
+            }
+            return const SecureReadResult(value: 'cHJlc2VudA==');
+          });
+
+          expect(result.complete, isFalse, reason: failedKey);
+          expect(result.failedKeys, [failedKey], reason: failedKey);
+          expect(
+            result.entries,
+            isEmpty,
+            reason: '$failedKey must not permit a partial authoritative seed',
+          );
+        }
+      },
+    );
+
+    test('treats clean null probes as authoritative absence', () async {
+      final result = await collectStaticSeedFallback((key) async {
+        if (key == 'prism_sync.wrapped_dek') {
+          return const SecureReadResult();
+        }
+        return const SecureReadResult(value: 'cHJlc2VudA==');
+      });
+
+      expect(result.complete, isTrue);
+      expect(result.failedKeys, isEmpty);
+      expect(result.entries, isNot(contains('prism_sync.wrapped_dek')));
+    });
+  });
+
+  group('hasPersistedSyncCredentials', () {
+    test('requires the complete durable identity from the seed snapshot', () {
+      final complete = <String, String>{
+        'prism_sync.sync_id': 'c3luYw==',
+        'prism_sync.device_id': 'ZGV2aWNl',
+        'prism_sync.device_secret': 'c2VjcmV0',
+      };
+
+      expect(hasPersistedSyncCredentials(complete), isTrue);
+      for (final key in complete.keys) {
+        expect(
+          hasPersistedSyncCredentials({...complete}..remove(key)),
+          isFalse,
+          reason: key,
+        );
+      }
     });
   });
 
@@ -1286,6 +1394,31 @@ void main() {
         SyncHealthState.healthy,
       );
     });
+
+    test('does not treat a failed keychain read as a missing slot', () {
+      expect(
+        classifyPairReadinessFromWrappedDekRead(
+          const SecureReadResult(
+            failure: SecureStorageFailure.transient,
+            code: 'interaction_not_allowed',
+          ),
+        ),
+        SyncHealthState.healthy,
+      );
+    });
+
+    test('returns needsRewrap only for a successful empty read', () {
+      expect(
+        classifyPairReadinessFromWrappedDekRead(const SecureReadResult()),
+        SyncHealthState.needsRewrap,
+      );
+      expect(
+        classifyPairReadinessFromWrappedDekRead(
+          const SecureReadResult(value: 'base64-payload=='),
+        ),
+        SyncHealthState.healthy,
+      );
+    });
   });
 
   // --------------------------------------------------------------------
@@ -2168,6 +2301,51 @@ void main() {
           base64Decode(storage['prism_sync.device_secret']!),
           orderedEquals(secretBytes),
         );
+      },
+    );
+  });
+
+  group('applyRewrappedEntriesWithSnapshotRollback', () {
+    test(
+      'restores only wrapper keys and preserves concurrent writes',
+      () async {
+        final snapshot = <String, String>{'prism_sync.dek_salt': 'old-salt'};
+        final storage = <String, String>{
+          ...snapshot,
+          'prism_sync.session_token': 'old-session-token',
+        };
+        var writeCalls = 0;
+
+        Object? caught;
+        try {
+          await applyRewrappedEntriesWithSnapshotRollback(
+            entries: const <String, String>{
+              'wrapped_dek': 'new-wrapper',
+              'dek_salt': 'new-salt',
+              'session_token': 'drained-session-token',
+            },
+            rollbackSnapshot: snapshot,
+            deleteKey: (key) async => storage.remove(key),
+            writeKey: (key, value) async {
+              writeCalls += 1;
+              if (writeCalls == 2) {
+                // Simulate concurrent credential rotation.
+                storage['prism_sync.session_token'] = 'rotated-session-token';
+                storage['prism_sync.epoch_key_9'] = 'new-epoch-key';
+                throw StateError('injected dek_salt write failure');
+              }
+              storage[key] = value;
+            },
+          );
+        } catch (e) {
+          caught = e;
+        }
+
+        expect(caught, isA<DrainPartialWriteException>());
+        expect(storage.containsKey('prism_sync.wrapped_dek'), isFalse);
+        expect(storage['prism_sync.dek_salt'], 'old-salt');
+        expect(storage['prism_sync.session_token'], 'rotated-session-token');
+        expect(storage['prism_sync.epoch_key_9'], 'new-epoch-key');
       },
     );
   });
