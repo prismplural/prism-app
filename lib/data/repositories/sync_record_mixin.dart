@@ -196,8 +196,7 @@ mixin SyncRecordMixin {
 
   /// The replay-origin timestamp for the current async context, or `null` when
   /// not inside a [replayCapturedOps] re-dispatch.
-  static int? get _replayOriginMs =>
-      Zone.current[_replayOriginZoneKey] as int?;
+  static int? get _replayOriginMs => Zone.current[_replayOriginZoneKey] as int?;
 
   /// Capture time to stamp a freshly-built op with: the replay origin when
   /// re-emitting, else now.
@@ -226,8 +225,7 @@ mixin SyncRecordMixin {
   /// outbox row inside the txn is safe (it commits/rolls back atomically with
   /// the data write), but DISPATCHING it must wait until after commit, or the
   /// emit-after-commit invariant breaks and a rollback leaks a phantom op.
-  static bool get _inDriftTransaction =>
-      Zone.current[_driftTxnZoneKey] != null;
+  static bool get _inDriftTransaction => Zone.current[_driftTxnZoneKey] != null;
 
   /// Zone key set by [runFencedEmissionTransaction] (and [runSyncedWrite]) to
   /// mark "this Drift transaction routes all CRDT emissions through the
@@ -454,11 +452,8 @@ mixin SyncRecordMixin {
     ffi.PrismSyncHandle handle,
     String table,
     List<String> entityIds,
-  ) => ffi.recordDeleteMulti(
-    handle: handle,
-    table: table,
-    entityIds: entityIds,
-  );
+  ) =>
+      ffi.recordDeleteMulti(handle: handle, table: table, entityIds: entityIds);
 
   /// The outbox `op_type` string for a captured op. The vocabulary is
   /// create/update/delete ONLY and cannot represent the divergence-aware
@@ -581,6 +576,23 @@ mixin SyncRecordMixin {
       // override [syncOutboxDatabase], so this branch is test-only.
       return body();
     }
+    return runSyncedDatabaseTransaction(
+      db,
+      body,
+      fallbackSyncHandle: syncHandle,
+    );
+  }
+
+  /// Runs a synced multi-repository mutation atomically.
+  ///
+  /// Nested synced writes join this transaction and persist their outbox
+  /// records before it commits.
+  static Future<T> runSyncedDatabaseTransaction<T>(
+    AppDatabase database,
+    Future<T> Function() body, {
+    ffi.PrismSyncHandle? fallbackSyncHandle,
+  }) async {
+    if (isSuppressed) return body();
     final captured = <CapturedSyncOp>[];
     // The test-only capture sink (null in every shipped build — assert-gated)
     // observes emissions at the `syncRecord*` boundary. Because we install our
@@ -592,10 +604,10 @@ mixin SyncRecordMixin {
       _captureSink?.call(op);
     }
 
-    final result = await runFencedEmissionTransaction(db, () async {
+    final result = await runFencedEmissionTransaction(database, () async {
       final r = await body();
       if (syncCredentialsPersisted.value) {
-        await persistCapturedOpsToOutbox(db, captured);
+        await persistCapturedOpsToOutbox(database, captured);
       }
       return r;
     }, capture);
@@ -605,7 +617,7 @@ mixin SyncRecordMixin {
     if (syncCredentialsPersisted.value && captured.isNotEmpty) {
       final trigger = _outboxDrainTrigger;
       if (trigger != null) {
-        unawaited(trigger(syncCurrentHandle.value ?? syncHandle));
+        unawaited(trigger(syncCurrentHandle.value ?? fallbackSyncHandle));
       }
     }
     return result;
@@ -783,7 +795,10 @@ mixin SyncRecordMixin {
   ///
   /// Suppress/capture paths still record one op per entity so replay stays
   /// row-granular; only the live emission is coalesced.
-  Future<void> syncRecordDeleteMulti(String table, List<String> entityIds) async {
+  Future<void> syncRecordDeleteMulti(
+    String table,
+    List<String> entityIds,
+  ) async {
     if (entityIds.isEmpty) {
       return;
     }

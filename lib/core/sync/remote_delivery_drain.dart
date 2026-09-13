@@ -113,6 +113,14 @@ class DrainResult {
   final Set<String> touchedTables;
 }
 
+/// Carries committed work from a partially failed drain.
+class DrainFailure extends StateError {
+  DrainFailure(super.message, {required this.committedResult, this.cause});
+
+  final DrainResult committedResult;
+  final Object? cause;
+}
+
 /// How many rows to take per chunk. Matches the engine apply chunk size so a
 /// single chunk maps to one Drift transaction in [applyRemoteChanges].
 const int kRemoteDeliveryChunkSize = 200;
@@ -153,68 +161,83 @@ Future<DrainResult> runRemoteDeliveryDrain({
   // but a pathological producer (continuous live pulls) must not let this loop
   // run unbounded inside one invocation — the next trigger re-drains.
   const maxChunksPerRun = 10000;
-  for (var i = 0; i < maxChunksPerRun; i++) {
-    if (shouldAbort?.call() ?? false) {
-      return DrainResult(
+  try {
+    for (var i = 0; i < maxChunksPerRun; i++) {
+      if (shouldAbort?.call() ?? false) {
+        return DrainResult(
+          rowsApplied: rowsApplied,
+          rowsSpilled: rowsSpilled,
+          chunksAcked: chunksAcked,
+          aborted: true,
+          touchedTables: touchedTables,
+        );
+      }
+
+      final chunk = await take(chunkSize);
+      if (chunk.isEmpty) break;
+
+      // Partition over-cap spill (oldest rows, id <= spillUpToId) from rows to
+      // apply normally. Spill is only present when the backlog exceeded the
+      // retention cap; the full payload is carried into quarantine so it is held
+      // durably rather than dropped.
+      final toApply = <ConsumerDelivery>[];
+      final toSpill = <ConsumerDelivery>[];
+      if (chunk.overCap && chunk.spillUpToId > 0) {
+        for (final d in chunk.deliveries) {
+          if (d.id <= chunk.spillUpToId) {
+            toSpill.add(d);
+          } else {
+            toApply.add(d);
+          }
+        }
+      } else {
+        toApply.addAll(chunk.deliveries);
+      }
+
+      // Both the apply and the spill-quarantine must durably commit BEFORE the
+      // ack — otherwise an ack-then-crash would delete the journal row without a
+      // Drift write or a quarantine row (silent loss). Apply first, then spill.
+      if (toApply.isNotEmpty) {
+        final appliedInChunk = await applyChanges(toApply);
+        if (appliedInChunk != toApply.length) {
+          throw StateError(
+            'Consumer-delivery drain applied $appliedInChunk of '
+            '${toApply.length} rows; refusing to ack a partially applied '
+            'journal chunk so undelivered rows survive for retry',
+          );
+        }
+        rowsApplied += appliedInChunk;
+        for (final d in toApply) {
+          touchedTables.add(d.table);
+        }
+      }
+      if (toSpill.isNotEmpty) {
+        await quarantineSpill(toSpill);
+        rowsSpilled += toSpill.length;
+      }
+
+      // Commits have landed; safe to ack the chunk high-water now.
+      await ack(chunk.maxId);
+      chunksAcked++;
+
+      // Heartbeat once per drained chunk so a long apply keeps the bootstrap
+      // idle watchdog alive between chunks (intra-chunk progress is reported by
+      // the apply callback threaded into `applyChanges`).
+      onProgress?.call(rowsApplied, rowsSpilled);
+    }
+  } catch (e) {
+    if (e is DrainFailure) rethrow;
+    throw DrainFailure(
+      e.toString(),
+      committedResult: DrainResult(
         rowsApplied: rowsApplied,
         rowsSpilled: rowsSpilled,
         chunksAcked: chunksAcked,
         aborted: true,
         touchedTables: touchedTables,
-      );
-    }
-
-    final chunk = await take(chunkSize);
-    if (chunk.isEmpty) break;
-
-    // Partition over-cap spill (oldest rows, id <= spillUpToId) from rows to
-    // apply normally. Spill is only present when the backlog exceeded the
-    // retention cap; the full payload is carried into quarantine so it is held
-    // durably rather than dropped.
-    final toApply = <ConsumerDelivery>[];
-    final toSpill = <ConsumerDelivery>[];
-    if (chunk.overCap && chunk.spillUpToId > 0) {
-      for (final d in chunk.deliveries) {
-        if (d.id <= chunk.spillUpToId) {
-          toSpill.add(d);
-        } else {
-          toApply.add(d);
-        }
-      }
-    } else {
-      toApply.addAll(chunk.deliveries);
-    }
-
-    // Both the apply and the spill-quarantine must durably commit BEFORE the
-    // ack — otherwise an ack-then-crash would delete the journal row without a
-    // Drift write or a quarantine row (silent loss). Apply first, then spill.
-    if (toApply.isNotEmpty) {
-      final appliedInChunk = await applyChanges(toApply);
-      if (appliedInChunk != toApply.length) {
-        throw StateError(
-          'Consumer-delivery drain applied $appliedInChunk of '
-          '${toApply.length} rows; refusing to ack a partially applied '
-          'journal chunk so undelivered rows survive for retry',
-        );
-      }
-      rowsApplied += appliedInChunk;
-      for (final d in toApply) {
-        touchedTables.add(d.table);
-      }
-    }
-    if (toSpill.isNotEmpty) {
-      await quarantineSpill(toSpill);
-      rowsSpilled += toSpill.length;
-    }
-
-    // Commits have landed; safe to ack the chunk high-water now.
-    await ack(chunk.maxId);
-    chunksAcked++;
-
-    // Heartbeat once per drained chunk so a long apply keeps the bootstrap
-    // idle watchdog alive between chunks (intra-chunk progress is reported by
-    // the apply callback threaded into `applyChanges`).
-    onProgress?.call(rowsApplied, rowsSpilled);
+      ),
+      cause: e,
+    );
   }
 
   return DrainResult(

@@ -4,8 +4,13 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart'
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart'
     show FrontingMigrationGateStatus;
 import 'package:prism_plurality/features/fronting/providers/fronting_session_repair_provider.dart';
+import 'package:prism_plurality/features/fronting/services/fronting_session_repair_run_gate.dart';
 
 void main() {
+  test('broad repair generation remains at v1', () {
+    expect(FrontingSessionRepairRunGate.currentVersion, 1);
+  });
+
   // Gate predicate for the once-per-device open-session repair sweep. The key
   // regression: an UNPAIRED device must be allowed to repair (local-only), so a
   // standalone import that landed zombie opens self-heals instead of being
@@ -41,7 +46,10 @@ void main() {
     });
 
     test('synced state without a handle waits', () {
-      expect(allows(health: SyncHealthState.healthy, hasHandle: false), isFalse);
+      expect(
+        allows(health: SyncHealthState.healthy, hasHandle: false),
+        isFalse,
+      );
       expect(
         allows(health: SyncHealthState.reconnecting, hasHandle: false),
         isFalse,

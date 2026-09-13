@@ -811,6 +811,30 @@ void main() {
   });
 
   group('StrictApplyCoordinator', () {
+    test('strict apply failure skips post-commit inbound reconciliation', () {
+      expect(
+        shouldRunPostCommitInboundReconciliation(
+          strict: true,
+          strictApplyFailure: const StrictApplyFailure(message: 'failed'),
+        ),
+        isFalse,
+      );
+      expect(
+        shouldRunPostCommitInboundReconciliation(
+          strict: true,
+          strictApplyFailure: null,
+        ),
+        isTrue,
+      );
+      expect(
+        shouldRunPostCommitInboundReconciliation(
+          strict: false,
+          strictApplyFailure: null,
+        ),
+        isTrue,
+      );
+    });
+
     test('enter/exit toggles isStrict', () {
       final c = StrictApplyCoordinator();
       expect(c.isStrict, isFalse);

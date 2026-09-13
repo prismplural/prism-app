@@ -34,6 +34,7 @@ import 'package:prism_plurality/core/services/runtime_dek_store.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
+import 'package:prism_plurality/core/sync/inbound_fronting_duplicate_open_reconciler.dart';
 import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 import 'package:prism_plurality/core/sync/sync_pairing_phase.dart';
 import 'package:prism_plurality/core/sync/tombstone_gate.dart';
@@ -54,6 +55,7 @@ import 'package:prism_plurality/features/migration/services/migration_sync_repai
 import 'package:prism_plurality/features/migration/services/oversized_inline_image_reemit_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_reply_quote_backfill_service.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_board_posts_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 
@@ -3585,6 +3587,45 @@ bool _batchTouchedMediaAttachments(SyncEvent event) {
   return false;
 }
 
+Set<String> _tablesTouchedByRemoteEvent(SyncEvent event) => {
+  for (final change in event.changes)
+    if (change['table'] case final String table) table,
+};
+
+final inboundFrontingDuplicateOpenReconcilerProvider =
+    Provider<InboundFrontingDuplicateOpenReconciler>((ref) {
+      final db = ref.watch(databaseProvider);
+      return InboundFrontingDuplicateOpenReconciler(
+        db,
+        DriftFrontingSessionRepository(db.frontingSessionsDao, null),
+      );
+    });
+
+Future<void> _reconcileInboundDuplicateOpens(
+  InboundFrontingDuplicateOpenReconciler reconciler,
+  Set<String> touchedTables,
+) async {
+  if (!touchedTables.contains('fronting_sessions')) return;
+  try {
+    final result = await reconciler.reconcileAfterCommittedDelivery(
+      touchedTables,
+    );
+    if (kDebugMode && result.sessionsClosed > 0) {
+      debugPrint(
+        '[SYNC_STREAM] Reconciled ${result.sessionsClosed} older duplicate '
+        'open fronting session(s) for '
+        '${result.membersWithDuplicateOpens} member(s)',
+      );
+    }
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      'Inbound duplicate-open fronting reconciliation failed (non-fatal): $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+  }
+}
+
 final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
   final handle = ref.watch(prismSyncHandleProvider).value;
   if (handle == null) return const Stream.empty();
@@ -3593,6 +3634,9 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
   final db = ref.watch(databaseProvider);
   final strictCoordinator = ref.watch(strictApplyCoordinatorProvider);
   final quarantine = ref.watch(syncQuarantineServiceProvider);
+  final duplicateOpenReconciler = ref.watch(
+    inboundFrontingDuplicateOpenReconcilerProvider,
+  );
 
   return createSyncEventStream(handle).asyncMap((event) async {
     if (kDebugMode) {
@@ -3616,8 +3660,11 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
     }
     if (event.isRemoteChanges) {
       final strict = strictCoordinator.isStrict;
+      final touchedTables = _tablesTouchedByRemoteEvent(event);
       Object? applyError;
       StackTrace? applyStackTrace;
+      StrictApplyFailure? strictApplyFailure;
+      StackTrace? strictApplyStackTrace;
       syncAdapter.beginSyncBatch();
       try {
         final totalChanges = event.changes.length;
@@ -3640,30 +3687,36 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
         );
         if (strict && result.failedTables.isNotEmpty) {
           // Defensive — strict mode should rethrow on first failure.
-          strictCoordinator.signalFailure(
-            StrictApplyFailure(
-              message: 'Strict apply reported failures without throwing',
-              failedTables: result.failedTables,
-            ),
+          strictApplyFailure = StrictApplyFailure(
+            message: 'Strict apply reported failures without throwing',
+            failedTables: result.failedTables,
           );
         }
       } catch (e, st) {
         if (strict) {
-          strictCoordinator.signalFailure(
-            e is StrictApplyFailure
-                ? e
-                : StrictApplyFailure(
-                    message: e.toString(),
-                    failedTables: const [],
-                  ),
-            st,
-          );
+          strictApplyFailure = e is StrictApplyFailure
+              ? e
+              : StrictApplyFailure(
+                  message: e.toString(),
+                  failedTables: const [],
+                );
+          strictApplyStackTrace = st;
         } else {
           applyError = e;
           applyStackTrace = st;
         }
       }
       await syncAdapter.completeSyncBatch();
+      if (!shouldRunPostCommitInboundReconciliation(
+        strict: strict,
+        strictApplyFailure: strictApplyFailure,
+      )) {
+        strictCoordinator.signalFailure(
+          strictApplyFailure!,
+          strictApplyStackTrace,
+        );
+        return event;
+      }
       if (applyError != null) {
         Error.throwWithStackTrace(applyError, applyStackTrace!);
       }
@@ -3675,13 +3728,19 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       // grows unbounded. Non-strict only; the drain self-serializes and reports
       // its own errors so it can never crash the sync event loop.
       if (!strict) {
-        await drainRemoteDeliveries(
+        final drainResult = await drainRemoteDeliveries(
           handle,
           db: db,
           syncAdapter: syncAdapter,
           quarantine: quarantine,
         );
+        touchedTables.addAll(drainResult.touchedTables);
       }
+      // Reconcile after inbound commits and adapter batches close.
+      await _reconcileInboundDuplicateOpens(
+        duplicateOpenReconciler,
+        touchedTables,
+      );
       await catchUpPkBackedSyncOnceAfterCutover(handle, db);
       // Signal the strict-apply coordinator so the joiner's pre-registered
       // latch resolves with success. No-op when not in strict mode.
@@ -3712,7 +3771,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
         );
       }
     } else {
-      await drainRemoteDeliveriesAfterSyncCompletedEvent(
+      await reconcileInboundDuplicateOpensAfterSyncCompletedEvent(
         event,
         strict: strictCoordinator.isStrict,
         drain: () => drainRemoteDeliveries(
@@ -3721,6 +3780,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
           syncAdapter: syncAdapter,
           quarantine: quarantine,
         ),
+        reconciler: duplicateOpenReconciler,
       );
     }
     return event;
@@ -4022,15 +4082,43 @@ final strictApplyCoordinatorProvider = Provider<StrictApplyCoordinator>((ref) {
 
 /// Drain durable consumer-delivery rows after a non-`RemoteChanges` completion.
 @visibleForTesting
-Future<void> drainRemoteDeliveriesAfterSyncCompletedEvent(
+Future<DrainResult?> drainRemoteDeliveriesAfterSyncCompletedEvent(
   SyncEvent event, {
   required bool strict,
   required Future<DrainResult> Function() drain,
 }) async {
-  if (!event.isSyncCompleted || strict) return;
-  if (!shouldDrainForCompletedErrorKind(event.errorKind)) return;
-  await drain();
+  if (!event.isSyncCompleted || strict) return null;
+  if (!shouldDrainForCompletedErrorKind(event.errorKind)) return null;
+  return drain();
 }
+
+/// Reconciles only after a completed-event drain commits.
+@visibleForTesting
+Future<void> reconcileInboundDuplicateOpensAfterSyncCompletedEvent(
+  SyncEvent event, {
+  required bool strict,
+  required Future<DrainResult> Function() drain,
+  required InboundFrontingDuplicateOpenReconciler reconciler,
+}) async {
+  final drainResult = await drainRemoteDeliveriesAfterSyncCompletedEvent(
+    event,
+    strict: strict,
+    drain: drain,
+  );
+  if (drainResult != null) {
+    await _reconcileInboundDuplicateOpens(
+      reconciler,
+      drainResult.touchedTables,
+    );
+  }
+}
+
+/// Strict bootstrap failures must not trigger reconciliation.
+@visibleForTesting
+bool shouldRunPostCommitInboundReconciliation({
+  required bool strict,
+  required StrictApplyFailure? strictApplyFailure,
+}) => !strict || strictApplyFailure == null;
 
 /// Apply a chunk of coalesced journal deliveries through the production
 /// [applyRemoteChanges] pipeline (chunked Drift transaction, per-row try/catch).
@@ -4282,6 +4370,7 @@ Future<int> repairConsumerDeliverySpillQuarantineRows(
   SyncAdapterWithCompletion syncAdapter,
   SyncQuarantineDao dao, {
   int limit = kConsumerDeliverySpillRepairBatchLimit,
+  Future<void> Function(Set<String> touchedTables)? onCommittedTables,
 }) async {
   final inFlight = _consumerDeliverySpillRepairsInFlight[db];
   if (inFlight != null) return inFlight;
@@ -4293,6 +4382,7 @@ Future<int> repairConsumerDeliverySpillQuarantineRows(
         syncAdapter,
         dao,
         limit: limit,
+        onCommittedTables: onCommittedTables,
       ),
     ),
   );
@@ -4312,6 +4402,7 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
   SyncAdapterWithCompletion syncAdapter,
   SyncQuarantineDao dao, {
   required int limit,
+  Future<void> Function(Set<String> touchedTables)? onCommittedTables,
 }) async {
   if (limit <= 0) return 0;
 
@@ -4319,6 +4410,7 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
   if (rows.isEmpty) return 0;
   final appliedIds = <String>[];
   final failedIds = <String>[];
+  final touchedTables = <String>{};
 
   try {
     syncAdapter.beginSyncBatch();
@@ -4347,6 +4439,7 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
           strict: true,
           skipUnknownSparsePatches: false,
         );
+        touchedTables.add(delivery.table);
         if (carriesTombstone) {
           await dao.clearDeferredConsumerDelivery(
             delivery.table,
@@ -4373,6 +4466,10 @@ Future<int> _repairConsumerDeliverySpillQuarantineRows(
     }
   } finally {
     await syncAdapter.completeSyncBatch();
+  }
+
+  if (touchedTables.isNotEmpty && onCommittedTables != null) {
+    await onCommittedTables(touchedTables);
   }
 
   for (final id in failedIds) {
@@ -4523,6 +4620,7 @@ Future<DrainResult> drainRemoteDeliveries(
       severity: ErrorSeverity.warning,
       stackTrace: st,
     );
+    if (e is DrainFailure) return e.committedResult;
     return const DrainResult(
       rowsApplied: 0,
       rowsSpilled: 0,
@@ -5976,6 +6074,11 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             ref.read(databaseProvider),
             ref.read(driftSyncAdapterProvider),
             ref.read(syncQuarantineDaoProvider),
+            onCommittedTables: (touchedTables) =>
+                _reconcileInboundDuplicateOpens(
+                  ref.read(inboundFrontingDuplicateOpenReconcilerProvider),
+                  touchedTables,
+                ),
           );
       if (repairedConsumerSpills > 0) {
         ref.invalidate(quarantinedItemsProvider);

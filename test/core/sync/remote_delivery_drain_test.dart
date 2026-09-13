@@ -609,6 +609,53 @@ void main() {
     },
   );
 
+  test('failure retains tables from earlier committed chunks', () async {
+    final journal = _FakeJournal();
+    journal.append(
+      table: 'fronting_sessions',
+      entityId: 'committed-fronting',
+      isDelete: false,
+      fieldName: 'start_time',
+      encodedValue: jsonEncode('2026-09-06T08:00:00.000Z'),
+    );
+    journal.append(
+      table: 'members',
+      entityId: 'failing-member',
+      isDelete: false,
+      fieldName: 'name',
+      encodedValue: jsonEncode('Fixture'),
+    );
+    var applies = 0;
+
+    await expectLater(
+      runRemoteDeliveryDrain(
+        take: journal.take,
+        ack: journal.ack,
+        applyChanges: (_) async {
+          applies++;
+          if (applies == 2) throw StateError('second chunk failed');
+          return 1;
+        },
+        quarantineSpill: (_) async {},
+        chunkSize: 1,
+      ),
+      throwsA(
+        isA<DrainFailure>()
+            .having(
+              (error) => error.committedResult.touchedTables,
+              'committed tables',
+              {'fronting_sessions'},
+            )
+            .having(
+              (error) => error.committedResult.aborted,
+              'aborted',
+              isTrue,
+            ),
+      ),
+    );
+    expect(journal.length, 1, reason: 'only the failed chunk remains');
+  });
+
   // ------------------------------------------------------------------
   // Integration: real Drift DB + adapter + fake journal. Verifies the
   // journal drains into Drift through the production apply pipeline, acks
@@ -1187,6 +1234,32 @@ void main() {
           quarantine: quarantine,
         );
         expect(result.rowsApplied, 7);
+      },
+    );
+
+    test(
+      'failure preserves earlier committed tables for the event boundary',
+      () async {
+        debugDrainRemoteDeliveriesOverride = (_) async => throw DrainFailure(
+          'later chunk failed',
+          committedResult: const DrainResult(
+            rowsApplied: 1,
+            rowsSpilled: 0,
+            chunksAcked: 1,
+            aborted: true,
+            touchedTables: {'fronting_sessions'},
+          ),
+        );
+
+        final result = await drainRemoteDeliveries(
+          handle,
+          db: db,
+          syncAdapter: adapter,
+          quarantine: quarantine,
+        );
+
+        expect(result.aborted, isTrue);
+        expect(result.touchedTables, {'fronting_sessions'});
       },
     );
   });
