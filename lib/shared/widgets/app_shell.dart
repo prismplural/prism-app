@@ -692,9 +692,16 @@ bool _pkSyncRelevantFieldsEqual(Member a, Member b) {
 }
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key, required this.navigationShell});
+  const AppShell({
+    super.key,
+    required this.navigationShell,
+    required this.routePath,
+  });
 
   final StatefulNavigationShell navigationShell;
+
+  /// Current route path used to distinguish tab roots from detail routes.
+  final String routePath;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -1163,8 +1170,9 @@ class _AppShellState extends ConsumerState<AppShell>
 
       // Mobile layout: stack with floating bottom bar.
       // Hide the nav bar on sub-routes (detail screens) — only show on root tabs.
-      final location = GoRouterState.of(context).uri.path;
-      final isRootTab = appShellTabs.any((t) => t.rootLocation == location);
+      final isRootTab = appShellTabs.any(
+        (t) => t.rootLocation == widget.routePath,
+      );
 
       final mediaQuery = MediaQuery.of(context);
       final bottomSafeArea = mediaQuery.viewPadding.bottom;

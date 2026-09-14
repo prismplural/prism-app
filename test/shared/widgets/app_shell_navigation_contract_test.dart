@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/core/router/app_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -50,6 +51,115 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
+
+  testWidgets('shell first launch paints the initial root route', (
+    tester,
+  ) async {
+    await _pumpContractApp(tester, initialLocation: AppRoutePaths.home);
+
+    expect(
+      tester.takeException(),
+      isNull,
+      reason:
+          'Cold launch must not depend on GoRouterState in AppShell context.',
+    );
+    expect(find.text(_homeRootTitle), findsOneWidget);
+    _expectNavBar(tester, isVisible: true, reason: 'initial home route');
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'shell uses its production-builder route path outside GoRouter registry',
+    (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      StatefulNavigationShell? capturedShell;
+      String? capturedRoutePath;
+      final router = GoRouter(
+        initialLocation: AppRoutePaths.home,
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              final shell =
+                  buildAppShellRoute(context, state, navigationShell)
+                      as AppShell;
+              capturedShell = shell.navigationShell;
+              capturedRoutePath = shell.routePath;
+              return const SizedBox.shrink();
+            },
+            branches: _contractBranches(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          routerConfig: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final navigationShell = capturedShell;
+      expect(navigationShell, isNotNull);
+      expect(capturedRoutePath, AppRoutePaths.home);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeNavBarTabsProvider.overrideWithValue(
+              appShellTabs.take(5).toList(),
+            ),
+            navBarOverflowTabsProvider.overrideWithValue(
+              appShellTabs.skip(5).toList(),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            isPinSetProvider.overrideWith((ref) async => false),
+            syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+            syncHealthProvider.overrideWith(
+              () => _FakeSyncHealthNotifier(SyncHealthState.healthy),
+            ),
+            pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+            pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+            habitsBadgeEnabledProvider.overrideWith((ref) => false),
+            activeSessionsProvider.overrideWith(
+              (ref) => Stream.value(const []),
+            ),
+            allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+            unreadConversationCountProvider.overrideWith((ref) => 0),
+            frontingMigrationModeProvider.overrideWith(
+              (ref) => Stream.value(FrontingMigrationService.modeComplete),
+            ),
+            frontingMigrationGateProvider.overrideWith(
+              (ref) => FrontingMigrationGateStatus.complete,
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            theme: ThemeData(fontFamily: 'OpenDyslexic'),
+            home: AppShell(
+              navigationShell: navigationShell!,
+              routePath: capturedRoutePath!,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      _expectNavBar(tester, isVisible: true, reason: 'route-state boundary');
+    },
+  );
 
   testWidgets(
     'first-level detail routes hide nav and Android back returns root',
@@ -364,9 +474,7 @@ Future<GoRouter> _pumpContractApp(
     initialLocation: initialLocation,
     routes: [
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return AppShell(navigationShell: navigationShell);
-        },
+        builder: buildAppShellRoute,
         branches: _contractBranches(),
       ),
     ],
