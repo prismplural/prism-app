@@ -81,7 +81,7 @@ writes JSON events and environment details to `test-results/` (or
 `PRISM_TEST_RESULTS_DIR`).
 
 ```bash
-scripts/test_fast.sh          # deterministic Dart/widget/golden coverage for PRs
+scripts/test_fast.sh          # deterministic Dart and widget coverage for PRs
 scripts/test_benchmark.sh     # explicit Drift measurement; not a timing gate
 PRISM_SYNC_DIR=/path/to/prism-sync scripts/test_native_benchmark.sh
 ```

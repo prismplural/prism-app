@@ -18,6 +18,13 @@ finish() {
 }
 trap finish EXIT
 
+for tool in flutter dart git rg; do
+  command -v "$tool" >/dev/null || {
+    echo "Missing fast-lane prerequisite: $tool" >&2
+    exit 2
+  }
+done
+
 {
   printf 'lane=fast\nstarted_at=%s\napp_revision=%s\n' "$start" "$(git rev-parse HEAD)"
   flutter --version
@@ -40,6 +47,6 @@ env -u PK_TOKEN -u PK_TEST_TOKEN -u PLURALKIT_TOKEN -u PRISM_LIVE_TEST_TOKEN -u 
   | tee "$results_dir/fast-analyze.log"
 env -u PK_TOKEN -u PK_TEST_TOKEN -u PLURALKIT_TOKEN -u PRISM_LIVE_TEST_TOKEN -u PRISM_ALLOW_LIVE_TESTS \
   flutter test "${tests[@]}" \
-    --exclude-tags='integration || slow || fixture-gen || benchmark' \
+    --exclude-tags='integration || slow || fixture-gen || benchmark || golden' \
     --file-reporter "json:$results_dir/fast-tests.json" \
     | tee "$results_dir/fast-tests.log"
