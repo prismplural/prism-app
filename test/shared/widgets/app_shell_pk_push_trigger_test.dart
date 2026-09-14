@@ -47,7 +47,10 @@ void main() {
       routes: [
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
-            return AppShell(navigationShell: navigationShell);
+            return AppShell(
+              navigationShell: navigationShell,
+              routePath: state.uri.path,
+            );
           },
           branches: [
             StatefulShellBranch(
@@ -149,7 +152,10 @@ void main() {
       routes: [
         StatefulShellRoute.indexedStack(
           builder: (context, state, navigationShell) {
-            return AppShell(navigationShell: navigationShell);
+            return AppShell(
+              navigationShell: navigationShell,
+              routePath: state.uri.path,
+            );
           },
           branches: [
             StatefulShellBranch(
@@ -266,8 +272,10 @@ void main() {
         initialLocation: AppRoutePaths.home,
         routes: [
           StatefulShellRoute.indexedStack(
-            builder: (context, state, navigationShell) =>
-                AppShell(navigationShell: navigationShell),
+            builder: (context, state, navigationShell) => AppShell(
+              navigationShell: navigationShell,
+              routePath: state.uri.path,
+            ),
             branches: [
               StatefulShellBranch(
                 routes: [
@@ -371,9 +379,7 @@ void main() {
       expect(calls, ['m-1']);
     });
 
-    testWidgets('bio / birthday / color edits fire the push', (
-      tester,
-    ) async {
+    testWidgets('bio / birthday / color edits fire the push', (tester) async {
       expect(
         await runEdit(
           tester,

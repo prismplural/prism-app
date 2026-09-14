@@ -404,7 +404,10 @@ void main() {
           routes: [
             StatefulShellRoute.indexedStack(
               builder: (context, state, navigationShell) {
-                return AppShell(navigationShell: navigationShell);
+                return AppShell(
+                  navigationShell: navigationShell,
+                  routePath: state.uri.path,
+                );
               },
               branches: [
                 StatefulShellBranch(
@@ -524,7 +527,10 @@ void main() {
           routes: [
             StatefulShellRoute.indexedStack(
               builder: (context, state, navigationShell) {
-                return AppShell(navigationShell: navigationShell);
+                return AppShell(
+                  navigationShell: navigationShell,
+                  routePath: state.uri.path,
+                );
               },
               branches: [
                 StatefulShellBranch(
@@ -694,7 +700,10 @@ void main() {
         routes: [
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
-              return AppShell(navigationShell: navigationShell);
+              return AppShell(
+                navigationShell: navigationShell,
+                routePath: state.uri.path,
+              );
             },
             branches: [
               StatefulShellBranch(
@@ -839,7 +848,10 @@ void main() {
         routes: [
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
-              return AppShell(navigationShell: navigationShell);
+              return AppShell(
+                navigationShell: navigationShell,
+                routePath: state.uri.path,
+              );
             },
             branches: [
               StatefulShellBranch(
@@ -941,7 +953,10 @@ void main() {
         routes: [
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
-              return AppShell(navigationShell: navigationShell);
+              return AppShell(
+                navigationShell: navigationShell,
+                routePath: state.uri.path,
+              );
             },
             branches: [
               StatefulShellBranch(
@@ -1069,7 +1084,10 @@ void main() {
         routes: [
           StatefulShellRoute.indexedStack(
             builder: (context, state, navigationShell) {
-              return AppShell(navigationShell: navigationShell);
+              return AppShell(
+                navigationShell: navigationShell,
+                routePath: state.uri.path,
+              );
             },
             branches: [
               StatefulShellBranch(

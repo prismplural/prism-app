@@ -144,6 +144,14 @@ const _syncWrappedDekKey = 'prism_sync.wrapped_dek';
 const _syncRuntimeDekKey = 'prism_sync.runtime_dek';
 const _syncRuntimeDekWrappedKey = 'prism_sync.runtime_dek_wrapped_v1';
 
+Widget buildAppShellRoute(
+  BuildContext _,
+  GoRouterState state,
+  StatefulNavigationShell navigationShell,
+) {
+  return AppShell(navigationShell: navigationShell, routePath: state.uri.path);
+}
+
 @visibleForTesting
 Future<bool> recoverCompletedOnboardingFromPairedState({
   required Future<String?> Function(String key) readSecureValue,
@@ -320,9 +328,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SyncSetupScreen(),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return AppShell(navigationShell: navigationShell);
-        },
+        builder: buildAppShellRoute,
         branches: [
           // Branch 0: Home (fronting)
           StatefulShellBranch(
