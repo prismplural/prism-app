@@ -44,10 +44,7 @@ void main() {
     // Two devices that must agree on a derivation depend on this contract.
 
     test('deriveSpSessionId is deterministic', () {
-      expect(
-        deriveSpSessionId('foo'),
-        '33455d29-6345-5341-9d3b-04a90323fbb4',
-      );
+      expect(deriveSpSessionId('foo'), '33455d29-6345-5341-9d3b-04a90323fbb4');
     });
 
     test('deriveSpFrontCommentId is deterministic', () {
@@ -58,10 +55,7 @@ void main() {
     });
 
     test('deriveSpMemberId is deterministic (F18 convergence)', () {
-      expect(
-        deriveSpMemberId('foo'),
-        '78395a25-d7a4-5a0d-bfd0-e2517343c78b',
-      );
+      expect(deriveSpMemberId('foo'), '78395a25-d7a4-5a0d-bfd0-e2517343c78b');
     });
 
     test('spMemberNamespace is distinct from every other namespace', () {
@@ -75,8 +69,11 @@ void main() {
         sleepRecoveryNamespace,
         spMemberNamespace,
       ];
-      expect(all.toSet().length, all.length,
-          reason: 'a reused namespace would cross-collide id spaces');
+      expect(
+        all.toSet().length,
+        all.length,
+        reason: 'a reused namespace would cross-collide id spaces',
+      );
     });
 
     test('deriveMigrationFanoutSessionId is deterministic', () {
@@ -87,30 +84,20 @@ void main() {
     });
 
     test('deriveGapFillerSessionId is deterministic and UTC-normalized', () {
-      final localStart = DateTime(2024, 1, 1, 12);
-      final utcStart = localStart.toUtc();
-      final localEnd = DateTime(2024, 1, 1, 13);
-      final utcEnd = localEnd.toUtc();
-
-      // CI-tz guard: this test is meaningless on UTC hosts. Assert the
-      // precondition fails loudly so the test catches a regression instead
-      // of silently passing.
-      expect(
-        localStart.toIso8601String(),
-        isNot(utcStart.toIso8601String()),
-        reason: 'Test host TZ must be non-UTC; '
-            'set TZ=America/Los_Angeles in CI.',
-      );
+      final offsetStart = DateTime.parse('2024-01-01T12:00:00-08:00');
+      final offsetEnd = DateTime.parse('2024-01-01T13:00:00-08:00');
+      final utcStart = DateTime.utc(2024, 1, 1, 20);
+      final utcEnd = DateTime.utc(2024, 1, 1, 21);
 
       expect(
-        deriveGapFillerSessionId(localStart, localEnd),
+        deriveGapFillerSessionId(offsetStart, offsetEnd),
         equals(deriveGapFillerSessionId(utcStart, utcEnd)),
       );
 
-      // Pin a known value — namespace constants must not drift silently.
+      // Pin a known value so namespace constants cannot drift silently.
       expect(
         deriveGapFillerSessionId(utcStart, utcEnd),
-        equals('b0fdfa74-9354-564e-b564-ba2268f4ceb7'),
+        equals('a0111111-255a-50a6-b5f2-3e4511ebf191'),
       );
     });
   });

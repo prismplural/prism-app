@@ -498,6 +498,17 @@ void main() {
       }
     });
 
+    test('configures the SQLite busy timeout', () {
+      final db = raw.sqlite3.openInMemory();
+      try {
+        configurePrismSqliteConnection(db);
+        final timeout = db.select('PRAGMA busy_timeout;').single.values.single;
+        expect(timeout, prismSqliteBusyTimeoutMs);
+      } finally {
+        db.close();
+      }
+    });
+
     test('the assertion runs only once per process (cached after first '
         'successful verification)', () {
       final dbPath = '${tempDir.path}/keyed_cache.db';
