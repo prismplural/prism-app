@@ -2,7 +2,73 @@
 
 All notable changes to Prism will be documented in this file.
 
-## [Unreleased]
+## [0.15.0] - 2026-09-15
+
+Feature release. Prism now speaks your system's language: fronting terminology
+and system terminology are customizable across the app. Underneath, sync
+recovery was rebuilt for the hardest PluralKit history cases — orphaned fronts
+with missing local member references, devices that lost their pairing key, and
+duplicate inbound sessions — and image loading that failed on first use now
+initializes on startup. The sync pin moves from `bf2890c6`
+(`bf2890c6abb075ba5919be2ed95d102df8596d76`) to `v0.15.0`
+(`e6ea45ea3ffb8e4806e7496554b5defbc7c2e349`).
+
+### Added
+- Fronting terminology and system terminology can be customized and are
+  applied throughout the app, with drafts retained across saves and compact
+  settings controls.
+- Custom terminology drafts survive saves, serialized selection intent, and
+  retained activation.
+- Simply Plural member identities are derived from account-scoped data, with
+  ambiguous SP-to-local member matches surfaced instead of duplicated.
+- Durably streamed avatar ZIP imports with progress reporting.
+- AVIF images are accepted as inputs.
+- Habits gain visibility filters.
+- Onboarding lets empty systems through the welcome screen, confirms an empty
+  add-members step, and flags pairing completion so an empty peer reaches
+  home.
+- Inbound pull liveness is surfaced in sync debug logs.
+
+### Changed
+- The native image codec moved into the app and initializes on startup, so
+  image operations no longer fail on their first use.
+- Custom-field value and definition reconciliation converges divergent value
+  incarnations and mints fresh value rows on refill over a burned id.
+- Large-system member streams are slimmed for performance, and numbered names
+  sort naturally.
+- Markdown preserves small-text line breaks.
+- Linux secure storage pins were updated through the keyring fix; Windows uses
+  the patched permission handler.
+- Selectable icons stay bundled in release builds.
+
+### Fixed
+- Sync recovery restores a missing pairing key when another paired device can
+  provide it, with clearer guidance when no recovery source is available.
+- Orphaned PluralKit fronts with missing local member references recover
+  without losing delayed deliveries, including after interrupted delivery and
+  later replay.
+- Duplicate open fronting sessions received through sync are reconciled
+  without discarding valid session history.
+- PluralKit sync replay, group entry apply, create-lease handling, member
+  identity, and fronting back-fill are hardened.
+- Websocket auth failures pause instead of repeatedly failing the sync cycle.
+- Restored and deep-linked navigation preserves the active tab and destination
+  across compact and wide layouts.
+- Timeline day context stays visible, and the current chip duration survives
+  midnight.
+- Sheets stay above system navigation, dirty sheet drag dismissal is restored,
+  popups stay within window bounds, and repeated save submissions are
+  prevented.
+- Field template QR cards are scannable again, and repeated Simply Plural
+  imports reconcile custom-field values and definitions instead of diverging.
+
+### Internal
+- The sync engine revision moves to `v0.15.0` for the recovery behavior used
+  by this release.
+- Required native integration, provenance, benchmark, and split test lanes
+  plus the emit-after-commit audit are in place.
+- Test fixtures for timezone and lock behavior are stabilized; ripgrep is
+  installed in the fast CI lane.
 
 ## [0.15.0-rc.3] - 2026-09-14
 
