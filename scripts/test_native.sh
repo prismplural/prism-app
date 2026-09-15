@@ -135,8 +135,8 @@ esac
 ffi_lib="$target_dir/release/$ffi_name"
 relay_bin="$target_dir/release/examples/test_relay"
 [[ -f $ffi_lib && -x $relay_bin ]] || { echo 'Required native artifacts were not produced.' >&2; exit 2; }
-ffi_lib=$(cd "$(dirname "$ffi_lib")" && pwd)/$(basename "$ffi_lib")
-relay_bin=$(cd "$(dirname "$relay_bin")" && pwd)/$(basename "$relay_bin")
+ffi_lib=$(cd "$(dirname "$ffi_lib")" && pwd -P)/$(basename "$ffi_lib")
+relay_bin=$(cd "$(dirname "$relay_bin")" && pwd -P)/$(basename "$relay_bin")
 sha256() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 "$1" | awk '{print $1}'
