@@ -4,6 +4,33 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.15.0-rc.3] - 2026-09-14
+
+Release candidate. Improves sync recovery for PluralKit fronting history,
+pairing keys, and duplicate inbound sessions. The sync pin moves to
+`bf2890c`.
+
+### Fixed
+- PluralKit fronting history can recover safely when a referenced member is
+  missing locally, including after interrupted delivery and later replay.
+- Deferred fronting updates remain available while held sync data is retried.
+- Sync recovery restores a missing pairing key when another paired device can
+  provide it, with clearer guidance when no recovery source is available.
+- Duplicate open fronting sessions received through sync are reconciled without
+  discarding valid session history.
+- The native image codec initializes during startup so image operations do not
+  fail on their first use.
+- Restored and deep-linked navigation preserves the active tab and destination
+  across compact and wide layouts.
+
+### Internal
+- Updated the sync engine revision to `bf2890c` for the recovery behavior used
+  by this candidate.
+- Added required native integration, provenance, benchmark, and split test lanes
+  with broader real-sync recovery coverage.
+- Stabilized timezone-dependent UUID and transient database-lock fixtures, and
+  installed ripgrep in the fast CI lane.
+
 ## [0.15.0-rc.2] - 2026-09-05
 
 Release candidate. Includes fixes reported during RC1 testing. The sync pin
