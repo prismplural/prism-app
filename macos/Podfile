@@ -46,6 +46,11 @@ post_install do |installer|
     # The wrapper scripts fall back to plain clang if ccache is not installed.
     # To enable: brew install ccache
     target.build_configurations.each do |config|
+      # Xcode 27 requires a macOS deployment target >= 12.0. Force it on all
+      # pod targets so targets whose podspecs declare lower floors (e.g. the
+      # Flutter-generated FlutterMacOS podspec at 10.15, flutter_lite_camera at
+      # 10.11) build under Xcode 27.
+      config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '12.0'
       ccache_clang = File.expand_path('../.ccache-clang', __FILE__)
       ccache_clangpp = File.expand_path('../.ccache-clang++', __FILE__)
       config.build_settings['CC'] = ccache_clang
