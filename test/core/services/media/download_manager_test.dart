@@ -440,4 +440,141 @@ void main() {
       );
     });
   });
+
+  // ── getMedia — corrupted blob mapping ─────────────────────────────────
+
+  group('getMedia — corrupted blobs', () {
+    late Directory cacheDir;
+
+    setUp(() async {
+      cacheDir = await Directory.systemTemp.createTemp('dm_corrupt_');
+    });
+
+    tearDown(() async {
+      if (cacheDir.existsSync()) await cacheDir.delete(recursive: true);
+    });
+
+    test(
+      'valid cached ciphertext decrypts to the original plaintext',
+      () async {
+        final media = _fakeMedia([1, 2, 3, 4, 5]);
+        final manager = _makeTestManager(cacheDir);
+        addTearDown(manager.dispose);
+
+        await File(
+          '${cacheDir.path}/blob-ok.enc',
+        ).writeAsBytes(media.ciphertext);
+
+        final result = await manager.getMedia(
+          mediaId: 'blob-ok',
+          encryptionKey: media.key,
+          ciphertextHash: media.ciphertextHash,
+          plaintextHash: media.plaintextHash,
+        );
+
+        expect(result, isA<MediaFetchOk>());
+        expect(result.bytesOrNull, equals(media.plaintext));
+      },
+    );
+
+    test('corrupted ciphertext maps to the terminal decrypt kind', () async {
+      final media = _fakeMedia([1, 2, 3, 4, 5]);
+      final corrupted = Uint8List.fromList(media.ciphertext);
+      corrupted[0] ^= 0xFF;
+
+      final manager = _makeTestManager(cacheDir);
+      addTearDown(manager.dispose);
+
+      await File('${cacheDir.path}/blob-bad.enc').writeAsBytes(corrupted);
+
+      final errors = <String?>[];
+      final sub = manager.progressStream('blob-bad').listen((p) {
+        if (p.error != null) errors.add(p.error);
+      });
+      addTearDown(sub.cancel);
+
+      final result = await manager.getMedia(
+        mediaId: 'blob-bad',
+        encryptionKey: media.key,
+        ciphertextHash: media.ciphertextHash,
+        plaintextHash: media.plaintextHash,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(result, isA<MediaFetchFailure>());
+      expect(
+        (result as MediaFetchFailure).kind,
+        ffi.MediaFetchErrorKind.decrypt,
+      );
+      expect(result.isDecryptFailure, isTrue);
+      expect(
+        errors.single,
+        contains('Ciphertext hash mismatch'),
+        reason: 'integrity error text must survive the hashing change',
+      );
+    });
+
+    test(
+      'mismatched expected plaintext hash maps to the decrypt kind',
+      () async {
+        final media = _fakeMedia([9, 9, 9]);
+        final manager = _makeTestManager(cacheDir);
+        addTearDown(manager.dispose);
+
+        await File(
+          '${cacheDir.path}/blob-pt.enc',
+        ).writeAsBytes(media.ciphertext);
+
+        final errors = <String?>[];
+        final sub = manager.progressStream('blob-pt').listen((p) {
+          if (p.error != null) errors.add(p.error);
+        });
+        addTearDown(sub.cancel);
+
+        final result = await manager.getMedia(
+          mediaId: 'blob-pt',
+          encryptionKey: media.key,
+          ciphertextHash: media.ciphertextHash,
+          plaintextHash: '0'.padRight(64, '0'),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(result, isA<MediaFetchFailure>());
+        expect(
+          (result as MediaFetchFailure).kind,
+          ffi.MediaFetchErrorKind.decrypt,
+        );
+        expect(errors.single, contains('Plaintext hash mismatch'));
+      },
+    );
+
+    test(
+      'uncached blob with no sync handle maps to the generic other kind',
+      () async {
+        final manager = _makeTestManager(cacheDir);
+        addTearDown(manager.dispose);
+
+        final errors = <String?>[];
+        final sub = manager.progressStream('absent').listen((p) {
+          if (p.error != null) errors.add(p.error);
+        });
+        addTearDown(sub.cancel);
+
+        final result = await manager.getMedia(
+          mediaId: 'absent',
+          encryptionKey: Uint8List(32),
+          ciphertextHash: 'irrelevant',
+          plaintextHash: 'irrelevant',
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(result, isA<MediaFetchFailure>());
+        expect(
+          (result as MediaFetchFailure).kind,
+          ffi.MediaFetchErrorKind.other,
+        );
+        expect(errors, contains('no sync handle'));
+      },
+    );
+  });
 }

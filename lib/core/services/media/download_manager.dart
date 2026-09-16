@@ -380,6 +380,11 @@ class DownloadManager {
   /// error. Therefore, decryption runs directly on the main isolate. For
   /// typical media sizes this is fast enough (XChaCha20-Poly1305 is ~1 GB/s
   /// on modern hardware) and keeps the code correct.
+  ///
+  /// The SHA-256 integrity digests computed around that FRB call ARE pure Dart,
+  /// so [MediaEncryptionService] runs them through `hashBytesForIntegrity`,
+  /// which moves payloads above its inline threshold onto a plain Dart isolate.
+  /// Only the FRB call itself is pinned to the main isolate.
   Future<Uint8List> _decryptMedia({
     required Uint8List ciphertext,
     required Uint8List key,

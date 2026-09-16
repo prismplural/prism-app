@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/media/hashing_helper.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 
 void main() {
@@ -28,6 +29,88 @@ void main() {
     });
   });
 
+  // ── Hashing seam ──────────────────────────────────────────────────────
+  //
+  // The service no longer calls sha256 directly; it routes every digest through
+  // an injected HashBytesFn so the pure-Dart hashing can move off the UI
+  // isolate. These tests pin that wiring.
+
+  group('hashing seam', () {
+    test('hashBytes injection replaces every digest call', () async {
+      final seen = <Uint8List>[];
+      final service = MediaEncryptionService(
+        hashBytes: (bytes) async {
+          seen.add(bytes);
+          return sha256.convert(bytes).toString();
+        },
+      );
+
+      // Ciphertext-mismatch path: exactly one digest is computed before the
+      // StateError is thrown. The hasher was used, sha256 was not hard-coded.
+      final ciphertext = Uint8List.fromList([1, 2, 3, 4]);
+      await expectLater(
+        service.decryptMedia(
+          ciphertext: ciphertext,
+          key: Uint8List(32),
+          expectedCiphertextHash: 'deadbeef',
+          expectedPlaintextHash: 'irrelevant',
+        ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(seen, hasLength(1));
+      expect(seen.single, equals(ciphertext));
+    });
+
+    test('production default hasher is hashBytesForIntegrity', () {
+      // Guards against the seam being wired to an inline-only hasher: large
+      // media must take the off-main path by default.
+      expect(
+        identical(
+          MediaEncryptionService.productionHasher,
+          hashBytesForIntegrity,
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+      'production default routes an over-threshold payload off-main',
+      () async {
+        final bytes = Uint8List(kInlineHashThresholdBytes + 1);
+        expect(
+          await MediaEncryptionService.productionHasher(bytes),
+          sha256.convert(bytes).toString(),
+        );
+      },
+    );
+
+    test(
+      'default constructor hashes correctly for over-threshold payloads',
+      () async {
+        final service = MediaEncryptionService();
+        final bytes = Uint8List(kInlineHashThresholdBytes + 1);
+        // Only the ciphertext-mismatch path is reachable without FRB, but it still
+        // exercises the production hasher end to end.
+        await expectLater(
+          service.decryptMedia(
+            ciphertext: bytes,
+            key: Uint8List(32),
+            expectedCiphertextHash: 'not-the-real-hash',
+            expectedPlaintextHash: 'irrelevant',
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains(sha256.convert(bytes).toString()),
+            ),
+          ),
+        );
+      },
+    );
+  });
+
   // ── decryptMedia: ciphertext hash verification ─────────────────────────
   //
   // The SHA-256 hash check in decryptMedia happens BEFORE the FFI call to
@@ -36,7 +119,8 @@ void main() {
   group('decryptMedia ciphertext hash verification', () {
     test('throws StateError when ciphertext hash does not match', () async {
       final ciphertext = Uint8List.fromList([10, 20, 30, 40, 50]);
-      const wrongHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+      const wrongHash =
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
       expect(
         () => service.decryptMedia(
@@ -58,7 +142,8 @@ void main() {
     test('error message includes expected and actual hashes', () async {
       final ciphertext = Uint8List.fromList([0xDE, 0xAD, 0xBE, 0xEF]);
       final actualHash = sha256.convert(ciphertext).toString();
-      const expectedHash = '0000000000000000000000000000000000000000000000000000000000000000';
+      const expectedHash =
+          '0000000000000000000000000000000000000000000000000000000000000000';
 
       try {
         await service.decryptMedia(
@@ -106,7 +191,10 @@ void main() {
 
       // SHA-256 of empty input is well-known:
       // e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-      expect(emptyHash, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+      expect(
+        emptyHash,
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      );
 
       // With the correct hash for empty data, should pass the hash check.
       try {
