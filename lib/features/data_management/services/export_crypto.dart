@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:pointycastle/export.dart';
 
 class ExportMediaBlobDescriptor {
@@ -168,6 +169,9 @@ class ExportCrypto {
     int mediaChunkSize = defaultStreamChunkSize,
     Uint8List? saltForTesting,
     Uint8List? nonceForTesting,
+    @visibleForTesting
+    Future<void> Function(ExportMediaBlobDescriptor descriptor)?
+    afterMediaBlobReadForTesting,
   }) async {
     final jsonPlaintextLength = _countJsonUtf8Bytes(
       jsonValue,
@@ -226,6 +230,7 @@ class ExportCrypto {
         sink: sink,
         descriptor: descriptor,
         chunkSize: mediaChunkSize,
+        afterReadForTesting: afterMediaBlobReadForTesting,
       );
     }
 
@@ -444,6 +449,8 @@ class ExportCrypto {
     required IOSink sink,
     required ExportMediaBlobDescriptor descriptor,
     required int chunkSize,
+    Future<void> Function(ExportMediaBlobDescriptor descriptor)?
+    afterReadForTesting,
   }) async {
     if (descriptor.lengthBytes < 0) {
       throw ExportMediaBlobChangedException(
@@ -494,6 +501,13 @@ class ExportCrypto {
         descriptor.mediaId,
         descriptor.file.path,
       );
+    }
+
+    // Test-only seam: lets a test mutate the fixture immediately before the
+    // post-read stat, deterministically exercising the post-read change check
+    // without racing a filesystem timer. Null in production.
+    if (afterReadForTesting != null) {
+      await afterReadForTesting(descriptor);
     }
 
     final after = await descriptor.file.stat();

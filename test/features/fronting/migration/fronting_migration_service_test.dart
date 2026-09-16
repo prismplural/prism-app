@@ -52,7 +52,9 @@ import 'package:prism_plurality/domain/models/member.dart' show Member;
 import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
+import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/features/fronting/migration/fronting_migration_service.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -253,8 +255,7 @@ PluralKitSyncService _makePkImportService(
 
 class _PkMigrationFakeClient implements PluralKitClient {
   @override
-  Future<PKSwitch> getSwitch(String switchRef) =>
-      throw UnimplementedError();
+  Future<PKSwitch> getSwitch(String switchRef) => throw UnimplementedError();
   _PkMigrationFakeClient({
     required this.members,
     required this.switchesNewestFirst,
@@ -488,6 +489,17 @@ void main() {
           .readPendingFrontingMigrationMode();
       expect(mode, isNot(FrontingMigrationService.modeInProgress));
 
+      // The worker-produced file remains a self-contained rescue envelope.
+      final decrypted = ExportCrypto.decrypt(
+        await file.readAsBytes(),
+        'a-strong-password-12',
+      );
+      final rescue = V1Export.fromJson(
+        jsonDecode(decrypted.json) as Map<String, dynamic>,
+      );
+      expect(rescue.rescueLegacyFields, isTrue);
+      expect(rescue.frontSessions.single.id, 's1');
+
       try {
         await backupDir.delete(recursive: true);
       } catch (_) {}
@@ -660,12 +672,21 @@ void main() {
           db.frontingSessions,
         )..where((s) => s.id.equals('pk-1'))).getSingle();
         expect(raw.isDeleted, isTrue);
-        expect(raw.pluralkitUuid, isNull,
-            reason: 'link must be cleared before the tombstone');
-        expect(raw.deleteIntentEpoch, isNull,
-            reason: 'migration cleanup must never read as user intent');
-        expect(await sessionRepo.getDeletedLinkedSessions(), isEmpty,
-            reason: 'nothing may be queued for PK-side deletion');
+        expect(
+          raw.pluralkitUuid,
+          isNull,
+          reason: 'link must be cleared before the tombstone',
+        );
+        expect(
+          raw.deleteIntentEpoch,
+          isNull,
+          reason: 'migration cleanup must never read as user intent',
+        );
+        expect(
+          await sessionRepo.getDeletedLinkedSessions(),
+          isEmpty,
+          reason: 'nothing may be queued for PK-side deletion',
+        );
       },
     );
 
@@ -951,159 +972,182 @@ void main() {
       expect(comment.isDeleted, isFalse);
     }, timeout: const Timeout(Duration(minutes: 2)));
 
-    test('phase 2 harness: PK full import after upgradeAndKeep PRESERVES the '
-        'cleared deterministic-id tombstones (F10 — no in-place rebuild)',
-        () async {
-      const pkAliceShortId = 'aaaaa';
-      const pkBobShortId = 'bbbbb';
-      const pkAliceUuid = '11111111-1111-4111-8111-111111111111';
-      const pkBobUuid = '22222222-2222-4222-8222-222222222222';
-      const sw1Id = 'pk-switch-1';
-      const sw2Id = 'pk-switch-2';
-      const sw3Id = 'pk-switch-3';
-      const sw4Id = 'pk-switch-4';
-      final sw1Time = DateTime.utc(2026, 4, 3, 8);
-      final sw2Time = DateTime.utc(2026, 4, 3, 9);
-      final sw3Time = DateTime.utc(2026, 4, 3, 10);
-      final sw4Time = DateTime.utc(2026, 4, 3, 11);
-      const pkMembers = [
-        PKMember(id: pkAliceShortId, uuid: pkAliceUuid, name: 'PK Alice'),
-        PKMember(id: pkBobShortId, uuid: pkBobUuid, name: 'PK Bob'),
-      ];
-      final pkSwitchesNewestFirst = [
-        PKSwitch(id: sw4Id, timestamp: sw4Time, members: const []),
-        PKSwitch(id: sw3Id, timestamp: sw3Time, members: const [pkBobShortId]),
-        PKSwitch(
-          id: sw2Id,
-          timestamp: sw2Time,
-          members: const [pkAliceShortId, pkBobShortId],
-        ),
-        PKSwitch(
-          id: sw1Id,
-          timestamp: sw1Time,
-          members: const [pkAliceShortId],
-        ),
-      ];
+    test(
+      'phase 2 harness: PK full import after upgradeAndKeep PRESERVES the '
+      'cleared deterministic-id tombstones (F10 — no in-place rebuild)',
+      () async {
+        const pkAliceShortId = 'aaaaa';
+        const pkBobShortId = 'bbbbb';
+        const pkAliceUuid = '11111111-1111-4111-8111-111111111111';
+        const pkBobUuid = '22222222-2222-4222-8222-222222222222';
+        const sw1Id = 'pk-switch-1';
+        const sw2Id = 'pk-switch-2';
+        const sw3Id = 'pk-switch-3';
+        const sw4Id = 'pk-switch-4';
+        final sw1Time = DateTime.utc(2026, 4, 3, 8);
+        final sw2Time = DateTime.utc(2026, 4, 3, 9);
+        final sw3Time = DateTime.utc(2026, 4, 3, 10);
+        final sw4Time = DateTime.utc(2026, 4, 3, 11);
+        const pkMembers = [
+          PKMember(id: pkAliceShortId, uuid: pkAliceUuid, name: 'PK Alice'),
+          PKMember(id: pkBobShortId, uuid: pkBobUuid, name: 'PK Bob'),
+        ];
+        final pkSwitchesNewestFirst = [
+          PKSwitch(id: sw4Id, timestamp: sw4Time, members: const []),
+          PKSwitch(
+            id: sw3Id,
+            timestamp: sw3Time,
+            members: const [pkBobShortId],
+          ),
+          PKSwitch(
+            id: sw2Id,
+            timestamp: sw2Time,
+            members: const [pkAliceShortId, pkBobShortId],
+          ),
+          PKSwitch(
+            id: sw1Id,
+            timestamp: sw1Time,
+            members: const [pkAliceShortId],
+          ),
+        ];
 
-      final firstClient = _PkMigrationFakeClient(
-        members: pkMembers,
-        switchesNewestFirst: pkSwitchesNewestFirst,
-      );
-      await _makePkImportService(db, firstClient).performOneTimeFullImport();
+        final firstClient = _PkMigrationFakeClient(
+          members: pkMembers,
+          switchesNewestFirst: pkSwitchesNewestFirst,
+        );
+        await _makePkImportService(db, firstClient).performOneTimeFullImport();
 
-      final members = await db.membersDao.getAllMembers();
-      final aliceLocalId = members
-          .singleWhere((m) => m.pluralkitUuid == pkAliceUuid)
-          .id;
-      final bobLocalId = members
-          .singleWhere((m) => m.pluralkitUuid == pkBobUuid)
-          .id;
+        final members = await db.membersDao.getAllMembers();
+        final aliceLocalId = members
+            .singleWhere((m) => m.pluralkitUuid == pkAliceUuid)
+            .id;
+        final bobLocalId = members
+            .singleWhere((m) => m.pluralkitUuid == pkBobUuid)
+            .id;
 
-      final aliceRowId = derivePkSessionId(sw1Id, pkAliceUuid);
-      final bobRowId = derivePkSessionId(sw2Id, pkBobUuid);
-      final nonEntrantAliceAtSw2 = derivePkSessionId(sw2Id, pkAliceUuid);
+        final aliceRowId = derivePkSessionId(sw1Id, pkAliceUuid);
+        final bobRowId = derivePkSessionId(sw2Id, pkBobUuid);
+        final nonEntrantAliceAtSw2 = derivePkSessionId(sw2Id, pkAliceUuid);
 
-      final importedRows = await db.frontingSessionsDao.getAllSessions();
-      final importedById = {for (final row in importedRows) row.id: row};
-      expect(importedById[aliceRowId]?.memberId, aliceLocalId);
-      expect(importedById[aliceRowId]?.startTime.toUtc(), sw1Time);
-      expect(importedById[aliceRowId]?.endTime?.toUtc(), sw3Time);
-      expect(importedById[bobRowId]?.memberId, bobLocalId);
-      expect(importedById[bobRowId]?.startTime.toUtc(), sw2Time);
-      expect(importedById[bobRowId]?.endTime?.toUtc(), sw4Time);
-      expect(importedById, isNot(contains(nonEntrantAliceAtSw2)));
+        final importedRows = await db.frontingSessionsDao.getAllSessions();
+        final importedById = {for (final row in importedRows) row.id: row};
+        expect(importedById[aliceRowId]?.memberId, aliceLocalId);
+        expect(importedById[aliceRowId]?.startTime.toUtc(), sw1Time);
+        expect(importedById[aliceRowId]?.endTime?.toUtc(), sw3Time);
+        expect(importedById[bobRowId]?.memberId, bobLocalId);
+        expect(importedById[bobRowId]?.startTime.toUtc(), sw2Time);
+        expect(importedById[bobRowId]?.endTime?.toUtc(), sw4Time);
+        expect(importedById, isNot(contains(nonEntrantAliceAtSw2)));
 
-      const nativeMember = 'phase2-pk-native-member';
-      const nativeSession = 'phase2-pk-native-session';
-      await _seedMember(db, nativeMember);
-      await _seedSession(
-        db,
-        id: nativeSession,
-        startTime: DateTime.utc(2026, 4, 4, 8),
-        endTime: DateTime.utc(2026, 4, 4, 9),
-        memberId: nativeMember,
-      );
+        const nativeMember = 'phase2-pk-native-member';
+        const nativeSession = 'phase2-pk-native-session';
+        await _seedMember(db, nativeMember);
+        await _seedSession(
+          db,
+          id: nativeSession,
+          startTime: DateTime.utc(2026, 4, 4, 8),
+          endTime: DateTime.utc(2026, 4, 4, 9),
+          memberId: nativeMember,
+        );
 
-      final svc = _makeService(db, exportService);
-      final result = await svc.runMigration(
-        mode: MigrationMode.upgradeAndKeep,
-        role: DeviceRole.solo,
-        shareFile: _noopShare,
-      );
+        final svc = _makeService(db, exportService);
+        final result = await svc.runMigration(
+          mode: MigrationMode.upgradeAndKeep,
+          role: DeviceRole.solo,
+          shareFile: _noopShare,
+        );
 
-      expect(result.outcome, MigrationOutcome.success);
-      expect(result.pkRowsDeleted, 2);
-      expect(result.nativeRowsMigrated, 1);
-      expect(result.spRowsMigrated, 0);
-      expect(result.orphanRowsAssignedToSentinel, 0);
+        expect(result.outcome, MigrationOutcome.success);
+        expect(result.pkRowsDeleted, 2);
+        expect(result.nativeRowsMigrated, 1);
+        expect(result.spRowsMigrated, 0);
+        expect(result.orphanRowsAssignedToSentinel, 0);
 
-      final afterMigrationRows = await db.frontingSessionsDao.getAllSessions();
-      final afterMigrationById = {
-        for (final row in afterMigrationRows) row.id: row,
-      };
-      expect(afterMigrationById[nativeSession]?.memberId, nativeMember);
-      expect(
-        afterMigrationRows.where((row) => row.pluralkitUuid != null),
-        isEmpty,
-      );
+        final afterMigrationRows = await db.frontingSessionsDao
+            .getAllSessions();
+        final afterMigrationById = {
+          for (final row in afterMigrationRows) row.id: row,
+        };
+        expect(afterMigrationById[nativeSession]?.memberId, nativeMember);
+        expect(
+          afterMigrationRows.where((row) => row.pluralkitUuid != null),
+          isEmpty,
+        );
 
-      // F10: a corrective re-import after migration NO LONGER rebuilds the
-      // cleared PK rows IN PLACE. The migration left a tombstone at each
-      // deterministic det(switch, member) id (link cleared first, per the C1
-      // idiom), and is_deleted is absorbing in the deployed CRDT merge layer:
-      // flipping it back to false would diverge this device from every peer
-      // until the pruner hard-deletes the row. So the second import finds those
-      // tombstones via getSessionById and PRESERVES them. The diff sweep then
-      // re-derives the surviving presence under DIFFERENT (un-burned)
-      // det(switch, member) ids — the sanctioned "re-create under a fresh id"
-      // recovery — rather than touching the burned ids.
-      final secondClient = _PkMigrationFakeClient(
-        members: pkMembers,
-        switchesNewestFirst: pkSwitchesNewestFirst,
-      );
-      await _makePkImportService(db, secondClient).performOneTimeFullImport();
+        // F10: a corrective re-import after migration NO LONGER rebuilds the
+        // cleared PK rows IN PLACE. The migration left a tombstone at each
+        // deterministic det(switch, member) id (link cleared first, per the C1
+        // idiom), and is_deleted is absorbing in the deployed CRDT merge layer:
+        // flipping it back to false would diverge this device from every peer
+        // until the pruner hard-deletes the row. So the second import finds those
+        // tombstones via getSessionById and PRESERVES them. The diff sweep then
+        // re-derives the surviving presence under DIFFERENT (un-burned)
+        // det(switch, member) ids — the sanctioned "re-create under a fresh id"
+        // recovery — rather than touching the burned ids.
+        final secondClient = _PkMigrationFakeClient(
+          members: pkMembers,
+          switchesNewestFirst: pkSwitchesNewestFirst,
+        );
+        await _makePkImportService(db, secondClient).performOneTimeFullImport();
 
-      // The two burned deterministic ids stay tombstoned forever — they are
-      // never revived in place and never written to again.
-      final allRows = await db.frontingSessionsDao
-          .getAllSessionsIncludingDeleted();
-      final allById = {for (final row in allRows) row.id: row};
-      expect(allById[aliceRowId]?.isDeleted, isTrue,
-          reason: 'F10: burned det(sw1, alice) id stays a terminal tombstone');
-      expect(allById[bobRowId]?.isDeleted, isTrue,
-          reason: 'F10: burned det(sw2, bob) id stays a terminal tombstone');
-      final allIds = allRows.map((row) => row.id).toList();
-      expect(allIds.toSet(), hasLength(allIds.length));
-      expect(allRows.where((row) => row.id == aliceRowId), hasLength(1));
-      expect(allRows.where((row) => row.id == bobRowId), hasLength(1));
+        // The two burned deterministic ids stay tombstoned forever — they are
+        // never revived in place and never written to again.
+        final allRows = await db.frontingSessionsDao
+            .getAllSessionsIncludingDeleted();
+        final allById = {for (final row in allRows) row.id: row};
+        expect(
+          allById[aliceRowId]?.isDeleted,
+          isTrue,
+          reason: 'F10: burned det(sw1, alice) id stays a terminal tombstone',
+        );
+        expect(
+          allById[bobRowId]?.isDeleted,
+          isTrue,
+          reason: 'F10: burned det(sw2, bob) id stays a terminal tombstone',
+        );
+        final allIds = allRows.map((row) => row.id).toList();
+        expect(allIds.toSet(), hasLength(allIds.length));
+        expect(allRows.where((row) => row.id == aliceRowId), hasLength(1));
+        expect(allRows.where((row) => row.id == bobRowId), hasLength(1));
 
-      // The native session is untouched.
-      final liveRows = await db.frontingSessionsDao.getAllSessions();
-      final liveById = {for (final row in liveRows) row.id: row};
-      expect(liveById[nativeSession]?.memberId, nativeMember);
+        // The native session is untouched.
+        final liveRows = await db.frontingSessionsDao.getAllSessions();
+        final liveById = {for (final row in liveRows) row.id: row};
+        expect(liveById[nativeSession]?.memberId, nativeMember);
 
-      // F10 fresh-id recovery: because det(sw1, alice) and det(sw2, bob) are
-      // burned, the re-import re-anchors each member's surviving presence at
-      // the NEXT switch they front — fresh, un-burned det(switch, member) ids.
-      // Alice (sw1→sw3) re-anchors at det(sw2, alice); Bob (sw2→sw4) at
-      // det(sw3, bob). The burned ids are never touched.
-      final aliceFreshId = derivePkSessionId(sw2Id, pkAliceUuid); // == nonEntrantAliceAtSw2
-      final bobFreshId = derivePkSessionId(sw3Id, pkBobUuid);
-      expect(nonEntrantAliceAtSw2, aliceFreshId);
-      expect(liveById[aliceFreshId]?.memberId, aliceLocalId);
-      expect(liveById[aliceFreshId]?.isDeleted, isFalse);
-      expect(liveById[bobFreshId]?.memberId, bobLocalId);
-      expect(liveById[bobFreshId]?.isDeleted, isFalse);
+        // F10 fresh-id recovery: because det(sw1, alice) and det(sw2, bob) are
+        // burned, the re-import re-anchors each member's surviving presence at
+        // the NEXT switch they front — fresh, un-burned det(switch, member) ids.
+        // Alice (sw1→sw3) re-anchors at det(sw2, alice); Bob (sw2→sw4) at
+        // det(sw3, bob). The burned ids are never touched.
+        final aliceFreshId = derivePkSessionId(
+          sw2Id,
+          pkAliceUuid,
+        ); // == nonEntrantAliceAtSw2
+        final bobFreshId = derivePkSessionId(sw3Id, pkBobUuid);
+        expect(nonEntrantAliceAtSw2, aliceFreshId);
+        expect(liveById[aliceFreshId]?.memberId, aliceLocalId);
+        expect(liveById[aliceFreshId]?.isDeleted, isFalse);
+        expect(liveById[bobFreshId]?.memberId, bobLocalId);
+        expect(liveById[bobFreshId]?.isDeleted, isFalse);
 
-      final livePkRowIds = liveRows
-          .where((row) => row.pluralkitUuid != null)
-          .map((row) => row.id)
-          .toSet();
-      expect(livePkRowIds, isNot(contains(aliceRowId)),
-          reason: 'F10: no live row at the burned det(sw1, alice) id');
-      expect(livePkRowIds, isNot(contains(bobRowId)),
-          reason: 'F10: no live row at the burned det(sw2, bob) id');
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        final livePkRowIds = liveRows
+            .where((row) => row.pluralkitUuid != null)
+            .map((row) => row.id)
+            .toSet();
+        expect(
+          livePkRowIds,
+          isNot(contains(aliceRowId)),
+          reason: 'F10: no live row at the burned det(sw1, alice) id',
+        );
+        expect(
+          livePkRowIds,
+          isNot(contains(bobRowId)),
+          reason: 'F10: no live row at the burned det(sw2, bob) id',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     // -------------------------------------------------------------------
     // startFresh - wipes everything, no sentinel
@@ -2849,9 +2893,8 @@ class _PinnedRandom implements Random {
 /// transaction - used to verify rollback semantics (settings unchanged,
 /// PRISM1 file preserved).
 class _ThrowingMemberRepository implements MemberRepository {
-  
   Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
-  
+
   Future<void> clearCreatePushStartedAt(String id) async {}
   _ThrowingMemberRepository(this._inner);
 
@@ -3173,9 +3216,8 @@ class _SuppressionAssertingFrontSessionCommentsRepository
 }
 
 class _SuppressionAssertingMemberRepository implements MemberRepository {
-  
   Future<void> stampCreatePushStartedAt(String id, int timestampMs) async {}
-  
+
   Future<void> clearCreatePushStartedAt(String id) async {}
   _SuppressionAssertingMemberRepository(this._inner);
   final MemberRepository _inner;

@@ -25,7 +25,17 @@ import 'package:prism_plurality/domain/repositories/conversation_categories_repo
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
+import 'package:prism_plurality/features/data_management/services/encrypted_export_file_writer.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+
+/// Writes a PRISM1 encrypted export and returns the number of bytes written.
+///
+/// The production default is [writeEncryptedExportFileOffMain], which performs
+/// `V1Export.toJson()`, scrypt, AES-GCM, and the media streaming on a worker
+/// isolate. Tests inject a recording/failing implementation to assert the
+/// boundary and the cleanup contract without paying for a real worker.
+typedef EncryptedExportWriter =
+    Future<int> Function(EncryptedExportWriteTask task);
 
 class EncryptedExportFile {
   const EncryptedExportFile({
@@ -60,10 +70,13 @@ class DataExportService {
     required this.mediaAttachmentsDao,
     Future<Directory> Function()? cacheDirectoryProvider,
     Future<Directory> Function()? appSupportDirectoryProvider,
+    EncryptedExportWriter? encryptedExportWriter,
   }) : _cacheDirectoryProvider =
            cacheDirectoryProvider ?? getApplicationCacheDirectory,
        _appSupportDirectoryProvider =
-           appSupportDirectoryProvider ?? getApplicationSupportDirectory;
+           appSupportDirectoryProvider ?? getApplicationSupportDirectory,
+       _encryptedExportWriter =
+           encryptedExportWriter ?? writeEncryptedExportFileOffMain;
 
   /// Drift handle. Required so the PRISM1 migration-time export can read
   /// `co_fronter_ids`, `pk_member_ids_json`, and the `session_id` column
@@ -91,6 +104,10 @@ class DataExportService {
   final MediaAttachmentsDao mediaAttachmentsDao;
   final Future<Directory> Function() _cacheDirectoryProvider;
   final Future<Directory> Function() _appSupportDirectoryProvider;
+
+  /// Owns the PRISM1 build/encrypt/write stage. Production default runs it on
+  /// a worker isolate; see [EncryptedExportWriter].
+  final EncryptedExportWriter _encryptedExportWriter;
 
   /// Cache of `(table, column) -> exists` results so repeat lookups during
   /// a single export don't re-issue `PRAGMA table_info` per call. Issue #40
@@ -280,8 +297,8 @@ class DataExportService {
     // verbatim so codec-encoded values round-trip without per-type handling.
     final v1AppPreferences =
         (await (db.select(
-          db.appPreferenceValues,
-        )..where((t) => t.isDeleted.equals(false))).get())
+              db.appPreferenceValues,
+            )..where((t) => t.isDeleted.equals(false))).get())
             .map(
               (r) => V1AppPreference(
                 key: r.key,
@@ -362,6 +379,13 @@ class DataExportService {
   /// See [buildExport] for the meaning of [includeLegacyFields].
   ///
   /// [targetDirectory] overrides the cache destination.
+  ///
+  /// Only the database fetch, the synchronous model/base64 assembly, the media
+  /// stat collection, and the final length check run on the calling (main)
+  /// isolate. The compact-JSON construction, scrypt key derivation, AES-GCM
+  /// encryption, and media streaming all run in the encrypted-export worker
+  /// (see [EncryptedExportWriter]) — the sampled ANR stack
+  /// (`JsonUtf8Encoder → _GcmJsonEncryptingSink → ExportCrypto.writeEncryptedFile`).
   Future<EncryptedExportFile> buildEncryptedExportFile({
     required String password,
     bool includeLegacyFields = false,
@@ -378,16 +402,25 @@ class DataExportService {
         fileName ??
         'Prism-Export-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.prism';
     final file = File(p.join(outputDir.path, resolvedName));
-    final sink = file.openWrite();
+
+    final task = EncryptedExportWriteTask(
+      export: export,
+      mediaBlobs: [
+        for (final blob in mediaBlobs)
+          ExportMediaBlobTask(
+            mediaId: blob.mediaId,
+            path: blob.file.path,
+            lengthBytes: blob.lengthBytes,
+            modifiedMillisecondsSinceEpoch:
+                blob.modified.millisecondsSinceEpoch,
+          ),
+      ],
+      password: password,
+      outputPath: file.path,
+    );
 
     try {
-      final sizeBytes = await ExportCrypto.writeEncryptedFile(
-        jsonValue: export.toJson(),
-        mediaBlobs: mediaBlobs,
-        password: password,
-        sink: sink,
-      );
-      await sink.close();
+      final sizeBytes = await _encryptedExportWriter(task);
       final actualSize = await file.length();
       if (actualSize != sizeBytes) {
         throw StateError(
@@ -400,9 +433,8 @@ class DataExportService {
         sizeBytes: actualSize,
       );
     } catch (_) {
-      try {
-        await sink.close();
-      } catch (_) {}
+      // The worker owns the sink and closes it before rethrowing, so cleanup
+      // here is file deletion only.
       try {
         if (await file.exists()) {
           await file.delete();
