@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/features/fronting/utils/session_time_bounds.dart';
 import 'package:prism_plurality/core/mutations/app_failure.dart';
@@ -1098,40 +1099,73 @@ class FrontingMutationService {
   /// emits a synced CRDT op — running this on one device converges every peer.
   /// Safe to run repeatedly: a second run finds at most one open per member and
   /// no strict overlaps, so it emits nothing.
-  Future<MutationResult<FrontingRepairSummary>>
-  repairMemberSessionInvariants() {
+  ///
+  /// The pass is linear in the session count after the per-member sorts. Each
+  /// member's duplicate opens resolve their "next session" and their own slot in
+  /// the sorted list from one index built in O(S), so no per-open scan remains —
+  /// not even for a member whose opens all share a start time. The event loop
+  /// still gets a turn every [frontingRepairMemberYieldInterval] members, so a
+  /// device with a very long history cannot starve startup streaming while the
+  /// repair runs. [betweenMembers] replaces that yield, which lets tests assert
+  /// cooperation deterministically instead of timing it.
+  Future<MutationResult<FrontingRepairSummary>> repairMemberSessionInvariants({
+    Future<void> Function()? betweenMembers,
+  }) {
     return _mutationRunner.run<FrontingRepairSummary>(
       actionLabel: 'Repair fronting sessions',
-      action: () async {
-        final all = await _repository.getFrontingSessions();
-        final byMember = <String, List<FrontingSession>>{};
-        for (final s in all) {
-          final memberId = s.memberId;
-          if (memberId == null) continue;
-          (byMember[memberId] ??= <FrontingSession>[]).add(s);
-        }
+      action: () => _repairMemberSessionInvariants(
+        betweenMembers: betweenMembers ?? _yieldToEventLoop,
+      ),
+    );
+  }
 
-        var openDuplicatesClosed = 0;
-        var overlapsMerged = 0;
-        final affected = <String>{};
-        for (final memberId in byMember.keys) {
-          final collapse = await _collapseOpenDuplicates(
-            memberId,
-            byMember[memberId]!,
-          );
-          // Avoid per-member DB re-reads on large histories.
-          final merged = await _mergeOverlappingSessions(collapse.sessions);
-          openDuplicatesClosed += collapse.closed;
-          overlapsMerged += merged;
-          if (collapse.closed > 0 || merged > 0) affected.add(memberId);
-        }
+  /// How many members may be repaired before the repair hands the event loop a
+  /// turn. Small enough that one chunk cannot monopolize the isolate, large
+  /// enough that the yield's timer cost stays negligible against the member
+  /// work it punctuates.
+  static const int frontingRepairMemberYieldInterval = 32;
 
-        return FrontingRepairSummary(
-          openDuplicatesClosed: openDuplicatesClosed,
-          overlapsMerged: overlapsMerged,
-          membersAffected: affected.length,
-        );
-      },
+  /// Returns to the event loop so frame callbacks and other queued work get to
+  /// run between chunks of members.
+  Future<void> _yieldToEventLoop() => Future<void>.delayed(Duration.zero);
+
+  Future<FrontingRepairSummary> _repairMemberSessionInvariants({
+    required Future<void> Function() betweenMembers,
+  }) async {
+    final all = await _repository.getFrontingSessions();
+    final byMember = <String, List<FrontingSession>>{};
+    for (final s in all) {
+      final memberId = s.memberId;
+      if (memberId == null) continue;
+      (byMember[memberId] ??= <FrontingSession>[]).add(s);
+    }
+
+    var openDuplicatesClosed = 0;
+    var overlapsMerged = 0;
+    final affected = <String>{};
+    var membersSinceYield = 0;
+    for (final memberId in byMember.keys) {
+      if (membersSinceYield >= frontingRepairMemberYieldInterval) {
+        membersSinceYield = 0;
+        await betweenMembers();
+      }
+      membersSinceYield++;
+
+      final collapse = await _collapseOpenDuplicates(
+        memberId,
+        byMember[memberId]!,
+      );
+      // Avoid per-member DB re-reads on large histories.
+      final merged = await _mergeOverlappingSessions(collapse.sessions);
+      openDuplicatesClosed += collapse.closed;
+      overlapsMerged += merged;
+      if (collapse.closed > 0 || merged > 0) affected.add(memberId);
+    }
+
+    return FrontingRepairSummary(
+      openDuplicatesClosed: openDuplicatesClosed,
+      overlapsMerged: overlapsMerged,
+      membersAffected: affected.length,
     );
   }
 
@@ -1139,6 +1173,12 @@ class FrontingMutationService {
   /// most-recently started open and closes each earlier open at the start of
   /// the next session in [memberSessions] (clamped to a strictly positive
   /// duration). Returns the repaired snapshot for the overlap pass.
+  ///
+  /// Cost is **O(S log S)**, dominated entirely by the sort. Both lookups the
+  /// pass needs — the row's slot in the sorted list and the start of its next
+  /// session — come from one [NextStartLookup] built in O(S), so the pass itself
+  /// is O(S) and stays linear even for a member with S duplicate opens sharing
+  /// one timestamp (previously O(S²) for that shape).
   Future<({int closed, List<FrontingSession> sessions})>
   _collapseOpenDuplicates(
     String memberId,
@@ -1152,27 +1192,23 @@ class FrontingMutationService {
     if (opens.length <= 1) return (closed: 0, sessions: sorted);
 
     final keep = opens.last; // most-recently started
+    final index = NextStartLookup.of(sorted);
+
     var closed = 0;
     for (final open in opens) {
       if (open.id == keep.id) continue;
       // Close at the start of the next session that begins after this open —
-      // the moment the member's next (duplicate) front took over.
-      DateTime? nextStart;
-      for (final other in sorted) {
-        if (other.id == open.id) continue;
-        if (other.startTime.isAfter(open.startTime) &&
-            (nextStart == null || other.startTime.isBefore(nextStart))) {
-          nextStart = other.startTime;
-        }
-      }
-      final end = nextStart ?? keep.startTime;
-      final safeEnd = end.isAfter(open.startTime)
-          ? end
+      // the moment the member's next (duplicate) front took over. Falls back to
+      // the kept open's start so the stale open still ends where the surviving
+      // front began.
+      final nextStart = index.after(open.id) ?? keep.startTime;
+      final safeEnd = nextStart.isAfter(open.startTime)
+          ? nextStart
           : open.startTime.add(const Duration(seconds: 1));
       await _repository.endSession(open.id, safeEnd);
-      final index = sorted.indexWhere((s) => s.id == open.id);
-      if (index >= 0) {
-        sorted[index] = sorted[index].copyWith(endTime: safeEnd);
+      final slot = index.indexOf(open.id);
+      if (slot != null) {
+        sorted[slot] = sorted[slot].copyWith(endTime: safeEnd);
       }
       closed++;
     }
@@ -1285,4 +1321,63 @@ class FrontingMutationService {
     final bE = bEnd ?? farFutureSessionEnd;
     return aStart.isBefore(bE) && bStart.isBefore(aE);
   }
+}
+
+/// For each row id: the row's position in the sorted list, and the start of the
+/// next session that begins strictly after that row's start time.
+///
+/// The startup repair builds one of these per member, so every duplicate open
+/// resolves itself and its successor in O(1) and the collapse pass costs O(S)
+/// after the sort. The pathological shape — many opens sharing the last
+/// timestamp — previously paid O(S) twice per open, which is why the successor
+/// map explicitly stores `null` for "no successor" rather than leaving the key
+/// absent: an absent key can never fall through to a scan.
+///
+/// Visible for testing so the O(1) guarantee can be asserted by counting list
+/// reads directly instead of inferring it from a timing assertion.
+@visibleForTesting
+class NextStartLookup {
+  NextStartLookup._(this._indexById, this._nextStartById);
+
+  /// [sorted] must be ordered by `(startTime, id)`, the order
+  /// [FrontingMutationService] sorts members' sessions into before collapsing.
+  factory NextStartLookup.of(List<FrontingSession> sorted) {
+    // Ids are primary keys, so a later row normally cannot share one; deriving
+    // the map from the rows actually present keeps a duplicated id behaving like
+    // the old "index of the first matching row" lookup rather than
+    // mis-targeting the last one.
+    final indexById = <String, int>{};
+    for (var i = 0; i < sorted.length; i++) {
+      indexById.putIfAbsent(sorted[i].id, () => i);
+    }
+
+    // One backward scan records the successor of every distinct start time. A
+    // run of equal timestamps shares the answer, and the final run maps to null
+    // — an explicit entry, not a missing key.
+    final nextStartByStart = <DateTime, DateTime?>{};
+    DateTime? seenLaterStart;
+    for (var i = sorted.length - 1; i >= 0; i--) {
+      final start = sorted[i].startTime;
+      if (nextStartByStart.containsKey(start)) continue;
+      nextStartByStart[start] = seenLaterStart;
+      seenLaterStart = start;
+    }
+
+    return NextStartLookup._(indexById, {
+      // Rows sharing a start time inherit that run's successor.
+      for (final entry in indexById.entries)
+        entry.key: nextStartByStart[sorted[entry.value].startTime],
+    });
+  }
+
+  final Map<String, int> _indexById;
+  final Map<String, DateTime?> _nextStartById;
+
+  /// Index of [id] in the sorted rows, or `null` when the id is absent.
+  int? indexOf(String id) => _indexById[id];
+
+  /// Earliest start time strictly after the row [id]'s own start, or `null` when
+  /// no row starts later. An unknown [id] also yields `null`, which is what the
+  /// per-open rescan returned for it.
+  DateTime? after(String id) => _nextStartById[id];
 }
