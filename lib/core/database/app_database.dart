@@ -144,6 +144,7 @@ class AppDatabase extends _$AppDatabase {
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createCurrentIndexes();
+      await _createBioMediaReconcileIndexIfSupported();
       await _createMemberBoardPostIndexes();
       await _createPkUniqueIndexes();
       // Fresh v7 install: jump straight to composite + orphan fronting indexes.
@@ -180,6 +181,7 @@ class AppDatabase extends _$AppDatabase {
       // are missing. No-op for correctly-migrated and fresh databases.
       await _reconcileExpectedColumns();
       await _createFirstRenderIndexes();
+      await _createBioMediaReconcileIndexIfSupported();
       // F20: re-ensure the PK uniqueness backstop indexes idempotently. A DB
       // that reached currentSchemaVersion via renumbered migrations can have its
       // columns healed but these indexes absent (migrations don't re-run when
@@ -412,7 +414,11 @@ class AppDatabase extends _$AppDatabase {
           memberGroupEntries,
           memberGroupEntries.pkMemberUuid,
         );
-        await _addColumnIfAbsent(migrator, memberGroups, memberGroups.syncSuppressed);
+        await _addColumnIfAbsent(
+          migrator,
+          memberGroups,
+          memberGroups.syncSuppressed,
+        );
         await _addColumnIfAbsent(
           migrator,
           memberGroups,
@@ -517,46 +523,46 @@ class AppDatabase extends _$AppDatabase {
         // in one transaction, so a failure mid-step rolls the partial v7 schema
         // back to v6 — the inline transaction this block used to open is folded
         // into the runner.
-          // New column: members.is_always_fronting (§2.3)
-          await _addColumnIfAbsent(migrator, members, members.isAlwaysFronting);
+        // New column: members.is_always_fronting (§2.3)
+        await _addColumnIfAbsent(migrator, members, members.isAlwaysFronting);
 
-          // New column: system_settings.pending_fronting_migration_mode (§4.1)
-          // Column default is 'complete' (fresh-install semantics); immediately
-          // upsert the singleton row with 'notStarted' so that users upgrading
-          // from v6 see the migration modal.
-          //
-          // We use INSERT ... ON CONFLICT DO UPDATE rather than a plain UPDATE
-          // because a test (or a very early-lifecycle production DB) might open
-          // without ever calling getSettings() first, leaving the table empty.
-          // The upsert creates the row when absent and updates it when present.
-          await _addColumnIfAbsent(
+        // New column: system_settings.pending_fronting_migration_mode (§4.1)
+        // Column default is 'complete' (fresh-install semantics); immediately
+        // upsert the singleton row with 'notStarted' so that users upgrading
+        // from v6 see the migration modal.
+        //
+        // We use INSERT ... ON CONFLICT DO UPDATE rather than a plain UPDATE
+        // because a test (or a very early-lifecycle production DB) might open
+        // without ever calling getSettings() first, leaving the table empty.
+        // The upsert creates the row when absent and updates it when present.
+        await _addColumnIfAbsent(
           migrator,
-            systemSettingsTable,
-            systemSettingsTable.pendingFrontingMigrationMode,
-          );
-          // Cleanup substate for the in-progress migration window. Folded
-          // into the v6→v7 block alongside the mode column it
-          // disambiguates. Defaults to '' (no destructive post-tx step has
-          // run yet); the migration service flips it to 'resetDone'
-          // between the Rust reset and the remaining post-tx steps so
-          // resumeCleanup() can distinguish "must run reset" from "reset
-          // already succeeded — skip it."
-          await _addColumnIfAbsent(
+          systemSettingsTable,
+          systemSettingsTable.pendingFrontingMigrationMode,
+        );
+        // Cleanup substate for the in-progress migration window. Folded
+        // into the v6→v7 block alongside the mode column it
+        // disambiguates. Defaults to '' (no destructive post-tx step has
+        // run yet); the migration service flips it to 'resetDone'
+        // between the Rust reset and the remaining post-tx steps so
+        // resumeCleanup() can distinguish "must run reset" from "reset
+        // already succeeded — skip it."
+        await _addColumnIfAbsent(
           migrator,
-            systemSettingsTable,
-            systemSettingsTable.pendingFrontingMigrationCleanupSubstate,
-          );
-          await customStatement(
-            'INSERT INTO system_settings (id, pending_fronting_migration_mode) '
-            "VALUES ('singleton', 'notStarted') "
-            'ON CONFLICT(id) DO UPDATE SET '
-            "pending_fronting_migration_mode = 'notStarted'",
-          );
+          systemSettingsTable,
+          systemSettingsTable.pendingFrontingMigrationCleanupSubstate,
+        );
+        await customStatement(
+          'INSERT INTO system_settings (id, pending_fronting_migration_mode) '
+          "VALUES ('singleton', 'notStarted') "
+          'ON CONFLICT(id) DO UPDATE SET '
+          "pending_fronting_migration_mode = 'notStarted'",
+        );
 
-          // Create the migration-blockers side table used by
-          // detect-and-refuse. Using IF NOT EXISTS so a partial-failure
-          // retry is safe.
-          await customStatement('''
+        // Create the migration-blockers side table used by
+        // detect-and-refuse. Using IF NOT EXISTS so a partial-failure
+        // retry is safe.
+        await customStatement('''
             CREATE TABLE IF NOT EXISTS _v7_migration_blockers (
               table_name TEXT NOT NULL,
               row_id     TEXT NOT NULL,
@@ -565,25 +571,25 @@ class AppDatabase extends _$AppDatabase {
             )
           ''');
 
-          // Pre-flight duplicate detection before creating the composite unique
-          // index (§3.7 + §4.1).
-          //
-          // The old single-column unique index on pluralkit_uuid prevents
-          // duplicate (uuid, member_id) pairs by construction — a repeated uuid
-          // implies a repeated (uuid, member_id) unless member_id differs, which
-          // the old index can't catch.  In practice duplicates should be absent,
-          // but rather than delete data at Phase 1 launch (before the Phase 5
-          // PRISM1 backup), we detect-and-refuse: log any blockers, set the
-          // migration mode to 'blocked', and skip creating the composite index
-          // so the app can surface the problem to the user.
-          //
-          // Check both partitions:
-          //   (a) resolved rows:  (pluralkit_uuid, member_id) where member_id IS NOT NULL
-          //   (b) orphan rows:    (pluralkit_uuid)            where member_id IS NULL
-          final now = DateTime.now().millisecondsSinceEpoch;
+        // Pre-flight duplicate detection before creating the composite unique
+        // index (§3.7 + §4.1).
+        //
+        // The old single-column unique index on pluralkit_uuid prevents
+        // duplicate (uuid, member_id) pairs by construction — a repeated uuid
+        // implies a repeated (uuid, member_id) unless member_id differs, which
+        // the old index can't catch.  In practice duplicates should be absent,
+        // but rather than delete data at Phase 1 launch (before the Phase 5
+        // PRISM1 backup), we detect-and-refuse: log any blockers, set the
+        // migration mode to 'blocked', and skip creating the composite index
+        // so the app can surface the problem to the user.
+        //
+        // Check both partitions:
+        //   (a) resolved rows:  (pluralkit_uuid, member_id) where member_id IS NOT NULL
+        //   (b) orphan rows:    (pluralkit_uuid)            where member_id IS NULL
+        final now = DateTime.now().millisecondsSinceEpoch;
 
-          // (a) Resolved duplicate pairs
-          final resolvedDups = await customSelect('''
+        // (a) Resolved duplicate pairs
+        final resolvedDups = await customSelect('''
             SELECT id
             FROM fronting_sessions
             WHERE pluralkit_uuid IS NOT NULL AND member_id IS NOT NULL
@@ -596,8 +602,8 @@ class AppDatabase extends _$AppDatabase {
               )
           ''').get();
 
-          // (b) Orphan duplicate rows (same uuid, both member_id=null)
-          final orphanDups = await customSelect('''
+        // (b) Orphan duplicate rows (same uuid, both member_id=null)
+        final orphanDups = await customSelect('''
             SELECT id
             FROM fronting_sessions
             WHERE pluralkit_uuid IS NOT NULL AND member_id IS NULL
@@ -610,64 +616,58 @@ class AppDatabase extends _$AppDatabase {
               )
           ''').get();
 
-          final allDups = [...resolvedDups, ...orphanDups];
+        final allDups = [...resolvedDups, ...orphanDups];
 
-          if (allDups.isNotEmpty) {
-            // Log every affected row id to the blocker side table.
-            for (final row in allDups) {
-              final rowId = row.read<String>('id');
-              await customStatement(
-                'INSERT INTO _v7_migration_blockers '
-                '(table_name, row_id, reason, detected_at) '
-                'VALUES (?, ?, ?, ?)',
-                [
-                  'fronting_sessions',
-                  rowId,
-                  'duplicate_pk_uuid_member_id',
-                  now,
-                ],
-              );
-            }
-            // Flip migration mode to 'blocked' so Phase 5 startup surfaces this
-            // to the user rather than silently leaving the index absent.
+        if (allDups.isNotEmpty) {
+          // Log every affected row id to the blocker side table.
+          for (final row in allDups) {
+            final rowId = row.read<String>('id');
             await customStatement(
-              'INSERT INTO system_settings (id, pending_fronting_migration_mode) '
-              "VALUES ('singleton', 'blocked') "
-              'ON CONFLICT(id) DO UPDATE SET '
-              "pending_fronting_migration_mode = 'blocked'",
+              'INSERT INTO _v7_migration_blockers '
+              '(table_name, row_id, reason, detected_at) '
+              'VALUES (?, ?, ?, ?)',
+              ['fronting_sessions', rowId, 'duplicate_pk_uuid_member_id', now],
             );
-            // Do NOT create the composite index.  On real v6→v7 upgrades from
-            // prior app builds, the old single-column index already exists and
-            // continues to enforce uuid uniqueness.  On synthetic v1→v7
-            // step-throughs (test fixtures only) the old index was never
-            // created — but Phase 5 gates writes to fronting_sessions until
-            // the user resolves the blocker, so unprotected blocked DBs never
-            // accept new duplicate inserts.
-          } else {
-            // No duplicates: safe to replace the old single-column index
-            // with the new composite + orphan pair.
-            await customStatement(
-              'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
-            );
-            await _createPkFrontingCompositeIndex();
-            await _createPkFrontingOrphanIndex();
           }
-
-          // Phase 4B: diff-sweep resume cursor for PluralKit sync (§2.6).
-          // Folded into v7 (was briefly a standalone v8 bump before any
-          // production data existed at v8).  Additive-only — two nullable
-          // columns; no data migration required.
-          await _addColumnIfAbsent(
-          migrator,
-            pluralKitSyncState,
-            pluralKitSyncState.switchCursorTimestamp,
+          // Flip migration mode to 'blocked' so Phase 5 startup surfaces this
+          // to the user rather than silently leaving the index absent.
+          await customStatement(
+            'INSERT INTO system_settings (id, pending_fronting_migration_mode) '
+            "VALUES ('singleton', 'blocked') "
+            'ON CONFLICT(id) DO UPDATE SET '
+            "pending_fronting_migration_mode = 'blocked'",
           );
-          await _addColumnIfAbsent(
-          migrator,
-            pluralKitSyncState,
-            pluralKitSyncState.switchCursorId,
+          // Do NOT create the composite index.  On real v6→v7 upgrades from
+          // prior app builds, the old single-column index already exists and
+          // continues to enforce uuid uniqueness.  On synthetic v1→v7
+          // step-throughs (test fixtures only) the old index was never
+          // created — but Phase 5 gates writes to fronting_sessions until
+          // the user resolves the blocker, so unprotected blocked DBs never
+          // accept new duplicate inserts.
+        } else {
+          // No duplicates: safe to replace the old single-column index
+          // with the new composite + orphan pair.
+          await customStatement(
+            'DROP INDEX IF EXISTS idx_fronting_sessions_pluralkit_uuid',
           );
+          await _createPkFrontingCompositeIndex();
+          await _createPkFrontingOrphanIndex();
+        }
 
+        // Phase 4B: diff-sweep resume cursor for PluralKit sync (§2.6).
+        // Folded into v7 (was briefly a standalone v8 bump before any
+        // production data existed at v8).  Additive-only — two nullable
+        // columns; no data migration required.
+        await _addColumnIfAbsent(
+          migrator,
+          pluralKitSyncState,
+          pluralKitSyncState.switchCursorTimestamp,
+        );
+        await _addColumnIfAbsent(
+          migrator,
+          pluralKitSyncState,
+          pluralKitSyncState.switchCursorId,
+        );
       },
     ),
     _MigrationStep(
@@ -722,9 +722,21 @@ class AppDatabase extends _$AppDatabase {
       apply: (migrator, to) async {
         // Member profile headers. Prism-owned headers and cached PluralKit
         // banners are stored as encrypted synced member blobs.
-        await _addColumnIfAbsent(migrator, members, members.profileHeaderSource);
-        await _addColumnIfAbsent(migrator, members, members.profileHeaderLayout);
-        await _addColumnIfAbsent(migrator, members, members.profileHeaderImageData);
+        await _addColumnIfAbsent(
+          migrator,
+          members,
+          members.profileHeaderSource,
+        );
+        await _addColumnIfAbsent(
+          migrator,
+          members,
+          members.profileHeaderLayout,
+        );
+        await _addColumnIfAbsent(
+          migrator,
+          members,
+          members.profileHeaderImageData,
+        );
         await _addColumnIfAbsent(migrator, members, members.pkBannerImageData);
         await _addColumnIfAbsent(migrator, members, members.pkBannerCachedUrl);
         // The historical `UPDATE members SET profile_header_source = 0 ...
@@ -740,7 +752,11 @@ class AppDatabase extends _$AppDatabase {
       apply: (migrator, to) async {
         // Per-profile banner visibility. Source/layout stay configured while
         // hidden so users can temporarily suppress a banner without losing it.
-        await _addColumnIfAbsent(migrator, members, members.profileHeaderVisible);
+        await _addColumnIfAbsent(
+          migrator,
+          members,
+          members.profileHeaderVisible,
+        );
       },
     ),
     _MigrationStep(
@@ -905,34 +921,38 @@ class AppDatabase extends _$AppDatabase {
         // instead of a dictionary range scan. The runner's per-step
         // transaction covers the drop+rebuild atomically, so a kill mid-step
         // never leaves search broken between the DROP and the next rebuild.
-          await customStatement(
-            'DROP TRIGGER IF EXISTS chat_messages_fts_insert',
-          );
-          await customStatement(
-            'DROP TRIGGER IF EXISTS chat_messages_fts_update',
-          );
-          await customStatement(
-            'DROP TRIGGER IF EXISTS chat_messages_fts_delete',
-          );
-          await customStatement('DROP TABLE IF EXISTS chat_messages_fts');
-          await _createChatMessagesFtsArtifacts();
-          await customStatement(
-            'INSERT INTO chat_messages_fts (content, message_id, conversation_id) '
-            'SELECT content, id, conversation_id FROM chat_messages '
-            "WHERE is_deleted = 0 AND is_system_message = 0 AND content != ''",
-          );
+        await customStatement(
+          'DROP TRIGGER IF EXISTS chat_messages_fts_insert',
+        );
+        await customStatement(
+          'DROP TRIGGER IF EXISTS chat_messages_fts_update',
+        );
+        await customStatement(
+          'DROP TRIGGER IF EXISTS chat_messages_fts_delete',
+        );
+        await customStatement('DROP TABLE IF EXISTS chat_messages_fts');
+        await _createChatMessagesFtsArtifacts();
+        await customStatement(
+          'INSERT INTO chat_messages_fts (content, message_id, conversation_id) '
+          'SELECT content, id, conversation_id FROM chat_messages '
+          "WHERE is_deleted = 0 AND is_system_message = 0 AND content != ''",
+        );
 
-          // Add member_group_entries.pending_pk_op for PluralKit bidirectional
-          // group membership sync. Local-only (NOT in prismSyncSchema). Default
-          // 'none' means existing rows are treated as already-synced — correct
-          // semantic since the column tracks fresh local intent. See
-          // docs/plans/pk-group-membership-push.md.
-          await _addColumnIfAbsent(
+        // Add member_group_entries.pending_pk_op for PluralKit bidirectional
+        // group membership sync. Local-only (NOT in prismSyncSchema). Default
+        // 'none' means existing rows are treated as already-synced — correct
+        // semantic since the column tracks fresh local intent. See
+        // docs/plans/pk-group-membership-push.md.
+        await _addColumnIfAbsent(
           migrator,
-            memberGroupEntries,
-            memberGroupEntries.pendingPkOp,
-          );
-          await _addColumnIfAbsent(migrator, members, members.pluralkitDisplayName);
+          memberGroupEntries,
+          memberGroupEntries.pendingPkOp,
+        );
+        await _addColumnIfAbsent(
+          migrator,
+          members,
+          members.pluralkitDisplayName,
+        );
       },
     ),
     _MigrationStep(
@@ -987,112 +1007,116 @@ class AppDatabase extends _$AppDatabase {
         // 0.9.0 production flatten: all schema additions since 0.8.4 ship as
         // one v21→v25 migration because no public build used the intermediate
         // dev-only versions.
-          // Group sort state. Backfill orders entries by SQLite `rowid` as a
-          // best-effort proxy for insertion order — no user has ever relied on
-          // a persistent within-group order before this migration. Dart loop
-          // instead of `ROW_NUMBER()` because non-INTEGER-PK rowids "might
-          // change" (https://www.sqlite.org/rowidtable.html).
-          await _addColumnIfAbsent(migrator, memberGroups, memberGroups.sortState);
+        // Group sort state. Backfill orders entries by SQLite `rowid` as a
+        // best-effort proxy for insertion order — no user has ever relied on
+        // a persistent within-group order before this migration. Dart loop
+        // instead of `ROW_NUMBER()` because non-INTEGER-PK rowids "might
+        // change" (https://www.sqlite.org/rowidtable.html).
+        await _addColumnIfAbsent(
+          migrator,
+          memberGroups,
+          memberGroups.sortState,
+        );
 
-          final groupRows = await customSelect(
-            'SELECT id FROM member_groups WHERE is_deleted = 0',
+        final groupRows = await customSelect(
+          'SELECT id FROM member_groups WHERE is_deleted = 0',
+        ).get();
+        for (final groupRow in groupRows) {
+          final groupId = groupRow.read<String>('id');
+          final entryRows = await customSelect(
+            'SELECT id FROM member_group_entries '
+            'WHERE group_id = ? AND is_deleted = 0 '
+            'ORDER BY rowid',
+            variables: [Variable.withString(groupId)],
           ).get();
-          for (final groupRow in groupRows) {
-            final groupId = groupRow.read<String>('id');
-            final entryRows = await customSelect(
-              'SELECT id FROM member_group_entries '
-              'WHERE group_id = ? AND is_deleted = 0 '
-              'ORDER BY rowid',
-              variables: [Variable.withString(groupId)],
-            ).get();
-            final orderedEntryIds = entryRows
-                .map((row) => row.read<String>('id'))
-                .toList(growable: false);
-            final sortStateJson = jsonEncode({
-              'mode': 0,
-              'order': orderedEntryIds,
-            });
-            await customStatement(
-              'UPDATE member_groups SET sort_state = ? WHERE id = ?',
-              [sortStateJson, groupId],
-            );
-          }
+          final orderedEntryIds = entryRows
+              .map((row) => row.read<String>('id'))
+              .toList(growable: false);
+          final sortStateJson = jsonEncode({
+            'mode': 0,
+            'order': orderedEntryIds,
+          });
+          await customStatement(
+            'UPDATE member_groups SET sort_state = ? WHERE id = ?',
+            [sortStateJson, groupId],
+          );
+        }
 
-          // Palette theme controls.
-          await _addColumnIfAbsent(
+        // Palette theme controls.
+        await _addColumnIfAbsent(
           migrator,
-            systemSettingsTable,
-            systemSettingsTable.paletteSource,
-          );
-          await _addColumnIfAbsent(
+          systemSettingsTable,
+          systemSettingsTable.paletteSource,
+        );
+        await _addColumnIfAbsent(
           migrator,
-            systemSettingsTable,
-            systemSettingsTable.paletteSeedColorHex,
-          );
-          await _addColumnIfAbsent(
+          systemSettingsTable,
+          systemSettingsTable.paletteSeedColorHex,
+        );
+        await _addColumnIfAbsent(
           migrator,
-            systemSettingsTable,
-            systemSettingsTable.paletteMood,
-          );
-          await _addColumnIfAbsent(
+          systemSettingsTable,
+          systemSettingsTable.paletteMood,
+        );
+        await _addColumnIfAbsent(
           migrator,
-            systemSettingsTable,
-            systemSettingsTable.paletteContrast,
-          );
-          // palette_source is synced, but no repair is enqueued — this is
-          // a deterministic projection of the already-synced theme_style, so
-          // paired devices converge by construction (each applies the same flip
-          // on the same incoming theme_style). Only a snapshot-joiner that never
-          // saw theme_style change is theoretically at risk; the snapshot import
-          // path owns that, not the migration chain.
-          await customStatement(
-            'UPDATE system_settings SET palette_source = 0 '
-            'WHERE theme_style = 2',
-          );
+          systemSettingsTable,
+          systemSettingsTable.paletteContrast,
+        );
+        // palette_source is synced, but no repair is enqueued — this is
+        // a deterministic projection of the already-synced theme_style, so
+        // paired devices converge by construction (each applies the same flip
+        // on the same incoming theme_style). Only a snapshot-joiner that never
+        // saw theme_style change is theoretically at risk; the snapshot import
+        // path owns that, not the migration chain.
+        await customStatement(
+          'UPDATE system_settings SET palette_source = 0 '
+          'WHERE theme_style = 2',
+        );
 
-          // Repair rows created by app paths that still used the old domain
-          // default after the DB column default moved to true.
-          await customStatement(
-            'UPDATE members SET markdown_enabled = 1 '
-            'WHERE markdown_enabled = 0',
-          );
+        // Repair rows created by app paths that still used the old domain
+        // default after the DB column default moved to true.
+        await customStatement(
+          'UPDATE members SET markdown_enabled = 1 '
+          'WHERE markdown_enabled = 0',
+        );
 
-          // Everyone-group conversations.
-          await _addColumnIfAbsent(
+        // Everyone-group conversations.
+        await _addColumnIfAbsent(
           migrator,
-            conversations,
-            conversations.includesAllMembers,
-          );
-          await customStatement(
-            'UPDATE conversations SET includes_all_members = 1 '
-            'WHERE is_direct_message = 0 '
-            'AND is_deleted = 0 '
-            'AND NOT ('
-            '  json_array_length(participant_ids) = 2 '
-            '  AND (title IS NULL OR TRIM(title) = \'\') '
-            '  AND emoji IS NULL '
-            '  AND category_id IS NULL'
-            ')',
-          );
-          await customStatement(
-            'UPDATE conversations '
-            'SET participant_ids = json_array(creator_id) '
-            'WHERE is_direct_message = 0 '
-            'AND is_deleted = 0 '
-            'AND includes_all_members = 1 '
-            'AND json_array_length(participant_ids) = 0 '
-            'AND creator_id IN ('
-            '  SELECT id FROM members '
-            '  WHERE is_deleted = 0 '
-            '  AND is_active = 1 '
-            '  AND id != ?'
-            ')',
-            [unknownSentinelMemberId],
-          );
-          // If an empty everyone-group has no active creator, assign the first
-          // active admin/member as owner so someone can manage the conversation.
-          await customStatement(
-            '''
+          conversations,
+          conversations.includesAllMembers,
+        );
+        await customStatement(
+          'UPDATE conversations SET includes_all_members = 1 '
+          'WHERE is_direct_message = 0 '
+          'AND is_deleted = 0 '
+          'AND NOT ('
+          '  json_array_length(participant_ids) = 2 '
+          '  AND (title IS NULL OR TRIM(title) = \'\') '
+          '  AND emoji IS NULL '
+          '  AND category_id IS NULL'
+          ')',
+        );
+        await customStatement(
+          'UPDATE conversations '
+          'SET participant_ids = json_array(creator_id) '
+          'WHERE is_direct_message = 0 '
+          'AND is_deleted = 0 '
+          'AND includes_all_members = 1 '
+          'AND json_array_length(participant_ids) = 0 '
+          'AND creator_id IN ('
+          '  SELECT id FROM members '
+          '  WHERE is_deleted = 0 '
+          '  AND is_active = 1 '
+          '  AND id != ?'
+          ')',
+          [unknownSentinelMemberId],
+        );
+        // If an empty everyone-group has no active creator, assign the first
+        // active admin/member as owner so someone can manage the conversation.
+        await customStatement(
+          '''
             WITH fallback_owner AS (
               SELECT id
               FROM members
@@ -1112,11 +1136,11 @@ class AppDatabase extends _$AppDatabase {
               AND json_array_length(participant_ids) = 0
               AND (SELECT id FROM fallback_owner) IS NOT NULL
             ''',
-            [unknownSentinelMemberId],
-          );
-          // The everyone-group rewrites above touch synced columns, but this
-          // historical step is unreachable post-flatten; the runtime blanket
-          // backfill + GroupChatVisibilitySyncReemitService converge peers.
+          [unknownSentinelMemberId],
+        );
+        // The everyone-group rewrites above touch synced columns, but this
+        // historical step is unreachable post-flatten; the runtime blanket
+        // backfill + GroupChatVisibilitySyncReemitService converge peers.
       },
     ),
     _MigrationStep(
@@ -1133,7 +1157,11 @@ class AppDatabase extends _$AppDatabase {
           (row) => row.read<String>('name') == 'avatar_image_data',
         );
         if (!hasAvatar) {
-          await _addColumnIfAbsent(migrator, memberGroups, memberGroups.avatarImageData);
+          await _addColumnIfAbsent(
+            migrator,
+            memberGroups,
+            memberGroups.avatarImageData,
+          );
         }
       },
     ),
@@ -1165,13 +1193,25 @@ class AppDatabase extends _$AppDatabase {
         ).get();
         final names = cols.map((r) => r.read<String>('name')).toSet();
         if (!names.contains('field_type_id')) {
-          await _addColumnIfAbsent(migrator, customFields, customFields.fieldTypeId);
+          await _addColumnIfAbsent(
+            migrator,
+            customFields,
+            customFields.fieldTypeId,
+          );
         }
         if (!names.contains('parent_field_id')) {
-          await _addColumnIfAbsent(migrator, customFields, customFields.parentFieldId);
+          await _addColumnIfAbsent(
+            migrator,
+            customFields,
+            customFields.parentFieldId,
+          );
         }
         if (!names.contains('type_config_json')) {
-          await _addColumnIfAbsent(migrator, customFields, customFields.typeConfigJson);
+          await _addColumnIfAbsent(
+            migrator,
+            customFields,
+            customFields.typeConfigJson,
+          );
         }
         // Backfill field_type_id from the existing int for back-compat.
         // Mapping mirrors custom_field_mapper.dart:12 (CustomFieldType enum order
@@ -1205,7 +1245,11 @@ class AppDatabase extends _$AppDatabase {
         final cols = await customSelect('PRAGMA table_info(members)').get();
         final names = cols.map((r) => r.read<String>('name')).toSet();
         if (!names.contains('pk_avatar_cached_url')) {
-          await _addColumnIfAbsent(migrator, members, members.pkAvatarCachedUrl);
+          await _addColumnIfAbsent(
+            migrator,
+            members,
+            members.pkAvatarCachedUrl,
+          );
         }
       },
     ),
@@ -1224,7 +1268,7 @@ class AppDatabase extends _$AppDatabase {
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!settingsNames.contains('members_show_groups')) {
           await _addColumnIfAbsent(
-          migrator,
+            migrator,
             systemSettingsTable,
             systemSettingsTable.membersShowGroups,
           );
@@ -1234,10 +1278,18 @@ class AppDatabase extends _$AppDatabase {
           'PRAGMA table_info(media_attachments)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!mediaNames.contains('member_id')) {
-          await _addColumnIfAbsent(migrator, mediaAttachments, mediaAttachments.memberId);
+          await _addColumnIfAbsent(
+            migrator,
+            mediaAttachments,
+            mediaAttachments.memberId,
+          );
         }
         if (!mediaNames.contains('tag')) {
-          await _addColumnIfAbsent(migrator, mediaAttachments, mediaAttachments.tag);
+          await _addColumnIfAbsent(
+            migrator,
+            mediaAttachments,
+            mediaAttachments.tag,
+          );
         }
       },
     ),
@@ -1269,7 +1321,7 @@ class AppDatabase extends _$AppDatabase {
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!convoNames.contains('archived_for_everyone')) {
           await _addColumnIfAbsent(
-          migrator,
+            migrator,
             conversations,
             conversations.archivedForEveryone,
           );
@@ -1347,7 +1399,7 @@ class AppDatabase extends _$AppDatabase {
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!entryCols.contains('created_at')) {
           await _addColumnIfAbsent(
-          migrator,
+            migrator,
             memberGroupEntries,
             memberGroupEntries.createdAt,
           );
@@ -1405,7 +1457,11 @@ class AppDatabase extends _$AppDatabase {
           'PRAGMA table_info(member_groups)',
         ).get()).map((r) => r.read<String>('name')).toSet();
         if (!groupCols.contains('sync_generation')) {
-          await _addColumnIfAbsent(migrator, memberGroups, memberGroups.syncGeneration);
+          await _addColumnIfAbsent(
+            migrator,
+            memberGroups,
+            memberGroups.syncGeneration,
+          );
         }
         final genEntryCols = (await customSelect(
           'PRAGMA table_info(member_group_entries)',
@@ -1488,11 +1544,14 @@ class AppDatabase extends _$AppDatabase {
         // F4: synced create-push coordination lease, mirroring
         // delete_push_started_at, so paired devices don't both POST the same
         // unlinked member to PluralKit.
-        await _addColumnIfAbsent(migrator, members, members.createPushStartedAt);
+        await _addColumnIfAbsent(
+          migrator,
+          members,
+          members.createPushStartedAt,
+        );
       },
     ),
   ];
-
 
   /// Best-effort idempotent column reconcile run in [beforeOpen]. Adds columns
   /// that should exist at the current schema but may be absent on databases
@@ -1855,12 +1914,10 @@ class AppDatabase extends _$AppDatabase {
     // TombstoneGate before emitting the sentinel create, so a burned
     // sentinel id is never written into. INSERT OR REPLACE keeps re-entry
     // idempotent.
-    await _enqueueSyncRepair(
-      'fronting_sessions',
-      orphanIds,
-      const ['member_id', 'pluralkit_uuid'],
-      kFrontingOrphanRescueRepairReason,
-    );
+    await _enqueueSyncRepair('fronting_sessions', orphanIds, const [
+      'member_id',
+      'pluralkit_uuid',
+    ], kFrontingOrphanRescueRepairReason);
     await _enqueueSyncRepair(
       'members',
       [unknownSentinelMemberId],
@@ -1998,18 +2055,12 @@ class AppDatabase extends _$AppDatabase {
     for (final pair in dupPairs) {
       final fieldId = pair.read<String>('f');
       final memberId = pair.read<String>('m');
-      final ids =
-          (await customSelect(
-                'SELECT id FROM custom_field_values '
-                'WHERE is_deleted = 0 AND custom_field_id = ? '
-                'AND member_id = ? ORDER BY id',
-                variables: [
-                  Variable<String>(fieldId),
-                  Variable<String>(memberId),
-                ],
-              ).get())
-              .map((r) => r.read<String>('id'))
-              .toList();
+      final ids = (await customSelect(
+        'SELECT id FROM custom_field_values '
+        'WHERE is_deleted = 0 AND custom_field_id = ? '
+        'AND member_id = ? ORDER BY id',
+        variables: [Variable<String>(fieldId), Variable<String>(memberId)],
+      ).get()).map((r) => r.read<String>('id')).toList();
       final deterministicId = deriveCustomFieldValueId(
         customFieldId: fieldId,
         memberId: memberId,
@@ -2178,6 +2229,19 @@ class AppDatabase extends _$AppDatabase {
       'ON fronting_sessions '
       '(session_type, is_deleted, end_time, start_time DESC, member_id) '
       'WHERE session_type = 0 AND is_deleted = 0 AND end_time IS NULL',
+    );
+  }
+
+  /// Re-ensures the startup bio reconciliation index without assuming that an
+  /// old or deliberately reshaped schema already has both indexed columns.
+  Future<void> _createBioMediaReconcileIndexIfSupported() async {
+    if (!await _columnExists('media_attachments', 'member_id') ||
+        !await _columnExists('media_attachments', 'is_deleted')) {
+      return;
+    }
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_media_attachments_member_deleted '
+      'ON media_attachments (member_id, is_deleted)',
     );
   }
 

@@ -131,7 +131,10 @@ void main() {
       final upgraded = AppDatabase(NativeDatabase(dbFile));
       addTearDown(upgraded.close);
 
-      expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+      expect(
+        await _ageColumnIsText(upgraded),
+        AppDatabase.currentSchemaVersion,
+      );
 
       final ageRow = await upgraded.membersDao.getMemberById('member-age27');
       expect(ageRow, isNotNull);
@@ -173,7 +176,10 @@ void main() {
 
       final upgraded = AppDatabase(NativeDatabase(dbFile));
       addTearDown(upgraded.close);
-      expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+      expect(
+        await _ageColumnIsText(upgraded),
+        AppDatabase.currentSchemaVersion,
+      );
 
       for (final entry in cases.entries) {
         final row = await upgraded.membersDao.getMemberById(entry.key);
@@ -210,7 +216,10 @@ void main() {
 
       final upgraded = AppDatabase(NativeDatabase(dbFile));
       addTearDown(upgraded.close);
-      expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+      expect(
+        await _ageColumnIsText(upgraded),
+        AppDatabase.currentSchemaVersion,
+      );
 
       final countRow = await upgraded
           .customSelect('SELECT COUNT(*) AS c FROM members')
@@ -286,7 +295,10 @@ void main() {
 
       final upgraded = AppDatabase(NativeDatabase(dbFile));
       addTearDown(upgraded.close);
-      expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+      expect(
+        await _ageColumnIsText(upgraded),
+        AppDatabase.currentSchemaVersion,
+      );
 
       final row = await upgraded.membersDao.getMemberById('fully-loaded');
       expect(row, isNotNull);
@@ -350,7 +362,10 @@ void main() {
 
       final upgraded = AppDatabase(NativeDatabase(dbFile));
       addTearDown(upgraded.close);
-      expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+      expect(
+        await _ageColumnIsText(upgraded),
+        AppDatabase.currentSchemaVersion,
+      );
 
       // Go through the real DAO → MemberMapper domain path, not a raw read.
       final dbRow = await upgraded.membersDao.getMemberById('mapper-member');
@@ -430,6 +445,9 @@ void main() {
           rawDb.execute(
             'ALTER TABLE system_settings DROP COLUMN members_show_groups',
           );
+          rawDb.execute(
+            'DROP INDEX IF EXISTS idx_media_attachments_member_deleted',
+          );
           rawDb.execute('ALTER TABLE media_attachments DROP COLUMN member_id');
           rawDb.execute('ALTER TABLE media_attachments DROP COLUMN tag');
         },
@@ -438,7 +456,10 @@ void main() {
       final upgraded = AppDatabase(NativeDatabase(dbFile));
       addTearDown(upgraded.close);
 
-      expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+      expect(
+        await _ageColumnIsText(upgraded),
+        AppDatabase.currentSchemaVersion,
+      );
 
       final settingsColumns =
           (await upgraded
@@ -567,7 +588,10 @@ void main() {
         final upgraded = AppDatabase(NativeDatabase(dbFile));
         addTearDown(upgraded.close);
 
-        expect(await _ageColumnIsText(upgraded), AppDatabase.currentSchemaVersion);
+        expect(
+          await _ageColumnIsText(upgraded),
+          AppDatabase.currentSchemaVersion,
+        );
 
         final cols = await upgraded
             .customSelect('PRAGMA table_info(members)')
