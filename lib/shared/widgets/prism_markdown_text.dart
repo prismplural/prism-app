@@ -204,8 +204,6 @@ class PrismMarkdownText extends ConsumerWidget {
           }
           return MarkdownText(
             key: ValueKey(keyFor(segIdx, blockIdx)),
-            // Promote large/percent images to their own line (block); keep
-            // small ones inline. Only when rendering markdown.
             data: enabled
                 ? blockifyImageMarkdown(block.text!, emBasisPx: emBasisPx)
                 : block.text!,

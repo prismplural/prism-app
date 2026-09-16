@@ -44,7 +44,8 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: MarkdownText(
-              data: 'a ![](flag#25%) b ![](flag#50%) c ![](flag#200) '
+              data:
+                  'a ![](flag#25%) b ![](flag#50%) c ![](flag#200) '
                   'd ![](flag#120x40)',
               imgElementBuilder: cap,
             ),
@@ -69,6 +70,25 @@ void main() {
       expect(_sizeFromSrc(cap.srcs[3]).height, 40);
     },
   );
+
+  testWidgets('bare destination trailing space normalizes away', (
+    tester,
+  ) async {
+    final cap = _Capture();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MarkdownText(
+            data: 'a ![](flag#) b ![](flag# ) c',
+            imgElementBuilder: cap,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(cap.srcs, ['flag#', 'flag#']);
+  });
 
   testWidgets('em fragments pass through markdown URL encoding untouched', (
     tester,

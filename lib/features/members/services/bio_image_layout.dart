@@ -3,10 +3,10 @@
 /// block-eligible images into their own paragraph.
 ///
 /// Flutter's text engine has no float/wrap-around, so a large inline image (a
-/// single tall `WidgetSpan`) leaves awkward gaps in the line. Instead we keep
-/// small images inline (emoji / flag-in-a-sentence) and put larger ones on
-/// their own line — the convention most chat/markdown apps (Discord, GitHub,
-/// Slack) use.
+/// single tall `WidgetSpan`) leaves awkward gaps in the line. Explicit sizing
+/// therefore controls whether an image is promoted. Unsized images preserve
+/// the author's line-level intent: standalone images are blocks, while images
+/// beside meaningful text remain inline.
 library;
 
 import 'package:prism_plurality/features/members/services/bio_image_size.dart';
@@ -42,10 +42,14 @@ bool _isBlankLine(String line) =>
 
 bool _hasMeaningfulText(String text) => !_isBlankLine(text);
 
+String _trimRightLayoutSpace(String text) =>
+    text.replaceFirst(RegExp('[$_horizontalLayoutSpace]+\$'), '');
+
 /// Whether an image with [size] should render as a block (its own line).
 ///
-/// Percent-sized and unsized images are blocks (typically banners / dividers /
-/// decoration that want the full width). Explicitly small images stay inline.
+/// Percent-sized and unsized images return true. Explicit pixel/em sizes below
+/// [blockImageMinPx] return false. Contextual exceptions for authored inline
+/// layout are applied separately by [blockifyImageMarkdown].
 bool isBlockImageSize(BioImageSize size, {double emBasisPx = _nominalEmPx}) {
   if (size.widthFraction != null) return true; // percent → block
   if (size.widthEm != null) {
@@ -57,10 +61,10 @@ bool isBlockImageSize(BioImageSize size, {double emBasisPx = _nominalEmPx}) {
   return w >= blockImageMinPx || h >= blockImageMinPx;
 }
 
-/// Rewrites [markdown] so every block-eligible image sits in its own paragraph
-/// (blank line before and after), making it render on its own line with text
-/// above/below instead of disrupting an inline text run. Small, explicitly
-/// sized images are left inline. Non-image markdown is untouched.
+/// Rewrites [markdown] so block-eligible images sit in their own paragraphs.
+/// Explicitly small images remain inline. A truly unsized image also remains
+/// inline when the author placed meaningful content beside it; standalone
+/// unsized images are blocks. Non-image markdown is untouched.
 ///
 /// Operates on the author's raw markdown (the size fragment here is the literal
 /// `#50%`, not the URL-encoded form the parser later produces).
@@ -128,20 +132,33 @@ String blockifyImageMarkdown(
     for (final match in matches) {
       final src = match.group(2) ?? '';
       final hashIdx = src.indexOf('#');
-      final fragment = hashIdx >= 0 ? src.substring(hashIdx + 1) : null;
+      var fragment = hashIdx >= 0 ? src.substring(hashIdx + 1) : null;
+      final rawFragment = fragment;
+      if (rawFragment != null) {
+        // Match the element builder's normalized fragment semantics.
+        try {
+          fragment = Uri.decodeComponent(rawFragment).trim();
+        } catch (_) {
+          fragment = rawFragment.trim();
+        }
+      }
+      final isTrulyUnsized = fragment == null || fragment.isEmpty;
       final size = BioImageSize.parse(fragment);
       final imageToken = match.group(1)!;
       final matchText = match.group(0)!;
       final hasBrailleSpacer = matchText.contains(_brailleBlank);
       final sameLineText =
           line.substring(0, match.start) + line.substring(match.end);
+      final hasSameLineText = _hasMeaningfulText(sameLineText);
+      // Invalid explicit sizes retain the block fallback. U+2800 remains an
+      // explicit legacy gutter.
       final keepInlineLayout =
-          hasBrailleSpacer && _hasMeaningfulText(sameLineText);
+          hasSameLineText && (isTrulyUnsized || hasBrailleSpacer);
 
       if (isBlockImageSize(size, emBasisPx: emBasisPx) && !keepInlineLayout) {
         sawBlockImage = true;
         textBuffer.write(line.substring(cursor, match.start));
-        addTextSegment(textBuffer.toString());
+        addTextSegment(_trimRightLayoutSpace(textBuffer.toString()));
         textBuffer.clear();
         addBlockImage(imageToken);
       } else {

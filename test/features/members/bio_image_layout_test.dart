@@ -68,17 +68,50 @@ void main() {
       );
     });
 
-    test('promotes an unsized image to its own paragraph', () {
+    test('keeps an unsized image inline when authored beside text', () {
+      const input = 'before ![](flag) after';
+      expect(blockifyImageMarkdown(input), input);
+    });
+
+    test('keeps an unsized image inline inside a blockquote', () {
+      const input = '> prefix ![sample](sample-image) **suffix**';
+      expect(blockifyImageMarkdown(input), input);
+    });
+
+    test('still promotes an explicitly large image inside a blockquote', () {
       expect(
-        blockifyImageMarkdown('before ![](flag) after'),
+        blockifyImageMarkdown('> prefix ![sample](sample-image#96) **suffix**'),
+        '> prefix\n>\n> ![sample](sample-image#96)\n>\n> **suffix**',
+      );
+    });
+
+    test('promotes a line-adjacent standalone unsized image', () {
+      expect(
+        blockifyImageMarkdown('before\n![](flag)\nafter'),
         'before\n\n![](flag)\n\nafter',
       );
     });
 
-    test('preserves blockquote markers when promoting images', () {
+    test('whitespace-only fragments are equivalent to an empty fragment', () {
+      const empty = 'before ![](flag#) after';
+      const spaced = 'before ![](flag# ) after';
+      const encoded = 'before ![](flag#%20) after';
+      expect(blockifyImageMarkdown(empty), empty);
+      expect(blockifyImageMarkdown(spaced), spaced);
+      expect(blockifyImageMarkdown(encoded), encoded);
+    });
+
+    test('invalid explicit sizes retain the block fallback', () {
       expect(
-        blockifyImageMarkdown('> prefix ![sample](sample-image) **suffix**'),
-        '> prefix\n>\n> ![sample](sample-image)\n>\n> **suffix**',
+        blockifyImageMarkdown('before ![](flag#invalid) after'),
+        'before\n\n![](flag#invalid)\n\nafter',
+      );
+    });
+
+    test('mixed unsized and large images do not leave trailing whitespace', () {
+      expect(
+        blockifyImageMarkdown('text ![](inline) ![](large#96)'),
+        'text ![](inline)\n\n![](large#96)',
       );
     });
 
@@ -99,6 +132,19 @@ void main() {
     test('keeps braille-spaced side-by-side image lines inline', () {
       const blank = '\u2800';
       const input = '![](flag)$blank$blank$blank**name**$blank${blank}name';
+      expect(blockifyImageMarkdown(input), input);
+    });
+
+    test('preserves a synthetic profile with inline unsized images', () {
+      const input =
+          '![banner](banner-tag)\n\n'
+          '> Prefix ![icon](icon-tag) **Display name** · status ☆\n\n'
+          'Profile detail with **emphasis** and an inline '
+          '![accent](accent-tag)\n\n'
+          'Two adjacent icons: ![first](first-tag)![second](second-tag) '
+          'followed by text\n\n'
+          '> "A generic quoted notice."\n\n'
+          '![divider](divider-tag)';
       expect(blockifyImageMarkdown(input), input);
     });
 
