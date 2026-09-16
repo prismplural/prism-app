@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute, visibleForTesting;
@@ -37,11 +39,13 @@ class FlutterProfileHeaderWebpEncoder implements ProfileHeaderWebpEncoder {
   }
 }
 
-/// A prepared header frame — dimensions plus its lossless PNG, built in a
-/// background isolate. The FFI re-encode (not isolate-sendable) runs against
-/// [png] on the platform thread.
-class _PreparedHeaderFrame {
-  const _PreparedHeaderFrame({
+/// A prepared header ladder frame — dimensions plus its lossless PNG. Built by
+/// [prepareProfileHeaderLadder], which production runs in a background isolate.
+/// The FFI re-encode (not isolate-sendable) runs against [png] on the platform
+/// thread.
+@visibleForTesting
+class PreparedProfileHeaderFrame {
+  const PreparedProfileHeaderFrame({
     required this.width,
     required this.height,
     required this.png,
@@ -52,10 +56,65 @@ class _PreparedHeaderFrame {
   final Uint8List png;
 }
 
+/// Runs the pure-Dart header preparation (decode, 3:1 center-crop, downscale
+/// ladder, PNG encoding) and returns its frames.
+///
+/// The production default is
+/// [computeProfileHeaderPreparationOffMain], which runs the work in a
+/// background isolate. Tests inject a synchronous recording function to observe
+/// orchestration, or call [prepareProfileHeaderLadder] directly for pure
+/// pixel/ladder assertions.
+typedef ProfileHeaderPreparationRunner =
+    Future<List<PreparedProfileHeaderFrame>> Function(Uint8List input);
+
+/// Test-only start/resume barrier for the off-main preparation isolate.
+///
+/// Production never constructs this. A test allocates a [ReceivePort], passes
+/// its [SendPort] here, and then:
+///
+/// 1. reads the worker's `Isolate.current.controlPort` and resume port from the
+///    first event, proving a *distinct* isolate runs the preparation;
+/// 2. observes a queued event on its own event loop while the worker is still
+///    paused, proving the caller's isolate stays live;
+/// 3. sends any message to the resume port to release the worker.
+///
+/// The barrier is port-driven, so the boundary proof never depends on a timer
+/// race or wall-clock threshold.
+@visibleForTesting
+class ProfileHeaderPreparationProbe {
+  const ProfileHeaderPreparationProbe({required this.eventPort});
+
+  final SendPort eventPort;
+}
+
+/// Sendable task handed to the preparation isolate. Carries only the input
+/// bytes and the optional test probe — never a live resource or a closure.
+class _HeaderPreparationTask {
+  const _HeaderPreparationTask({required this.input, this.probe});
+
+  final Uint8List input;
+  final ProfileHeaderPreparationProbe? probe;
+}
+
+/// The first event the worker sends: its own control port plus the port it
+/// waits on before finishing. Named so the barrier test can destructure it.
+@visibleForTesting
+class ProfileHeaderPreparationStarted {
+  const ProfileHeaderPreparationStarted({
+    required this.workerControlPort,
+    required this.resumePort,
+  });
+
+  final SendPort workerControlPort;
+  final SendPort resumePort;
+}
+
 class ProfileHeaderImageNormalizer {
   ProfileHeaderImageNormalizer({
     ProfileHeaderWebpEncoder encoder = const FlutterProfileHeaderWebpEncoder(),
-  }) : _encoder = encoder;
+    ProfileHeaderPreparationRunner? prepareRunner,
+  }) : _encoder = encoder,
+       _prepareRunner = prepareRunner ?? computeProfileHeaderPreparationOffMain;
 
   static const maxWidth = 1800;
   static const maxHeight = 600;
@@ -71,33 +130,41 @@ class ProfileHeaderImageNormalizer {
   static const _downscaleFactor = 0.8;
 
   final ProfileHeaderWebpEncoder _encoder;
+  final ProfileHeaderPreparationRunner _prepareRunner;
 
   /// Prep on the calling isolate, for contexts that can't spawn one — notably
-  /// widget-test fake-async zones, where `compute` never completes. The re-emit
-  /// migration uses [normalizeOffMainIsolate] instead.
+  /// widget-test fake-async zones, where `compute` never completes.
+  ///
+  /// Production must not call this: it decodes, crops, downscales, and
+  /// PNG-encodes a banner on the UI isolate, which ANR'd Android during
+  /// profile-header picks and PluralKit banner pulls. Production call sites use
+  /// [normalizeProfileHeaderImageOffMain] (pickers and banner caching) or
+  /// [normalizeOffMainIsolate] (the oversized-inline re-emit migration).
   Future<Uint8List> normalize(Uint8List input) async {
     if (input.isEmpty) {
       throw ArgumentError('Profile header image input is empty');
     }
-    return _encodeLadder(_prepareHeaderLadder(input));
+    return _encodeLadder(prepareProfileHeaderLadder(input));
   }
 
   /// Runs the pure-Dart prep in a background isolate, leaving only the FFI
   /// re-encode on the platform thread. Without this a banner GIF's
   /// frame-by-frame decode froze the UI thread (Android ANR) during the re-emit
-  /// migration.
+  /// migration and PluralKit banner pulls.
   Future<Uint8List> normalizeOffMainIsolate(Uint8List input) async {
     if (input.isEmpty) {
       throw ArgumentError('Profile header image input is empty');
     }
-    return _encodeLadder(await compute(_prepareHeaderLadder, input));
+    return _encodeLadder(await _prepareRunner(input));
   }
 
   /// Runs the FFI quality ladder per frame until one fits [hardMaxBytes].
   /// Best-effort, never throws on size (mirrors AvatarNormalizer): transparent
   /// banners hit lossless WebP, which ignores quality, so the ladder downscales
   /// instead; the smallest seen is the fallback.
-  Future<Uint8List> _encodeLadder(List<_PreparedHeaderFrame> ladder) async {
+  Future<Uint8List> _encodeLadder(
+    List<PreparedProfileHeaderFrame> ladder,
+  ) async {
     Uint8List? smallest;
     for (final frame in ladder) {
       final encoded = await _encodeBestQuality(frame);
@@ -121,7 +188,9 @@ class ProfileHeaderImageNormalizer {
   /// Runs the quality ladder once over a prepared [frame], returning the
   /// smallest encoding and stopping early once one is within [targetMaxBytes].
   /// Null only if nothing encoded.
-  Future<Uint8List?> _encodeBestQuality(_PreparedHeaderFrame frame) async {
+  Future<Uint8List?> _encodeBestQuality(
+    PreparedProfileHeaderFrame frame,
+  ) async {
     Uint8List? smallest;
     for (final quality in _webpQualities) {
       final encoded = await _encoder.encode(
@@ -139,33 +208,6 @@ class ProfileHeaderImageNormalizer {
       }
     }
     return smallest;
-  }
-
-  /// Pure-Dart prep for [normalizeOffMainIsolate], run in a background isolate.
-  /// Builds the downscale ladder, PNG-encoding each step once — PNG is
-  /// quality-independent, so the FFI quality ladder reuses it.
-  static List<_PreparedHeaderFrame> _prepareHeaderLadder(Uint8List input) {
-    final decoded = img.decodeImage(input);
-    if (decoded == null) {
-      throw ArgumentError('Unable to decode profile header image');
-    }
-
-    var prepared = _resizeDown(centerCropToThreeToOne(decoded));
-    final frames = <_PreparedHeaderFrame>[];
-    while (true) {
-      frames.add(
-        _PreparedHeaderFrame(
-          width: prepared.width,
-          height: prepared.height,
-          png: Uint8List.fromList(img.encodePng(prepared)),
-        ),
-      );
-
-      final downscaled = _downscaleTowardFloor(prepared);
-      if (downscaled == null) break;
-      prepared = downscaled;
-    }
-    return frames;
   }
 
   /// Shrinks [source] one step toward [_minFallbackWidth], preserving its
@@ -254,6 +296,126 @@ class ProfileHeaderImageNormalizer {
   }
 }
 
+/// Pure-Dart prep: decode, 3:1 center-crop, resize into the 1800x600 box, then
+/// build the downscale ladder — PNG-encoding each step once. PNG is
+/// quality-independent, so the FFI quality ladder reuses one PNG per frame.
+///
+/// Synchronous and cheap to call directly from tests; production reaches it
+/// through [computeProfileHeaderPreparationOffMain].
+@visibleForTesting
+List<PreparedProfileHeaderFrame> prepareProfileHeaderLadder(Uint8List input) {
+  final decoded = img.decodeImage(input);
+  if (decoded == null) {
+    throw ArgumentError('Unable to decode profile header image');
+  }
+
+  var prepared = ProfileHeaderImageNormalizer._resizeDown(
+    ProfileHeaderImageNormalizer.centerCropToThreeToOne(decoded),
+  );
+  final frames = <PreparedProfileHeaderFrame>[];
+  while (true) {
+    frames.add(
+      PreparedProfileHeaderFrame(
+        width: prepared.width,
+        height: prepared.height,
+        png: Uint8List.fromList(img.encodePng(prepared)),
+      ),
+    );
+
+    final downscaled = ProfileHeaderImageNormalizer._downscaleTowardFloor(
+      prepared,
+    );
+    if (downscaled == null) break;
+    prepared = downscaled;
+  }
+  return frames;
+}
+
+/// Production preparation runner: runs [prepareProfileHeaderLadder] in a
+/// background isolate via [compute].
+///
+/// [probe] is a test-only start/resume barrier; production always leaves it
+/// null, and the isolate boundary proof lives in the normalizer tests.
+@visibleForTesting
+Future<List<PreparedProfileHeaderFrame>> computeProfileHeaderPreparationOffMain(
+  Uint8List input, {
+  ProfileHeaderPreparationProbe? probe,
+}) {
+  return compute(
+    (task) => _prepareHeaderLadderOffMain(task.input, probe: task.probe),
+    _HeaderPreparationTask(input: input, probe: probe),
+  );
+}
+
+/// Body of the preparation isolate. Never touches platform channels or FFI —
+/// the native WebP encoder stays on the caller's isolate.
+Future<List<PreparedProfileHeaderFrame>> _prepareHeaderLadderOffMain(
+  Uint8List input, {
+  ProfileHeaderPreparationProbe? probe,
+}) async {
+  if (probe == null) {
+    return prepareProfileHeaderLadder(input);
+  }
+
+  final barrier = _HeaderPreparationBarrier(probe);
+  barrier.started();
+  var prepared = false;
+  try {
+    final frames = prepareProfileHeaderLadder(input);
+    prepared = true;
+    return frames;
+  } finally {
+    // Test-only: report whether preparation completed and pause until the test
+    // resumes this isolate, so the boundary proof is port-driven.
+    await barrier.finished(prepared: prepared);
+  }
+}
+
+/// Worker side of [ProfileHeaderPreparationProbe].
+class _HeaderPreparationBarrier {
+  _HeaderPreparationBarrier(this._probe) : _responses = ReceivePort();
+
+  final ProfileHeaderPreparationProbe _probe;
+  final ReceivePort _responses;
+
+  void started() {
+    _probe.eventPort.send(
+      ProfileHeaderPreparationStarted(
+        workerControlPort: Isolate.current.controlPort,
+        resumePort: _responses.sendPort,
+      ),
+    );
+  }
+
+  Future<void> finished({required bool prepared}) async {
+    _probe.eventPort.send(prepared);
+    await _responses.first;
+    _responses.close();
+  }
+}
+
+/// Production entrypoint for a single profile-header/banner normalization.
+///
+/// Decodes, crops, downscales, and PNG-encodes the banner ladder in a
+/// background isolate and only invokes the native WebP encoder on the calling
+/// isolate. Use this from every production path that can `await` — picker
+/// output and PluralKit banner caching both do.
+Future<Uint8List> normalizeProfileHeaderImageOffMain(
+  Uint8List input, {
+  ProfileHeaderWebpEncoder encoder = const FlutterProfileHeaderWebpEncoder(),
+}) {
+  return ProfileHeaderImageNormalizer(
+    encoder: encoder,
+  ).normalizeOffMainIsolate(input);
+}
+
+/// Prepares a profile header on the *calling* isolate.
+///
+/// Kept for fake-async widget tests and tightly controlled internal tests,
+/// where `compute` never completes. Production call sites must use
+/// [normalizeProfileHeaderImageOffMain] instead: this path runs the banner
+/// decode/crop/downscale/PNG work on the UI isolate and previously produced
+/// Android ANRs on profile-header picks and PluralKit banner pulls.
 Future<Uint8List> normalizeProfileHeaderImage(
   Uint8List input, {
   ProfileHeaderWebpEncoder encoder = const FlutterProfileHeaderWebpEncoder(),

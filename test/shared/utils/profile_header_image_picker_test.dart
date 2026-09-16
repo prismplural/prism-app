@@ -1,15 +1,20 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 import 'package:prism_plurality/shared/utils/profile_header_image_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+
+import '../../helpers/media_codec_test_support.dart';
 
 class _PickedImage implements ProfileHeaderPickedImage {
   const _PickedImage();
@@ -22,6 +27,21 @@ class _PickedImage implements ProfileHeaderPickedImage {
 }
 
 void main() {
+  final mediaCodecFfiLibPath = resolveMediaCodecFfiLibPath();
+
+  setUpAll(() async {
+    if (mediaCodecFfiLibPath == null) return;
+    await media_codec.MediaCodecRustLib.init(
+      externalLibrary: ExternalLibrary.open(mediaCodecFfiLibPath),
+    );
+  });
+
+  tearDownAll(() {
+    if (mediaCodecFfiLibPath != null) {
+      media_codec.MediaCodecRustLib.dispose();
+    }
+  });
+
   testWidgets('passes profile header cropper title and button labels', (
     tester,
   ) async {
@@ -119,6 +139,9 @@ void main() {
               required doneButtonTitle,
               required cancelButtonTitle,
             }) async => Uint8List.fromList(img.encodePng(croppedSource)),
+        // Widget tests run in a fake-async zone where `compute` never completes,
+        // so the inline normalizer is injected here on purpose. Production uses
+        // [defaultProfileHeaderNormalizeImage] instead.
         normalizeImage: (value) => normalizeProfileHeaderImage(
           value,
           encoder: const _PngProfileHeaderEncoder(),
@@ -126,6 +149,91 @@ void main() {
       );
 
       expect(bytes, isNotNull);
+      expect(
+        bytes!.length,
+        lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+      );
+
+      final decoded = img.decodeImage(bytes);
+      expect(decoded, isNotNull);
+      expect(decoded!.width, ProfileHeaderImageNormalizer.maxWidth);
+      expect(decoded.height, ProfileHeaderImageNormalizer.maxHeight);
+    },
+  );
+
+  test('production default prepares the header off the main isolate', () {
+    expect(
+      identical(
+        defaultProfileHeaderNormalizeImage,
+        normalizeProfileHeaderImageOffMain,
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        defaultProfileHeaderNormalizeImage,
+        // ignore: unnecessary_type_check
+        normalizeProfileHeaderImage,
+      ),
+      isFalse,
+      reason: 'production must not use the inline UI-isolate path',
+    );
+  });
+
+  testWidgets(
+    'production default normalizes a real crop through the off-main path',
+    (tester) async {
+      final mediaCodecFfiLibPath = resolveMediaCodecFfiLibPath();
+      final skipReason = missingMediaCodecFfiLibReason(
+        mediaCodecFfiLibPath,
+        'profile header picker default test',
+      );
+      if (skipReason != null) {
+        markTestSkipped(skipReason);
+        return;
+      }
+
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      final pickedSource = img.Image(width: 400, height: 400);
+      img.fill(pickedSource, color: img.ColorRgb8(30, 40, 50));
+      final croppedSource = img.Image(width: 2400, height: 800);
+      img.fill(croppedSource, color: img.ColorRgb8(220, 180, 40));
+
+      final bytes = await tester.runAsync(
+        () => ProfileHeaderImagePicker.pickCroppedHeaderBytes(
+          capturedContext,
+          platform: TargetPlatform.android,
+          pickImage: (_) async => _BytesPickedImage(
+            Uint8List.fromList(img.encodePng(pickedSource)),
+          ),
+          cropImage:
+              (
+                sourceBytes,
+                context, {
+                required title,
+                required doneButtonTitle,
+                required cancelButtonTitle,
+              }) async => Uint8List.fromList(img.encodePng(croppedSource)),
+        ),
+      );
+
+      expect(bytes, isNotNull);
+      // Opaque input routes to the Rust JPEG encoder, so this asserts the
+      // decode/crop/encode chain produced a valid, correctly sized image rather
+      // than a specific container.
       expect(
         bytes!.length,
         lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),

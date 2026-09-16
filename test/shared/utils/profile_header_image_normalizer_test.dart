@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
@@ -10,6 +12,41 @@ import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
 
 import '../../helpers/media_codec_test_support.dart';
+
+/// Synchronous, recording stand-in for the off-main preparation runner. Lets
+/// orchestration tests assert *that* the normalizer delegates preparation and
+/// what it does with the resulting ladder, without isolate scheduling.
+class _RecordingPreparationRunner {
+  _RecordingPreparationRunner();
+
+  final inputs = <Uint8List>[];
+
+  Future<List<PreparedProfileHeaderFrame>> call(Uint8List input) async {
+    inputs.add(input);
+    return prepareProfileHeaderLadder(input);
+  }
+
+  /// Fixed-ladder runner for tests that need a specific frame set.
+  static ProfileHeaderPreparationRunner fixed(
+    List<PreparedProfileHeaderFrame> frames,
+  ) {
+    var calls = 0;
+    return (input) async {
+      calls += 1;
+      expect(
+        calls,
+        1,
+        reason: 'preparation runner must be called exactly once',
+      );
+      return frames;
+    };
+  }
+}
+
+/// Marker the boundary test queues on the caller's own event loop to prove it
+/// stays live while the preparation isolate is paused. `const` so the identical
+/// instance survives the round trip through the receive port.
+const _profileHeaderCallerSentinel = <Object?>[];
 
 void main() {
   final mediaCodecFfiLibPath = resolveMediaCodecFfiLibPath();
@@ -313,6 +350,198 @@ void main() {
           normalized.length,
           lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
         );
+      },
+    );
+
+    test('inline and off-main preparation produce identical ladders', () async {
+      final banner = _animatedGifBanner();
+
+      final inlineEncoder = _PngPassthroughEncoder();
+      final offMainEncoder = _PngPassthroughEncoder();
+
+      final inline = await ProfileHeaderImageNormalizer(
+        encoder: inlineEncoder,
+      ).normalize(banner);
+      final offMain = await ProfileHeaderImageNormalizer(
+        encoder: offMainEncoder,
+      ).normalizeOffMainIsolate(banner);
+
+      expect(offMain, inline);
+      expect(offMainEncoder.images, hasLength(inlineEncoder.images.length));
+      for (var i = 0; i < inlineEncoder.images.length; i++) {
+        final a = inlineEncoder.images[i];
+        final b = offMainEncoder.images[i];
+        expect((b.width, b.height), (a.width, a.height));
+      }
+    });
+
+    test(
+      'off-main normalization delegates preparation to the injected runner',
+      () async {
+        final source = img.Image(width: 900, height: 300);
+        img.fill(source, color: img.ColorRgb8(20, 30, 40));
+        final input = Uint8List.fromList(img.encodePng(source));
+
+        final runner = _RecordingPreparationRunner();
+        final encoder = _FakeWebpEncoder.fixed(100);
+
+        final normalized = await ProfileHeaderImageNormalizer(
+          encoder: encoder,
+          prepareRunner: runner.call,
+        ).normalizeOffMainIsolate(input);
+
+        // The runner received the raw input exactly once and produced the
+        // ladder the encode phase then walked.
+        expect(runner.inputs, [input]);
+        expect(normalized, hasLength(100));
+        expect(encoder.images.single.width, 900);
+      },
+    );
+
+    test(
+      'rejects empty input before invoking the preparation runner',
+      () async {
+        var runnerCalls = 0;
+
+        await expectLater(
+          ProfileHeaderImageNormalizer(
+            prepareRunner: (input) async {
+              runnerCalls += 1;
+              return const [];
+            },
+          ).normalizeOffMainIsolate(Uint8List(0)),
+          throwsArgumentError,
+        );
+
+        expect(runnerCalls, 0);
+      },
+    );
+
+    test(
+      'surfaces a preparation failure without touching the encoder',
+      () async {
+        final encoder = _FakeWebpEncoder.fixed(100);
+
+        await expectLater(
+          ProfileHeaderImageNormalizer(
+            encoder: encoder,
+            prepareRunner: (_) async => throw ArgumentError('bad image'),
+          ).normalizeOffMainIsolate(Uint8List.fromList([1, 2, 3])),
+          throwsArgumentError,
+        );
+
+        expect(encoder.qualities, isEmpty);
+      },
+    );
+
+    test('preserves the empty-ladder StateError contract', () async {
+      await expectLater(
+        ProfileHeaderImageNormalizer(
+          prepareRunner: _RecordingPreparationRunner.fixed(const []),
+        ).normalizeOffMainIsolate(Uint8List.fromList([1, 2, 3])),
+        throwsStateError,
+      );
+    });
+
+    test('rejects undecodable input in the pure preparation callback', () {
+      expect(
+        () => prepareProfileHeaderLadder(
+          Uint8List.fromList(utf8.encode('not an image')),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('builds the full downscale ladder for an oversized banner', () {
+      final source = img.Image(width: 3600, height: 1200);
+      img.fill(source, color: img.ColorRgb8(12, 34, 56));
+
+      final ladder = prepareProfileHeaderLadder(
+        Uint8List.fromList(img.encodePng(source)),
+      );
+
+      expect(ladder, isNotEmpty);
+      expect(
+        (ladder.first.width, ladder.first.height),
+        (
+          ProfileHeaderImageNormalizer.maxWidth,
+          ProfileHeaderImageNormalizer.maxHeight,
+        ),
+      );
+      for (var i = 1; i < ladder.length; i++) {
+        expect(ladder[i].width, lessThan(ladder[i - 1].width));
+      }
+      expect(
+        ladder.last.width,
+        greaterThanOrEqualTo(480),
+        reason: 'ladder must stop at the fallback floor',
+      );
+      for (final frame in ladder) {
+        expect(frame.png, isNotEmpty);
+      }
+    });
+
+    // The production wrapper's isolate boundary, proven with a port-driven
+    // start/resume barrier rather than a timer race: the worker reports its own
+    // isolate identity, then pauses while the caller's event loop keeps
+    // running; only an explicit resume releases it.
+    test(
+      'runs preparation in a distinct isolate while the caller stays live',
+      () async {
+        final source = img.Image(width: 900, height: 300);
+        img.fill(source, color: img.ColorRgb8(20, 30, 40));
+        final input = Uint8List.fromList(img.encodePng(source));
+
+        final events = ReceivePort();
+        final eventsDone = Completer<void>();
+        final observed = <Object?>[];
+        var boundaryVerified = false;
+
+        events.listen((message) {
+          observed.add(message);
+          if (message is ProfileHeaderPreparationStarted) {
+            final started = message;
+
+            // Distinct isolate: a worker's control port never equals the
+            // caller's, so the preparation did not run on this isolate.
+            expect(
+              started.workerControlPort,
+              isNot(equals(Isolate.current.controlPort)),
+            );
+
+            // The caller's event loop is live while the worker is paused: this
+            // queued microtask runs before the worker can be resumed.
+            scheduleMicrotask(
+              () => events.sendPort.send(_profileHeaderCallerSentinel),
+            );
+          } else if (identical(message, _profileHeaderCallerSentinel)) {
+            expect(observed.first, isA<ProfileHeaderPreparationStarted>());
+            expect(
+              observed.indexOf(_profileHeaderCallerSentinel),
+              greaterThan(0),
+              reason: 'the resume sentinel must follow the worker start event',
+            );
+            // The worker is still suspended here — release it now.
+            boundaryVerified = true;
+            (observed.first! as ProfileHeaderPreparationStarted).resumePort
+                .send('resume');
+          } else if (message is bool) {
+            expect(message, isTrue, reason: 'preparation must have completed');
+            if (!eventsDone.isCompleted) eventsDone.complete();
+          }
+        });
+
+        final frames = await computeProfileHeaderPreparationOffMain(
+          input,
+          probe: ProfileHeaderPreparationProbe(eventPort: events.sendPort),
+        );
+
+        await eventsDone.future;
+        events.close();
+
+        expect(boundaryVerified, isTrue);
+        expect(frames, isNotEmpty);
+        expect((frames.first.width, frames.first.height), (900, 300));
       },
     );
   });

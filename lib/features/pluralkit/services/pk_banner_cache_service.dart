@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
 import '../../../shared/utils/profile_header_image_normalizer.dart';
@@ -7,6 +8,11 @@ import '../../../shared/utils/remote_image_fetcher.dart';
 
 typedef PkBannerFetcher = Future<Uint8List?> Function(String url);
 typedef PkBannerNormalizer = Future<Uint8List> Function(Uint8List bytes);
+
+/// Production banner normalizer, exposed for default-wiring tests.
+@visibleForTesting
+const PkBannerNormalizer defaultPkBannerNormalizer =
+    normalizeProfileHeaderImageOffMain;
 
 class PkBannerCacheInput {
   const PkBannerCacheInput({
@@ -48,7 +54,7 @@ class PkBannerCacheService {
              client: client,
              maxBytes: bannerMaxBytes,
            )),
-       _normalizer = normalizer ?? normalizeProfileHeaderImage;
+       _normalizer = normalizer ?? defaultPkBannerNormalizer;
 
   static const bannerMaxBytes = 10 * 1024 * 1024;
 

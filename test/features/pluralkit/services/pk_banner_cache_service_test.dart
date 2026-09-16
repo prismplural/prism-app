@@ -1,11 +1,89 @@
 import 'dart:typed_data';
 
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
+import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
 
 import 'package:prism_plurality/features/pluralkit/services/pk_banner_cache_service.dart';
+import 'package:prism_plurality/shared/utils/profile_header_image_normalizer.dart';
+
+import '../../../helpers/media_codec_test_support.dart';
 
 void main() {
+  final mediaCodecFfiLibPath = resolveMediaCodecFfiLibPath();
+
+  setUpAll(() async {
+    if (mediaCodecFfiLibPath == null) return;
+    await media_codec.MediaCodecRustLib.init(
+      externalLibrary: ExternalLibrary.open(mediaCodecFfiLibPath),
+    );
+  });
+
+  tearDownAll(() {
+    if (mediaCodecFfiLibPath != null) {
+      media_codec.MediaCodecRustLib.dispose();
+    }
+  });
+
   group('PkBannerCacheService', () {
+    test('production default normalizer prepares off the main isolate', () {
+      expect(
+        identical(
+          defaultPkBannerNormalizer,
+          normalizeProfileHeaderImageOffMain,
+        ),
+        isTrue,
+      );
+      expect(
+        identical(defaultPkBannerNormalizer, normalizeProfileHeaderImage),
+        isFalse,
+        reason: 'production must not use the inline UI-isolate path',
+      );
+    });
+
+    test(
+      'default-constructed service resolves a real banner off the main isolate',
+      skip: missingMediaCodecFfiLibReason(
+        mediaCodecFfiLibPath,
+        'PK banner off-main default test',
+      ),
+      () async {
+        final source = img.Image(width: 900, height: 900);
+        img.fill(source, color: img.ColorRgb8(40, 80, 120));
+
+        final service = PkBannerCacheService(
+          fetcher: (_) async => Uint8List.fromList(img.encodePng(source)),
+        );
+
+        final result = await service.resolve(
+          const PkBannerCacheInput(
+            currentPkBannerUrl: null,
+            currentPkBannerImageData: null,
+            currentPkBannerCachedUrl: null,
+            hasIncomingBannerField: true,
+            incomingBannerUrl: 'https://cdn.example/banner.png',
+          ),
+        );
+
+        expect(result.pkBannerUrl, 'https://cdn.example/banner.png');
+        expect(result.pkBannerCachedUrl, 'https://cdn.example/banner.png');
+        final bytes = result.pkBannerImageData;
+        expect(bytes, isNotNull);
+        expect(bytes!, isNotEmpty);
+        expect(
+          bytes.length,
+          lessThanOrEqualTo(ProfileHeaderImageNormalizer.hardMaxBytes),
+        );
+
+        // The 900x900 source was center-cropped to 3:1 by the off-isolate prep.
+        final decoded = img.decodeImage(bytes);
+        expect(decoded, isNotNull);
+        expect((decoded!.width, decoded.height), (900, 300));
+      },
+    );
+
     test('preserves cache when banner field is missing', () async {
       final service = PkBannerCacheService(
         fetcher: (_) => throw StateError('should not fetch'),

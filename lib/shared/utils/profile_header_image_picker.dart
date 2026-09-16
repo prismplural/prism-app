@@ -44,6 +44,11 @@ typedef ProfileHeaderNormalizePickedBytesFn =
       TargetPlatform? platform,
     });
 
+/// Production normalization callback, exposed for default-wiring tests.
+@visibleForTesting
+const ProfileHeaderNormalizeImageFn defaultProfileHeaderNormalizeImage =
+    normalizeProfileHeaderImageOffMain;
+
 class ProfileHeaderImagePicker {
   ProfileHeaderImagePicker._();
 
@@ -70,8 +75,11 @@ class ProfileHeaderImagePicker {
     if (!context.mounted) return null;
     final l10n = context.l10n;
 
+    // Off-main by default: a banner decode/crop/PNG-ladder on the UI isolate
+    // ANR'd Android on large picks. The injected seam stays for widget tests,
+    // whose fake-async zones never complete a `compute`.
     Future<Uint8List> normalize(Uint8List bytes) =>
-        (normalizeImage ?? normalizeProfileHeaderImage)(bytes);
+        (normalizeImage ?? defaultProfileHeaderNormalizeImage)(bytes);
 
     final pickedBytes = await picked.readAsBytes();
     if (!context.mounted) return null;
