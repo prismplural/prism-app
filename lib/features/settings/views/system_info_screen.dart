@@ -480,8 +480,12 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                 child: PrismSwitchRow(
                   icon: AppIcons.visibilityOff,
                   iconColor: Colors.indigo,
-                  title: l10n.systemInfoHideTotalMemberCountTitle,
-                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle,
+                  title: l10n.systemInfoHideTotalMemberCountTitle(
+                    terms.pluralLower,
+                  ),
+                  subtitle: l10n.systemInfoHideTotalMemberCountSubtitle(
+                    terms.pluralLower,
+                  ),
                   value: hideMemberCountsSwitchValue,
                   enabled: hideMemberCountsSwitchEnabled,
                   onChanged: (value) {

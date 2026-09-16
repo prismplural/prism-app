@@ -2779,13 +2779,23 @@
   "@systemInfoColorNoneSet": {
     "description": "Shown when no system color has been chosen"
   },
-  "systemInfoHideTotalMemberCountTitle": "Hide member counts",
+  "systemInfoHideTotalMemberCountTitle": "Hide {termPlural} counts",
   "@systemInfoHideTotalMemberCountTitle": {
-    "description": "Switch label for hiding member count totals and group count chips"
+    "description": "Switch label for hiding terminology-aware count totals and group count chips",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
-  "systemInfoHideTotalMemberCountSubtitle": "Hides member totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.",
+  "systemInfoHideTotalMemberCountSubtitle": "Hides {termPlural} totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.",
   "@systemInfoHideTotalMemberCountSubtitle": {
-    "description": "Helper text for hiding member count displays"
+    "description": "Helper text for hiding terminology-aware count displays",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
   "devicesTitle": "Manage Devices",
   "@devicesTitle": {

@@ -2906,11 +2906,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get systemInfoColorNoneSet => 'No color set';
 
   @override
-  String get systemInfoHideTotalMemberCountTitle => 'Hide member counts';
+  String systemInfoHideTotalMemberCountTitle(String termPlural) {
+    return 'Hide $termPlural counts';
+  }
 
   @override
-  String get systemInfoHideTotalMemberCountSubtitle =>
-      'Hides member totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.';
+  String systemInfoHideTotalMemberCountSubtitle(String termPlural) {
+    return 'Hides $termPlural totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.';
+  }
 
   @override
   String get devicesTitle => 'Manage Devices';

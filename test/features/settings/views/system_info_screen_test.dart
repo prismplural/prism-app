@@ -93,6 +93,17 @@ void main() {
       expect(find.text('Collective Info'), findsOneWidget);
       expect(find.text('Tag'), findsOneWidget);
       expect(find.text('Color'), findsOneWidget);
+
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+      expect(
+        l10n.systemInfoHideTotalMemberCountTitle('collectives'),
+        'Hide collectives counts',
+      );
+      expect(
+        l10n.systemInfoHideTotalMemberCountSubtitle('collectives'),
+        'Hides collectives totals on this info screen, in Settings, '
+        'Statistics, diagnostics, and group or folder count chips.',
+      );
     });
 
     testWidgets('uses preset system terminology for labels', (tester) async {
@@ -209,7 +220,7 @@ void main() {
       );
 
       expect(find.text('2 headmates'), findsOneWidget);
-      expect(find.text('Hide member counts'), findsOneWidget);
+      expect(find.text('Hide headmates counts'), findsOneWidget);
     });
 
     testWidgets('hides member counts when synced preference is enabled', (
@@ -223,13 +234,13 @@ void main() {
       expect(find.text('+1'), findsNothing);
 
       await tester.scrollUntilVisible(
-        find.text('Hide member counts'),
+        find.text('Hide headmates counts'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
       expect(find.text('9 headmates'), findsNothing);
-      expect(find.text('Hide member counts'), findsOneWidget);
+      expect(find.text('Hide headmates counts'), findsOneWidget);
     });
 
     testWidgets('toggling hide count persists as a synced app preference', (
@@ -244,12 +255,12 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
-        find.text('Hide member counts'),
+        find.text('Hide headmates counts'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
 
-      await tester.tap(find.text('Hide member counts'));
+      await tester.tap(find.text('Hide headmates counts'));
       await tester.pumpAndSettle();
 
       expect(await appPrefs.get(hideMemberCountsPreference), true);

@@ -3972,17 +3972,17 @@ abstract class AppLocalizations {
   /// **'No color set'**
   String get systemInfoColorNoneSet;
 
-  /// Switch label for hiding member count totals and group count chips
+  /// Switch label for hiding terminology-aware count totals and group count chips
   ///
   /// In en, this message translates to:
-  /// **'Hide member counts'**
-  String get systemInfoHideTotalMemberCountTitle;
+  /// **'Hide {termPlural} counts'**
+  String systemInfoHideTotalMemberCountTitle(String termPlural);
 
-  /// Helper text for hiding member count displays
+  /// Helper text for hiding terminology-aware count displays
   ///
   /// In en, this message translates to:
-  /// **'Hides member totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.'**
-  String get systemInfoHideTotalMemberCountSubtitle;
+  /// **'Hides {termPlural} totals on this info screen, in Settings, Statistics, diagnostics, and group or folder count chips.'**
+  String systemInfoHideTotalMemberCountSubtitle(String termPlural);
 
   /// Device management screen title
   ///

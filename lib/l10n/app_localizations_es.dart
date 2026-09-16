@@ -2948,12 +2948,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoColorNoneSet => 'Sin color';
 
   @override
-  String get systemInfoHideTotalMemberCountTitle =>
-      'Ocultar conteos de integrantes';
+  String systemInfoHideTotalMemberCountTitle(String termPlural) {
+    return 'Ocultar conteos de $termPlural';
+  }
 
   @override
-  String get systemInfoHideTotalMemberCountSubtitle =>
-      'Oculta los totales en esta pantalla de información, en Ajustes, Estadísticas, diagnósticos y conteos de grupos o carpetas.';
+  String systemInfoHideTotalMemberCountSubtitle(String termPlural) {
+    return 'Oculta los totales de $termPlural en esta pantalla de información, en Ajustes, Estadísticas, diagnósticos y conteos de grupos o carpetas.';
+  }
 
   @override
   String get devicesTitle => 'Administrar dispositivos';
