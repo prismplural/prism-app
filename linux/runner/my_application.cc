@@ -25,6 +25,7 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   gtk_window_set_icon_name(window, APPLICATION_ID);
+  gtk_window_set_title(window, "Prism");
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -49,8 +50,6 @@ static void my_application_activate(GApplication* application) {
     gtk_header_bar_set_title(header_bar, "Prism");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-  } else {
-    gtk_window_set_title(window, "Prism");
   }
 
   gtk_window_set_default_size(window, 1280, 720);

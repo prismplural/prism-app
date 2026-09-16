@@ -33,7 +33,6 @@ tar -C "$bundle" \
 
 cat > "$pkgroot/usr/bin/prism" <<'WRAPPER'
 #!/bin/sh
-export GDK_BACKEND=x11
 # soloud's FFI plugin is dlopened and finds its bundled audio codecs only here.
 export LD_LIBRARY_PATH="/usr/lib/prism/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec /usr/lib/prism/prism_plurality "$@"

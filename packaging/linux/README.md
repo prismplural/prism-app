@@ -37,17 +37,19 @@ For Flatpak, the package script installs the same files under `/app`:
 
 ## Wrapper script
 
-System packages (`.deb`, AUR) ship a launcher at `/usr/bin/prism` that forces
-XWayland and exposes bundled audio codecs to `flutter_soloud`:
+All Linux launchers (`.deb`, AUR, portable tarball, and Flatpak) let GTK select
+Wayland in a Wayland session and X11 otherwise. Their wrappers expose bundled
+audio codecs to `flutter_soloud` without setting `GDK_BACKEND`:
 
 ```sh
 #!/bin/sh
-export GDK_BACKEND=x11
 export LD_LIBRARY_PATH="/usr/lib/prism/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec /usr/lib/prism/prism_plurality "$@"
 ```
 
-Flatpak uses the same behavior through `/app/bin/prism` plus finish args.
+Flatpak also grants native Wayland access plus an X11 fallback through its
+finish args. A user or support session can explicitly select X11 for diagnostics
+with `GDK_BACKEND=x11 prism`.
 
 ## Flatpak
 
@@ -74,12 +76,12 @@ Finish args:
 ```
 --share=ipc
 --share=network
---socket=x11
+--socket=wayland
+--socket=fallback-x11
 --socket=pulseaudio
 --device=all
 --talk-name=org.freedesktop.secrets
 --talk-name=org.freedesktop.Notifications
---env=GDK_BACKEND=x11
 --env=LD_LIBRARY_PATH=/app/lib/prism/lib
 ```
 

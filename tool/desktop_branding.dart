@@ -143,6 +143,27 @@ void _check() {
     'Linux desktop entry icon must use the Prism app id.',
   );
   expect(
+    _fileContains('scripts/package_linux_flatpak.sh', '--socket=wayland'),
+    'Flatpak packaging must grant native Wayland access.',
+  );
+  expect(
+    _fileContains('scripts/package_linux_flatpak.sh', '--socket=fallback-x11'),
+    'Flatpak packaging must retain its X11 fallback.',
+  );
+  for (final path in <String>[
+    'scripts/package_linux_flatpak.sh',
+    'scripts/package_linux_deb.sh',
+    '.github/workflows/desktop.yaml',
+  ]) {
+    expect(
+      !_fileContains(
+        path,
+        RegExp(r'^[^#\n]*GDK_BACKEND\s*=\s*x11', multiLine: true),
+      ),
+      '$path must not force the GTK X11 backend.',
+    );
+  }
+  expect(
     _bytesEqual(
       File(_macBackgroundIcon).readAsBytesSync(),
       File(_linuxBackgroundIcon).readAsBytesSync(),

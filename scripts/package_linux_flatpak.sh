@@ -100,7 +100,6 @@ tar -C "$bundle" \
 
 cat > "$builddir/files/bin/prism" <<'WRAPPER'
 #!/bin/sh
-export GDK_BACKEND=x11
 export LD_LIBRARY_PATH="/app/lib/prism/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 if [ -n "${XDG_DATA_DIRS:-}" ]; then
   export XDG_DATA_DIRS="/app/share:$XDG_DATA_DIRS"
@@ -140,12 +139,12 @@ flatpak build-finish "$builddir" \
   --command=prism \
   --share=ipc \
   --share=network \
-  --socket=x11 \
+  --socket=wayland \
+  --socket=fallback-x11 \
   --socket=pulseaudio \
   --device=all \
   --talk-name=org.freedesktop.secrets \
   --talk-name=org.freedesktop.Notifications \
-  --env=GDK_BACKEND=x11 \
   --env=LD_LIBRARY_PATH=/app/lib/prism/lib
 
 export_args=(
