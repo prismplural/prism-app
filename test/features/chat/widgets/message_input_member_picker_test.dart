@@ -22,13 +22,20 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_keyboard_dismiss_scope.dart';
 
-class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
-  _FixedSpeakingAsNotifier(this.memberId);
+class _TestSpeakingAsNotifier extends SpeakingAsNotifier {
+  _TestSpeakingAsNotifier(this.initialMemberId);
 
-  final String? memberId;
+  final String? initialMemberId;
+  String? _selectedMemberId;
 
   @override
-  String? build() => memberId;
+  String? build() => _selectedMemberId ?? initialMemberId;
+
+  @override
+  void setMember(String? memberId, {bool recordLastUsed = true}) {
+    _selectedMemberId = memberId;
+    ref.invalidateSelf();
+  }
 }
 
 void main() {
@@ -75,6 +82,7 @@ void main() {
     List<Member>? activeMembersOverride,
     ChatNotifier Function()? chatNotifierFactory,
     bool useKeyboardDismissScope = false,
+    Widget Function(Widget child)? childWrapper,
   }) {
     final testConversation = conversationOverride ?? conversation;
     final activeMembers = activeMembersOverride ?? [alice, bob];
@@ -94,7 +102,7 @@ void main() {
           (ref) async => const GifServiceConfig.disabled(),
         ),
         speakingAsProvider.overrideWith(
-          () => _FixedSpeakingAsNotifier('alice-id'),
+          () => _TestSpeakingAsNotifier('alice-id'),
         ),
         activeMembersProvider.overrideWith(
           (ref) => Stream.value(activeMembers),
@@ -119,8 +127,10 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en')],
         home: useKeyboardDismissScope
-            ? const PrismKeyboardDismissScope(child: scaffold)
-            : scaffold,
+            ? PrismKeyboardDismissScope(
+                child: childWrapper?.call(scaffold) ?? scaffold,
+              )
+            : childWrapper?.call(scaffold) ?? scaffold,
       ),
     );
   }
@@ -258,6 +268,140 @@ void main() {
     },
   );
 
+  testWidgets('switching speaking-as reattributes an in-progress draft', (
+    tester,
+  ) async {
+    final chatNotifier = _RecordingChatNotifier();
+    await tester.pumpWidget(
+      buildSubject(chatNotifierFactory: () => chatNotifier),
+    );
+    await tester.pumpAndSettle();
+
+    final textFieldFinder = find.byType(TextField);
+    await tester.tap(textFieldFinder);
+    await tester.enterText(textFieldFinder, 'a draft for Bob');
+    await tester.pump();
+
+    await tester.tap(find.byType(BlurPopupAnchor).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bob'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(textFieldFinder).controller?.text,
+      'a draft for Bob',
+    );
+
+    await tester.tap(find.bySemanticsLabel('Send message'));
+    await tester.pumpAndSettle();
+
+    expect(chatNotifier.sendCount, 1);
+    expect(chatNotifier.lastAuthorId, 'bob-id');
+    expect(chatNotifier.lastContent, 'a draft for Bob');
+  });
+
+  testWidgets('composer restores a draft after being temporarily remounted', (
+    tester,
+  ) async {
+    final composerVisible = ValueNotifier(true);
+    addTearDown(composerVisible.dispose);
+    await tester.pumpWidget(
+      buildSubject(
+        childWrapper: (child) => ValueListenableBuilder<bool>(
+          valueListenable: composerVisible,
+          builder: (context, visible, _) =>
+              visible ? child : const SizedBox.shrink(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final textFieldFinder = find.byType(TextField);
+    await tester.enterText(textFieldFinder, 'keep this draft');
+    await tester.pump();
+
+    composerVisible.value = false;
+    await tester.pump();
+    composerVisible.value = true;
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      'keep this draft',
+    );
+  });
+
+  testWidgets('sending clears the cached draft before a composer remount', (
+    tester,
+  ) async {
+    final composerVisible = ValueNotifier(true);
+    addTearDown(composerVisible.dispose);
+    await tester.pumpWidget(
+      buildSubject(
+        chatNotifierFactory: _RecordingChatNotifier.new,
+        childWrapper: (child) => ValueListenableBuilder<bool>(
+          valueListenable: composerVisible,
+          builder: (context, visible, _) =>
+              visible ? child : const SizedBox.shrink(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'sent draft');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Send message'));
+    await tester.pumpAndSettle();
+
+    composerVisible.value = false;
+    await tester.pump();
+    composerVisible.value = true;
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      '',
+    );
+  });
+
+  testWidgets('sending after composer unmount clears its cached draft', (
+    tester,
+  ) async {
+    final composerVisible = ValueNotifier(true);
+    final sendCompleter = Completer<void>();
+    addTearDown(composerVisible.dispose);
+    await tester.pumpWidget(
+      buildSubject(
+        chatNotifierFactory: () => _BlockingChatNotifier(sendCompleter),
+        childWrapper: (child) => ValueListenableBuilder<bool>(
+          valueListenable: composerVisible,
+          builder: (context, visible, _) =>
+              visible ? child : const SizedBox.shrink(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'mid-send draft');
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('Send message'));
+    await tester.pump();
+
+    composerVisible.value = false;
+    await tester.pump();
+    sendCompleter.complete();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+
+    composerVisible.value = true;
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      '',
+    );
+  });
+
   testWidgets(
     'speaking-as popup drops composer focus when keyboard is closed',
     (tester) async {
@@ -375,6 +519,8 @@ void main() {
 
 class _RecordingChatNotifier extends ChatNotifier {
   int sendCount = 0;
+  String? lastAuthorId;
+  String? lastContent;
 
   @override
   Future<String> sendMessage({
@@ -387,6 +533,8 @@ class _RecordingChatNotifier extends ChatNotifier {
     String? replyToContent,
   }) async {
     sendCount += 1;
+    lastAuthorId = authorId;
+    lastContent = content;
     return 'message-id';
   }
 }

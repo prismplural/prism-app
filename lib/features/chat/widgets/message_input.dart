@@ -85,6 +85,7 @@ class MessageInput extends ConsumerStatefulWidget {
 
 class _MessageInputState extends ConsumerState<MessageInput> {
   final _controller = ChatMarkdownEditingController();
+  late final ComposerDraftCache _draftCache;
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
   final _mentionFieldKey = GlobalKey();
@@ -166,6 +167,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   @override
   void initState() {
     super.initState();
+    _draftCache = ref.read(composerDraftCacheProvider);
+    final savedDraft = _draftCache.read(widget.conversationId);
+    if (savedDraft != null && savedDraft.text.isNotEmpty) {
+      _controller.value = savedDraft;
+      _lastText = savedDraft.text;
+    }
     _controller.addListener(_onTextChanged);
   }
 
@@ -220,6 +227,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   /// Detect `@` trigger and manage the mention overlay.
   void _onTextChanged() {
     if (!mounted) return;
+    _draftCache.write(widget.conversationId, _controller.value);
     final nextText = _controller.text;
     final selection = _controller.selection;
     var nextMentionVisible = false;
@@ -682,6 +690,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       // The auto-disposed reply provider may already be gone if navigation
       // wins the race against the send completion.
     }
+    _draftCache.clear(widget.conversationId);
     if (!mounted) return;
     _controller.removeListener(_onTextChanged);
     _controller.clear();

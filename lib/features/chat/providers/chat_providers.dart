@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pool/pool.dart';
 import 'package:uuid/uuid.dart';
@@ -1136,6 +1137,30 @@ class ReplyingToNotifier extends Notifier<ChatMessage?> {
 
 final replyingToProvider = NotifierProvider.autoDispose
     .family<ReplyingToNotifier, ChatMessage?, String>(ReplyingToNotifier.new);
+
+/// In-memory composer drafts, indexed by conversation.
+///
+/// A chat composer can be briefly removed while permissions settle after a
+/// speaking-as change. This cache outlives that widget transition but is never
+/// persisted to disk. Reading and writing a draft does not notify listeners:
+/// typing must not cause a provider-driven rebuild of the text controller.
+class ComposerDraftCache {
+  final Map<String, TextEditingValue> _drafts = {};
+
+  TextEditingValue? read(String conversationId) => _drafts[conversationId];
+
+  void write(String conversationId, TextEditingValue value) {
+    _drafts[conversationId] = value;
+  }
+
+  void clear(String conversationId) {
+    _drafts.remove(conversationId);
+  }
+}
+
+final composerDraftCacheProvider = Provider<ComposerDraftCache>(
+  (ref) => ComposerDraftCache(),
+);
 
 /// Batch unread message counts for all conversations — single SQL stream.
 ///
