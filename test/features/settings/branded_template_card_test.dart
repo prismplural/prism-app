@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/core/sharing/field_template_codec.dart';
@@ -12,6 +13,7 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_type_config.dart';
 import 'package:prism_plurality/features/settings/widgets/branded_template_card.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/services/desktop_qr_decoder.dart';
 
 void main() {
   Widget host(Widget child) => MaterialApp(
@@ -248,6 +250,20 @@ void main() {
       final recovered = readTemplateFromPng(png!);
       expect(recovered, code);
       final decoded = const FieldTemplateCodec().decode(recovered!);
+
+      // Re-encode the production card as an opaque JPEG, which removes the PNG
+      // tEXt metadata. The visible QR must still recover the exact template.
+      final rendered = img.decodePng(png!);
+      expect(rendered, isNotNull);
+      final jpeg = Uint8List.fromList(img.encodeJpg(rendered!, quality: 85));
+      expect(readTemplateFromPng(jpeg), isNull);
+      final jpegImage = img.decodeJpg(jpeg)!;
+      final decodedFromJpeg = await decodeDesktopQr(
+        jpegImage.getBytes(order: img.ChannelOrder.rgba),
+        jpegImage.width,
+        jpegImage.height,
+      );
+      expect(decodedFromJpeg, code);
 
       expect(decoded.entries.map((e) => e.name).toList(), [
         'Stats',

@@ -5,11 +5,11 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/sharing/field_template_codec.dart';
-import 'package:prism_plurality/core/sharing/field_template_png.dart';
 import 'package:prism_plurality/domain/custom_fields/field_template.dart';
 import 'package:prism_plurality/features/settings/services/field_template_import_service.dart';
 import 'package:prism_plurality/features/settings/widgets/template_preview_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/services/template_image_code_reader.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -51,10 +51,6 @@ class _ImportTemplateSheetContentState
   MobileScannerController? _scanController;
   bool _handlingScan = false;
   bool _busy = false;
-
-  // A template image is tiny; reject anything implausibly large before we read
-  // and PNG-decode the picked file.
-  static const _maxImageBytes = 16 * 1024 * 1024;
 
   bool get _scanSupported => switch (defaultTargetPlatform) {
     TargetPlatform.android || TargetPlatform.iOS => true,
@@ -183,25 +179,22 @@ class _ImportTemplateSheetContentState
     final l10n = context.l10n;
     final handle = await ref
         .read(prismFileDialogServiceProvider)
-        .pickFile(allowedExtensions: const ['png']);
+        .pickFile(allowedExtensions: kTemplateImageExtensions);
     if (handle == null || !mounted) return;
-    if ((handle.size ?? 0) > _maxImageBytes) {
+    if ((handle.size ?? 0) > kMaxTemplateImageBytes) {
       setState(() => _error = l10n.fieldTemplateImportErrorNoImage);
       return;
     }
 
     String? code;
     try {
-      final bytes = await handle.readAsBytes();
-      code = readTemplateFromPng(bytes);
-      // No tEXt chunk (e.g. a re-compressed screenshot): fall back to decoding
-      // the visible QR from the image file (path-based) where supported.
-      if (code == null && _scanSupported && handle.path != null) {
-        code = await _decodeQrFromImage(handle.path!);
-      }
+      code = await ref
+          .read(templateImageCodeReaderProvider)
+          .read(await handle.readAsBytes(), path: handle.path);
     } catch (_) {
-      // A corrupt or oversized file can throw in readAsBytes or PNG decode.
-      if (mounted) setState(() => _error = l10n.fieldTemplateImportErrorNoImage);
+      if (mounted) {
+        setState(() => _error = l10n.fieldTemplateImportErrorNoImage);
+      }
       return;
     }
     if (!mounted) return;
@@ -210,18 +203,6 @@ class _ImportTemplateSheetContentState
       return;
     }
     await _processCandidate(code);
-  }
-
-  Future<String?> _decodeQrFromImage(String path) async {
-    final controller = MobileScannerController();
-    try {
-      final capture = await controller.analyzeImage(path);
-      return capture?.barcodes.firstOrNull?.rawValue;
-    } catch (_) {
-      return null;
-    } finally {
-      await controller.dispose();
-    }
   }
 
   void _onScanDetect(BarcodeCapture capture) {

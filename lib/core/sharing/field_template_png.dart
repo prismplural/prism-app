@@ -6,8 +6,7 @@ import 'package:prism_plurality/core/sharing/field_template_codec.dart'
     show kMaxTemplateCodeChars;
 
 /// tEXt-chunk key carrying a Prism field-template share code inside a PNG.
-/// Stable on purpose: desktop image-import reads this with no QR decoder.
-const _templateTextKey = 'prismFieldTemplate';
+const kTemplateTextKey = 'prismFieldTemplate';
 
 /// The 8-byte PNG file signature. Sniffed before decoding so a mislabelled or
 /// truncated file is rejected up front rather than crashing the decoder.
@@ -31,7 +30,7 @@ Uint8List embedTemplateInPng(Uint8List png, String code) {
   try {
     final image = img.decodePng(png);
     if (image == null) return png;
-    image.addTextData({_templateTextKey: code});
+    image.addTextData({kTemplateTextKey: code});
     return Uint8List.fromList(img.encodePng(image));
   } catch (_) {
     return png;
@@ -48,7 +47,7 @@ String? readTemplateFromPng(Uint8List png) {
   if (!_looksLikePng(png)) return null;
   try {
     final image = img.decodePng(png);
-    final code = image?.textData?[_templateTextKey];
+    final code = image?.textData?[kTemplateTextKey];
     if (code != null && code.length > kMaxTemplateCodeChars) return null;
     return code;
   } catch (_) {
