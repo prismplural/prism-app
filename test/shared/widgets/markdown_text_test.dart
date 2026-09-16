@@ -985,6 +985,38 @@ void main() {
       expect(spoilerOpacities(tester), [1.0, 0.0]);
     });
 
+    testWidgets('spoilers remain distinct semantic buttons inline', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark(),
+            home: const Scaffold(
+              body: MarkdownText(data: 'before ||alpha|| and ||bravo|| after'),
+            ),
+          ),
+        );
+
+        final alpha = find
+            .bySemanticsLabel('Hidden spoiler, double tap to reveal')
+            .first;
+        final bravo = find
+            .bySemanticsLabel('Hidden spoiler, double tap to reveal')
+            .last;
+        expect(alpha, findsOneWidget);
+        expect(bravo, findsOneWidget);
+        final alphaNode = tester.getSemantics(alpha);
+        final bravoNode = tester.getSemantics(bravo);
+        expect(alphaNode.getSemanticsData().flagsCollection.isButton, isTrue);
+        expect(bravoNode.getSemanticsData().flagsCollection.isButton, isTrue);
+        expect(tester.getRect(alpha).overlaps(tester.getRect(bravo)), isFalse);
+      } finally {
+        handle.dispose();
+      }
+    });
+
     testWidgets('tapping a spoiler reveals it', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

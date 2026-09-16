@@ -96,11 +96,12 @@ class SpoilerBuilder extends MarkdownElementBuilder {
     final id = _nextId++;
     final text = element.textContent;
     final base = parentStyle ?? const TextStyle();
-    return SpoilerPill(
-      id: id,
-      text: text,
-      textStyle: base,
-      theme: theme,
+    // Keep the pill in the surrounding RichText line.
+    return Text.rich(
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        child: SpoilerPill(id: id, text: text, textStyle: base, theme: theme),
+      ),
     );
   }
 }
@@ -146,6 +147,8 @@ class SpoilerPill extends StatelessWidget {
     final hiddenOutline = Colors.white.withValues(alpha: _hiddenOutlineAlpha);
 
     return Semantics(
+      // Preserve the pill as an independent semantic button.
+      container: true,
       button: true,
       label: revealed
           ? 'Spoiler, revealed: $text'

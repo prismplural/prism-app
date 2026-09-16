@@ -302,6 +302,40 @@ void main() {
       expect(pill.text, 'internal draft');
     });
 
+    testWidgets('spoilers stay inline with surrounding table-cell text', (
+      tester,
+    ) async {
+      await _pumpTable(
+        tester,
+        '| Project Alpha |\n'
+        '| --- |\n'
+        '| Status: ||internal draft|| — ready for review |',
+      );
+
+      // Guard the inline structure independently of available width.
+      final pill = find.byType(SpoilerPill);
+      final inlineRichText = find.ancestor(
+        of: pill,
+        matching: find.byType(RichText),
+      );
+      expect(inlineRichText, findsOneWidget);
+      final inlineText = tester
+          .widget<RichText>(inlineRichText)
+          .text
+          .toPlainText();
+      expect(inlineText, contains('Status:'));
+      expect(inlineText, contains('— ready for review'));
+
+      final prefix = _glyphBoundsContaining(tester, 'Status:');
+      final spoiler = tester.getRect(pill);
+      final suffix = _glyphBoundsContaining(tester, '— ready for review');
+
+      expect(spoiler.center.dy, closeTo(prefix.center.dy, 1));
+      expect(suffix.center.dy, closeTo(prefix.center.dy, 1));
+      expect(spoiler.left, greaterThan(prefix.right));
+      expect(suffix.left, greaterThan(spoiler.right));
+    });
+
     testWidgets('member mentions inside table cells resolve to display names', (
       tester,
     ) async {
