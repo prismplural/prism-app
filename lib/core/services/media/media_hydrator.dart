@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:prism_plurality/core/async/yield_control.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
@@ -48,16 +49,20 @@ class MediaHydrator {
     void Function(String message)? log,
     void Function(String mediaId, {bool fromNotFound})? onReferencedAbsent,
     Random? random,
-  })  : _attachmentsDao = attachmentsDao,
-        _downloadManager = downloadManager,
-        _maxConcurrent = maxConcurrent,
-        _maxAttempts = maxAttempts,
-        _baseBackoff = baseBackoff,
-        _maxBackoff = maxBackoff,
-        _scheduleRetryOverride = scheduleRetry,
-        _log = log ?? _defaultLog,
-        _onReferencedAbsent = onReferencedAbsent,
-        _random = random ?? Random();
+    int rowsPerYield = 50,
+  }) : _attachmentsDao = attachmentsDao,
+       _downloadManager = downloadManager,
+       _maxConcurrent = maxConcurrent,
+       _maxAttempts = maxAttempts,
+       _baseBackoff = baseBackoff,
+       _maxBackoff = maxBackoff,
+       _scheduleRetryOverride = scheduleRetry,
+       _log = log ?? _defaultLog,
+       _onReferencedAbsent = onReferencedAbsent,
+       _random = random ?? Random(),
+       rowsPerYield = rowsPerYield {
+    assert(rowsPerYield >= 1, 'rowsPerYield must be >= 1');
+  }
 
   final MediaAttachmentsDao _attachmentsDao;
   final DownloadManager _downloadManager;
@@ -69,7 +74,7 @@ class MediaHydrator {
   /// Test seam for scheduling a retry without a real timer. Default path uses
   /// a tracked [Timer] (see [_scheduleRetry]).
   final void Function(Duration delay, void Function() run)?
-      _scheduleRetryOverride;
+  _scheduleRetryOverride;
   final void Function(String message) _log;
 
   /// Fired (fire-and-forget) when the hydrator gives up on a referenced blob —
@@ -79,6 +84,10 @@ class MediaHydrator {
   final void Function(String mediaId, {bool fromNotFound})? _onReferencedAbsent;
 
   final Random _random;
+
+  /// Rows of the `media_attachments` walk between event-loop yields in
+  /// [enqueuePending] — see that method for why the walk yields at all.
+  final int rowsPerYield;
 
   /// Pending retry timers, so [dispose] can cancel them instead of leaving
   /// them to fire (harmlessly, but as dangling timers) up to [_maxBackoff]
@@ -111,6 +120,15 @@ class MediaHydrator {
   /// download for any primary blob not already cached. Idempotent and cheap
   /// to call repeatedly. Never throws — failures are logged and swallowed so
   /// callers (startup hooks, the sync stream) can fire-and-forget.
+  ///
+  /// The walk yields to the event loop every [rowsPerYield] rows. It runs on
+  /// the main isolate, and every row does synchronous main-isolate work (two
+  /// [enqueueIfMissing] calls, each reserving state and kicking off a
+  /// cache-check) on top of its `await`s — so a large library (10^4–10^5
+  /// attachments, i.e. up to twice as many ids) would otherwise be one
+  /// unbounded startup burst with no frame or input turn, starving the first
+  /// frame and any early user input. The walk is idempotent and its work list is
+  /// derivable, so abandoning it mid-way (app killed) loses nothing.
   Future<void> enqueuePending() async {
     if (_disposed) return;
     final List<MediaAttachment> rows;
@@ -120,7 +138,9 @@ class MediaHydrator {
       _log('MediaHydrator.enqueuePending: failed to load rows (non-fatal): $e');
       return;
     }
+    final yielder = CooperativeYield(workUnits: rowsPerYield);
     for (final row in rows) {
+      if (_disposed) return;
       // Thumbnail first (media thumbnails): it's small, so it lands quickly
       // and gives the UI a crisp preview while the full blob is still in flight.
       // It shares the primary blob's key; its own hashes are now synced. A row
@@ -137,6 +157,7 @@ class MediaHydrator {
         contentHash: row.contentHash,
         plaintextHash: row.plaintextHash,
       );
+      if (yielder.countUnit()) await yielder.yieldNow();
     }
   }
 
@@ -252,7 +273,10 @@ class MediaHydrator {
       unawaited(
         _process(task).whenComplete(() {
           _active--;
-          _pump();
+          // Only re-pump if the queue actually grew. Once the startup walk has
+          // drained and everything is cached/given up, every completed download
+          // would otherwise schedule another no-op `_pump` on the main isolate.
+          if (_queue.isNotEmpty) _pump();
         }),
       );
     }
@@ -409,10 +433,10 @@ class _HydrationTask {
   final int attempt;
 
   _HydrationTask withAttempt(int attempt) => _HydrationTask(
-        mediaId: mediaId,
-        encryptionKeyB64: encryptionKeyB64,
-        contentHash: contentHash,
-        plaintextHash: plaintextHash,
-        attempt: attempt,
-      );
+    mediaId: mediaId,
+    encryptionKeyB64: encryptionKeyB64,
+    contentHash: contentHash,
+    plaintextHash: plaintextHash,
+    attempt: attempt,
+  );
 }

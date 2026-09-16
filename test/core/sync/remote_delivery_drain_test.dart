@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_sync_drift/prism_sync_drift.dart' show DriftSyncAdapter;
 
+import 'package:prism_plurality/core/async/yield_control.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
@@ -1262,6 +1263,130 @@ void main() {
         expect(result.touchedTables, {'fronting_sessions'});
       },
     );
+  });
+
+  // ------------------------------------------------------------------
+  // Main-isolate fairness: the drain must hand the isolate back.
+  //
+  // The drain core runs on the main isolate (it is handed the FFI handle) and
+  // can loop up to `maxChunksPerRun` (10000) chunks. Chained microtask
+  // continuations alone do not let the platform event queue — frames and input —
+  // run, so a deep journal drain needs an explicit event-loop hop.
+  // ------------------------------------------------------------------
+
+  test(
+    'a deep drain yields to the event loop once per yield cadence',
+    () async {
+      var yields = 0;
+      debugYieldOverride = () async => yields++;
+      addTearDown(debugResetYieldOverride);
+
+      final journal = _FakeJournal();
+      // 6 rows / chunk 2 ⇒ 3 chunks. With chunksPerYield 1 that is 3 yields.
+      for (var i = 0; i < 6; i++) {
+        journal.append(
+          table: 'members',
+          entityId: 'm$i',
+          isDelete: false,
+          fieldName: 'name',
+          encodedValue: '"M$i"',
+        );
+      }
+
+      final result = await runRemoteDeliveryDrain(
+        take: journal.take,
+        ack: journal.ack,
+        applyChanges: (deliveries) async => deliveries.length,
+        quarantineSpill: (_) async {},
+        chunkSize: 2,
+        chunksPerYield: 1,
+      );
+
+      expect(result.rowsApplied, 6);
+      expect(result.chunksAcked, 3);
+      expect(
+        yields,
+        3,
+        reason:
+            'one event-loop hop per chunk at a cadence of 1 — the bound that '
+            'keeps a 10000-chunk drain from holding the isolate',
+      );
+    },
+  );
+
+  test(
+    'yield cadence batches: fewer hops than chunks for a shallow drain',
+    () async {
+      var yields = 0;
+      debugYieldOverride = () async => yields++;
+      addTearDown(debugResetYieldOverride);
+
+      final journal = _FakeJournal();
+      // 6 rows / chunk 2 ⇒ 3 chunks, cadence 8 ⇒ no hop at all.
+      for (var i = 0; i < 6; i++) {
+        journal.append(
+          table: 'members',
+          entityId: 'm$i',
+          isDelete: false,
+          fieldName: 'name',
+          encodedValue: '"M$i"',
+        );
+      }
+
+      final result = await runRemoteDeliveryDrain(
+        take: journal.take,
+        ack: journal.ack,
+        applyChanges: (deliveries) async => deliveries.length,
+        quarantineSpill: (_) async {},
+        chunkSize: 2,
+        chunksPerYield: 8,
+      );
+
+      expect(result.chunksAcked, 3);
+      expect(yields, 0, reason: 'the hop is batched, not per chunk');
+    },
+  );
+
+  test('an over-cap drain still acks every chunk and spills the prefix '
+      'while yielding', () async {
+    var yields = 0;
+    debugYieldOverride = () async => yields++;
+    addTearDown(debugResetYieldOverride);
+
+    const cap = 4;
+    final journal = _FakeJournal(cap: cap);
+    for (var i = 0; i < 6; i++) {
+      journal.append(
+        table: 'members',
+        entityId: 'm$i',
+        isDelete: false,
+        fieldName: 'name',
+        encodedValue: '"M$i"',
+      );
+    }
+
+    var applied = 0;
+    var spilled = 0;
+    final result = await runRemoteDeliveryDrain(
+      take: journal.take,
+      ack: journal.ack,
+      applyChanges: (deliveries) async {
+        applied += deliveries.length;
+        return deliveries.length;
+      },
+      quarantineSpill: (spill) async => spilled += spill.length,
+      chunkSize: 2,
+      chunksPerYield: 1,
+    );
+
+    // Yielding mid-drain must not disturb the ack/spill bookkeeping.
+    expect(result.rowsApplied, applied);
+    expect(result.rowsSpilled, spilled);
+    expect(result.rowsSpilled, 2, reason: 'over-cap prefix spilled');
+    expect(result.rowsApplied, 4);
+    expect(result.chunksAcked, 3);
+    expect(journal.length, 0);
+    expect(yields, greaterThan(0));
   });
 }
 

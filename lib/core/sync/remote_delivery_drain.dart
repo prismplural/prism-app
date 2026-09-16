@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:prism_plurality/core/async/yield_control.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
@@ -143,6 +144,12 @@ const int kRemoteDeliveryChunkSize = 200;
 /// idle watchdog alive (the bootstrap path forwards it to the strict-apply
 /// coordinator's progress signal — without it a multi-minute large-system
 /// snapshot apply would silently hit the pairing idle watchdog).
+///
+/// The loop also yields to the event loop every [chunksPerYield] chunks. This
+/// core runs on the main isolate (it is handed the FFI handle), and chained
+/// microtask continuations do *not* let the platform event queue run, so without
+/// the yield a deep journal drain would hold the main isolate — and with it
+/// frames and input — for the whole run.
 Future<DrainResult> runRemoteDeliveryDrain({
   required Future<DrainChunk> Function(int limit) take,
   required Future<void> Function(int upToId) ack,
@@ -151,11 +158,14 @@ Future<DrainResult> runRemoteDeliveryDrain({
   bool Function()? shouldAbort,
   void Function(int rowsApplied, int rowsSpilled)? onProgress,
   int chunkSize = kRemoteDeliveryChunkSize,
+  int chunksPerYield = 8,
 }) async {
+  assert(chunksPerYield >= 1, 'chunksPerYield must be >= 1');
   var rowsApplied = 0;
   var rowsSpilled = 0;
   var chunksAcked = 0;
   final touchedTables = <String>{};
+  final yielder = CooperativeYield(workUnits: chunksPerYield);
 
   // Bound the loop defensively. The journal is drained to empty in practice,
   // but a pathological producer (continuous live pulls) must not let this loop
@@ -224,6 +234,20 @@ Future<DrainResult> runRemoteDeliveryDrain({
       // idle watchdog alive between chunks (intra-chunk progress is reported by
       // the apply callback threaded into `applyChanges`).
       onProgress?.call(rowsApplied, rowsSpilled);
+
+      // Fairness for the main isolate. `applyChanges` runs Drift transactions on
+      // this isolate (the drain holds the FFI handle, so it cannot move off), and
+      // a bare `await` only drains microtasks — the platform event queue, and
+      // with it frames and input, starves until the whole loop finishes. With up
+      // to 10000 chunks per run that is a multi-minute main-isolate hold and an
+      // ANR. Hop the event queue between batches of chunks.
+      //
+      // The ack for this chunk has already landed, so the yield sits at the same
+      // safe point as the existing per-chunk return: a kill during the hop
+      // leaves only un-acked journal rows in Rust, which the next drain
+      // re-applies (at-least-once, idempotent CRDT upsert). Durability and
+      // ordering are unchanged.
+      if (yielder.countUnit()) await yielder.yieldNow();
     }
   } catch (e) {
     if (e is DrainFailure) rethrow;
