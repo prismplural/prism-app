@@ -1,9 +1,7 @@
 // Android strict-memory gate for large Simply Plural avatar ZIP imports.
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:drift/drift.dart' show Value;
@@ -15,6 +13,7 @@ import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_avatar_zip_importer.dart';
 
 import '../tool/generate_sp_avatar_zip_benchmark.dart';
+import 'support/main_isolate_pulse_monitor.dart';
 
 const _caseName = String.fromEnvironment('SP_AVATAR_ZIP_BENCHMARK_CASE');
 const _profileName = String.fromEnvironment('SP_AVATAR_ZIP_BENCHMARK_PROFILE');
@@ -85,7 +84,8 @@ void main() {
         await Future<void>.delayed(const Duration(seconds: _beforeIdleSeconds));
 
         for (var run = 1; run <= _repetitions; run++) {
-          final pulse = await _PulseMonitor.start();
+          final pulse = await MainIsolatePulseMonitor.start();
+          late MainIsolatePulseSummary pulseSummary;
           var lastProcessed = 0;
           var lastCommitted = 0;
           var maximumProcessedDelta = 0;
@@ -120,7 +120,7 @@ void main() {
               },
             );
           } finally {
-            final pulseSummary = await pulse.stop();
+            pulseSummary = await pulse.stop();
             maximumHeartbeatGapMicros = max(
               maximumHeartbeatGapMicros,
               pulseSummary.maximumGapMicros,
@@ -155,7 +155,7 @@ void main() {
             'progressEvents': progressEvents,
             'maximumProcessedDelta': maximumProcessedDelta,
             'maximumCommittedDelta': maximumCommittedDelta,
-            'heartbeat': pulse.lastSummary!.toJson(),
+            'heartbeat': pulseSummary.toJson(),
           };
           importSummaries.add(summary);
           _emit('import_end', summary);
@@ -270,98 +270,4 @@ void _memoryWindow(String phase) =>
 void _emit(String event, Map<String, Object?> fields) {
   // ignore: avoid_print
   print('SP_AVATAR_ZIP_BENCHMARK ${jsonEncode({'event': event, ...fields})}');
-}
-
-class _PulseMonitor {
-  _PulseMonitor._({
-    required this.receivePort,
-    required this.subscription,
-    required this.controlPort,
-    required this.clock,
-    required this.readPulseCount,
-    required this.readMaximumGapMicros,
-  });
-
-  final ReceivePort receivePort;
-  final StreamSubscription<Object?> subscription;
-  final SendPort controlPort;
-  final Stopwatch clock;
-  final int Function() readPulseCount;
-  final int Function() readMaximumGapMicros;
-  _PulseSummary? lastSummary;
-
-  static Future<_PulseMonitor> start() async {
-    final receive = ReceivePort();
-    final ready = Completer<SendPort>();
-    final clock = Stopwatch()..start();
-    var lastPulseMicros = 0;
-    var pulseCount = 0;
-    var maximumGapMicros = 0;
-    // ignore: cancel_subscriptions
-    late final StreamSubscription<Object?> subscription;
-    subscription = receive.listen((message) {
-      if (message is SendPort) {
-        lastPulseMicros = clock.elapsedMicroseconds;
-        ready.complete(message);
-        return;
-      }
-      final nowMicros = clock.elapsedMicroseconds;
-      maximumGapMicros = max(maximumGapMicros, nowMicros - lastPulseMicros);
-      lastPulseMicros = nowMicros;
-      pulseCount++;
-    });
-    await Isolate.spawn(_pulseEmitter, receive.sendPort);
-    return _PulseMonitor._(
-      receivePort: receive,
-      subscription: subscription,
-      controlPort: await ready.future,
-      clock: clock,
-      readPulseCount: () => pulseCount,
-      readMaximumGapMicros: () => maximumGapMicros,
-    );
-  }
-
-  Future<_PulseSummary> stop() async {
-    controlPort.send(null);
-    await Future<void>.delayed(const Duration(milliseconds: 40));
-    await subscription.cancel();
-    receivePort.close();
-    clock.stop();
-    final summary = _PulseSummary(
-      intervalMicros: 16000,
-      pulseCount: readPulseCount(),
-      maximumGapMicros: readMaximumGapMicros(),
-    );
-    lastSummary = summary;
-    return summary;
-  }
-}
-
-class _PulseSummary {
-  const _PulseSummary({
-    required this.intervalMicros,
-    required this.pulseCount,
-    required this.maximumGapMicros,
-  });
-
-  final int intervalMicros;
-  final int pulseCount;
-  final int maximumGapMicros;
-
-  Map<String, Object?> toJson() => <String, Object?>{
-    'intervalMicros': intervalMicros,
-    'pulseCount': pulseCount,
-    'maximumGapMicros': maximumGapMicros,
-    'gapsAbove500ms': maximumGapMicros > 500000 ? 1 : 0,
-  };
-}
-
-void _pulseEmitter(SendPort output) {
-  final control = ReceivePort();
-  output.send(control.sendPort);
-  final timer = Timer.periodic(
-    const Duration(milliseconds: 16),
-    (_) => output.send(null),
-  );
-  control.first.whenComplete(timer.cancel);
 }
