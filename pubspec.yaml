@@ -1,7 +1,7 @@
 name: prism_plurality
 description: "Prism — plural system management app"
 publish_to: 'none'
-version: 0.15.0+15004
+version: 0.15.1+15101
 
 environment:
   sdk: ^3.11.1
@@ -89,17 +89,17 @@ dependencies:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync
-      ref: 7ffb15272929eb0f279335183164d695b2fabf74
+      ref: d705889f78b5af1bae6a076fc6cabadc3aae8db0
   prism_sync_drift:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync_drift
-      ref: 7ffb15272929eb0f279335183164d695b2fabf74
+      ref: d705889f78b5af1bae6a076fc6cabadc3aae8db0
   prism_sync_flutter:
     git:
       url: https://github.com/prismplural/prism-sync.git
       path: dart/packages/prism_sync_flutter
-      ref: 7ffb15272929eb0f279335183164d695b2fabf74
+      ref: d705889f78b5af1bae6a076fc6cabadc3aae8db0
   flutter_rust_bridge: 2.12.0
   pointycastle: ^4.0.0
   crypto: ^3.0.6

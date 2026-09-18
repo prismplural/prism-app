@@ -2,6 +2,37 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.15.1] - 2026-09-17
+
+Patch release. Automatic sync now recovers when a notification connection
+silently stalls, while startup, media processing, encrypted exports, and
+fronting-session repair do less work on the main isolate. The sync pin moves
+from `v0.15.0` (`e6ea45ea3ffb8e4806e7496554b5defbc7c2e349`) to
+`v0.15.1` (`d705889f78b5af1bae6a076fc6cabadc3aae8db0`).
+
+### Changed
+- Large-media hashing, profile-header normalization, and encrypted export writes
+  run away from the main isolate, reducing visible stalls during heavier work.
+- Bio-media reconciliation is batched, fronting-session repair uses indexed
+  lookups, and startup processing yields between chunks to keep the app
+  responsive.
+
+### Fixed
+- Automatic sync replaces a silently stalled notification connection and
+  resumes without requiring a manual sync or app restart.
+- Chat drafts stay with their conversation when switching the selected member.
+- Inline Markdown images without explicit dimensions and inline spoilers keep
+  their surrounding text on the same line.
+- Linux prefers native Wayland sessions instead of forcing X11.
+- Template QR import accepts JPEG images as well as PNG images.
+- Count-privacy settings use the selected system terminology.
+
+### Internal
+- Added reusable local Android responsiveness and paired-device sync resilience
+  qualification harnesses.
+- Added mixed-version fronting compatibility coverage and focused calendar
+  reproduction fixtures.
+
 ## [0.15.0] - 2026-09-15
 
 Feature release. Prism now speaks your system's language: fronting terminology
