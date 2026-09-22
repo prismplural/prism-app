@@ -827,6 +827,84 @@ final prismSyncHandleProvider =
 class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   ffi.PrismSyncHandle? _handle;
   Future<SyncHealthState>? _ensureConfiguredFuture;
+  ffi.PrismSyncHandle? _ensureConfiguredHandle;
+  int? _ensureConfiguredGeneration;
+  Timer? _deferredSeedRetry;
+  ffi.PrismSyncHandle? _deferredSeedHandle;
+  Object? _activeDeferredSeedRecovery;
+  int _deferredSeedRetryAttempt = 0;
+  int _retryGeneration = 0;
+  bool _retryBlocked = false;
+
+  bool _ownsRetry(ffi.PrismSyncHandle handle, int generation) =>
+      ref.mounted &&
+      !_retryBlocked &&
+      generation == _retryGeneration &&
+      identical(_handle, handle) &&
+      identical(syncCurrentHandle.value, handle);
+
+  void _stopDeferredSeedRetry() {
+    _deferredSeedRetry?.cancel();
+    _deferredSeedRetry = null;
+    _deferredSeedHandle = null;
+    _deferredSeedRetryAttempt = 0;
+  }
+
+  void _cancelDeferredSeedRetry({bool block = false}) {
+    final hadOwnedRetry =
+        _deferredSeedHandle != null ||
+        _deferredSeedRetry != null ||
+        _activeDeferredSeedRecovery != null;
+    _retryBlocked |= block;
+    _retryGeneration++;
+    _stopDeferredSeedRetry();
+    if (_activeDeferredSeedRecovery != null) {
+      _activeDeferredSeedRecovery = null;
+      _ensureConfiguredFuture = null;
+      _ensureConfiguredHandle = null;
+      _ensureConfiguredGeneration = null;
+    }
+    if (hadOwnedRetry && identical(syncCurrentHandle.value, _handle)) {
+      syncAutoConfigureInProgress.value = false;
+    }
+  }
+
+  void _scheduleDeferredSeedRetry(ffi.PrismSyncHandle handle) {
+    final generation = _retryGeneration;
+    if (!_ownsRetry(handle, generation) ||
+        !identical(_deferredSeedHandle, handle) ||
+        _deferredSeedRetry != null ||
+        ref.read(syncHealthProvider) !=
+            SyncHealthState.runtimeDekRestoreDeferred) {
+      return;
+    }
+    final seconds = min(1 << min(_deferredSeedRetryAttempt, 5), 30);
+    _deferredSeedRetryAttempt++;
+    late final Timer timer;
+    timer = Timer(Duration(seconds: seconds), () async {
+      if (identical(_deferredSeedRetry, timer)) _deferredSeedRetry = null;
+      if (!_ownsRetry(handle, generation) ||
+          !identical(_deferredSeedHandle, handle) ||
+          ref.read(syncHealthProvider) !=
+              SyncHealthState.runtimeDekRestoreDeferred) {
+        return;
+      }
+      try {
+        await ensureConfigured(handle);
+      } catch (e, st) {
+        if (_ownsRetry(handle, generation)) {
+          ErrorReportingService.instance.report(
+            'Deferred secure-store initialization retry failed: $e',
+            severity: ErrorSeverity.warning,
+            stackTrace: st,
+          );
+        }
+      } finally {
+        if (_ownsRetry(handle, generation)) _scheduleDeferredSeedRetry(handle);
+      }
+    });
+    _deferredSeedRetry = timer;
+  }
 
   @override
   Future<ffi.PrismSyncHandle?> build() async {
@@ -841,6 +919,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // callback.
     final databaseForDispose = ref.read(databaseProvider);
     ref.onDispose(() {
+      _cancelDeferredSeedRetry(block: true);
       if (identical(syncCurrentHandle.value, _handle)) {
         syncCurrentHandle.value = null;
       }
@@ -922,6 +1001,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   /// the platform keychain so that initialize/unlock/configureEngine can
   /// access persisted credentials.
   Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
+    _cancelDeferredSeedRetry();
+    _retryBlocked = false;
+    final retryGeneration = _retryGeneration;
     BootTimings.mark('createHandle:entry');
     final previousHandle = _handle;
     final dir = await getAppDataDir();
@@ -1070,10 +1152,17 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       } else if (!seedComplete) {
         // Draining a partial snapshot would delete unread keychain entries.
         health = SyncHealthState.runtimeDekRestoreDeferred;
+        if (_ownsRetry(handle, retryGeneration)) {
+          _deferredSeedHandle = handle;
+        }
       } else {
         final future = _autoConfigureIfReady(handle);
         configureFuture = future;
         _ensureConfiguredFuture = future;
+        _ensureConfiguredHandle = handle;
+        // Boot configuration is outside the retry generation; manual ensure
+        // must still join it after retry cancellation.
+        _ensureConfiguredGeneration = null;
         health = await future;
       }
       BootTimings.mark('createHandle:_autoConfigureIfReady');
@@ -1101,8 +1190,13 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       if (configureFuture != null &&
           identical(_ensureConfiguredFuture, configureFuture)) {
         _ensureConfiguredFuture = null;
+        _ensureConfiguredHandle = null;
+        _ensureConfiguredGeneration = null;
       }
       syncAutoConfigureInProgress.value = false;
+      if (_ownsRetry(handle, retryGeneration)) {
+        _scheduleDeferredSeedRetry(handle);
+      }
     }
 
     // Diagnostic: persistent boot snapshot for crypto-storage debugging.
@@ -1191,57 +1285,96 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   /// handle. Manual reconnect uses this when a handle was published but the
   /// earlier auto-configure attempt failed before `configureEngine`.
   Future<SyncHealthState> ensureConfigured(ffi.PrismSyncHandle handle) async {
+    final retryGeneration = _retryGeneration;
+    if (!_ownsRetry(handle, retryGeneration)) {
+      return SyncHealthState.disconnected;
+    }
+    _deferredSeedRetry?.cancel();
+    _deferredSeedRetry = null;
     final inFlight = _ensureConfiguredFuture;
-    if (inFlight != null) {
+    if (inFlight != null &&
+        identical(_ensureConfiguredHandle, handle) &&
+        (_ensureConfiguredGeneration == null ||
+            _ensureConfiguredGeneration == retryGeneration)) {
       return inFlight;
     }
 
+    final recoveryToken = Object();
+    _activeDeferredSeedRecovery = recoveryToken;
     late final Future<SyncHealthState> tracked;
-    tracked = _ensureConfiguredExclusive(handle).whenComplete(() {
-      if (identical(_ensureConfiguredFuture, tracked)) {
-        _ensureConfiguredFuture = null;
-      }
-    });
+    tracked = _ensureConfiguredExclusive(handle, retryGeneration).whenComplete(
+      () {
+        if (identical(_ensureConfiguredFuture, tracked)) {
+          _ensureConfiguredFuture = null;
+          _ensureConfiguredHandle = null;
+          _ensureConfiguredGeneration = null;
+        }
+        if (identical(_activeDeferredSeedRecovery, recoveryToken)) {
+          _activeDeferredSeedRecovery = null;
+        }
+      },
+    );
     _ensureConfiguredFuture = tracked;
+    _ensureConfiguredHandle = handle;
+    _ensureConfiguredGeneration = retryGeneration;
     return tracked;
   }
 
   Future<SyncHealthState> _ensureConfiguredExclusive(
     ffi.PrismSyncHandle handle,
+    int retryGeneration,
   ) async {
+    bool shouldAbort() => !_ownsRetry(handle, retryGeneration);
+    var reseeded = false;
     syncAutoConfigureInProgress.value = true;
     try {
       if (ref.read(syncHealthProvider) ==
           SyncHealthState.runtimeDekRestoreDeferred) {
-        final seedComplete = await seedRustStoreFromKeychain(handle);
+        final seedComplete = await seedRustStoreFromKeychain(
+          handle,
+          shouldAbort: shouldAbort,
+        );
+        if (shouldAbort()) return SyncHealthState.disconnected;
         if (!seedComplete) {
           ref
               .read(syncHealthProvider.notifier)
               .setState(SyncHealthState.runtimeDekRestoreDeferred);
           return SyncHealthState.runtimeDekRestoreDeferred;
         }
+        reseeded = true;
       }
-      final health = await _autoConfigureIfReady(handle);
+      final health = await _autoConfigureIfReady(
+        handle,
+        shouldAbort: shouldAbort,
+      );
+      if (shouldAbort()) return SyncHealthState.disconnected;
       final previousHealth = ref.read(syncHealthProvider);
       final effectiveHealth = syncHealthAfterManualEnsureConfigured(
         previousHealth: previousHealth,
         configuredHealth: health,
       );
+      if (reseeded) _stopDeferredSeedRetry();
       ref.read(syncHealthProvider.notifier).setState(effectiveHealth);
+      if (shouldAbort()) return effectiveHealth;
       // Drain the durable outbox regardless of the configure outcome (a
       // null/unconfigured engine defers safely inside the drainer); a manual
       // reconnect that ends disconnected must not strand enqueued rows.
       await triggerOutboxDrain(ref.read(databaseProvider), handle);
-      if (effectiveHealth == SyncHealthState.healthy) {
+      if (!shouldAbort() && effectiveHealth == SyncHealthState.healthy) {
         await runPostHealthySyncCatchUp(
           handle: handle,
           db: ref.read(databaseProvider),
           failureLabel: 'Post-manual-configure catch-up sync failed',
+          shouldAbort: shouldAbort,
         );
       }
       return effectiveHealth;
     } finally {
-      syncAutoConfigureInProgress.value = false;
+      if (!shouldAbort()) {
+        if (reseeded) _stopDeferredSeedRetry();
+        syncAutoConfigureInProgress.value = false;
+        _scheduleDeferredSeedRetry(handle);
+      }
     }
   }
 }
@@ -1370,14 +1503,16 @@ SyncHealthState? startupHealthForMigrationMode(String? mode) {
 ///   password entry → Argon2id unlock → healthy
 ///   PIN + mnemonic via recovery sheet → rewrap_dek FFI → healthy
 Future<SyncHealthState> _autoConfigureIfReady(
-  ffi.PrismSyncHandle handle,
-) async {
+  ffi.PrismSyncHandle handle, {
+  bool Function()? shouldAbort,
+}) async {
   // Check if we have the minimum credentials needed
   final syncId = await _safeReadValue('${_secureStorePrefix}sync_id');
   final deviceId = await _safeReadValue('${_secureStorePrefix}device_id');
   final deviceSecret = await _safeReadValue(
     '${_secureStorePrefix}device_secret',
   );
+  if (shouldAbort?.call() == true) return SyncHealthState.disconnected;
   // Not paired — distinguished from `healthy` so the post-config block in
   // `createHandle` skips cacheRuntimeKeys/drainRustStore/onResume on a
   // locked handle (which would otherwise emit benign "no DEK loaded"
@@ -1393,6 +1528,7 @@ Future<SyncHealthState> _autoConfigureIfReady(
 
   // Try the fast path: restore runtime keys from the device-bound wrapped DEK.
   final isUnlocked = await ffi.isUnlocked(handle: handle);
+  if (shouldAbort?.call() == true) return SyncHealthState.disconnected;
   if (!isUnlocked) {
     // Android may reject device-bound unwraps before first unlock; defer
     // instead of surfacing recovery while the cache is still viable.
@@ -1409,8 +1545,15 @@ Future<SyncHealthState> _autoConfigureIfReady(
     );
     final dekOutcome = runtimeDekAad == null
         ? const RuntimeDekRestoreOutcome.missing()
-        : await _readCachedRuntimeDekForRestoreOutcome(aad: runtimeDekAad);
+        : await _readCachedRuntimeDekForRestoreOutcome(
+            aad: runtimeDekAad,
+            shouldAbort: shouldAbort,
+          );
     final dekBytes = dekOutcome.bytes;
+    if (shouldAbort?.call() == true) {
+      _zeroBytesBestEffort(dekBytes);
+      return SyncHealthState.disconnected;
+    }
 
     if (dekBytes != null && deviceSecretB64 == null) {
       final wrappedDek = await _safeReadValue(
@@ -1431,6 +1574,9 @@ Future<SyncHealthState> _autoConfigureIfReady(
           dek: dekBytes,
           deviceSecret: deviceSecretBytes,
         );
+        if (shouldAbort?.call() == true) {
+          return SyncHealthState.disconnected;
+        }
       } catch (e, st) {
         final errorSummary = e is FormatException
             ? 'FormatException'
@@ -1460,8 +1606,10 @@ Future<SyncHealthState> _autoConfigureIfReady(
   }
 
   // Keys are restored — configure the engine
+  if (shouldAbort?.call() == true) return SyncHealthState.disconnected;
   try {
     await ffi.configureEngine(handle: handle);
+    if (shouldAbort?.call() == true) return SyncHealthState.disconnected;
     await ffi.setAutoSync(
       handle: handle,
       enabled: true,
@@ -1469,6 +1617,7 @@ Future<SyncHealthState> _autoConfigureIfReady(
       retryDelayMs: BigInt.from(30000),
       maxRetries: 3,
     );
+    if (shouldAbort?.call() == true) return SyncHealthState.disconnected;
 
     // Deliberately NO local-storage-key backfill of the primary app-DB slot:
     // prism.db is no longer keyed by the LSK (see `cacheRuntimeKeys`), so
@@ -1914,7 +2063,10 @@ List<String> computeKeysToClearOnReset(Map<String, String> all) {
 /// `readAll()` scan catches every entry regardless of how many epoch keys
 /// have accumulated across rekey cycles.
 @visibleForTesting
-Future<bool> seedRustStoreFromKeychain(ffi.PrismSyncHandle handle) async {
+Future<bool> seedRustStoreFromKeychain(
+  ffi.PrismSyncHandle handle, {
+  bool Function()? shouldAbort,
+}) async {
   Map<String, String> all;
   try {
     all = await _safeReadAllEntries();
@@ -1937,10 +2089,12 @@ Future<bool> seedRustStoreFromKeychain(ffi.PrismSyncHandle handle) async {
     all = fallback.entries;
   }
 
+  if (shouldAbort?.call() == true) return false;
   final entries = buildSeedEntries(all);
   if (entries != null) {
     await ffi.seedSecureStore(handle: handle, entries: entries);
   }
+  if (shouldAbort?.call() == true) return false;
   // Reopen durable outbox capture after a successful retry.
   syncCredentialsPersisted.value = hasPersistedSyncCredentials(all);
   return true;
@@ -2591,15 +2745,31 @@ Future<bool> _isAndroidDeviceLockedForRuntimeDekUnwrap() async {
 
 Future<RuntimeDekRestoreOutcome> _readCachedRuntimeDekForRestoreOutcome({
   required String aad,
+  bool Function()? shouldAbort,
 }) {
   return retryRuntimeDekRestoreCore(
     readOnce: () => readCachedRuntimeDekForRestoreOutcomeCore(
       aad: aad,
-      readKey: _safeReadValue,
-      deleteKey: _bestEffortDeleteKey,
-      writeKey: _checkedWriteValue,
-      unwrapDek: _unwrapRuntimeDek,
-      wrapDek: _wrapRuntimeDek,
+      readKey: (key) async =>
+          shouldAbort?.call() == true ? null : await _safeReadValue(key),
+      deleteKey: (key) async {
+        if (shouldAbort?.call() != true) await _bestEffortDeleteKey(key);
+      },
+      writeKey: (key, value) async {
+        if (shouldAbort?.call() != true) await _checkedWriteValue(key, value);
+      },
+      unwrapDek: (blob, aad) {
+        if (shouldAbort?.call() == true) {
+          throw StateError('Sync runtime restore was cancelled');
+        }
+        return _unwrapRuntimeDek(blob, aad);
+      },
+      wrapDek: (bytes, aad) {
+        if (shouldAbort?.call() == true) {
+          throw StateError('Sync runtime restore was cancelled');
+        }
+        return _wrapRuntimeDek(bytes, aad);
+      },
       reportWarning: (message, error, stackTrace) {
         ErrorReportingService.instance.report(
           message,
@@ -3390,40 +3560,55 @@ Future<void> runPostHealthySyncCatchUp({
   @visibleForTesting
   Future<void> Function(AppDatabase db, ffi.PrismSyncHandle handle)?
   drainOutbox,
+  bool Function()? shouldAbort,
 }) async {
+  bool aborted() => shouldAbort?.call() ?? false;
+  if (aborted()) return;
   // Drain the durable outbox so a resume / reconnect picks up rows
   // enqueued while the engine was unconfigured. Runs before the catch-up work
   // so deferred edits go out in this cycle. Outside the try below because a
   // catch-up failure must not skip it.
   await (drainOutbox ?? triggerOutboxDrain)(db, handle);
+  if (aborted()) return;
   try {
     await (onResume ?? ((h) => ffi.onResume(handle: h)))(handle);
+    if (aborted()) return;
     await (repairPkFrontOrphans ?? repairPkFrontOrphansOnceAfterHealthy)(
       handle,
       db,
     );
+    if (aborted()) return;
     await (reemitGroupChatVisibility ??
         reemitGroupChatVisibilityOnceAfterUpgrade)(handle, db);
+    if (aborted()) return;
     // Re-normalize avatars/banners that were stored too large to fit one sync
     // op (legacy GIF passthrough), then repair so the superseded oversized op
     // is dropped instead of lingering as a "too large to sync" item.
     final oversized =
         await (reemitOversizedInlineImages ??
             reemitOversizedInlineImagesOnceAfterUpgrade)(handle, db);
+    if (aborted()) return;
     if (oversized.membersRepaired > 0) {
       await (repairQuarantinedPushBatches ??
           ((h) async {
             await ffi.repairQuarantinedBatches(handle: h);
           }))(handle);
+      if (aborted()) return;
     }
     // Drain migration repairs (rewrites of synced fields the raw-SQL
     // onUpgrade chain made invisible to the Rust field_versions) as real ops.
     await (drainMigrationSyncRepairs ??
         drainMigrationSyncRepairsOnceAfterHealthy)(handle, db);
+    if (aborted()) return;
     await (catchUpPk ?? catchUpPkBackedSyncOnceAfterCutover)(handle, db);
+    if (aborted()) return;
     // Persist any state the sync cycle mutated (session_token refresh, epoch
     // advance, emitted migration ops, etc.) before a subsequent crash loses it.
-    await (drain ?? drainRustStore)(handle);
+    if (drain != null) {
+      await drain(handle);
+    } else {
+      await drainRustStore(handle, shouldAbort: shouldAbort);
+    }
   } catch (e, st) {
     final structuredError = PrismSyncStructuredError.tryParse(e);
     ErrorReportingService.instance.report(
@@ -4991,11 +5176,23 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
   @override
   SyncHealthState build() => SyncHealthState.healthy;
 
-  void setState(SyncHealthState value) => state = value;
+  void setState(SyncHealthState value) {
+    if (value != SyncHealthState.runtimeDekRestoreDeferred &&
+        ref.exists(prismSyncHandleProvider)) {
+      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+      if (handleNotifier._deferredSeedHandle != null) {
+        handleNotifier._cancelDeferredSeedRetry();
+      }
+    }
+    state = value;
+  }
 
   /// Lock sync runtime keys in memory. With [hard] set, also removes the
   /// device-bound runtime-DEK cache so the next start requires PIN+mnemonic.
   Future<void> lock({bool hard = false}) async {
+    if (ref.exists(prismSyncHandleProvider)) {
+      ref.read(prismSyncHandleProvider.notifier)._cancelDeferredSeedRetry();
+    }
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle != null) {
       await ffi.lock(handle: handle);
@@ -5670,6 +5867,11 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   /// reuses the safe-abort as its first step, so calling both in
   /// sequence (safe first, then full) is fine.
   void _abortPendingDrainForRevoke() {
+    if (ref.mounted && ref.exists(prismSyncHandleProvider)) {
+      ref
+          .read(prismSyncHandleProvider.notifier)
+          ._cancelDeferredSeedRetry(block: true);
+    }
     _abortPendingDrainSafe();
     _credentialsRevoked = true;
 

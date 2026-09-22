@@ -396,6 +396,52 @@ void main() {
     },
   );
 
+  test(
+    'confirmed revoke still clears and re-cleans credentials after dispose',
+    () async {
+      final w = await wire();
+      addTearDown(w.teardown);
+      final confirmationStarted = Completer<void>();
+      final releaseConfirmation = Completer<void>();
+      debugRevokeConfirmationOverride = () async {
+        confirmationStarted.complete();
+        await releaseConfirmation.future;
+        return const RevokeConfirmationResult(
+          RevokeConfirmation.confirmedRevoked,
+          remoteWipe: false,
+        );
+      };
+      debugPostRevokeRecleanOverride = const Duration(milliseconds: 200);
+
+      w.events.add(_confirmedSelfRevokeEvent(remoteWipe: false));
+      await awaitDelivered(w.delivered, 1);
+      await confirmationStarted.future;
+      w.container.dispose();
+      releaseConfirmation.complete();
+
+      final deadline = DateTime.now().add(const Duration(seconds: 3));
+      while (w.secure.hasAllCreds() && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(
+        _credKeys.every(
+          (key) => !w.secure.store.containsKey('prism_sync.$key'),
+        ),
+        isTrue,
+      );
+
+      // Model a stale in-flight drain landing after the first clear. The real
+      // delayed cleanup must remove the late credential too.
+      w.secure.store['prism_sync.device_secret'] = 'late-stale-secret';
+      final recleanDeadline = DateTime.now().add(const Duration(seconds: 3));
+      while (w.secure.store.containsKey('prism_sync.device_secret') &&
+          DateTime.now().isBefore(recleanDeadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(w.secure.store, isNot(contains('prism_sync.device_secret')));
+    },
+  );
+
   test('H3 Layer B: verified REVOKED with VERIFIED wipe=FALSE but relay frame '
       'wipe=TRUE does NOT wipe local data (only clears credentials)', () async {
       // The load-bearing Layer B guarantee: a relay flipping the WS-frame
