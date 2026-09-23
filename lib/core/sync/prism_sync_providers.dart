@@ -94,6 +94,8 @@ class _OutboxDrainManager {
   SyncOutboxDrainer ensureWired(AppDatabase db) {
     final existing = _drainer;
     if (existing != null && identical(_db, db)) return existing;
+    _backoffTimer?.cancel();
+    _backoffTimer = null;
     final drainer = SyncOutboxDrainer(db);
     _drainer = drainer;
     _db = db;
@@ -104,25 +106,80 @@ class _OutboxDrainManager {
   /// Trigger a drain pass against [handle] (a null handle is a safe no-op
   /// deferral handled inside the drainer). Arms the backoff timer afterward if
   /// rows remain, so a deferred row keeps getting retried without a fresh emit.
-  Future<void> trigger(ffi.PrismSyncHandle? handle) async {
-    final drainer = _drainer;
-    if (drainer == null) return;
-    await drainer.drain(handle);
-    await _armBackoffIfRowsRemain(handle);
+  Future<void> trigger(ffi.PrismSyncHandle? handle) {
+    final enteredTransaction = Zone.current[#DatabaseConnectionUser] != null;
+    Timer? watchdog;
+    final future = runZoned(
+      () async {
+        assert(() {
+          if (enteredTransaction) {
+            final origin = StackTrace.current;
+            watchdog = Timer(const Duration(seconds: 10), () {
+              _report(
+                'Sync outbox drain started inside a transaction is still waiting. '
+                'Do not await the drain before the transaction completes.',
+                origin,
+              );
+            });
+          }
+          return true;
+        }());
+        final drainer = _drainer;
+        final db = _db;
+        if (drainer == null || db == null) return;
+        await drainer.drain(handle);
+        await _armBackoffIfRowsRemain(db, drainer, handle);
+      },
+      zoneValues: {
+        // Use the root executor: its queries wait for enclosing transactions.
+        #DatabaseConnectionUser: null,
+      },
+    );
+    // Observe detached failures without changing what awaited callers receive.
+    unawaited(
+      future.then<void>(
+        (_) {
+          watchdog?.cancel();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          watchdog?.cancel();
+          _report('Sync outbox drain failed: $error', stackTrace);
+        },
+      ),
+    );
+    return future;
   }
 
-  Future<void> _armBackoffIfRowsRemain(ffi.PrismSyncHandle? handle) async {
-    if (_backoffTimer != null) return;
-    final db = _db;
-    if (db == null) return;
+  void _report(String message, StackTrace stackTrace) {
+    try {
+      ErrorReportingService.instance.report(
+        message,
+        severity: ErrorSeverity.warning,
+        stackTrace: stackTrace,
+      );
+    } catch (_) {
+      debugPrint('Sync outbox error listener failed');
+    }
+  }
+
+  Future<void> _armBackoffIfRowsRemain(
+    AppDatabase db,
+    SyncOutboxDrainer drainer,
+    ffi.PrismSyncHandle? handle,
+  ) async {
+    bool isCurrent() => identical(_db, db) && identical(_drainer, drainer);
+    if (!isCurrent() || _backoffTimer != null) return;
     final remaining = await db.syncOutboxDao.count();
-    if (remaining == 0) return;
-    _backoffTimer = Timer(_backoffInterval, () {
+    if (!isCurrent() || _backoffTimer != null || remaining == 0) return;
+    late final Timer timer;
+    timer = Timer(_backoffInterval, () {
+      if (!isCurrent() || !identical(_backoffTimer, timer)) return;
       _backoffTimer = null;
       // Re-resolve the handle at fire time: the engine may have been configured
       // since this timer was armed.
       unawaited(trigger(syncCurrentHandle.value ?? handle));
     });
+    _backoffTimer = timer;
   }
 
   @visibleForTesting
@@ -138,12 +195,14 @@ class _OutboxDrainManager {
 /// Wire (if needed) and trigger the durable outbox drainer against [handle].
 /// Used at the boot/resume/catch-up/pre-pairing-snapshot triggers; carries the
 /// app [db] so the drainer is constructed lazily the first time it is needed.
+/// Inside a transaction, trigger without awaiting; draining waits for commit.
 Future<void> triggerOutboxDrain(AppDatabase db, ffi.PrismSyncHandle? handle) {
   _OutboxDrainManager.instance.ensureWired(db);
   return _OutboxDrainManager.instance.trigger(handle);
 }
 
 /// Trigger the installed durable outbox drainer.
+/// Inside a transaction, trigger without awaiting; draining waits for commit.
 Future<void> triggerInstalledOutboxDrain(ffi.PrismSyncHandle? handle) {
   return _OutboxDrainManager.instance.trigger(handle);
 }
