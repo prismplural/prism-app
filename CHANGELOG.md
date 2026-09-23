@@ -2,6 +2,23 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.15.2] - 2026-09-22
+
+Patch release. Prism retries when saved sync information is temporarily
+unavailable at startup, so new changes are less likely to wait unsent. Resetting
+sync also clears more state from the previous connection before pairing again.
+The sync pin moves from `v0.15.1` (`d705889f78b5af1bae6a076fc6cabadc3aae8db0`)
+to `v0.15.2` (`b5836cba7f1cb9fde246cc18ef56d6fdc98467ae`).
+
+### Fixed
+- Startup retries deferred sync initialization after a temporary secure-storage
+  read failure instead of leaving new changes waiting to sync.
+- Sync reset removes stale rotation and sender-health state for the reset group.
+
+### Internal
+- Added focused retry, reset-isolation, and rollback tests; refreshed generated
+  sync bindings and stabilized CI checks.
+
 ## [0.15.1] - 2026-09-17
 
 Patch release. Automatic sync now recovers when a notification connection
