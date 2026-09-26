@@ -21,8 +21,10 @@ class LocalNotificationService {
 
   Future<void> initialize() async {
     if (kIsWeb || _initialized) return;
+    // Keep this a flat, alpha-only drawable: an adaptive launcher icon as the
+    // small icon crash-loops System UI on Android 8.0.
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      '@drawable/ic_stat_prism',
     );
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
