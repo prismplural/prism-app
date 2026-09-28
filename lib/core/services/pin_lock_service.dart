@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
@@ -7,11 +8,18 @@ import 'package:hashlib/hashlib.dart' as hashlib;
 import 'package:local_auth/local_auth.dart';
 import 'package:prism_plurality/core/services/keychain_degraded_state.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:synchronized/synchronized.dart';
 
 /// Keys used in secure storage for PIN lock.
 const _pinHashKey = 'prism.pin_hash';
 const _pinSaltKey = 'prism.pin_salt';
 const _pinHashVersionKey = 'prism.pin_hash_version';
+
+/// Serializes whole reads and writes of the hash/salt/version tuple. The keys
+/// are written separately and hashing yields, so overlapping operations could
+/// pair a hash with the wrong salt. Assumes every caller is on the main
+/// isolate; not reentrant, so locked methods call only the unlocked helpers.
+final Lock _pinSlotLock = Lock();
 
 /// Counts boots observed while a legacy (SHA-256, version 1) PIN slot is still
 /// present and un-migrated. Used by [enforceLegacyPinMigrationPolicy] to
@@ -88,6 +96,28 @@ class PinLockService {
     return output.bytes;
   }
 
+  /// [hashPinArgon2idBytes] on a helper isolate. The lock screen verifies as
+  /// the app resumes, and a long main-thread stall there risks an iOS watchdog
+  /// kill. Static so the closure doesn't capture the service.
+  static Future<List<int>> hashPinArgon2idBytesOffMainIsolate(
+    List<int> pinBytes,
+    String salt,
+  ) {
+    return Isolate.run(() => hashPinArgon2idBytes(pinBytes, salt));
+  }
+
+  static Future<List<int>> _hashPinArgon2idOffMainIsolate(
+    String pin,
+    String salt,
+  ) async {
+    final pinBytes = Uint8List.fromList(utf8.encode(pin));
+    try {
+      return await hashPinArgon2idBytesOffMainIsolate(pinBytes, salt);
+    } finally {
+      pinBytes.fillRange(0, pinBytes.length, 0);
+    }
+  }
+
   /// Constant-time comparison of two byte lists.
   bool _constantTimeEquals(List<int> a, List<int> b) {
     if (a.length != b.length) return false;
@@ -137,9 +167,12 @@ class PinLockService {
   /// the user to set a new PIN (per §8). On successful write the slot is
   /// implicitly recovered — clearing the `unreadable` flag is the caller's
   /// responsibility once they've validated the new PIN end-to-end.
-  Future<void> storePinBytes(List<int> pinBytes) async {
+  Future<void> storePinBytes(List<int> pinBytes) =>
+      _pinSlotLock.synchronized(() => _storePinBytesUnlocked(pinBytes));
+
+  Future<void> _storePinBytesUnlocked(List<int> pinBytes) async {
     final salt = _generateSalt();
-    final hash = hashPinArgon2idBytes(pinBytes, salt);
+    final hash = await hashPinArgon2idBytesOffMainIsolate(pinBytes, salt);
     final hashBase64 = base64Encode(Uint8List.fromList(hash));
     final v = await safeSecureWrite(_pinHashVersionKey, '2');
     await _markPinUnreadableIfCipher(v.failure, 'storePinBytes:version');
@@ -157,7 +190,9 @@ class PinLockService {
   ///
   /// Cleanup-style deletes — failures here are non-fatal; the slot is either
   /// already gone or will be overwritten on the next setPin.
-  Future<void> clearPin() async {
+  Future<void> clearPin() => _pinSlotLock.synchronized(_clearPinUnlocked);
+
+  Future<void> _clearPinUnlocked() async {
     await safeSecureDelete(_pinHashKey);
     await safeSecureDelete(_pinSaltKey);
     await safeSecureDelete(_pinHashVersionKey);
@@ -167,11 +202,13 @@ class PinLockService {
   ///
   /// Treats a cipher failure as "no PIN" (the slot is effectively gone) and
   /// flags the slot unreadable so the UI can surface the recovery prompt.
-  Future<bool> isPinSet() async {
-    final read = await safeSecureRead(_pinHashKey);
-    await _markPinUnreadableIfCipher(read.failure, 'isPinSet');
-    final hash = read.value;
-    return hash != null && hash.isNotEmpty;
+  Future<bool> isPinSet() {
+    return _pinSlotLock.synchronized(() async {
+      final read = await safeSecureRead(_pinHashKey);
+      await _markPinUnreadableIfCipher(read.failure, 'isPinSet');
+      final hash = read.value;
+      return hash != null && hash.isNotEmpty;
+    });
   }
 
   /// Verify a PIN attempt against the stored hash.
@@ -183,7 +220,10 @@ class PinLockService {
   /// service and treated as "no stored PIN" — the call returns false rather
   /// than propagating the platform exception. The user lands in the
   /// set-new-PIN recovery path on the next launch.
-  Future<bool> verifyStoredPin(String pin) async {
+  Future<bool> verifyStoredPin(String pin) =>
+      _pinSlotLock.synchronized(() => _verifyStoredPinUnlocked(pin));
+
+  Future<bool> _verifyStoredPinUnlocked(String pin) async {
     final hashRead = await safeSecureRead(_pinHashKey);
     await _markPinUnreadableIfCipher(hashRead.failure, 'verifyStoredPin:hash');
     final saltRead = await safeSecureRead(_pinSaltKey);
@@ -204,7 +244,7 @@ class PinLockService {
       // Argon2id verification — no fallback to SHA-256 since the stored
       // hash is Argon2id format and SHA-256 comparison would always fail.
       try {
-        final computed = hashPinArgon2id(pin, salt);
+        final computed = await _hashPinArgon2idOffMainIsolate(pin, salt);
         return _constantTimeEquals(computed, storedHash);
       } catch (_) {
         return false;
@@ -225,7 +265,7 @@ class PinLockService {
     // Migration: re-hash with Argon2id on successful legacy verification.
     // Best-effort — retry on next unlock if anything fails.
     try {
-      final newHash = hashPinArgon2id(pin, salt);
+      final newHash = await _hashPinArgon2idOffMainIsolate(pin, salt);
       final newHashBase64 = base64Encode(Uint8List.fromList(newHash));
       await safeSecureWrite(_pinHashKey, newHashBase64);
       await safeSecureWrite(_pinHashVersionKey, '2');
@@ -256,7 +296,10 @@ class PinLockService {
   /// clearing the slot simply re-prompts for a fresh PIN at the lock screen
   /// rather than destroying anything. Returns `true` iff a legacy slot was
   /// force-invalidated on this call.
-  Future<bool> enforceLegacyPinMigrationPolicy() async {
+  Future<bool> enforceLegacyPinMigrationPolicy() =>
+      _pinSlotLock.synchronized(_enforceLegacyPinMigrationPolicyUnlocked);
+
+  Future<bool> _enforceLegacyPinMigrationPolicyUnlocked() async {
     final versionRead = await safeSecureRead(_pinHashVersionKey);
     await _markPinUnreadableIfCipher(
       versionRead.failure,
@@ -284,7 +327,7 @@ class PinLockService {
         'unlock-migration — force-invalidating it; user will re-enroll an '
         'Argon2id PIN at the lock screen.',
       );
-      await clearPin();
+      await _clearPinUnlocked();
       await safeSecureDelete(_legacyPinBootCounterKey);
       // Surface the slot as needing re-entry via the degraded-state banner.
       await _degradedState.updateSlot('pin', SlotState.unreadable);

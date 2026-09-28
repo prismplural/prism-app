@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -5,11 +6,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/pin_lock_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/main_isolate_responsiveness.dart';
+
 /// Keeps the production secure-storage path while replacing the platform keychain.
 class _FakeKeychain {
   final Map<String, String> store = <String, String>{};
   PlatformException? throwOnRead;
   PlatformException? throwOnWrite;
+
+  /// Awaited before each write lands, so a test can hold one mid-operation.
+  Future<void> Function(String key, String? value)? beforeWrite;
 
   void install() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +28,7 @@ class _FakeKeychain {
                 if (throwOnWrite != null) throw throwOnWrite!;
                 final key = call.arguments['key'] as String;
                 final value = call.arguments['value'] as String?;
+                await beforeWrite?.call(key, value);
                 if (value == null) {
                   store.remove(key);
                 } else {
@@ -120,6 +127,41 @@ void main() {
   });
 
   group('hashPinArgon2idBytes', () {
+    test('off-main-isolate variant matches the inline hash', () async {
+      final pinBytes = Uint8List.fromList(utf8.encode('246810'));
+      addTearDown(() => pinBytes.fillRange(0, pinBytes.length, 0));
+      final original = List<int>.from(pinBytes);
+
+      final offloaded = await PinLockService.hashPinArgon2idBytesOffMainIsolate(
+        pinBytes,
+        'salt-abc',
+      );
+
+      expect(pinBytes, equals(original), reason: 'caller bytes stay intact');
+      expect(
+        offloaded,
+        equals(PinLockService.hashPinArgon2idBytes(pinBytes, 'salt-abc')),
+      );
+    });
+
+    test(
+      'off-main-isolate variant keeps the main isolate responsive',
+      () async {
+        final pinBytes = Uint8List.fromList(utf8.encode('135790'));
+        addTearDown(() => pinBytes.fillRange(0, pinBytes.length, 0));
+        // The hash is short enough that 5ms pulses would blur the gap.
+        await expectStaysResponsive(
+          offMain: () => PinLockService.hashPinArgon2idBytesOffMainIsolate(
+            pinBytes,
+            'salt-abc',
+          ),
+          inline: () =>
+              PinLockService.hashPinArgon2idBytes(pinBytes, 'salt-abc'),
+          pulseInterval: const Duration(milliseconds: 2),
+        );
+      },
+    );
+
     test('matches String API for UTF-8 encoded PIN bytes', () {
       const pin = '123456';
       const salt = 'salt-abc';
@@ -298,6 +340,46 @@ void main() {
       expect(await realService.isPinSet(), isFalse);
       expect(keychain.store, isEmpty);
     });
+
+    test(
+      'legacy migration cannot overwrite a concurrently stored PIN',
+      () async {
+        seedLegacyPin();
+        final migratedHash = base64Encode(
+          PinLockService.hashPinArgon2id('1234', 'legacy-salt'),
+        );
+        final migrationWriteReached = Completer<void>();
+        final releaseMigrationWrite = Completer<void>();
+        addTearDown(() {
+          if (!releaseMigrationWrite.isCompleted) {
+            releaseMigrationWrite.complete();
+          }
+        });
+        keychain.beforeWrite = (key, value) async {
+          if (key != 'prism.pin_hash' || value != migratedHash) return;
+          if (!migrationWriteReached.isCompleted) {
+            migrationWriteReached.complete();
+          }
+          await releaseMigrationWrite.future;
+        };
+
+        final verify = realService.verifyStoredPin('1234');
+        await migrationWriteReached.future;
+        final store = realService.storePin('5678');
+        // Unserialized, the store lands in full while the migration write is
+        // held; serialized, it stays queued behind the verify until the bound.
+        await Future.any([
+          store,
+          Future<void>.delayed(const Duration(seconds: 1)),
+        ]);
+        releaseMigrationWrite.complete();
+
+        expect(await verify, isTrue);
+        await store;
+        expect(await realService.verifyStoredPin('5678'), isTrue);
+        expect(await realService.verifyStoredPin('1234'), isFalse);
+      },
+    );
   });
 
   // ── enforceLegacyPinMigrationPolicy (real secure storage via channel) ──────
