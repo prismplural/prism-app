@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:prism_plurality/core/async/yield_control.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
+import 'package:prism_plurality/core/diagnostics/main_thread_stalls.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 
@@ -129,7 +130,36 @@ class MediaHydrator {
   /// unbounded startup burst with no frame or input turn, starving the first
   /// frame and any early user input. The walk is idempotent and its work list is
   /// derivable, so abandoning it mid-way (app killed) loses nothing.
-  Future<void> enqueuePending() async {
+  ///
+  /// Single-flight: startup and every media-touching sync batch call this, and
+  /// overlapping walks each held a full row list. A call during a walk folds
+  /// into one trailing re-walk that sees rows committed since.
+  Future<void> enqueuePending() {
+    if (_disposed) return Future<void>.value();
+    if (_activeWalk case final walk?) {
+      _rewalkRequested = true;
+      return walk;
+    }
+    return _activeWalk = _runWalks();
+  }
+
+  Future<void>? _activeWalk;
+  bool _rewalkRequested = false;
+
+  Future<void> _runWalks() async {
+    try {
+      do {
+        _rewalkRequested = false;
+        await _walkOnce();
+      } while (_rewalkRequested && !_disposed);
+    } finally {
+      // Cleared in the same turn the loop exits, so a later call can't attach
+      // to a walk that has already decided not to re-run.
+      _activeWalk = null;
+    }
+  }
+
+  Future<void> _walkOnce() async {
     if (_disposed) return;
     final List<MediaAttachment> rows;
     try {
@@ -138,6 +168,9 @@ class MediaHydrator {
       _log('MediaHydrator.enqueuePending: failed to load rows (non-fatal): $e');
       return;
     }
+    // The stall sampler drops breadcrumbs on every tick, so re-mark after each
+    // await that can span one.
+    MainThreadStalls.phase(_walkPhase);
     final yielder = CooperativeYield(workUnits: rowsPerYield);
     for (final row in rows) {
       if (_disposed) return;
@@ -157,9 +190,14 @@ class MediaHydrator {
         contentHash: row.contentHash,
         plaintextHash: row.plaintextHash,
       );
-      if (yielder.countUnit()) await yielder.yieldNow();
+      if (yielder.countUnit()) {
+        await yielder.yieldNow();
+        MainThreadStalls.phase(_walkPhase);
+      }
     }
   }
+
+  static const _walkPhase = 'media hydration walk';
 
   /// Schedule a background download for a single blob (primary OR thumbnail),
   /// unless it is already cached, already being worked on, or already given up

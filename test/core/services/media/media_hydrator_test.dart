@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -5,10 +6,41 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/media_hydrator.dart';
+
+/// Counts full-table walks and the most that were in flight at once, and can
+/// hold the first walk open after it loads its rows, so tests control exactly
+/// when calls overlap.
+class _CountingAttachmentsDao extends MediaAttachmentsDao {
+  _CountingAttachmentsDao(super.db);
+
+  int walks = 0;
+  int maxActive = 0;
+  int _active = 0;
+  Completer<void>? holdFirstWalk;
+  final firstSnapshotLoaded = Completer<void>();
+
+  @override
+  Future<List<MediaAttachment>> getAll() async {
+    walks++;
+    _active++;
+    if (_active > maxActive) maxActive = _active;
+    try {
+      final rows = await super.getAll();
+      if (!firstSnapshotLoaded.isCompleted) firstSnapshotLoaded.complete();
+      final hold = holdFirstWalk;
+      holdFirstWalk = null;
+      if (hold != null) await hold.future;
+      return rows;
+    } finally {
+      _active--;
+    }
+  }
+}
 
 /// Minimal stand-in so [DownloadManager]'s constructor is satisfied; the fake
 /// overrides every method the hydrator touches, so this is never invoked.
@@ -121,9 +153,13 @@ void main() {
   bool cacheFileExists(String mediaId) =>
       File(p.join(mediaDir.path, '$mediaId.enc')).existsSync();
 
-  MediaHydrator makeHydrator({int maxAttempts = 5, void Function(String)? log}) {
+  MediaHydrator makeHydrator({
+    int maxAttempts = 5,
+    void Function(String)? log,
+    MediaAttachmentsDao? attachmentsDao,
+  }) {
     return MediaHydrator(
-      attachmentsDao: db.mediaAttachmentsDao,
+      attachmentsDao: attachmentsDao ?? db.mediaAttachmentsDao,
       downloadManager: downloads,
       maxAttempts: maxAttempts,
       // Run retries on a microtask (no real timer) so backoff tests are
@@ -271,6 +307,45 @@ void main() {
       await pumpEventQueue();
 
       expect(downloads.calls, isEmpty);
+      hydrator.dispose();
+    });
+  });
+
+  group('enqueuePending coalescing', () {
+    test('folds overlapping calls into one trailing re-walk', () async {
+      final dao = _CountingAttachmentsDao(db)..holdFirstWalk = Completer();
+      final release = dao.holdFirstWalk!;
+      await seedRow('media-a');
+      final hydrator = makeHydrator(attachmentsDao: dao);
+      final got = landed(hydrator, 2);
+
+      final first = hydrator.enqueuePending();
+      await dao.firstSnapshotLoaded.future;
+      // Committed after the first walk loaded its rows: only a re-walk sees it.
+      await seedRow('media-b');
+      final second = hydrator.enqueuePending();
+      final third = hydrator.enqueuePending();
+      release.complete();
+      await Future.wait([first, second, third]);
+
+      expect(dao.walks, 2);
+      expect(dao.maxActive, 1, reason: 'the re-walk must not overlap');
+      expect((await got).toSet(), {'media-a', 'media-b'});
+
+      hydrator.dispose();
+    });
+
+    test('a call after a finished walk starts a fresh one', () async {
+      final dao = _CountingAttachmentsDao(db);
+      await seedRow('media-a');
+      final hydrator = makeHydrator(attachmentsDao: dao);
+      final got = landed(hydrator, 1);
+
+      await hydrator.enqueuePending();
+      await hydrator.enqueuePending();
+
+      expect(dao.walks, 2);
+      expect(await got, ['media-a']);
       hydrator.dispose();
     });
   });
