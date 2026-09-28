@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:prism_plurality/core/diagnostics/main_thread_stalls.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 const prismSyncWebSocketAuthFailedCode = 'websocket_auth_failed';
@@ -154,6 +155,7 @@ class SyncEvent {
 /// Rust pushes events directly — no polling needed.
 Stream<SyncEvent> createSyncEventStream(ffi.PrismSyncHandle handle) {
   return ffi.syncEventStream(handle: handle).map((jsonStr) {
+    MainThreadStalls.phase('sync event decode');
     return SyncEvent.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
   });
 }
