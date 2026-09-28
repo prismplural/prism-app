@@ -54,8 +54,13 @@ class _SyncRewrapSheetState extends ConsumerState<SyncRewrapSheet>
   final _mnemonicController = TextEditingController();
   String? _mnemonicError;
   String? _mnemonic;
+  // Handlers check these themselves: two taps in one frame both land before
+  // the rebuild that disables the buttons.
   bool _mnemonicBusy = false;
   bool _disconnectBusy = false;
+  // Guards the disconnect confirmation without spinning the button, so
+  // build never reads it.
+  bool _confirmingDisconnect = false;
   String? _replacementMnemonic;
   bool _replacementSaved = false;
   bool _usingReplacementMnemonic = false;
@@ -170,6 +175,7 @@ class _SyncRewrapSheetState extends ConsumerState<SyncRewrapSheet>
   }
 
   Future<void> _generateReplacementPhrase() async {
+    if (_mnemonicBusy || _disconnectBusy || _confirmingDisconnect) return;
     setState(() {
       _mnemonicBusy = true;
       _mnemonicError = null;
@@ -213,6 +219,8 @@ class _SyncRewrapSheetState extends ConsumerState<SyncRewrapSheet>
   }
 
   Future<void> _disconnectSync() async {
+    if (_mnemonicBusy || _disconnectBusy || _confirmingDisconnect) return;
+    _confirmingDisconnect = true;
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: context.l10n.resetDataConfirmSyncTitle,
@@ -221,6 +229,7 @@ class _SyncRewrapSheetState extends ConsumerState<SyncRewrapSheet>
       cancelLabel: context.l10n.cancel,
       destructive: true,
     );
+    _confirmingDisconnect = false;
     if (!confirmed || !mounted) return;
 
     setState(() => _disconnectBusy = true);

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,6 +10,7 @@ import 'package:prism_plurality/features/settings/providers/reset_data_provider.
 import 'package:prism_plurality/features/settings/widgets/sync_rewrap_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 // ---------------------------------------------------------------------------
@@ -34,11 +38,17 @@ class _FakeSyncHealthNotifier extends SyncHealthNotifier {
 }
 
 class _FakeResetDataNotifier extends ResetDataNotifier {
+  _FakeResetDataNotifier({this.gate});
+
+  final Completer<void>? gate;
   ResetCategory? lastCategory;
+  int resetCalls = 0;
 
   @override
   Future<void> reset(ResetCategory category) async {
+    resetCalls++;
     lastCategory = category;
+    await gate?.future;
   }
 }
 
@@ -162,6 +172,73 @@ void main() {
 
       expect(resetNotifier.lastCategory, isNull);
       expect(find.byType(SyncRewrapSheet), findsOneWidget);
+
+      await tester.tap(find.text('Disconnect Sync, Keep Data'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Disconnect sync from this device?'), findsOneWidget);
+    });
+
+    testWidgets('a same-frame double activation of disconnect opens one '
+        'dialog', (tester) async {
+      final semantics = tester.ensureSemantics();
+      _useTallViewport(tester);
+      final resetNotifier = _FakeResetDataNotifier(gate: Completer<void>());
+
+      await tester.pumpWidget(_buildSheet(resetNotifier: resetNotifier));
+      await tester.pumpAndSettle();
+
+      // The dialog push makes the navigator absorb further pointers until
+      // the next frame, but not semantics actions, so repeat through those.
+      final disconnect = find.semantics.byPredicate(
+        (node) =>
+            node.getSemanticsData().hasAction(SemanticsAction.tap) &&
+            node.label.contains('Disconnect Sync, Keep Data'),
+      );
+      tester.semantics.tap(disconnect);
+      tester.semantics.tap(disconnect);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Disconnect sync from this device?'), findsOneWidget);
+      expect(find.byType(PrismSpinner), findsNothing);
+
+      await tester.tap(find.text('Disconnect Sync, Keep Data').last);
+      await tester.pump();
+
+      expect(resetNotifier.resetCalls, 1);
+
+      resetNotifier.gate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SyncRewrapSheet), findsNothing);
+      semantics.dispose();
+    });
+
+    testWidgets('a same-frame double tap on lost phrase generates once', (
+      tester,
+    ) async {
+      _useTallViewport(tester);
+      final gate = Completer<String>();
+      var generateCalls = 0;
+      SyncRewrapSheet.debugGenerateSecretKeyOverride = () {
+        generateCalls++;
+        return gate.future;
+      };
+
+      await tester.pumpWidget(_buildSheet());
+      await tester.pumpAndSettle();
+
+      // No pump between taps: both land before the disabling rebuild.
+      final lostPhrase = find.text('Lost your phrase?');
+      await tester.tap(lostPhrase);
+      await tester.tap(lostPhrase);
+
+      expect(generateCalls, 1);
+
+      gate.complete(_replacementMnemonic);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Save your recovery phrase'), findsOneWidget);
     });
 
     testWidgets(
