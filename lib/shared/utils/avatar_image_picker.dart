@@ -144,7 +144,7 @@ Future<Uint8List?> _defaultCropImage(
   );
   if (croppedBitmap == null) return null;
   final croppedBytes = await encodeCroppedBitmapPng(croppedBitmap);
-  return encodeAvatarOutputForStorage(croppedBytes);
+  return compute(encodeAvatarOutputForStorage, croppedBytes);
 }
 
 @visibleForTesting

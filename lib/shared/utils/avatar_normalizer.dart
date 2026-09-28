@@ -23,12 +23,20 @@ class AvatarNormalizer {
 
   static Uint8List? normalize(Uint8List? bytes) {
     if (bytes == null || bytes.isEmpty) return bytes;
+    if (_isConforming(bytes)) return bytes;
+    return _reencode(bytes);
+  }
 
-    // Header-only probe so we can reject oversized images before
-    // img.decodeImage allocates the RGBA buffer. The probe instance can't
-    // be reused for the real decode — PngDecoder accumulates IDAT offsets
-    // across startDecode calls, doubling the zlib working set the second
-    // time through. img.decodeImage builds a fresh decoder.
+  /// Header-only probe so we can reject oversized images before
+  /// img.decodeImage allocates the RGBA buffer, then the idempotent
+  /// fast-path: a JPEG already within both the dimension and byte budget is
+  /// returned verbatim, skipping the multi-hundred-millisecond decode (and
+  /// JPEG-on-JPEG generation loss) on every member write.
+  static bool _isConforming(Uint8List bytes) {
+    // The probe instance can't be reused for the real decode — PngDecoder
+    // accumulates IDAT offsets across startDecode calls, doubling the zlib
+    // working set the second time through. img.decodeImage builds a fresh
+    // decoder.
     final probe = img.findDecoderForData(bytes);
     if (probe == null) {
       throw StateError('Unsupported avatar image format');
@@ -46,20 +54,13 @@ class AvatarNormalizer {
         '(${info.width}x${info.height})',
       );
     }
-
-    // Idempotent fast-path: a JPEG already within both the dimension and byte
-    // budget is returned verbatim. The header probe above already yields the
-    // dimensions, so a conforming avatar skips the full decode entirely — the
-    // decode is the multi-hundred-millisecond cost, and normalize runs on
-    // every member write (including writes that don't touch the avatar).
-    // Skipping it also avoids JPEG-on-JPEG re-encoding generation loss.
-    if (_isJpeg(bytes) &&
+    return _isJpeg(bytes) &&
         bytes.length <= targetMaxBytes &&
         info.width <= maxDimension &&
-        info.height <= maxDimension) {
-      return bytes;
-    }
+        info.height <= maxDimension;
+  }
 
+  static Uint8List? _reencode(Uint8List bytes) {
     final decoded = img.decodeImage(bytes);
     if (decoded == null) {
       throw StateError('Unsupported avatar image format');
@@ -81,11 +82,17 @@ class AvatarNormalizer {
     return bestEffort;
   }
 
-  /// Off-main-isolate single normalize — identical result to [normalize], run
-  /// in a background isolate. Use from any path that can `await` so the UI
-  /// thread never stalls on a pure-Dart image decode.
-  static Future<Uint8List?> normalizeOffMainIsolate(Uint8List? bytes) {
-    if (bytes == null || bytes.isEmpty) return Future<Uint8List?>.value(bytes);
+  /// Off-main-isolate single normalize — identical result to [normalize]. Use
+  /// from any path that can `await` so the UI thread never stalls on a
+  /// pure-Dart image decode. The header probe walks the whole file for PNG,
+  /// GIF and large JPEG, so only an in-budget JPEG is probed inline; a
+  /// conforming one then skips the isolate spawn.
+  static Future<Uint8List?> normalizeOffMainIsolate(Uint8List? bytes) async {
+    if (bytes == null || bytes.isEmpty) return bytes;
+    if (_isJpeg(bytes) && bytes.length <= targetMaxBytes) {
+      if (_isConforming(bytes)) return bytes;
+      return compute(_reencode, bytes);
+    }
     return compute(normalize, bytes);
   }
 

@@ -56,10 +56,10 @@ class ImageCompressionService {
     // Decode in Dart for dimension calculation and blurhash. The Rust side
     // will decode again for the actual resize + encode — the duplicate
     // decode is cheap compared to the encode step.
-    final decoded = img.decodeImage(source);
-    final (targetWidth, targetHeight) = decoded == null
+    final sourceInfo = await _stillInfoOffMainIsolate(source);
+    final (targetWidth, targetHeight) = sourceInfo == null
         ? (_maxDimension, _maxDimension)
-        : fitWithin(decoded.width, decoded.height, _maxDimension);
+        : fitWithin(sourceInfo.width, sourceInfo.height, _maxDimension);
 
     // Encode via Rust FFI — auto-selects format:
     //   has alpha → lossless WebP (art/banners/dividers)
@@ -71,18 +71,16 @@ class ImageCompressionService {
       quality: _quality,
     );
 
-    final decodedForMetadata = decoded ?? img.decodeImage(compressed);
-    if (decodedForMetadata == null) {
+    final info = sourceInfo ?? await _stillInfoOffMainIsolate(compressed);
+    if (info == null) {
       throw ArgumentError('Unable to decode image');
     }
 
-    final blurhash = await computeBlurhashFromImage(decodedForMetadata);
-
     return CompressedImage(
       bytes: compressed,
-      width: decoded == null ? decodedForMetadata.width : targetWidth,
-      height: decoded == null ? decodedForMetadata.height : targetHeight,
-      blurhash: blurhash,
+      width: sourceInfo == null ? info.width : targetWidth,
+      height: sourceInfo == null ? info.height : targetHeight,
+      blurhash: info.blurhash,
       mimeType: mimeType,
     );
   }
@@ -138,19 +136,16 @@ class ImageCompressionService {
         : source;
 
     // Decode first frame for dimensions and blurhash.
-    final decoded = img.decodeImage(bytes);
-    if (decoded == null) {
+    final still = await _stillInfoOffMainIsolate(bytes);
+    if (still == null) {
       throw ArgumentError('Unable to decode animated image');
     }
-    _ensureValidDimensions(decoded.width, decoded.height);
-
-    final blurhash = await computeBlurhashFromImage(decoded);
 
     return CompressedImage(
       bytes: bytes,
-      width: decoded.width,
-      height: decoded.height,
-      blurhash: blurhash,
+      width: still.width,
+      height: still.height,
+      blurhash: still.blurhash,
       mimeType: info.mimeType,
     );
   }
@@ -300,8 +295,10 @@ class ImageCompressionService {
     Uint8List source, {
     img.Image? decoded,
   }) async {
-    decoded ??= img.decodeImage(source);
-    if (decoded == null) {
+    final dimensions = decoded != null
+        ? (decoded.width, decoded.height)
+        : await _decodedDimensionsOffMainIsolate(source);
+    if (dimensions == null) {
       final (bytes, _) = await _encodeImage(
         imageBytes: source,
         maxWidth: _thumbnailMaxDimension,
@@ -312,8 +309,8 @@ class ImageCompressionService {
     }
 
     final (targetWidth, targetHeight) = fitWithin(
-      decoded.width,
-      decoded.height,
+      dimensions.$1,
+      dimensions.$2,
       _thumbnailMaxDimension,
     );
 
@@ -326,24 +323,47 @@ class ImageCompressionService {
     return bytes;
   }
 
+  /// A full-size photo decode would stall the UI thread, so it runs on a
+  /// helper isolate and only these small values cross back.
+  static Future<_StillImageInfo?> _stillInfoOffMainIsolate(Uint8List bytes) =>
+      Isolate.run(() => _stillInfo(bytes));
+
+  static _StillImageInfo? _stillInfo(Uint8List bytes) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return null;
+    _ensureValidDimensions(decoded.width, decoded.height);
+    return (
+      width: decoded.width,
+      height: decoded.height,
+      blurhash: blurhashFromImage(decoded),
+    );
+  }
+
+  static Future<(int, int)?> _decodedDimensionsOffMainIsolate(
+    Uint8List bytes,
+  ) => Isolate.run(() => _decodedDimensions(bytes));
+
+  static (int, int)? _decodedDimensions(Uint8List bytes) {
+    final decoded = img.decodeImage(bytes);
+    return decoded == null ? null : (decoded.width, decoded.height);
+  }
+
   @visibleForTesting
-  static Future<String> computeBlurhashFromImage(img.Image decoded) {
-    // Resize on the CALLING isolate so we ship a ~32px image across the
-    // isolate boundary, not the full bitmap. fitWithin (not a bare
-    // copyResize(width: 32)) keeps both axes bounded and ≥1 — a fixed width
-    // derives round(32*h/w), which is 0 for very wide images and millions of
-    // rows for very tall ones.
+  static String blurhashFromImage(img.Image decoded) {
+    // fitWithin (not a bare copyResize(width: 32)) keeps both axes bounded and
+    // ≥1 — a fixed width derives round(32*h/w), which is 0 for very wide
+    // images and millions of rows for very tall ones.
     final (blurWidth, blurHeight) = fitWithin(
       decoded.width,
       decoded.height,
       32,
     );
     final small = img.copyResize(decoded, width: blurWidth, height: blurHeight);
-    return Isolate.run(() {
-      return BlurHash.encode(small, numCompX: 4, numCompY: 3).hash;
-    });
+    return BlurHash.encode(small, numCompX: 4, numCompY: 3).hash;
   }
 }
+
+typedef _StillImageInfo = ({int width, int height, String blurhash});
 
 class _AnimationInfo {
   final String mimeType;

@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:prism_media_codec/prism_media_codec.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
 
+import '../../../helpers/main_isolate_responsiveness.dart';
 import '../../../helpers/media_codec_test_support.dart';
 
 void main() {
@@ -89,7 +90,7 @@ void main() {
     });
   });
 
-  group('ImageCompressionService.computeBlurhashFromImage', () {
+  group('ImageCompressionService.blurhashFromImage', () {
     test(
       'computes a blurhash for an extreme-wide image without dividing by zero',
       () async {
@@ -98,9 +99,7 @@ void main() {
         final wide = img.Image(width: 2000, height: 30);
         img.fill(wide, color: img.ColorRgb8(10, 20, 30));
 
-        final hash = await ImageCompressionService.computeBlurhashFromImage(
-          wide,
-        );
+        final hash = ImageCompressionService.blurhashFromImage(wide);
         expect(hash, isNotEmpty);
       },
     );
@@ -113,9 +112,7 @@ void main() {
         final tall = img.Image(width: 1, height: 100000);
         img.fill(tall, color: img.ColorRgb8(30, 20, 10));
 
-        final hash = await ImageCompressionService.computeBlurhashFromImage(
-          tall,
-        );
+        final hash = ImageCompressionService.blurhashFromImage(tall);
         expect(hash, isNotEmpty);
       },
     );
@@ -124,9 +121,7 @@ void main() {
       final normal = img.Image(width: 400, height: 300);
       img.fill(normal, color: img.ColorRgb8(120, 60, 200));
 
-      final hash = await ImageCompressionService.computeBlurhashFromImage(
-        normal,
-      );
+      final hash = ImageCompressionService.blurhashFromImage(normal);
       expect(hash, isNotEmpty);
     });
   });
@@ -297,6 +292,58 @@ void main() {
       },
     );
   });
+
+  group('ImageCompressionService main-isolate responsiveness', () {
+    late Uint8List largeStill;
+    final encoderSizes = <(int, int)>[];
+
+    setUpAll(() => largeStill = _noisyJpeg(3000, 2000));
+    setUp(encoderSizes.clear);
+
+    ImageCompressionService stubEncoderService() => ImageCompressionService(
+      encodeImage:
+          ({
+            required imageBytes,
+            required maxWidth,
+            required maxHeight,
+            required quality,
+          }) async {
+            encoderSizes.add((maxWidth, maxHeight));
+            return (Uint8List(1), 'image/jpeg');
+          },
+    );
+
+    test('compressImage decodes a large still off the main isolate', () async {
+      late CompressedImage compressed;
+      late String inlineBlurhash;
+      await expectStaysResponsive(
+        offMain: () async {
+          compressed = await stubEncoderService().compressImage(largeStill);
+        },
+        inline: () {
+          inlineBlurhash = ImageCompressionService.blurhashFromImage(
+            img.decodeImage(largeStill)!,
+          );
+        },
+      );
+
+      expect((compressed.width, compressed.height), (2048, 1365));
+      expect(compressed.blurhash, inlineBlurhash);
+    });
+
+    test(
+      'generateThumbnail decodes a large still off the main isolate',
+      () async {
+        await expectStaysResponsive(
+          offMain: () => stubEncoderService().generateThumbnail(largeStill),
+          inline: () => img.decodeImage(largeStill),
+        );
+
+        expect(encoderSizes, isNotEmpty);
+        expect(encoderSizes, everyElement((300, 200)));
+      },
+    );
+  });
 }
 
 Uint8List _twoFrameGif({
@@ -349,6 +396,20 @@ List<int> _gifFrameDelays(Uint8List bytes) {
     }
   }
   return delays;
+}
+
+/// Deterministic noise, so the decode does photo-like entropy work rather than
+/// racing through a flat fill.
+Uint8List _noisyJpeg(int width, int height) {
+  final image = img.Image(width: width, height: height);
+  var seed = 7;
+  int next() => seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      image.setPixelRgb(x, y, next() & 0xFF, next() & 0xFF, next() & 0xFF);
+    }
+  }
+  return Uint8List.fromList(img.encodeJpg(image, quality: 90));
 }
 
 int _skipGifSubBlocks(Uint8List bytes, int pos) {

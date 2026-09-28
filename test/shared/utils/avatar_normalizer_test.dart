@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 
+import '../../helpers/main_isolate_responsiveness.dart';
+
 void main() {
   test('normalizes large images down to the avatar target size', () {
     final source = img.Image(width: 1200, height: 800);
@@ -182,6 +184,107 @@ void main() {
   test('normalizeBatch returns empty for an empty list', () async {
     expect(await AvatarNormalizer.normalizeBatch(const []), isEmpty);
   });
+
+  test(
+    'normalizeOffMainIsolate matches normalize and keeps the fast path',
+    () async {
+      final bigPng = Uint8List.fromList(img.encodePng(_gradient(1200, 800)));
+      final conformingJpeg = Uint8List.fromList(
+        img.encodeJpg(_gradient(200, 200), quality: 85),
+      );
+
+      final offloaded = await AvatarNormalizer.normalizeOffMainIsolate(bigPng);
+      expect(
+        _bytesEqual(offloaded!, AvatarNormalizer.normalize(bigPng)!),
+        isTrue,
+      );
+
+      final verbatim = await AvatarNormalizer.normalizeOffMainIsolate(
+        conformingJpeg,
+      );
+      expect(
+        identical(verbatim, conformingJpeg),
+        isTrue,
+        reason: 'conforming avatars return verbatim without an isolate hop',
+      );
+    },
+  );
+
+  test(
+    'normalizeOffMainIsolate re-encodes an over-budget JPEG like normalize',
+    () async {
+      final noisy = _noise(900, 900);
+      final bigJpeg = Uint8List.fromList(img.encodeJpg(noisy, quality: 95));
+      expect(
+        bigJpeg.length,
+        greaterThan(AvatarNormalizer.targetMaxBytes),
+        reason: 'precondition: input must skip the inline probe',
+      );
+
+      final offloaded = await AvatarNormalizer.normalizeOffMainIsolate(bigJpeg);
+      expect(identical(offloaded, bigJpeg), isFalse);
+      expect(
+        _bytesEqual(offloaded!, AvatarNormalizer.normalize(bigJpeg)!),
+        isTrue,
+      );
+    },
+  );
+
+  group('normalizeOffMainIsolate main-isolate responsiveness', () {
+    Future<void> expectOffMain(Uint8List source) async {
+      Uint8List? offloaded;
+      Uint8List? expected;
+      await expectStaysResponsive(
+        offMain: () async {
+          offloaded = await AvatarNormalizer.normalizeOffMainIsolate(source);
+        },
+        inline: () => expected = AvatarNormalizer.normalize(source),
+      );
+
+      expect(_bytesEqual(offloaded!, expected!), isTrue);
+    }
+
+    test('an over-budget image re-encodes off the main isolate', () async {
+      final source = Uint8List.fromList(
+        img.encodeJpg(_noise(2400, 2400), quality: 90),
+      );
+      expect(
+        source.length,
+        greaterThan(AvatarNormalizer.targetMaxBytes),
+        reason: 'precondition: input must skip the inline probe',
+      );
+      await expectOffMain(source);
+    });
+
+    test(
+      'an in-budget oversized JPEG re-encodes off the main isolate',
+      () async {
+        // Subsampled chroma packs more pixels into the byte budget, so the
+        // re-encode dwarfs the whole-file header probe this branch runs inline.
+        final source = Uint8List.fromList(
+          img.encodeJpg(
+            _ramp(3600, 3600),
+            quality: 40,
+            chroma: img.JpegChroma.yuv420,
+          ),
+        );
+        expect(
+          source.length,
+          lessThanOrEqualTo(AvatarNormalizer.targetMaxBytes),
+          reason: 'precondition: input must take the inline probe',
+        );
+        await expectOffMain(source);
+      },
+    );
+  });
+
+  test('normalizeOffMainIsolate reports bad input as a failed future', () {
+    final huge = _jpegWithDeclaredDimensions(8000, 8000);
+    expect(
+      AvatarNormalizer.normalizeOffMainIsolate(huge),
+      throwsA(isA<StateError>()),
+    );
+  });
 }
 
 img.Image _gradient(int width, int height) {
@@ -189,6 +292,31 @@ img.Image _gradient(int width, int height) {
   for (var y = 0; y < height; y++) {
     for (var x = 0; x < width; x++) {
       image.setPixelRgb(x, y, (x * 7) % 255, (y * 5) % 255, (x + y) % 255);
+    }
+  }
+  return image;
+}
+
+/// Deterministic noise, which JPEG can't compress under the byte budget.
+img.Image _noise(int width, int height) {
+  final image = img.Image(width: width, height: height);
+  var seed = 7;
+  int next() => seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      image.setPixelRgb(x, y, next() & 0xFF, next() & 0xFF, next() & 0xFF);
+    }
+  }
+  return image;
+}
+
+/// A smooth ramp, which JPEG fits in the byte budget far past the dimension
+/// cap.
+img.Image _ramp(int width, int height) {
+  final image = img.Image(width: width, height: height);
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      image.setPixelRgb(x, y, x * 255 ~/ width, y * 255 ~/ height, 128);
     }
   }
   return image;
