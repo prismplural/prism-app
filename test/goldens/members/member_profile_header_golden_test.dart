@@ -113,7 +113,7 @@ const _headerDevice = PrismGoldenDevice(
 );
 
 final Uint8List _appIconPng = _assetPng(
-  'assets/AppIcon.icon/Assets/ChatGPT Image Aug 14, 2025 at 09_47_20 PM.png',
+  'test/fixtures/images/profile_header_sample.png',
 );
 final Uint8List _logoPng = _assetPng(
   'assets/icon_layers/Prism-Logo-Foreground.png',
