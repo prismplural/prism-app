@@ -80,6 +80,10 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   String _pin = '';
   static const _pinLength = 6;
   bool _isCompleting = false;
+  bool _isVerifying = false;
+  bool _isAuthenticating = false;
+
+  bool get _isBusy => _isCompleting || _isVerifying || _isAuthenticating;
 
   // Brute-force throttling
   int _failedAttempts = 0;
@@ -150,7 +154,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   void _onDigit(String digit) {
-    if (_isCompleting || _pin.length >= _pinLength || _isLockedOut) return;
+    if (_isBusy || _pin.length >= _pinLength || _isLockedOut) return;
     Haptics.light();
     setState(() => _pin += digit);
     final mode = VisualEffectsModeX.of(context, ref);
@@ -164,7 +168,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   void _onBackspace() {
-    if (_isCompleting || _pin.isEmpty) return;
+    if (_isBusy || _pin.isEmpty) return;
     Haptics.selection();
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
@@ -184,46 +188,59 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   Future<void> _onPinComplete() async {
+    if (_isVerifying) return;
     if (_isLockedOut) {
       _showError();
       return;
     }
 
+    final pin = _pin;
     switch (widget.mode) {
       case PinInputMode.set:
-        await _acceptPin();
+        await _acceptPin(pin);
       case PinInputMode.confirm:
-        if (_pin == widget.pinToConfirm) {
-          await _acceptPin();
+        if (pin == widget.pinToConfirm) {
+          await _acceptPin(pin);
         } else {
           _showError();
         }
       case PinInputMode.unlock:
-        final service = ref.read(pinLockServiceProvider);
-        final valid = await service.verifyStoredPin(_pin);
-        if (valid) {
-          _failedAttempts = 0;
-          await ref.read(authPolicyServiceProvider).recordPinVerified();
-          await _acceptPin();
-        } else {
-          _failedAttempts++;
-          if (_failedAttempts >= _maxAttemptsBeforeLockout) {
-            final multiplier = (_failedAttempts ~/ _maxAttemptsBeforeLockout);
-            final lockoutSeconds = _baseLockoutSeconds * multiplier;
-            _lockedUntil = DateTime.now().add(
-              Duration(seconds: lockoutSeconds),
-            );
-          }
-          _showError();
-        }
+        await _verifyAndUnlock(pin);
     }
   }
 
-  Future<void> _acceptPin() async {
+  /// Input stays blocked while the off-isolate hash runs, so a second attempt
+  /// can't overlap it or double-count a failure.
+  Future<void> _verifyAndUnlock(String pin) async {
+    setState(() => _isVerifying = true);
+    try {
+      final service = ref.read(pinLockServiceProvider);
+      final valid = await service.verifyStoredPin(pin);
+      if (!mounted) return;
+      if (valid) {
+        _failedAttempts = 0;
+        await ref.read(authPolicyServiceProvider).recordPinVerified();
+        if (!mounted) return;
+        await _acceptPin(pin);
+      } else {
+        _failedAttempts++;
+        if (_failedAttempts >= _maxAttemptsBeforeLockout) {
+          final multiplier = (_failedAttempts ~/ _maxAttemptsBeforeLockout);
+          final lockoutSeconds = _baseLockoutSeconds * multiplier;
+          _lockedUntil = DateTime.now().add(Duration(seconds: lockoutSeconds));
+        }
+        _showError();
+      }
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
+    }
+  }
+
+  Future<void> _acceptPin(String pin) async {
     if (_isCompleting) return;
     setState(() => _isCompleting = true);
     try {
-      await widget.onPinEntered?.call(_pin);
+      await widget.onPinEntered?.call(pin);
       if (!mounted) return;
       widget.onSuccess();
     } catch (error, stackTrace) {
@@ -253,10 +270,16 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   Future<void> _onBiometric() async {
-    final service = ref.read(pinLockServiceProvider);
-    final success = await service.authenticateBiometric();
-    if (success && mounted) {
-      widget.onSuccess();
+    if (_isBusy) return;
+    setState(() => _isAuthenticating = true);
+    try {
+      final service = ref.read(pinLockServiceProvider);
+      final success = await service.authenticateBiometric();
+      if (success && mounted) {
+        widget.onSuccess();
+      }
+    } finally {
+      if (mounted) setState(() => _isAuthenticating = false);
     }
   }
 
@@ -424,7 +447,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     final keyboardScope = NumpadKeyboardListener(
       onDigit: _onDigit,
       onBackspace: _onBackspace,
-      enabled: !_isCompleting && !_isLockedOut,
+      enabled: !_isBusy && !_isLockedOut,
       child: content,
     );
 

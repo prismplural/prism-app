@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/pin_lock_service.dart';
 import 'package:prism_plurality/core/services/screen_security_service.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
@@ -14,6 +16,8 @@ import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/features/settings/views/pin_lock_settings_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 // Records every set(bool) call so tests can assert on user interaction.
 class _FakeScreenPrivacyNotifier extends ScreenPrivacyEnabledNotifier {
@@ -36,6 +40,44 @@ class _LoadingScreenPrivacyNotifier extends ScreenPrivacyEnabledNotifier {
   @override
   Future<bool> build() {
     return Completer<bool>().future;
+  }
+}
+
+/// Holds verification and storage open until the test completes the gate,
+/// standing in for the off-isolate PIN hash.
+class _GatedPinLockService extends PinLockService {
+  final verifyCalls = <String>[];
+  final storeCalls = <String>[];
+  var biometricCalls = 0;
+  final verifyGate = Completer<bool>();
+  final storeGate = Completer<void>();
+
+  @override
+  Future<bool> verifyStoredPin(String pin) {
+    verifyCalls.add(pin);
+    return verifyGate.future;
+  }
+
+  @override
+  Future<void> storePin(String pin) {
+    storeCalls.add(pin);
+    return storeGate.future;
+  }
+
+  @override
+  Future<bool> isPinSet() async => storeGate.isCompleted;
+
+  @override
+  Future<bool> authenticateBiometric() async {
+    biometricCalls++;
+    return false;
+  }
+}
+
+Future<void> _enterPin(WidgetTester tester, String pin) async {
+  for (final digit in pin.split('')) {
+    await tester.tap(find.text(digit).first);
+    await tester.pump();
   }
 }
 
@@ -327,5 +369,282 @@ void main() {
         expect(find.byIcon(AppIcons.fingerprint), findsOneWidget);
       },
     );
+  });
+
+  group('PIN entry while hashing', () {
+    testWidgets('unlock verifies once and holds input until it settles', (
+      tester,
+    ) async {
+      final service = _GatedPinLockService();
+      final entered = <String>[];
+      var successes = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(
+                const SystemSettings(
+                  pinLockEnabled: true,
+                  biometricLockEnabled: true,
+                ),
+              ),
+            ),
+            isBiometricAvailableProvider.overrideWith((ref) async => true),
+            pinLockServiceProvider.overrideWithValue(service),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: PinInputScreen(
+              mode: PinInputMode.unlock,
+              onPinEntered: entered.add,
+              onSuccess: () => successes++,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _enterPin(tester, '123456');
+      expect(service.verifyCalls, ['123456']);
+
+      // Backspace plus a digit would complete a second PIN if not held.
+      await tester.tap(find.byIcon(AppIcons.backspaceOutlined));
+      await tester.pump();
+      await _enterPin(tester, '9');
+      await tester.tap(find.byIcon(AppIcons.fingerprint));
+      await tester.pump();
+
+      expect(service.verifyCalls, ['123456']);
+      expect(service.biometricCalls, 0);
+      expect(successes, 0);
+
+      service.verifyGate.complete(true);
+      await tester.pumpAndSettle();
+
+      expect(entered, ['123456']);
+      expect(successes, 1);
+      expect(service.verifyCalls, hasLength(1));
+    });
+
+    testWidgets('setup stores once and holds Back until the store lands', (
+      tester,
+    ) async {
+      final service = _GatedPinLockService();
+      final settingsRepository = FakeSystemSettingsRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            targetPlatformProvider.overrideWithValue(TargetPlatform.android),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            systemSettingsRepositoryProvider.overrideWithValue(
+              settingsRepository,
+            ),
+            isPinSetProvider.overrideWith((ref) async => false),
+            pinLockServiceProvider.overrideWithValue(service),
+          ],
+          child: const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: [Locale('en')],
+            home: PinLockSettingsScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Enable PIN Lock'));
+      await tester.pumpAndSettle();
+      await _enterPin(tester, '123456');
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm PIN'), findsOneWidget);
+
+      await _enterPin(tester, '123456');
+      expect(service.storeCalls, ['123456']);
+
+      await tester.tap(find.byIcon(AppIcons.backspaceOutlined));
+      await tester.pump();
+      await _enterPin(tester, '6');
+      expect(service.storeCalls, hasLength(1));
+
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm PIN'), findsOneWidget);
+
+      service.storeGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Confirm PIN'), findsNothing);
+      expect(find.text('Enable PIN Lock'), findsOneWidget);
+      expect(settingsRepository.settings.pinLockEnabled, isTrue);
+      expect(service.storeCalls, hasLength(1));
+    });
+  });
+
+  group('Set PIN flow', () {
+    Widget buildLauncher({
+      required _GatedPinLockService service,
+      required FakeSystemSettingsRepository settingsRepository,
+    }) {
+      return ProviderScope(
+        overrides: [
+          targetPlatformProvider.overrideWithValue(TargetPlatform.android),
+          systemSettingsProvider.overrideWith(
+            (ref) => Stream.value(const SystemSettings()),
+          ),
+          systemSettingsRepositoryProvider.overrideWithValue(
+            settingsRepository,
+          ),
+          isPinSetProvider.overrideWith((ref) => service.isPinSet()),
+          pinLockServiceProvider.overrideWithValue(service),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          // Stands in for the settings screen that pushes PIN lock settings.
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PinLockSettingsScreen(),
+                ),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Leaves the confirm step one digit short of the matching PIN.
+    Future<void> enterConfirmStep(WidgetTester tester) async {
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Enable PIN Lock'));
+      await tester.pumpAndSettle();
+      await _enterPin(tester, '123456');
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm PIN'), findsOneWidget);
+      await _enterPin(tester, '12345');
+    }
+
+    void expectStoredAndEnabledOnSettings(
+      WidgetTester tester,
+      _GatedPinLockService service,
+      FakeSystemSettingsRepository settingsRepository,
+    ) {
+      expect(find.text('Confirm PIN'), findsNothing);
+      expect(find.text('Enable PIN Lock'), findsOneWidget);
+      expect(find.text('open'), findsNothing);
+      expect(service.storeCalls, ['123456']);
+      expect(settingsRepository.settings.pinLockEnabled, isTrue);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PinLockSettingsScreen)),
+      );
+      expect(container.read(isPinSetProvider).value, isTrue);
+    }
+
+    testWidgets('Back on the set step returns to PIN lock settings only', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildLauncher(
+          service: _GatedPinLockService(),
+          settingsRepository: FakeSystemSettingsRepository(),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Enable PIN Lock'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enable PIN Lock'), findsOneWidget);
+      expect(find.text('open'), findsNothing);
+
+      await tester.tap(find.text('Enable PIN Lock'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Enable PIN Lock'), findsOneWidget);
+      expect(find.text('open'), findsNothing);
+    });
+
+    // No pump between the final digit and Back: build-time guards are still
+    // a frame stale, as with taps delivered in one pointer packet.
+    testWidgets('Back in the final-digit frame waits for the store', (
+      tester,
+    ) async {
+      final service = _GatedPinLockService();
+      final settingsRepository = FakeSystemSettingsRepository();
+      await tester.pumpWidget(
+        buildLauncher(service: service, settingsRepository: settingsRepository),
+      );
+      await enterConfirmStep(tester);
+
+      await tester.tap(find.text('6').first);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Confirm PIN'), findsOneWidget);
+
+      service.storeGate.complete();
+      await tester.pumpAndSettle();
+
+      expectStoredAndEnabledOnSettings(tester, service, settingsRepository);
+    });
+
+    for (final storeLandsMidPop in [true, false]) {
+      testWidgets(
+        'system back in the final-digit frame still stores and enables '
+        '(store lands ${storeLandsMidPop ? 'during' : 'after'} the pop)',
+        (tester) async {
+          final service = _GatedPinLockService();
+          final settingsRepository = FakeSystemSettingsRepository();
+          await tester.pumpWidget(
+            buildLauncher(
+              service: service,
+              settingsRepository: settingsRepository,
+            ),
+          );
+          await enterConfirmStep(tester);
+
+          await tester.tap(find.text('6').first);
+          await tester.binding.handlePopRoute();
+          if (!storeLandsMidPop) await tester.pumpAndSettle();
+
+          service.storeGate.complete();
+          await tester.pumpAndSettle();
+
+          expectStoredAndEnabledOnSettings(tester, service, settingsRepository);
+        },
+      );
+    }
+
+    testWidgets('a failed store keeps the confirm step open for a retry', (
+      tester,
+    ) async {
+      final service = _GatedPinLockService();
+      final settingsRepository = FakeSystemSettingsRepository();
+      await tester.pumpWidget(
+        buildLauncher(service: service, settingsRepository: settingsRepository),
+      );
+      await enterConfirmStep(tester);
+
+      await tester.tap(find.text('6').first);
+      service.storeGate.completeError(StateError('keychain unavailable'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Confirm PIN'), findsOneWidget);
+      expect(settingsRepository.settings.pinLockEnabled, isFalse);
+
+      await _enterPin(tester, '123456');
+      await tester.pumpAndSettle();
+      expect(service.storeCalls, ['123456', '123456']);
+      expect(find.text('Confirm PIN'), findsOneWidget);
+    });
   });
 }

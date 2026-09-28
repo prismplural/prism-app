@@ -38,16 +38,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
   void _showSetPinFlow() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _SetPinFlowScreen(
-          onComplete: () {
-            ref.invalidate(isPinSetProvider);
-            ref
-                .read(settingsNotifierProvider.notifier)
-                .updatePinLockEnabled(true);
-            Navigator.of(context).pop();
-          },
-          onCancel: () => Navigator.of(context).pop(),
-        ),
+        builder: (_) => const _SetPinFlowScreen(enablePinLock: true),
       ),
     );
   }
@@ -55,13 +46,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
   void _changePinFlow() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _SetPinFlowScreen(
-          onComplete: () {
-            ref.invalidate(isPinSetProvider);
-            Navigator.of(context).pop();
-          },
-          onCancel: () => Navigator.of(context).pop(),
-        ),
+        builder: (_) => const _SetPinFlowScreen(enablePinLock: false),
       ),
     );
   }
@@ -357,45 +342,53 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
 }
 
 /// Two-step set-PIN flow: set then confirm.
-class _SetPinFlowScreen extends ConsumerStatefulWidget {
-  const _SetPinFlowScreen({required this.onComplete, required this.onCancel});
+class _SetPinFlowScreen extends StatefulWidget {
+  const _SetPinFlowScreen({required this.enablePinLock});
 
-  final VoidCallback onComplete;
-  final VoidCallback onCancel;
+  final bool enablePinLock;
 
   @override
-  ConsumerState<_SetPinFlowScreen> createState() => _SetPinFlowScreenState();
+  State<_SetPinFlowScreen> createState() => _SetPinFlowScreenState();
 }
 
-class _SetPinFlowScreenState extends ConsumerState<_SetPinFlowScreen> {
+class _SetPinFlowScreenState extends State<_SetPinFlowScreen> {
   String? _pendingPin;
 
   @override
   Widget build(BuildContext context) {
     if (_pendingPin == null) {
-      // Step 1: Set PIN
-      return PopScope(
-        canPop: true,
-        onPopInvokedWithResult: (didPop, _) {
-          if (didPop) widget.onCancel();
+      // Step 1: Set PIN. Each step is keyed so confirm starts with an empty
+      // entry instead of reusing the set step's state.
+      return _CapturePinScreen(
+        key: const ValueKey(PinInputMode.set),
+        mode: PinInputMode.set,
+        onPinEntered: (pin) {
+          setState(() => _pendingPin = pin);
         },
-        child: _CapturePinScreen(
-          mode: PinInputMode.set,
-          onPinEntered: (pin) {
-            setState(() => _pendingPin = pin);
-          },
-        ),
       );
     }
 
     // Step 2: Confirm PIN
     return _CapturePinScreen(
+      key: const ValueKey(PinInputMode.confirm),
       mode: PinInputMode.confirm,
       pinToConfirm: _pendingPin,
-      onPinEntered: (_) async {
-        final service = ref.read(pinLockServiceProvider);
-        await service.storePin(_pendingPin!);
-        widget.onComplete();
+      onPinEntered: (pin) async {
+        // A same-frame system back can pop this flow mid-store, so finish
+        // through the container (not a widget ref) and pop only while still
+        // on top; a second pop would close the settings screen instead.
+        final container = ProviderScope.containerOf(context, listen: false);
+        final route = ModalRoute.of(context);
+        final enablePinLock = widget.enablePinLock;
+        await container.read(pinLockServiceProvider).storePin(pin);
+        container.invalidate(isPinSetProvider);
+        if (enablePinLock) {
+          await container
+              .read(settingsNotifierProvider.notifier)
+              .updatePinLockEnabled(true);
+        }
+        if (!context.mounted || route?.isCurrent != true) return;
+        Navigator.of(context).pop();
       },
     );
   }
@@ -404,13 +397,17 @@ class _SetPinFlowScreenState extends ConsumerState<_SetPinFlowScreen> {
 /// Wraps PinInputScreen but captures the entered PIN string.
 class _CapturePinScreen extends StatefulWidget {
   const _CapturePinScreen({
+    super.key,
     required this.mode,
     required this.onPinEntered,
     this.pinToConfirm,
   });
 
   final PinInputMode mode;
-  final void Function(String pin) onPinEntered;
+
+  /// Awaited before further input is accepted, so a slow store can't overlap
+  /// a second one.
+  final FutureOr<void> Function(String pin) onPinEntered;
   final String? pinToConfirm;
 
   @override
@@ -421,6 +418,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     with TickerProviderStateMixin {
   String _pin = '';
   static const _pinLength = 6;
+  bool _isSubmitting = false;
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -480,7 +478,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
   }
 
   void _onDigit(String digit) {
-    if (_pin.length >= _pinLength) return;
+    if (_isSubmitting || _pin.length >= _pinLength) return;
     Haptics.light();
     setState(() => _pin += digit);
     if (!MediaQuery.of(context).disableAnimations) {
@@ -493,20 +491,28 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
   }
 
   void _onBackspace() {
-    if (_pin.isEmpty) return;
+    if (_isSubmitting || _pin.isEmpty) return;
     Haptics.selection();
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
 
   void _onPinComplete() {
-    if (widget.mode == PinInputMode.confirm) {
-      if (_pin == widget.pinToConfirm) {
-        widget.onPinEntered(_pin);
-      } else {
-        _showError();
-      }
-    } else {
-      widget.onPinEntered(_pin);
+    if (_isSubmitting) return;
+    if (widget.mode == PinInputMode.confirm && _pin != widget.pinToConfirm) {
+      _showError();
+      return;
+    }
+    unawaited(_submit(_pin));
+  }
+
+  Future<void> _submit(String pin) async {
+    setState(() => _isSubmitting = true);
+    try {
+      await widget.onPinEntered(pin);
+    } catch (_) {
+      if (mounted) _showError();
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -524,7 +530,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     final theme = Theme.of(context);
     final accentColor = theme.colorScheme.primary;
 
-    return Material(
+    final screen = Material(
       color: theme.scaffoldBackgroundColor,
       child: SafeArea(
         child: Column(
@@ -538,7 +544,13 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
                   icon: AppIcons.arrowBack,
                   iconSize: 20,
                   tooltip: context.l10n.back,
-                  onPressed: () => Navigator.of(context).pop(),
+                  // The null here lags a frame behind the final digit, so
+                  // the tap re-checks.
+                  onPressed: _isSubmitting
+                      ? null
+                      : () {
+                          if (!_isSubmitting) Navigator.of(context).pop();
+                        },
                 ),
               ),
             ),
@@ -614,6 +626,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
         ),
       ),
     );
+    return PopScope(canPop: !_isSubmitting, child: screen);
   }
 
   List<Widget> _buildRow(BuildContext context, int row) {
