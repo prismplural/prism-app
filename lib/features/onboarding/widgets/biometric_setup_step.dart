@@ -31,9 +31,12 @@ class BiometricSetupStep extends ConsumerStatefulWidget {
 }
 
 class _BiometricSetupStepState extends ConsumerState<BiometricSetupStep> {
+  // Checked in [_enroll] itself: two taps in one frame both land before the
+  // rebuild that disables the button.
   bool _isLoading = false;
 
   Future<void> _enroll() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       final service = ref.read(pinLockServiceProvider);

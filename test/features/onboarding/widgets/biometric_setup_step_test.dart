@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,14 +13,17 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 // ---------------------------------------------------------------------------
 
 class _FakePinLockService extends PinLockService {
-  _FakePinLockService({this.available = true});
+  _FakePinLockService({this.available = true, this.gate});
 
   bool available;
+  final Completer<bool>? gate;
   int availabilityChecks = 0;
 
   @override
   Future<bool> isBiometricAvailable() async {
     availabilityChecks++;
+    final gate = this.gate;
+    if (gate != null) return gate.future;
     return available;
   }
 }
@@ -109,6 +114,34 @@ void main() {
 
     expect(fake.availabilityChecks, 1);
     expect(enrolled, isTrue);
+  });
+
+  testWidgets('a same-frame double tap on Enable enrolls once', (tester) async {
+    final gate = Completer<bool>();
+    final fake = _FakePinLockService(gate: gate);
+    var enrolledCalls = 0;
+
+    await tester.pumpWidget(
+      _buildStep(
+        fakeService: fake,
+        onEnrolled: () => enrolledCalls++,
+        onSkipped: () {},
+      ),
+    );
+
+    await tester.pump();
+
+    // No pump between taps: both land before the disabling rebuild.
+    final enable = find.text('Enable biometrics');
+    await tester.tap(enable);
+    await tester.tap(enable);
+
+    expect(fake.availabilityChecks, 1);
+
+    gate.complete(true);
+    await tester.pump();
+
+    expect(enrolledCalls, 1);
   });
 
   testWidgets('Enable button skips when biometric unavailable', (tester) async {
