@@ -126,12 +126,12 @@ class DownloadManager {
         fileExtension: fileExtension,
         encrypted: true,
       );
-      if (encFile.existsSync()) {
+      final cached = await _readIfPresent(encFile);
+      if (cached != null) {
         _emitProgress(mediaId, DownloadState.decrypting);
-        final ciphertext = encFile.readAsBytesSync();
         try {
           final plaintext = await _decryptMedia(
-            ciphertext: ciphertext,
+            ciphertext: cached,
             key: encryptionKey,
             ciphertextHash: ciphertextHash,
             plaintextHash: plaintextHash,
@@ -150,9 +150,7 @@ class DownloadManager {
         fileExtension: fileExtension,
         encrypted: false,
       );
-      if (plainFile.existsSync()) {
-        await plainFile.delete();
-      }
+      await _deleteIfPresent(plainFile);
 
       await _acquireSlot();
       try {
@@ -228,7 +226,7 @@ class DownloadManager {
       fileExtension: fileExtension,
       encrypted: true,
     );
-    return encFile.existsSync();
+    return encFile.exists();
   }
 
   /// The locally-cached **encrypted** bytes for [mediaId] (the `<mediaId>.enc`
@@ -244,8 +242,7 @@ class DownloadManager {
       fileExtension: fileExtension,
       encrypted: true,
     );
-    if (!encFile.existsSync()) return null;
-    return encFile.readAsBytes();
+    return _readIfPresent(encFile);
   }
 
   /// Pre-caches [ciphertext] locally so that a subsequent [getMedia] call
@@ -341,6 +338,25 @@ class DownloadManager {
       controller.add(
         DownloadProgress(mediaId: mediaId, state: state, error: error),
       );
+    }
+  }
+
+  /// No exists() pre-check: eviction can delete the file between the two
+  /// calls, and a missing file is a cache miss either way.
+  static Future<Uint8List?> _readIfPresent(File file) async {
+    try {
+      return await file.readAsBytes();
+    } on PathNotFoundException {
+      return null;
+    }
+  }
+
+  /// A concurrent cache miss for the same id may have deleted it first.
+  static Future<void> _deleteIfPresent(File file) async {
+    try {
+      await file.delete();
+    } on PathNotFoundException {
+      // Already gone.
     }
   }
 

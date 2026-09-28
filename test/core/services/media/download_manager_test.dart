@@ -103,6 +103,94 @@ _fakeMedia(List<int> plaintextBytes) {
   );
 }
 
+/// Satisfies [DownloadManager]'s non-null handle check; the injected download
+/// function never touches it.
+class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
+  const _FakePrismSyncHandle();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Evicts the real file the moment [readAsBytes] is called on it, modelling a
+/// cache eviction that lands between a cache lookup and the read.
+class _EvictOnReadFile implements File {
+  _EvictOnReadFile(this._inner);
+
+  final File _inner;
+  var _evicted = false;
+
+  @override
+  String get path => _inner.path;
+
+  @override
+  Directory get parent => _inner.parent;
+
+  @override
+  Future<bool> exists() => _inner.exists();
+
+  @override
+  bool existsSync() => _inner.existsSync();
+
+  @override
+  Future<Uint8List> readAsBytes() async {
+    if (!_evicted) {
+      _evicted = true;
+      await _inner.delete();
+    }
+    return _inner.readAsBytes();
+  }
+
+  @override
+  Future<File> writeAsBytes(
+    List<int> bytes, {
+    FileMode mode = FileMode.write,
+    bool flush = false,
+  }) => _inner.writeAsBytes(bytes, mode: mode, flush: flush);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Deletes the real file just before its own [delete] runs, modelling a
+/// concurrent cache miss for the same id that won the cleanup race.
+class _DeletedConcurrentlyFile implements File {
+  _DeletedConcurrentlyFile(this._inner);
+
+  final File _inner;
+
+  @override
+  String get path => _inner.path;
+
+  @override
+  Future<bool> exists() => _inner.exists();
+
+  @override
+  bool existsSync() => _inner.existsSync();
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) async {
+    await _inner.delete();
+    return _inner.delete(recursive: recursive);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _WrapFileOverrides extends IOOverrides {
+  _WrapFileOverrides(this.wrappedPath, this.wrap);
+
+  final String wrappedPath;
+  final File Function(File) wrap;
+
+  @override
+  File createFile(String path) {
+    final file = super.createFile(path);
+    return path == wrappedPath ? wrap(file) : file;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 void main() {
@@ -372,6 +460,46 @@ void main() {
       );
     });
 
+    test(
+      'stale plaintext removed by a concurrent miss still downloads',
+      () async {
+        final media = _fakeMedia([7, 7, 7]);
+        final plainPath = '${cacheDir.path}/img-race';
+        await File(plainPath).writeAsBytes(media.plaintext);
+
+        var downloads = 0;
+        final manager = DownloadManager(
+          handle: const _FakePrismSyncHandle(),
+          encryption: FakeMediaEncryptionService(),
+          cacheDirOverride: cacheDir,
+          downloadMediaFn:
+              ({
+                required ffi.PrismSyncHandle handle,
+                required String mediaId,
+              }) async {
+                downloads++;
+                return ffi.MediaDownloadOutcome(bytes: media.ciphertext);
+              },
+        );
+        addTearDown(manager.dispose);
+
+        final result = await IOOverrides.runWithIOOverrides(
+          () => manager.getMedia(
+            mediaId: 'img-race',
+            encryptionKey: media.key,
+            ciphertextHash: media.ciphertextHash,
+            plaintextHash: media.plaintextHash,
+          ),
+          _WrapFileOverrides(plainPath, _DeletedConcurrentlyFile.new),
+        );
+
+        expect(result, isA<MediaFetchOk>());
+        expect(result.bytesOrNull, equals(media.plaintext));
+        expect(downloads, 1);
+        expect(File(plainPath).existsSync(), isFalse);
+      },
+    );
+
     test('_cacheFileFor with encrypted=true appends .enc suffix', () async {
       final media = _fakeMedia([1]);
       final manager = _makeTestManager(cacheDir);
@@ -415,6 +543,31 @@ void main() {
     );
   });
 
+  group('isCached', () {
+    late Directory cacheDir;
+    setUp(() async {
+      cacheDir = await Directory.systemTemp.createTemp('dm_cached_');
+    });
+    tearDown(() async {
+      if (cacheDir.existsSync()) await cacheDir.delete(recursive: true);
+    });
+
+    test('reports a cached .enc blob and a missing one', () async {
+      final manager = _makeTestManager(cacheDir);
+      addTearDown(manager.dispose);
+
+      expect(await manager.isCached('absent'), isFalse);
+
+      await manager.cacheEncrypted(
+        mediaId: 'held',
+        ciphertext: Uint8List.fromList([1, 2, 3]),
+        fileExtension: '.ogg',
+      );
+      expect(await manager.isCached('held', fileExtension: '.ogg'), isTrue);
+      expect(await manager.isCached('held'), isFalse);
+    });
+  });
+
   group('readCachedCiphertext', () {
     late Directory cacheDir;
     setUp(() async {
@@ -438,6 +591,26 @@ void main() {
         await manager.readCachedCiphertext('held'),
         equals(Uint8List.fromList([9, 8, 7])),
       );
+    });
+
+    test('an eviction racing the read is a cache miss, not a throw', () async {
+      final manager = _makeTestManager(cacheDir);
+      addTearDown(manager.dispose);
+      await manager.cacheEncrypted(
+        mediaId: 'evicted',
+        ciphertext: Uint8List.fromList([9, 8, 7]),
+      );
+
+      final bytes = await IOOverrides.runWithIOOverrides(
+        () => manager.readCachedCiphertext('evicted'),
+        _WrapFileOverrides(
+          '${cacheDir.path}/evicted.enc',
+          _EvictOnReadFile.new,
+        ),
+      );
+
+      expect(bytes, isNull);
+      expect(File('${cacheDir.path}/evicted.enc').existsSync(), isFalse);
     });
   });
 
@@ -547,6 +720,47 @@ void main() {
         expect(errors.single, contains('Plaintext hash mismatch'));
       },
     );
+
+    test('a cached blob evicted before the read is re-downloaded', () async {
+      final media = _fakeMedia([4, 5, 6]);
+      final encPath = '${cacheDir.path}/blob-evicted.enc';
+      await File(encPath).writeAsBytes(media.ciphertext);
+
+      var downloads = 0;
+      final manager = DownloadManager(
+        handle: const _FakePrismSyncHandle(),
+        encryption: FakeMediaEncryptionService(),
+        cacheDirOverride: cacheDir,
+        downloadMediaFn:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String mediaId,
+            }) async {
+              downloads++;
+              return ffi.MediaDownloadOutcome(bytes: media.ciphertext);
+            },
+      );
+      addTearDown(manager.dispose);
+
+      final result = await IOOverrides.runWithIOOverrides(
+        () => manager.getMedia(
+          mediaId: 'blob-evicted',
+          encryptionKey: media.key,
+          ciphertextHash: media.ciphertextHash,
+          plaintextHash: media.plaintextHash,
+        ),
+        _WrapFileOverrides(encPath, _EvictOnReadFile.new),
+      );
+
+      expect(downloads, 1);
+      expect(result, isA<MediaFetchOk>());
+      expect(result.bytesOrNull, equals(media.plaintext));
+      expect(
+        File(encPath).readAsBytesSync(),
+        equals(media.ciphertext),
+        reason: 'the re-download refills the cache',
+      );
+    });
 
     test(
       'uncached blob with no sync handle maps to the generic other kind',
