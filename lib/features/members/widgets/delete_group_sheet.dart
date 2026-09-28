@@ -27,9 +27,12 @@ class DeleteGroupSheet extends ConsumerStatefulWidget {
 }
 
 class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
+  // Handlers check this themselves: two taps in one frame both land before
+  // the rebuild that disables the options.
   bool _isLoading = false;
 
   Future<void> _promote() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     Haptics.medium();
     await ref
@@ -45,6 +48,8 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
   }
 
   Future<void> _deleteAll() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
     final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,
@@ -56,8 +61,11 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
       confirmLabel: l10n.memberGroupDeleteAll,
       destructive: true,
     );
-    if (!confirmed || !mounted) return;
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    if (!confirmed) {
+      setState(() => _isLoading = false);
+      return;
+    }
     Haptics.heavy();
     await ref
         .read(groupNotifierProvider.notifier)
