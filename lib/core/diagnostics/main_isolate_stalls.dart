@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-/// UI-isolate stall logger. Debug/profile only — compiled out in release via
-/// `kReleaseMode` short-circuit. On iOS the UI isolate is the platform main
-/// thread, so a long synchronous stretch risks a system watchdog kill; a
+/// Main-isolate stall logger. Debug/profile only — compiled out in release via
+/// `kReleaseMode` short-circuit. On iOS the main isolate runs on the platform
+/// main thread, so a long synchronous stretch risks a system watchdog kill; a
 /// periodic timer that fires late reveals how long the isolate was blocked.
-class MainThreadStalls {
-  MainThreadStalls._();
+class MainIsolateStalls {
+  MainIsolateStalls._();
 
   static const _interval = Duration(milliseconds: 50);
   static const _threshold = Duration(milliseconds: 100);
@@ -32,9 +32,9 @@ class MainThreadStalls {
   }
 
   /// Leaves a breadcrumb, so the next stall report names what ran before it.
-  static void phase(String label) {
+  static void mark(String label) {
     if (kReleaseMode) return;
-    _sampler.phase(label);
+    _sampler.mark(label);
   }
 
   static void _onLifecycleChange(AppLifecycleState state) {
@@ -55,23 +55,23 @@ class MainThreadStalls {
   @visibleForTesting
   static String? stallReport({
     required int gapMicros,
-    required Iterable<String> phases,
+    required Iterable<String> marks,
   }) {
     final blockedMicros = gapMicros - _interval.inMicroseconds;
     if (blockedMicros < _threshold.inMicroseconds) return null;
-    final after = phases.isEmpty ? '' : ' after ${phases.join(', ')}';
-    return '[stall] UI isolate blocked ~${blockedMicros ~/ 1000}ms$after';
+    final after = marks.isEmpty ? '' : ' after ${marks.join(', ')}';
+    return '[stall] main isolate blocked ~${blockedMicros ~/ 1000}ms$after';
   }
 }
 
-/// Tick bookkeeping for [MainThreadStalls], driven by explicit timestamps so
+/// Tick bookkeeping for [MainIsolateStalls], driven by explicit timestamps so
 /// tests need no real timers. A suspended app's timer fires late on return,
 /// so leaving the foreground stops sampling and returning restarts it from a
 /// fresh baseline.
 @visibleForTesting
 class StallSampler {
   int? _lastTickMicros;
-  final Set<String> _phases = <String>{};
+  final Set<String> _marks = <String>{};
 
   bool get isRunning => _lastTickMicros != null;
 
@@ -80,7 +80,7 @@ class StallSampler {
       case AppLifecycleState.resumed || AppLifecycleState.inactive:
         if (isRunning) return;
         _lastTickMicros = nowMicros;
-        _phases.clear();
+        _marks.clear();
       case AppLifecycleState.hidden ||
           AppLifecycleState.paused ||
           AppLifecycleState.detached:
@@ -88,19 +88,19 @@ class StallSampler {
     }
   }
 
-  void phase(String label) {
-    if (isRunning) _phases.add(label);
+  void mark(String label) {
+    if (isRunning) _marks.add(label);
   }
 
   String? tick(int nowMicros) {
     final last = _lastTickMicros;
     if (last == null) return null;
-    final report = MainThreadStalls.stallReport(
+    final report = MainIsolateStalls.stallReport(
       gapMicros: nowMicros - last,
-      phases: _phases,
+      marks: _marks,
     );
     _lastTickMicros = nowMicros;
-    _phases.clear();
+    _marks.clear();
     return report;
   }
 }

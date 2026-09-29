@@ -1,30 +1,30 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prism_plurality/core/diagnostics/main_thread_stalls.dart';
+import 'package:prism_plurality/core/diagnostics/main_isolate_stalls.dart';
 
 void main() {
-  group('MainThreadStalls.stallReport', () {
+  group('MainIsolateStalls.stallReport', () {
     test('stays quiet when the timer fires roughly on time', () {
       expect(
-        MainThreadStalls.stallReport(gapMicros: 120000, phases: const []),
+        MainIsolateStalls.stallReport(gapMicros: 120000, marks: const []),
         isNull,
       );
     });
 
     test('reports how long the isolate was blocked past the tick', () {
       expect(
-        MainThreadStalls.stallReport(gapMicros: 450000, phases: const []),
-        '[stall] UI isolate blocked ~400ms',
+        MainIsolateStalls.stallReport(gapMicros: 450000, marks: const []),
+        '[stall] main isolate blocked ~400ms',
       );
     });
 
-    test('names the phases recorded before the late tick', () {
+    test('names the marks left before the late tick', () {
       expect(
-        MainThreadStalls.stallReport(
+        MainIsolateStalls.stallReport(
           gapMicros: 1050000,
-          phases: const ['sync apply', 'media hydration walk'],
+          marks: const ['sync apply', 'media hydration walk'],
         ),
-        '[stall] UI isolate blocked ~1000ms after sync apply, '
+        '[stall] main isolate blocked ~1000ms after sync apply, '
         'media hydration walk',
       );
     });
@@ -37,13 +37,13 @@ void main() {
         StallSampler()..lifecycleChanged(AppLifecycleState.resumed, at);
 
     test('reports a late tick with the breadcrumbs left since the last', () {
-      final sampler = running()..phase('resume');
+      final sampler = running()..mark('resume');
 
       expect(sampler.tick(tick), isNull);
-      sampler.phase('sync apply');
+      sampler.mark('sync apply');
       expect(
         sampler.tick(tick + 650000),
-        '[stall] UI isolate blocked ~600ms after sync apply',
+        '[stall] main isolate blocked ~600ms after sync apply',
       );
     });
 
@@ -52,7 +52,7 @@ void main() {
       expect(sampler.tick(tick), isNull);
 
       sampler
-        ..phase('before background')
+        ..mark('before background')
         ..lifecycleChanged(AppLifecycleState.inactive, tick + 1000)
         ..lifecycleChanged(AppLifecycleState.hidden, tick + 2000)
         ..lifecycleChanged(AppLifecycleState.paused, tick + 3000);
@@ -63,7 +63,7 @@ void main() {
       sampler
         ..lifecycleChanged(AppLifecycleState.hidden, back)
         ..lifecycleChanged(AppLifecycleState.inactive, back)
-        ..phase('resume')
+        ..mark('resume')
         ..lifecycleChanged(AppLifecycleState.resumed, back + 1000);
       expect(sampler.isRunning, isTrue);
       expect(sampler.tick(back + tick), isNull);
@@ -79,23 +79,23 @@ void main() {
       final sampler = running()
         ..lifecycleChanged(AppLifecycleState.paused, tick)
         ..lifecycleChanged(AppLifecycleState.resumed, 45000000)
-        ..phase('resume');
+        ..mark('resume');
 
       expect(
         sampler.tick(45000000 + tick + 800000),
-        '[stall] UI isolate blocked ~800ms after resume',
+        '[stall] main isolate blocked ~800ms after resume',
       );
     });
 
     test('ignores breadcrumbs while backgrounded', () {
       final sampler = running()
         ..lifecycleChanged(AppLifecycleState.paused, tick)
-        ..phase('while paused')
+        ..mark('while paused')
         ..lifecycleChanged(AppLifecycleState.resumed, 1000000);
 
       expect(
         sampler.tick(1000000 + tick + 300000),
-        '[stall] UI isolate blocked ~300ms',
+        '[stall] main isolate blocked ~300ms',
       );
     });
   });

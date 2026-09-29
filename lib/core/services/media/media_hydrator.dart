@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:prism_plurality/core/async/yield_control.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
-import 'package:prism_plurality/core/diagnostics/main_thread_stalls.dart';
+import 'package:prism_plurality/core/diagnostics/main_isolate_stalls.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 
@@ -170,7 +170,7 @@ class MediaHydrator {
     }
     // The stall sampler drops breadcrumbs on every tick, so re-mark after each
     // await that can span one.
-    MainThreadStalls.phase(_walkPhase);
+    MainIsolateStalls.mark(_walkMark);
     final yielder = CooperativeYield(workUnits: rowsPerYield);
     for (final row in rows) {
       if (_disposed) return;
@@ -192,12 +192,12 @@ class MediaHydrator {
       );
       if (yielder.countUnit()) {
         await yielder.yieldNow();
-        MainThreadStalls.phase(_walkPhase);
+        MainIsolateStalls.mark(_walkMark);
       }
     }
   }
 
-  static const _walkPhase = 'media hydration walk';
+  static const _walkMark = 'media hydration walk';
 
   /// Schedule a background download for a single blob (primary OR thumbnail),
   /// unless it is already cached, already being worked on, or already given up

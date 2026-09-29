@@ -9,7 +9,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'core/database/app_database.dart';
 import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
-import 'core/diagnostics/main_thread_stalls.dart';
+import 'core/diagnostics/main_isolate_stalls.dart';
 import 'core/router/app_router.dart';
 import 'core/services/media/bio_media_reconciler.dart';
 import 'core/services/media/media_heal_providers.dart';
@@ -144,7 +144,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   }
 
   void _onResume() {
-    MainThreadStalls.phase('resume');
+    MainIsolateStalls.mark('resume');
     if (!ref.read(databaseReadyProvider).hasValue) return;
     _repairPrimaryDatabaseKeySlotOnce();
     final handle = ref.read(prismSyncHandleProvider).value;

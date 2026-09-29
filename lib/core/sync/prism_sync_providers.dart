@@ -19,7 +19,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/sync_quarantine_kinds.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
-import 'package:prism_plurality/core/diagnostics/main_thread_stalls.dart';
+import 'package:prism_plurality/core/diagnostics/main_isolate_stalls.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
@@ -3904,7 +3904,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       }
     }
     if (event.isRemoteChanges) {
-      MainThreadStalls.phase('sync apply');
+      MainIsolateStalls.mark('sync apply');
       final strict = strictCoordinator.isStrict;
       final touchedTables = _tablesTouchedByRemoteEvent(event);
       Object? applyError;

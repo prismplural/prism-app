@@ -19,7 +19,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
-import 'package:prism_plurality/core/diagnostics/main_thread_stalls.dart';
+import 'package:prism_plurality/core/diagnostics/main_isolate_stalls.dart';
 import 'package:prism_plurality/core/reset/full_reset_service.dart';
 import 'package:prism_plurality/core/reset/reset_recovery_app.dart';
 import 'package:prism_plurality/core/services/app_data_dir.dart';
@@ -56,7 +56,7 @@ const _debugSeedStressPresetName = String.fromEnvironment(
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   BootTimings.mark('binding');
-  MainThreadStalls.start();
+  MainIsolateStalls.start();
 
   // Flip the PK sync-log bus's main-isolate guard ON before runApp so any
   // PkSyncEventBus.emit call from this isolate is delivered. The
