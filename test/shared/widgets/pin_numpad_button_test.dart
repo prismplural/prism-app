@@ -86,6 +86,36 @@ void main() {
       expect(semantics.label, contains('Delete'));
     });
 
+    testWidgets('a tap that removes the button lifts without an error', (
+      tester,
+    ) async {
+      var shown = true;
+      late StateSetter setOuterState;
+      await tester.pumpWidget(_testApp(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setOuterState = setState;
+            return shown
+                ? PinNumpadButton(
+                    label: '6',
+                    onTap: () => setOuterState(() => shown = false),
+                  )
+                : const SizedBox.shrink();
+          },
+        ),
+      ));
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(PinNumpadButton)),
+      );
+      await tester.pump();
+      expect(find.byType(PinNumpadButton), findsNothing);
+
+      await gesture.up();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('reduced motion: AnimatedOpacity present when accessible mode',
         (tester) async {
       // `disableAnimations: true` maps to VisualEffectsMode.reduced (not accessible),

@@ -44,6 +44,12 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
 
   double get _scaleTarget => widget.size >= 70 ? 0.97 : 0.96;
 
+  // The final digit can close the PIN screen before the finger lifts, and the
+  // release still reaches this listener.
+  void _release() {
+    if (mounted) setState(() => _pressed = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -108,8 +114,8 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
           setState(() => _pressed = true);
           widget.onTap();
         },
-        onPointerUp: (_) => setState(() => _pressed = false),
-        onPointerCancel: (_) => setState(() => _pressed = false),
+        onPointerUp: (_) => _release(),
+        onPointerCancel: (_) => _release(),
         child: SizedBox(
           width: widget.size,
           height: widget.size,
