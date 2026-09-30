@@ -2,6 +2,43 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.15.3] - 2026-09-30
+
+Patch release. Prism does less work on the main thread while unlocking,
+resuming, and handling photos, which on iOS is the thread the system watches
+for hangs. It also gets a new app icon, and several PIN, double-tap, and sync
+fixes. The sync pin stays at `v0.15.2` (`b5836cba7f1cb9fde246cc18ef56d6fdc98467ae`).
+
+### Changed
+- New app icon on iOS, Android, macOS, Windows, and Linux, a themed Android
+  icon, and the new logo on the icon's gradient throughout Prism.
+- PIN hashing, cached media reads, photo compression, thumbnails, and avatar
+  resizing run off the main isolate, so unlock, resume, and sending photos no
+  longer block the UI.
+- Overlapping media hydration walks coalesce into one follow-up walk instead of
+  running side by side.
+
+### Fixed
+- Changes made during some edits (fronting in particular) waited to sync until
+  a later change flushed them; they now send as soon as the edit commits.
+- Android notifications use a flat Prism glyph as their small icon instead of
+  the full-color launcher icon.
+- Pressing Back while a new PIN was saving could leave the PIN stored with PIN
+  lock off, and Back on the first setup step also closed PIN lock settings.
+- PIN entry and biometric unlock ignore input while a check or save is in
+  flight, and PIN storage operations no longer interleave.
+- A second tap no longer repeats promoting or deleting a group, generating a
+  replacement recovery phrase, disconnecting sync, or enabling biometrics
+  during onboarding.
+- A cached file evicted mid-read counts as a cache miss instead of aborting a
+  pairing media push.
+
+### Internal
+- Debug and profile builds log main-isolate stalls with a label for what ran
+  just before them.
+- Responsiveness tests for the off-main-isolate paths, and an iOS simulator
+  smoke test covering the real keychain and native image encoder.
+
 ## [0.15.2] - 2026-09-22
 
 Patch release. Prism retries when saved sync information is temporarily
