@@ -37,6 +37,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_logo_tile.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -47,8 +48,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with SingleTickerProviderStateMixin {
-  static const _prismLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
-
   bool _isCompleting = false;
   bool _confirmingEmptyMembers = false;
   bool _replacePairingRedirectScheduled = false;
@@ -208,13 +207,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                   if (!isCompleteStep && !isFullScreenStep) ...[
                     const SizedBox(height: 8),
                     if (step == OnboardingStep.welcome)
-                      ClipOval(
-                        child: Image.asset(
-                          _prismLogoAsset,
-                          width: 56,
-                          height: 56,
-                          fit: BoxFit.cover,
-                        ),
+                      const PrismLogoTile(
+                        size: 56,
+                        logoSize: 56,
+                        shape: BoxShape.circle,
                       )
                     else
                       Container(

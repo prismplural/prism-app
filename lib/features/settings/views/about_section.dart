@@ -8,12 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/safe_link.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_logo_tile.dart';
 
 final _packageInfoProvider = FutureProvider<PackageInfo>((ref) {
   return PackageInfo.fromPlatform();
@@ -51,22 +51,13 @@ class AboutSection extends ConsumerWidget {
       children: [
         const SizedBox(height: 8),
         // App icon
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: AppColors.prismPurple,
-            borderRadius:
-                PrismShapes.of(context).cornerStyle == CornerStyle.angular
-                ? BorderRadius.zero
-                : BorderRadius.circular(18),
-          ),
-          alignment: Alignment.center,
-          child: Image.asset(
-            'assets/icon_layers/Prism-Logo-Foreground.png',
-            width: 44,
-            height: 44,
-          ),
+        PrismLogoTile(
+          size: 72,
+          logoSize: 44,
+          borderRadius:
+              PrismShapes.of(context).cornerStyle == CornerStyle.angular
+              ? BorderRadius.zero
+              : BorderRadius.circular(18),
         ),
         const SizedBox(height: 12),
         Text(

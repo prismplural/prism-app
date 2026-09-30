@@ -8,13 +8,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:prism_plurality/core/sharing/field_template_png.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_logo_tile.dart';
 
 /// Logical width of the rendered card. Fixed so the captured PNG is consistent
 /// regardless of the surrounding layout.
 const double _kCardWidth = 640;
 const double _kQrImageSize = 340;
-
-const String _kLogoAsset = 'assets/icon_layers/Prism-Logo-Foreground.png';
 
 const Color _kBrandPurple = Color(0xFFB498C2);
 const Color _kBrandPurpleLight = Color(0xFF9070A0);
@@ -245,28 +244,21 @@ class _TypeChip extends StatelessWidget {
 
 class _MarkChip extends StatelessWidget {
   const _MarkChip({
-    required this.color,
     this.size = 40,
     this.imageSize = 24,
     this.borderRadius = 11,
   });
 
-  final Color color;
   final double size;
   final double imageSize;
   final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      alignment: Alignment.center,
-      child: Image.asset(_kLogoAsset, width: imageSize, height: imageSize),
+    return PrismLogoTile(
+      size: size,
+      logoSize: imageSize,
+      borderRadius: BorderRadius.circular(borderRadius),
     );
   }
 }
@@ -281,12 +273,7 @@ class _FooterLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _MarkChip(
-          color: palette.brand,
-          size: 26,
-          imageSize: 16,
-          borderRadius: 7,
-        ),
+        const _MarkChip(size: 26, imageSize: 16, borderRadius: 7),
         const SizedBox(width: 10),
         Expanded(
           child: RichText(

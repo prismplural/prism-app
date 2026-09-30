@@ -39,11 +39,11 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_logo_tile.dart';
 
 /// Main settings screen. Clean navigation list matching SwiftUI's layout:
 /// sections with icon-labeled links to sub-screens.
@@ -407,21 +407,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             (_) => const AboutScreen(),
           ),
           showChevron: !isDetailPaneVisible,
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.prismPurple,
-              borderRadius: cornerStyle == CornerStyle.angular
-                  ? BorderRadius.zero
-                  : BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: Image.asset(
-              'assets/icon_layers/Prism-Logo-Foreground.png',
-              width: 28,
-              height: 28,
-            ),
+          leading: PrismLogoTile(
+            size: 40,
+            logoSize: 28,
+            borderRadius: cornerStyle == CornerStyle.angular
+                ? BorderRadius.zero
+                : BorderRadius.circular(10),
           ),
         ),
       ),

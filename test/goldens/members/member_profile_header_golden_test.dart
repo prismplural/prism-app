@@ -116,7 +116,7 @@ final Uint8List _appIconPng = _assetPng(
   'test/fixtures/images/profile_header_sample.png',
 );
 final Uint8List _logoPng = _assetPng(
-  'assets/icon_layers/Prism-Logo-Foreground.png',
+  'test/fixtures/images/profile_header_logo_sample.png',
 );
 final Uint8List _noisePng = _assetPng('assets/textures/noise_64x64.png');
 
