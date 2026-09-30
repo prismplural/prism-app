@@ -29,47 +29,25 @@ void main() {
     );
   });
 
-  test('mac sideload strips provisioning-only launch blockers', () {
+  test('mac sideload retains profile-backed keychain access', () {
     final fastfile = File('fastlane/Fastfile').readAsStringSync();
-
-    expect(fastfile, contains('def developer_id_sign_macos_app'));
-    expect(fastfile, contains('embedded.provisionprofile'));
-    expect(fastfile, contains('FileUtils.rm_f(profile_path)'));
-    expect(fastfile, contains('developer_id_sign_macos_app(app_path)'));
-
-    final verifyStart = fastfile.indexOf(
-      'def verify_macos_release_entitlements',
-    );
-    expect(verifyStart, isNonNegative);
-    final verifyEnd = fastfile.indexOf('def create_macos_dmg', verifyStart);
-    expect(verifyEnd, isNonNegative);
-    final verifyBody = fastfile.substring(verifyStart, verifyEnd);
-
-    expect(
-      verifyBody,
-      contains('"com.apple.application-identifier"'),
-      reason: 'Developer ID DMGs must not ship provisioning entitlements.',
-    );
-    expect(
-      verifyBody,
-      contains('"com.apple.developer.team-identifier"'),
-      reason: 'Developer ID DMGs must not ship provisioning entitlements.',
-    );
+    expect(fastfile, contains('require_relative "macos_signing"'));
+    expect(fastfile, contains('validate_macos_profile'));
     expect(
       fastfile,
-      isNot(contains('"keychain-access-groups" => []')),
-      reason:
-          'Developer ID apps without embedded profiles cannot launch with '
-          'Keychain Sharing; secure storage must use its legacy fallback.',
+      contains(
+        '"keychain-access-groups" => ["#{apple_team_id}.#{mac_bundle_identifier}"]',
+      ),
     );
-    expect(
-      verifyBody,
-      contains('"keychain-access-groups"'),
-      reason:
-          'Keychain Sharing is a restricted entitlement and AMFI rejects the '
-          'Developer ID app at launch when no matching profile is embedded.',
-    );
-    expect(verifyBody, contains('must be absent in Developer ID DMG'));
+    expect(fastfile, isNot(contains('FileUtils.rm_f(profile_path)')));
+    expect(fastfile, isNot(contains('must be absent in Developer ID DMG')));
+    expect(fastfile, contains('certificate_sha1: certificate_sha1'));
+    if (Platform.isMacOS) {
+      final policy = Process.runSync('ruby', [
+        'test/release/macos_signing_test.rb',
+      ]);
+      expect(policy.exitCode, 0, reason: '${policy.stdout}\n${policy.stderr}');
+    }
   });
 
   test('mac sideload signs the DMG container before notarizing', () {

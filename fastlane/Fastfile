@@ -6,6 +6,7 @@ require "open3"
 require "shellwords"
 require "tmpdir"
 require "yaml"
+require_relative "macos_signing"
 
 # Resolve a config path that may be absolute, ~ relative, or relative to the
 # repo root (so ASC_KEY_FILEPATH=AuthKey_X.p8 works in CI checkouts too).
@@ -159,28 +160,31 @@ def mac_developer_id_runtime_entitlements
     "com.apple.security.files.user-selected.read-write" => true,
     "com.apple.security.device.camera" => true,
     "com.apple.security.device.audio-input" => true,
+    "com.apple.application-identifier" => "#{apple_team_id}.#{mac_bundle_identifier}",
+    "com.apple.developer.team-identifier" => apple_team_id,
+    "keychain-access-groups" => ["#{apple_team_id}.#{mac_bundle_identifier}"],
   }
 end
 
 def mac_developer_id_entitlements_plist
-  <<~PLIST
-    <?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
-    <plist version="1.0">
-    <dict>
-      <key>com.apple.security.app-sandbox</key>
-      <true/>
-      <key>com.apple.security.network.client</key>
-      <true/>
-      <key>com.apple.security.files.user-selected.read-write</key>
-      <true/>
-      <key>com.apple.security.device.camera</key>
-      <true/>
-      <key>com.apple.security.device.audio-input</key>
-      <true/>
-    </dict>
-    </plist>
-  PLIST
+  MacOSSigning.plist(mac_developer_id_runtime_entitlements)
+end
+
+def read_macos_provisioning_profile(path)
+  xml, stderr, status = Open3.capture3("security", "cms", "-D", "-i", path)
+  UI.user_error!("Could not decode Developer ID profile: #{stderr}") unless status.success?
+  MacOSSigning.parse_plist(xml)
+end
+
+def validate_macos_profile(profile, entitlements, certificate_sha1: nil)
+  MacOSSigning.validate!(
+    profile, entitlements,
+    bundle_id: mac_bundle_identifier,
+    team_id: apple_team_id,
+    certificate_sha1: certificate_sha1,
+  )
+rescue ArgumentError => e
+  UI.user_error!("Invalid Developer ID signing configuration: #{e.message}")
 end
 
 def mac_developer_id_export_options
@@ -247,7 +251,13 @@ def developer_id_sign_macos_app(app_path)
     UI.user_error!("No Frameworks directory found in exported app: #{frameworks_dir}")
   end
 
-  FileUtils.rm_f(profile_path)
+  # Export must retain its Developer ID distribution profile. An explicit
+  # profile also supports repairing a previously stripped release bundle.
+  source_profile = ENV["PRISM_MAC_PROVISIONING_PROFILE"].to_s.strip
+  source_profile = source_profile.empty? ? profile_path : expand_config_path(source_profile)
+  UI.user_error!("Developer ID provisioning profile missing: #{source_profile}") unless File.file?(source_profile)
+  validate_macos_profile(read_macos_provisioning_profile(source_profile), mac_developer_id_runtime_entitlements)
+  FileUtils.cp(source_profile, profile_path) unless File.expand_path(source_profile) == File.expand_path(profile_path)
 
   sign_args = [
     "codesign",
@@ -264,6 +274,7 @@ def developer_id_sign_macos_app(app_path)
   Dir.mktmpdir("prism-macos-developer-id-entitlements") do |dir|
     entitlements_path = File.join(dir, "entitlements.plist")
     File.write(entitlements_path, mac_developer_id_entitlements_plist)
+    sh("plutil -convert xml1 #{Shellwords.escape(entitlements_path)}")
     sh(Shellwords.join(sign_args + ["--entitlements", entitlements_path, app_path]))
   end
 end
@@ -287,12 +298,12 @@ end
 
 def verify_macos_release_entitlements(app_path, label: "exported macOS app")
   profile_path = File.join(app_path, "Contents", "embedded.provisionprofile")
-  if File.exist?(profile_path)
-    UI.user_error!(
-      "#{label} still contains embedded.provisionprofile; " \
-      "this can make AMFI kill the app at launch."
-    )
-  end
+  UI.user_error!("#{label} has no Developer ID provisioning profile") unless File.file?(profile_path)
+  profile = read_macos_provisioning_profile(profile_path)
+  bundle_id, _, bundle_status = Open3.capture3(
+    "plutil", "-extract", "CFBundleIdentifier", "raw", "-o", "-", File.join(app_path, "Contents", "Info.plist")
+  )
+  UI.user_error!("#{label} bundle identifier does not match") unless bundle_status.success? && bundle_id.strip == mac_bundle_identifier
 
   stdout, stderr, status = Open3.capture3(
     "codesign -d --entitlements :- #{Shellwords.escape(app_path)}"
@@ -326,16 +337,21 @@ def verify_macos_release_entitlements(app_path, label: "exported macOS app")
       "#{key}=#{actual_value.inspect} (expected #{expected_value.inspect})"
     end
 
-    provisioning_entitlements = [
-      "com.apple.application-identifier",
-      "com.apple.developer.team-identifier",
-      "keychain-access-groups",
-    ]
-    provisioning_entitlements.each do |key|
-      next unless entitlements.key?(key)
-
-      mismatches << "#{key}=#{entitlements[key].inspect} (must be absent in Developer ID DMG)"
+    # The signing certificate must be authorized by the embedded profile;
+    # a development or App Store profile is not a Developer ID profile.
+    certificate_prefix = File.join(dir, "signer")
+    _, certificate_error, certificate_status = Open3.capture3(
+      "codesign", "-d", "--extract-certificates=#{certificate_prefix}", app_path
+    )
+    UI.user_error!("Could not inspect signing certificate: #{certificate_error}") unless certificate_status.success?
+    certificate_text, certificate_error, certificate_status = Open3.capture3(
+      "openssl", "x509", "-inform", "DER", "-in", "#{certificate_prefix}0", "-text", "-noout"
+    )
+    unless certificate_status.success? && certificate_text.include?("1.2.840.113635.100.6.1.13")
+      UI.user_error!("#{label} is not signed with a Developer ID Application certificate")
     end
+    certificate_sha1 = Digest::SHA1.file("#{certificate_prefix}0").hexdigest.upcase
+    validate_macos_profile(profile, entitlements, certificate_sha1: certificate_sha1)
 
     if entitlements["com.apple.security.get-task-allow"] == true
       mismatches << "com.apple.security.get-task-allow=true (must not be true in Developer ID exports)"
