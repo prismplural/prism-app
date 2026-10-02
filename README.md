@@ -1,216 +1,41 @@
-# Prism
+# Prism Plural
 
-Hi. This is the source for the Prism app — a plural system management app built
-by a plural system that uses it every day. If you're here to use Prism instead
-of hack on it, [prismplural.com](https://prismplural.com) is the place to go.
+Prism is an app for plural systems: keep member profiles, log who's fronting, and give your system a place to talk, make decisions, and keep track of daily life. We're a plural system building Prism and using it every day.
 
-The app is Flutter. Encrypted sync is Rust, lives in
-[prism-sync](https://github.com/prismplural/prism-sync), and is wired in over
-`flutter_rust_bridge`. App-owned native helpers live under `packages/`; today
-that means the media codec package used for image normalization.
+Prism works locally without an account and stores your records in an encrypted database. Optional device sync uses hybrid post-quantum end-to-end encryption. You can also host your own relay.
 
-## What's in here
+**[Download Prism](https://prismplural.com/download/)** · [User guide](https://prismplural.com/docs/) · [What's new](https://prismplural.com/updates/) · [Discord](https://discord.gg/32Qfhd6jMM)
 
-A Flutter app targeting iOS, Android, macOS, Linux, and Windows. Riverpod for
-state (hand written — no `@riverpod` codegen), `go_router` with a
-`StatefulShellRoute` for navigation, Drift + SQLite for the local database, and
-Material 3 with `dynamic_color` for theming. Dart SDK `^3.11.1`. The package
-name is `prism_plurality` because the `prism` name was taken on pub.dev.
+Prism is in beta on iOS, Android, macOS, Linux, and Windows. There are rough edges. The download page has the current builds and installation instructions.
 
-```
-lib/
-├── main.dart                  # Rust init, keychain guard, workmanager
-├── app.dart                   # MaterialApp.router with DynamicColorBuilder
-├── core/                      # Infrastructure
-│   ├── database/              # Drift DB, DAOs, tables, providers
-│   ├── router/                # go_router config (5-tab StatefulShellRoute)
-│   ├── services/              # Secure storage, notifications, validation
-│   ├── sync/                  # Dart-side sync integration with prism-sync
-│   ├── crypto/                # Dart crypto helpers
-│   └── sharing/               # Friend links, permission-scoped sharing
-├── domain/                    # Pure Dart models + abstract repositories
-├── data/                      # Repository implementations + DB ↔ model mappers
-├── features/                  # Feature modules
-├── shared/                    # Design system: theme, widgets, extensions
-└── l10n/                      # Localization
+## What you can do
 
-packages/prism_media_codec/        # App-owned Rust image codec native asset
-test/                              # Unit, widget, and integration tests
-integration_test/                  # Flutter integration tests
-android/  ios/  linux/  macos/    # Platform shells
-windows/
-fastlane/  packaging/  scripts/   # Release plumbing
-```
+- **Keep track of your members.** Profiles, groups, custom fields, pronouns, and avatars, with room for as much or as little detail as you want.
+- **Log fronting.** Record who's fronting or co-fronting, add notes, and look back through your system's history.
+- **Talk within your system.** Chat, direct messages, message boards, polls, photos, and voice notes.
+- **Keep daily things together.** Notes, habits, reminders, and sleep tracking. Features you turn off disappear from the interface; their data is kept.
+- **Bring your existing data.** Import saved Simply Plural exports or PluralKit data. PluralKit also has ongoing bidirectional sync. The [import guide](https://prismplural.com/docs/import/) explains what transfers and what doesn't.
 
-Each feature module under `lib/features/` has the same shape: `providers/`,
-`views/`, `widgets/`, sometimes `services/` and `models/`.
+## Your data
 
-## How data flows
+Local use doesn't require a network connection. If you enable device sync, your devices encrypt and decrypt content. The relay stores encrypted content and handles delivery; it can see metadata such as device membership, public keys, and the sizes and timing of transfers.
 
-```
-Drift tables → DAOs → Repositories → Mappers → Freezed models → Riverpod → Widgets
-```
+The app has no third-party analytics or engagement tracking. The public relay collects operational metrics and logs to keep the service running.
 
-Synced entities go through repositories that emit CRDT ops into `pending_ops`
-via the Rust engine. **Writing directly to a synced Drift table produces a row
-that never reaches other devices.** Always go through the repository.
+You can use the Prism relay or [self-host one](https://github.com/prismplural/prism-sync/blob/main/self-host/SELF-HOSTING.md). [Encryption details](https://prismplural.com/docs/encryption-details/) and [privacy information](https://prismplural.com/docs/privacy/) cover the details and boundaries.
 
-To add a synced entity:
+## Work on Prism
 
-1. Add it to `prismSyncSchema` in `lib/core/sync/sync_schema.dart`.
-2. Register a builder in `lib/core/sync/drift_sync_adapter.dart`.
-3. `test/core/sync/sync_schema_parity_test.dart` fails CI if those two drift apart.
+This repository contains the Flutter app and its native image codec. The Rust sync engine, Dart bindings, and relay live in [prism-sync](https://github.com/prismplural/prism-sync).
 
-## Build and run
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) for a local build, the code layout, and the checks to run for your change. You can also help by reporting a bug, checking accessibility, or fixing an unclear instruction.
 
-You need Flutter (Dart `^3.11.1`), Rust via `rustup`, and the platform
-toolchains for whatever you're targeting. The app builds native Rust code from
-both `prism_sync` packages and app-owned packages under `packages/`. A local
-`prism-sync` checkout is only needed when modifying sync source locally.
+For bugs and feature ideas, [open an issue](https://github.com/prismplural/prism-app/issues). Include the app version, platform, and what happened. Please remove personal system data from screenshots and logs. For questions about using the app, the [user guide](https://prismplural.com/docs/) and [Discord](https://discord.gg/32Qfhd6jMM) are good places to start. Report security problems privately through [SECURITY.md](SECURITY.md).
 
-```bash
-flutter pub get
-dart run build_runner build --delete-conflicting-outputs
-flutter run
-```
+## AI use
 
-## Test lanes
-
-Fetch dependencies with `flutter pub get` before running a lane. Each lane
-writes JSON events and environment details to `test-results/` (or
-`PRISM_TEST_RESULTS_DIR`).
-
-```bash
-scripts/test_fast.sh          # deterministic Dart and widget coverage for PRs
-scripts/test_benchmark.sh     # explicit Drift measurement; not a timing gate
-PRISM_SYNC_DIR=/path/to/prism-sync scripts/test_native_benchmark.sh
-```
-
-The native lane excludes the assertion-free add-member timing probe and the
-full avatar-volume workload, but retains a three-avatar ZIP import-to-peer
-smoke. `test_native_benchmark.sh` runs the tagged native workloads with their
-full configurable inputs.
-
-The required native lane builds a clean `prism-sync` checkout at the exact git
-revision in `pubspec.lock`, builds the app-owned media codec Rust tests, and
-then runs the native-asset and two-peer relay tests with a recorded artifact
-provenance. It fails when the checkout, revision, or artifacts do not match.
-
-```bash
-PRISM_SYNC_DIR=/path/to/prism-sync scripts/test_native.sh
-```
-
-When a local path override selects an accepted sync candidate that differs from
-the lockfile's git source, state that candidate revision explicitly instead of
-letting the runner infer it. The provenance records both revisions:
-
-```bash
-PRISM_SYNC_DIR=/path/to/prism-sync \
-PRISM_EXPECTED_SYNC_REV="$(git -C /path/to/prism-sync rev-parse HEAD)" \
-scripts/test_native.sh
-```
-
-PluralKit integration tests are never enabled by an ambient `PK_TOKEN`. They
-require an explicit opt-in and a dedicated test-account token:
-
-```bash
-PRISM_ALLOW_LIVE_TESTS=1 PRISM_LIVE_TEST_TOKEN=... scripts/test_live.sh
-```
-
-`scripts/test_benchmark.sh` discovers tagged non-native benchmark files. It
-includes the Drift add-member workload and the two sweep-line analytics timing
-cases, while their ordinary analytics correctness cases remain in the fast lane.
-
-The checked-in PR workflow exercises the fast and native Linux lanes. Device
-integration, benchmark, and live-service coverage remain deliberate commands;
-they are not represented as cross-platform CI proof. The native lane is
-qualified on macOS and Linux only; Windows native E2E remains unqualified.
-The fast lane reports the current 132 non-error analyzer diagnostics but treats
-only analyzer errors as failures; reducing that baseline is separate cleanup.
-
-`build_runner` generates `*.freezed.dart`, `*.g.dart`, and Drift database code.
-Swap `build` for `watch` while you're actively making changes.
-
-### Working against a local prism-sync checkout
-
-By default `pubspec.yaml` pulls `prism_sync*` from the public git repo. To
-point at a sibling clone, drop a `pubspec_overrides.yaml` next to
-`pubspec.yaml`:
-
-```yaml
-dependency_overrides:
-  prism_sync:
-    path: ../prism-sync/dart/packages/prism_sync
-  prism_sync_drift:
-    path: ../prism-sync/dart/packages/prism_sync_drift
-  prism_sync_flutter:
-    path: ../prism-sync/dart/packages/prism_sync_flutter
-```
-
-That file is gitignored. After changing the Rust FFI surface in
-`crates/prism-sync-ffi/src/api.rs`, regenerate bindings from the sync repo:
-
-```bash
-cd ../prism-sync
-flutter_rust_bridge_codegen generate
-```
-
-### App-owned Rust packages
-
-Non-sync native code belongs in this repo under `packages/`, not in
-`prism-sync`. `packages/prism_media_codec` owns static image re-encoding for
-Prism media paths. See
-[packages/prism_media_codec/README.md](packages/prism_media_codec/README.md)
-for codec behavior, native-assets notes, and focused test commands.
-
-### Testing
-
-```bash
-flutter analyze
-flutter test
-flutter test test/path/to/file_test.dart
-```
-
-In-memory Drift databases isolate DB tests.
-
-For image codec changes, also run:
-
-```bash
-(cd packages/prism_media_codec/rust && cargo test)
-flutter test test/core/services/media/image_compression_service_test.dart test/shared/utils/profile_header_image_normalizer_test.dart test/e2e/media_codec_native_assets_smoke_test.dart
-```
-
-## Contributing
-
-We're glad you're here. Bug reports, accessibility issues, fixes, and feature
-ideas are all welcome — direct feedback matters a lot to us.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, tests, pull request
-expectations, and code guidelines. If you're thinking about something bigger
-than a polish PR, please open an issue first. Sync compatibility, threat model,
-and platform parity are the kinds of constraints that aren't obvious from the
-code, and we'd rather flag them at the design stage than during review.
-
-Contributions are accepted under Prism's project license. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for details.
-
-For security issues, please don't open a public issue. See
-[SECURITY.md](SECURITY.md).
-
-## Related repositories
-
-- [prism-sync](https://github.com/prismplural/prism-sync) — the Rust sync
-  engine, Dart FFI packages, and self-hostable relay server.
-- [prism-fronters](https://github.com/prismplural/prism-fronters) — public
-  PluralKit fronters dashboard.
-
-## On AI
-
-We use AI coding tools (local and hosted) heavily while building Prism. The
-security architecture, design decisions, and interface are ours; the
-encryption is fully auditable regardless of what tools wrote the surrounding
-code. We hope the app's quality stands on its own.
+We use local and hosted AI tools extensively in development. We accept AI-assisted contributions, but expect the contributor to be responsible for understanding and checking the work. Our [AI policy](AI_POLICY.md) spells out the expectations for code, documentation, reports, and review.
 
 ## License
 
-[GNU Affero General Public License v3.0](LICENSE).
+[GNU Affero General Public License v3.0](LICENSE), with the additional permission for app store distribution included in that file.
