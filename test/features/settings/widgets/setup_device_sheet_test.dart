@@ -2635,6 +2635,86 @@ void main() {
     },
   );
 
+  for (final retryUploading in [false, true]) {
+    testWidgets(
+      'late cancelled upload preserves retry ${retryUploading ? 'subscription' : 'PIN and mnemonic'}',
+      (tester) async {
+        final firstUpload = Completer<ffi.ResumableSnapshotUploadResult>();
+        final retryUpload = Completer<ffi.ResumableSnapshotUploadResult>();
+        final events = StreamController<SyncEvent>.broadcast();
+        addTearDown(events.close);
+        var uploads = 0;
+        final fakeApi = _FakePairingCeremonyApi(
+          startInitiatorCeremonyHandler: _initiatorSasResponse,
+          uploadResumableHandler: ({required handle, ttlSecs}) =>
+              ++uploads == 1 ? firstUpload.future : retryUpload.future,
+        );
+        await _pumpToSasStep(
+          tester,
+          fakeApi: fakeApi,
+          extraOverrides: [
+            syncEventStreamProvider.overrideWith((ref) => events.stream),
+          ],
+        );
+        // Retain the reset action while SAS is mounted, then supersede the
+        // pending attempt without resolving its native upload future.
+        final reset = tester
+            .widget<PrismButton>(
+              find.widgetWithText(PrismButton, "They Don't Match"),
+            )
+            .onPressed;
+        await tester.tap(find.text('They Match'));
+        await tester.pump();
+        expect(uploads, 1);
+        reset();
+        await tester.pumpAndSettle();
+        await _advanceThroughPreflight(tester, tapScanButton: true);
+        tester.widget<MobileScanner>(find.byType(MobileScanner)).onDetect!(
+          const BarcodeCapture(barcodes: [Barcode(rawValue: 'AQIDBA==')]),
+        );
+        await tester.pumpAndSettle();
+        expect(_sheetState(tester).validatedPinLength, 6);
+        if (retryUploading) {
+          await tester.tap(find.text('They Match'));
+          await tester.pump();
+          expect(uploads, 2);
+        }
+        const result = ffi.ResumableSnapshotUploadResult(
+          transport: ffi.SnapshotTransportUsed.resumable,
+          uploadId: 'session',
+          committedBytes: 20,
+          totalBytes: 20,
+          leaseActive: true,
+          leaseRenewed: true,
+        );
+        firstUpload.complete(result);
+        await tester.pump();
+        if (!retryUploading) {
+          expect(_sheetState(tester).validatedPinLength, 6);
+          await tester.tap(find.text('They Match'));
+          await tester.pump();
+          expect(
+            uploads,
+            2,
+            reason: 'retry retains its mnemonic and validated PIN',
+          );
+        }
+        events.add(
+          SyncEvent.fromJson({
+            'type': 'SnapshotUploadProgress',
+            'bytes_sent': 4,
+            'bytes_total': 20,
+          }),
+        );
+        await tester.pump();
+        expect(_sheetState(tester).uploadBytesSentForTest, 4);
+        retryUpload.complete(result);
+        await tester.pumpAndSettle(const Duration(seconds: 3));
+        expect(fakeApi.calls.where((call) => call == 'complete'), hasLength(1));
+      },
+    );
+  }
+
   testWidgets('retry after an upload failure starts a clean ceremony', (
     tester,
   ) async {

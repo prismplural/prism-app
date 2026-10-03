@@ -194,7 +194,7 @@ class PairingSnapshotUploadController {
   bool get showByteProgress => _bytesTotal != null;
 
   /// Whether slow-link survival may be promised for this run.
-  bool get resumableTransfer => _leaseActive && _uploadResumable != false;
+  bool get resumableTransfer => _leaseActive && _uploadResumable == true;
 
   /// Capability-probe hint, or `null` when the probe has not resolved.
   ///
@@ -219,6 +219,7 @@ class PairingSnapshotUploadController {
     required List<int> pinBytes,
     required String mnemonic,
   }) async {
+    if (_disposed) return false;
     final mnemonicBytes = secretUtf8Bytes(mnemonic);
     // Fresh state for this run: a previous attempt (including a cancelled one)
     // must not leak progress, transport or lease hints into the retry.
@@ -230,10 +231,11 @@ class PairingSnapshotUploadController {
     try {
       // Step 1: verify the joiner's confirmation. Core owns the wait.
       _emitPhase(PairingCeremonyPhase.verifying);
-      _leaseActive = await _api.verifyInitiatorConfirmationResumable(
+      final leaseActive = await _api.verifyInitiatorConfirmationResumable(
         handle: handle,
       );
       if (!_isCurrent(generation)) return false;
+      _leaseActive = leaseActive;
 
       // UX only, and deliberately not awaited: the app never picks the
       // transport from this. Core downgrades to the single PUT by itself.

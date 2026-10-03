@@ -200,6 +200,34 @@ PairingSnapshotUploadController _controller(
 }
 
 void main() {
+  test('disposed controller never begins native verification', () async {
+    final api = _RecordingApi();
+    final controller = _controller(api)..dispose();
+    expect(
+      await controller.run(pinBytes: _pinBytes(), mnemonic: _mnemonic),
+      isFalse,
+    );
+    expect(api.calls, isEmpty);
+  });
+  test(
+    'pending transport never promises resumability from lease alone',
+    () async {
+      final gate = Completer<ffi.ResumableSnapshotUploadResult>();
+      final api = _RecordingApi(
+        uploadHandler: () => gate.future,
+        capabilityState: ffi.SnapshotUploadCapabilityState.unavailable,
+      );
+      final controller = _controller(api);
+      final run = controller.run(pinBytes: _pinBytes(), mnemonic: _mnemonic);
+      await Future<void>.delayed(Duration.zero);
+      controller.handleSyncEvent(_progress(sent: 1, total: 20));
+      final promised = controller.resumableTransfer;
+      gate.complete(_singlePutResult(leaseActive: true));
+      await run;
+      expect(promised, isFalse);
+    },
+  );
+
   group('PairingSnapshotUploadController ordering', () {
     test(
       'calls verify → upload → complete exactly once, in that order',

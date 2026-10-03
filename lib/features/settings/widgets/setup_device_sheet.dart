@@ -499,12 +499,14 @@ class SetupDeviceSheetContentState
     // picked and SnapshotUploadFailed if the relay rejects the body. The
     // controller ignores events from superseded runs.
     _uploadEventSubscription?.close();
-    _uploadEventSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
+    final uploadSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
       syncEventStreamProvider,
       (prev, next) {
         next.whenData(ceremony.handleSyncEvent);
       },
     );
+
+    _uploadEventSubscription = uploadSubscription;
 
     bool completed;
     try {
@@ -513,6 +515,7 @@ class SetupDeviceSheetContentState
       // so an op still sitting in the outbox would be invisible to the joiner.
       // The drain defers safely if the engine is unconfigured.
       await triggerOutboxDrain(ref.read(databaseProvider), widget.handle);
+      if (!mounted || _ceremony != ceremony || ceremony.isCancelled) return;
 
       // Fatal on failure: if the snapshot doesn't land on the relay we must NOT
       // release credentials. The controller never reaches step 3 unless step 2
@@ -522,16 +525,15 @@ class SetupDeviceSheetContentState
       debugPrint('[SYNC] Pairing initiator flow failed: ${e.runtimeType}');
       completed = false;
     } finally {
-      _uploadEventSubscription?.close();
-      _uploadEventSubscription = null;
-      // Drop the mnemonic now that the ceremony has consumed it.
-      _mnemonic = null;
-      // Step 3 has returned (or the flow failed): overwrite the bytes this
-      // widget handed to core, so no PIN material outlives the call.
+      uploadSubscription.close();
       zeroBytesBestEffort(pinBytes);
-      // Any pre-flight buffer is consumed by now; drop the stale reference.
-      _validatedPin?.clear();
-      _validatedPin = null;
+      // A superseded run owns only its subscription and drained PIN bytes.
+      if (_ceremony == ceremony) {
+        _uploadEventSubscription = null;
+        _mnemonic = null;
+        _validatedPin?.clear();
+        _validatedPin = null;
+      }
     }
 
     if (!mounted) return;
