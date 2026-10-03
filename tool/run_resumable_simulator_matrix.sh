@@ -465,7 +465,9 @@ cleanup() {
   fi
   exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 : > "$output_root/scenario-results.tsv"
 # Provenance for the run as a whole. Tokens are never included.
