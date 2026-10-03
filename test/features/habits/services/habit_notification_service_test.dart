@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +19,7 @@ import 'package:prism_plurality/features/habits/services/habit_notification_serv
 /// no platform channel is available.
 class _FakeLocalNotificationService extends LocalNotificationService {
   final List<String> methodCalls = [];
+  Completer<void>? cancellation;
   final List<(int, int)> cancelRangeCalls = []; // (base, count)
   final List<({int id, TimeOfDay time, DateTime? notBefore})>
   scheduleExactDailyCalls = [];
@@ -136,6 +139,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   Future<void> cancelRange(int base, int count) async {
     methodCalls.add('cancelRange');
     cancelRangeCalls.add((base, count));
+    await cancellation?.future;
   }
 }
 
@@ -173,6 +177,20 @@ int _expectedBaseId(String id) => 3000000 + (id.hashCode.abs() % 100000);
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 void main() {
+  test(
+    'disabling a habit during cancellation prevents a late schedule',
+    () async {
+      final fake = _FakeLocalNotificationService()
+        ..cancellation = Completer<void>();
+      final service = HabitNotificationService(fake);
+      final scheduling = service.scheduleForHabit(_habit());
+      final disabling = service.cancelForHabit('habit-1');
+      fake.cancellation!.complete();
+      await Future.wait([scheduling, disabling]);
+      expect(fake.scheduleExactIntervalCalls, isEmpty);
+    },
+  );
+
   // ── scheduleForHabit: daily routing ─────────────────────────────────
 
   group('scheduleForHabit — daily', () {
@@ -370,27 +388,32 @@ void main() {
       expect(fake.scheduleExactIntervalCalls.first.n, 10);
     });
 
-    test('intervalDays=1 routes to scheduleExactInterval (one-shot queue)',
-        () async {
-      final fake = _FakeLocalNotificationService();
-      final service = HabitNotificationService(fake);
-      final habit = _habit(frequency: HabitFrequency.interval, intervalDays: 1);
+    test(
+      'intervalDays=1 routes to scheduleExactInterval (one-shot queue)',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = HabitNotificationService(fake);
+        final habit = _habit(
+          frequency: HabitFrequency.interval,
+          intervalDays: 1,
+        );
 
-      await service.scheduleForHabit(habit);
+        await service.scheduleForHabit(habit);
 
-      // intervalDays==1 now uses the same one-shot queue as daily, with 7
-      // occurrences, so notBefore is honored on iOS.
-      expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
-        1,
-      );
-      expect(
-        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
-        0,
-      );
-      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
-      expect(fake.scheduleExactIntervalCalls.first.n, 7);
-    });
+        // intervalDays==1 now uses the same one-shot queue as daily, with 7
+        // occurrences, so notBefore is honored on iOS.
+        expect(
+          fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
+          1,
+        );
+        expect(
+          fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+          0,
+        );
+        expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
+        expect(fake.scheduleExactIntervalCalls.first.n, 7);
+      },
+    );
   });
 
   // ── scheduleForHabit: inactive / disabled guard ──────────────────────
@@ -657,22 +680,31 @@ void main() {
       );
     });
 
-    test('interval=1 routes through scheduleExactInterval with notBefore=tomorrow',
-        () async {
-      final fake = _FakeLocalNotificationService();
-      final service = HabitNotificationService(fake);
-      final habit = _habit(frequency: HabitFrequency.interval, intervalDays: 1);
-      final now = DateTime(2026, 5, 1, 12, 0);
+    test(
+      'interval=1 routes through scheduleExactInterval with notBefore=tomorrow',
+      () async {
+        final fake = _FakeLocalNotificationService();
+        final service = HabitNotificationService(fake);
+        final habit = _habit(
+          frequency: HabitFrequency.interval,
+          intervalDays: 1,
+        );
+        final now = DateTime(2026, 5, 1, 12, 0);
 
-      await service.scheduleForHabit(habit, skipCurrentPeriod: true, now: now);
+        await service.scheduleForHabit(
+          habit,
+          skipCurrentPeriod: true,
+          now: now,
+        );
 
-      expect(fake.scheduleExactIntervalCalls, hasLength(1));
-      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
-      expect(
-        fake.scheduleExactIntervalCalls.first.notBefore,
-        DateTime(2026, 5, 2),
-      );
-    });
+        expect(fake.scheduleExactIntervalCalls, hasLength(1));
+        expect(fake.scheduleExactIntervalCalls.first.intervalDays, 1);
+        expect(
+          fake.scheduleExactIntervalCalls.first.notBefore,
+          DateTime(2026, 5, 2),
+        );
+      },
+    );
   });
 
   // ── completeHabit cancels today's reminder ──────────────────────────

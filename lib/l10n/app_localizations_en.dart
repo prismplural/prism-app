@@ -2197,6 +2197,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'Periodic activity reminders from Prism.';
 
   @override
+  String get notificationsLinuxFootnote =>
+      'On Linux, keep Prism running for reminders. Delivery pauses while your computer sleeps. Your desktop notification settings control banners and sounds.';
+
+  @override
+  String get notificationsWindowsFootnote =>
+      'On Windows, repeating reminders require Prism to stay running. One-time notifications already scheduled with Windows may arrive after Prism closes. Your Windows notification settings control banners and sounds.';
+
+  @override
+  String get notificationsDesktopPermissionStatus => 'Managed by your system';
+
+  @override
+  String get notificationsDesktopPermissionHint =>
+      'Check your system notification settings if banners or sounds do not appear.';
+
+  @override
   String get notificationsAndroidFootnote =>
       'On Android, reminders may arrive a few minutes late.';
 

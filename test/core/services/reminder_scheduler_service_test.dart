@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 /// no platform channel is available.
 class _FakeLocalNotificationService extends LocalNotificationService {
   final List<String> methodCalls = [];
+  Completer<void>? cancellation;
   final Map<int, PendingNotificationRequest> pendingRequests = {};
   final List<int> cancelCalls = [];
   final List<(int, int)> cancelRangeCalls = []; // (base, count)
@@ -144,6 +145,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   Future<void> cancelRange(int base, int count) async {
     methodCalls.add('cancelRange');
     cancelRangeCalls.add((base, count));
+    await cancellation?.future;
     for (var i = 0; i < count; i++) {
       pendingRequests.remove(base + i);
     }
@@ -194,6 +196,33 @@ Reminder _reminder({
 }
 
 void main() {
+  test(
+    'disabling during cancellation prevents a late scheduled reminder',
+    () async {
+      final fake = _FakeLocalNotificationService()
+        ..cancellation = Completer<void>();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(id: 'race');
+      final scheduling = service.scheduleReminder(reminder);
+      final disabling = service.cancelReminder(reminder.id);
+      fake.cancellation!.complete();
+      await Future.wait([scheduling, disabling]);
+      expect(fake.scheduleExactDailyCalls, isEmpty);
+    },
+  );
+
+  test('overlapping reschedules leave the newest disabled state', () async {
+    final fake = _FakeLocalNotificationService()
+      ..cancellation = Completer<void>();
+    final service = ReminderSchedulerService(fake);
+    final reminders = [_reminder(id: 'race')];
+    final enabling = service.rescheduleAll(reminders);
+    final disabling = service.rescheduleAll(reminders, remindersEnabled: false);
+    fake.cancellation!.complete();
+    await Future.wait([enabling, disabling]);
+    expect(fake.pendingRequests, isEmpty);
+  });
+
   // ── scheduleReminder: daily routing ────────────────────────────────
 
   group('scheduleReminder — daily', () {

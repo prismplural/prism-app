@@ -12,6 +12,39 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+    testWidgets(
+      '${platform.name} describes system-managed permission and delivery limits',
+      (tester) async {
+        final prefs = FakeAppPreferenceRepository();
+        final settings = FakeSystemSettingsRepository()
+          ..settings = const SystemSettings();
+        addTearDown(prefs.close);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appPreferenceRepositoryProvider.overrideWithValue(prefs),
+              systemSettingsRepositoryProvider.overrideWithValue(settings),
+              notificationPermissionProvider.overrideWith((ref) async => true),
+            ],
+            child: _NestedNavigatorApp(platform: platform),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Managed by your system'), findsOneWidget);
+        expect(
+          find.textContaining(
+            platform == TargetPlatform.linux
+                ? 'On Linux, keep Prism running'
+                : 'On Windows, repeating reminders',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Permission granted'), findsNothing);
+      },
+    );
+  }
+
   testWidgets(
     'custom suppress duration OK saves without closing settings route',
     (tester) async {
@@ -53,11 +86,13 @@ void main() {
 }
 
 class _NestedNavigatorApp extends StatelessWidget {
-  const _NestedNavigatorApp();
+  const _NestedNavigatorApp({this.platform});
+  final TargetPlatform? platform;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: ThemeData(platform: platform),
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
       home: Navigator(

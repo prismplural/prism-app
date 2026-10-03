@@ -43,6 +43,8 @@ class ReminderSchedulerService {
 
   /// Active front-change reminders awaiting a front switch.
   final List<Reminder> _pendingFrontChangeReminders = [];
+  final _generations = <String, int>{};
+  Future<void> _rescheduling = Future.value();
 
   /// Schedule a single reminder notification.
   ///
@@ -55,7 +57,12 @@ class ReminderSchedulerService {
 
     switch (reminder.trigger) {
       case ReminderTrigger.scheduled:
-        await _scheduleRepeating(reminder);
+        final generation = _generations.update(
+          reminder.id,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+        await _scheduleRepeating(reminder, generation);
       case ReminderTrigger.onFrontChange:
         _pendingFrontChangeReminders.removeWhere((r) => r.id == reminder.id);
         _pendingFrontChangeReminders.add(reminder);
@@ -64,6 +71,7 @@ class ReminderSchedulerService {
 
   /// Cancel a reminder notification by its id.
   Future<void> cancelReminder(String id) async {
+    _generations.update(id, (value) => value + 1, ifAbsent: () => 1);
     await _localService.cancelRange(
       _notificationIdBase(id),
       LocalNotificationService.maxIntervalOccurrences,
@@ -82,7 +90,18 @@ class ReminderSchedulerService {
   Future<void> rescheduleAll(
     List<Reminder> reminders, {
     bool remindersEnabled = true,
-  }) async {
+  }) {
+    final result = _rescheduling.then(
+      (_) => _rescheduleAll(reminders, remindersEnabled),
+    );
+    _rescheduling = result.catchError((Object _) {});
+    return result;
+  }
+
+  Future<void> _rescheduleAll(
+    List<Reminder> reminders,
+    bool remindersEnabled,
+  ) async {
     _pendingFrontChangeReminders.clear();
 
     final activeReminders = remindersEnabled
@@ -131,7 +150,7 @@ class ReminderSchedulerService {
 
   // ── Private helpers ─────────────────────────────────────────────
 
-  Future<void> _scheduleRepeating(Reminder reminder) async {
+  Future<void> _scheduleRepeating(Reminder reminder, int generation) async {
     final time =
         _parseTime(reminder.timeOfDay) ?? const TimeOfDay(hour: 9, minute: 0);
 
@@ -157,6 +176,7 @@ class ReminderSchedulerService {
       LocalNotificationService.maxIntervalOccurrences,
     );
 
+    if (_generations[reminder.id] != generation) return;
     final baseId = _notificationIdBase(reminder.id);
 
     switch (reminder.frequency) {
@@ -182,6 +202,7 @@ class ReminderSchedulerService {
               ..sort();
         if (days.isEmpty) return;
         for (var i = 0; i < days.length; i++) {
+          if (_generations[reminder.id] != generation) return;
           await _localService.scheduleExactWeekly(
             id: baseId + i,
             title: reminder.name,

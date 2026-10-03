@@ -17,7 +17,7 @@ final frontingNotificationServiceProvider =
         l10n,
         ref.watch(frontingTermsSettingProvider),
       );
-      return FrontingNotificationService(
+      final service = FrontingNotificationService(
         ref.watch(localNotificationServiceProvider),
         reminderTitle: frontingTerms.reminderLabel,
         reminderBody: l10n.notificationsScheduledReminderBody(
@@ -27,6 +27,8 @@ final frontingNotificationServiceProvider =
         reminderChannelDescription:
             l10n.notificationsReminderChannelDescription,
       );
+      ref.onDispose(service.dispose);
+      return service;
     });
 
 /// Checks whether notification permissions are currently granted.

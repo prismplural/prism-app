@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/fronting_notification_service.dart';
@@ -15,6 +17,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   >
   scheduleRepeatingWithDurationCalls = [];
   final List<int> cancelCalls = [];
+  Completer<void>? cancellation;
 
   @override
   Future<void> scheduleRepeatingWithDuration({
@@ -36,11 +39,37 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   @override
   Future<void> cancel(int id) async {
     cancelCalls.add(id);
+    await cancellation?.future;
   }
 }
 
 void main() {
   group('FrontingNotificationService.scheduleFrontingReminder', () {
+    test('disable during cancellation prevents a late schedule', () async {
+      final fake = _FakeLocalNotificationService()
+        ..cancellation = Completer<void>();
+      final service = FrontingNotificationService(fake);
+      final scheduling = service.scheduleFrontingReminder(
+        interval: const Duration(minutes: 15),
+      );
+      final disabling = service.cancelFrontingReminder();
+      fake.cancellation!.complete();
+      await Future.wait([scheduling, disabling]);
+      expect(fake.scheduleRepeatingWithDurationCalls, isEmpty);
+    });
+
+    test('provider disposal prevents its unfinished schedule', () async {
+      final fake = _FakeLocalNotificationService()
+        ..cancellation = Completer<void>();
+      final service = FrontingNotificationService(fake);
+      final scheduling = service.scheduleFrontingReminder(
+        interval: const Duration(minutes: 15),
+      );
+      service.dispose();
+      fake.cancellation!.complete();
+      await scheduling;
+      expect(fake.scheduleRepeatingWithDurationCalls, isEmpty);
+    });
     test(
       'preserves a 15-minute interval instead of collapsing to hourly',
       () async {

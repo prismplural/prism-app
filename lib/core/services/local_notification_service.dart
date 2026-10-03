@@ -1,4 +1,12 @@
-import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
+import 'dart:async';
+
+import 'package:flutter/foundation.dart'
+    show
+        kIsWeb,
+        visibleForTesting,
+        defaultTargetPlatform,
+        TargetPlatform,
+        debugPrint;
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,16 +19,42 @@ import 'package:timezone/timezone.dart' as tz;
 /// Web is guarded with [kIsWeb] throughout — flutter_local_notifications
 /// has no web implementation.
 class LocalNotificationService {
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  LocalNotificationService({
+    FlutterLocalNotificationsPlugin? plugin,
+    DateTime Function()? now,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
+       _now = now ?? DateTime.now;
+
+  final FlutterLocalNotificationsPlugin _plugin;
+  final DateTime Function() _now;
   bool _initialized = false;
+  bool _disposed = false;
+  Future<void>? _initializing;
+  final _generations = <int, int>{};
+  final _desktopSchedules = <int, _DesktopNotification>{};
+
+  bool get _usesTimers => defaultTargetPlatform == TargetPlatform.linux;
+  bool get _usesRepeatTimers =>
+      _usesTimers || defaultTargetPlatform == TargetPlatform.windows;
 
   /// Maximum number of pre-scheduled occurrences for interval-based
   /// notifications. Guarantees at least 30 days coverage for any interval.
   static const int maxIntervalOccurrences = 30;
 
   Future<void> initialize() async {
-    if (kIsWeb || _initialized) return;
+    if (kIsWeb || _initialized || _disposed) return;
+    final pending = _initializing;
+    if (pending != null) return pending;
+    final initializing = _initializePlugin();
+    _initializing = initializing;
+    try {
+      await initializing;
+    } finally {
+      _initializing = null;
+    }
+  }
+
+  Future<void> _initializePlugin() async {
     // Keep this a flat, alpha-only drawable: an adaptive launcher icon as the
     // small icon crash-loops System UI on Android 8.0.
     const androidSettings = AndroidInitializationSettings(
@@ -36,6 +70,12 @@ class LocalNotificationService {
         android: androidSettings,
         iOS: darwinSettings,
         macOS: darwinSettings,
+        linux: LinuxInitializationSettings(defaultActionName: 'Open Prism'),
+        windows: WindowsInitializationSettings(
+          appName: 'Prism',
+          appUserModelId: 'PrismPlural.Prism',
+          guid: 'fbd55210-f31c-4cef-b398-c5745ef77cc2',
+        ),
       ),
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
@@ -47,7 +87,7 @@ class LocalNotificationService {
         tz.setLocalLocation(tz.getLocation(localTz));
       }
     } catch (_) {}
-    _initialized = true;
+    if (!_disposed) _initialized = true;
   }
 
   void _onNotificationTap(NotificationResponse details) {
@@ -73,14 +113,29 @@ class LocalNotificationService {
     String? payload,
   }) async {
     if (kIsWeb) return;
+    final generation = _replace(id);
     await _ensureInitialized();
+    if (!_isCurrent(id, generation)) return;
     final scheduled = _nextOccurrence(time, notBefore: notBefore);
+    if (_usesRepeatTimers) {
+      _scheduleDesktop(
+        id,
+        generation,
+        title,
+        body,
+        scheduled,
+        details,
+        payload: payload,
+        next: (now) => _nextCalendarOccurrence(now, time, 1, scheduled.weekday),
+      );
+      return;
+    }
     await _plugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
       scheduledDate: scheduled,
-      notificationDetails: details,
+      notificationDetails: _desktopDetails(details),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: payload,
@@ -105,18 +160,33 @@ class LocalNotificationService {
     String? payload,
   }) async {
     if (kIsWeb) return;
+    final generation = _replace(id);
     await _ensureInitialized();
+    if (!_isCurrent(id, generation)) return;
     final scheduled = _nextWeekdayOccurrence(
       time,
       weekday,
       notBefore: notBefore,
     );
+    if (_usesRepeatTimers) {
+      _scheduleDesktop(
+        id,
+        generation,
+        title,
+        body,
+        scheduled,
+        details,
+        payload: payload,
+        next: (now) => _nextCalendarOccurrence(now, time, 7, scheduled.weekday),
+      );
+      return;
+    }
     await _plugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
       scheduledDate: scheduled,
-      notificationDetails: details,
+      notificationDetails: _desktopDetails(details),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       payload: payload,
@@ -145,20 +215,22 @@ class LocalNotificationService {
     String? payload,
   }) async {
     if (kIsWeb) return;
-    await _ensureInitialized();
     final n =
         maxOccurrences ??
         (30 / intervalDays).ceil().clamp(2, maxIntervalOccurrences);
+    final generations = List.generate(n, (i) => _replace(idBase + i));
+    await _ensureInitialized();
     var next = _nextOccurrence(time, notBefore: notBefore);
     for (var i = 0; i < n; i++) {
-      await _plugin.zonedSchedule(
-        id: idBase + i,
-        title: title,
-        body: body,
-        scheduledDate: next,
-        notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: payload,
+      await _scheduleOneShot(
+        idBase + i,
+        generations[i],
+        title,
+        body,
+        next,
+        details,
+        payload,
+        seriesId: idBase,
       );
       next = _advanceWallClockDays(next, intervalDays, time);
     }
@@ -185,17 +257,19 @@ class LocalNotificationService {
     String? payload,
   }) async {
     if (kIsWeb) return;
+    final generations = List.generate(occurrences, (i) => _replace(idBase + i));
     await _ensureInitialized();
     var next = _nextWeekdayOccurrence(time, weekday, notBefore: notBefore);
     for (var i = 0; i < occurrences; i++) {
-      await _plugin.zonedSchedule(
-        id: idBase + i,
-        title: title,
-        body: body,
-        scheduledDate: next,
-        notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        payload: payload,
+      await _scheduleOneShot(
+        idBase + i,
+        generations[i],
+        title,
+        body,
+        next,
+        details,
+        payload,
+        seriesId: idBase,
       );
       next = _advanceWallClockDays(next, 7, time);
     }
@@ -213,13 +287,36 @@ class LocalNotificationService {
     required NotificationDetails details,
   }) async {
     if (kIsWeb) return;
+    final generation = _replace(id);
     await _ensureInitialized();
+    if (!_isCurrent(id, generation)) return;
+    final duration = switch (interval) {
+      RepeatInterval.everyMinute => const Duration(minutes: 1),
+      RepeatInterval.hourly => const Duration(hours: 1),
+      RepeatInterval.daily => const Duration(days: 1),
+      RepeatInterval.weekly => const Duration(days: 7),
+    };
+    if (duration <= Duration.zero) {
+      throw ArgumentError.value(duration, 'interval');
+    }
+    if (_usesRepeatTimers) {
+      _scheduleDesktop(
+        id,
+        generation,
+        title,
+        body,
+        _now().add(duration),
+        details,
+        next: (now) => now.add(duration),
+      );
+      return;
+    }
     await _plugin.periodicallyShow(
       id: id,
       title: title,
       body: body,
       repeatInterval: interval,
-      notificationDetails: details,
+      notificationDetails: _desktopDetails(details),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
@@ -237,13 +334,30 @@ class LocalNotificationService {
     required NotificationDetails details,
   }) async {
     if (kIsWeb) return;
+    final generation = _replace(id);
     await _ensureInitialized();
+    if (!_isCurrent(id, generation)) return;
+    if (interval <= Duration.zero) {
+      throw ArgumentError.value(interval, 'interval');
+    }
+    if (_usesRepeatTimers) {
+      _scheduleDesktop(
+        id,
+        generation,
+        title,
+        body,
+        _now().add(interval),
+        details,
+        next: (now) => now.add(interval),
+      );
+      return;
+    }
     await _plugin.periodicallyShowWithDuration(
       id: id,
       title: title,
       body: body,
       repeatDurationInterval: interval,
-      notificationDetails: details,
+      notificationDetails: _desktopDetails(details),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
@@ -258,13 +372,50 @@ class LocalNotificationService {
     String? payload,
   }) async {
     if (kIsWeb) return;
+    final generation = _replace(id);
     await _ensureInitialized();
+    if (!_isCurrent(id, generation)) return;
+    await _scheduleOneShot(
+      id,
+      generation,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledFor, tz.local),
+      details,
+      payload,
+    );
+  }
+
+  Future<void> _scheduleOneShot(
+    int id,
+    int generation,
+    String title,
+    String body,
+    tz.TZDateTime scheduled,
+    NotificationDetails details,
+    String? payload, {
+    int? seriesId,
+  }) async {
+    if (!_isCurrent(id, generation)) return;
+    if (_usesTimers) {
+      _scheduleDesktop(
+        id,
+        generation,
+        title,
+        body,
+        scheduled,
+        details,
+        payload: payload,
+        seriesId: seriesId,
+      );
+      return;
+    }
     await _plugin.zonedSchedule(
       id: id,
       title: title,
       body: body,
-      scheduledDate: tz.TZDateTime.from(scheduledFor, tz.local),
-      notificationDetails: details,
+      scheduledDate: scheduled,
+      notificationDetails: _desktopDetails(details),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       payload: payload,
     );
@@ -279,11 +430,12 @@ class LocalNotificationService {
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
+    if (_disposed) return;
     await _plugin.show(
       id: id,
       title: title,
       body: body,
-      notificationDetails: details,
+      notificationDetails: _desktopDetails(details),
     );
   }
 
@@ -292,6 +444,9 @@ class LocalNotificationService {
   /// Cancels a single notification by [id].
   Future<void> cancel(int id) async {
     if (kIsWeb) return;
+    final generation = _replace(id);
+    await _ensureInitialized();
+    if (!_isCurrent(id, generation)) return;
     await _plugin.cancel(id: id);
   }
 
@@ -302,16 +457,24 @@ class LocalNotificationService {
   /// or timing changes.
   Future<void> cancelRange(int base, int count) async {
     if (kIsWeb) return;
-    for (var i = 0; i < count; i++) {
-      await _plugin.cancel(id: base + i);
-    }
+    final cancellations = List.generate(count, (i) => cancel(base + i));
+    await Future.wait(cancellations);
   }
 
   /// Returns all future notifications currently scheduled with the platform.
   Future<List<PendingNotificationRequest>> pendingNotificationRequests() async {
     if (kIsWeb) return const [];
     await _ensureInitialized();
-    return _plugin.pendingNotificationRequests();
+    final local = _desktopSchedules.values.map(
+      (entry) => PendingNotificationRequest(
+        entry.id,
+        entry.title,
+        entry.body,
+        entry.payload,
+      ),
+    );
+    if (_usesTimers) return local.toList();
+    return [...await _plugin.pendingNotificationRequests(), ...local];
   }
 
   // ── Permissions ───────────────────────────────────────────────────
@@ -351,7 +514,8 @@ class LocalNotificationService {
     if (android != null) {
       return (await android.requestNotificationsPermission()) ?? false;
     }
-    return false;
+    // Linux and Windows expose no runtime permission prompt through this plugin.
+    return _usesRepeatTimers;
   }
 
   /// Returns whether notification permission is currently granted.
@@ -381,11 +545,139 @@ class LocalNotificationService {
     if (android != null) {
       return (await android.areNotificationsEnabled()) ?? false;
     }
-    // Fallback: assume granted on unsupported platforms.
-    return true;
+    // Availability only: system notification settings can still suppress delivery.
+    return _usesRepeatTimers;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────
+
+  NotificationDetails _desktopDetails(NotificationDetails details) =>
+      NotificationDetails(
+        android: details.android,
+        iOS: details.iOS,
+        macOS: details.macOS,
+        linux: details.linux ?? const LinuxNotificationDetails(),
+        windows: details.windows ?? const WindowsNotificationDetails(),
+      );
+
+  int _replace(int id) {
+    _desktopSchedules.remove(id)?.timer?.cancel();
+    return _generations.update(id, (value) => value + 1, ifAbsent: () => 1);
+  }
+
+  bool _isCurrent(int id, int generation) =>
+      !_disposed && _generations[id] == generation;
+
+  void _scheduleDesktop(
+    int id,
+    int generation,
+    String title,
+    String body,
+    DateTime scheduled,
+    NotificationDetails details, {
+    String? payload,
+    DateTime Function(DateTime)? next,
+    int? seriesId,
+  }) {
+    final entry = _DesktopNotification(
+      id,
+      generation,
+      title,
+      body,
+      scheduled,
+      _desktopDetails(details),
+      payload,
+      next,
+      seriesId ?? id,
+    );
+    _desktopSchedules[id] = entry;
+    _arm(entry);
+  }
+
+  void _arm(_DesktopNotification entry) {
+    entry.timer?.cancel();
+    final delay = entry.scheduled.difference(_now());
+    entry.timer = Timer(delay.isNegative ? Duration.zero : delay, () {
+      if (!_isCurrent(entry.id, entry.generation)) return;
+      // Recheck wall time after suspend or a clock adjustment.
+      final now = _now();
+      if (now.isBefore(entry.scheduled)) {
+        _arm(entry);
+        return;
+      }
+      if (entry.next == null) {
+        final overdue = _desktopSchedules.values
+            .where(
+              (other) =>
+                  other.next == null &&
+                  other.seriesId == entry.seriesId &&
+                  !other.scheduled.isAfter(now),
+            )
+            .toList();
+        // One catch-up per series after sleep; preserve every future occurrence.
+        if (overdue.any((other) => other.scheduled.isAfter(entry.scheduled))) {
+          _desktopSchedules.remove(entry.id);
+          return;
+        }
+        for (final other in overdue) {
+          if (other.id != entry.id) {
+            other.timer?.cancel();
+            _desktopSchedules.remove(other.id);
+          }
+        }
+      }
+      if (entry.next case final next?) {
+        entry.scheduled = next(now);
+        _arm(entry);
+      } else {
+        _desktopSchedules.remove(entry.id);
+      }
+      unawaited(
+        _plugin
+            .show(
+              id: entry.id,
+              title: entry.title,
+              body: entry.body,
+              notificationDetails: entry.details,
+              payload: entry.payload,
+            )
+            .catchError((Object error) {
+              debugPrint(
+                'Desktop notification delivery failed: ${error.runtimeType}',
+              );
+            }),
+      );
+    });
+  }
+
+  DateTime _nextCalendarOccurrence(
+    DateTime now,
+    TimeOfDay time,
+    int days,
+    int weekday,
+  ) {
+    var next = _nextOccurrence(time);
+    while (!next.isAfter(now) || (days == 7 && next.weekday != weekday)) {
+      next = _advanceWallClockDays(next, 1, time);
+    }
+    return next;
+  }
+
+  /// Re-anchor desktop timers after sleep. Missed repeats deliver at most once.
+  void refreshDesktopSchedules() {
+    for (final entry in _desktopSchedules.values) {
+      _arm(entry);
+    }
+  }
+
+  /// Stops process-owned timers; native schedules remain owned by the OS.
+  void dispose() {
+    _disposed = true;
+    for (final entry in _desktopSchedules.values) {
+      entry.timer?.cancel();
+    }
+    _desktopSchedules.clear();
+  }
 
   Future<void> _ensureInitialized() async {
     if (!_initialized) await initialize();
@@ -395,7 +687,7 @@ class LocalNotificationService {
   /// If today's occurrence has already passed (or is before [notBefore]),
   /// the search advances forward day by day.
   tz.TZDateTime _nextOccurrence(TimeOfDay time, {DateTime? notBefore}) {
-    final now = tz.TZDateTime.now(tz.local);
+    final now = tz.TZDateTime.from(_now(), tz.local);
     final floor = notBefore == null
         ? now
         : (() {
@@ -411,7 +703,14 @@ class LocalNotificationService {
       time.minute,
     );
     if (scheduled.isBefore(floor)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+      scheduled = tz.TZDateTime(
+        tz.local,
+        scheduled.year,
+        scheduled.month,
+        scheduled.day + 1,
+        time.hour,
+        time.minute,
+      );
     }
     return scheduled;
   }
@@ -434,12 +733,11 @@ class LocalNotificationService {
     int days,
     TimeOfDay time,
   ) {
-    final shifted = from.add(Duration(days: days));
     return tz.TZDateTime(
       tz.local,
-      shifted.year,
-      shifted.month,
-      shifted.day,
+      from.year,
+      from.month,
+      from.day + days,
       time.hour,
       time.minute,
     );
@@ -456,12 +754,47 @@ tz.TZDateTime nextWeekdayOccurrenceFrom(tz.TZDateTime from, int weekday) {
   final target = weekday == 0 ? DateTime.sunday : weekday;
   var candidate = from;
   for (var i = 0; i < 7 && candidate.weekday != target; i++) {
-    candidate = candidate.add(const Duration(days: 1));
+    candidate = tz.TZDateTime(
+      from.location,
+      candidate.year,
+      candidate.month,
+      candidate.day + 1,
+      candidate.hour,
+      candidate.minute,
+    );
   }
   return candidate;
 }
 
 /// Provides the [LocalNotificationService] singleton.
-final localNotificationServiceProvider = Provider<LocalNotificationService>(
-  (ref) => LocalNotificationService(),
-);
+final localNotificationServiceProvider = Provider<LocalNotificationService>((
+  ref,
+) {
+  final service = LocalNotificationService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+class _DesktopNotification {
+  _DesktopNotification(
+    this.id,
+    this.generation,
+    this.title,
+    this.body,
+    this.scheduled,
+    this.details,
+    this.payload,
+    this.next,
+    this.seriesId,
+  );
+  final int id;
+  final int generation;
+  final int seriesId;
+  final String title;
+  final String body;
+  DateTime scheduled;
+  final NotificationDetails details;
+  final String? payload;
+  final DateTime Function(DateTime)? next;
+  Timer? timer;
+}

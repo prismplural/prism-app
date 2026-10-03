@@ -135,6 +135,19 @@ class NotificationSettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          if (theme.platform == TargetPlatform.linux ||
+              theme.platform == TargetPlatform.windows)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Text(
+                theme.platform == TargetPlatform.linux
+                    ? context.l10n.notificationsLinuxFootnote
+                    : context.l10n.notificationsWindowsFootnote,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           if (Theme.of(context).platform == TargetPlatform.android)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
@@ -299,13 +312,25 @@ class _NotificationPermissionTile extends ConsumerWidget {
       ),
       data: (granted) {
         if (granted) {
+          final platform = Theme.of(context).platform;
+          final systemManaged =
+              platform == TargetPlatform.linux ||
+              platform == TargetPlatform.windows;
           return PrismListRow(
             leading: Icon(
               AppIcons.checkCircle,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: Text(context.l10n.notificationsEnabled),
-            subtitle: Text(context.l10n.notificationsPermissionGranted),
+            title: Text(
+              systemManaged
+                  ? context.l10n.notificationsDesktopPermissionStatus
+                  : context.l10n.notificationsEnabled,
+            ),
+            subtitle: Text(
+              systemManaged
+                  ? context.l10n.notificationsDesktopPermissionHint
+                  : context.l10n.notificationsPermissionGranted,
+            ),
           );
         }
 

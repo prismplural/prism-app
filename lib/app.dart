@@ -16,6 +16,7 @@ import 'core/services/media/media_heal_providers.dart';
 import 'core/services/media/media_providers.dart';
 import 'core/services/media/orphan_media_reconciler.dart';
 import 'core/services/notification_providers.dart';
+import 'core/services/local_notification_service.dart';
 import 'core/services/reminder_scheduler_service.dart';
 import 'core/services/screen_privacy_controller.dart';
 import 'core/sync/prism_sync_providers.dart';
@@ -146,6 +147,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
   void _onResume() {
     MainIsolateStalls.mark('resume');
+    ref.read(localNotificationServiceProvider).refreshDesktopSchedules();
     if (!ref.read(databaseReadyProvider).hasValue) return;
     _repairPrimaryDatabaseKeySlotOnce();
     final handle = ref.read(prismSyncHandleProvider).value;

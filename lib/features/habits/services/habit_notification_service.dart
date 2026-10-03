@@ -14,10 +14,13 @@ class HabitNotificationService {
   HabitNotificationService(
     this._localService, [
     Locale Function()? localeResolver,
-  ]) : _localeResolver = localeResolver ?? (() => PlatformDispatcher.instance.locale);
+  ]) : _localeResolver =
+           localeResolver ?? (() => PlatformDispatcher.instance.locale);
 
   final LocalNotificationService _localService;
   final Locale Function() _localeResolver;
+  final _generations = <String, int>{};
+  int _rescheduleGeneration = 0;
 
   static const _channelId = 'habit_reminders';
   static const _channelName = 'Habit Reminders';
@@ -62,7 +65,13 @@ class HabitNotificationService {
       return;
     }
 
-    final time = _parseTime(habit.reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
+    final generation = _generations.update(
+      habit.id,
+      (value) => value + 1,
+      ifAbsent: () => 1,
+    );
+    final time =
+        _parseTime(habit.reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
 
     const androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -81,10 +90,15 @@ class HabitNotificationService {
     final l10n = _l10n;
     final title = l10n.habitsReminderNotificationTitle;
     final body =
-        habit.notificationMessage ?? l10n.habitsReminderNotificationBody(habit.name);
+        habit.notificationMessage ??
+        l10n.habitsReminderNotificationBody(habit.name);
 
     // Cancel all existing IDs for this habit before rescheduling
-    await cancelForHabit(habit.id);
+    await _localService.cancelRange(
+      _baseId(habit.id),
+      LocalNotificationService.maxIntervalOccurrences,
+    );
+    if (_generations[habit.id] != generation) return;
 
     final clock = now ?? DateTime.now();
     final today = DateTime(clock.year, clock.month, clock.day);
@@ -108,15 +122,17 @@ class HabitNotificationService {
         // Defense-in-depth: even though the mapper guards corrupt rows,
         // direct callers via providers could bypass it. Drop out-of-range
         // weekdays and dedupe so each weekday schedules exactly once.
-        final days = (habit.weeklyDays ?? const <int>[])
-            .where((d) => d >= 0 && d <= 6)
-            .toSet()
-            .toList()
-          ..sort();
+        final days =
+            (habit.weeklyDays ?? const <int>[])
+                .where((d) => d >= 0 && d <= 6)
+                .toSet()
+                .toList()
+              ..sort();
         if (days.isEmpty) return;
         // 0=Sun..6=Sat per the app's weekly weekday convention.
         final todayIdx = clock.weekday % 7;
         for (var i = 0; i < days.length; i++) {
+          if (_generations[habit.id] != generation) return;
           final isTodaySlot = skipCurrentPeriod && days[i] == todayIdx;
           // Each weekday slot reserves a contiguous block of IDs to avoid
           // collision between slots sharing the same habit base.
@@ -153,6 +169,7 @@ class HabitNotificationService {
 
   /// Cancel all notifications for a specific habit.
   Future<void> cancelForHabit(String id) async {
+    _generations.update(id, (value) => value + 1, ifAbsent: () => 1);
     await _localService.cancelRange(
       _baseId(id),
       LocalNotificationService.maxIntervalOccurrences,
@@ -167,7 +184,9 @@ class HabitNotificationService {
     List<Habit> habits, {
     bool Function(Habit habit)? skipCurrentPeriodFor,
   }) async {
+    final generation = ++_rescheduleGeneration;
     for (final habit in habits) {
+      if (generation != _rescheduleGeneration) return;
       final skip = skipCurrentPeriodFor?.call(habit) ?? false;
       await scheduleForHabit(habit, skipCurrentPeriod: skip);
     }
@@ -196,10 +215,12 @@ class HabitNotificationService {
 }
 
 /// Provides the [HabitNotificationService] singleton instance.
-final habitNotificationServiceProvider =
-    Provider<HabitNotificationService>((ref) {
+final habitNotificationServiceProvider = Provider<HabitNotificationService>((
+  ref,
+) {
   return HabitNotificationService(
     ref.watch(localNotificationServiceProvider),
-    () => ref.read(localeOverrideProvider) ?? PlatformDispatcher.instance.locale,
+    () =>
+        ref.read(localeOverrideProvider) ?? PlatformDispatcher.instance.locale,
   );
 });

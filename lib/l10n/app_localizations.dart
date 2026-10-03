@@ -2766,6 +2766,30 @@ abstract class AppLocalizations {
   /// **'Periodic activity reminders from Prism.'**
   String get notificationsReminderChannelDescription;
 
+  /// No description provided for @notificationsLinuxFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'On Linux, keep Prism running for reminders. Delivery pauses while your computer sleeps. Your desktop notification settings control banners and sounds.'**
+  String get notificationsLinuxFootnote;
+
+  /// No description provided for @notificationsWindowsFootnote.
+  ///
+  /// In en, this message translates to:
+  /// **'On Windows, repeating reminders require Prism to stay running. One-time notifications already scheduled with Windows may arrive after Prism closes. Your Windows notification settings control banners and sounds.'**
+  String get notificationsWindowsFootnote;
+
+  /// No description provided for @notificationsDesktopPermissionStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Managed by your system'**
+  String get notificationsDesktopPermissionStatus;
+
+  /// No description provided for @notificationsDesktopPermissionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your system notification settings if banners or sounds do not appear.'**
+  String get notificationsDesktopPermissionHint;
+
   /// Android-only footnote below notification settings about text
   ///
   /// In en, this message translates to:

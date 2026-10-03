@@ -2232,6 +2232,22 @@ class AppLocalizationsEs extends AppLocalizations {
       'Recordatorios periódicos de actividad de Prism.';
 
   @override
+  String get notificationsLinuxFootnote =>
+      'En Linux, mantén Prism abierto para recibir recordatorios. La entrega se pausa mientras el equipo está en suspensión. La configuración de notificaciones del escritorio controla los avisos y sonidos.';
+
+  @override
+  String get notificationsWindowsFootnote =>
+      'En Windows, los recordatorios recurrentes requieren que Prism permanezca abierto. Las notificaciones únicas ya programadas en Windows pueden llegar después de cerrar Prism. La configuración de notificaciones de Windows controla los avisos y sonidos.';
+
+  @override
+  String get notificationsDesktopPermissionStatus =>
+      'Gestionado por el sistema';
+
+  @override
+  String get notificationsDesktopPermissionHint =>
+      'Revisa la configuración de notificaciones del sistema si no aparecen avisos o sonidos.';
+
+  @override
   String get notificationsAndroidFootnote =>
       'En Android, los recordatorios pueden llegar unos minutos tarde.';
 

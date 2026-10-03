@@ -1851,6 +1851,10 @@
   "@notificationsReminderChannelDescription": {
     "description": "Android notification channel description for periodic activity reminders"
   },
+  "notificationsLinuxFootnote": "On Linux, keep Prism running for reminders. Delivery pauses while your computer sleeps. Your desktop notification settings control banners and sounds.",
+  "notificationsWindowsFootnote": "On Windows, repeating reminders require Prism to stay running. One-time notifications already scheduled with Windows may arrive after Prism closes. Your Windows notification settings control banners and sounds.",
+  "notificationsDesktopPermissionStatus": "Managed by your system",
+  "notificationsDesktopPermissionHint": "Check your system notification settings if banners or sounds do not appear.",
   "notificationsAndroidFootnote": "On Android, reminders may arrive a few minutes late.",
   "@notificationsAndroidFootnote": {
     "description": "Android-only footnote below notification settings about text"

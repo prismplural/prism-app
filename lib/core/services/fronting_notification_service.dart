@@ -19,13 +19,17 @@ class FrontingNotificationService {
   final String reminderChannelName;
   final String reminderChannelDescription;
 
+  int _generation = 0;
+
   static const _reminderChannelId = 'fronting_reminders';
 
   static const _reminderNotificationId = 1000;
 
   /// Schedule a repeating fronting reminder notification.
   Future<void> scheduleFrontingReminder({required Duration interval}) async {
-    await cancelFrontingReminder();
+    final generation = ++_generation;
+    await _localService.cancel(_reminderNotificationId);
+    if (generation != _generation) return;
 
     final androidDetails = AndroidNotificationDetails(
       _reminderChannelId,
@@ -50,8 +54,12 @@ class FrontingNotificationService {
     );
   }
 
+  /// Invalidates work started by a provider that has since been replaced.
+  void dispose() => _generation++;
+
   /// Cancel the scheduled fronting reminder.
   Future<void> cancelFrontingReminder() async {
+    _generation++;
     await _localService.cancel(_reminderNotificationId);
   }
 }
