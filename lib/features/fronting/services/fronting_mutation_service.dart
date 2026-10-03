@@ -706,12 +706,7 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingSession>(
       actionLabel: 'Log historical sleep session',
       action: () async {
-        if (!endTime.isAfter(startTime)) {
-          throw AppFailure.validation('end must be after start');
-        }
-        if (startTime.isAfter(DateTime.now())) {
-          throw AppFailure.validation('cannot log sleep in the future');
-        }
+        _assertTimeRange(startTime, endTime);
         final created = FrontingSession(
           id: _uuid.v4(),
           startTime: startTime,

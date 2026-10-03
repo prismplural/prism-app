@@ -52,6 +52,20 @@ void main() {
     });
 
     test(
+      'past start with future end is rejected without creating sleep',
+      () async {
+        final now = DateTime.now();
+        final result = await service.logHistoricalSleep(
+          startTime: now.subtract(const Duration(hours: 2)),
+          endTime: now.add(const Duration(hours: 1)),
+        );
+
+        expect(result.failureOrNull?.type, AppFailureType.validation);
+        expect(repo.sessions, isEmpty);
+      },
+    );
+
+    test(
       'valid call creates exactly one sleep session via createSession',
       () async {
         int createCalls = 0;
@@ -72,7 +86,11 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
-        expect(createCalls, 1, reason: 'must be exactly one createSession call');
+        expect(
+          createCalls,
+          1,
+          reason: 'must be exactly one createSession call',
+        );
 
         final session = result.dataOrNull!;
         expect(session.sessionType, SessionType.sleep);
