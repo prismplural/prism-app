@@ -1639,6 +1639,7 @@ class DataImportService {
               ),
               o.id,
             );
+            existingVoteIds.add(v.id);
           }
         }
 

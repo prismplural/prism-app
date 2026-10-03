@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show BooleanExpressionOperators;
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -142,6 +143,25 @@ class DataExportService {
     // Fetch all messages in a single query
     final allMessages = await chatMessageRepository.getAllMessages();
 
+    // Tombstones can arrive before their children. Exclude known deletions,
+    // but retain missing-parent records from partial sync.
+    final deletedConversations = db.selectOnly(db.conversations)
+      ..addColumns([db.conversations.id])
+      ..where(db.conversations.isDeleted.equals(true));
+    final excludedMessageRows =
+        await (db.selectOnly(db.chatMessages)
+              ..addColumns([db.chatMessages.id])
+              ..where(
+                db.chatMessages.isDeleted.equals(true) |
+                    db.chatMessages.conversationId.isInQuery(
+                      deletedConversations,
+                    ),
+              ))
+            .get();
+    final excludedMessageIds = {
+      for (final row in excludedMessageRows) row.read(db.chatMessages.id)!,
+    };
+
     // Batch-fetch all options and votes, then group in memory for O(1) lookup.
     // Only include options belonging to exported (non-deleted) polls.
     final optionsByPoll = await pollRepository.getAllOptionsGroupedByPoll();
@@ -181,7 +201,10 @@ class DataExportService {
         .toList();
     final v1SleepSessions = sleepSessions.map(_mapSleepSession).toList();
     final v1Conversations = conversations.map(_mapConversation).toList();
-    final v1Messages = allMessages.map(_mapMessage).toList();
+    final v1Messages = allMessages
+        .where((message) => !excludedMessageIds.contains(message.id))
+        .map(_mapMessage)
+        .toList();
     final v1Polls = polls.map(_mapPoll).toList();
     final v1Settings = [_mapSettings(settings)];
 
@@ -256,6 +279,9 @@ class DataExportService {
     // Fetch media attachments
     final allMediaAttachments = await mediaAttachmentsDao.getAll();
     final v1MediaAttachments = allMediaAttachments
+        .where(
+          (attachment) => !excludedMessageIds.contains(attachment.messageId),
+        )
         .map(
           (a) => V1MediaAttachment(
             id: a.id,

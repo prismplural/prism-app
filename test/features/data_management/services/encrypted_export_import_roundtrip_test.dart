@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -163,6 +164,154 @@ void main() {
       await targetDb.close();
       await tempRoot.delete(recursive: true);
     });
+
+    for (final encrypted in [false, true]) {
+      test(
+        'stale media of deleted messages is omitted, encrypted: $encrypted',
+        () async {
+          final now = DateTime.utc(2026, 1, 15);
+          for (final id in ['live-conversation', 'deleted-conversation']) {
+            await sourceDb
+                .into(sourceDb.conversations)
+                .insert(
+                  ConversationsCompanion.insert(
+                    id: id,
+                    createdAt: now,
+                    lastActivityAt: now,
+                    isDeleted: drift.Value(id == 'deleted-conversation'),
+                  ),
+                );
+          }
+          final cases = [
+            (
+              id: 'live',
+              parent: 'live-conversation',
+              deleted: false,
+              hasMessage: true,
+            ),
+            (
+              id: 'stale-live',
+              parent: 'live-conversation',
+              deleted: true,
+              hasMessage: true,
+            ),
+            (
+              id: 'stale-deleted',
+              parent: 'deleted-conversation',
+              deleted: true,
+              hasMessage: true,
+            ),
+            (
+              id: 'active-deleted',
+              parent: 'deleted-conversation',
+              deleted: false,
+              hasMessage: true,
+            ),
+            (
+              id: 'missing-parent',
+              parent: 'missing-conversation',
+              deleted: false,
+              hasMessage: true,
+            ),
+            (
+              id: 'missing-message',
+              parent: '',
+              deleted: false,
+              hasMessage: false,
+            ),
+            (id: 'library', parent: '', deleted: false, hasMessage: false),
+          ];
+          const retainedIds = [
+            'live',
+            'missing-parent',
+            'missing-message',
+            'library',
+          ];
+          final retainedBlobIds = <String>[];
+          final mediaDir = Directory('${sourceSupportDir.path}/prism_media')
+            ..createSync();
+          for (var i = 0; i < cases.length; i++) {
+            final fixture = cases[i];
+            if (fixture.hasMessage) {
+              // Sync can tombstone a message before its attachments.
+              await sourceDb
+                  .into(sourceDb.chatMessages)
+                  .insert(
+                    ChatMessagesCompanion.insert(
+                      id: fixture.id,
+                      content: 'synthetic ${fixture.id}',
+                      timestamp: now,
+                      conversationId: fixture.parent,
+                      isDeleted: drift.Value(fixture.deleted),
+                    ),
+                  );
+            }
+            final mediaId =
+                '00000000-0000-4000-8000-${i.toString().padLeft(12, '0')}';
+            final thumbnailId =
+                '00000000-0000-4000-8000-${(i + 100).toString().padLeft(12, '0')}';
+            await sourceDb.mediaAttachmentsDao.insertAttachment(
+              MediaAttachmentsCompanion.insert(
+                id: fixture.id,
+                messageId: drift.Value(
+                  fixture.id == 'library' ? '' : fixture.id,
+                ),
+                tag: drift.Value(fixture.id == 'library' ? 'library' : ''),
+                mediaId: drift.Value(mediaId),
+                thumbnailMediaId: drift.Value(thumbnailId),
+              ),
+            );
+            for (final id in [mediaId, thumbnailId]) {
+              await File('${mediaDir.path}/$id.enc').writeAsBytes([i, 23, 42]);
+              if (retainedIds.contains(fixture.id)) retainedBlobIds.add(id);
+            }
+          }
+
+          final Map<String, dynamic> backup;
+          if (encrypted) {
+            final file = await exportService.exportEncryptedData(
+              password: 'synthetic-password',
+            );
+            final resolved = DataImportService.resolveBytes(
+              await file.readAsBytes(),
+              password: 'synthetic-password',
+            );
+            expect(
+              resolved.mediaBlobs.map((b) => b.mediaId),
+              unorderedEquals(retainedBlobIds),
+            );
+            backup = jsonDecode(resolved.json) as Map<String, dynamic>;
+            final result = await importService.importData(
+              resolved.json,
+              mediaBlobs: resolved.mediaBlobs,
+            );
+            expect(result.mediaAttachmentsCreated, retainedIds.length);
+          } else {
+            backup = (await exportService.buildExport()).toJson();
+          }
+          expect(
+            (backup['mediaAttachments'] as List).map((a) => a['id']),
+            unorderedEquals(retainedIds),
+          );
+          expect(
+            (backup['messages'] as List).map((m) => m['id']),
+            unorderedEquals(['live', 'missing-parent']),
+          );
+          for (final id in ['stale-live', 'stale-deleted']) {
+            expect(
+              (await sourceDb.chatMessagesDao.getMessageById(id))!.isDeleted,
+              isTrue,
+            );
+            expect(
+              (await sourceDb.mediaAttachmentsDao.getById(id))!.isDeleted,
+              isFalse,
+              reason:
+                  'Export filters the backup without changing source sync state',
+            );
+          }
+        },
+      );
+    }
 
     test(
       'exports encrypted file, decrypts it, imports data and media blobs',

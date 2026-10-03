@@ -23,6 +23,10 @@ import 'package:prism_plurality/data/repositories/drift_conversation_categories_
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
+import 'package:prism_plurality/domain/models/chat_message.dart' as domain;
+import 'package:prism_plurality/domain/models/poll.dart' as domain;
+import 'package:prism_plurality/domain/models/poll_option.dart' as domain;
+import 'package:prism_plurality/domain/models/poll_vote.dart' as domain;
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
@@ -198,6 +202,211 @@ void main() {
       expect(conversations, hasLength(1));
       expect(conversations.single.includesAllMembers, isTrue);
     });
+
+    test(
+      'backup omits deleted conversations and their messages and media',
+      () async {
+        final now = DateTime.utc(2026, 1, 15);
+        for (final id in ['live', 'archived', 'deleted']) {
+          await exportService.conversationRepository.createConversation(
+            Conversation(
+              id: id,
+              title: id,
+              createdAt: now,
+              lastActivityAt: now,
+              archivedForEveryone: id == 'archived',
+            ),
+          );
+          await exportService.chatMessageRepository.createMessage(
+            domain.ChatMessage(
+              id: '$id-message',
+              content: '$id content',
+              timestamp: now,
+              conversationId: id,
+            ),
+          );
+          await sourceDb.mediaAttachmentsDao.insertAttachment(
+            MediaAttachmentsCompanion.insert(
+              id: '$id-media',
+              messageId: drift.Value('$id-message'),
+            ),
+          );
+        }
+        await exportService.chatMessageRepository.createMessage(
+          domain.ChatMessage(
+            id: 'deleted-message-in-live-chat',
+            content: 'removed content',
+            timestamp: now,
+            conversationId: 'live',
+          ),
+        );
+        await exportService.chatMessageRepository.deleteMessage(
+          'deleted-message-in-live-chat',
+        );
+        await exportService.conversationRepository.deleteConversation(
+          'deleted',
+        );
+        await sourceDb.mediaAttachmentsDao.insertAttachment(
+          MediaAttachmentsCompanion.insert(
+            id: 'member-media',
+            memberId: const drift.Value('member'),
+          ),
+        );
+        await sourceDb.mediaAttachmentsDao.insertAttachment(
+          MediaAttachmentsCompanion.insert(
+            id: 'library-media',
+            tag: const drift.Value('library'),
+          ),
+        );
+
+        final backup = await exportService.buildExport();
+        expect(
+          backup.conversations.map((c) => c.id),
+          unorderedEquals(['live', 'archived']),
+        );
+        expect(
+          backup.messages.map((m) => m.id),
+          unorderedEquals(['live-message', 'archived-message']),
+        );
+        expect(
+          backup.mediaAttachments.map((a) => a.id),
+          unorderedEquals([
+            'live-media',
+            'archived-media',
+            'member-media',
+            'library-media',
+          ]),
+        );
+        final result = await importService.importData(
+          jsonEncode(backup.toJson()),
+        );
+        expect(result.messagesCreated, 2);
+        expect(
+          (await targetDb.select(targetDb.chatMessages).get()).map((m) => m.id),
+          unorderedEquals(['live-message', 'archived-message']),
+        );
+        expect(
+          (await targetDb.conversationsDao.getConversationById(
+            'archived',
+          ))!.archivedForEveryone,
+          isTrue,
+        );
+        expect(
+          (await sourceDb.conversationsDao.getConversationById(
+            'deleted',
+          ))!.isDeleted,
+          isTrue,
+        );
+        expect(
+          (await sourceDb.chatMessagesDao.getMessageById(
+            'deleted-message',
+          ))!.isDeleted,
+          isFalse,
+        );
+        expect(
+          await sourceDb.mediaAttachmentsDao.getById('deleted-media'),
+          isNotNull,
+        );
+      },
+    );
+
+    test(
+      'backup preserves messages whose parent is missing rather than deleted',
+      () async {
+        await exportService.chatMessageRepository.createMessage(
+          domain.ChatMessage(
+            id: 'pending-parent-message',
+            content: 'Synthetic partial sync content',
+            timestamp: DateTime.utc(2026, 1, 15),
+            conversationId: 'pending-parent',
+          ),
+        );
+        await sourceDb.mediaAttachmentsDao.insertAttachment(
+          MediaAttachmentsCompanion.insert(
+            id: 'pending-parent-media',
+            messageId: const drift.Value('pending-parent-message'),
+          ),
+        );
+        final backup = await exportService.buildExport();
+        expect(backup.messages.single.id, 'pending-parent-message');
+        expect(backup.mediaAttachments.single.id, 'pending-parent-media');
+        await importService.importData(jsonEncode(backup.toJson()));
+        expect(
+          await targetDb.chatMessagesDao.getMessageById(
+            'pending-parent-message',
+          ),
+          isNotNull,
+        );
+        expect(
+          await targetDb.mediaAttachmentsDao.getById('pending-parent-media'),
+          isNotNull,
+        );
+      },
+    );
+
+    for (final repeatVote in [false, true]) {
+      test(
+        'freeform poll backup roundtrip with repeated vote: $repeatVote',
+        () async {
+          final now = DateTime.utc(2026, 1, 15);
+          await exportService.pollRepository.createPoll(
+            domain.Poll(
+              id: 'poll',
+              question: 'Synthetic question',
+              createdAt: now,
+            ),
+          );
+          for (final id in ['first', 'second']) {
+            await exportService.pollRepository.createOption(
+              domain.PollOption(id: id, text: id, isOtherOption: true),
+              'poll',
+            );
+            await exportService.pollRepository.castVote(
+              domain.PollVote(
+                id: '$id-vote',
+                memberId: 'member',
+                votedAt: now,
+                responseText: '$id response',
+              ),
+              id,
+            );
+          }
+          final backup = (await exportService.buildExport()).toJson();
+          final options = backup['pollOptions'] as List;
+          expect(options, hasLength(2));
+          final firstVotes = options[0]['votes'] as List;
+          final secondVotes = options[1]['votes'] as List;
+          expect(firstVotes, hasLength(1));
+          expect(secondVotes, hasLength(1));
+          if (repeatVote) {
+            firstVotes.add(Map<String, dynamic>.from(firstVotes.first as Map));
+            secondVotes.insert(
+              0,
+              Map<String, dynamic>.from(firstVotes.first as Map),
+            );
+          }
+          final result = await importService.importData(jsonEncode(backup));
+          expect(result.pollsCreated, 1);
+          expect(result.pollOptionsCreated, 2);
+          final restored = await targetDb.pollVotesDao.getAllVotes();
+          expect(restored, hasLength(2));
+          expect(
+            restored.map((v) => v.responseText),
+            unorderedEquals(['first response', 'second response']),
+          );
+          expect(
+            restored.singleWhere((v) => v.id == 'first-vote').pollOptionId,
+            'first',
+          );
+          expect(
+            restored.singleWhere((v) => v.id == 'second-vote').pollOptionId,
+            'second',
+          );
+          await importService.importData(jsonEncode(backup));
+          expect(await targetDb.pollVotesDao.getAllVotes(), hasLength(2));
+        },
+      );
+    }
 
     test('app preferences survive export → import', () async {
       // The nav-bar "full labels when expanded" choice lives in the key-value
