@@ -718,6 +718,7 @@ class SpPoll {
   final bool allowAbstain;
   final bool allowVeto;
   final DateTime? endDate;
+  final DateTime? createdAt;
 
   const SpPoll({
     required this.id,
@@ -730,6 +731,7 @@ class SpPoll {
     this.allowAbstain = false,
     this.allowVeto = false,
     this.endDate,
+    this.createdAt,
   });
 
   factory SpPoll.fromJson(
@@ -776,9 +778,15 @@ class SpPoll {
     }
 
     final rawEndTime = json['endTime'] ?? json['endDate'];
+    final id = (json['_id'] ?? json['id'] ?? '').toString();
+    final createdAt =
+        _parseSpTime(json['createdAt']) ??
+        (RegExp(r'^[0-9a-fA-F]{24}$').hasMatch(id)
+            ? extractObjectIdTimestamp(id)
+            : null);
 
     return SpPoll(
-      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      id: id,
       question: (json['question'] ?? json['title'] ?? json['name'] ?? '')
           .toString(),
       description: json['desc'] as String? ?? json['description'] as String?,
@@ -789,6 +797,7 @@ class SpPoll {
       allowAbstain: json['allowAbstain'] == true,
       allowVeto: json['allowVeto'] == true,
       endDate: rawEndTime != null ? _parseSpTimeOr(rawEndTime, clock) : null,
+      createdAt: createdAt,
     );
   }
 }

@@ -44,6 +44,8 @@ import 'package:prism_plurality/domain/repositories/system_settings_repository.d
 import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
+import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
+import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
@@ -340,6 +342,34 @@ void main() {
         expect(
           await targetDb.mediaAttachmentsDao.getById('pending-parent-media'),
           isNotNull,
+        );
+      },
+    );
+
+    test(
+      'Simply Plural poll creation date survives backup roundtrip',
+      () async {
+        final importedAt = DateTime.utc(2026, 10, 2);
+        final data = SpParser.parse(
+          jsonEncode({
+            'polls': [
+              {
+                '_id': '6553f1000000000000000000',
+                'name': 'Historical question',
+              },
+            ],
+          }),
+        );
+        final poll = SpMapper(now: () => importedAt).mapAll(data).polls.single;
+        await exportService.pollRepository.createPoll(poll);
+
+        final backup = await exportService.buildExport();
+        await importService.importData(jsonEncode(backup.toJson()));
+
+        final restored = await targetDb.pollsDao.getPollById(poll.id);
+        expect(
+          restored!.createdAt.toUtc(),
+          DateTime.utc(2023, 11, 14, 22, 13, 20),
         );
       },
     );

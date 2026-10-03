@@ -825,6 +825,57 @@ void main() {
   });
 
   group('Poll mapping', () {
+    final createdAt = DateTime.utc(2023, 11, 14, 22, 13, 20);
+    final importedAt = DateTime.utc(2026, 10, 2);
+    for (final timestamp in <Object>[
+      1700000000000,
+      '1700000000000',
+      '2023-11-14T22:13:20.000',
+      '2023-11-14T16:13:20-06:00',
+      {'_seconds': 1700000000, '_nanoseconds': 0},
+    ]) {
+      test('preserves poll creation timestamp $timestamp', () {
+        final poll = SpPoll.fromJson({
+          'id': 'poll',
+          'question': 'Question',
+          'createdAt': timestamp,
+        });
+        final result = SpMapper(
+          now: () => importedAt,
+        ).mapAll(_makeExportData(polls: [poll]));
+        expect(result.polls.single.createdAt, createdAt);
+      });
+    }
+
+    test('uses poll ObjectId creation time when explicit time is absent', () {
+      final poll = SpPoll.fromJson({
+        '_id': '6553f1000000000000000000',
+        'name': 'Question',
+        'lastOperationTime': importedAt.millisecondsSinceEpoch,
+      });
+      final result = SpMapper(
+        now: () => importedAt,
+      ).mapAll(_makeExportData(polls: [poll]));
+      expect(result.polls.single.createdAt, createdAt);
+    });
+
+    for (final timestamp in [null, 'invalid']) {
+      test(
+        'missing or invalid poll time falls back to import time: $timestamp',
+        () {
+          final poll = SpPoll.fromJson({
+            'id': 'poll',
+            'question': 'Question',
+            'createdAt': timestamp,
+          });
+          final result = SpMapper(
+            now: () => importedAt,
+          ).mapAll(_makeExportData(polls: [poll]));
+          expect(result.polls.single.createdAt, importedAt);
+        },
+      );
+    }
+
     test('standard polls synthesize default options and preserve votes', () {
       final data = _makeExportData(
         members: [_memberA],

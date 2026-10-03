@@ -1604,7 +1604,7 @@ class SpMapper {
           allowsMultipleVotes: sp.allowMultiple,
           isClosed: sp.endDate != null && sp.endDate!.isBefore(_now()),
           expiresAt: sp.endDate,
-          createdAt: _now(),
+          createdAt: sp.createdAt ?? _now(),
           options: optionsWithVotes,
         ),
       );
