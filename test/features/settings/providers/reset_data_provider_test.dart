@@ -42,6 +42,7 @@ const _allUserDataTables = [
   'conversations',
   'chat_messages',
   'system_settings',
+  'plural_port_unsupported',
   'polls',
   'poll_options',
   'poll_votes',
@@ -2883,6 +2884,18 @@ class _ResetHarness {
   /// if any table in [_allUserDataTables] has 0 rows after seeding.
   Future<void> seedAllData() async {
     final now = DateTime.utc(2026, 3, 18, 12);
+
+    await db
+        .into(db.pluralPortUnsupported)
+        .insert(
+          PluralPortUnsupportedCompanion.insert(
+            id: 'preserved:0',
+            documentId: 'preserved',
+            chunkIndex: 0,
+            chunkCount: 1,
+            payload: 'opaque fixture',
+          ),
+        );
 
     // ── Members ───────────────────────────────────────────────────────
     await db

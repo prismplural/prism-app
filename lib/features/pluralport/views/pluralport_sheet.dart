@@ -13,6 +13,8 @@ import 'package:prism_plurality/features/data_management/providers/data_manageme
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import '../services/pluralport_bundle.dart';
 import '../services/pluralport_mapper.dart';
 import '../services/pluralport_service.dart';
@@ -212,7 +214,7 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
             ))
               Text(context.l10n.pluralPortMissingMediaNotice),
             if (plan.warnings.isNotEmpty)
-              ExpansionTile(
+              PrismExpandableSection(
                 title: Text(context.l10n.pluralPortWarningDetails),
                 children: [
                   for (final warning in plan.warnings.take(100)) Text(warning),
@@ -243,9 +245,13 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
               enabled: !_busy,
             ),
           if (_busy)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: PrismSpinner(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
             ),
           if (_status != null)
             Padding(

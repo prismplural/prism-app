@@ -5,8 +5,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter_bootstrap.dart';
+import 'package:prism_plurality/features/pluralport/services/pluralport_preservation.dart';
 
 void main() {
+  test('bootstrap includes complete retained portable documents', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    await PluralPortPreservation(
+      db,
+    ).retain({'kind': 'test', 'opaque': 'x' * 100000});
+    final adapter = buildSyncAdapterWithCompletion(db).adapter;
+    final records = await buildBootstrapRecords(
+      bootstrapFetchersFor(adapter, db),
+    );
+    final chunks = records
+        .where((row) => row['table'] == 'plural_port_unsupported')
+        .toList();
+    expect(chunks.length, greaterThan(1));
+    final peer = AppDatabase(NativeDatabase.memory());
+    addTearDown(peer.close);
+    final entity = buildSyncAdapterWithCompletion(
+      peer,
+    ).adapter.entityForTable('plural_port_unsupported')!;
+    for (final chunk in chunks) {
+      await entity.applyFields(
+        chunk['entity_id'] as String,
+        (chunk['fields'] as Map).cast<String, dynamic>(),
+      );
+    }
+    expect(
+      await PluralPortPreservation(peer).documents(),
+      await PluralPortPreservation(db).documents(),
+    );
+  });
   // Parity test: every entity registered on `DriftSyncAdapter` must have a
   // fetcher in `bootstrapFetchersFor`. If someone adds a new synced entity to
   // the adapter without extending the bootstrap map, first-device setup will

@@ -76,6 +76,10 @@ Map<String, BootstrapFetcher> bootstrapFetchersFor(
         db.systemSettingsTable,
       )..where((t) => t.id.equals('singleton'))).get(),
     ),
+    'plural_port_unsupported': build(
+      'plural_port_unsupported',
+      () => db.select(db.pluralPortUnsupported).get(),
+    ),
     'app_preference_values': build(
       'app_preference_values',
       () => db.select(db.appPreferenceValues).get(),
