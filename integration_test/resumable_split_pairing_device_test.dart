@@ -380,11 +380,24 @@ Future<void> _bootstrapJoiner(ffi.PrismSyncHandle joinerHandle) async {
 }
 
 /// True once the joiner's completion resolved within [window].
-Future<bool> _completedWithin(Future<String> completion, Duration window) =>
-    Future.any<bool>([
-      completion.then((_) => true),
-      Future<bool>.delayed(window, () => false),
-    ]);
+Future<bool> _completedWithin(
+  Future<String> completion,
+  Duration window, {
+  bool allowDeletedSession = false,
+}) => Future.any<bool>([
+  completion.then(
+    (_) => true,
+    onError: (Object error, StackTrace stack) {
+      if (!allowDeletedSession) Error.throwWithStackTrace(error, stack);
+      expect(
+        error.toString(),
+        contains('credential bundle: protocol error: session not found'),
+      );
+      return false;
+    },
+  ),
+  Future<bool>.delayed(window, () => false),
+]);
 
 /// Best-effort screenshot hook. The runner also captures device screenshots
 /// out-of-band, so a missing driver must never fail the scenario.
@@ -809,9 +822,14 @@ Future<void> _runCancelMidUpload(Map<String, double> before) async {
       reason: 'a cancelled upload must publish no snapshot',
     );
     expect(
-      await _completedWithin(joinerComplete, const Duration(milliseconds: 500)),
+      await _completedWithin(
+        joinerComplete,
+        const Duration(milliseconds: 500),
+        allowDeletedSession: true,
+      ),
       isFalse,
-      reason: 'the joiner must still be waiting for credentials it never gets',
+      reason:
+          'the joiner must never receive credentials for a cancelled session',
     );
 
     _emit('metrics', {

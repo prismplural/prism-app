@@ -675,7 +675,18 @@ void main() {
         expect(metrics[_completionsMetric] ?? 0, equals(0));
         expect(
           await Future.any<bool>([
-            joinerComplete.then((_) => true),
+            joinerComplete.then(
+              (_) => true,
+              onError: (Object error) {
+                expect(
+                  error.toString(),
+                  contains(
+                    'credential bundle: protocol error: session not found',
+                  ),
+                );
+                return false;
+              },
+            ),
             Future<bool>.delayed(
               const Duration(milliseconds: 300),
               () => false,
@@ -683,7 +694,7 @@ void main() {
           ]),
           isFalse,
           reason:
-              'the joiner must still be waiting for credentials it will never get',
+              'the joiner must never receive credentials for a cancelled session',
         );
       } finally {
         a?.dispose();
