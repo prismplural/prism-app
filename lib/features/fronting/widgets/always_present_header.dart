@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/fronting/views/session_detail_screen.dart';
+import 'package:prism_plurality/features/fronting/views/period_detail_screen.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
@@ -50,7 +51,7 @@ class AlwaysPresentHeader extends ConsumerWidget {
               '${frontingTerms.longRunningLabel.toLowerCase()}';
     final headerLabel = '$baseLabel · $durationLabel';
     final semanticsLabel = '$baseLabel: $names, $durationLabel';
-    final sessionId = qualifying.first.session.id;
+    final sessionIds = qualifying.map((q) => q.session.id).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -64,11 +65,25 @@ class AlwaysPresentHeader extends ConsumerWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
             onTap: () {
+              if (sessionIds.length == 1) {
+                final sessionId = sessionIds.single;
+                showAdaptiveDetailSurface<void>(
+                  context: context,
+                  builder: (_) => SessionDetailScreen(sessionId: sessionId),
+                  route: (context) =>
+                      context.go(AppRoutePaths.session(sessionId)),
+                );
+                return;
+              }
               showAdaptiveDetailSurface<void>(
                 context: context,
-                builder: (_) => SessionDetailScreen(sessionId: sessionId),
-                route: (context) =>
-                    context.go(AppRoutePaths.session(sessionId)),
+                builder: (_) => PeriodDetailScreen(
+                  sessionIds: sessionIds,
+                  isSessionGroup: true,
+                ),
+                route: (context) => context.push(
+                  '${AppRoutePaths.period(sessionIds)}&mode=sessions',
+                ),
               );
             },
             child: GlassSurface(

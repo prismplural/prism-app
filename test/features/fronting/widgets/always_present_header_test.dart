@@ -7,12 +7,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import '../../../helpers/fake_repositories.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/widgets/always_present_header.dart';
+import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/views/period_detail_screen.dart';
+import 'package:prism_plurality/features/fronting/widgets/comments_for_range_section.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
@@ -378,6 +387,125 @@ void main() {
         findsOneWidget,
       );
     });
+
+    for (final width in [390.0, 1440.0]) {
+      testWidgets('multi-member header exposes every session at width $width', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(PrismToast.resetForTest);
+        final host = _member(id: 'host', name: 'Host', isAlwaysFronting: true);
+        final friend = _member(
+          id: 'friend',
+          name: 'Friend',
+          isAlwaysFronting: true,
+        );
+        final sessions = [_session('s1', host.id), _session('s2', friend.id)];
+        final router = GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(body: AlwaysPresentHeader()),
+            ),
+            GoRoute(
+              path: '/period',
+              builder: (_, state) => PeriodDetailScreen(
+                sessionIds: parsePeriodIds(state.uri),
+                isSessionGroup: state.uri.queryParameters['mode'] == 'sessions',
+              ),
+            ),
+            GoRoute(
+              path: AppRoutePaths.session(':id'),
+              builder: (_, state) =>
+                  Scaffold(body: Text('session:${state.pathParameters['id']}')),
+            ),
+            GoRoute(
+              path: AppRoutePaths.sessionEdit(':id'),
+              builder: (_, state) =>
+                  Scaffold(body: Text('edit:${state.pathParameters['id']}')),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appPreferenceRepositoryProvider.overrideWithValue(
+                FakeAppPreferenceRepository(),
+              ),
+              alwaysPresentMembersProvider.overrideWithValue(
+                AsyncValue.data([
+                  AlwaysPresentMember(
+                    member: host,
+                    session: sessions[0],
+                    age: const Duration(days: 14),
+                  ),
+                  AlwaysPresentMember(
+                    member: friend,
+                    session: sessions[1],
+                    age: const Duration(days: 14),
+                  ),
+                ]),
+              ),
+              systemSettingsProvider.overrideWith(
+                (ref) => Stream.value(const SystemSettings()),
+              ),
+              derivedPeriodsProvider.overrideWith(
+                (ref) => const AsyncValue.data([]),
+              ),
+              for (final session in sessions)
+                sessionByIdProvider(
+                  session.id,
+                ).overrideWith((ref) => Stream.value(session)),
+              membersByIdsProvider(
+                memberIdsKey([host.id, friend.id]),
+              ).overrideWith(
+                (ref) => Stream.value({host.id: host, friend.id: friend}),
+              ),
+              memberAvatarImageDataProvider.overrideWith(
+                (ref, memberId) => Stream.value(null),
+              ),
+            ],
+            child: MaterialApp.router(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: const [Locale('en')],
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Host & Friend'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PeriodDetailScreen), findsOneWidget);
+        expect(find.byKey(const ValueKey('co-fronter-s1')), findsOneWidget);
+        expect(find.byKey(const ValueKey('co-fronter-s2')), findsOneWidget);
+        expect(find.byType(CommentsForRangeSection), findsNothing);
+        final context = tester.element(find.byType(PeriodDetailScreen));
+        final l10n = AppLocalizations.of(context);
+        expect(
+          find.byTooltip(l10n.frontingSessionDetailDeleteTooltip),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+        if (width < 1000) {
+          await tester.tap(find.byKey(const ValueKey('co-fronter-s2')));
+          await tester.pumpAndSettle();
+          expect(find.text('session:s2'), findsOneWidget);
+          router.pop();
+          await tester.pumpAndSettle();
+          await tester.longPress(find.byKey(const ValueKey('co-fronter-s2')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(l10n.edit));
+          await tester.pumpAndSettle();
+          expect(find.text('edit:s2'), findsOneWidget);
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      });
+    }
 
     testWidgets('tap opens the qualifying session detail route', (
       tester,

@@ -360,7 +360,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                       final hint = state.extra is PeriodDetailArgs
                           ? state.extra as PeriodDetailArgs
                           : null;
-                      return PeriodDetailScreen(sessionIds: ids, hint: hint);
+                      return PeriodDetailScreen(
+                        sessionIds: ids,
+                        hint: hint,
+                        isSessionGroup:
+                            state.uri.queryParameters['mode'] == 'sessions',
+                      );
                     },
                   ),
                 ],

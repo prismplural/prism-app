@@ -42,7 +42,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 
-/// Detail screen for a multi-contributor fronting period.
+/// Detail screen for a multi-contributor fronting period or a session group.
 ///
 /// Single-contributor periods are routed directly to [SessionDetailScreen]
 /// (see `_PeriodTile.onTap`); this screen only renders for 2+ contributors.
@@ -59,10 +59,18 @@ import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 /// pops the route. Partial staleness (some null, some live) renders the
 /// surviving rows silently without any error treatment.
 class PeriodDetailScreen extends ConsumerStatefulWidget {
-  const PeriodDetailScreen({super.key, required this.sessionIds, this.hint});
+  const PeriodDetailScreen({
+    super.key,
+    required this.sessionIds,
+    this.hint,
+    this.isSessionGroup = false,
+  });
 
   final List<String> sessionIds;
   final PeriodDetailArgs? hint;
+
+  /// Show these sessions without actions or bounds for a derived period.
+  final bool isSessionGroup;
 
   @override
   ConsumerState<PeriodDetailScreen> createState() => _PeriodDetailScreenState();
@@ -137,6 +145,7 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
   /// deep-link path; returns null only when neither is available.
   ({DateTime start, DateTime end, bool isOngoing, Set<String> sessionIds})?
   _resolvePeriodBounds() {
+    if (widget.isSessionGroup) return null;
     final hint = widget.hint;
     if (hint != null) {
       return (
@@ -235,16 +244,21 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
 
     // Resolve the matched period once at the screen level so all child
     // sections can use the same result without repeating the O(n) lookup.
-    final periodsAsync = ref.watch(derivedPeriodsProvider);
-    final matchedPeriod = periodsAsync.whenOrNull(
-      data: (periods) => findPeriodBySessionIds(periods, widget.sessionIds),
-    );
+    final matchedPeriod = widget.isSessionGroup
+        ? null
+        : ref
+              .watch(derivedPeriodsProvider)
+              .whenOrNull(
+                data: (periods) =>
+                    findPeriodBySessionIds(periods, widget.sessionIds),
+              );
 
     // Build the DateTimeRange for CommentsForRangeSection.
     // Prefer matched period (always-fresh bounds — closes-mid-mount safe) →
     // hint → bounds derived from any resolved sessions (deep-link with no
     // hint and no matching derived period yet) → null.
     final DateTimeRange? commentRange = () {
+      if (widget.isSessionGroup) return null;
       if (matchedPeriod != null) {
         return DateTimeRange(
           start: matchedPeriod.start,
@@ -278,21 +292,25 @@ class _PeriodDetailScreenState extends ConsumerState<PeriodDetailScreen> {
         title: '',
         showBackButton: true,
         actions: [
-          PrismTopBarAction(
-            icon: AppIcons.deleteOutline,
-            tooltip: context.l10n.frontingSessionDetailDeleteTooltip,
-            onPressed: () => _handlePeriodDelete(context),
-          ),
+          if (!widget.isSessionGroup)
+            PrismTopBarAction(
+              icon: AppIcons.deleteOutline,
+              tooltip: context.l10n.frontingSessionDetailDeleteTooltip,
+              onPressed: () => _handlePeriodDelete(context),
+            ),
         ],
       ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         children: [
-          _Header(sessionIds: widget.sessionIds, hint: widget.hint),
+          if (!widget.isSessionGroup)
+            _Header(sessionIds: widget.sessionIds, hint: widget.hint),
           _CoFrontersSection(sessionIds: widget.sessionIds),
-          _BrieflyJoinedSection(sessionIds: widget.sessionIds),
-          _AlwaysPresentSection(sessionIds: widget.sessionIds),
+          if (!widget.isSessionGroup) ...[
+            _BrieflyJoinedSection(sessionIds: widget.sessionIds),
+            _AlwaysPresentSection(sessionIds: widget.sessionIds),
+          ],
           if (commentRange != null)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -713,7 +731,8 @@ class _CoFronterRow extends ConsumerWidget {
 
     // Subtitle: live timer for active sessions, static for closed.
     final subtitleWidget = session.isActive
-        ? Row(
+        ? Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FrontingDurationText(
                 startTime: session.startTime,
