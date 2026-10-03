@@ -43,6 +43,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 
 import 'package:drift/native.dart';
 import 'package:prism_plurality/core/database/app_database.dart' as appdb;
@@ -114,6 +115,49 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
   // Fronter picker
   // ══════════════════════════════════════════════════════════════════════════
+
+  testWidgets(
+    'pre-2020 session keeps its date when opening and editing history',
+    (tester) async {
+      final session = FrontingSession(
+        id: 'imported-history',
+        memberId: 'alice',
+        startTime: DateTime(2018, 1, 10, 10, 30),
+        endTime: DateTime(2018, 1, 12, 11, 45),
+      );
+      await tester.pumpWidget(
+        _buildSubject(
+          session: session,
+          members: [_member(id: 'alice', name: 'Alice')],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Jan 10, 2018'));
+      await tester.pumpAndSettle();
+
+      final picker = tester.widget<CalendarDatePicker>(
+        find.byType(CalendarDatePicker),
+      );
+      expect(picker.initialDate, DateTime(2018, 1, 10));
+      expect(picker.firstDate, DateTime(1900));
+      expect(picker.lastDate, DateUtils.dateOnly(DateTime.now()));
+      await tester.tap(find.text('11'));
+      await tester.pumpAndSettle();
+
+      final start = tester
+          .widgetList<PrismDateTimePills>(find.byType(PrismDateTimePills))
+          .first;
+      expect(start.dateTime, DateTime(2018, 1, 11, 10, 30));
+      await tester.tap(find.text('Jan 12, 2018'));
+      await tester.pumpAndSettle();
+      final endPicker = tester.widget<CalendarDatePicker>(
+        find.byType(CalendarDatePicker),
+      );
+      expect(endPicker.initialDate, DateTime(2018, 1, 12));
+      expect(endPicker.firstDate, DateTime(2018, 1, 11));
+      expect(endPicker.lastDate, DateUtils.dateOnly(DateTime.now()));
+    },
+  );
 
   group('fronter picker', () {
     testWidgets('tapping the fronter search icon opens MemberSearchSheet', (

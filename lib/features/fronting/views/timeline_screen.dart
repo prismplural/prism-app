@@ -65,7 +65,6 @@ class TimelineScreen extends ConsumerWidget {
       context: context,
       anchorContext: anchorContext,
       initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
     if (picked != null) {

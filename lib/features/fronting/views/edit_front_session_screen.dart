@@ -342,7 +342,6 @@ class _EditFrontSessionScreenState
                   PrismDateTimePills(
                     label: context.l10n.frontingStart,
                     dateTime: _startTime,
-                    firstDate: DateTime(2020),
                     lastDate: DateTime.now(),
                     onChanged: (dt) => setState(() => _startTime = dt),
                   ),

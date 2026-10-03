@@ -27,6 +27,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
@@ -1155,6 +1156,75 @@ void main() {
   });
 
   group('historical mode', () {
+    testWidgets(
+      'pre-2020 dates can be logged while reversed dates stay invalid',
+      (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: [_member(id: 'alice', name: 'Alice')],
+            fakeNotifier: notifier,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Alice'));
+        await tester.pumpAndSettle();
+        final timing = find.byKey(const Key('sessionTimeSegmentedControl'));
+        await tester.ensureVisible(timing);
+        await tester.tap(
+          find.descendant(of: timing, matching: find.text('Fronting session')),
+        );
+        await tester.pumpAndSettle();
+
+        Future<void> pickDate(String label, DateTime date) async {
+          final pills = find.byWidgetPredicate(
+            (widget) => widget is PrismDateTimePills && widget.label == label,
+          );
+          final trigger = find
+              .descendant(of: pills, matching: find.byType(InkWell))
+              .first;
+          await tester.ensureVisible(trigger);
+          await tester.tap(trigger);
+          await tester.pumpAndSettle();
+          final picker = tester.widget<CalendarDatePicker>(
+            find.byType(CalendarDatePicker),
+          );
+          expect(picker.firstDate, DateTime(1900));
+          expect(picker.lastDate, DateUtils.dateOnly(DateTime.now()));
+          expect(date.isBefore(picker.firstDate), isFalse);
+          picker.onDateChanged(date);
+          await tester.pumpAndSettle();
+          // Changing only the year keeps the picker open for a day selection.
+          if (find.byType(CalendarDatePicker).evaluate().isNotEmpty) {
+            tester
+                .widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
+                .onDateChanged(date);
+            await tester.pumpAndSettle();
+          }
+        }
+
+        await pickDate('Start', DateTime(2018, 1, 10));
+        await pickDate('End', DateTime(2018, 1, 9));
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+        expect(notifier.logHistoricalFrontingCalls, isEmpty);
+        expect(find.byType(AddFrontSessionSheet), findsOneWidget);
+        await tester.pump(
+          const Duration(seconds: 4),
+        ); // Dismiss validation toast.
+        await tester.pumpAndSettle();
+
+        await pickDate('End', DateTime(2018, 1, 11));
+        await tester.tap(_saveButton());
+        await tester.pumpAndSettle();
+        final saved = notifier.logHistoricalFrontingCalls.single;
+        expect(saved.memberIds, ['alice']);
+        expect(DateUtils.dateOnly(saved.startTime), DateTime(2018, 1, 10));
+        expect(DateUtils.dateOnly(saved.endTime), DateTime(2018, 1, 11));
+      },
+    );
+
     testWidgets(
       'log past session mode shows time fields and submits historical fronting',
       (tester) async {

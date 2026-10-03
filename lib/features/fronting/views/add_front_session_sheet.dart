@@ -414,7 +414,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                         PrismDateTimePills(
                           label: context.l10n.frontingStart,
                           dateTime: _startTime,
-                          firstDate: DateTime(2020),
                           lastDate: DateTime.now(),
                           onChanged: (dt) => setState(() => _startTime = dt),
                         ),
@@ -423,7 +422,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                           PrismDateTimePills(
                             label: context.l10n.frontingEnd,
                             dateTime: _endTime ?? DateTime.now(),
-                            firstDate: DateTime(2020),
                             lastDate: DateTime.now(),
                             onChanged: (dt) => setState(() => _endTime = dt),
                           ),
