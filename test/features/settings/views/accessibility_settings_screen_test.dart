@@ -13,6 +13,47 @@ import 'package:prism_plurality/shared/providers/accessibility_preferences_provi
 import '../../../helpers/fake_repositories.dart';
 
 void main() {
+  testWidgets('typography preview inherits accessible text scaling', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final prefs = FakeAppPreferenceRepository();
+    addTearDown(prefs.close);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appPreferenceRepositoryProvider.overrideWithValue(prefs),
+          systemSettingsRepositoryProvider.overrideWithValue(
+            FakeSystemSettingsRepository()
+              ..settings = const SystemSettings(fontScale: 1.1),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2.2)),
+            child: child!,
+          ),
+          home: const AccessibilitySettingsScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final l10n = AppLocalizations.of(
+      tester.element(find.byType(AccessibilitySettingsScreen)),
+    );
+    final preview = find.text(l10n.accessibilityTypographyPreviewText);
+    await tester.ensureVisible(preview);
+    expect(MediaQuery.textScalerOf(tester.element(preview)).scale(20), 44);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('disables switches while accessibility preferences load', (
     tester,
   ) async {

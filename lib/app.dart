@@ -31,6 +31,7 @@ import 'shared/theme/app_colors.dart';
 import 'shared/theme/app_icons.dart';
 import 'shared/providers/accessibility_preferences_provider.dart';
 import 'shared/theme/app_theme.dart';
+import 'shared/theme/prism_text_scaler.dart';
 import 'shared/theme/prism_shapes.dart' as ui_shapes;
 import 'shared/widgets/prism_button.dart';
 import 'shared/widgets/prism_keyboard_dismiss_scope.dart';
@@ -457,9 +458,12 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             Widget result = child ?? const SizedBox.shrink();
             if (fontScale != 1.0) {
               result = MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(fontScale)),
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: PrismTextScaler(
+                    MediaQuery.textScalerOf(context),
+                    fontScale,
+                  ),
+                ),
                 child: result,
               );
             }

@@ -22,8 +22,46 @@ import 'package:prism_plurality/features/fronting/providers/fronting_session_rep
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/providers/accessibility_preferences_provider.dart';
+import 'package:prism_plurality/shared/theme/prism_text_scaler.dart';
 
 void main() {
+  test('font preference preserves nonlinear system scaling', () {
+    for (final factor in [0.9, 1.0, 1.1]) {
+      final scaler = PrismTextScaler(const _NonlinearTextScaler(), factor);
+      expect(scaler.scale(12), closeTo(24 * factor, 0.001));
+      expect(scaler.scale(30), closeTo(45 * factor, 0.001));
+      expect(scaler, PrismTextScaler(const _NonlinearTextScaler(), factor));
+    }
+  });
+  for (final appScale in [0.9, 1.0, 1.1]) {
+    testWidgets('combines system text scaling with app scale $appScale', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final ready = Completer<DatabaseReadyReport>()
+        ..complete(
+          const DatabaseReadyReport(
+            schemaVersionBeforeOpen: AppDatabase.currentSchemaVersion,
+            schemaVersionAfterOpen: AppDatabase.currentSchemaVersion,
+          ),
+        );
+      final harness = _StartupGateHarness(
+        databaseReady: ready,
+        schemaVersionBeforeOpen: AppDatabase.currentSchemaVersion,
+        fontScale: appScale,
+      );
+      await tester.pumpWidget(harness.buildApp());
+      await _pumpUntilFound(tester, find.text('Home route'));
+      await tester.pump();
+      final scaler = MediaQuery.textScalerOf(
+        tester.element(find.text('Home route')),
+      );
+      expect(scaler.scale(20), closeTo(30 * appScale, 0.001));
+      await _disposeAppAndFlushDriftCloseTimers(tester);
+    });
+  }
+
   testWidgets('blocks routes and shows migration status for old schemas', (
     tester,
   ) async {
@@ -244,6 +282,7 @@ class _StartupGateHarness {
     this.databaseOverride,
     this.verifiedStartupKey,
     this.repairOverride,
+    this.fontScale = 1.0,
   });
 
   final Completer<DatabaseReadyReport>? databaseReady;
@@ -251,6 +290,7 @@ class _StartupGateHarness {
   final Object? schemaProbeError;
   final AppDatabase Function(Ref ref)? databaseOverride;
   final String? verifiedStartupKey;
+  final double fontScale;
   final Future<PrimaryDatabaseKeyRepairOutcome> Function(String?)?
   repairOverride;
   bool routerWasRead = false;
@@ -285,7 +325,7 @@ class _StartupGateHarness {
       syncEventStreamProvider.overrideWith((ref) => const Stream.empty()),
       syncHealthProvider.overrideWith(_HealthySyncHealthNotifier.new),
       systemSettingsProvider.overrideWith(
-        (ref) => Stream.value(const SystemSettings()),
+        (ref) => Stream.value(SystemSettings(fontScale: fontScale)),
       ),
       frontingMigrationModeProvider.overrideWith(
         (ref) => Stream.value(FrontingMigrationService.modeComplete),
@@ -345,4 +385,14 @@ Future<void> _pumpUntilFound(
 Future<void> _disposeAppAndFlushDriftCloseTimers(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(milliseconds: 1));
+}
+
+class _NonlinearTextScaler extends TextScaler {
+  const _NonlinearTextScaler();
+
+  @override
+  double scale(double fontSize) => fontSize * (fontSize < 20 ? 2 : 1.5);
+
+  @override
+  double get textScaleFactor => 2;
 }

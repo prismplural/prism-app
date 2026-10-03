@@ -87,13 +87,16 @@ class FontSettingsSection extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  OverflowBar(
+                    alignment: MainAxisAlignment.spaceBetween,
+                    overflowAlignment: OverflowBarAlignment.end,
+                    spacing: 8,
+                    overflowSpacing: 8,
                     children: [
                       Text(
                         l10n.accessibilityFontSizeLabel,
                         style: theme.textTheme.bodyMedium,
                       ),
-                      const Spacer(),
                       Text(
                         l10n.accessibilityFontSizeValue(
                           (fontScale * 100).round(),
@@ -122,13 +125,16 @@ class FontSettingsSection extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  OverflowBar(
+                    alignment: MainAxisAlignment.spaceBetween,
+                    overflowAlignment: OverflowBarAlignment.end,
+                    spacing: 8,
+                    overflowSpacing: 8,
                     children: [
                       Text(
                         l10n.accessibilityLetterSpacingLabel,
                         style: theme.textTheme.bodyMedium,
                       ),
-                      const Spacer(),
                       Text(
                         letterSpacingLabel(letterSpacing),
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -163,16 +169,11 @@ class FontSettingsSection extends ConsumerWidget {
                         PrismShapes.of(context).radius(12),
                       ),
                     ),
-                    child: MediaQuery(
-                      data: MediaQuery.of(
-                        context,
-                      ).copyWith(textScaler: TextScaler.linear(fontScale)),
-                      child: Text(
-                        l10n.accessibilityTypographyPreviewText,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontFamily: fontFamily.assetFontFamily,
-                          letterSpacing: letterSpacing,
-                        ),
+                    child: Text(
+                      l10n.accessibilityTypographyPreviewText,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontFamily: fontFamily.assetFontFamily,
+                        letterSpacing: letterSpacing,
                       ),
                     ),
                   ),
