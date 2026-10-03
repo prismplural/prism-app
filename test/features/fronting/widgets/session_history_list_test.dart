@@ -890,12 +890,13 @@ void main() {
 
       final repo = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
 
-      // A → A+B → A pattern, recent enough to fall inside the 90-day
-      // lookback window.
-      final t0 = DateTime.now().subtract(const Duration(hours: 4));
-      final t1 = DateTime.now().subtract(const Duration(hours: 3));
-      final t2 = DateTime.now().subtract(const Duration(hours: 2));
-      final t3 = DateTime.now().subtract(const Duration(hours: 1));
+      // Keep the routing fixture on one past day: crossing midnight correctly
+      // splits its co-front period into two daily rows.
+      final now = DateTime.now();
+      final t0 = DateTime(now.year, now.month, now.day - 1, 8);
+      final t1 = t0.add(const Duration(hours: 1));
+      final t2 = t0.add(const Duration(hours: 2));
+      final t3 = t0.add(const Duration(hours: 3));
 
       await db.frontingSessionsDao.insertSession(
         FrontingSessionMapper.toCompanion(
