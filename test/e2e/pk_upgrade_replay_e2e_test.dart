@@ -145,13 +145,13 @@ void main() {
           final version = await activeDb
               .customSelect('PRAGMA user_version')
               .getSingle();
-          expect(version.read<int>('user_version'), 40);
+          expect(version.read<int>('user_version'), activeDb.schemaVersion);
 
           // The upgrade-only pass cannot guess a pre-alias identity.
           final upgrade = await repairPkFrontOrphansAfterUpgrade(
             db: activeDb,
             versionBefore: 39,
-            versionAfter: 40,
+            versionAfter: activeDb.schemaVersion,
           );
           expect(upgrade?.noEvidence, 1);
 
