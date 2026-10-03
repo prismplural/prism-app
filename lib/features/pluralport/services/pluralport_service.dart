@@ -11,6 +11,9 @@ import 'package:prism_plurality/features/data_management/models/export_models.da
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
+import 'package:prism_plurality/domain/preferences/preference_entity_id.dart';
+
 import 'pluralport_bundle.dart';
 import 'pluralport_exporter.dart';
 import 'pluralport_mapper.dart';
@@ -39,6 +42,7 @@ class PluralPortService {
   Future<ImportResult> importPlan(
     PluralPortImportPlan plan, {
     bool importSystemProfile = false,
+    bool restorePrismPreferences = false,
   }) async {
     final existingNative = (await exporter.buildExport()).toJson();
     final existingIds = <String>{
@@ -73,17 +77,59 @@ class PluralPortService {
       archive['systemProfileImported'] = true;
       archive['systemBaseline'] = previousProfiles.last['systemBaseline'];
     }
+    if ((existingNative['pluralPortArchives'] as List? ?? [])
+        .whereType<Map>()
+        .any(
+          (a) =>
+              a['namespace'] == archive['namespace'] &&
+              a['prismPreferencesRestored'] == true,
+        )) {
+      archive['prismPreferencesRestored'] = true;
+    }
     final envelope = archive['envelope'] as Json;
     final files = archive['files'] as Json;
     final assets = {
       for (final a in PluralPortMapper.rows(envelope, 'assets')) a['id']: a,
     };
+    if (restorePrismPreferences) {
+      final modules =
+          ((envelope['extensions'] as Map?)?['prism']
+                  as Map?)?['native_modules']
+              as Map?;
+      final savedSettings = (modules?['systemSettings'] as List?)
+          ?.whereType<Map>()
+          .firstOrNull;
+      final current =
+          PluralPortMapper.rows(existingNative, 'systemSettings').firstOrNull ??
+          <String, dynamic>{};
+      if (savedSettings != null) {
+        data['systemSettings'] = [
+          {
+            ...current,
+            for (final key in PluralPortMapper.portableSettingKeys)
+              if (savedSettings.containsKey(key)) key: savedSettings[key],
+          },
+        ];
+      }
+      final knownKeys = appPreferenceRegistry.definitions
+          .map((d) => PreferenceEntityId.app(d.key))
+          .toSet();
+      data['appPreferences'] = [
+        for (final row in (modules?['appPreferences'] as List? ?? []))
+          if (row is Map && knownKeys.contains(row['key']))
+            PluralPortMapper.clone(row.cast<String, dynamic>()),
+      ];
+      archive['prismPreferencesRestored'] = true;
+    }
     if (importSystemProfile) {
       final system = PluralPortMapper.rows(envelope, 'systems').firstOrNull;
       if (system != null) {
         final current =
-            (await exporter.buildExport()).systemSettings.firstOrNull
-                ?.toJson() ??
+            PluralPortMapper.rows(data, 'systemSettings').firstOrNull ??
+            PluralPortMapper.rows(
+              existingNative,
+              'systemSettings',
+            ).firstOrNull ??
             {};
         data['systemSettings'] = [
           {
@@ -119,11 +165,108 @@ class PluralPortService {
     ).where((r) => conversations.contains(r['conversationId'])).toList();
     final blobs = <({String mediaId, Uint8List blob})>[];
     final attachments = <Json>[];
-    final mediaBindings = <String, String>{};
+    final mediaBindings = <String, List<String>>{};
+    final restoredAssociations = <String>[];
     final messages = PluralPortMapper.rows(
       data,
       'messages',
     ).map((r) => r['id']).toSet();
+    final members = PluralPortMapper.rows(
+      data,
+      'headmates',
+    ).map((r) => r['id']).toSet();
+    final processedAttachments = <String>{};
+
+    Future<void> restoreMedia(Json asset, Json association) async {
+      final id = association['id'];
+      if (id is! String || id.isEmpty || !processedAttachments.add(id)) return;
+      final messageId = association['message_id'] as String? ?? '';
+      final memberId = association['member_id'] as String? ?? '';
+      if (messageId.isNotEmpty && !messages.contains(messageId)) return;
+      if (memberId.isNotEmpty && !members.contains(memberId)) return;
+      if (messageId.isEmpty && memberId.isEmpty) return;
+      final mediaType = association['media_type'] ?? asset['kind'];
+      if (!['image', 'audio', 'gif'].contains(mediaType)) return;
+      final encoded = files[asset['bundle_path']];
+      final sourceUrl = association['source_url'] as String? ?? '';
+      if (encoded is! String && !(mediaType == 'gif' && sourceUrl.isNotEmpty)) {
+        return;
+      }
+      restoredAssociations.add(id);
+      if (messageId.isNotEmpty) {
+        mediaBindings
+            .putIfAbsent('$messageId/${asset['id']}', () => [])
+            .add(id);
+      }
+      final existing = await (db.select(
+        db.mediaAttachments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (existing != null) return;
+      final row = <String, dynamic>{
+        ...((association['native'] as Map?)?.cast<String, dynamic>() ?? {}),
+        'id': id,
+        'messageId': messageId,
+        'memberId': memberId,
+        'tag': association['tag'] ?? '',
+        'mediaId': '',
+        'mediaType': mediaType,
+        'encryptionKeyB64': '',
+        'contentHash': '',
+        'plaintextHash': '',
+        'mimeType':
+            association['mime_type'] ??
+            asset['mime_type'] ??
+            'application/octet-stream',
+        'sizeBytes': 0,
+        'width': association['width'] ?? asset['width'] ?? 0,
+        'height': association['height'] ?? asset['height'] ?? 0,
+        'durationMs': association['duration_ms'] ?? 0,
+        'waveformB64': association['waveform_b64'] ?? '',
+        'blurhash': association['blurhash'] ?? '',
+        'sourceUrl': sourceUrl,
+        'previewUrl': association['preview_url'] ?? '',
+      };
+      if (encoded is String) {
+        final encrypted = await encryption.encryptMedia(base64Decode(encoded));
+        final mediaId = const Uuid().v4();
+        blobs.add((mediaId: mediaId, blob: encrypted.ciphertext));
+        row.addAll({
+          'mediaId': mediaId,
+          'encryptionKeyB64': base64Encode(encrypted.key),
+          'contentHash': encrypted.ciphertextHash,
+          'plaintextHash': encrypted.plaintextHash,
+          'sizeBytes': encrypted.ciphertext.length,
+        });
+        final thumbnail = assets[association['thumbnail_asset_id']];
+        final thumbnailBytes = files[thumbnail?['bundle_path']];
+        if (thumbnailBytes is String) {
+          final encryptedThumbnail = await encryption.encryptMediaWithKey(
+            base64Decode(thumbnailBytes),
+            encrypted.key,
+          );
+          final thumbnailId = const Uuid().v4();
+          blobs.add((
+            mediaId: thumbnailId,
+            blob: encryptedThumbnail.ciphertext,
+          ));
+          row.addAll({
+            'thumbnailMediaId': thumbnailId,
+            'thumbnailContentHash': encryptedThumbnail.ciphertextHash,
+            'thumbnailPlaintextHash': encryptedThumbnail.plaintextHash,
+          });
+        }
+      }
+      attachments.add(row);
+    }
+
+    for (final asset in assets.values) {
+      final prism = (asset['extensions'] as Map?)?['prism'] as Map?;
+      for (final association in (prism?['media_attachments'] as List? ?? [])) {
+        if (association is Map) {
+          await restoreMedia(asset, association.cast<String, dynamic>());
+        }
+      }
+    }
     for (final message in PluralPortMapper.rows(envelope, 'chat.messages')) {
       if (!messages.contains(message['id'])) continue;
       final assetIds = <dynamic>{
@@ -135,38 +278,19 @@ class PluralPortService {
           if (attachment['message_id'] == message['id']) attachment['asset_id'],
       };
       for (final assetId in assetIds) {
+        if (mediaBindings.containsKey('${message['id']}/$assetId')) continue;
         final asset = assets[assetId];
-        final bytes = files[asset?['bundle_path']];
-        if (bytes is! String || !['image', 'audio'].contains(asset?['kind'])) {
-          continue;
-        }
-        final attachmentId = PluralPortMapper.stableId(
-          message['id'] as String,
-          assetId as String,
-        );
-        mediaBindings['${message['id']}/$assetId'] = attachmentId;
-        final existing = await (db.select(
-          db.mediaAttachments,
-        )..where((t) => t.id.equals(attachmentId))).getSingleOrNull();
-        if (existing != null) continue;
-        final encrypted = await encryption.encryptMedia(base64Decode(bytes));
-        final mediaId = const Uuid().v4();
-        blobs.add((mediaId: mediaId, blob: encrypted.ciphertext));
-        attachments.add({
-          'id': attachmentId,
-          'messageId': message['id'],
-          'mediaId': mediaId,
-          'mediaType': asset?['kind'] == 'audio' ? 'audio' : 'image',
-          'encryptionKeyB64': base64Encode(encrypted.key),
-          'contentHash': encrypted.ciphertextHash,
-          'plaintextHash': encrypted.plaintextHash,
-          'mimeType': asset?['mime_type'] ?? 'application/octet-stream',
-          'sizeBytes': encrypted.ciphertext.length,
-          'width': asset?['width'] ?? 0,
-          'height': asset?['height'] ?? 0,
+        if (asset == null) continue;
+        await restoreMedia(asset, {
+          'id': PluralPortMapper.stableId(
+            message['id'] as String,
+            assetId as String,
+          ),
+          'message_id': message['id'],
         });
       }
     }
+    archive['mediaAssociations'] = restoredAssociations;
     data['mediaAttachments'] = attachments;
     archive['mediaBindings'] = mediaBindings;
     // Retention uses the native import transaction/outbox, so data and its
@@ -175,6 +299,7 @@ class PluralPortService {
       jsonEncode(data),
       mediaBlobs: blobs,
       preserveImportedOnboardingState: false,
+      preserveCurrentDeviceSettings: true,
       beforeRows: _removeTombstonedNativeRows,
       beforeCommit: () async {
         final current = (await exporter.buildExport()).toJson();
@@ -194,6 +319,14 @@ class PluralPortService {
           (key, row) => !boundIds.contains((row as Map)['id']),
         );
         archive['baseline'] = baseline;
+        archive['nativeModuleBindings'] = {
+          for (final key in PluralPortMapper.nativeModuleKeys)
+            key: PluralPortMapper.rows(
+              plan.native,
+              key,
+            ).map((r) => r['id']).toList(),
+        };
+
         if (importSystemProfile) {
           archive['systemBaseline'] = PluralPortMapper.rows(
             current,
@@ -220,6 +353,9 @@ class PluralPortService {
     final messages = await db.select(db.chatMessages).get();
     final posts = await db.select(db.memberBoardPosts).get();
     final attachments = await db.select(db.mediaAttachments).get();
+    final reminders = await db.select(db.reminders).get();
+    final categories = await db.select(db.conversationCategories).get();
+    final friends = await db.select(db.friends).get();
 
     Set<String> deletedIds(Iterable<dynamic> rows) => {
       for (final row in rows)
@@ -252,6 +388,12 @@ class PluralPortService {
         if (value.isDeleted) valueKey(value.customFieldId, value.memberId),
     };
 
+    retain('reminders', (row) => !deletedIds(reminders).contains(row['id']));
+    retain(
+      'conversationCategories',
+      (row) => !deletedIds(categories).contains(row['id']),
+    );
+    retain('friends', (row) => !deletedIds(friends).contains(row['id']));
     retain('headmates', (row) => !deletedMembers.contains(row['id']));
 
     // Hierarchical groups and fields cannot outlive a deleted native parent.
@@ -378,28 +520,59 @@ class PluralPortService {
     final bundle = codec.build(archives);
     final directory = await supportDirectory();
     final assetRecords = bundle.envelope['assets'] as List;
+    final liveAttachmentIds = PluralPortMapper.rows(
+      data,
+      'mediaAttachments',
+    ).map((r) => r['id']).toSet();
+    final previousAssociations = <String, Json>{};
+    for (final asset in assetRecords.whereType<Map>()) {
+      final prism = (asset['extensions'] as Map?)?['prism'] as Map?;
+      final associations = prism?['media_attachments'];
+      if (associations is! List) continue;
+      final retained = <dynamic>[];
+      for (final association in associations) {
+        if (association is Map &&
+            liveAttachmentIds.contains(association['id'])) {
+          previousAssociations[association['id'] as String] = association
+              .cast<String, dynamic>();
+        } else {
+          retained.add(association);
+        }
+      }
+      prism!['media_attachments'] = retained;
+    }
     final messages = {
       for (final m in PluralPortMapper.rows(bundle.envelope, 'chat.messages'))
         m['id']: m,
     };
     for (final attachment in PluralPortMapper.rows(data, 'mediaAttachments')) {
       final mediaId = attachment['mediaId'] as String;
-      if (mediaId.isEmpty) continue;
       final id = PluralPortMapper.stableId(
         'prism/media',
         attachment['id'] as String,
       );
       final existingAsset = assetRecords
           .cast<Json>()
-          .where((a) => a['sha256'] == attachment['plaintextHash'])
+          .where(
+            (a) =>
+                (attachment['plaintextHash'] as String? ?? '').isNotEmpty &&
+                a['sha256'] == attachment['plaintextHash'],
+          )
           .firstOrNull;
       final exportAssetId = existingAsset?['id'] ?? id;
       if (existingAsset == null) {
         assetRecords.add({
           'id': id,
-          'kind': attachment['mediaType'],
+          'kind': attachment['mediaType'] == 'gif'
+              ? 'video'
+              : attachment['mediaType'],
+          'source_refs': [
+            {'app': 'prism', 'collection': 'assets', 'id': id},
+          ],
           'mime_type': attachment['mimeType'],
-          'bundle_path': 'assets/${attachment['plaintextHash']}',
+          if (mediaId.isNotEmpty)
+            'bundle_path': 'assets/${attachment['plaintextHash']}',
+          if (mediaId.isEmpty) 'uri': attachment['sourceUrl'],
           'sha256': attachment['plaintextHash'],
           'width': attachment['width'],
           'height': attachment['height'],
@@ -414,14 +587,85 @@ class PluralPortService {
           extensions.putIfAbsent('prism', () => <String, dynamic>{}) as Json;
       final associations =
           prism.putIfAbsent('media_attachments', () => <dynamic>[]) as List;
+      final previous = previousAssociations[attachment['id']] ?? {};
       final association = <String, dynamic>{
+        ...previous,
+        'native': {
+          ...((previous['native'] as Map?)?.cast<String, dynamic>() ?? {}),
+          for (final entry in attachment.entries)
+            if (!const {
+              'mediaId',
+              'encryptionKeyB64',
+              'contentHash',
+              'plaintextHash',
+              'thumbnailMediaId',
+              'thumbnailContentHash',
+              'thumbnailPlaintextHash',
+            }.contains(entry.key))
+              entry.key: entry.value,
+        },
         'id': attachment['id'],
         'member_id': attachment['memberId'],
         'message_id': attachment['messageId'],
         'tag': attachment['tag'],
         'duration_ms': attachment['durationMs'],
         'waveform_b64': attachment['waveformB64'],
+        'media_type': attachment['mediaType'],
+        'blurhash': attachment['blurhash'],
+        'source_url': attachment['sourceUrl'],
+        'preview_url': attachment['previewUrl'],
+        'width': attachment['width'],
+        'height': attachment['height'],
+        'mime_type': attachment['mimeType'],
       };
+      final thumbnailId = attachment['thumbnailMediaId'] as String? ?? '';
+      if (thumbnailId.isNotEmpty) {
+        final thumbnailAssetId = PluralPortMapper.stableId(
+          'prism/thumbnail',
+          attachment['id'] as String,
+        );
+        final thumbnailPath = 'assets/${attachment['thumbnailPlaintextHash']}';
+        association['thumbnail_asset_id'] = thumbnailAssetId;
+        if (!assetRecords.cast<Json>().any(
+          (a) => a['id'] == thumbnailAssetId,
+        )) {
+          assetRecords.add({
+            'id': thumbnailAssetId,
+            'source_refs': [
+              {'app': 'prism', 'collection': 'assets', 'id': thumbnailAssetId},
+            ],
+            'kind': 'image',
+            'mime_type': 'image/jpeg',
+            'bundle_path': thumbnailPath,
+            'sha256': attachment['thumbnailPlaintextHash'],
+          });
+        }
+        try {
+          final thumbnailFile = File(
+            '${directory.path}/prism_media/$thumbnailId.enc',
+          );
+          if (await thumbnailFile.length() > PluralPortBundle.maxAsset + 1024) {
+            throw const FormatException(
+              'Thumbnail exceeds the bundle asset limit.',
+            );
+          }
+          bundle.files[thumbnailPath] = await encryption.decryptMedia(
+            ciphertext: await thumbnailFile.readAsBytes(),
+            key: base64Decode(attachment['encryptionKeyB64'] as String),
+            expectedCiphertextHash:
+                attachment['thumbnailContentHash'] as String,
+            expectedPlaintextHash:
+                attachment['thumbnailPlaintextHash'] as String,
+          );
+        } on FileSystemException {
+          (bundle.envelope['warnings'] as List).add({
+            'level': 'warning',
+            'code': 'asset_bundle_missing',
+            'message':
+                'Thumbnail ${attachment['id']} is not cached on this device.',
+          });
+        }
+      }
       if (!associations.any(
         (a) => canonicalJson(a) == canonicalJson(association),
       )) {
@@ -442,6 +686,7 @@ class PluralPortService {
                 as List;
         if (!linked.contains(exportAssetId)) linked.add(exportAssetId);
       }
+      if (mediaId.isEmpty) continue;
       final file = File('${directory.path}/prism_media/$mediaId.enc');
       try {
         if (await file.length() > PluralPortBundle.maxAsset + 1024) {

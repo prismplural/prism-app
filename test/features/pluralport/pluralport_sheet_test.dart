@@ -23,6 +23,7 @@ class _Service extends PluralPortService {
   Future<ImportResult> importPlan(
     PluralPortImportPlan plan, {
     bool importSystemProfile = false,
+    bool restorePrismPreferences = false,
   }) async {
     replacedProfile = importSystemProfile;
     return ImportResult(membersCreated: 1);

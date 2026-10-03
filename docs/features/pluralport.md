@@ -31,7 +31,7 @@ choice. Export creates an **unencrypted** `prism.pluralport.zip` containing
 | Front periods | One native session per assignment; original grouped periods survive unchanged round trips |
 | Front comments | Native comments when attached to a period; timestamp-only comments retained |
 | Internal chats and direct messages | Native conversations and messages |
-| Chat image/audio attachments | Encrypted into Prism's local media cache; decrypted into the export bundle |
+| Chat image/audio attachments and member media | Encrypted into Prism's local media cache; attachment identities, thumbnails, tags, and available bytes round-trip |
 | Boards | Native board posts |
 | Unsupported field shapes, conversation kinds, taxonomy, event-only histories, relationships and provisional modules | Preserved for export without creating native records |
 | Extra system profiles | Preserved; Prism still has one native system profile |
@@ -40,10 +40,16 @@ Fields beyond the native mapping, foreign extensions, source references, privacy
 metadata and additional bundle files are retained. Editing a supported field
 changes its exported projection; unrelated metadata stays intact. Native sleep,
 polls, habits, reminders and other data without an implemented portable mapping
-are carried under `extensions.prism.native_modules`. These modules are preserved
-on import, rather than reconstructed into Prism's corresponding screens.
-Member media outside chat includes its Prism association metadata in the asset
-extension. It is retained on import, but does not rebuild the native image library.
+are carried under `extensions.prism.native_modules` and restored to native
+records when recognized. Unknown modules remain opaque. Cached PluralKit banners
+are bundled separately from custom header images; restoring them does not
+reconnect a PluralKit account.
+
+Preferences are preserved without applying them in the import UI. The service
+also supports explicit restoration of known appearance, navigation, terminology,
+and feature preferences. It preserves current device locks and onboarding state
+and never activates sharing credentials, PluralKit integration, or consent.
+Unknown preference keys remain opaque.
 
 ## Preservation and identity
 
@@ -94,4 +100,9 @@ The implementation uses the draft contract; no upstream machine-readable schema
 or conformance fixtures are available yet. Tests cover aliases, round trips,
 local edits/deletions, unknown data, ZIP validation, native backup restoration,
 partial sync, migration, transactional rollback, media storage, and the preview
-flow. Cross-application interoperability still needs fixtures from other apps.
+flow. The complex fixture can export a ZIP with `PLURALPORT_OUTPUT` or verify
+an externally produced ZIP with `PLURALPORT_RETURN` when running
+`test/features/pluralport/pluralport_foreign_roundtrip_test.dart`. A no-edit
+return compares native records and decrypted media bytes; foreign edits use
+separate explicit assertions. These checks do not imply every other app
+preserves all portable data.

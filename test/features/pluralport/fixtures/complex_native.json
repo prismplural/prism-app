@@ -1,0 +1,430 @@
+{
+  "formatVersion": "2025.1",
+  "version": "0.15.3",
+  "appName": "Prism",
+  "exportDate": "2026-01-01T12:00:00.000Z",
+  "totalRecords": 0,
+  "headmates": [
+    {
+      "id": "m1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Alex \ud83c\udf08",
+      "pronouns": "they/them",
+      "notes": "**Markdown**\nUnicode caf\u00e9",
+      "isAlwaysFronting": true,
+      "isAdmin": true,
+      "emoji": "\ud83c\udf08",
+      "nameStyleBold": true
+    },
+    {
+      "id": "m2",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Bea",
+      "age": "adult",
+      "isActive": false
+    },
+    {
+      "id": "m3",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Cam",
+      "birthday": "2000-02-29"
+    }
+  ],
+  "frontSessions": [
+    {
+      "id": "front1",
+      "headmateId": "m1",
+      "sessionType": 0,
+      "startTime": "2026-01-01T12:00:00.000Z",
+      "endTime": "2026-01-01T14:00:00.000Z",
+      "notes": "A front",
+      "confidence": 2
+    },
+    {
+      "id": "front2",
+      "headmateId": "m3",
+      "sessionType": 0,
+      "startTime": "2026-01-01T12:00:00.000Z",
+      "endTime": "2026-01-01T13:00:00.000Z",
+      "notes": "Co-front"
+    }
+  ],
+  "sleepSessions": [
+    {
+      "id": "sleep1",
+      "startTime": "2026-01-01T22:00:00.000Z",
+      "endTime": "2026-01-02T06:00:00.000Z",
+      "quality": 4,
+      "notes": "Rest"
+    }
+  ],
+  "memberGroups": [
+    {
+      "id": "g1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Outer",
+      "emoji": "\ud83d\udcc1"
+    },
+    {
+      "id": "g2",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Inner",
+      "parentGroupId": "g1",
+      "displayOrder": 2
+    }
+  ],
+  "memberGroupEntries": [
+    {
+      "id": "gm1",
+      "groupId": "g2",
+      "memberId": "m1"
+    },
+    {
+      "id": "gm2",
+      "groupId": "g1",
+      "memberId": "m3"
+    }
+  ],
+  "customFields": [
+    {
+      "id": "cf1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Text",
+      "fieldType": 0
+    },
+    {
+      "id": "cf2",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Markdown",
+      "fieldType": 3
+    },
+    {
+      "id": "cf3",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Colour",
+      "fieldType": 1
+    },
+    {
+      "id": "cf4",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Birthday",
+      "fieldType": 2,
+      "datePrecision": 0
+    },
+    {
+      "id": "cf5",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Choice",
+      "fieldType": 4,
+      "fieldTypeId": "choice",
+      "typeConfigJson": "{\"runtimeType\": \"choice\", \"allowsMultiple\": true, \"options\": [{\"id\": \"opt1\", \"label\": \"One\", \"sortOrder\": 0}, {\"id\": \"opt2\", \"label\": \"Two\", \"sortOrder\": 1}]}"
+    },
+    {
+      "id": "cf6",
+      "name": "Group",
+      "fieldType": 0,
+      "fieldTypeId": "group",
+      "typeConfigJson": "{\"runtimeType\": \"group\"}",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "parentFieldId": null
+    },
+    {
+      "id": "cf7",
+      "name": "Scale",
+      "fieldType": 0,
+      "fieldTypeId": "scale",
+      "typeConfigJson": "{\"runtimeType\": \"scale\", \"steps\": 7, \"emoji\": \"\\u2b50\"}",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "parentFieldId": "cf6"
+    },
+    {
+      "id": "cf8",
+      "name": "Slider",
+      "fieldType": 0,
+      "fieldTypeId": "slider",
+      "typeConfigJson": "{\"runtimeType\": \"slider\", \"mode\": \"numeric\", \"min\": -10, \"max\": 10, \"step\": 0.5}",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "parentFieldId": "cf6"
+    },
+    {
+      "id": "cf9",
+      "name": "Member",
+      "fieldType": 0,
+      "fieldTypeId": "member",
+      "typeConfigJson": "{\"runtimeType\": \"member\"}",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "parentFieldId": "cf6"
+    }
+  ],
+  "customFieldValues": [
+    {
+      "id": "cv1",
+      "customFieldId": "cf1",
+      "memberId": "m1",
+      "value": "words"
+    },
+    {
+      "id": "cv2",
+      "customFieldId": "cf2",
+      "memberId": "m1",
+      "value": "**formatted**"
+    },
+    {
+      "id": "cv3",
+      "customFieldId": "cf3",
+      "memberId": "m1",
+      "value": "#123456"
+    },
+    {
+      "id": "cv4",
+      "customFieldId": "cf4",
+      "memberId": "m1",
+      "value": "2000-02-29"
+    },
+    {
+      "id": "cv5",
+      "customFieldId": "cf5",
+      "memberId": "m1",
+      "value": "{\"options\": [\"opt1\", \"opt2\"]}"
+    },
+    {
+      "id": "cv7",
+      "customFieldId": "cf7",
+      "memberId": "m1",
+      "value": "5"
+    },
+    {
+      "id": "cv8",
+      "customFieldId": "cf8",
+      "memberId": "m1",
+      "value": "2.5"
+    },
+    {
+      "id": "cv9",
+      "customFieldId": "cf9",
+      "memberId": "m1",
+      "value": "{\"memberIds\": [\"m1\", \"m3\"], \"future\": \"kept\"}"
+    }
+  ],
+  "notes": [
+    {
+      "id": "note1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "title": "Journal",
+      "body": "Text with \ud83e\udd8b",
+      "date": "2026-01-01T12:00:00.000Z",
+      "memberId": "m1",
+      "colorHex": "#123456"
+    }
+  ],
+  "frontSessionComments": [
+    {
+      "id": "comment1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "sessionId": "front1",
+      "body": "Comment",
+      "timestamp": "2026-01-01T12:00:00.000Z",
+      "authorMemberId": "m3",
+      "targetTime": "2026-01-01T12:00:00.000Z"
+    }
+  ],
+  "conversationCategories": [
+    {
+      "id": "cat1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Everyday",
+      "displayOrder": 3
+    }
+  ],
+  "conversations": [
+    {
+      "id": "chat1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "title": "Shared chat",
+      "lastActivityAt": "2026-01-01T12:00:00.000Z",
+      "participantIds": [
+        "m1",
+        "m3"
+      ],
+      "includesAllMembers": false,
+      "creatorId": "m1",
+      "categoryId": "cat1",
+      "emoji": "\ud83d\udcac"
+    },
+    {
+      "id": "dm1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "title": "Direct",
+      "lastActivityAt": "2026-01-01T12:00:00.000Z",
+      "participantIds": [
+        "m1",
+        "m3"
+      ],
+      "includesAllMembers": false,
+      "isDirectMessage": true
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg1",
+      "conversationId": "chat1",
+      "content": "Hello **world**",
+      "timestamp": "2026-01-01T12:00:00.000Z",
+      "authorId": "m1",
+      "reactions": [
+        {
+          "id": "rx1",
+          "emoji": "\u2764\ufe0f",
+          "memberId": "m3",
+          "timestamp": "2026-01-01T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "msg2",
+      "conversationId": "chat1",
+      "content": "Reply",
+      "timestamp": "2026-01-01T12:00:00.000Z",
+      "authorId": "m3",
+      "replyToId": "msg1",
+      "replyToAuthorId": "m1",
+      "replyToContent": "Hello **world**"
+    },
+    {
+      "id": "dmmsg",
+      "conversationId": "dm1",
+      "content": "Private",
+      "timestamp": "2026-01-01T12:00:00.000Z",
+      "authorId": "m1"
+    }
+  ],
+  "polls": [
+    {
+      "id": "poll1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "question": "Choice?",
+      "description": "Details",
+      "allowsMultipleVotes": true
+    }
+  ],
+  "pollOptions": [
+    {
+      "id": "po1",
+      "pollId": "poll1",
+      "text": "One",
+      "votes": [
+        {
+          "id": "vote1",
+          "memberId": "m1",
+          "votedAt": "2026-01-01T12:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "po2",
+      "pollId": "poll1",
+      "text": "Two",
+      "sortOrder": 1
+    }
+  ],
+  "habits": [
+    {
+      "id": "habit1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Water",
+      "assignedMemberId": "m1",
+      "frequency": "daily",
+      "isPrivate": true
+    }
+  ],
+  "habitCompletions": [
+    {
+      "id": "hc1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "habitId": "habit1",
+      "completedAt": "2026-01-01T12:00:00.000Z",
+      "completedByMemberId": "m1",
+      "wasFronting": true,
+      "rating": 4,
+      "notes": "Done"
+    }
+  ],
+  "reminders": [
+    {
+      "id": "rem1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "name": "Reminder",
+      "message": "Remember",
+      "targetMemberId": "m3",
+      "frequency": "daily",
+      "timeOfDay": "10:30"
+    }
+  ],
+  "memberBoardPosts": [
+    {
+      "id": "board1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "targetMemberId": "m1",
+      "authorId": "m3",
+      "audience": "public",
+      "title": "Board",
+      "body": "A post",
+      "writtenAt": "2026-01-01T12:00:00.000Z"
+    }
+  ],
+  "friends": [
+    {
+      "id": "friend1",
+      "createdAt": "2026-01-01T12:00:00.000Z",
+      "modifiedAt": "2026-01-01T12:00:00.000Z",
+      "displayName": "Synthetic friend",
+      "publicKeyHex": "abababababababababababababababababababababababababababababababab",
+      "offeredScopes": [
+        "fronting"
+      ]
+    }
+  ],
+  "appPreferences": [
+    {
+      "key": "accessibility.typography_letter_spacing",
+      "valueType": "double",
+      "valueJson": "0.5"
+    },
+    {
+      "key": "privacy.hide_total_member_count",
+      "valueType": "bool",
+      "valueJson": "true"
+    }
+  ],
+  "systemSettings": [
+    {
+      "systemName": "Complex Prism fixture",
+      "systemDescription": "Synthetic only",
+      "systemTag": "PX",
+      "systemColor": "#567890",
+      "accentColorHex": "#123456",
+      "terminology": 1,
+      "showQuickFront": false
+    }
+  ]
+}

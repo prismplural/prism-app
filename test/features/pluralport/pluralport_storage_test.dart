@@ -10,6 +10,18 @@ import 'package:prism_plurality/features/pluralport/services/pluralport_preserva
 import 'harness.dart';
 
 void main() {
+  test('tampered retained chunks fail closed', () async {
+    final db = makeDb();
+    addTearDown(db.close);
+    final preservation = PluralPortPreservation(db);
+    await preservation.retain({'kind': 'test', 'opaque': 'payload'});
+    final row = (await db.select(db.pluralPortUnsupported).get()).single;
+    await db.customStatement(
+      'UPDATE plural_port_unsupported SET payload = ? WHERE id = ?',
+      ['A${row.payload.substring(1)}', row.id],
+    );
+    await expectLater(preservation.documents(), throwsFormatException);
+  });
   test(
     'v40 upgrade retains existing data and adds preservation storage',
     () async {

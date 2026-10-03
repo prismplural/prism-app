@@ -4,12 +4,90 @@ import 'package:crypto/crypto.dart';
 import 'package:uuid/uuid.dart';
 
 import 'pluralport_bundle.dart';
+import 'pluralport_exporter.dart';
 
 typedef Json = Map<String, dynamic>;
 
 /// Translation is separate from persistence: malformed references are rejected
 /// before any app rows or retained metadata are written.
 class PluralPortMapper {
+  // Explicit allowlist: portable preferences never activate device locks,
+  // consent, onboarding, identity, or external integrations.
+  static const portableSettingKeys = <String>{
+    'showQuickFront',
+    'accentColorHex',
+    'perMemberAccentColors',
+    'terminology',
+    'memberNameDisplay',
+    'customTerminology',
+    'customPluralTerminology',
+    'terminologyUseEnglish',
+    'frontingRemindersEnabled',
+    'frontingReminderIntervalMinutes',
+    'themeMode',
+    'themeBrightness',
+    'themeStyle',
+    'themeCornerStyle',
+    'paletteSource',
+    'paletteSeedColorHex',
+    'paletteMood',
+    'paletteContrast',
+    'chatEnabled',
+    'pollsEnabled',
+    'habitsEnabled',
+    'sleepTrackingEnabled',
+    'gifSearchEnabled',
+    'voiceNotesEnabled',
+    'sleepSuggestionEnabled',
+    'sleepSuggestionHour',
+    'sleepSuggestionMinute',
+    'wakeSuggestionEnabled',
+    'wakeSuggestionAfterHours',
+    'quickSwitchThresholdSeconds',
+    'chatLogsFront',
+    'syncThemeEnabled',
+    'timingMode',
+    'habitsBadgeEnabled',
+    'notesEnabled',
+    'previousAccentColorHex',
+    'remindersEnabled',
+    'localeOverride',
+    'fontScale',
+    'fontFamily',
+    'displayFontInAppBar',
+    'navBarItems',
+    'navBarOverflowItems',
+    'navBarLabelDisplayMode',
+    'navBarRevealLabelsWhenExpanded',
+    'syncNavigationEnabled',
+    'chatBadgePreferences',
+    'defaultSleepQuality',
+    'frontingListViewMode',
+    'addFrontDefaultBehavior',
+    'quickFrontDefaultBehavior',
+    'autoPromoteLongFrontingSessions',
+    'boardsEnabled',
+    'membersListViewMode',
+    'membersGroupedDefaultState',
+    'membersFolderMemberVisibility',
+    'membersShowPronouns',
+    'membersShowFrontButtons',
+    'membersShowGroups',
+    'membersFrontButtonBehavior',
+    'bioMarkdownEnabled',
+  };
+
+  static const nativeModuleKeys = [
+    'polls',
+    'pollOptions',
+    'habits',
+    'habitCompletions',
+    'reminders',
+    'friends',
+    'conversationCategories',
+    'sleepSessions',
+  ];
+
   static const collections = {
     'members': 'headmates',
     'groups': 'memberGroups',
@@ -166,6 +244,9 @@ class PluralPortMapper {
                     orElse: () => nativeRefs.first,
                   )['id']
                   as String;
+        if (ids[id]!.isEmpty) {
+          throw const FormatException('Empty resolved Prism identity.');
+        }
       }
     }
     if (ids.values.toSet().length != ids.length) {
@@ -240,6 +321,19 @@ class PluralPortMapper {
     }
     _validateReferences(document);
     final native = emptyNative();
+    final prismModules =
+        ((document['extensions'] as Map?)?['prism'] as Map?)?['native_modules'];
+    if (prismModules is Map) {
+      for (final key in nativeModuleKeys) {
+        final records = prismModules[key];
+        if (records is List) {
+          native[key] = records
+              .whereType<Map>()
+              .map((r) => clone(r.cast<String, dynamic>()))
+              .toList();
+        }
+      }
+    }
     final baseline = <String, dynamic>{};
     final bindings = <String, dynamic>{};
     final assets = {for (final a in mappedAssets) a['id'] as String: a};
@@ -290,52 +384,54 @@ class PluralPortMapper {
         final prism = (portable['extensions'] as Map?)?['prism'];
         final extra = prism is Map ? prism['native'] : null;
         if (extra is Map) {
-          const allowed = {
-            'emoji',
-            'customColorEnabled',
-            'customColorHex',
-            'markdownEnabled',
-            'profileHeaderSource',
-            'profileHeaderLayout',
-            'profileHeaderVisible',
-            'nameStyleFont',
-            'nameStyleBold',
-            'nameStyleItalic',
-            'nameStyleColorMode',
-            'nameStyleColorHex',
-            'isAlwaysFronting',
-            'fieldType',
-            'fieldTypeId',
-            'typeConfigJson',
-            'datePrecision',
-            'groupType',
-            'filterRules',
-            'sortState',
-            'confidence',
-            'quality',
-          };
-          if (mapped.isEmpty &&
-              entry.key == 'custom_fields' &&
-              extra['fieldType'] is int) {
-            mapped.add({
-              'id': portable['id'],
-              'name': portable['name'],
-              'fieldType': extra['fieldType'],
-              'displayOrder': (portable['sort_order'] as num?)?.toInt() ?? 0,
-              'createdAt': time(
-                portable['created_at'],
-                fallback: '1970-01-01T00:00:00.000Z',
-              ),
-            });
-          }
-          for (final row in mapped) {
-            for (final key in allowed) {
-              if (!row.containsKey(key) && extra.containsKey(key)) {
-                row[key] = extra[key];
+          // Native fields remain useful after a foreign app preserves this
+          // namespace. Compare its original portable projection with the
+          // incoming projection so edits in the other app still take priority.
+          if (extra['id'] == portable['id']) {
+            final original = extra.cast<String, dynamic>();
+            final projection = PluralPortExporter(
+              native,
+              '',
+            ).convert(entry.key, original);
+            final before = _toNative(entry.key, projection, (_) => null);
+            if (mapped.length == 1 && before.length == 1) {
+              final restored = clone(original);
+              for (final field in mapped.single.entries) {
+                if (canonicalJson(field.value) !=
+                    canonicalJson(before.single[field.key])) {
+                  restored[field.key] = field.value;
+                }
               }
+              restored['id'] = portable['id'];
+              // External imports never reconnect a live PluralKit account.
+              if (entry.key == 'members') {
+                restored['pluralkitSyncIgnored'] = true;
+              }
+              mapped
+                ..clear()
+                ..add(restored);
+            } else if (mapped.isEmpty &&
+                entry.key == 'custom_fields' &&
+                original['fieldType'] is int) {
+              mapped.add(clone(original));
+            } else if (mapped.isEmpty &&
+                entry.key == 'custom_field_values' &&
+                portable['subject_type'] == 'member') {
+              mapped.add({
+                ...clone(original),
+                'id': portable['id'],
+                'customFieldId': portable['field_id'],
+                'memberId': portable['subject_id'],
+                if (canonicalJson(projection['value']) !=
+                    canonicalJson(portable['value']))
+                  'value': portable['value'] is String
+                      ? portable['value']
+                      : jsonEncode(portable['value']),
+              });
             }
           }
         }
+
         if (mapped.isEmpty) {
           warnings.add('preserved_only: ${entry.key}/${portable['id']}');
           continue;
@@ -399,6 +495,28 @@ class PluralPortMapper {
     if (systems.length > 1) {
       warnings.add('preserved_only: additional system profiles');
     }
+    for (final entry in {
+      'headmates': 'parentSystemId',
+      'memberGroups': 'parentGroupId',
+      'customFields': 'parentFieldId',
+    }.entries) {
+      final parents = {
+        for (final row in rows(native, entry.key)) row['id']: row[entry.value],
+      };
+      final complete = <dynamic>{};
+      for (final id in parents.keys) {
+        final visiting = <dynamic>{};
+        dynamic cursor = id;
+        while (cursor != null && cursor != '' && !complete.contains(cursor)) {
+          if (!parents.containsKey(cursor)) break;
+          if (!visiting.add(cursor)) {
+            throw FormatException('Invalid ${entry.key} native hierarchy.');
+          }
+          cursor = parents[cursor];
+        }
+        complete.addAll(visiting);
+      }
+    }
     return PluralPortImportPlan(native, {
       'kind': 'import',
       'namespace': namespace,
@@ -416,6 +534,13 @@ class PluralPortMapper {
     for (final path in recordPaths) {
       for (final record in rows(document, path)) {
         record['id'] = ids[record['id']] ?? record['id'];
+        if (path == 'members') {
+          final prism = (record['extensions'] as Map?)?['prism'] as Map?;
+          if (prism?['pk_banner_asset_id'] is String) {
+            final ref = prism!['pk_banner_asset_id'];
+            prism['pk_banner_asset_id'] = ids[ref] ?? ref;
+          }
+        }
         for (final key in record.keys.toList()) {
           if (coreReferenceTarget(path, record, key) == null) continue;
           record[key] = _remapReference(record[key], ids);
@@ -519,6 +644,10 @@ class PluralPortMapper {
             'birthday': (r['birthday'] as Map?)?['value'],
             'profilePhotoData': image(r['avatar_asset_id']),
             'profileHeaderImageData': image(r['banner_asset_id']),
+            'pkBannerImageData': image(
+              ((r['extensions'] as Map?)?['prism']
+                  as Map?)?['pk_banner_asset_id'],
+            ),
             'isActive': r['archived'] != true, 'createdAt': created,
             'displayOrder': (r['sort_order'] as num?)?.toInt() ?? 0,
             'customColorEnabled': r['color'] != null,

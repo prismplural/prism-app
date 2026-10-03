@@ -502,6 +502,7 @@ class DataImportService {
     String json, {
     List<({String mediaId, Uint8List blob})> mediaBlobs = const [],
     bool preserveImportedOnboardingState = true,
+    bool preserveCurrentDeviceSettings = false,
     Future<void> Function(Map<String, dynamic> data)? beforeRows,
     Future<void> Function()? beforeCommit,
   }) async {
@@ -1735,7 +1736,9 @@ class DataImportService {
               quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
               identityGeneration: s.identityGeneration,
               chatLogsFront: s.chatLogsFront,
-              hasCompletedOnboarding: preserveImportedOnboardingState
+              hasCompletedOnboarding: preserveCurrentDeviceSettings
+                  ? currentSettings.hasCompletedOnboarding
+                  : preserveImportedOnboardingState
                   ? s.hasCompletedOnboarding
                   : false,
               syncThemeEnabled: s.syncThemeEnabled,
@@ -1769,8 +1772,12 @@ class DataImportService {
               // Force device-local security settings to false on import —
               // PIN/biometric lock must be configured through the settings UI
               // where the user actually sets a PIN on this device.
-              pinLockEnabled: false,
-              biometricLockEnabled: false,
+              pinLockEnabled: preserveCurrentDeviceSettings
+                  ? currentSettings.pinLockEnabled
+                  : false,
+              biometricLockEnabled: preserveCurrentDeviceSettings
+                  ? currentSettings.biometricLockEnabled
+                  : false,
               autoLockDelaySeconds: s.autoLockDelaySeconds,
               displayFontInAppBar: s.displayFontInAppBar,
               navBarItems: s.navBarItems,

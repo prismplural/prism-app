@@ -47,6 +47,50 @@ class PluralPortExporter {
         continue;
       }
       final envelope = PluralPortMapper.clone(archive['envelope'] as Json);
+      final moduleBindings = archive['nativeModuleBindings'] as Map? ?? {};
+      final sourceModules =
+          ((envelope['extensions'] as Map?)?['prism']
+              as Map?)?['native_modules'];
+      if (sourceModules is Map) {
+        if (archive['prismPreferencesRestored'] == true) {
+          final settings = PluralPortMapper.rows(
+            native,
+            'systemSettings',
+          ).firstOrNull;
+          final saved = (sourceModules['systemSettings'] as List?)
+              ?.whereType<Map>()
+              .firstOrNull;
+          if (settings != null && saved != null) {
+            for (final key in PluralPortMapper.portableSettingKeys) {
+              if (settings.containsKey(key)) saved[key] = settings[key];
+            }
+          }
+          final livePreferences = {
+            for (final row in PluralPortMapper.rows(native, 'appPreferences'))
+              row['key']: row,
+          };
+          sourceModules['appPreferences'] = [
+            for (final row in sourceModules['appPreferences'] as List? ?? [])
+              if (row is Map) livePreferences[row['key']] ?? row else row,
+          ];
+        }
+        for (final key in PluralPortMapper.nativeModuleKeys) {
+          final bound = (moduleBindings[key] as List? ?? []).toSet();
+          final sourceRows = sourceModules[key];
+          if (sourceRows is! List || bound.isEmpty) continue;
+          final liveRows = {
+            for (final row in PluralPortMapper.rows(native, key))
+              row['id']: row,
+          };
+          sourceModules[key] = [
+            for (final row in sourceRows)
+              if (row is! Map || !bound.contains(row['id']))
+                row
+              else if (liveRows.containsKey(row['id']))
+                liveRows[row['id']],
+          ];
+        }
+      }
       final producer = envelope['producer'] as Map;
       if ((producer['app_id'] ?? producer['app']).toString().toLowerCase() !=
           'prism') {
@@ -83,9 +127,30 @@ class PluralPortExporter {
         'mediaAttachments',
       ).map((r) => r['id']).toSet();
       final mediaBindings = archive['mediaBindings'] as Map? ?? {};
-      bool retainedMedia(dynamic message, dynamic asset) =>
-          !mediaBindings.containsKey('$message/$asset') ||
-          liveMedia.contains(mediaBindings['$message/$asset']);
+      bool retainedMedia(dynamic message, dynamic asset) {
+        final binding = mediaBindings['$message/$asset'];
+        return binding == null ||
+            (binding is List
+                ? binding.any(liveMedia.contains)
+                : liveMedia.contains(binding));
+      }
+
+      final boundAssociations = (archive['mediaAssociations'] as List? ?? [])
+          .toSet();
+      for (final asset in PluralPortMapper.rows(envelope, 'assets')) {
+        final prism = (asset['extensions'] as Map?)?['prism'] as Map?;
+        final associations = prism?['media_attachments'];
+        if (associations is List) {
+          prism!['media_attachments'] = associations
+              .where(
+                (a) =>
+                    a is! Map ||
+                    !boundAssociations.contains(a['id']) ||
+                    liveMedia.contains(a['id']),
+              )
+              .toList();
+        }
+      }
       for (final message in PluralPortMapper.rows(envelope, 'chat.messages')) {
         if (message['attachment_asset_ids'] is List) {
           message['attachment_asset_ids'] =
@@ -316,6 +381,7 @@ class PluralPortExporter {
         'reminders',
         'friends',
         'appPreferences',
+        'systemSettings',
         'conversationCategories',
       ])
         if ((native[key] as List? ?? []).isNotEmpty) key: native[key],
@@ -327,6 +393,10 @@ class PluralPortExporter {
         ).where((r) => r['sessionType'] == 1),
       ],
     };
+    final retainedModules = prism['native_modules'] as Map?;
+    for (final key in ['systemSettings', 'appPreferences']) {
+      if (retainedModules?.containsKey(key) == true) nativeModules.remove(key);
+    }
     _merge(prism, 'native_modules', nativeModules);
     if ((native['friends'] as List? ?? []).isNotEmpty) {
       warnings.add(
@@ -428,6 +498,8 @@ class PluralPortExporter {
       ],
       'extensions': {
         'prism': {
+          if (path == 'members' && r['pkBannerImageData'] != null)
+            'pk_banner_asset_id': _image(r['pkBannerImageData']),
           'native': {
             for (final e in r.entries)
               if (![

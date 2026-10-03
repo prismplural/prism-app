@@ -428,6 +428,24 @@ void main() {
         },
       );
       expect(() => PluralPortBundle.decode(bomb), throwsFormatException);
+      final overBudget = rewrite(
+        zip({
+          'pluralport.json': json,
+          'opaque.bin': [1],
+        }),
+        (v, i, signature) {
+          final offset = signature == 0x02014b50 ? 24 : 22;
+          if (v.getUint32(i + offset, Endian.little) == 1) {
+            v.setUint32(
+              i + offset,
+              PluralPortBundle.maxAsset + 1,
+              Endian.little,
+            );
+          }
+        },
+      );
+      expect(() => PluralPortBundle.decode(overBudget), throwsFormatException);
+
       final duplicate = zip({
         'pluralport.json': json,
         'assetA': [1],
