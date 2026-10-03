@@ -98,11 +98,21 @@ class BlurPopupAnchor extends StatefulWidget {
   State<BlurPopupAnchor> createState() => BlurPopupAnchorState();
 }
 
+// Registering a pop entry refreshes Android's framework-handles-back flag.
+// Keep it permissive: LocalHistoryEntry consumes the popup's Back action;
+// vetoing the route would also notify unrelated guards with didPop=false.
+class _PopupBackEntry extends PopEntry<Object?> {
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier<bool>(true);
+}
+
 class BlurPopupAnchorState extends State<BlurPopupAnchor>
     with SingleTickerProviderStateMixin {
   final _anchorKey = GlobalKey();
   OverlayEntry? _overlayEntry;
   LocalHistoryEntry? _historyEntry;
+  final _backEntry = _PopupBackEntry();
+  ModalRoute<dynamic>? _backRoute;
   bool _removingHistoryEntry = false;
   bool _positionedAtCursor = false;
   GoRouter? _routeDismissRouter;
@@ -122,6 +132,7 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   @override
   void dispose() {
     _removeOverlay(animate: false);
+    _backEntry.canPopNotifier.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -228,6 +239,8 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
       );
       route.addLocalHistoryEntry(historyEntry);
       _historyEntry = historyEntry;
+      _backRoute = route;
+      route.registerPopEntry(_backEntry);
     }
     _animController.forward(from: 0);
     return true;
@@ -289,6 +302,9 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     } else if (!removeHistoryEntry) {
       _historyEntry = null;
     }
+
+    _backRoute?.unregisterPopEntry(_backEntry);
+    _backRoute = null;
 
     if (animate && mounted) {
       try {
