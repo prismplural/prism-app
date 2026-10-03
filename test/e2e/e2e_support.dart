@@ -109,10 +109,21 @@ Future<int> findFreePort() async {
 /// With [port] and [dbPath] the relay binds a FIXED port and a persistent file
 /// DB, so it can be killed and restarted on the same URL with the same state
 /// (used by the outage/recovery chaos test). Defaults: ephemeral port + in-memory.
-Future<TestRelay> spawnRelay({int? port, String? dbPath}) async {
+///
+/// [extraEnv] forwards any additional relay environment (for example
+/// `TEST_RELAY_RESUMABLE=1` plus `TEST_RELAY_MEDIA_DIR`, which opt the
+/// test-only relay into the otherwise dark-by-default pairing lease and
+/// resumable snapshot-upload capability). Omitted, the relay is spawned exactly
+/// as before.
+Future<TestRelay> spawnRelay({
+  int? port,
+  String? dbPath,
+  Map<String, String>? extraEnv,
+}) async {
   final env = <String, String>{};
   if (port != null) env['TEST_RELAY_PORT'] = '$port';
   if (dbPath != null) env['TEST_RELAY_DB'] = dbPath;
+  if (extraEnv != null) env.addAll(extraEnv);
   final proc = await Process.start(
     resolveRelayBinary(),
     const [],

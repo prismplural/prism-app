@@ -6117,6 +6117,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncSetupCompletingPairing => 'Completando emparejamiento...';
 
   @override
+  String get syncSetupConfirmingJoiner => 'Confirmando el otro dispositivo...';
+
+  @override
   String get syncSetupScanJoinerPrompt =>
       'El nuevo dispositivo puede generar un código QR de solicitud de emparejamiento. Escanéalo aquí para aprobar el dispositivo y compartir tus credenciales de sincronización.';
 
@@ -6217,6 +6220,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncSetupSnapshotUploadRetry => 'Reintentar subida';
+
+  @override
+  String get syncSetupSnapshotUploadRetryBody =>
+      'La instantánea no llegó al servidor. Inténtalo de nuevo para continuar el emparejamiento.';
+
+  @override
+  String get syncSetupSnapshotUploadResumableHint =>
+      'Esto puede continuar aunque la conexión sea lenta o se interrumpa.';
+
+  @override
+  String get syncSetupSnapshotFinalizeFailed =>
+      'No se pudo terminar de configurar el nuevo dispositivo. Tus datos ya se subieron; inténtalo de nuevo para finalizar el emparejamiento.';
 
   @override
   String get syncSetupPairingReadyTitle => 'Emparejamiento listo';

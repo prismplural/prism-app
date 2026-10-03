@@ -6036,6 +6036,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSetupCompletingPairing => 'Completing pairing...';
 
   @override
+  String get syncSetupConfirmingJoiner => 'Confirming the other device...';
+
+  @override
   String get syncSetupScanJoinerPrompt =>
       'The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.';
 
@@ -6130,6 +6133,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncSetupSnapshotUploadRetry => 'Retry upload';
+
+  @override
+  String get syncSetupSnapshotUploadRetryBody =>
+      'The snapshot didn\'t reach the relay. Try again to keep pairing.';
+
+  @override
+  String get syncSetupSnapshotUploadResumableHint =>
+      'This can keep going across a slow or interrupted connection.';
+
+  @override
+  String get syncSetupSnapshotFinalizeFailed =>
+      'Couldn\'t finish setting up the new device. Your data was uploaded — try again to finish pairing.';
 
   @override
   String get syncSetupPairingReadyTitle => 'Pairing ready';

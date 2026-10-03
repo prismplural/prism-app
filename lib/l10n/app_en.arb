@@ -7089,6 +7089,10 @@
   "@syncSetupCompletingPairing": {
     "description": "Status text while an existing device completes pairing"
   },
+  "syncSetupConfirmingJoiner": "Confirming the other device...",
+  "@syncSetupConfirmingJoiner": {
+    "description": "Status text while the existing device verifies the joining device's confirmation before uploading the pairing snapshot"
+  },
   "syncSetupScanJoinerPrompt": "The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.",
   "@syncSetupScanJoinerPrompt": {
     "description": "Intro text on the set up another device sheet before scanning"
@@ -7204,6 +7208,18 @@
   "syncSetupSnapshotUploadRetry": "Retry upload",
   "@syncSetupSnapshotUploadRetry": {
     "description": "Retry button label on the snapshot upload failure view"
+  },
+  "syncSetupSnapshotUploadRetryBody": "The snapshot didn't reach the relay. Try again to keep pairing.",
+  "@syncSetupSnapshotUploadRetryBody": {
+    "description": "Body text on the pair-time snapshot upload failure view. Must not include relay or session details."
+  },
+  "syncSetupSnapshotUploadResumableHint": "This can keep going across a slow or interrupted connection.",
+  "@syncSetupSnapshotUploadResumableHint": {
+    "description": "Reassurance shown under the snapshot upload progress bar, and only when the relay advertised the resumable transport and the ceremony negotiated a pairing lease. Never shown for the single-PUT fallback, where slow-link survival is not guaranteed."
+  },
+  "syncSetupSnapshotFinalizeFailed": "Couldn't finish setting up the new device. Your data was uploaded — try again to finish pairing.",
+  "@syncSetupSnapshotFinalizeFailed": {
+    "description": "Body shown when the pairing snapshot was published but releasing credentials / finalizing the ceremony failed. Must not imply the transfer failed, and must not include relay or session details."
   },
   "syncSetupPairingReadyTitle": "Pairing ready",
   "@syncSetupPairingReadyTitle": {

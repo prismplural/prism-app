@@ -8967,6 +8967,12 @@ abstract class AppLocalizations {
   /// **'Completing pairing...'**
   String get syncSetupCompletingPairing;
 
+  /// Status text while the existing device verifies the joining device's confirmation before uploading the pairing snapshot
+  ///
+  /// In en, this message translates to:
+  /// **'Confirming the other device...'**
+  String get syncSetupConfirmingJoiner;
+
   /// Intro text on the set up another device sheet before scanning
   ///
   /// In en, this message translates to:
@@ -9134,6 +9140,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry upload'**
   String get syncSetupSnapshotUploadRetry;
+
+  /// Body text on the pair-time snapshot upload failure view. Must not include relay or session details.
+  ///
+  /// In en, this message translates to:
+  /// **'The snapshot didn\'t reach the relay. Try again to keep pairing.'**
+  String get syncSetupSnapshotUploadRetryBody;
+
+  /// Reassurance shown under the snapshot upload progress bar, and only when the relay advertised the resumable transport and the ceremony negotiated a pairing lease. Never shown for the single-PUT fallback, where slow-link survival is not guaranteed.
+  ///
+  /// In en, this message translates to:
+  /// **'This can keep going across a slow or interrupted connection.'**
+  String get syncSetupSnapshotUploadResumableHint;
+
+  /// Body shown when the pairing snapshot was published but releasing credentials / finalizing the ceremony failed. Must not imply the transfer failed, and must not include relay or session details.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t finish setting up the new device. Your data was uploaded — try again to finish pairing.'**
+  String get syncSetupSnapshotFinalizeFailed;
 
   /// Title of the confirmation shown after a successful snapshot upload, before the sheet closes
   ///

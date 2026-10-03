@@ -20,6 +20,7 @@ import 'package:prism_plurality/core/sync/pairing_paste_code.dart';
 import 'package:prism_plurality/core/sync/pairing_sas_display.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
+import 'package:prism_plurality/features/settings/services/pairing_snapshot_upload_controller.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/human_bytes.dart';
 import 'package:prism_plurality/shared/widgets/numpad_keyboard_listener.dart';
@@ -170,9 +171,14 @@ enum _InitiatorStep {
   connecting,
   sasVerification,
   passwordEntry,
-  // Uploading the encrypted snapshot to the relay. Progress bar visible.
+  // Waiting for + verifying the joiner's confirmation (split step 1).
+  // Core owns this wait; no Dart deadline is applied.
+  confirming,
+  // Uploading the encrypted snapshot to the relay (split step 2). Bounded
+  // progress is visible when the transport reports it.
   uploading,
-  // Snapshot upload finished; finishing the credential handshake.
+  // Snapshot published; releasing credentials and waiting for the joiner's
+  // terminal bundle (split step 3).
   completing,
   // Snapshot uploaded and handshake done. Brief confirmation before we
   // reset back to the prompt so the user sees the pair succeeded.
@@ -191,11 +197,6 @@ class SetupDeviceSheetContentState
   String? _error;
   MobileScannerController? _joinerScannerController;
 
-  /// Joiner's device_id captured from `startInitiatorCeremony`'s return
-  /// JSON so we can thread it into `uploadPairingSnapshot(forDeviceId:)`.
-  /// The relay scopes the snapshot and ACK-DELETE to this device_id.
-  String? _joinerDeviceId;
-
   /// Latest upload progress for the pair-time snapshot, in bytes.
   /// Reset each time `_completeInitiator` runs.
   int? _uploadBytesSent;
@@ -206,6 +207,26 @@ class SetupDeviceSheetContentState
   String? _uploadFailureReason;
 
   ProviderSubscription<AsyncValue<SyncEvent>>? _uploadEventSubscription;
+
+  /// Owns the split ceremony (verify → upload → complete) and its
+  /// cancellation-safe generation token. Created per attempt.
+  PairingSnapshotUploadController? _ceremony;
+
+  /// Whether the ceremony's relay transfer counts as resumable, so the
+  /// "can survive a slow link" copy is shown only when it is true.
+  bool _resumableTransfer = false;
+
+  /// Whether byte progress should be rendered for the run.
+  ///
+  /// Kept determinate once the progress stream has reported a total, for both
+  /// the resumable and the single-`PUT` transports; only [_resumableTransfer]
+  /// gates the slow-link promise. Always sourced from the controller's own
+  /// policy so the bar cannot be torn back to indeterminate at resolution.
+  bool _showByteProgress = false;
+
+  /// Set in [dispose] before anything else, so ceremony callbacks that fire
+  /// during teardown cannot call `setState` on a disposing widget.
+  bool _disposed = false;
 
   // Recovery phrase typed by the user; required because the mnemonic is never
   // persisted in the keychain. Dart Strings cannot be zeroed, so this is kept
@@ -231,6 +252,22 @@ class SetupDeviceSheetContentState
   /// buffer bug).
   @visibleForTesting
   int get validatedPinLength => _validatedPin?.length ?? -1;
+
+  /// Whether byte progress is still rendered for the current run.
+  ///
+  /// Exposed so widget tests can pin the progress policy across a transport
+  /// resolution: a single-`PUT` result must not flip a streamed determinate bar
+  /// back to indeterminate.
+  @visibleForTesting
+  bool get showByteProgressForTest => _showByteProgress;
+
+  /// The last total byte count reported for the current run, or null.
+  @visibleForTesting
+  int? get uploadBytesTotalForTest => _uploadBytesTotal;
+
+  /// The last sent byte count reported for the current run, or null.
+  @visibleForTesting
+  int? get uploadBytesSentForTest => _uploadBytesSent;
 
   late final PairingCeremonyApi _pairingApi;
 
@@ -278,10 +315,18 @@ class SetupDeviceSheetContentState
 
   @override
   void dispose() {
+    // Set first: cancelling below synchronously emits a phase, and that callback
+    // must not call setState on a widget that is already being torn down.
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     if (_shouldCancelActiveCeremony()) {
       unawaited(_cancelActiveCeremony());
     }
+    // Drop the controller's callbacks and invalidate its in-flight run. This is
+    // synchronous, so a late upload completion or error cannot reach a disposed
+    // widget, and step 3 is never issued for a disposed ceremony.
+    _ceremony?.dispose();
+    _ceremony = null;
     _joinerScannerController?.dispose();
     _uploadEventSubscription?.close();
     _uploadEventSubscription = null;
@@ -295,6 +340,8 @@ class SetupDeviceSheetContentState
     if (_shouldCancelActiveCeremony()) {
       unawaited(_cancelActiveCeremony());
     }
+    _ceremony?.dispose();
+    _ceremony = null;
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
     _uploadEventSubscription?.close();
@@ -305,10 +352,11 @@ class SetupDeviceSheetContentState
       _step = _InitiatorStep.enterMnemonic;
       _joinerScanned = false;
       _sasWords = null;
-      _joinerDeviceId = null;
       _uploadBytesSent = null;
       _uploadBytesTotal = null;
       _uploadFailureReason = null;
+      _resumableTransfer = false;
+      _showByteProgress = false;
       _error = null;
       _mnemonic = null;
     });
@@ -320,6 +368,7 @@ class SetupDeviceSheetContentState
       _InitiatorStep.connecting ||
       _InitiatorStep.sasVerification ||
       _InitiatorStep.passwordEntry ||
+      _InitiatorStep.confirming ||
       _InitiatorStep.uploading ||
       _InitiatorStep.completing ||
       _InitiatorStep.error => true,
@@ -332,13 +381,22 @@ class SetupDeviceSheetContentState
     };
   }
 
+  /// Cancels the active ceremony and moves the UI immediately.
+  ///
+  /// The controller emits its cancelled phase synchronously and returns the
+  /// `cancelPairingCeremony` future, so this drives navigation from the cancel
+  /// result and never waits on the inline upload — which can take up to five
+  /// minutes to unwind. No Dart deadline is applied to the cancel call itself.
   Future<void> _cancelActiveCeremony() async {
     try {
-      await _pairingApi
-          .cancelPairingCeremony(handle: widget.handle)
-          .timeout(const Duration(seconds: 5));
+      final ceremony = _ceremony;
+      if (ceremony != null) {
+        await ceremony.cancel();
+      } else {
+        await _pairingApi.cancelPairingCeremony(handle: widget.handle);
+      }
     } catch (e) {
-      debugPrint('[SYNC] Pairing ceremony cancel failed: $e');
+      debugPrint('[SYNC] Pairing ceremony cancel failed: ${e.runtimeType}');
     }
   }
 
@@ -372,7 +430,6 @@ class SetupDeviceSheetContentState
       if (!mounted) return;
       setState(() {
         _sasWords = sas.words;
-        _joinerDeviceId = joinerDeviceId;
         _step = _InitiatorStep.sasVerification;
       });
     } catch (e) {
@@ -385,169 +442,227 @@ class SetupDeviceSheetContentState
     }
   }
 
+  /// Runs the split initiator ceremony after the user confirms the SAS.
+  ///
+  /// Ordering is structural: `verifyInitiatorConfirmationResumable` →
+  /// `uploadPairingSnapshotResumable` → `completeInitiatorResumableCeremony`,
+  /// all inside [PairingSnapshotUploadController], which also enforces the
+  /// cancellation rule. This method only translates phases into UI steps.
+  ///
+  /// The PIN bytes are drained here, synchronously, **before** the first
+  /// `setState` and before any `await`, so the confirming step that unmounts
+  /// [_InitiatorPinView] cannot destroy the buffer first. `_validatedPin` (the
+  /// pre-flight path) and the `passwordEntry` fallback both funnel into that one
+  /// drain. This widget owns the drained buffer and overwrites it in `finally`.
+  ///
+  /// No Dart deadline wraps any of the three core calls (see the controller).
   Future<void> _completeInitiator(PinBuffer pin) async {
-    // Drain the buffer synchronously BEFORE any setState/await — once the
-    // step changes the source view (_PreflightPinView or _InitiatorPinView)
-    // unmounts and its dispose() clears the buffer. Same risk if the app
-    // backgrounds mid-flight: the lifecycle hook clears _validatedPin.
+    // Drain first, unconditionally: `setState` below rebuilds to the confirming
+    // step, which disposes the owning view and clears its buffer.
     final pinBytes = pin.consumeBytesAndClear();
+    if (_validatedPin == pin) {
+      _validatedPin = null;
+    }
 
-    try {
-      setState(() {
-        _step = _InitiatorStep.uploading;
-        _error = null;
-        _uploadBytesSent = null;
-        _uploadBytesTotal = null;
-        _uploadFailureReason = null;
-      });
-
-      // Subscribe to the sync event stream to drive the upload progress
-      // bar. The stream emits SnapshotUploadProgress during the streamed
-      // PUT and SnapshotUploadFailed if the relay rejects the body.
-      _uploadEventSubscription?.close();
-      _uploadEventSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
-        syncEventStreamProvider,
-        (prev, next) {
-          next.whenData((event) {
-            if (!mounted) return;
-            if (event.type == 'SnapshotUploadProgress') {
-              final sent = _asInt(event.data['bytes_sent']);
-              final total = _asInt(event.data['bytes_total']);
-              if (sent != null && total != null) {
-                setState(() {
-                  _uploadBytesSent = sent;
-                  _uploadBytesTotal = total;
-                });
-              }
-            } else if (event.type == 'SnapshotUploadFailed') {
-              setState(() {
-                _uploadFailureReason =
-                    (event.data['reason'] as String?) ?? 'Upload failed';
-              });
-            }
-          });
-        },
-      );
-
-      try {
-        // Upload the ephemeral snapshot BEFORE sending credentials. The joiner
-        // can't register or try to bootstrap until it receives the credentials
-        // from completeInitiatorCeremony, so uploading first guarantees the
-        // snapshot is on the relay by the time the joiner's bootstrap_from_snapshot
-        // runs. Otherwise the joiner races ahead, finds no snapshot, and ends
-        // up with zero records.
-        //
-        // The snapshot is encrypted with the current (pre-rekey) epoch key,
-        // which matches what the credential bundle will ship to the joiner.
-        //
-        // Drain any enqueued-but-undrained outbox rows into the Rust
-        // engine BEFORE the snapshot is cut. The snapshot is built from
-        // field_versions, so an op still sitting in the outbox would be
-        // invisible to the joiner. The drain defers safely if the engine is
-        // unconfigured (it won't be here — we just paired), so this never
-        // blocks the ceremony.
-        await triggerOutboxDrain(ref.read(databaseProvider), widget.handle);
-
-        // Fatal on failure: if the snapshot doesn't land on the relay we must
-        // NOT release credentials. Otherwise the joiner registers, finds no
-        // snapshot, falls through to an empty syncNow (first-device data is
-        // still local-only), and ends up with zero records — the exact bug
-        // this fix is meant to prevent. Let the error propagate to the outer
-        // catch so the initiator flow shows an error state instead of a
-        // confusing "synced but empty" success.
-        await ffi.uploadPairingSnapshot(
-          handle: widget.handle,
-          ttlSecs: BigInt.from(86400),
-          forDeviceId: _joinerDeviceId,
-        );
-
-        if (!mounted) return;
-        setState(() {
-          _step = _InitiatorStep.completing;
-        });
-
-        final mnemonic = _mnemonic;
-        if (mnemonic == null) {
-          // Defensive: should be set by the enterMnemonic step before we arrive
-          // here. Bail out and bounce the user back to re-enter it.
-          throw StateError('Recovery phrase is missing.');
-        }
-
-        final pairingApi = ref.read(pairingCeremonyApiProvider);
-        Uint8List? mnemonicBytes;
-        try {
-          mnemonicBytes = secretUtf8Bytes(mnemonic);
-          await pairingApi.completeInitiatorCeremony(
-            handle: widget.handle,
-            password: pinBytes,
-            mnemonic: mnemonicBytes,
-          );
-        } finally {
-          zeroBytesBestEffort(mnemonicBytes);
-          _mnemonic = null;
-        }
-
-        // Drain store after completion (may mutate epoch / credentials)
-        await drainRustStore(widget.handle);
-        try {
-          await cacheRuntimeKeys(widget.handle, ref.read(databaseProvider));
-        } catch (e) {
-          debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
-        }
-
-        // optimistic pairing push: the joiner is now authorized, so
-        // proactively re-supply the referenced blobs we hold (short-TTL, on the
-        // pairing-push lane) — it can fetch them straight away instead of
-        // healing each on demand. Fire-and-forget; the push runs off the
-        // provider's own (app-scoped) ref, so it outlives this sheet.
-        unawaited(runPairingMediaPush(ref));
-
-        if (!mounted) return;
-        // Brief confirmation so the user sees the upload actually finished
-        // before we route forward.
-        setState(() {
-          _step = _InitiatorStep.uploadComplete;
-        });
-        _uploadEventSubscription?.close();
-        _uploadEventSubscription = null;
-        await Future<void>.delayed(const Duration(seconds: 2));
-        if (!mounted) return;
-        setState(() {
-          _step = _InitiatorStep.done;
-        });
-      } catch (e) {
-        _uploadEventSubscription?.close();
-        _uploadEventSubscription = null;
-        debugPrint('[SYNC] Pairing initiator completion failed: $e');
-        if (!mounted) return;
-        setState(() {
-          _error = e.toString();
-          _step = _InitiatorStep.error;
-        });
-      } finally {
-        // Drop the _validatedPin reference now that the buffer has been consumed
-        // (success path: consumeBytesAndClear already zeroed it) or the ceremony
-        // failed (error path: zero any remaining bytes and release the reference).
-        // This prevents a dangling reference to a stale/consumed buffer after
-        // _completeInitiator returns.
-        _validatedPin?.clear();
-        _validatedPin = null;
-      }
-    } finally {
-      // Belt-and-suspenders: zero pinBytes on every path including early
-      // throws from setState or pre-FFI setup code. The inner mnemonicBytes
-      // finally block already handles the normal crypto path.
+    final mnemonic = _mnemonic;
+    if (mnemonic == null) {
+      // Defensive: should be set by the enterMnemonic step before we arrive
+      // here. Bail out and bounce the user back to re-enter it.
       zeroBytesBestEffort(pinBytes);
+      _setStep(_InitiatorStep.error, error: 'Recovery phrase is missing.');
+      return;
+    }
+
+    final pairingApi = ref.read(pairingCeremonyApiProvider);
+    final ceremony = PairingSnapshotUploadController(
+      handle: widget.handle,
+      api: pairingApi,
+      onPhaseChanged: _onCeremonyPhase,
+      onProgress: _onCeremonyProgress,
+      onUploadResolved: _onUploadResolved,
+      onUploadFailed: _onUploadFailed,
+    );
+    _ceremony = ceremony;
+
+    setState(() {
+      _step = _InitiatorStep.confirming;
+      _error = null;
+      _uploadBytesSent = null;
+      _uploadBytesTotal = null;
+      _uploadFailureReason = null;
+      _resumableTransfer = false;
+      _showByteProgress = false;
+    });
+
+    // Subscribe to the sync event stream to drive the upload progress bar.
+    // The stream emits SnapshotUploadProgress for whichever transport core
+    // picked and SnapshotUploadFailed if the relay rejects the body. The
+    // controller ignores events from superseded runs.
+    _uploadEventSubscription?.close();
+    _uploadEventSubscription = ref.listenManual<AsyncValue<SyncEvent>>(
+      syncEventStreamProvider,
+      (prev, next) {
+        next.whenData(ceremony.handleSyncEvent);
+      },
+    );
+
+    bool completed;
+    try {
+      // Drain any enqueued-but-undrained outbox rows into the Rust engine
+      // BEFORE the snapshot is cut. The snapshot is built from field_versions,
+      // so an op still sitting in the outbox would be invisible to the joiner.
+      // The drain defers safely if the engine is unconfigured.
+      await triggerOutboxDrain(ref.read(databaseProvider), widget.handle);
+
+      // Fatal on failure: if the snapshot doesn't land on the relay we must NOT
+      // release credentials. The controller never reaches step 3 unless step 2
+      // returned successfully for the still-current run.
+      completed = await ceremony.run(pinBytes: pinBytes, mnemonic: mnemonic);
+    } on Object catch (e) {
+      debugPrint('[SYNC] Pairing initiator flow failed: ${e.runtimeType}');
+      completed = false;
+    } finally {
+      _uploadEventSubscription?.close();
+      _uploadEventSubscription = null;
+      // Drop the mnemonic now that the ceremony has consumed it.
+      _mnemonic = null;
+      // Step 3 has returned (or the flow failed): overwrite the bytes this
+      // widget handed to core, so no PIN material outlives the call.
+      zeroBytesBestEffort(pinBytes);
+      // Any pre-flight buffer is consumed by now; drop the stale reference.
+      _validatedPin?.clear();
+      _validatedPin = null;
+    }
+
+    if (!mounted) return;
+    // A cancelled or superseded run has already moved the UI. Its late result
+    // must not mutate this widget.
+    if (_ceremony != ceremony) return;
+
+    if (!completed) {
+      if (ceremony.phase == PairingCeremonyPhase.cancelled) return;
+      // An upload failure already swapped in the retry card with localized copy;
+      // do not overwrite it with a generic error step.
+      if (_uploadFailureReason != null) return;
+      // No failure card means step 2 published the snapshot and the failure
+      // landed in credential release / finalization: the bytes did reach the
+      // relay, so the upload retry copy would be wrong. Deliberately no raw
+      // error text either: FFI/relay messages can carry session identifiers.
+      setState(() {
+        _error = ceremony.uploadPublished
+            ? context.l10n.syncSetupSnapshotFinalizeFailed
+            : context.l10n.syncSetupSnapshotUploadFailedTitle;
+        _step = _InitiatorStep.error;
+      });
+      return;
+    }
+
+    // Credentials are released. Continue the existing post-pair UX.
+    await _runPostPairingSteps();
+  }
+
+  /// Maps ceremony phases onto the sheet's steps.
+  void _onCeremonyPhase(PairingCeremonyPhase phase) {
+    if (!mounted || _disposed) return;
+    switch (phase) {
+      case PairingCeremonyPhase.verifying:
+        _setStep(_InitiatorStep.confirming);
+      case PairingCeremonyPhase.uploading:
+        _setStep(_InitiatorStep.uploading);
+      case PairingCeremonyPhase.finalizing:
+        _setStep(_InitiatorStep.completing);
+      case PairingCeremonyPhase.completed:
+      case PairingCeremonyPhase.failed:
+      case PairingCeremonyPhase.cancelled:
+      case PairingCeremonyPhase.idle:
+        // Terminal phases are handled by the awaiting `_completeInitiator`.
+        break;
     }
   }
 
-  static int? _asInt(Object? raw) {
-    if (raw == null) return null;
-    if (raw is int) return raw;
-    if (raw is BigInt) return raw.toInt();
-    if (raw is num) return raw.toInt();
-    if (raw is String) return int.tryParse(raw);
-    return null;
+  /// Applies upload progress/hints from the controller.
+  void _onCeremonyProgress(PairingProgressUpdate update) {
+    if (!mounted || _disposed) return;
+    setState(() {
+      _uploadBytesSent = update.bytesSent;
+      _uploadBytesTotal = update.bytesTotal;
+      _showByteProgress = update.showByteProgress;
+      _resumableTransfer = update.resumableTransfer;
+    });
+  }
+
+  /// Shows the existing upload-failure retry card.
+  ///
+  /// Uses the same localized copy as the pre-split flow and never echoes the
+  /// relay's error text.
+  void _onUploadFailed() {
+    if (!mounted || _disposed) return;
+    setState(() {
+      _uploadFailureReason = context.l10n.syncSetupSnapshotUploadRetryBody;
+      _step = _InitiatorStep.uploading;
+    });
+  }
+
+  /// Applies the transport the relay actually used.
+  ///
+  /// A `singlePut` result is an ordinary downgrade, not an error: it keeps
+  /// rendering as ordinary pairing progress. Byte progress stays with the
+  /// controller's policy — once the progress stream reported a total the bar
+  /// remains determinate through resolution — while only the slow-link promise
+  /// is withheld for a non-resumable or unleased transfer.
+  void _onUploadResolved(ffi.ResumableSnapshotUploadResult result) {
+    if (!mounted || _disposed) return;
+    final ceremony = _ceremony;
+    if (ceremony == null) return;
+    setState(() {
+      // Source both flags from the controller so the sheet can never disagree
+      // with its own progress policy (the controller updates them before this
+      // callback runs).
+      _resumableTransfer = ceremony.resumableTransfer;
+      _showByteProgress = ceremony.showByteProgress;
+    });
+  }
+
+  /// Everything that happens after credentials are released.
+  Future<void> _runPostPairingSteps() async {
+    // Drain store after completion (may mutate epoch / credentials). Credentials
+    // are already released at this point, so a drain failure must not surface as
+    // a pairing failure — it only leaves the local mirror to be repaired by the
+    // next normal drain.
+    try {
+      await drainRustStore(widget.handle);
+      try {
+        await cacheRuntimeKeys(widget.handle, ref.read(databaseProvider));
+      } catch (e) {
+        debugPrint('[SYNC] Failed to refresh runtime keys after pairing: $e');
+      }
+    } catch (e) {
+      debugPrint('[SYNC] Post-pairing credential drain failed: $e');
+    }
+
+    // optimistic pairing push: the joiner is now authorized, so proactively
+    // re-supply the referenced blobs we hold (short-TTL, on the pairing-push
+    // lane) — it can fetch them straight away instead of healing each on
+    // demand. Fire-and-forget; the push runs off the provider's own
+    // (app-scoped) ref, so it outlives this sheet.
+    unawaited(runPairingMediaPush(ref));
+
+    if (!mounted) return;
+    // Brief confirmation so the user sees the handshake actually finished
+    // before we route forward.
+    _setStep(_InitiatorStep.uploadComplete);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    _setStep(_InitiatorStep.done);
+  }
+
+  /// Sets the step without awaiting, guarding against a disposed widget.
+  void _setStep(_InitiatorStep step, {String? error}) {
+    if (!mounted || _disposed) return;
+    setState(() {
+      _step = step;
+      if (error != null) _error = error;
+    });
   }
 
   @override
@@ -721,13 +836,33 @@ class SetupDeviceSheetContentState
         onPinEntered: _completeInitiator,
         onBack: () => setState(() => _step = _InitiatorStep.sasVerification),
       ),
+      _InitiatorStep.confirming => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PrismSpinner(
+                color: Theme.of(context).colorScheme.primary,
+                size: 52,
+                dotCount: 8,
+                duration: const Duration(milliseconds: 3000),
+              ),
+              const SizedBox(height: 16),
+              Text(context.l10n.syncSetupConfirmingJoiner),
+            ],
+          ),
+        ),
+      ),
       _InitiatorStep.uploading => _InitiatorUploadingView(
         bytesSent: _uploadBytesSent,
         bytesTotal: _uploadBytesTotal,
         failureReason: _uploadFailureReason,
-        // Re-run the upload + completion. PIN was consumed on the first
-        // attempt, so bounce back to the start of the flow so the user
-        // re-enters the mnemonic and PIN.
+        showByteProgress: _showByteProgress,
+        resumableTransfer: _resumableTransfer,
+        // Re-run the ceremony. PIN was consumed on the first attempt, so bounce
+        // back to the start of the flow so the user re-enters the mnemonic and
+        // PIN, and so the retry starts from clean ceremony state.
         onRetry: _reset,
       ),
       _InitiatorStep.uploadComplete => const _InitiatorUploadCompleteView(),
@@ -1876,24 +2011,37 @@ class _InitiatorErrorView extends StatelessWidget {
 /// Shows a linear progress bar driven by `SnapshotUploadProgress` events and
 /// a human-readable label ("Uploading X of Y"). On `SnapshotUploadFailed`,
 /// swaps the progress bar for a retry button.
+///
+/// Byte counts are rendered whenever [showByteProgress] is true. Core reports
+/// `SnapshotUploadProgress` for whichever transport it picks, so the bar is
+/// determinate for both the resumable transfer and the single-`PUT` downgrade;
+/// a resolved single-`PUT` never tears it back to indeterminate. Before any
+/// total arrives the bar is indeterminate with plain pairing copy rather than
+/// an invented percentage. The "slow links are fine" line is shown only when
+/// [resumableTransfer] is true, because that is the only transport where
+/// slow-link survival is guaranteed.
 class _InitiatorUploadingView extends StatelessWidget {
   const _InitiatorUploadingView({
     required this.bytesSent,
     required this.bytesTotal,
     required this.failureReason,
+    required this.showByteProgress,
+    required this.resumableTransfer,
     required this.onRetry,
   });
 
   final int? bytesSent;
   final int? bytesTotal;
   final String? failureReason;
+  final bool showByteProgress;
+  final bool resumableTransfer;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sent = bytesSent ?? 0;
-    final total = bytesTotal ?? 0;
+    final total = showByteProgress ? (bytesTotal ?? 0) : 0;
     final progress = total > 0 ? (sent / total).clamp(0.0, 1.0) : null;
 
     if (failureReason != null) {
@@ -1934,39 +2082,66 @@ class _InitiatorUploadingView extends StatelessWidget {
       );
     }
 
+    final progressLabel = total > 0
+        ? context.l10n.syncSetupSnapshotUploadProgress(
+            humanBytes(sent),
+            humanBytes(total),
+          )
+        : context.l10n.syncSetupSnapshotUploadStarting;
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.l10n.syncSetupSnapshotUploadingTitle,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+          Semantics(
+            container: true,
+            liveRegion: true,
+            label: context.l10n.syncSetupSnapshotUploadingTitle,
+            child: ExcludeSemantics(
+              child: Text(
+                context.l10n.syncSetupSnapshotUploadingTitle,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(
               PrismShapes.of(context).radius(8),
             ),
-            child: LinearProgressIndicator(value: progress, minHeight: 8),
+            child: Semantics(
+              label: progressLabel,
+              child: LinearProgressIndicator(value: progress, minHeight: 8),
+            ),
           ),
           const SizedBox(height: 12),
-          Text(
-            total > 0
-                ? context.l10n.syncSetupSnapshotUploadProgress(
-                    humanBytes(sent),
-                    humanBytes(total),
-                  )
-                : context.l10n.syncSetupSnapshotUploadStarting,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          // The bar above already carries `progressLabel` in its own semantics
+          // node; exclude the visible copy so screen readers announce the
+          // progress once instead of twice.
+          ExcludeSemantics(
+            child: Text(
+              progressLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
+          if (resumableTransfer) ...[
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.syncSetupSnapshotUploadResumableHint,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );

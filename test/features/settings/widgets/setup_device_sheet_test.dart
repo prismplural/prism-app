@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/security/pin_buffer.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
@@ -49,7 +52,22 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     this.cancelPairingCeremonyHandler,
     // ignore: unused_element_parameter
     this.completeInitiatorCeremonyHandler,
+    // Test seams: present so specs can script these paths when needed.
+    // ignore: unused_element_parameter
+    this.verifyResumableHandler,
+    // ignore: unused_element_parameter
+    this.uploadResumableHandler,
+    // ignore: unused_element_parameter
+    this.completeResumableHandler,
+    // ignore: unused_element_parameter
+    this.capabilityHandler,
   });
+
+  /// Ordered record of the split-ceremony core calls this fake observed.
+  final List<String> calls = <String>[];
+
+  /// Number of `cancelPairingCeremony` invocations observed.
+  int cancelCount = 0;
 
   Future<String> Function({
     required ffi.PrismSyncHandle handle,
@@ -64,6 +82,88 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     required List<int> mnemonic,
   })?
   completeInitiatorCeremonyHandler;
+  Future<bool> Function({required ffi.PrismSyncHandle handle})?
+  verifyResumableHandler;
+  Future<ffi.ResumableSnapshotUploadResult> Function({
+    required ffi.PrismSyncHandle handle,
+    BigInt? ttlSecs,
+  })?
+  uploadResumableHandler;
+  Future<ffi.ResumableCeremonyCompletion> Function({
+    required ffi.PrismSyncHandle handle,
+    required List<int> password,
+    required List<int> mnemonic,
+  })?
+  completeResumableHandler;
+  Future<ffi.SnapshotUploadCapabilityInfo> Function({
+    required ffi.PrismSyncHandle handle,
+  })?
+  capabilityHandler;
+
+  @override
+  Future<bool> verifyInitiatorConfirmationResumable({
+    required ffi.PrismSyncHandle handle,
+  }) {
+    calls.add('verify');
+    return verifyResumableHandler?.call(handle: handle) ??
+        Future<bool>.value(true);
+  }
+
+  @override
+  Future<ffi.ResumableSnapshotUploadResult> uploadPairingSnapshotResumable({
+    required ffi.PrismSyncHandle handle,
+    BigInt? ttlSecs,
+  }) {
+    calls.add('upload');
+    return uploadResumableHandler?.call(handle: handle, ttlSecs: ttlSecs) ??
+        Future<ffi.ResumableSnapshotUploadResult>.value(
+          const ffi.ResumableSnapshotUploadResult(
+            transport: ffi.SnapshotTransportUsed.resumable,
+            uploadId: 'test-session',
+            committedBytes: 2048,
+            totalBytes: 2048,
+            leaseActive: true,
+            leaseRenewed: true,
+          ),
+        );
+  }
+
+  @override
+  Future<ffi.ResumableCeremonyCompletion> completeInitiatorResumableCeremony({
+    required ffi.PrismSyncHandle handle,
+    required List<int> password,
+    required List<int> mnemonic,
+  }) {
+    calls.add('complete');
+    return completeResumableHandler?.call(
+          handle: handle,
+          password: password,
+          mnemonic: mnemonic,
+        ) ??
+        Future<ffi.ResumableCeremonyCompletion>.value(
+          const ffi.ResumableCeremonyCompletion(
+            completed: true,
+            leaseActive: true,
+            leaseRenewed: true,
+            leaseCapable: true,
+          ),
+        );
+  }
+
+  @override
+  Future<ffi.SnapshotUploadCapabilityInfo> snapshotUploadCapability({
+    required ffi.PrismSyncHandle handle,
+  }) {
+    return capabilityHandler?.call(handle: handle) ??
+        Future<ffi.SnapshotUploadCapabilityInfo>.value(
+          const ffi.SnapshotUploadCapabilityInfo(
+            state: ffi.SnapshotUploadCapabilityState.available,
+            version: 1,
+            chunkBytes: 1024,
+            maxWireBytes: 1 << 20,
+          ),
+        );
+  }
 
   @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) =>
@@ -75,6 +175,7 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
 
   @override
   Future<void> cancelPairingCeremony({required ffi.PrismSyncHandle handle}) {
+    cancelCount++;
     return cancelPairingCeremonyHandler?.call(handle: handle) ?? Future.value();
   }
 
@@ -224,6 +325,93 @@ Future<void> _pumpGuardHarness(
     ),
   );
 }
+
+/// Pumps the sheet and drives it to the SAS step with a scripted API.
+///
+/// Overrides `databaseProvider` with an in-memory database because the
+/// pre-ceremony outbox drain touches it before the verify/upload/complete
+/// calls run.
+Future<void> _pumpToSasStep(
+  WidgetTester tester, {
+  required _FakePairingCeremonyApi fakeApi,
+  List<dynamic> extraOverrides = const [],
+}) async {
+  const fakeHandle = _FakePrismSyncHandle();
+  final db = AppDatabase(NativeDatabase.memory());
+  addTearDown(db.close);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+        prismSyncHandleProvider.overrideWithBuild(
+          (ref, notifier) => fakeHandle,
+        ),
+        syncHealthProvider.overrideWith(_FakeSyncHealthNotifier.new),
+        relayUrlProvider.overrideWithValue(
+          const AsyncValue<String?>.data('https://relay.example.com'),
+        ),
+        syncDeviceIdProvider.overrideWithValue(
+          const AsyncValue<String?>.data('device-123'),
+        ),
+        syncDeviceSecretPresentProvider.overrideWithValue(
+          const AsyncValue<bool>.data(true),
+        ),
+        syncWrappedDekPresentProvider.overrideWithValue(
+          const AsyncValue<bool>.data(true),
+        ),
+        ...extraOverrides,
+      ],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Builder(
+          builder: (context) => Consumer(
+            builder: (context, ref, _) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () => SetupDeviceSheet.show(context, ref),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  await tester.tap(find.text('Open'));
+  await tester.pumpAndSettle();
+  await _advanceThroughPreflight(tester, tapScanButton: true);
+
+  final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
+  scanner.onDetect!(
+    const BarcodeCapture(barcodes: [Barcode(rawValue: 'AQIDBA==')]),
+  );
+  await tester.pump();
+  await tester.pumpAndSettle();
+  expect(find.text('Verify Security Code'), findsOneWidget);
+}
+
+/// Locates the live `SetupDeviceSheetContentState` under test.
+SetupDeviceSheetContentState _sheetState(WidgetTester tester) =>
+    tester.state<SetupDeviceSheetContentState>(
+      find.byElementPredicate(
+        (e) => e is StatefulElement && e.state is SetupDeviceSheetContentState,
+      ),
+    );
+
+/// Scripted `startInitiatorCeremony` response: SAS words plus the joiner device
+/// id the split ceremony requires.
+Future<String> _initiatorSasResponse({
+  required ffi.PrismSyncHandle handle,
+  required Uint8List tokenBytes,
+}) async => jsonEncode({
+  'sas_version': 3,
+  'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+  'joiner_device_id': 'joiner-dev-xyz',
+});
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -1013,62 +1201,99 @@ void main() {
   );
 
   testWidgets(
-    'progress card widget renders bytes-sent/total from SyncEvent data',
+    'progress card widget renders streamed bytes and stays determinate through a singlePut resolution',
     (tester) async {
-      // Covers the inner progress/failure rendering pipeline that the
-      // initiator flow feeds with SnapshotUploadProgress / SnapshotUploadFailed
-      // events. The full FFI-driven flow (scan QR → upload) is exercised by
-      // the "scanner flow" widget test above plus the Rust-side tests.
-      int? sent;
-      int? total;
-      String? failure;
+      // Regression: a relay that downgrades to the single `PUT` must not tear
+      // the determinate bar back to indeterminate when the upload resolves. The
+      // streamed `SnapshotUploadProgress` events already reported a total, so the
+      // bar keeps that value through resolution (terminal single-PUT byte fields
+      // are not a meaningful offset and are ignored).
+      final uploadGate = Completer<ffi.ResumableSnapshotUploadResult>();
+      final events = StreamController<SyncEvent>.broadcast();
+      addTearDown(events.close);
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler: _initiatorSasResponse,
+        uploadResumableHandler: ({required handle, ttlSecs}) =>
+            uploadGate.future,
+      );
 
-      SyncEvent progress({required int bytesSent, required int bytesTotal}) {
-        return SyncEvent.fromJson({
+      await _pumpToSasStep(
+        tester,
+        fakeApi: fakeApi,
+        extraOverrides: [
+          syncEventStreamProvider.overrideWith((ref) => events.stream),
+        ],
+      );
+
+      await tester.tap(find.text('They Match'));
+      await tester.pump();
+      // Verify resolved and the upload is in flight, so the progress card shows.
+      expect(
+        find.text('Uploading your data to the new device'),
+        findsOneWidget,
+      );
+
+      final sheetState = _sheetState(tester);
+      // Before any progress event the bar is indeterminate and no total exists.
+      expect(sheetState.showByteProgressForTest, isFalse);
+      expect(find.text('Preparing upload...'), findsOneWidget);
+
+      // First streamed event: the progress card switches to a determinate bar.
+      // `SyncEvent.data` is the raw JSON map, so bytes_sent/bytes_total arrive as
+      // numbers straight off the FFI payload.
+      events.add(
+        SyncEvent.fromJson({
           'type': 'SnapshotUploadProgress',
           'sync_id': 'sync-1',
-          'bytes_sent': bytesSent,
-          'bytes_total': bytesTotal,
-        });
-      }
-
-      void apply(SyncEvent event) {
-        if (event.type == 'SnapshotUploadProgress') {
-          sent = (event.data['bytes_sent'] as num?)?.toInt();
-          total = (event.data['bytes_total'] as num?)?.toInt();
-        } else if (event.type == 'SnapshotUploadFailed') {
-          failure = event.data['reason'] as String?;
-        }
-      }
-
-      apply(progress(bytesSent: 512, bytesTotal: 2048));
-      expect(sent, 512);
-      expect(total, 2048);
-
-      apply(
-        SyncEvent.fromJson({
-          'type': 'SnapshotUploadFailed',
-          'sync_id': 'sync-1',
-          'reason': 'boom',
+          'bytes_sent': 512,
+          'bytes_total': 2048,
         }),
       );
-      expect(failure, 'boom');
+      await tester.pump();
+      await tester.pump();
 
-      // And render a LinearProgressIndicator driven by the computed value
-      // to prove the value flows into a Flutter widget subtree.
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: LinearProgressIndicator(
-              value: total! > 0 ? (sent! / total!) : 0,
-            ),
-          ),
-        ),
-      );
       final indicator = tester.widget<LinearProgressIndicator>(
         find.byType(LinearProgressIndicator),
       );
+      expect(indicator.value, isNotNull);
       expect(indicator.value, closeTo(0.25, 1e-9));
+      expect(find.text('512 B of 2.0 KB'), findsOneWidget);
+
+      // Resolution reports single PUT with its own (unusable) terminal counts.
+      uploadGate.complete(
+        const ffi.ResumableSnapshotUploadResult(
+          transport: ffi.SnapshotTransportUsed.singlePut,
+          uploadId: '',
+          committedBytes: 4096,
+          totalBytes: 4096,
+          leaseActive: false,
+          leaseRenewed: false,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // At resolution the sheet is already on the completing step, so read the
+      // state rather than the (now unmounted) progress card. The streamed
+      // determinate values must survive the singlePut resolution untouched.
+      expect(
+        sheetState.showByteProgressForTest,
+        isTrue,
+        reason: 'determinate byte progress must survive a singlePut resolution',
+      );
+      expect(sheetState.uploadBytesSentForTest, 512);
+      expect(
+        sheetState.uploadBytesTotalForTest,
+        2048,
+        reason: 'terminal single-PUT byte counts are ignored',
+      );
+
+      // Then the credential-release half and the post-pair confirmation delay
+      // resolve without any further progress event.
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+      expect(sheetState.showByteProgressForTest, isTrue);
+      expect(sheetState.uploadBytesTotalForTest, 2048);
+      expect(find.textContaining('Pairing complete!'), findsOneWidget);
     },
   );
 
@@ -1495,8 +1720,79 @@ void main() {
     },
   );
 
-  // TODO: Add a test that drives _step = sasVerification with
-  // _validatedPin == null and asserts the passwordEntry fallback view appears.
+  testWidgets(
+    'regression: passwordEntry fallback delivers the exact PIN bytes despite the confirming-step rebuild',
+    (tester) async {
+      // P1 security/lifecycle invariant. On the fallback path the sheet holds no
+      // pre-flight PIN, so `_InitiatorPinView` owns the buffer and its
+      // `dispose()` zeroes it. The first `setState` inside `_completeInitiator`
+      // rebuilds to the confirming step and unmounts that view, so the bytes
+      // must be drained synchronously — before any `setState` or `await`.
+      //
+      // This drives the real sheet and asserts on the bytes core actually
+      // received, so it fails if the drain ever moves back behind the unmount.
+      List<int>? passwordSeen;
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler: _initiatorSasResponse,
+        completeResumableHandler:
+            ({required handle, required password, required mnemonic}) {
+              passwordSeen = List<int>.of(password);
+              return Future<ffi.ResumableCeremonyCompletion>.value(
+                const ffi.ResumableCeremonyCompletion(
+                  completed: true,
+                  leaseActive: true,
+                  leaseRenewed: true,
+                  leaseCapable: true,
+                ),
+              );
+            },
+      );
+
+      await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+      // Force the fallback: clear the sheet's pre-flight PIN through the real
+      // lifecycle path (a paused app drops it), then resume so the rest of the
+      // test runs with frames enabled. `_validatedPin == null` is what routes
+      // SAS confirmation through the PIN entry view.
+      final sheetState = _sheetState(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+      expect(
+        sheetState.validatedPinIsNull,
+        isTrue,
+        reason: 'the lifecycle pause must clear the pre-flight PIN',
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      await tester.tap(find.text('They Match'));
+      await tester.pump();
+      // Fallback view is up; `_InitiatorPinView` owns the only PIN buffer.
+      expect(find.text('Enter your sync PIN'), findsOneWidget);
+
+      for (final digit in ['1', '2', '3', '4', '5']) {
+        await tester.tap(find.text(digit).last);
+        await tester.pump();
+      }
+      await tester.tap(find.text('6').last);
+      // Drive the sync drain first, then the ceremony and the post-pair delay.
+      await tester.pump();
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+
+      expect(fakeApi.calls, equals(['verify', 'upload', 'complete']));
+      expect(
+        passwordSeen,
+        isNotNull,
+        reason: 'credential release must have received the PIN bytes',
+      );
+      expect(
+        passwordSeen,
+        equals([0x31, 0x32, 0x33, 0x34, 0x35, 0x36]),
+        reason:
+            'the drained bytes must be the digits the user typed, not zeros',
+      );
+    },
+  );
 
   testWidgets('dispose during pinPreflight does NOT cancel ceremony', (
     tester,
@@ -2088,4 +2384,300 @@ void main() {
       expect(find.text('Verify Security Code'), findsNothing);
     },
   );
+
+  // ---------------------------------------------------------------------------
+  // Split ceremony (verify → upload → complete)
+  // ---------------------------------------------------------------------------
+
+  testWidgets(
+    'split ceremony calls verify → upload → complete in order and shows phases',
+    (tester) async {
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler:
+            ({required handle, required tokenBytes}) async {
+              return jsonEncode({
+                'sas_version': 3,
+                'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+                'joiner_device_id': 'joiner-dev-xyz',
+              });
+            },
+        uploadResumableHandler: ({required handle, ttlSecs}) async {
+          expect(ttlSecs, BigInt.from(86400));
+          return const ffi.ResumableSnapshotUploadResult(
+            transport: ffi.SnapshotTransportUsed.resumable,
+            uploadId: 'session-1',
+            committedBytes: 2048,
+            totalBytes: 2048,
+            leaseActive: true,
+            leaseRenewed: true,
+          );
+        },
+      );
+
+      await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+      await tester.tap(find.text('They Match'));
+      // Flush the post-completion confirmation delay so no timers are pending.
+      await tester.pumpAndSettle(const Duration(seconds: 3));
+
+      expect(fakeApi.calls, equals(['verify', 'upload', 'complete']));
+      // The existing post-pair UX is preserved (confirmation → done).
+      expect(find.textContaining('Pairing complete!'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'finalization failure after a published upload uses the distinct finish copy',
+    (tester) async {
+      // The snapshot reached the relay, so the credential-release failure must
+      // not reuse the upload-retry copy ("didn't reach the relay") and must not
+      // echo the raw FFI/relay error.
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler: _initiatorSasResponse,
+        completeResumableHandler:
+            ({required handle, required password, required mnemonic}) async {
+              throw StateError('session-abc123 rejected the handoff');
+            },
+      );
+
+      await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+      await tester.tap(find.text('They Match'));
+      await tester.pumpAndSettle();
+
+      // Upload still happened; only finalization failed.
+      expect(fakeApi.calls, equals(['verify', 'upload', 'complete']));
+      expect(find.text('Pairing Failed'), findsOneWidget);
+      expect(
+        find.textContaining("Couldn't finish setting up the new device"),
+        findsOneWidget,
+      );
+      // Must not imply the bytes failed to transfer.
+      expect(find.text("Couldn't upload your data"), findsNothing);
+      expect(find.text('Retry upload'), findsNothing);
+      expect(
+        find.textContaining("snapshot didn't reach the relay"),
+        findsNothing,
+      );
+      // Raw-error redaction is preserved.
+      expect(find.textContaining('StateError'), findsNothing);
+      expect(find.textContaining('session-abc123'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'upload failure shows the retry card and never releases credentials',
+    (tester) async {
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler:
+            ({required handle, required tokenBytes}) async {
+              return jsonEncode({
+                'sas_version': 3,
+                'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+                'joiner_device_id': 'joiner-dev-xyz',
+              });
+            },
+        uploadResumableHandler: ({required handle, ttlSecs}) async {
+          throw StateError('relay rejected the snapshot');
+        },
+      );
+
+      await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+      await tester.tap(find.text('They Match'));
+      await tester.pumpAndSettle();
+
+      expect(fakeApi.calls, equals(['verify', 'upload']));
+      expect(fakeApi.calls, isNot(contains('complete')));
+      // The existing failure/retry copy is reused, and no raw error text leaks.
+      expect(find.text("Couldn't upload your data"), findsOneWidget);
+      expect(
+        find.text(
+          "The snapshot didn't reach the relay. Try again to keep pairing.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Retry upload'), findsOneWidget);
+      expect(find.textContaining('StateError'), findsNothing);
+    },
+  );
+
+  testWidgets('singlePut fallback continues pairing with no byte promise', (
+    tester,
+  ) async {
+    final fakeApi = _FakePairingCeremonyApi(
+      startInitiatorCeremonyHandler:
+          ({required handle, required tokenBytes}) async {
+            return jsonEncode({
+              'sas_version': 3,
+              'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+              'joiner_device_id': 'joiner-dev-xyz',
+            });
+          },
+      uploadResumableHandler: ({required handle, ttlSecs}) async {
+        return const ffi.ResumableSnapshotUploadResult(
+          transport: ffi.SnapshotTransportUsed.singlePut,
+          uploadId: '',
+          committedBytes: 4096,
+          totalBytes: 4096,
+          leaseActive: false,
+          leaseRenewed: false,
+        );
+      },
+    );
+
+    await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+    await tester.tap(find.text('They Match'));
+    // Flush the post-completion confirmation delay so no timers are pending.
+    await tester.pumpAndSettle(const Duration(seconds: 3));
+
+    // Ordinary pairing continues; the downgrade is not an error.
+    expect(fakeApi.calls, equals(['verify', 'upload', 'complete']));
+    expect(find.text("Couldn't upload your data"), findsNothing);
+    // No slow-link promise for the single-PUT path.
+    expect(find.textContaining('keep going across a slow'), findsNothing);
+  });
+
+  testWidgets(
+    'cancelling during the ceremony does not await the upload or release credentials',
+    (tester) async {
+      final uploadCompleter = Completer<ffi.ResumableSnapshotUploadResult>();
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler:
+            ({required handle, required tokenBytes}) async {
+              return jsonEncode({
+                'sas_version': 3,
+                'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+                'joiner_device_id': 'joiner-dev-xyz',
+              });
+            },
+        uploadResumableHandler: ({required handle, ttlSecs}) =>
+            uploadCompleter.future,
+      );
+
+      await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+      await tester.tap(find.text('They Match'));
+      await tester.pump();
+      // Upload is in flight now.
+      expect(fakeApi.calls, equals(['verify', 'upload']));
+
+      // Dispose the sheet mid-upload: the widget must cancel and move on
+      // without waiting for the upload future.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+
+      expect(fakeApi.cancelCount, greaterThanOrEqualTo(1));
+
+      // The abandoned upload completes late; it must not reach step 3 and must
+      // not throw into the disposed widget.
+      uploadCompleter.complete(
+        const ffi.ResumableSnapshotUploadResult(
+          transport: ffi.SnapshotTransportUsed.resumable,
+          uploadId: 'session-late',
+          committedBytes: 2048,
+          totalBytes: 2048,
+          leaseActive: true,
+          leaseRenewed: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(fakeApi.calls, isNot(contains('complete')));
+    },
+  );
+
+  testWidgets(
+    'cancel from the sheet drives cancelPairingCeremony and ignores a late upload',
+    (tester) async {
+      final uploadGate = Completer<ffi.ResumableSnapshotUploadResult>();
+      final fakeApi = _FakePairingCeremonyApi(
+        startInitiatorCeremonyHandler:
+            ({required handle, required tokenBytes}) async {
+              return jsonEncode({
+                'sas_version': 3,
+                'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+                'joiner_device_id': 'joiner-dev-xyz',
+              });
+            },
+        uploadResumableHandler: ({required handle, ttlSecs}) =>
+            uploadGate.future,
+      );
+
+      await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+      await tester.tap(find.text('They Match'));
+      await tester.pump();
+      expect(fakeApi.calls, equals(['verify', 'upload']));
+
+      // Cancel through the sheet (dismiss path), which must not await the
+      // upload and must stop the ceremony.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+
+      expect(fakeApi.cancelCount, greaterThanOrEqualTo(1));
+
+      // Late upload success must not release credentials.
+      uploadGate.complete(
+        const ffi.ResumableSnapshotUploadResult(
+          transport: ffi.SnapshotTransportUsed.resumable,
+          uploadId: 'late-session',
+          committedBytes: 2048,
+          totalBytes: 2048,
+          leaseActive: true,
+          leaseRenewed: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(fakeApi.calls, isNot(contains('complete')));
+    },
+  );
+
+  testWidgets('retry after an upload failure starts a clean ceremony', (
+    tester,
+  ) async {
+    var attempt = 0;
+    final fakeApi = _FakePairingCeremonyApi(
+      startInitiatorCeremonyHandler:
+          ({required handle, required tokenBytes}) async {
+            return jsonEncode({
+              'sas_version': 3,
+              'sas_words': ['alpha', 'bravo', 'charlie', 'delta', 'echo'],
+              'joiner_device_id': 'joiner-dev-xyz',
+            });
+          },
+      uploadResumableHandler: ({required handle, ttlSecs}) async {
+        attempt++;
+        if (attempt == 1) {
+          throw StateError('first attempt fails');
+        }
+        return const ffi.ResumableSnapshotUploadResult(
+          transport: ffi.SnapshotTransportUsed.resumable,
+          uploadId: 'retry-session',
+          committedBytes: 1024,
+          totalBytes: 1024,
+          leaseActive: true,
+          leaseRenewed: true,
+        );
+      },
+    );
+
+    await _pumpToSasStep(tester, fakeApi: fakeApi);
+
+    await tester.tap(find.text('They Match'));
+    await tester.pumpAndSettle();
+    expect(find.text('Retry upload'), findsOneWidget);
+    // The failure card must not leak raw error text.
+    expect(find.textContaining('StateError'), findsNothing);
+
+    // Retry returns to the start of the flow, so the ceremony state is clean
+    // (no leftover phase, progress, or stale credentials).
+    await tester.tap(find.text('Retry upload'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('recovery phrase'), findsWidgets);
+    expect(fakeApi.calls, isNot(contains('complete')));
+  });
 }

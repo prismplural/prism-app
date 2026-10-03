@@ -74,6 +74,29 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
     required List<int> password,
     required List<int> mnemonic,
   }) => throw UnimplementedError();
+
+  @override
+  Future<bool> verifyInitiatorConfirmationResumable({
+    required ffi.PrismSyncHandle handle,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<ffi.ResumableSnapshotUploadResult> uploadPairingSnapshotResumable({
+    required ffi.PrismSyncHandle handle,
+    BigInt? ttlSecs,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<ffi.ResumableCeremonyCompletion> completeInitiatorResumableCeremony({
+    required ffi.PrismSyncHandle handle,
+    required List<int> password,
+    required List<int> mnemonic,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<ffi.SnapshotUploadCapabilityInfo> snapshotUploadCapability({
+    required ffi.PrismSyncHandle handle,
+  }) => throw UnimplementedError();
 }
 
 // ---------------------------------------------------------------------------
