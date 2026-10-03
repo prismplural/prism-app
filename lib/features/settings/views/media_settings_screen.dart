@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_heal_providers.dart';
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -635,11 +636,9 @@ class MediaSettingsScreen extends ConsumerWidget {
         bytes = await picked.readAsBytes();
 
       case _AddSource.file:
-        final picked = await ImagePicker().pickImage(
-          source: ImageSource.gallery,
-        );
-        // ImagePicker.gallery is the closest cross-platform equivalent.
-        // On desktop, PrismFileDialogService could be used instead.
+        final picked = await ref
+            .read(prismFileDialogServiceProvider)
+            .pickImageFile();
         if (picked == null || !context.mounted) return;
         bytes = await picked.readAsBytes();
 

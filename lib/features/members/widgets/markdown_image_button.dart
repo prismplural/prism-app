@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/services/bio_image_insert_spec.dart';
 import 'package:prism_plurality/features/members/services/bio_image_processor.dart';
@@ -134,12 +135,22 @@ class MarkdownImageButtonState extends ConsumerState<MarkdownImageButton> {
       case _ImageSource.photoLibrary:
         await _addFromPicker(ImageSource.gallery);
       case _ImageSource.file:
-        await _addFromPicker(ImageSource.gallery); // closest cross-platform
+        await _addFromFile();
       case _ImageSource.url:
         await _addFromUrl();
       case _ImageSource.prismLibrary:
         await _insertFromLibrary();
     }
+  }
+
+  Future<void> _addFromFile() async {
+    final picked = await ref
+        .read(prismFileDialogServiceProvider)
+        .pickImageFile();
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    await _stageAndInsert(bytes);
   }
 
   Future<void> _addFromPicker(ImageSource source) async {

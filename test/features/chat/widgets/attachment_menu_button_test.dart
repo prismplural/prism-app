@@ -11,7 +11,9 @@ Widget _buildTestApp(Widget child) {
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(body: Center(child: child)),
+      home: Scaffold(
+        body: Align(alignment: Alignment.bottomCenter, child: child),
+      ),
     ),
   );
 }
@@ -26,6 +28,7 @@ void main() {
           size: 48,
           onCamera: () {},
           onPhotoLibrary: () {},
+          onFile: () {},
           onGif: () {},
           onLibrary: () {},
         ),
@@ -40,6 +43,7 @@ void main() {
 
     expect(find.text('Camera'), findsOneWidget);
     expect(find.text('Photo Library'), findsOneWidget);
+    expect(find.text('File'), findsOneWidget);
     expect(find.text('GIFs'), findsOneWidget);
   });
 
@@ -52,6 +56,7 @@ void main() {
           size: 48,
           onCamera: () {},
           onPhotoLibrary: () {},
+          onFile: () {},
           onGif: () {},
           onLibrary: () {},
         ),
@@ -63,6 +68,7 @@ void main() {
 
     expect(find.text('Camera'), findsOneWidget);
     expect(find.text('Photo Library'), findsOneWidget);
+    expect(find.text('File'), findsOneWidget);
     expect(find.text('GIFs'), findsNothing);
   });
 
@@ -75,6 +81,7 @@ void main() {
           size: 48,
           onCamera: () {},
           onPhotoLibrary: () {},
+          onFile: () {},
           onGif: () {},
           onLibrary: () {},
         ),
@@ -86,6 +93,7 @@ void main() {
 
     expect(find.text('Camera'), findsNothing);
     expect(find.text('Photo Library'), findsOneWidget);
+    expect(find.text('File'), findsOneWidget);
   });
 
   testWidgets('runs selected action and closes the popup', (tester) async {
@@ -99,6 +107,7 @@ void main() {
           size: 48,
           onCamera: () => tapped = true,
           onPhotoLibrary: () {},
+          onFile: () {},
           onGif: () {},
           onLibrary: () {},
         ),

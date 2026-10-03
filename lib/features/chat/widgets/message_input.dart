@@ -405,6 +405,15 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     );
   }
 
+  Future<void> _pickFile() async {
+    final picked = await ref
+        .read(prismFileDialogServiceProvider)
+        .pickImageFile();
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    _stageImageBytes(bytes);
+  }
+
   Future<void> _pickImage(ImageSource source) async {
     final bytes = await _pickImageBytes(source);
     if (bytes != null) _stageImageBytes(bytes);
@@ -980,6 +989,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     size: inputHeight,
                     onCamera: () => _pickImage(ImageSource.camera),
                     onPhotoLibrary: () => _pickImage(ImageSource.gallery),
+                    onFile: _pickFile,
                     onGif: _showGifPicker,
                     onLibrary: _insertLibraryImage,
                   ),
@@ -1101,6 +1111,7 @@ class AttachmentMenuButton extends StatelessWidget {
     required this.size,
     required this.onCamera,
     required this.onPhotoLibrary,
+    required this.onFile,
     required this.onGif,
     required this.onLibrary,
   });
@@ -1110,6 +1121,7 @@ class AttachmentMenuButton extends StatelessWidget {
   final double size;
   final VoidCallback onCamera;
   final VoidCallback onPhotoLibrary;
+  final VoidCallback onFile;
   final VoidCallback onGif;
   final VoidCallback onLibrary;
 
@@ -1129,6 +1141,11 @@ class AttachmentMenuButton extends StatelessWidget {
         onSelected: onPhotoLibrary,
       ),
       _AttachmentMenuItem(
+        icon: AppIcons.fileUploadOutlined,
+        label: context.l10n.mediaSourceFile,
+        onSelected: onFile,
+      ),
+      _AttachmentMenuItem(
         icon: AppIcons.imageOutlined,
         label: 'Prism library',
         onSelected: onLibrary,
@@ -1143,6 +1160,7 @@ class AttachmentMenuButton extends StatelessWidget {
 
     return BlurPopupAnchor(
       preferredDirection: BlurPopupDirection.up,
+      maxHeight: 320,
       itemCount: items.length,
       semanticLabel: context.l10n.chatAddAttachment,
       itemBuilder: (context, index, close) {
