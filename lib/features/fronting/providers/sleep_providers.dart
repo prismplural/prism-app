@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/mutations/mutation_result.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -184,10 +185,19 @@ class SleepNotifier extends Notifier<void> {
     DateTime? startTime,
     SleepQuality? quality,
   }) async {
+    final keepCurrentFronters = await ref
+        .read(appPreferenceRepositoryProvider)
+        .get(keepFrontingDuringSleepPreference);
+    if (!ref.mounted) return;
     await _unwrap(
       ref
           .read(frontingMutationServiceProvider)
-          .startSleep(notes: notes, startTime: startTime, quality: quality),
+          .startSleep(
+            notes: notes,
+            startTime: startTime,
+            quality: quality,
+            keepCurrentFronters: keepCurrentFronters,
+          ),
     );
   }
 

@@ -148,6 +148,8 @@ void main() {
         await tester.pumpWidget(buildSubject(repo));
         await tester.pumpAndSettle();
 
+        await tester.ensureVisible(find.text('Quick Action Behavior'));
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Quick Action Behavior'));
         await tester.pumpAndSettle();
 

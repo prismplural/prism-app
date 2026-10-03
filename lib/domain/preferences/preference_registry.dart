@@ -139,6 +139,7 @@ const frontingTermsPreference = PreferenceDefinition<FrontingTerms>(
 );
 
 final appPreferenceRegistry = PreferenceRegistry(const [
+  keepFrontingDuringSleepPreference,
   hideMemberCountsPreference,
   frontingReminderSuppressMinutesPreference,
   composerDefaultMemberPreference,
@@ -151,3 +152,12 @@ final appPreferenceRegistry = PreferenceRegistry(const [
   frontingTermsPreference,
 ]);
 final memberProfilePreferenceRegistry = PreferenceRegistry(const []);
+
+const keepFrontingDuringSleepPreference = PreferenceDefinition<bool>(
+  key: 'sleep.keep_current_fronters',
+  scope: PreferenceScope.appSynced,
+  defaultValue: false,
+  codec: BoolPreferenceCodec(),
+  introducedInAppVersion: '0.15.3',
+  introducedInSchemaVersion: 40,
+);

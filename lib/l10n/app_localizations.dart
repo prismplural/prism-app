@@ -21116,6 +21116,36 @@ abstract class AppLocalizations {
   /// **'Profile header for {name}'**
   String profileHeaderSemantic(String name);
 
+  /// No description provided for @sleepKeepFrontersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep current {fronters} during sleep'**
+  String sleepKeepFrontersTitle(String fronters);
+
+  /// No description provided for @sleepKeepFrontersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep sessions continuous through sleep. When off, sleep ends ordinary sessions; always-present sessions stay open.'**
+  String get sleepKeepFrontersSubtitle;
+
+  /// No description provided for @sleepFrontingInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose what happens during sleep'**
+  String get sleepFrontingInfoTitle;
+
+  /// No description provided for @sleepFrontingInfoBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep can end your current fronting sessions or keep them running. You can change this in Sleep or Fronting settings.'**
+  String get sleepFrontingInfoBody;
+
+  /// No description provided for @sleepFrontingInfoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep settings'**
+  String get sleepFrontingInfoAction;
+
   /// No description provided for @frontingActionFor.
   ///
   /// In en, this message translates to:

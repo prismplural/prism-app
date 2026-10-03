@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
@@ -27,15 +29,51 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 /// Presents a time-aware greeting, the total sleep duration, a star rating
 /// for sleep quality, and a morning-weighted quick-front member picker.
 class WakeUpSleepSheet extends ConsumerStatefulWidget {
-  const WakeUpSleepSheet({super.key, required this.session});
+  const WakeUpSleepSheet({
+    super.key,
+    required this.session,
+    this.keepCurrentFronters = false,
+    this.initialFrontingMemberIds = const [],
+  });
 
   final FrontingSession session;
+  final bool keepCurrentFronters;
+  final List<String> initialFrontingMemberIds;
 
-  static Future<void> show(BuildContext context, FrontingSession session) {
+  static Future<void> show(
+    BuildContext context,
+    FrontingSession session,
+  ) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    bool keepCurrentFronters;
+    List<String> memberIds = const [];
+    try {
+      keepCurrentFronters = await container
+          .read(appPreferenceRepositoryProvider)
+          .get(keepFrontingDuringSleepPreference);
+      if (keepCurrentFronters) {
+        final sessions = await container
+            .read(frontingSessionRepositoryProvider)
+            .getAllActiveSessionsUnfiltered();
+        memberIds = sessions
+            .where((session) => !session.isSleep && session.memberId != null)
+            .map((session) => session.memberId!)
+            .toSet()
+            .toList();
+      }
+    } catch (error) {
+      if (context.mounted) PrismToast.error(context, message: error.toString());
+      return;
+    }
+    if (!context.mounted) return;
     return PrismSheet.show(
       context: context,
       isDismissible: false,
-      builder: (context) => WakeUpSleepSheet(session: session),
+      builder: (context) => WakeUpSleepSheet(
+        session: session,
+        keepCurrentFronters: keepCurrentFronters,
+        initialFrontingMemberIds: memberIds,
+      ),
     );
   }
 
@@ -47,6 +85,12 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
   SleepQuality _quality = SleepQuality.unknown;
   final Set<String> _selectedMemberIds = {};
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedMemberIds.addAll(widget.initialFrontingMemberIds);
+  }
 
   void _toggleSelectedMember(String memberId) {
     setState(() {
@@ -111,6 +155,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
             widget.session.id,
             quality: _quality != SleepQuality.unknown ? _quality : null,
             frontingMemberIds: _selectedMemberIds.toList(growable: false),
+            keepCurrentFronters: widget.keepCurrentFronters,
           );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {

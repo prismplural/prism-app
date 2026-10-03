@@ -449,10 +449,27 @@ class FrontingMutationService {
   // Sleep
   // ---------------------------------------------------------------------------
 
+  Map<String, FrontingSession> _latestFrontingByMember(
+    List<FrontingSession> sessions,
+  ) {
+    final result = <String, FrontingSession>{};
+    for (final session in sessions) {
+      final memberId = session.memberId;
+      if (session.isSleep || memberId == null) continue;
+      final previous = result[memberId];
+      if (previous == null ||
+          _latestSession([previous, session]) == session) {
+        result[memberId] = session;
+      }
+    }
+    return result;
+  }
+
   Future<MutationResult<FrontingMutationResult>> startSleep({
     String? notes,
     DateTime? startTime,
     SleepQuality? quality,
+    bool keepCurrentFronters = false,
   }) {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start sleep session',
@@ -464,16 +481,13 @@ class FrontingMutationService {
             .toList();
         final now = startTime ?? DateTime.now();
         _assertTimeRange(now, null);
-        // Preserve exactly one open session per explicit always-fronting member
-        // (their persistent background session); end everything else, including
-        // any duplicate opens for those members so the one-open-per-member
-        // invariant holds through sleep.
-        final preservedIds = {
-          for (final s in (await _earliestAlwaysFrontingByMember(
-            activeSessions,
-          )).values)
-            s.id,
-        };
+        final preservedByMember = keepCurrentFronters
+            ? _latestFrontingByMember(activeSessions)
+            : <String, FrontingSession>{};
+        preservedByMember.addAll(
+          await _earliestAlwaysFrontingByMember(activeSessions),
+        );
+        final preservedIds = {for (final s in preservedByMember.values) s.id};
         for (final session in activeSessions) {
           if (preservedIds.contains(session.id)) continue;
           await _repository.endSession(session.id, now);
@@ -518,6 +532,7 @@ class FrontingMutationService {
     String sleepSessionId, {
     SleepQuality? quality,
     List<String> frontingMemberIds = const [],
+    bool keepCurrentFronters = false,
   }) {
     return _mutationRunner.run<FrontingMutationResult?>(
       actionLabel: 'Wake up',
@@ -538,7 +553,7 @@ class FrontingMutationService {
         await _repository.updateSession(ended);
 
         // 2. Start fronting if members were selected.
-        if (selectedMemberIds.isEmpty) return null;
+        if (selectedMemberIds.isEmpty && !keepCurrentFronters) return null;
 
         // Auto-create the Unknown sentinel member if waking up into Unknown
         // alongside any other selected members.
@@ -552,18 +567,22 @@ class FrontingMutationService {
         final preservedFrontingSessions = <String, FrontingSession>{};
         final previousMemberIds = <String?>[null]; // was sleeping (no member)
 
-        // Preserve exactly one open session per always-fronting member (the
-        // earliest = persistent background session). Selected members reuse it
-        // for the new front; non-selected ones simply keep fronting. Every
-        // other open session — including duplicate opens for these members — is
-        // closed so each member ends up with a single open session.
-        final preservedAlwaysFronting = await _earliestAlwaysFrontingByMember(
+        // Always-present sessions survive deselection. With sleep preservation,
+        // selected ordinary sessions also retain their original start times.
+        final preservedByMember = await _earliestAlwaysFrontingByMember(
           remaining,
         );
-        final preservedIds = {
-          for (final s in preservedAlwaysFronting.values) s.id,
-        };
-        for (final entry in preservedAlwaysFronting.entries) {
+        if (keepCurrentFronters) {
+          final existingByMember = _latestFrontingByMember(remaining);
+          for (final memberId in selectedMemberIds) {
+            final existing = existingByMember[memberId];
+            if (existing != null) {
+              preservedByMember.putIfAbsent(memberId, () => existing);
+            }
+          }
+        }
+        final preservedIds = {for (final s in preservedByMember.values) s.id};
+        for (final entry in preservedByMember.entries) {
           if (selectedMemberIds.contains(entry.key)) {
             preservedFrontingSessions[entry.key] = entry.value;
           }

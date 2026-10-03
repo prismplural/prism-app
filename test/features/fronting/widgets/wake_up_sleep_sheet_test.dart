@@ -48,6 +48,7 @@ List<Member> _fiveMembers() => [
 ];
 
 class _FakeFrontingNotifier extends FrontingNotifier {
+  bool? lastKeepCurrentFronters;
   final wakeUps =
       <
         ({String sleepSessionId, SleepQuality? quality, List<String> memberIds})
@@ -62,7 +63,9 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     String sleepSessionId, {
     SleepQuality? quality,
     List<String> frontingMemberIds = const [],
+    bool keepCurrentFronters = false,
   }) async {
+    lastKeepCurrentFronters = keepCurrentFronters;
     wakeUps.add((
       sleepSessionId: sleepSessionId,
       quality: quality,
@@ -90,6 +93,8 @@ Widget _buildSubject({
   List<Member>? members,
   _FakeFrontingNotifier? notifier,
   _FakeSleepNotifier? sleepNotifier,
+  List<String> initialFrontingMemberIds = const [],
+  bool keepCurrentFronters = false,
 }) {
   return ProviderScope(
     overrides: [
@@ -117,7 +122,13 @@ Widget _buildSubject({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(body: WakeUpSleepSheet(session: _sleepSession())),
+      home: Scaffold(
+        body: WakeUpSleepSheet(
+          session: _sleepSession(),
+          initialFrontingMemberIds: initialFrontingMemberIds,
+          keepCurrentFronters: keepCurrentFronters,
+        ),
+      ),
     ),
   );
 }
@@ -145,6 +156,32 @@ bool _isSearchRowSelected(WidgetTester tester, String id) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 void main() {
+  testWidgets('preselects preserved fronters and submits deliberate changes', (
+    tester,
+  ) async {
+    final notifier = _FakeFrontingNotifier();
+    await tester.pumpWidget(
+      _buildSubject(
+        members: _fiveMembers(),
+        notifier: notifier,
+        initialFrontingMemberIds: ['alice', 'bob'],
+        keepCurrentFronters: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_isQuickAvatarSelected(tester, 'Alice'), isTrue);
+    expect(_isQuickAvatarSelected(tester, 'Bob'), isTrue);
+    await tester.tap(_quickAvatar('Bob'));
+    await tester.tap(_quickAvatar('Charlie'));
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(
+      notifier.wakeUps.single.memberIds,
+      unorderedEquals(['alice', 'charlie']),
+    );
+    expect(notifier.lastKeepCurrentFronters, isTrue);
+  });
+
   group('WakeUpSleepSheet – member picker', () {
     group('top member quick choices', () {
       testWidgets('Done submits selected members through wake-up notifier', (

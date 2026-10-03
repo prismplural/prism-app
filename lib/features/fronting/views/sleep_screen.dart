@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
+import 'package:prism_plurality/features/fronting/widgets/sleep_fronting_info_banner.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_recovery_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_session_row.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_stat_cards.dart';
@@ -137,6 +138,9 @@ class _SleepScreenState extends ConsumerState<SleepScreen> {
               ),
             ),
 
+            SliverToBoxAdapter(
+              child: SleepFrontingInfoBanner(onOpenSettings: _openSettings),
+            ),
             if (showRecoveryBanner)
               SliverToBoxAdapter(
                 child: Padding(

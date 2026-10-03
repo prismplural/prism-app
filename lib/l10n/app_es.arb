@@ -5201,5 +5201,10 @@
   "analyticsNoSessionsInRange": "No hay {sessionPluralLower} en este intervalo de fechas.",
   "analyticsPreviousPeriod": "{value} en el período anterior",
   "profileHeaderSemantic": "Imagen de encabezado de {name}",
+  "sleepKeepFrontersTitle": "Mantener a los {fronters} actuales durante el sueño",
+  "sleepKeepFrontersSubtitle": "Mantener las sesiones continuas durante el sueño. Si se desactiva, dormir termina las sesiones normales; las sesiones siempre presentes siguen abiertas.",
+  "sleepFrontingInfoTitle": "Elige qué ocurre durante el sueño",
+  "sleepFrontingInfoBody": "Dormir puede terminar tus sesiones de fronting actuales o mantenerlas. Puedes cambiarlo en los ajustes de Sueño o Fronting.",
+  "sleepFrontingInfoAction": "Ajustes de sueño",
   "frontingActionFor": "{action}: {name}"
 }

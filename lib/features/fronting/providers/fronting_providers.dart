@@ -232,6 +232,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
     String sleepSessionId, {
     SleepQuality? quality,
     List<String> frontingMemberIds = const [],
+    bool keepCurrentFronters = false,
   }) async {
     final result = await _unwrap(
       ref
@@ -240,6 +241,7 @@ class FrontingNotifier extends AsyncNotifier<void> {
             sleepSessionId,
             quality: quality,
             frontingMemberIds: frontingMemberIds,
+            keepCurrentFronters: keepCurrentFronters,
           ),
     );
 

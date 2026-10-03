@@ -13918,6 +13918,25 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String sleepKeepFrontersTitle(String fronters) {
+    return 'Keep current $fronters during sleep';
+  }
+
+  @override
+  String get sleepKeepFrontersSubtitle =>
+      'Keep sessions continuous through sleep. When off, sleep ends ordinary sessions; always-present sessions stay open.';
+
+  @override
+  String get sleepFrontingInfoTitle => 'Choose what happens during sleep';
+
+  @override
+  String get sleepFrontingInfoBody =>
+      'Sleep can end your current fronting sessions or keep them running. You can change this in Sleep or Fronting settings.';
+
+  @override
+  String get sleepFrontingInfoAction => 'Sleep settings';
+
+  @override
   String frontingActionFor(String action, String name) {
     return '$action for $name';
   }

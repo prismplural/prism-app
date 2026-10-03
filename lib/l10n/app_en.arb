@@ -13877,6 +13877,12 @@
   "@analyticsPreviousPeriod": {"placeholders": {"value": {"type": "String"}}},
   "profileHeaderSemantic": "Profile header for {name}",
   "@profileHeaderSemantic": {"placeholders": {"name": {"type": "String"}}},
+  "sleepKeepFrontersTitle": "Keep current {fronters} during sleep",
+  "@sleepKeepFrontersTitle": {"placeholders": {"fronters": {"type": "String"}}},
+  "sleepKeepFrontersSubtitle": "Keep sessions continuous through sleep. When off, sleep ends ordinary sessions; always-present sessions stay open.",
+  "sleepFrontingInfoTitle": "Choose what happens during sleep",
+  "sleepFrontingInfoBody": "Sleep can end your current fronting sessions or keep them running. You can change this in Sleep or Fronting settings.",
+  "sleepFrontingInfoAction": "Sleep settings",
   "frontingActionFor": "{action} for {name}",
   "@frontingActionFor": {"placeholders": {"action": {"type": "String"}, "name": {"type": "String"}}}
 }

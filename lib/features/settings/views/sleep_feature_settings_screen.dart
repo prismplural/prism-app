@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/sleep_recovery_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/widgets/sleep_fronting_setting.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
@@ -206,6 +207,8 @@ class _SleepFeatureSettingsScreenState
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
+                    const SleepFrontingSetting(),
+                    const Divider(height: 1, indent: 56),
                     if (!(widget.args?.fromSleepView ?? false)) ...[
                       PrismSettingsRow(
                         icon: AppIcons.bedtimeRounded,

@@ -11,6 +11,7 @@ import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/fronting/migration/providers/fronting_migration_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
@@ -54,7 +55,12 @@ class _FakeFrontingNotifier extends FrontingNotifier {
   final List<List<String>> startedIds = [];
   final wakeUps =
       <
-        ({String sleepSessionId, SleepQuality? quality, List<String> memberIds})
+        ({
+          String sleepSessionId,
+          SleepQuality? quality,
+          List<String> memberIds,
+          bool keepCurrentFronters,
+        })
       >[];
 
   @override
@@ -75,11 +81,13 @@ class _FakeFrontingNotifier extends FrontingNotifier {
     String sleepSessionId, {
     SleepQuality? quality,
     List<String> frontingMemberIds = const [],
+    bool keepCurrentFronters = false,
   }) async {
     wakeUps.add((
       sleepSessionId: sleepSessionId,
       quality: quality,
       memberIds: List<String>.from(frontingMemberIds),
+      keepCurrentFronters: keepCurrentFronters,
     ));
   }
 }
@@ -177,6 +185,7 @@ Widget _buildSubject({
   required List<Member> members,
   FrontingSession? activeSleepSession,
   bool showQuickFront = false,
+  bool keepCurrentFronters = false,
   _FakePluralKitSyncNotifier? pluralKitSyncNotifier,
   PkSyncMode syncMode = PkSyncMode.fullSync,
   PkSyncDirection syncDirection = PkSyncDirection.pullOnly,
@@ -187,6 +196,9 @@ Widget _buildSubject({
   Stream<SystemSettings>? systemSettingsStream,
 }) {
   final memberRepo = FakeMemberRepository()..seed(members);
+  final appPrefs = FakeAppPreferenceRepository()
+    ..seed(keepFrontingDuringSleepPreference, keepCurrentFronters);
+  addTearDown(appPrefs.close);
   final timelineRepo = FakeFrontingSessionRepository();
   timelineRepo.sessions.addAll(timelineSessions);
   final settings = SystemSettings(
@@ -211,6 +223,7 @@ Widget _buildSubject({
         ),
       ),
       frontingSessionRepositoryProvider.overrideWithValue(timelineRepo),
+      appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       memberRepositoryProvider.overrideWithValue(memberRepo),
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
       allMembersProvider.overrideWith((ref) => Stream.value(members)),
@@ -701,6 +714,47 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     });
+
+    testWidgets(
+      'Wake Up As preselects preserved fronts and allows clearing them',
+      (tester) async {
+        final fronting = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _buildSubject(
+            sleepNotifier: _FakeSleepNotifier(),
+            frontingNotifier: fronting,
+            members: [_member('m1', 'Alice')],
+            activeSleepSession: _sleepSession(),
+            keepCurrentFronters: true,
+            timelineSessions: [
+              FrontingSession(
+                id: 'front-1',
+                memberId: 'm1',
+                startTime: DateTime(2024),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.longPress(_addButton());
+        await tester.pumpAndSettle();
+        await _tapWakeUpAs(tester);
+        expect(
+          tester
+              .widget<MemberSearchSheet>(find.byType(MemberSearchSheet))
+              .initialSelected,
+          {'m1'},
+        );
+        await tester.tap(find.text('Alice').last);
+        await tester.pumpAndSettle();
+        await tester.tap(_confirmSelectionButton());
+        await tester.pumpAndSettle();
+        expect(fronting.wakeUps.single.memberIds, isEmpty);
+        expect(fronting.wakeUps.single.keepCurrentFronters, isTrue);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
+    );
 
     testWidgets('dismissing Wake Up As does not trigger sleep/front actions', (
       tester,

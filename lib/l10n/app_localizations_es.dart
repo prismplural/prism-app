@@ -14126,6 +14126,25 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String sleepKeepFrontersTitle(String fronters) {
+    return 'Mantener a los $fronters actuales durante el sueño';
+  }
+
+  @override
+  String get sleepKeepFrontersSubtitle =>
+      'Mantener las sesiones continuas durante el sueño. Si se desactiva, dormir termina las sesiones normales; las sesiones siempre presentes siguen abiertas.';
+
+  @override
+  String get sleepFrontingInfoTitle => 'Elige qué ocurre durante el sueño';
+
+  @override
+  String get sleepFrontingInfoBody =>
+      'Dormir puede terminar tus sesiones de fronting actuales o mantenerlas. Puedes cambiarlo en los ajustes de Sueño o Fronting.';
+
+  @override
+  String get sleepFrontingInfoAction => 'Ajustes de sueño';
+
+  @override
   String frontingActionFor(String action, String name) {
     return '$action: $name';
   }

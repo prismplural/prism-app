@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/preferences/preference_registry.dart';
 import 'package:prism_plurality/features/fronting/migration/widgets/fronting_upgrade_banner.dart';
 import 'package:prism_plurality/features/fronting/providers/always_present_members_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/derived_periods_provider.dart';
@@ -792,30 +793,44 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     final session = sleepSession;
     if (session == null) return;
 
-    final members = (await ref.read(memberRepositoryProvider).getAllMembers())
-        .where((member) => member.isActive)
-        .toList(growable: false);
-    if (!mounted || !context.mounted) return;
-    final groups = readMemberSearchGroups(ref, members);
-
-    final result = await MemberSearchSheet.showMulti(
-      context,
-      members: _withUnknownMember(context, members),
-      termPlural: termPlural,
-      allowEmptySelection: true,
-      groups: groups,
-    );
-
-    if (!mounted || !context.mounted) return;
-    final memberIds = result?.toList(growable: false) ?? const <String>[];
-    if (memberIds.isEmpty) return;
-    final activeSession = ref.read(activeSleepSessionProvider).value;
-    if (activeSession?.id != session.id) return;
-
     try {
-      await ref
-          .read(frontingNotifierProvider.notifier)
-          .wakeUp(session.id, frontingMemberIds: memberIds);
+      final keepCurrentFronters = await ref
+          .read(appPreferenceRepositoryProvider)
+          .get(keepFrontingDuringSleepPreference);
+      if (!mounted || !context.mounted) return;
+      final initialSelected = <String>{};
+      if (keepCurrentFronters) {
+        final active = await ref
+            .read(frontingSessionRepositoryProvider)
+            .getAllActiveSessionsUnfiltered();
+        initialSelected.addAll(
+          active.where((s) => !s.isSleep && s.memberId != null).map((s) => s.memberId!),
+        );
+      }
+      if (!mounted || !context.mounted) return;
+      final members = (await ref.read(memberRepositoryProvider).getAllMembers())
+          .where((member) => member.isActive)
+          .toList(growable: false);
+      if (!mounted || !context.mounted) return;
+      final groups = readMemberSearchGroups(ref, members);
+      final result = await MemberSearchSheet.showMulti(
+        context,
+        members: _withUnknownMember(context, members),
+        termPlural: termPlural,
+        allowEmptySelection: true,
+        initialSelected: initialSelected,
+        groups: groups,
+      );
+      if (!mounted || !context.mounted || result == null) return;
+      final memberIds = result.toList(growable: false);
+      if (memberIds.isEmpty && !keepCurrentFronters) return;
+      final activeSession = ref.read(activeSleepSessionProvider).value;
+      if (activeSession?.id != session.id) return;
+      await ref.read(frontingNotifierProvider.notifier).wakeUp(
+        session.id,
+        frontingMemberIds: memberIds,
+        keepCurrentFronters: keepCurrentFronters,
+      );
     } catch (e) {
       if (context.mounted) {
         PrismToast.error(

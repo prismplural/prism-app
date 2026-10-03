@@ -31,6 +31,7 @@ class _FakeWakeUpMutationService extends FrontingMutationService {
     String sleepSessionId, {
     SleepQuality? quality,
     List<String> frontingMemberIds = const [],
+    bool keepCurrentFronters = false,
   }) async {
     calls.add((
       sleepSessionId: sleepSessionId,

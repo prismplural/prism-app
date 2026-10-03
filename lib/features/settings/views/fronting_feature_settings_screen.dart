@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/widgets/sleep_fronting_setting.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -411,6 +412,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                         .read(settingsNotifierProvider.notifier)
                         .toggleQuickFront(value),
                   ),
+                  const SleepFrontingSetting(),
                   PrismSettingsRow(
                     icon: AppIcons.speed,
                     iconColor: Colors.purple,
