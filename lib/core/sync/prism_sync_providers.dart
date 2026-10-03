@@ -3131,6 +3131,20 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
     required Object cause,
     required StackTrace stackTrace,
   }) async {
+    Never rethrowFailure() => Error.throwWithStackTrace(
+      DrainPartialWriteException(
+        failedKey: failedKey,
+        phase: phase,
+        cause: cause,
+        causeStackTrace: stackTrace,
+      ),
+      stackTrace,
+    );
+
+    // A newer owner may have replaced the namespace while a write failed.
+    // Preserve the failure, but never restore this attempt's stale snapshot.
+    if (shouldAbort?.call() ?? false) rethrowFailure();
+
     // Phase A: drop everything currently in the namespace that the
     // snapshot does NOT vouch for, except the protected DB slots. If
     // the namespace scan itself fails (a realistic Android keystore
@@ -3147,6 +3161,7 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
     try {
       final current = await readCurrentNamespace();
       for (final key in current.keys) {
+        if (shouldAbort?.call() ?? false) break;
         if (kProtectedFromReset.contains(key)) continue;
         if (rollbackSnapshot.containsKey(key)) continue;
         try {
@@ -3171,6 +3186,7 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
         for (final key in _secureStoreKeys) '$_secureStorePrefix$key',
       };
       for (final fullKey in fallbackDeletes) {
+        if (shouldAbort?.call() ?? false) break;
         if (kProtectedFromReset.contains(fullKey)) continue;
         if (rollbackSnapshot.containsKey(fullKey)) continue;
         try {
@@ -3184,6 +3200,7 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
     }
     // Phase B: write every snapshot entry back.
     for (final entry in rollbackSnapshot.entries) {
+      if (shouldAbort?.call() ?? false) break;
       if (kProtectedFromReset.contains(entry.key)) continue;
       try {
         await writeKey(entry.key, entry.value);
@@ -3191,15 +3208,7 @@ Future<int> applyDrainedEntriesWithSnapshotRollback({
         debugPrint('[SYNC] drain rollback restore failed for ${entry.key}: $e');
       }
     }
-    Error.throwWithStackTrace(
-      DrainPartialWriteException(
-        failedKey: failedKey,
-        phase: phase,
-        cause: cause,
-        causeStackTrace: stackTrace,
-      ),
-      stackTrace,
-    );
+    rethrowFailure();
   }
 
   int committedWrites = 0;

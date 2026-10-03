@@ -49,6 +49,7 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     this.startJoinerCeremonyHandler,
     this.getJoinerSasHandler,
     this.cancelPairingCeremonyHandler,
+    this.completeJoinerCeremonyHandler,
   });
 
   Future<String> Function({required ffi.PrismSyncHandle handle})?
@@ -57,6 +58,8 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   getJoinerSasHandler;
   Future<void> Function({required ffi.PrismSyncHandle handle})?
   cancelPairingCeremonyHandler;
+
+  Future<String> Function()? completeJoinerCeremonyHandler;
 
   @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) {
@@ -90,7 +93,9 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   Future<String> completeJoinerCeremony({
     required ffi.PrismSyncHandle handle,
     required List<int> password,
-  }) => Future.value(jsonEncode({'sync_id': 'unused'}));
+  }) =>
+      completeJoinerCeremonyHandler?.call() ??
+      Future.value(jsonEncode({'sync_id': 'unused'}));
 
   @override
   Future<String> startInitiatorCeremony({
@@ -1116,7 +1121,10 @@ void main() {
       return store;
     }
 
-    ProviderContainer makeContainer({ffi.PrismSyncHandle? handle}) {
+    ProviderContainer makeContainer({
+      ffi.PrismSyncHandle? handle,
+      PairingCeremonyApi? pairingApi,
+    }) {
       final eventController = StreamController<SyncEvent>.broadcast();
       final container = ProviderContainer(
         overrides: [
@@ -1125,7 +1133,7 @@ void main() {
             return eventController.stream;
           }),
           pairingCeremonyApiProvider.overrideWith(
-            (ref) => _FakePairingCeremonyApi(),
+            (ref) => pairingApi ?? _FakePairingCeremonyApi(),
           ),
           relayUrlProvider.overrideWith(
             (ref) async => 'https://relay.example.com',
@@ -1140,6 +1148,126 @@ void main() {
       container.listen<PairingState>(devicePairingProvider, (_, _) {});
       return container;
     }
+
+    for (final fails in [false, true]) {
+      test(
+        'abandoned ceremony ${fails ? 'failure preserves' : 'success does not overwrite'} newer credentials',
+        () async {
+          final keychain = installSecureStorageMock();
+          final started = Completer<void>();
+          final completion = Completer<String>();
+          final api = _FakePairingCeremonyApi(
+            completeJoinerCeremonyHandler: () {
+              started.complete();
+              return completion.future;
+            },
+          );
+          final container = makeContainer(pairingApi: api);
+          addTearDown(container.dispose);
+          await container.read(prismSyncHandleProvider.future);
+          var drains = 0;
+          DevicePairingNotifier.drainRustStoreOverride = (_) async {
+            drains++;
+            keychain[kSyncIdKey] = 'abandoned-sync';
+          };
+          final notifier = container.read(devicePairingProvider.notifier);
+          final pending = notifier.completeJoinerWithPassword('123456');
+          await started.future;
+          notifier.cancel();
+          keychain[kSyncIdKey] = 'new-sync';
+          if (fails) {
+            completion.completeError(StateError('old ceremony failed'));
+          } else {
+            completion.complete('{}');
+          }
+          await pending;
+          expect(drains, 0);
+          expect(keychain[kSyncIdKey], 'new-sync');
+          expect(
+            container.read(devicePairingProvider).step,
+            PairingStep.enterUrl,
+          );
+        },
+      );
+    }
+
+    testWidgets('abandoned ceremony timeout preserves newer credentials', (
+      tester,
+    ) async {
+      final keychain = installSecureStorageMock();
+      final completion = Completer<String>();
+      var started = false;
+      final container = makeContainer(
+        pairingApi: _FakePairingCeremonyApi(
+          completeJoinerCeremonyHandler: () {
+            started = true;
+            return completion.future;
+          },
+        ),
+      );
+      addTearDown(container.dispose);
+      await container.read(prismSyncHandleProvider.future);
+      final notifier = container.read(devicePairingProvider.notifier);
+      final pending = notifier.completeJoinerWithPassword('123456');
+      await tester.pump();
+      expect(started, isTrue);
+      notifier.cancel();
+      keychain[kSyncIdKey] = 'new-sync';
+      await tester.pump(const Duration(seconds: 46));
+      await pending;
+      expect(keychain[kSyncIdKey], 'new-sync');
+      expect(container.read(devicePairingProvider).step, PairingStep.enterUrl);
+      completion.complete('{}');
+      await tester.pump();
+    });
+
+    test('disposed ceremony success does not persist credentials', () async {
+      installSecureStorageMock();
+      final started = Completer<void>();
+      final completion = Completer<String>();
+      final container = makeContainer(
+        pairingApi: _FakePairingCeremonyApi(
+          completeJoinerCeremonyHandler: () {
+            started.complete();
+            return completion.future;
+          },
+        ),
+      );
+      await container.read(prismSyncHandleProvider.future);
+      var drains = 0;
+      DevicePairingNotifier.drainRustStoreOverride = (_) async {
+        drains++;
+      };
+      final notifier = container.read(devicePairingProvider.notifier);
+      final pending = notifier.completeJoinerWithPassword('123456');
+      await started.future;
+      container.dispose();
+      completion.complete('{}');
+      await pending;
+      expect(drains, 0);
+    });
+
+    test('abandoned drain failure preserves newer credentials', () async {
+      final keychain = installSecureStorageMock();
+      final draining = Completer<void>();
+      final drainCompletion = Completer<void>();
+      final container = makeContainer();
+      addTearDown(container.dispose);
+      await container.read(prismSyncHandleProvider.future);
+      DevicePairingNotifier.drainRustStoreOverride = (_) {
+        draining.complete();
+        return drainCompletion.future;
+      };
+      final notifier = container.read(devicePairingProvider.notifier);
+      final pending = notifier.completeJoinerWithPassword('123456');
+      await draining.future;
+      notifier.cancel();
+      keychain[kSyncIdKey] = 'new-sync';
+      drainCompletion.completeError(StateError('old drain failed'));
+      await pending;
+      expect(keychain[kSyncIdKey], 'new-sync');
+      expect(container.read(devicePairingProvider).step, PairingStep.enterUrl);
+    });
 
     test(
       'snapshot apply marker is tied to current sync and device IDs',

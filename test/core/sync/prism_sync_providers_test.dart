@@ -1812,6 +1812,84 @@ void main() {
   // FlutterSecureStorage so the failure-injection seams are local.
   // --------------------------------------------------------------------
   group('applyDrainedEntriesWithSnapshotRollback (Block 6a)', () {
+    for (final cancelAt in [
+      'failed write',
+      'namespace scan',
+      'fallback scan',
+      'rollback delete',
+      'rollback write',
+    ]) {
+      test('abandoned rollback stops after $cancelAt', () async {
+        var aborted = false;
+        var lateMutations = 0;
+        var failed = false;
+        var rollingBack = false;
+        final storage = <String, String>{};
+        final replacement = {
+          'prism_sync.sync_id': 'new-sync',
+          'prism_sync.epoch_key_3': 'new-key',
+        };
+        void abandon() {
+          aborted = true;
+          storage
+            ..clear()
+            ..addAll(replacement);
+        }
+
+        final failure = StateError('old write failed');
+        await expectLater(
+          applyDrainedEntriesWithSnapshotRollback(
+            entries: {'device_secret': 'abandoned-secret'},
+            rollbackSnapshot: {
+              'prism_sync.sync_id': 'old-sync',
+              'prism_sync.session_token': 'old-token',
+            },
+            shouldAbort: () => aborted,
+            deleteKey: (key) async {
+              if (aborted) lateMutations++;
+              if (rollingBack && cancelAt == 'rollback delete') {
+                abandon();
+                return;
+              }
+              storage.remove(key);
+            },
+            writeKey: (key, value) async {
+              if (aborted) lateMutations++;
+              if (!failed) {
+                failed = true;
+                storage['prism_sync.epoch_key_3'] = 'old-key';
+                if (cancelAt == 'failed write') abandon();
+                throw failure;
+              }
+              if (cancelAt == 'rollback write') {
+                abandon();
+                return;
+              }
+              storage[key] = value;
+            },
+            readCurrentNamespace: () async {
+              rollingBack = true;
+              if (cancelAt == 'namespace scan' || cancelAt == 'fallback scan') {
+                abandon();
+              }
+              if (cancelAt == 'fallback scan') throw StateError('scan failed');
+              return Map.of(storage);
+            },
+          ),
+          throwsA(
+            isA<DrainPartialWriteException>().having(
+              (e) => e.cause,
+              'original failure',
+              same(failure),
+            ),
+          ),
+        );
+        expect(aborted, isTrue);
+        expect(lateMutations, 0);
+        expect(storage, replacement);
+      });
+    }
+
     // Helper: build the four canonical callbacks from a backing map +
     // an optional throw-injector keyed off the call number.
     ({

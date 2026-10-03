@@ -310,15 +310,19 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   })?
   drainRustStoreWithSnapshotRollbackOverride;
 
-  Future<void> _drainRustStore(ffi.PrismSyncHandle handle) {
+  Future<void> _drainRustStore(
+    ffi.PrismSyncHandle handle, {
+    bool Function()? shouldAbort,
+  }) {
     final override = drainRustStoreOverride;
     if (override != null) return override(handle);
-    return drainRustStore(handle);
+    return drainRustStore(handle, shouldAbort: shouldAbort);
   }
 
   Future<void> _drainRustStoreWithSnapshot(
     ffi.PrismSyncHandle handle, {
     required Map<String, String> rollbackSnapshot,
+    bool Function()? shouldAbort,
   }) {
     final snapshotOverride = drainRustStoreWithSnapshotRollbackOverride;
     if (snapshotOverride != null) {
@@ -332,6 +336,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     return drainRustStoreWithSnapshotRollback(
       handle,
       rollbackSnapshot: rollbackSnapshot,
+      shouldAbort: shouldAbort,
     );
   }
 
@@ -673,6 +678,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     _generation++;
     final myGeneration = _generation;
+    bool ownsAttempt() => ref.mounted && _generation == myGeneration;
     state = state.copyWith(
       step: PairingStep.connecting,
       errorMessage: null,
@@ -706,7 +712,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         throw StateError('No sync handle available');
       }
 
-      if (_generation != myGeneration) return;
+      if (!ownsAttempt()) return;
 
       // Snapshot the `prism_sync.*` namespace BEFORE the ceremony. The
       // ceremony only mutates Rust's in-memory secure store, so any
@@ -730,20 +736,23 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // post-config "log and continue" semantics. The capture failure
       // is reported via ErrorReportingService inside the helper.
       final preCeremonyKeychainSnapshot = await _snapshotPrismSyncKeychain();
+      if (!ownsAttempt()) return;
 
-      // PHASE 1 — Ceremony (45 s hard timeout). Credentials are not yet
-      // established, so a timeout here is safe to clean up the keychain.
+      // PHASE 1 — Ceremony (45 s UI timeout). The native future can continue
+      // after timeout or cancellation; only this attempt may persist its result.
       Uint8List? passwordBytes;
       try {
         passwordBytes = secretUtf8Bytes(password);
         await pairingApi
             .completeJoinerCeremony(handle: handle, password: passwordBytes)
             .timeout(const Duration(seconds: 45));
+        if (!ownsAttempt()) return;
         _activeCeremonyHandle = null;
       } on TimeoutException {
+        if (!ownsAttempt()) return;
         _pendingPin = null;
-        await _cleanupKeychainOnFailure();
-        if (_generation != myGeneration) return;
+        await _cleanupKeychainOnFailure(shouldAbort: () => !ownsAttempt());
+        if (!ownsAttempt()) return;
         state = state.copyWith(
           step: PairingStep.error,
           errorMessage:
@@ -772,15 +781,17 @@ class DevicePairingNotifier extends Notifier<PairingState> {
           await _drainRustStoreWithSnapshot(
             handle,
             rollbackSnapshot: preCeremonyKeychainSnapshot,
+            shouldAbort: () => !ownsAttempt(),
           );
         } else {
           // Snapshot capture failed — see the comment above. Without an
           // authoritative pre-state we cannot safely run the rollback
           // variant, so fall back to the plain drain and accept the
           // post-config "log and continue" partial-write semantics.
-          await _drainRustStore(handle);
+          await _drainRustStore(handle, shouldAbort: () => !ownsAttempt());
         }
       } catch (e, st) {
+        if (!ownsAttempt()) return;
         // Drain itself failed — we are still pre-persistence, so treat
         // as a ceremony-phase failure. The relay device is registered
         // but unACKed; its TTL-based cleanup will reap it.
@@ -792,7 +803,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         // still wipes, since there is no authoritative pre-state to
         // preserve there.
         if (e is! DrainPartialWriteException) {
-          await _cleanupKeychainOnFailure();
+          await _cleanupKeychainOnFailure(shouldAbort: () => !ownsAttempt());
         }
         ErrorReportingService.instance.report(
           'Pairing drain after ceremony failed (pre-persistence) — '
@@ -800,7 +811,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
           severity: ErrorSeverity.warning,
           stackTrace: st,
         );
-        if (_generation != myGeneration) return;
+        if (!ownsAttempt()) return;
         final structuredError = PrismSyncStructuredError.tryParse(e);
         state = state.copyWith(
           step: PairingStep.error,
@@ -818,7 +829,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // paths remain functional.
       ceremonyCompleted = true;
 
-      if (_generation != myGeneration) return;
+      if (!ownsAttempt()) return;
 
       // PHASE 2+3 — bootstrap + apply. Own timeout boundaries live inside
       // _bootstrapAfterJoin / _runSnapshotBootstrap. Credentials may be
@@ -827,6 +838,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // instead (see _runSnapshotBootstrap).
       await _bootstrapAfterJoin(handle, myGeneration);
     } catch (e, st) {
+      if (!ownsAttempt()) return;
       _pendingPin = null;
       await _handlePostCeremonyFailure(
         ceremonyCompleted: ceremonyCompleted,
@@ -864,6 +876,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     required StackTrace stackTrace,
     required int myGeneration,
   }) async {
+    bool ownsAttempt() => ref.mounted && _generation == myGeneration;
+    if (!ownsAttempt()) return;
     final structuredError = PrismSyncStructuredError.tryParse(error);
     final isEpochVerificationFailure = _isEpochVerificationFailure(
       structuredError,
@@ -873,8 +887,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // Failure happened BEFORE credentials were committed — safe to
       // wipe partial keychain state and surface a hard error so the
       // user can restart pairing from scratch.
-      await _cleanupKeychainOnFailure();
-      if (_generation != myGeneration) return;
+      await _cleanupKeychainOnFailure(shouldAbort: () => !ownsAttempt());
+      if (!ownsAttempt()) return;
       state = state.copyWith(
         step: PairingStep.error,
         errorMessage: isEpochVerificationFailure
@@ -893,7 +907,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       severity: ErrorSeverity.error,
       stackTrace: stackTrace,
     );
-    if (_generation != myGeneration) return;
+    if (!ownsAttempt()) return;
     state = state.copyWith(
       step: PairingStep.snapshotFailure,
       errorMessage: isEpochVerificationFailure
@@ -1809,7 +1823,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// wipe here would then delete the snapshot's pre-existing entries.
   /// The joiner failure path detects this by checking `is
   /// DrainPartialWriteException` on the caught error.
-  Future<void> _cleanupKeychainOnFailure() async {
+  Future<void> _cleanupKeychainOnFailure({bool Function()? shouldAbort}) async {
+    if (shouldAbort?.call() ?? false) return;
     await wipeSyncKeychainNamespace(
       // Funnel readAll + deleteKey through the classified wrappers so a
       // cipher failure during cleanup cannot escape past this helper. The
@@ -1827,6 +1842,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         return result.entries;
       },
       deleteKey: (key) async {
+        if (shouldAbort?.call() ?? false) return;
         final result = await safeSecureDelete(key);
         if (!result.ok) {
           throw StateError(
