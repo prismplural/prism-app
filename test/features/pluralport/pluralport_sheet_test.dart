@@ -285,15 +285,12 @@ void main() {
       );
       await tester.tap(find.text('Choose import file'));
       await tester.pumpAndSettle();
-      expect(find.text('1 record available to import.'), findsOneWidget);
+      expect(find.text('Ready to import'), findsOneWidget);
+      expect(find.text('Members'), findsOneWidget);
       expect(service.replacedProfile, isNull);
-      expect(
-        tester
-            .widget<CheckboxListTile>(find.byType(CheckboxListTile).first)
-            .value,
-        false,
-      );
+      expect(find.byType(CheckboxListTile), findsNothing);
       await tester.scrollUntilVisible(find.text('Import'), 200);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Import'));
       await tester.pumpAndSettle();
       expect(service.replacedProfile, false);
@@ -338,6 +335,7 @@ void main() {
           await tester.pumpAndSettle();
         }
         await tester.scrollUntilVisible(find.text('Import'), 200);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Import'));
         await service.completed.future.timeout(const Duration(seconds: 10));
         await tester.pumpAndSettle();
@@ -369,7 +367,8 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(_preferenceCheckbox(tester).value, isTrue);
-    await tester.ensureVisible(find.text('Choose import file'));
+    await tester.scrollUntilVisible(find.text('Choose import file'), -200);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Choose import file'));
     await tester.pumpAndSettle();
     for (final tile in tester.widgetList<CheckboxListTile>(
@@ -378,6 +377,7 @@ void main() {
       expect(tile.value, isFalse);
     }
     await tester.scrollUntilVisible(find.text('Import'), 200);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Import'));
     await tester.pump();
     for (final tile in tester.widgetList<CheckboxListTile>(
@@ -405,6 +405,9 @@ _Files _preferenceFile() => _Files(
         'producer': {'app': 'Prism', 'app_id': 'prism'},
         'members': [
           {'id': 'm', 'name': 'Example'},
+        ],
+        'systems': [
+          {'id': 'system', 'name': 'Example system'},
         ],
         'extensions': {
           'prism': {

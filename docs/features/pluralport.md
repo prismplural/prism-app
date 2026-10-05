@@ -13,6 +13,13 @@ PluralPort is also available in onboarding’s import-source picker, with the
 same preview and opt-in choices. After import, Get started completes setup
 without replacing restored preferences with onboarding defaults.
 
+The preview lists categories ready to import separately from data kept only for
+re-export. Counts describe the file before existing records and tombstones are
+checked. Profile and preference options appear only when present; selecting them
+moves those categories into the import list. Included files and unavailable media
+references have a separate inventory, so missing bytes are never described as
+preserved files.
+
 ## Compatibility
 
 - Write `pluralport_version: "0.1"` and `pluralport.json`.

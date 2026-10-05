@@ -1,3 +1,4 @@
+import 'pluralport_import_summary.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
@@ -910,7 +911,9 @@ class PluralPortMapper {
 }
 
 class PluralPortImportPlan {
-  PluralPortImportPlan(this.native, this.archive, this.warnings);
+  PluralPortImportPlan(this.native, this.archive, this.warnings)
+    : summary = PluralPortImportSummary(native, archive, warnings);
+  final PluralPortImportSummary summary;
   final Json native;
   final Json archive;
   final List<String> warnings;

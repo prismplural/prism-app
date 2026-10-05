@@ -14182,11 +14182,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pluralPortDescription =>
-      'Mueve datos entre aplicaciones plurales. Las importaciones añaden registros y conservan los datos no compatibles para exportarlos después.';
+      'Transfiere tus datos entre apps plurales.';
 
   @override
   String get pluralPortPlaintextNotice =>
-      'Las exportaciones de PluralPort no están cifradas. Contienen datos personales y archivos multimedia.';
+      'Las exportaciones contienen datos personales y no están cifradas.';
 
   @override
   String get pluralPortChooseFile => 'Elegir archivo para importar';
@@ -14196,14 +14196,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pluralPortRestorePreferencesDescription =>
-      'Aplicar las preferencias guardadas de apariencia, navegación, terminología y funciones si están incluidas en este archivo. Esto reemplaza las preferencias actuales correspondientes; los bloqueos del dispositivo y las cuentas conectadas no cambian.';
+      'Reemplaza las preferencias coincidentes. Los bloqueos del dispositivo y las cuentas conectadas no cambian.';
 
   @override
   String get pluralPortReplaceProfile => 'Reemplazar el perfil del sistema';
 
   @override
   String get pluralPortReplaceProfileDescription =>
-      'Usar el nombre, la descripción, el color y el avatar del primer sistema.';
+      'Usa el nombre, la descripción, el color y el avatar del primer sistema.';
 
   @override
   String get pluralPortImport => 'Importar';
@@ -14261,4 +14261,109 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pluralPortWarningDetails => 'Detalles de la importación';
+
+  @override
+  String get pluralPortOnboardingDescription =>
+      'Importa desde un archivo PluralPort.';
+
+  @override
+  String get pluralPortReadyTitle => 'Listo para importar';
+
+  @override
+  String get pluralPortReadyDescription =>
+      'Disponible en Prism. Los registros existentes no cambian.';
+
+  @override
+  String get pluralPortNoReadyData =>
+      'Este archivo no contiene registros compatibles.';
+
+  @override
+  String get pluralPortRetainedTitle => 'Se conserva para exportar';
+
+  @override
+  String get pluralPortRetainedDescription =>
+      'No se muestra en Prism. Se conserva para tu próxima exportación PluralPort.';
+
+  @override
+  String get pluralPortExtraDetails =>
+      'Los detalles adicionales de los registros importados también se conservan para exportar.';
+
+  @override
+  String get pluralPortFilesTitle => 'Archivos de esta exportación';
+
+  @override
+  String get pluralPortFilesDescription =>
+      'Prism usa los medios adjuntos a registros compatibles. Los demás archivos incluidos se conservan para exportar.';
+
+  @override
+  String pluralPortBundledFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count archivos incluidos',
+      one: '1 archivo incluido',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortMissingFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Faltan $count archivos: solo se conservan las referencias',
+      one: 'Falta 1 archivo: solo se conserva su referencia',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortUnbundledMedia(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count referencias de medios sin archivos: no se descargan',
+      one: '1 referencia de medios sin archivo: no se descarga',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortCategory(String category) {
+    String _temp0 = intl.Intl.selectLogic(category, {
+      'members': 'Miembros',
+      'groups': 'Grupos',
+      'memberships': 'Pertenencias a grupos',
+      'fields': 'Campos personalizados',
+      'fieldValues': 'Valores de campos',
+      'notes': 'Notas',
+      'fronts': 'Períodos de frente',
+      'frontComments': 'Comentarios de frente',
+      'conversations': 'Conversaciones',
+      'messages': 'Mensajes',
+      'boardPosts': 'Publicaciones del tablero',
+      'polls': 'Encuestas',
+      'pollOptions': 'Opciones de encuestas',
+      'habits': 'Hábitos',
+      'habitCompletions': 'Hábitos completados',
+      'reminders': 'Recordatorios',
+      'friends': 'Amistades',
+      'conversationCategories': 'Categorías de conversaciones',
+      'sleep': 'Sesiones de sueño',
+      'frontEvents': 'Eventos de frente',
+      'taxonomyTerms': 'Etiquetas y términos',
+      'taxonomyAssignments': 'Asignaciones de etiquetas',
+      'reactions': 'Reacciones',
+      'relationshipTypes': 'Tipos de relaciones',
+      'relationships': 'Relaciones',
+      'sharing': 'Datos compartidos',
+      'safety': 'Datos de seguridad',
+      'proxy': 'Datos de proxy',
+      'profiles': 'Perfiles del sistema',
+      'preferences': 'Preferencias de Prism',
+      'extraData': 'Datos de otras apps',
+      'other': 'Otros datos',
+    });
+    return '$_temp0';
+  }
 }

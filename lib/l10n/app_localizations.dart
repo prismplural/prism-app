@@ -21203,13 +21203,13 @@ abstract class AppLocalizations {
   /// No description provided for @pluralPortDescription.
   ///
   /// In en, this message translates to:
-  /// **'Move data between plural apps. Imports add records and retain unsupported data for later export.'**
+  /// **'Move your data between plural apps.'**
   String get pluralPortDescription;
 
   /// No description provided for @pluralPortPlaintextNotice.
   ///
   /// In en, this message translates to:
-  /// **'PluralPort exports are not encrypted. They contain personal data and media.'**
+  /// **'Exports contain personal data and are not encrypted.'**
   String get pluralPortPlaintextNotice;
 
   /// No description provided for @pluralPortChooseFile.
@@ -21227,7 +21227,7 @@ abstract class AppLocalizations {
   /// No description provided for @pluralPortRestorePreferencesDescription.
   ///
   /// In en, this message translates to:
-  /// **'Apply saved appearance, navigation, terminology, and feature preferences when included in this file. This replaces matching current preferences; device locks and connected accounts stay unchanged.'**
+  /// **'Replaces matching preferences. Device locks and connected accounts stay unchanged.'**
   String get pluralPortRestorePreferencesDescription;
 
   /// No description provided for @pluralPortReplaceProfile.
@@ -21313,6 +21313,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import details'**
   String get pluralPortWarningDetails;
+
+  /// No description provided for @pluralPortOnboardingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from a PluralPort file.'**
+  String get pluralPortOnboardingDescription;
+
+  /// No description provided for @pluralPortReadyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to import'**
+  String get pluralPortReadyTitle;
+
+  /// No description provided for @pluralPortReadyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Available in Prism. Existing records stay unchanged.'**
+  String get pluralPortReadyDescription;
+
+  /// No description provided for @pluralPortNoReadyData.
+  ///
+  /// In en, this message translates to:
+  /// **'No supported records in this file.'**
+  String get pluralPortNoReadyData;
+
+  /// No description provided for @pluralPortRetainedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Kept for re-export'**
+  String get pluralPortRetainedTitle;
+
+  /// No description provided for @pluralPortRetainedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Not shown in Prism. Kept for your next PluralPort export.'**
+  String get pluralPortRetainedDescription;
+
+  /// No description provided for @pluralPortExtraDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra details on imported records are also kept for re-export.'**
+  String get pluralPortExtraDetails;
+
+  /// No description provided for @pluralPortFilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Files in this export'**
+  String get pluralPortFilesTitle;
+
+  /// No description provided for @pluralPortFilesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Prism uses media attached to supported records. Other included files are kept for re-export.'**
+  String get pluralPortFilesDescription;
+
+  /// No description provided for @pluralPortBundledFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 included file} other{{count} included files}}'**
+  String pluralPortBundledFiles(int count);
+
+  /// No description provided for @pluralPortMissingFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 missing file — only its reference can be kept} other{{count} missing files — only references can be kept}}'**
+  String pluralPortMissingFiles(int count);
+
+  /// No description provided for @pluralPortUnbundledMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 media reference without a file — not downloaded} other{{count} media references without files — not downloaded}}'**
+  String pluralPortUnbundledMedia(int count);
+
+  /// No description provided for @pluralPortCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'{category, select, members{Members} groups{Groups} memberships{Group memberships} fields{Custom fields} fieldValues{Field values} notes{Notes} fronts{Front periods} frontComments{Front comments} conversations{Conversations} messages{Messages} boardPosts{Board posts} polls{Polls} pollOptions{Poll options} habits{Habits} habitCompletions{Habit completions} reminders{Reminders} friends{Friends} conversationCategories{Conversation categories} sleep{Sleep sessions} frontEvents{Front events} taxonomyTerms{Tags and terms} taxonomyAssignments{Tag assignments} reactions{Reactions} relationshipTypes{Relationship types} relationships{Relationships} sharing{Sharing data} safety{Safety data} proxy{Proxy data} profiles{System profiles} preferences{Prism preferences} extraData{Other app data} other{Other data}}'**
+  String pluralPortCategory(String category);
 }
 
 class _AppLocalizationsDelegate

@@ -555,8 +555,11 @@ class PluralPortService {
           .cast<Json>()
           .where(
             (a) =>
-                (attachment['plaintextHash'] as String? ?? '').isNotEmpty &&
-                a['sha256'] == attachment['plaintextHash'],
+                ((attachment['plaintextHash'] as String? ?? '').isNotEmpty &&
+                    a['sha256'] == attachment['plaintextHash']) ||
+                // URL-only media has no content hash. Reuse its stable asset
+                // identity when re-exporting a previously imported archive.
+                (mediaId.isEmpty && a['id'] == id),
           )
           .firstOrNull;
       final exportAssetId = existingAsset?['id'] ?? id;

@@ -158,7 +158,7 @@ class _SourcePicker extends StatelessWidget {
           _SourceCard(
             leading: const PluralPortIcon(size: 48),
             title: 'PluralPort',
-            description: context.l10n.pluralPortDescription,
+            description: context.l10n.pluralPortOnboardingDescription,
             onTap: () => onSelect(_ImportSource.pluralPort),
           ),
           const SizedBox(height: 32),

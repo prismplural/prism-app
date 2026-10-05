@@ -54,7 +54,7 @@ void main() {
       }
       final foreign = Platform.environment['PLURALPORT_RETURN'];
       final incoming = foreign == null
-          ? outgoing
+          ? PluralPortBundle.decode(outgoing.encode())
           : PluralPortBundle.decode(await File(foreign).readAsBytes());
       final defaultTarget = makeDb();
       addTearDown(defaultTarget.close);
@@ -91,6 +91,12 @@ void main() {
       );
       final restored = (await makeExport(target).buildExport()).toJson();
       final returnedBundle = await service(target).exportBundle();
+      // Re-export must itself remain a valid, importable archive, including
+      // URL-only GIFs without a plaintext hash.
+      expect(
+        () => PluralPortService.previewBytes(returnedBundle.encode()),
+        returnsNormally,
+      );
       expect(
         returnedBundle.envelope['experimental_module'],
         outgoing.envelope['experimental_module'],

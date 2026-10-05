@@ -5215,13 +5215,13 @@
   "sleepFrontingInfoBody": "Dormir puede terminar tus sesiones de fronting actuales o mantenerlas. Puedes cambiarlo en los ajustes de Sueño o Fronting.",
   "sleepFrontingInfoAction": "Ajustes de sueño",
   "frontingActionFor": "{action}: {name}",
-  "pluralPortDescription": "Mueve datos entre aplicaciones plurales. Las importaciones añaden registros y conservan los datos no compatibles para exportarlos después.",
-  "pluralPortPlaintextNotice": "Las exportaciones de PluralPort no están cifradas. Contienen datos personales y archivos multimedia.",
+  "pluralPortDescription": "Transfiere tus datos entre apps plurales.",
+  "pluralPortPlaintextNotice": "Las exportaciones contienen datos personales y no están cifradas.",
   "pluralPortChooseFile": "Elegir archivo para importar",
   "pluralPortRestorePreferences": "Restaurar preferencias de Prism",
-  "pluralPortRestorePreferencesDescription": "Aplicar las preferencias guardadas de apariencia, navegación, terminología y funciones si están incluidas en este archivo. Esto reemplaza las preferencias actuales correspondientes; los bloqueos del dispositivo y las cuentas conectadas no cambian.",
+  "pluralPortRestorePreferencesDescription": "Reemplaza las preferencias coincidentes. Los bloqueos del dispositivo y las cuentas conectadas no cambian.",
   "pluralPortReplaceProfile": "Reemplazar el perfil del sistema",
-  "pluralPortReplaceProfileDescription": "Usar el nombre, la descripción, el color y el avatar del primer sistema.",
+  "pluralPortReplaceProfileDescription": "Usa el nombre, la descripción, el color y el avatar del primer sistema.",
   "pluralPortImport": "Importar",
   "pluralPortExport": "Exportar PluralPort",
   "pluralPortSaveAgain": "Volver a guardar la exportación",
@@ -5254,5 +5254,46 @@
   },
   "pluralPortPreservedNotice": "Algunos datos no se pueden mostrar en Prism. Se conservarán para tu próxima exportación de PluralPort.",
   "pluralPortMissingMediaNotice": "Faltan algunos archivos multimedia o solo están disponibles mediante URL. Sus referencias se conservarán sin descargarlos.",
-  "pluralPortWarningDetails": "Detalles de la importación"
+  "pluralPortWarningDetails": "Detalles de la importación",
+  "pluralPortOnboardingDescription": "Importa desde un archivo PluralPort.",
+  "pluralPortReadyTitle": "Listo para importar",
+  "pluralPortReadyDescription": "Disponible en Prism. Los registros existentes no cambian.",
+  "pluralPortNoReadyData": "Este archivo no contiene registros compatibles.",
+  "pluralPortRetainedTitle": "Se conserva para exportar",
+  "pluralPortRetainedDescription": "No se muestra en Prism. Se conserva para tu próxima exportación PluralPort.",
+  "pluralPortExtraDetails": "Los detalles adicionales de los registros importados también se conservan para exportar.",
+  "pluralPortFilesTitle": "Archivos de esta exportación",
+  "pluralPortFilesDescription": "Prism usa los medios adjuntos a registros compatibles. Los demás archivos incluidos se conservan para exportar.",
+  "pluralPortBundledFiles": "{count, plural, one{1 archivo incluido} other{{count} archivos incluidos}}",
+  "@pluralPortBundledFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortMissingFiles": "{count, plural, one{Falta 1 archivo: solo se conserva su referencia} other{Faltan {count} archivos: solo se conservan las referencias}}",
+  "@pluralPortMissingFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortUnbundledMedia": "{count, plural, one{1 referencia de medios sin archivo: no se descarga} other{{count} referencias de medios sin archivos: no se descargan}}",
+  "@pluralPortUnbundledMedia": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortCategory": "{category, select, members{Miembros} groups{Grupos} memberships{Pertenencias a grupos} fields{Campos personalizados} fieldValues{Valores de campos} notes{Notas} fronts{Períodos de frente} frontComments{Comentarios de frente} conversations{Conversaciones} messages{Mensajes} boardPosts{Publicaciones del tablero} polls{Encuestas} pollOptions{Opciones de encuestas} habits{Hábitos} habitCompletions{Hábitos completados} reminders{Recordatorios} friends{Amistades} conversationCategories{Categorías de conversaciones} sleep{Sesiones de sueño} frontEvents{Eventos de frente} taxonomyTerms{Etiquetas y términos} taxonomyAssignments{Asignaciones de etiquetas} reactions{Reacciones} relationshipTypes{Tipos de relaciones} relationships{Relaciones} sharing{Datos compartidos} safety{Datos de seguridad} proxy{Datos de proxy} profiles{Perfiles del sistema} preferences{Preferencias de Prism} extraData{Datos de otras apps} other{Otros datos}}",
+  "@pluralPortCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  }
 }

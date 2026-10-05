@@ -215,6 +215,117 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
     });
   }
 
+  List<Widget> _preview(PluralPortImportPlan plan) {
+    final summary = plan.summary;
+    final ready = <String, int?>{...summary.ready};
+    final retained = <String, int?>{...summary.retained};
+    if (_systemProfile && summary.hasSystemProfile) ready['profiles'] = 1;
+    final keptProfiles = summary.systemProfiles - (_systemProfile ? 1 : 0);
+    if (keptProfiles > 0) retained['profiles'] = keptProfiles;
+    if (summary.hasPreferences) {
+      (_restorePreferences ? ready : retained)['preferences'] = null;
+    }
+    final l10n = context.l10n;
+    return [
+      _categoryCard(
+        Icons.check_circle_outline,
+        l10n.pluralPortReadyTitle,
+        l10n.pluralPortReadyDescription,
+        ready,
+        empty: l10n.pluralPortNoReadyData,
+      ),
+      if (retained.isNotEmpty)
+        _categoryCard(
+          Icons.inventory_2_outlined,
+          l10n.pluralPortRetainedTitle,
+          l10n.pluralPortRetainedDescription,
+          retained,
+        ),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text(
+          l10n.pluralPortExtraDetails,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ),
+      if (summary.bundledFiles + summary.missingFiles + summary.unbundledMedia >
+          0)
+        _previewCard(
+          Icons.attach_file,
+          l10n.pluralPortFilesTitle,
+          l10n.pluralPortFilesDescription,
+          [
+            if (summary.bundledFiles > 0)
+              Text(l10n.pluralPortBundledFiles(summary.bundledFiles)),
+            if (summary.missingFiles > 0)
+              Text(l10n.pluralPortMissingFiles(summary.missingFiles)),
+            if (summary.unbundledMedia > 0)
+              Text(l10n.pluralPortUnbundledMedia(summary.unbundledMedia)),
+          ],
+        ),
+    ];
+  }
+
+  Widget _categoryCard(
+    IconData icon,
+    String title,
+    String description,
+    Map<String, int?> categories, {
+    String? empty,
+  }) => _previewCard(icon, title, description, [
+    if (categories.isEmpty && empty != null) Text(empty),
+    for (final entry in categories.entries)
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          children: [
+            Expanded(child: Text(context.l10n.pluralPortCategory(entry.key))),
+            if (entry.value != null)
+              Text(
+                '${entry.value}',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+          ],
+        ),
+      ),
+  ]);
+
+  Widget _previewCard(
+    IconData icon,
+    String title,
+    String description,
+    List<Widget> children,
+  ) => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(description),
+        const SizedBox(height: 12),
+        ...children,
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_busy,
@@ -224,10 +335,10 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
         controller: widget.scrollController,
         children: [
           const PluralPortLogo(),
-          Text(context.l10n.pluralPortDescription),
-          const SizedBox(height: 16),
-          Text(context.l10n.pluralPortPlaintextNotice),
-          const SizedBox(height: 16),
+          if (_plan == null) ...[
+            Text(context.l10n.pluralPortDescription),
+            const SizedBox(height: 16),
+          ],
           PrismButton(
             label: context.l10n.pluralPortChooseFile,
             onPressed: _pick,
@@ -235,40 +346,33 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
           ),
           const SizedBox(height: 12),
           if (_plan case final plan?) ...[
-            Text(context.l10n.pluralPortPreviewCount(plan.records)),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _systemProfile,
-              onChanged: _busy
-                  ? null
-                  : (value) => setState(() => _systemProfile = value ?? false),
-              title: Text(context.l10n.pluralPortReplaceProfile),
-              subtitle: Text(context.l10n.pluralPortReplaceProfileDescription),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _restorePreferences,
-              onChanged: _busy
-                  ? null
-                  : (value) =>
-                        setState(() => _restorePreferences = value ?? false),
-              title: Text(context.l10n.pluralPortRestorePreferences),
-              subtitle: Text(
-                context.l10n.pluralPortRestorePreferencesDescription,
+            if (plan.summary.hasSystemProfile)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _systemProfile,
+                onChanged: _busy
+                    ? null
+                    : (value) =>
+                          setState(() => _systemProfile = value ?? false),
+                title: Text(context.l10n.pluralPortReplaceProfile),
+                subtitle: Text(
+                  context.l10n.pluralPortReplaceProfileDescription,
+                ),
               ),
-            ),
-            if (plan.warnings.any(
-              (w) =>
-                  !w.startsWith('asset_bundle_missing:') &&
-                  !w.startsWith('asset_uri_only:'),
-            ))
-              Text(context.l10n.pluralPortPreservedNotice),
-            if (plan.warnings.any(
-              (w) =>
-                  w.startsWith('asset_bundle_missing:') ||
-                  w.startsWith('asset_uri_only:'),
-            ))
-              Text(context.l10n.pluralPortMissingMediaNotice),
+            if (plan.summary.hasPreferences)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _restorePreferences,
+                onChanged: _busy
+                    ? null
+                    : (value) =>
+                          setState(() => _restorePreferences = value ?? false),
+                title: Text(context.l10n.pluralPortRestorePreferences),
+                subtitle: Text(
+                  context.l10n.pluralPortRestorePreferencesDescription,
+                ),
+              ),
+            ..._preview(plan),
             if (plan.warnings.isNotEmpty)
               PrismExpandableSection(
                 title: Text(context.l10n.pluralPortWarningDetails),
@@ -289,12 +393,15 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
             ),
             const SizedBox(height: 24),
           ],
-          if (widget.allowExport)
+          if (widget.allowExport) ...[
+            Text(context.l10n.pluralPortPlaintextNotice),
+            const SizedBox(height: 12),
             PrismButton(
               label: context.l10n.pluralPortExport,
               onPressed: _export,
               enabled: !_busy,
             ),
+          ],
           if (_exportFile != null)
             PrismButton(
               label: context.l10n.pluralPortSaveAgain,

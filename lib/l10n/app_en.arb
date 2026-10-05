@@ -13905,11 +13905,11 @@
   "sleepFrontingInfoAction": "Sleep settings",
   "frontingActionFor": "{action} for {name}",
   "@frontingActionFor": {"placeholders": {"action": {"type": "String"}, "name": {"type": "String"}}},
-  "pluralPortDescription": "Move data between plural apps. Imports add records and retain unsupported data for later export.",
-  "pluralPortPlaintextNotice": "PluralPort exports are not encrypted. They contain personal data and media.",
+  "pluralPortDescription": "Move your data between plural apps.",
+  "pluralPortPlaintextNotice": "Exports contain personal data and are not encrypted.",
   "pluralPortChooseFile": "Choose import file",
   "pluralPortRestorePreferences": "Restore Prism preferences",
-  "pluralPortRestorePreferencesDescription": "Apply saved appearance, navigation, terminology, and feature preferences when included in this file. This replaces matching current preferences; device locks and connected accounts stay unchanged.",
+  "pluralPortRestorePreferencesDescription": "Replaces matching preferences. Device locks and connected accounts stay unchanged.",
   "pluralPortReplaceProfile": "Replace system profile",
   "pluralPortReplaceProfileDescription": "Use the first system’s name, description, color and avatar.",
   "pluralPortImport": "Import",
@@ -13944,5 +13944,46 @@
   },
   "pluralPortPreservedNotice": "Some data cannot be displayed in Prism. It will be kept for your next PluralPort export.",
   "pluralPortMissingMediaNotice": "Some media is missing from this file or available only by URL. Its references will be kept without downloading it.",
-  "pluralPortWarningDetails": "Import details"
+  "pluralPortWarningDetails": "Import details",
+  "pluralPortOnboardingDescription": "Import from a PluralPort file.",
+  "pluralPortReadyTitle": "Ready to import",
+  "pluralPortReadyDescription": "Available in Prism. Existing records stay unchanged.",
+  "pluralPortNoReadyData": "No supported records in this file.",
+  "pluralPortRetainedTitle": "Kept for re-export",
+  "pluralPortRetainedDescription": "Not shown in Prism. Kept for your next PluralPort export.",
+  "pluralPortExtraDetails": "Extra details on imported records are also kept for re-export.",
+  "pluralPortFilesTitle": "Files in this export",
+  "pluralPortFilesDescription": "Prism uses media attached to supported records. Other included files are kept for re-export.",
+  "pluralPortBundledFiles": "{count, plural, one{1 included file} other{{count} included files}}",
+  "@pluralPortBundledFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortMissingFiles": "{count, plural, one{1 missing file — only its reference can be kept} other{{count} missing files — only references can be kept}}",
+  "@pluralPortMissingFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortUnbundledMedia": "{count, plural, one{1 media reference without a file — not downloaded} other{{count} media references without files — not downloaded}}",
+  "@pluralPortUnbundledMedia": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pluralPortCategory": "{category, select, members{Members} groups{Groups} memberships{Group memberships} fields{Custom fields} fieldValues{Field values} notes{Notes} fronts{Front periods} frontComments{Front comments} conversations{Conversations} messages{Messages} boardPosts{Board posts} polls{Polls} pollOptions{Poll options} habits{Habits} habitCompletions{Habit completions} reminders{Reminders} friends{Friends} conversationCategories{Conversation categories} sleep{Sleep sessions} frontEvents{Front events} taxonomyTerms{Tags and terms} taxonomyAssignments{Tag assignments} reactions{Reactions} relationshipTypes{Relationship types} relationships{Relationships} sharing{Sharing data} safety{Safety data} proxy{Proxy data} profiles{System profiles} preferences{Prism preferences} extraData{Other app data} other{Other data}}",
+  "@pluralPortCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  }
 }

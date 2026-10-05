@@ -13972,12 +13972,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get pluralPortDescription =>
-      'Move data between plural apps. Imports add records and retain unsupported data for later export.';
+  String get pluralPortDescription => 'Move your data between plural apps.';
 
   @override
   String get pluralPortPlaintextNotice =>
-      'PluralPort exports are not encrypted. They contain personal data and media.';
+      'Exports contain personal data and are not encrypted.';
 
   @override
   String get pluralPortChooseFile => 'Choose import file';
@@ -13987,7 +13986,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pluralPortRestorePreferencesDescription =>
-      'Apply saved appearance, navigation, terminology, and feature preferences when included in this file. This replaces matching current preferences; device locks and connected accounts stay unchanged.';
+      'Replaces matching preferences. Device locks and connected accounts stay unchanged.';
 
   @override
   String get pluralPortReplaceProfile => 'Replace system profile';
@@ -14052,4 +14051,108 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pluralPortWarningDetails => 'Import details';
+
+  @override
+  String get pluralPortOnboardingDescription =>
+      'Import from a PluralPort file.';
+
+  @override
+  String get pluralPortReadyTitle => 'Ready to import';
+
+  @override
+  String get pluralPortReadyDescription =>
+      'Available in Prism. Existing records stay unchanged.';
+
+  @override
+  String get pluralPortNoReadyData => 'No supported records in this file.';
+
+  @override
+  String get pluralPortRetainedTitle => 'Kept for re-export';
+
+  @override
+  String get pluralPortRetainedDescription =>
+      'Not shown in Prism. Kept for your next PluralPort export.';
+
+  @override
+  String get pluralPortExtraDetails =>
+      'Extra details on imported records are also kept for re-export.';
+
+  @override
+  String get pluralPortFilesTitle => 'Files in this export';
+
+  @override
+  String get pluralPortFilesDescription =>
+      'Prism uses media attached to supported records. Other included files are kept for re-export.';
+
+  @override
+  String pluralPortBundledFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count included files',
+      one: '1 included file',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortMissingFiles(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count missing files — only references can be kept',
+      one: '1 missing file — only its reference can be kept',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortUnbundledMedia(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count media references without files — not downloaded',
+      one: '1 media reference without a file — not downloaded',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralPortCategory(String category) {
+    String _temp0 = intl.Intl.selectLogic(category, {
+      'members': 'Members',
+      'groups': 'Groups',
+      'memberships': 'Group memberships',
+      'fields': 'Custom fields',
+      'fieldValues': 'Field values',
+      'notes': 'Notes',
+      'fronts': 'Front periods',
+      'frontComments': 'Front comments',
+      'conversations': 'Conversations',
+      'messages': 'Messages',
+      'boardPosts': 'Board posts',
+      'polls': 'Polls',
+      'pollOptions': 'Poll options',
+      'habits': 'Habits',
+      'habitCompletions': 'Habit completions',
+      'reminders': 'Reminders',
+      'friends': 'Friends',
+      'conversationCategories': 'Conversation categories',
+      'sleep': 'Sleep sessions',
+      'frontEvents': 'Front events',
+      'taxonomyTerms': 'Tags and terms',
+      'taxonomyAssignments': 'Tag assignments',
+      'reactions': 'Reactions',
+      'relationshipTypes': 'Relationship types',
+      'relationships': 'Relationships',
+      'sharing': 'Sharing data',
+      'safety': 'Safety data',
+      'proxy': 'Proxy data',
+      'profiles': 'System profiles',
+      'preferences': 'Prism preferences',
+      'extraData': 'Other app data',
+      'other': 'Other data',
+    });
+    return '$_temp0';
+  }
 }
