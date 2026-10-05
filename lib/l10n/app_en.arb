@@ -13908,6 +13908,8 @@
   "pluralPortDescription": "Move data between plural apps. Imports add records and retain unsupported data for later export.",
   "pluralPortPlaintextNotice": "PluralPort exports are not encrypted. They contain personal data and media.",
   "pluralPortChooseFile": "Choose import file",
+  "pluralPortRestorePreferences": "Restore Prism preferences",
+  "pluralPortRestorePreferencesDescription": "Apply saved appearance, navigation, terminology, and feature preferences when included in this file. This replaces matching current preferences; device locks and connected accounts stay unchanged.",
   "pluralPortReplaceProfile": "Replace system profile",
   "pluralPortReplaceProfileDescription": "Use the first system’s name, description, color and avatar.",
   "pluralPortImport": "Import",

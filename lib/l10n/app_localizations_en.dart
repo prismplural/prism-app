@@ -13983,6 +13983,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluralPortChooseFile => 'Choose import file';
 
   @override
+  String get pluralPortRestorePreferences => 'Restore Prism preferences';
+
+  @override
+  String get pluralPortRestorePreferencesDescription =>
+      'Apply saved appearance, navigation, terminology, and feature preferences when included in this file. This replaces matching current preferences; device locks and connected accounts stay unchanged.';
+
+  @override
   String get pluralPortReplaceProfile => 'Replace system profile';
 
   @override

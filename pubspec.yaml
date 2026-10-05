@@ -175,6 +175,7 @@ flutter:
     - assets/audio/
     - assets/textures/
     - assets/icon_layers/
+    - assets/branding/pluralport/
     # Color emoji font — only bundled on Linux. iOS/macOS use Apple Color
     # Emoji, Android uses system Noto Color Emoji, Windows uses Segoe UI
     # Emoji. Linux desktops have no guaranteed color emoji font (many

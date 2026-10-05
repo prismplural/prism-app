@@ -12,6 +12,8 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/features/pluralport/widgets/pluralport_brand.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'data_export_sheet.dart';
@@ -64,10 +66,11 @@ class ImportExportScreen extends ConsumerWidget {
             child: PrismGroupedSectionCard(
               child: Column(
                 children: [
-                  PrismSettingsRow(
-                    icon: AppIcons.swapHoriz,
-                    title: 'PluralPort',
-                    subtitle: context.l10n.pluralPortRowDescription,
+                  PrismListRow(
+                    leading: const PluralPortIcon(),
+                    title: const Text('PluralPort'),
+                    subtitle: Text(context.l10n.pluralPortRowDescription),
+                    showChevron: true,
                     onTap: () => showPluralPortSheet(context),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),

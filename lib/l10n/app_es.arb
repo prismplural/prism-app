@@ -5218,6 +5218,8 @@
   "pluralPortDescription": "Mueve datos entre aplicaciones plurales. Las importaciones añaden registros y conservan los datos no compatibles para exportarlos después.",
   "pluralPortPlaintextNotice": "Las exportaciones de PluralPort no están cifradas. Contienen datos personales y archivos multimedia.",
   "pluralPortChooseFile": "Elegir archivo para importar",
+  "pluralPortRestorePreferences": "Restaurar preferencias de Prism",
+  "pluralPortRestorePreferencesDescription": "Aplicar las preferencias guardadas de apariencia, navegación, terminología y funciones si están incluidas en este archivo. Esto reemplaza las preferencias actuales correspondientes; los bloqueos del dispositivo y las cuentas conectadas no cambian.",
   "pluralPortReplaceProfile": "Reemplazar el perfil del sistema",
   "pluralPortReplaceProfileDescription": "Usar el nombre, la descripción, el color y el avatar del primer sistema.",
   "pluralPortImport": "Importar",

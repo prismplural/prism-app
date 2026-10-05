@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:prism_plurality/features/pluralport/views/pluralport_sheet.dart';
+import 'package:prism_plurality/features/pluralport/widgets/pluralport_brand.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -29,8 +31,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/sp_import_warning_summary.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
-/// Import Data step — lets user choose between PluralKit, Simply Plural,
-/// or skipping entirely (default: no import selected).
+/// Choose an import source or continue without importing.
 class ImportDataStep extends ConsumerStatefulWidget {
   const ImportDataStep({super.key});
 
@@ -38,7 +39,7 @@ class ImportDataStep extends ConsumerStatefulWidget {
   ConsumerState<ImportDataStep> createState() => _ImportDataStepState();
 }
 
-enum _ImportSource { none, pluralKit, prismExport, simplyPlural }
+enum _ImportSource { none, pluralKit, prismExport, simplyPlural, pluralPort }
 
 class _ImportDataStepState extends ConsumerState<ImportDataStep> {
   _ImportSource _selected = _ImportSource.none;
@@ -65,6 +66,7 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
         _container
             .read(onboardingPendingImportActionProvider.notifier)
             .set(null);
+        _container.read(onboardingImportBusyProvider.notifier).set(false);
       } on StateError catch (e) {
         if (!e.message.contains('already disposed')) rethrow;
       }
@@ -82,6 +84,10 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
           onSelect: (source) {
             setState(() => _selected = source);
           },
+        ),
+        _ImportSource.pluralPort => _PluralPortImportFlow(
+          key: const ValueKey('pluralport'),
+          onBack: _returnToPicker,
         ),
         _ImportSource.pluralKit => _PluralKitImportFlow(
           key: const ValueKey('pk'),
@@ -148,6 +154,13 @@ class _SourcePicker extends StatelessWidget {
             description: context.l10n.onboardingImportSimplyPluralDescription,
             onTap: () => onSelect(_ImportSource.simplyPlural),
           ),
+          const SizedBox(height: 16),
+          _SourceCard(
+            leading: const PluralPortIcon(size: 48),
+            title: 'PluralPort',
+            description: context.l10n.pluralPortDescription,
+            onTap: () => onSelect(_ImportSource.pluralPort),
+          ),
           const SizedBox(height: 32),
           Text(
             context.l10n.onboardingImportLaterHint,
@@ -166,13 +179,15 @@ class _SourcePicker extends StatelessWidget {
 
 class _SourceCard extends StatefulWidget {
   const _SourceCard({
-    required this.icon,
+    this.icon,
+    this.leading,
     required this.title,
     required this.description,
     required this.onTap,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final String title;
   final String description;
   final VoidCallback onTap;
@@ -223,15 +238,16 @@ class _SourceCardState extends State<_SourceCard> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: primary.withValues(alpha: 0.15),
-                ),
-                child: Icon(widget.icon, color: primary, size: 24),
-              ),
+              widget.leading ??
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: primary.withValues(alpha: 0.15),
+                    ),
+                    child: Icon(widget.icon, color: primary, size: 24),
+                  ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -270,6 +286,55 @@ class _SourceCardState extends State<_SourceCard> {
       ),
     );
   }
+}
+
+class _PluralPortImportFlow extends ConsumerStatefulWidget {
+  const _PluralPortImportFlow({super.key, required this.onBack});
+  final VoidCallback onBack;
+
+  @override
+  ConsumerState<_PluralPortImportFlow> createState() =>
+      _PluralPortImportFlowState();
+}
+
+class _PluralPortImportFlowState extends ConsumerState<_PluralPortImportFlow> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      if (!_busy) _BackLink(onTap: widget.onBack),
+      Expanded(
+        child: PluralPortSheet(
+          allowExport: false,
+          onActionChanged: (busy, action) {
+            if (!mounted) return;
+            if (_busy != busy) setState(() => _busy = busy);
+            ref.read(onboardingImportBusyProvider.notifier).set(busy);
+            ref
+                .read(onboardingPendingImportActionProvider.notifier)
+                .set(action);
+          },
+          onImported: (result) {
+            // Imported data is already committed. Finish through the bootstrap
+            // path so onboarding defaults do not overwrite restored preferences.
+            ref
+                .read(onboardingProvider.notifier)
+                .showImportedDataReady(
+                  OnboardingDataCounts(
+                    members: result.membersCreated,
+                    frontingSessions: result.frontSessionsCreated,
+                    conversations: result.conversationsCreated,
+                    messages: result.messagesCreated,
+                    habits: result.habitsCreated,
+                    notes: result.notesCreated,
+                  ),
+                );
+          },
+        ),
+      ),
+    ],
+  );
 }
 
 // ---------------------------------------------------------------------------

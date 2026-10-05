@@ -15,9 +15,11 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import '../services/pluralport_bundle.dart';
 import '../services/pluralport_mapper.dart';
 import '../services/pluralport_service.dart';
+import '../widgets/pluralport_brand.dart';
 
 final pluralPortServiceProvider = Provider(
   (ref) => PluralPortService(
@@ -28,7 +30,19 @@ final pluralPortServiceProvider = Provider(
 );
 
 class PluralPortSheet extends ConsumerStatefulWidget {
-  const PluralPortSheet({super.key, this.scrollController});
+  const PluralPortSheet({
+    super.key,
+    this.scrollController,
+    this.allowExport = true,
+    this.onImported,
+    this.onActionChanged,
+  });
+  final bool allowExport;
+  final ValueChanged<ImportResult>? onImported;
+
+  /// Exposes the current import action to a containing onboarding footer.
+  final void Function(bool busy, Future<void> Function() action)?
+  onActionChanged;
   final ScrollController? scrollController;
   @override
   ConsumerState<PluralPortSheet> createState() => _PluralPortSheetState();
@@ -38,9 +52,29 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
   PluralPortImportPlan? _plan;
   bool _busy = false;
   bool _systemProfile = false;
+  bool _restorePreferences = false;
   String? _status;
   File? _exportFile;
   Directory? _exportDirectory;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyAction();
+    });
+  }
+
+  Future<void> _continue() async {
+    if (!mounted || _busy) return;
+    if (_plan == null) {
+      await _pick();
+    } else {
+      await _import();
+    }
+  }
+
+  void _notifyAction() => widget.onActionChanged?.call(_busy, _continue);
 
   @override
   void dispose() {
@@ -50,16 +84,21 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
   }
 
   Future<void> _run(Future<void> Function() body) async {
+    if (!mounted || _busy) return;
     setState(() {
       _busy = true;
       _status = null;
     });
+    _notifyAction();
     try {
       await body();
     } catch (e) {
       if (mounted) setState(() => _status = e.toString());
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        _notifyAction();
+      }
     }
   }
 
@@ -95,6 +134,7 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
       setState(() {
         _plan = plan;
         _systemProfile = false;
+        _restorePreferences = false;
       });
     }
   });
@@ -103,7 +143,11 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
     final plan = _plan!;
     final result = await ref
         .read(pluralPortServiceProvider)
-        .importPlan(plan, importSystemProfile: _systemProfile);
+        .importPlan(
+          plan,
+          importSystemProfile: _systemProfile,
+          restorePrismPreferences: _restorePreferences,
+        );
     if (mounted) {
       setState(() {
         _status = context.l10n.pluralPortImportComplete(
@@ -111,6 +155,7 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
         );
         _plan = null;
       });
+      widget.onImported?.call(result);
     }
   });
 
@@ -178,8 +223,7 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
       child: ListView(
         controller: widget.scrollController,
         children: [
-          Text('PluralPort', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
+          const PluralPortLogo(),
           Text(context.l10n.pluralPortDescription),
           const SizedBox(height: 16),
           Text(context.l10n.pluralPortPlaintextNotice),
@@ -200,6 +244,18 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
                   : (value) => setState(() => _systemProfile = value ?? false),
               title: Text(context.l10n.pluralPortReplaceProfile),
               subtitle: Text(context.l10n.pluralPortReplaceProfileDescription),
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _restorePreferences,
+              onChanged: _busy
+                  ? null
+                  : (value) =>
+                        setState(() => _restorePreferences = value ?? false),
+              title: Text(context.l10n.pluralPortRestorePreferences),
+              subtitle: Text(
+                context.l10n.pluralPortRestorePreferencesDescription,
+              ),
             ),
             if (plan.warnings.any(
               (w) =>
@@ -233,11 +289,12 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
             ),
             const SizedBox(height: 24),
           ],
-          PrismButton(
-            label: context.l10n.pluralPortExport,
-            onPressed: _export,
-            enabled: !_busy,
-          ),
+          if (widget.allowExport)
+            PrismButton(
+              label: context.l10n.pluralPortExport,
+              onPressed: _export,
+              enabled: !_busy,
+            ),
           if (_exportFile != null)
             PrismButton(
               label: context.l10n.pluralPortSaveAgain,

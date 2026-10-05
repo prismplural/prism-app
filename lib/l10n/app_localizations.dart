@@ -21218,6 +21218,18 @@ abstract class AppLocalizations {
   /// **'Choose import file'**
   String get pluralPortChooseFile;
 
+  /// No description provided for @pluralPortRestorePreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Prism preferences'**
+  String get pluralPortRestorePreferences;
+
+  /// No description provided for @pluralPortRestorePreferencesDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply saved appearance, navigation, terminology, and feature preferences when included in this file. This replaces matching current preferences; device locks and connected accounts stay unchanged.'**
+  String get pluralPortRestorePreferencesDescription;
+
   /// No description provided for @pluralPortReplaceProfile.
   ///
   /// In en, this message translates to:

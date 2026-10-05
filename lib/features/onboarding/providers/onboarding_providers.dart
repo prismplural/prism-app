@@ -38,6 +38,16 @@ final onboardingPendingImportActionProvider =
       OnboardingPendingImportAction.new,
     );
 
+/// Prevents leaving the import step while a file operation is in progress.
+class OnboardingImportBusy extends Notifier<bool> {
+  @override
+  bool build() => false;
+  void set(bool busy) => state = busy;
+}
+
+final onboardingImportBusyProvider =
+    NotifierProvider<OnboardingImportBusy, bool>(OnboardingImportBusy.new);
+
 enum OnboardingStep {
   welcome,
   pinSetup, // 6-digit PIN creation

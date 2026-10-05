@@ -9,6 +9,10 @@ win when their IDs match. Replacing the system profile is a separate, opt-in
 choice. Export creates an **unencrypted** `prism.pluralport.zip` containing
 `pluralport.json`, `README.txt`, and available media.
 
+PluralPort is also available in onboarding’s import-source picker, with the
+same preview and opt-in choices. After import, Get started completes setup
+without replacing restored preferences with onboarding defaults.
+
 ## Compatibility
 
 - Write `pluralport_version: "0.1"` and `pluralport.json`.
@@ -45,10 +49,12 @@ records when recognized. Unknown modules remain opaque. Cached PluralKit banners
 are bundled separately from custom header images; restoring them does not
 reconnect a PluralKit account.
 
-Preferences are preserved without applying them in the import UI. The service
-also supports explicit restoration of known appearance, navigation, terminology,
-and feature preferences. It preserves current device locks and onboarding state
-and never activates sharing credentials, PluralKit integration, or consent.
+Preferences are preserved without applying them by default. Select **Restore
+Prism preferences** in the import preview to apply known appearance, navigation,
+terminology, and feature preferences included in the file. This replaces matching
+current preferences and is separate from system-profile replacement. It preserves
+current device locks and onboarding state and never activates sharing credentials,
+PluralKit integration, or consent.
 Unknown preference keys remain opaque.
 
 ## Preservation and identity

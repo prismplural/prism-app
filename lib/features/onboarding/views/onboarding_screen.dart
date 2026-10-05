@@ -78,6 +78,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final isDark = theme.brightness == Brightness.dark;
     final primary = colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
+    final importBusy = ref.watch(onboardingImportBusyProvider);
     final pendingFrontingTerms = resolveFrontingTerms(
       context.l10n,
       onboarding.pendingFrontingTerms,
@@ -177,7 +178,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       ),
                       child: Row(
                         children: [
-                          if (hasExistingData)
+                          if (hasExistingData && !importBusy)
                             PrismInlineIconButton(
                               onPressed: () {
                                 notifier.clearAppearancePreview();
@@ -280,7 +281,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       ),
                       child: Row(
                         children: [
-                          if (!isFirstStep)
+                          if (!isFirstStep && !importBusy)
                             _CircleButton(
                               icon: AppIcons.arrowBack,
                               onPressed: notifier.back,
@@ -292,7 +293,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                                 : isFirstStep
                                 ? context.l10n.onboardingGetStarted
                                 : context.l10n.onboardingContinue,
-                            enabled: notifier.canProceed && !_isCompleting,
+                            enabled:
+                                notifier.canProceed &&
+                                !_isCompleting &&
+                                !importBusy,
                             isLoading: _isCompleting,
                             primary: primary,
                             onPressed: () {
