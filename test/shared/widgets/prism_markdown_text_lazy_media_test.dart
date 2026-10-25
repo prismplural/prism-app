@@ -90,7 +90,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          activeMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
+          allMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
           memberByIdProvider.overrideWith((ref, id) => Stream.value(alice)),
         ],
         child: MaterialApp(
@@ -125,7 +125,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          activeMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
+          allMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -169,7 +169,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            activeMemberListProvider.overrideWith((ref) => members.stream),
+            allMemberListProvider.overrideWith((ref) => members.stream),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -204,7 +204,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          activeMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
+          allMemberListProvider.overrideWithValue(AsyncValue.data([alice])),
         ],
         child: MaterialApp(
           home: Scaffold(

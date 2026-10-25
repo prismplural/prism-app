@@ -113,7 +113,7 @@ class PrismMarkdownText extends ConsumerWidget {
         : 0;
     final stagedCount = processor?.staged.length ?? 0;
     final mentionMembers = shouldResolveMemberMentions
-        ? ref.watch(activeMemberListProvider).value ?? const <Member>[]
+        ? ref.watch(allMemberListProvider).value ?? const <Member>[]
         : const <Member>[];
     final mentionMemberMap = {
       for (final member in mentionMembers) member.id: member,

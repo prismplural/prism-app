@@ -185,8 +185,11 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     final controller = _textController;
     final mentionCandidates =
         ref.watch(userVisibleMemberListProvider).value ?? const <Member>[];
+    // Existing tokens retain names after archiving; new suggestions stay active-only.
+    final mentionMembers =
+        ref.watch(allMemberListProvider).value ?? const <Member>[];
     final mentionMemberMap = {
-      for (final member in mentionCandidates) member.id: member,
+      for (final member in mentionMembers) member.id: member,
     };
     final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     if (controller is ChatMarkdownEditingController) {
@@ -205,10 +208,15 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     // only reached for the 4 legacy types; dispatch in custom_fields_editor.dart
     // routes choice through the registry before it can reach this switch.
     return switch (widget.field.fieldType) {
-      CustomFieldType.text => _buildTextInput(context, mentionCandidates),
+      CustomFieldType.text => _buildTextInput(
+        context,
+        mentionCandidates,
+        mentionMembers,
+      ),
       CustomFieldType.longText => _buildLongTextInput(
         context,
         mentionCandidates,
+        mentionMembers,
       ),
       CustomFieldType.color => _buildColorInput(context),
       CustomFieldType.date => _buildDateInput(context),
@@ -216,12 +224,17 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
     };
   }
 
-  Widget _buildTextInput(BuildContext context, List<Member> mentionCandidates) {
+  Widget _buildTextInput(
+    BuildContext context,
+    List<Member> mentionCandidates,
+    List<Member> mentionMembers,
+  ) {
     final l10n = context.l10n;
     return MemberMentionTextField(
       focusNode: _focusNode,
       controller: _textController,
       mentionCandidates: mentionCandidates,
+      mentionMembers: mentionMembers,
       labelText: widget.field.name,
       hintText: l10n.memberCustomFieldEnterHint(
         widget.field.name.toLowerCase(),
@@ -232,6 +245,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
   Widget _buildLongTextInput(
     BuildContext context,
     List<Member> mentionCandidates,
+    List<Member> mentionMembers,
   ) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
@@ -261,6 +275,7 @@ class FieldInputWidgetState extends ConsumerState<FieldInputWidget>
           focusNode: _focusNode,
           controller: _textController,
           mentionCandidates: mentionCandidates,
+          mentionMembers: mentionMembers,
           hintText: l10n.memberCustomFieldEnterHint(
             widget.field.name.toLowerCase(),
           ),

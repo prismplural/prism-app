@@ -31,6 +31,7 @@ Future<void> _pumpPrismMarkdown(
           (ref) => Stream<List<MediaAttachment>>.value(const []),
         ),
         activeMemberListProvider.overrideWithValue(AsyncValue.data(members)),
+        allMemberListProvider.overrideWithValue(AsyncValue.data(members)),
       ],
       child: MaterialApp(
         home: Scaffold(

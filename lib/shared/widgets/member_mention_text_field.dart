@@ -18,6 +18,7 @@ class MemberMentionTextField extends ConsumerStatefulWidget {
     required this.controller,
     required this.focusNode,
     this.mentionCandidates,
+    this.mentionMembers,
     this.labelText,
     this.hintText,
     this.helperText,
@@ -53,6 +54,11 @@ class MemberMentionTextField extends ConsumerStatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final List<Member>? mentionCandidates;
+
+  /// Names for existing tokens, separate from active-only suggestions.
+  /// Explicit candidate lists remain the resolution scope unless this is set.
+  /// Without either override, resolve against the lightweight non-deleted list.
+  final List<Member>? mentionMembers;
   final String? labelText;
   final String? hintText;
   final String? helperText;
@@ -379,7 +385,13 @@ class _MemberMentionTextFieldState
         widget.mentionCandidates ??
         ref.watch(userVisibleMemberListProvider).value ??
         const <Member>[];
-    final memberMap = {for (final member in candidates) member.id: member};
+    final mentionMembers =
+        widget.mentionMembers ??
+        widget.mentionCandidates ??
+        (widget.controller is MarkdownEditingController
+            ? ref.watch(allMemberListProvider).value ?? const <Member>[]
+            : candidates);
+    final memberMap = {for (final member in mentionMembers) member.id: member};
     final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     _updateControllerMentionMembers(
       memberMap,

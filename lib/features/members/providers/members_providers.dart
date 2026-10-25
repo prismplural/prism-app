@@ -154,10 +154,11 @@ final memberNamePreferDisplayProvider = Provider<bool>((ref) {
   return ref.watch(memberNamePresentationProvider).preferDisplayName;
 });
 
-/// Cached map of memberId → effective display name, derived from active members.
+/// Cached names for existing references, including archived members.
+/// Deleted members are excluded by the lightweight list query.
 /// Computed once and shared across all consumers (e.g., mention previews).
 ///
-/// Watches the light list shape, not [activeMembersProvider]: this map only
+/// Watches the light list shape, not [allMembersProvider]: this map only
 /// needs names, and it's always live, so the heavy shape would re-load every
 /// member's image blobs into memory on each insert or edit.
 ///
@@ -165,7 +166,7 @@ final memberNamePreferDisplayProvider = Provider<bool>((ref) {
 /// single memoized recompute point: it re-runs only when the member list or the
 /// display preference changes, not per leaf widget.
 final memberNameMapProvider = Provider<Map<String, String>>((ref) {
-  final members = ref.watch(activeMemberListProvider).value;
+  final members = ref.watch(allMemberListProvider).value;
   if (members == null) return const {};
   final prefer = ref.watch(memberNamePreferDisplayProvider);
   return {
