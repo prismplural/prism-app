@@ -6,6 +6,12 @@ import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/router/notification_navigation_providers.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -13,6 +19,7 @@ import 'package:timezone/timezone.dart' as tz;
 class _Plugin implements FlutterLocalNotificationsPlugin {
   final calls = <Invocation>[];
   Completer<bool?>? initialization;
+  NotificationAppLaunchDetails? launch;
 
   Iterable<Invocation> named(String name) =>
       calls.where((call) => call.memberName == Symbol(name));
@@ -23,12 +30,21 @@ class _Plugin implements FlutterLocalNotificationsPlugin {
     return switch (invocation.memberName) {
       #initialize => initialization?.future ?? Future<bool?>.value(true),
       #resolvePlatformSpecificImplementation => null,
+      #getNotificationAppLaunchDetails =>
+        Future<NotificationAppLaunchDetails?>.value(launch),
       #pendingNotificationRequests => Future.value(
         <PendingNotificationRequest>[],
       ),
       _ => Future<void>.value(),
     };
   }
+}
+
+class _ForbiddenBootstrapHandle extends PrismSyncHandleNotifier {
+  _ForbiddenBootstrapHandle(this.forbidden);
+  final Never Function() forbidden;
+  @override
+  Future<ffi.PrismSyncHandle?> build() async => forbidden();
 }
 
 void main() {
@@ -50,6 +66,151 @@ void main() {
           const MethodChannel('flutter_timezone'),
           null,
         );
+  });
+
+  test(
+    'production bootstrap initializes once with no protected reads or permissions',
+    () async {
+      final plugin = _Plugin()
+        ..launch = const NotificationAppLaunchDetails(
+          true,
+          notificationResponse: NotificationResponse(
+            notificationResponseType:
+                NotificationResponseType.selectedNotification,
+            payload: 'prism:reminder:scheduled:synthetic-id',
+          ),
+        );
+      final service = LocalNotificationService(plugin: plugin);
+      var protectedReads = 0;
+      Never forbidden() {
+        protectedReads++;
+        throw StateError(
+          'Protected provider resolved during notification bootstrap',
+        );
+      }
+
+      final container = ProviderContainer(
+        overrides: [
+          localNotificationServiceProvider.overrideWithValue(service),
+          databaseProvider.overrideWith((ref) => forbidden()),
+          databaseReadyProvider.overrideWith((ref) => forbidden()),
+          prismSyncHandleProvider.overrideWith(
+            () => _ForbiddenBootstrapHandle(forbidden),
+          ),
+          remindersRepositoryProvider.overrideWith((ref) => forbidden()),
+          syncIdProvider.overrideWith((ref) => forbidden()),
+          syncDeviceIdProvider.overrideWith((ref) => forbidden()),
+          syncDeviceSecretPresentProvider.overrideWith((ref) => forbidden()),
+          syncWrappedDekPresentProvider.overrideWith((ref) => forbidden()),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(service.dispose);
+      await container.read(notificationTapBootstrapProvider.future);
+      await container.read(notificationTapBootstrapProvider.future);
+      expect(plugin.named('initialize'), hasLength(1));
+      expect(plugin.named('getNotificationAppLaunchDetails'), hasLength(1));
+      expect(await service.getLaunchPayload(), isNull);
+      expect(plugin.named('getNotificationAppLaunchDetails'), hasLength(1));
+      expect(protectedReads, 0);
+      expect(
+        container
+            .read(notificationNavigationProvider.notifier)
+            .pending
+            ?.reminderId,
+        'synthetic-id',
+      );
+      final initialization =
+          plugin.named('initialize').single.namedArguments[#settings]
+              as InitializationSettings;
+      for (final darwin in [initialization.iOS!, initialization.macOS!]) {
+        expect(darwin.requestAlertPermission, isFalse);
+        expect(darwin.requestSoundPermission, isFalse);
+        expect(darwin.requestBadgePermission, isFalse);
+        expect(darwin.requestProvisionalPermission, isFalse);
+        expect(darwin.requestCriticalPermission, isFalse);
+        expect(darwin.requestProvidesAppNotificationSettings, isFalse);
+      }
+      expect(
+        plugin.calls.where(
+          (call) => call.memberName.toString().contains('requestPermission'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  test('immediate and native repeats forward bounded typed payloads', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final plugin = _Plugin();
+    final service = LocalNotificationService(plugin: plugin);
+    addTearDown(service.dispose);
+    await service.showImmediate(
+      id: 1,
+      title: 'Synthetic',
+      body: 'Synthetic',
+      details: details,
+      payload: 'prism:reminder:immediate:id',
+    );
+    await service.scheduleRepeating(
+      id: 2,
+      title: 'Synthetic',
+      body: 'Synthetic',
+      interval: RepeatInterval.hourly,
+      details: details,
+      payload: 'prism:fronting:v1',
+    );
+    await service.scheduleRepeatingWithDuration(
+      id: 3,
+      title: 'Synthetic',
+      body: 'Synthetic',
+      interval: const Duration(minutes: 15),
+      details: details,
+      payload: 'prism:fronting:v1',
+    );
+    expect(
+      plugin.named('show').single.namedArguments[#payload],
+      'prism:reminder:immediate:id',
+    );
+    expect(
+      plugin.named('periodicallyShow').single.namedArguments[#payload],
+      'prism:fronting:v1',
+    );
+    expect(
+      plugin
+          .named('periodicallyShowWithDuration')
+          .single
+          .namedArguments[#payload],
+      'prism:fronting:v1',
+    );
+  });
+
+  test('notification tap forwards payload without scheduling', () async {
+    final plugin = _Plugin();
+    final received = <String?>[];
+    final service = LocalNotificationService(
+      plugin: plugin,
+      onNotificationTap: received.add,
+    );
+    addTearDown(service.dispose);
+    await service.initialize();
+    final callback =
+        plugin
+                .named('initialize')
+                .single
+                .namedArguments[#onDidReceiveNotificationResponse]
+            as void Function(NotificationResponse);
+
+    callback(
+      const NotificationResponse(
+        notificationResponseType: NotificationResponseType.selectedNotification,
+        payload: 'prism:reminder:scheduled:synthetic-id',
+      ),
+    );
+
+    expect(received, ['prism:reminder:scheduled:synthetic-id']);
+    expect(plugin.named('show'), isEmpty);
+    expect(plugin.named('zonedSchedule'), isEmpty);
   });
 
   for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
@@ -88,6 +249,7 @@ void main() {
               body: 'Body',
               interval: const Duration(minutes: 15),
               details: details,
+              payload: 'prism:fronting:v1',
             ),
           );
           async.flushMicrotasks();
@@ -96,6 +258,10 @@ void main() {
           expect(plugin.named('show'), isEmpty);
           async.elapse(const Duration(minutes: 1));
           expect(plugin.named('show'), hasLength(1));
+          expect(
+            plugin.named('show').single.namedArguments[#payload],
+            'prism:fronting:v1',
+          );
           final sentDetails =
               plugin.named('show').single.namedArguments[#notificationDetails]
                   as NotificationDetails;

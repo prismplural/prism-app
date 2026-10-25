@@ -22,11 +22,15 @@ class LocalNotificationService {
   LocalNotificationService({
     FlutterLocalNotificationsPlugin? plugin,
     DateTime Function()? now,
+    this.onNotificationTap,
   }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _now = now ?? DateTime.now;
 
   final FlutterLocalNotificationsPlugin _plugin;
   final DateTime Function() _now;
+  void Function(String?)? onNotificationTap;
+  Future<String?>? _launchPayload;
+  bool _launchDetailsRead = false;
   bool _initialized = false;
   bool _disposed = false;
   Future<void>? _initializing;
@@ -64,6 +68,9 @@ class LocalNotificationService {
       requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
+      requestProvisionalPermission: false,
+      requestCriticalPermission: false,
+      requestProvidesAppNotificationSettings: false,
     );
     await _plugin.initialize(
       settings: const InitializationSettings(
@@ -91,7 +98,30 @@ class LocalNotificationService {
   }
 
   void _onNotificationTap(NotificationResponse details) {
-    // No-op — wire deep-link navigation here when tap routing is added.
+    if (!_disposed) onNotificationTap?.call(details.payload);
+  }
+
+  /// Launch details are read once, separately from normal response callbacks.
+  Future<String?> getLaunchPayload() {
+    final pending = _launchPayload;
+    if (pending != null) return pending;
+    if (_launchDetailsRead || kIsWeb || _disposed) return Future.value(null);
+    _launchDetailsRead = true;
+    return _launchPayload = _getLaunchPayload();
+  }
+
+  Future<String?> _getLaunchPayload() async {
+    try {
+      await initialize();
+      if (_disposed) return null;
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      return launch?.didNotificationLaunchApp == true
+          ? launch?.notificationResponse?.payload
+          : null;
+    } finally {
+      // Cache only the in-flight read, not its potentially private payload.
+      _launchPayload = null;
+    }
   }
 
   // ── Exact-time scheduling ─────────────────────────────────────────
@@ -285,6 +315,7 @@ class LocalNotificationService {
     required String body,
     required RepeatInterval interval,
     required NotificationDetails details,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     final generation = _replace(id);
@@ -307,6 +338,7 @@ class LocalNotificationService {
         body,
         _now().add(duration),
         details,
+        payload: payload,
         next: (now) => now.add(duration),
       );
       return;
@@ -317,6 +349,7 @@ class LocalNotificationService {
       body: body,
       repeatInterval: interval,
       notificationDetails: _desktopDetails(details),
+      payload: payload,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
@@ -332,6 +365,7 @@ class LocalNotificationService {
     required String body,
     required Duration interval,
     required NotificationDetails details,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     final generation = _replace(id);
@@ -348,6 +382,7 @@ class LocalNotificationService {
         body,
         _now().add(interval),
         details,
+        payload: payload,
         next: (now) => now.add(interval),
       );
       return;
@@ -358,6 +393,7 @@ class LocalNotificationService {
       body: body,
       repeatDurationInterval: interval,
       notificationDetails: _desktopDetails(details),
+      payload: payload,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
@@ -427,6 +463,7 @@ class LocalNotificationService {
     required String title,
     required String body,
     required NotificationDetails details,
+    String? payload,
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
@@ -436,6 +473,7 @@ class LocalNotificationService {
       title: title,
       body: body,
       notificationDetails: _desktopDetails(details),
+      payload: payload,
     );
   }
 

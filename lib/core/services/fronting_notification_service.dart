@@ -51,6 +51,7 @@ class FrontingNotificationService {
       body: reminderBody,
       interval: interval,
       details: details,
+      payload: 'prism:fronting:v1',
     );
   }
 

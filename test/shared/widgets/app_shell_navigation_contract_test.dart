@@ -5,6 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/router/notification_navigation_providers.dart';
+import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/core/router/app_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -19,6 +24,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provid
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
+import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -436,6 +442,540 @@ void main() {
     expect(find.text('Enter PIN'), findsOneWidget);
   });
 
+  for (final (testName, payload) in [
+    (
+      'authorized notification tap opens live reminder list once',
+      'prism:reminder:scheduled:synthetic-id',
+    ),
+    (
+      'authorized legacy delayed tap uses envelope reminder not member',
+      'prism:reminder:front-change-delayed:synthetic-id:'
+          '["Private synthetic name","Private synthetic body",2,"different-member-id"]',
+    ),
+  ]) {
+    testWidgets(testName, (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final repo = _ReadOnlyNotificationReminders();
+      final router = await _pumpContractApp(
+        tester,
+        initialLocation: AppRoutePaths.members,
+        settingsStream: Stream.value(
+          const SystemSettings(
+            hasCompletedOnboarding: true,
+            remindersEnabled: true,
+          ),
+        ),
+        notificationReminders: repo,
+      );
+      expect(find.text(_membersRootTitle), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppShell)),
+      );
+      final intents = container.read(notificationNavigationProvider.notifier);
+      final bootstrap = NotificationTapBootstrap(
+        intents: intents,
+        attachSink: (_) {},
+        initialize: () async {},
+        getLaunchPayload: () async => payload,
+      );
+      await bootstrap.start();
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRoutePaths.reminders,
+      );
+      expect(find.text(_remindersRootTitle), findsOneWidget);
+      expect(repo.lookups, ['synthetic-id']);
+      expect(intents.pending, isNull);
+      await tester.pumpAndSettle();
+      expect(repo.lookups, ['synthetic-id']);
+      expect(find.text('Private synthetic name'), findsNothing);
+      expect(find.text('Private synthetic body'), findsNothing);
+    });
+  }
+
+  for (final gate in ['database', 'bootstrap', 'initial PIN']) {
+    testWidgets(
+      'cold notification waits for $gate before identity and record lookup',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final database = Completer<DatabaseReadyReport>();
+        final bootstrap = Completer<void>();
+        final pin = Completer<bool>();
+        var identityReads = 0;
+        final repo = _ReadOnlyNotificationReminders();
+        final router = await _pumpContractApp(
+          tester,
+          initialLocation: AppRoutePaths.members,
+          settingsStream: Stream.value(
+            const SystemSettings(hasCompletedOnboarding: true),
+          ),
+          notificationReminders: repo,
+          notificationDatabaseReady: gate == 'database'
+              ? () => database.future
+              : null,
+          notificationBootstrap: gate == 'bootstrap'
+              ? () => bootstrap.future
+              : null,
+          notificationPinReady: gate == 'initial PIN' ? () => pin.future : null,
+          notificationIdentity: () async {
+            identityReads++;
+            return null;
+          },
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AppShell)),
+        );
+        final intents = container.read(notificationNavigationProvider.notifier);
+        intents.receiveCallback('prism:reminder:scheduled:synthetic-id');
+        await tester.pumpAndSettle();
+        expect(repo.lookups, isEmpty);
+        expect(identityReads, 0);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.members,
+        );
+        switch (gate) {
+          case 'database':
+            database.complete(
+              const DatabaseReadyReport(
+                schemaVersionBeforeOpen: 1,
+                schemaVersionAfterOpen: 1,
+              ),
+            );
+          case 'bootstrap':
+            bootstrap.complete();
+          case 'initial PIN':
+            pin.complete(false);
+        }
+        await tester.pumpAndSettle();
+        expect(repo.lookups, ['synthetic-id']);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.reminders,
+        );
+      },
+    );
+  }
+
+  testWidgets('notification waits for onboarding and settings completion', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final settings = StreamController<SystemSettings>();
+    addTearDown(settings.close);
+    settings.add(const SystemSettings(hasCompletedOnboarding: false));
+    final repo = _ReadOnlyNotificationReminders();
+    final router = await _pumpContractApp(
+      tester,
+      initialLocation: AppRoutePaths.members,
+      settingsStream: settings.stream,
+      notificationReminders: repo,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+    container
+        .read(notificationNavigationProvider.notifier)
+        .receiveCallback('prism:reminder:scheduled:synthetic-id');
+    await tester.pumpAndSettle();
+    expect(repo.lookups, isEmpty);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutePaths.members,
+    );
+    settings.add(const SystemSettings(hasCompletedOnboarding: true));
+    await tester.pumpAndSettle();
+    expect(repo.lookups, ['synthetic-id']);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutePaths.reminders,
+    );
+  });
+
+  for (final health in [
+    SyncHealthState.needsPassword,
+    SyncHealthState.needsRewrap,
+    SyncHealthState.awaitingDeviceUnlock,
+    SyncHealthState.runtimeDekRestoreDeferred,
+  ]) {
+    testWidgets(
+      'notification cannot resolve record through $health privacy gate',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final repo = _ReadOnlyNotificationReminders();
+        final router = await _pumpContractApp(
+          tester,
+          initialLocation: AppRoutePaths.members,
+          settingsStream: Stream.value(
+            const SystemSettings(hasCompletedOnboarding: true),
+          ),
+          notificationReminders: repo,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AppShell)),
+        );
+        // Mark the existing sheet duplicate guards as showing to isolate the
+        // notification consumer from the unrelated credential-entry UI.
+        container
+            .read(syncPasswordSheetVisibleProvider.notifier)
+            .setValue(true);
+        container.read(syncRewrapSheetVisibleProvider.notifier).setValue(true);
+        container.read(syncHealthProvider.notifier).setState(health);
+        final intents = container.read(notificationNavigationProvider.notifier);
+        intents.receiveCallback('prism:reminder:scheduled:synthetic-id');
+        await tester.pumpAndSettle();
+        expect(repo.lookups, isEmpty);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.members,
+        );
+        expect(intents.pending?.reminderId, 'synthetic-id');
+        container
+            .read(syncHealthProvider.notifier)
+            .setState(SyncHealthState.unpaired);
+        await tester.pumpAndSettle();
+        expect(
+          repo.lookups,
+          isEmpty,
+          reason: 'protected sheets still take priority',
+        );
+        container
+            .read(syncPasswordSheetVisibleProvider.notifier)
+            .setValue(false);
+        container.read(syncRewrapSheetVisibleProvider.notifier).setValue(false);
+        await tester.pumpAndSettle();
+        expect(repo.lookups, ['synthetic-id']);
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.reminders,
+        );
+      },
+    );
+  }
+
+  testWidgets('notification waits for resolved migration gate', (tester) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final repo = _ReadOnlyNotificationReminders();
+    final router = await _pumpContractApp(
+      tester,
+      initialLocation: AppRoutePaths.members,
+      settingsStream: Stream.value(
+        const SystemSettings(hasCompletedOnboarding: true),
+      ),
+      notificationReminders: repo,
+      notificationMigrationGate: FrontingMigrationGateStatus.needsModal,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+    container
+        .read(notificationNavigationProvider.notifier)
+        .receiveCallback('prism:reminder:scheduled:synthetic-id');
+    await tester.pumpAndSettle();
+    expect(repo.lookups, isEmpty);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutePaths.members,
+    );
+    expect(
+      container
+          .read(notificationNavigationProvider.notifier)
+          .pending
+          ?.reminderId,
+      'synthetic-id',
+    );
+  });
+
+  for (final (name, missing, active, feature) in [
+    ('missing or deleted', true, true, true),
+    ('inactive', false, false, true),
+    ('feature disabled', false, true, false),
+  ]) {
+    testWidgets(
+      'notification $name consumes safely without writes or routing',
+      (tester) async {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final repo = _ReadOnlyNotificationReminders(
+          missing: missing,
+          active: active,
+        );
+        final router = await _pumpContractApp(
+          tester,
+          initialLocation: AppRoutePaths.members,
+          settingsStream: Stream.value(
+            SystemSettings(
+              hasCompletedOnboarding: true,
+              remindersEnabled: feature,
+            ),
+          ),
+          notificationReminders: repo,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AppShell)),
+        );
+        final intents = container.read(notificationNavigationProvider.notifier);
+        intents.receiveCallback('prism:reminder:scheduled:synthetic-id');
+        await tester.pumpAndSettle();
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.members,
+        );
+        expect(repo.lookups, feature ? ['synthetic-id'] : isEmpty);
+        expect(intents.pending, isNull);
+      },
+    );
+  }
+
+  testWidgets('locked latest distinct tap waits for successful shell unlock', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final repo = _ReadOnlyNotificationReminders();
+    final router = await _pumpContractApp(
+      tester,
+      initialLocation: AppRoutePaths.members,
+      settingsStream: Stream.value(
+        const SystemSettings(
+          hasCompletedOnboarding: true,
+          pinLockEnabled: true,
+        ),
+      ),
+      isPinSet: true,
+      notificationReminders: repo,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+    final intents = container.read(notificationNavigationProvider.notifier);
+    intents.receiveCallback('prism:reminder:scheduled:first');
+    intents.receiveCallback('prism:reminder:scheduled:latest');
+    await tester.pumpAndSettle();
+    expect(repo.lookups, isEmpty);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutePaths.members,
+    );
+    expect(intents.pending?.reminderId, 'latest');
+    // No success callback represents failed/cancelled authentication: even
+    // subsequent frames must not resolve a record or navigate.
+    await tester.pump();
+    expect(repo.lookups, isEmpty);
+    tester.widget<PinInputScreen>(find.byType(PinInputScreen)).onSuccess();
+    await tester.pumpAndSettle();
+    expect(repo.lookups, ['latest']);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutePaths.reminders,
+    );
+  });
+
+  for (final transition in [
+    'relock',
+    'reset',
+    'account',
+    'dispose',
+    'suspend',
+  ]) {
+    testWidgets('deferred reminder lookup cannot route across $transition', (
+      tester,
+    ) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final delayed = Completer<Reminder?>();
+      final repo = _ReadOnlyNotificationReminders(delayed: delayed);
+      var account = 'first-account';
+      final router = await _pumpContractApp(
+        tester,
+        initialLocation: AppRoutePaths.members,
+        settingsStream: Stream.value(
+          SystemSettings(
+            hasCompletedOnboarding: true,
+            pinLockEnabled: transition == 'relock',
+            autoLockDelaySeconds: 0,
+          ),
+        ),
+        isPinSet: transition == 'relock',
+        notificationReminders: repo,
+        notificationIdentity: () async => account,
+      );
+      if (transition == 'relock') {
+        tester.widget<PinInputScreen>(find.byType(PinInputScreen)).onSuccess();
+        await tester.pumpAndSettle();
+      }
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppShell)),
+      );
+      final intents = container.read(notificationNavigationProvider.notifier);
+      intents.receiveCallback('prism:reminder:scheduled:synthetic-id');
+      await tester.pumpAndSettle();
+      expect(repo.lookups, ['synthetic-id']);
+      switch (transition) {
+        case 'relock':
+        case 'suspend':
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.hidden,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          if (transition == 'relock') {
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.resumed,
+            );
+          }
+        case 'reset':
+          intents.beginContextChange();
+          intents.receiveCallback('prism:reminder:scheduled:during-reset');
+          expect(intents.pending, isNull);
+        case 'account':
+          account = 'different-account';
+          container.invalidate(syncIdProvider);
+        case 'dispose':
+          await tester.pumpWidget(const SizedBox.shrink());
+      }
+      await tester.pump();
+      delayed.complete(repo.reminder('synthetic-id'));
+      await tester.pumpAndSettle();
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRoutePaths.members,
+      );
+      if (transition == 'reset' || transition == 'account') {
+        expect(intents.pending, isNull);
+      }
+      if (transition == 'relock') {
+        expect(find.text('Enter PIN'), findsOneWidget);
+        expect(intents.pending?.reminderId, 'synthetic-id');
+      }
+      if (transition == 'reset') {
+        intents.endContextChange();
+        expect(intents.pending, isNull);
+        intents.receiveCallback('prism:reminder:scheduled:synthetic-id');
+        await tester.pumpAndSettle();
+        expect(
+          router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.reminders,
+        );
+      } else if (transition == 'suspend' || transition == 'relock') {
+        intents.clearContext();
+      }
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    });
+  }
+
+  testWidgets(
+    'background tap defers until resumed without requiring healthy pairing',
+    (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final repo = _ReadOnlyNotificationReminders();
+      final router = await _pumpContractApp(
+        tester,
+        initialLocation: AppRoutePaths.members,
+        settingsStream: Stream.value(
+          const SystemSettings(hasCompletedOnboarding: true),
+        ),
+        notificationReminders: repo,
+        syncHealthState: SyncHealthState.unpaired,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppShell)),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      container
+          .read(notificationNavigationProvider.notifier)
+          .receiveCallback('prism:reminder:scheduled:synthetic-id');
+      await tester.pumpAndSettle();
+      expect(repo.lookups, isEmpty);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRoutePaths.members,
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(repo.lookups, ['synthetic-id']);
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRoutePaths.reminders,
+      );
+    },
+  );
+
+  testWidgets(
+    'fronting notification uses only fixed home route without lookup',
+    (tester) async {
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final repo = _ReadOnlyNotificationReminders();
+      final router = await _pumpContractApp(
+        tester,
+        initialLocation: AppRoutePaths.members,
+        settingsStream: Stream.value(
+          const SystemSettings(
+            hasCompletedOnboarding: true,
+            frontingRemindersEnabled: true,
+          ),
+        ),
+        notificationReminders: repo,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppShell)),
+      );
+      container
+          .read(notificationNavigationProvider.notifier)
+          .receiveCallback('prism:fronting:v1');
+      await tester.pumpAndSettle();
+      expect(
+        router.routeInformationProvider.value.uri.path,
+        AppRoutePaths.home,
+      );
+      expect(repo.lookups, isEmpty);
+    },
+  );
+
+  testWidgets('legacy delayed tap remains opaque and unread while PIN locked', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final repo = _ReadOnlyNotificationReminders();
+    final router = await _pumpContractApp(
+      tester,
+      initialLocation: AppRoutePaths.members,
+      isPinSet: true,
+      settingsStream: Stream.value(
+        const SystemSettings(
+          hasCompletedOnboarding: true,
+          pinLockEnabled: true,
+        ),
+      ),
+      notificationReminders: repo,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+    );
+    container
+        .read(notificationNavigationProvider.notifier)
+        .receiveCallback(
+          'prism:reminder:front-change-delayed:synthetic-id:'
+          '["Private synthetic name","Private synthetic body",2,"different-member-id"]',
+        );
+    await tester.pumpAndSettle();
+    expect(find.text('Enter PIN'), findsOneWidget);
+    expect(find.text(_membersRootTitle), findsNothing);
+    expect(find.text('Private synthetic name'), findsNothing);
+    expect(find.text('Private synthetic body'), findsNothing);
+    expect(
+      router.routeInformationProvider.value.uri.path,
+      AppRoutePaths.members,
+    );
+    expect(repo.lookups, isEmpty);
+  });
+
   testWidgets('sync password gate redacts shell before unlock', (tester) async {
     var syncStatusBuilds = 0;
 
@@ -457,13 +997,52 @@ void main() {
   });
 }
 
+class _ReadOnlyNotificationReminders implements RemindersRepository {
+  _ReadOnlyNotificationReminders({
+    this.missing = false,
+    this.active = true,
+    this.delayed,
+  });
+  final bool missing;
+  final bool active;
+  final Completer<Reminder?>? delayed;
+  final lookups = <String>[];
+
+  @override
+  Future<Reminder?> getById(String id) async {
+    lookups.add(id);
+    if (delayed != null) return delayed!.future;
+    return missing ? null : reminder(id);
+  }
+
+  Reminder reminder(String id) => Reminder(
+    id: id,
+    isActive: active,
+    name: 'Synthetic reminder',
+    message: 'Synthetic message',
+    createdAt: DateTime.utc(2026),
+    modifiedAt: DateTime.utc(2026),
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw StateError('Notification navigation must only read getById');
+}
+
 Future<GoRouter> _pumpContractApp(
   WidgetTester tester, {
   String initialLocation = AppRoutePaths.home,
   Stream<SystemSettings>? settingsStream,
   bool isPinSet = false,
+  Future<bool> Function()? notificationPinReady,
   SyncHealthState syncHealthState = SyncHealthState.healthy,
   VoidCallback? onSyncStatusBuild,
+  RemindersRepository? notificationReminders,
+  Future<String?> Function()? notificationIdentity,
+  Future<DatabaseReadyReport> Function()? notificationDatabaseReady,
+  Future<void> Function()? notificationBootstrap,
+  FrontingMigrationGateStatus notificationMigrationGate =
+      FrontingMigrationGateStatus.complete,
 }) async {
   tester.view.physicalSize = const Size(400, 800);
   tester.view.devicePixelRatio = 1.0;
@@ -484,6 +1063,25 @@ Future<GoRouter> _pumpContractApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        notificationTapBootstrapProvider.overrideWith((ref) async {
+          await notificationBootstrap?.call();
+        }),
+        if (notificationReminders != null) ...[
+          remindersRepositoryProvider.overrideWithValue(notificationReminders),
+          databaseReadyProvider.overrideWith(
+            (ref) async => notificationDatabaseReady != null
+                ? await notificationDatabaseReady()
+                : const DatabaseReadyReport(
+                    schemaVersionBeforeOpen: 1,
+                    schemaVersionAfterOpen: 1,
+                  ),
+          ),
+          syncIdProvider.overrideWith(
+            (ref) async => notificationIdentity == null
+                ? null
+                : await notificationIdentity(),
+          ),
+        ],
         activeNavBarTabsProvider.overrideWithValue(
           appShellTabs.take(5).toList(),
         ),
@@ -493,7 +1091,11 @@ Future<GoRouter> _pumpContractApp(
         systemSettingsProvider.overrideWith(
           (ref) => settingsStream ?? Stream.value(const SystemSettings()),
         ),
-        isPinSetProvider.overrideWith((ref) async => isPinSet),
+        isPinSetProvider.overrideWith(
+          (ref) async => notificationPinReady == null
+              ? isPinSet
+              : await notificationPinReady(),
+        ),
         syncStatusProvider.overrideWith(
           () => _FakeSyncStatusNotifier(onBuild: onSyncStatusBuild),
         ),
@@ -510,7 +1112,7 @@ Future<GoRouter> _pumpContractApp(
           (ref) => Stream.value(FrontingMigrationService.modeComplete),
         ),
         frontingMigrationGateProvider.overrideWith(
-          (ref) => FrontingMigrationGateStatus.complete,
+          (ref) => notificationMigrationGate,
         ),
       ],
       child: MaterialApp.router(

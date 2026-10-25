@@ -30,6 +30,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
   scheduleExactIntervalCalls = [];
   final List<({int id, DateTime scheduledFor, String title, String body})>
   scheduleOneShotCalls = [];
+  final immediatePayloads = <String?>[];
   final List<(int, String, String)> showImmediateCalls =
       []; // (id, title, body)
 
@@ -110,7 +111,9 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required String title,
     required String body,
     required NotificationDetails details,
+    String? payload,
   }) async {
+    immediatePayloads.add(payload);
     methodCalls.add('showImmediate');
     showImmediateCalls.add((id, title, body));
   }
@@ -606,6 +609,9 @@ void main() {
         await service.fireFrontChangeReminders({'alex'});
 
         expect(fake.showImmediateCalls, hasLength(1));
+        expect(fake.immediatePayloads, [
+          'prism:reminder:immediate:trigger-changed',
+        ]);
       },
     );
 

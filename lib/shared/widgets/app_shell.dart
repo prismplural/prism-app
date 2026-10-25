@@ -9,6 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/router/notification_navigation.dart';
+import 'package:prism_plurality/core/router/notification_navigation_providers.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
@@ -709,6 +712,137 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
+  bool _notificationDrainScheduled = false;
+  bool _notificationDrainBusy = false;
+  bool _notificationDrainRequested = false;
+  int _notificationLifecycleEpoch = 0;
+  NotificationIntentClaim? _notificationClaim;
+  NotificationNavigation? _notificationOwner;
+
+  bool _notificationPrivacyReady() {
+    if (!mounted ||
+        !_pinCheckResolved ||
+        _locked ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return false;
+    }
+    final settings = ref.read(systemSettingsProvider);
+    if (settings.isLoading ||
+        settings.hasError ||
+        settings.value?.hasCompletedOnboarding != true) {
+      return false;
+    }
+    final health = ref.read(syncHealthProvider);
+    if (health == SyncHealthState.needsPassword ||
+        health == SyncHealthState.needsRewrap ||
+        health == SyncHealthState.awaitingDeviceUnlock ||
+        health == SyncHealthState.runtimeDekRestoreDeferred ||
+        ref.read(syncPasswordSheetVisibleProvider) ||
+        ref.read(syncRewrapSheetVisibleProvider) ||
+        _frontingUpgradeSheetShowing ||
+        ref.read(frontingMigrationGateProvider) !=
+            FrontingMigrationGateStatus.complete) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _notificationReady() =>
+      _notificationPrivacyReady() &&
+      ref.read(databaseReadyProvider).hasValue &&
+      !ref.read(databaseReadyProvider).isLoading &&
+      !ref.read(databaseReadyProvider).hasError &&
+      ref.read(notificationTapBootstrapProvider).hasValue &&
+      !ref.read(notificationTapBootstrapProvider).isLoading &&
+      !ref.read(notificationTapBootstrapProvider).hasError;
+
+  void _scheduleNotificationDrain() {
+    if (!mounted) return;
+    if (_notificationDrainBusy) {
+      _notificationDrainRequested = true;
+      return;
+    }
+    if (_notificationDrainScheduled) return;
+    _notificationDrainScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notificationDrainScheduled = false;
+      if (mounted) unawaited(_drainNotificationIntent());
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  Future<void> _drainNotificationIntent() async {
+    if (_notificationDrainBusy || !_notificationReady()) return;
+    final intents = ref.read(notificationNavigationProvider.notifier);
+    if (intents.contextChanging || intents.pending == null) return;
+    // Credential identity is resolved only here, after all privacy gates. It
+    // is never a dependency of the plugin/bootstrap or pure intake queue.
+    final identity = ref.read(syncIdProvider);
+    if (identity.isLoading || identity.hasError || !identity.hasValue) return;
+    intents.bindAuthorizedContext(identity.value);
+    final claim = intents.claim();
+    if (claim == null) return;
+    _notificationDrainBusy = true;
+    _notificationClaim = claim;
+    _notificationOwner = intents;
+    final lockEpoch = _lockGeneration;
+    final lifecycleEpoch = _notificationLifecycleEpoch;
+    final contextEpoch = intents.contextEpoch;
+    try {
+      String? destination;
+      if (claim.intent.isFronting) {
+        if (ref.read(systemSettingsProvider).value?.frontingRemindersEnabled ==
+            true) {
+          destination = AppRoutePaths.home;
+        }
+      } else if (ref.read(featureFlagsProvider).reminders) {
+        final reminder = await ref
+            .read(remindersRepositoryProvider)
+            .getById(claim.intent.reminderId!);
+        if (reminder != null && reminder.isActive) {
+          destination = AppRoutePaths.reminders;
+        }
+      }
+      if (!mounted ||
+          !_notificationReady() ||
+          lockEpoch != _lockGeneration ||
+          lifecycleEpoch != _notificationLifecycleEpoch ||
+          contextEpoch != intents.contextEpoch ||
+          !intents.isCurrent(claim)) {
+        return;
+      }
+      final currentIdentity = ref.read(syncIdProvider);
+      if (currentIdentity.isLoading ||
+          currentIdentity.hasError ||
+          !currentIdentity.hasValue) {
+        return;
+      }
+      intents.bindAuthorizedContext(currentIdentity.value);
+      // Feature settings may change during the repository await.
+      if (claim.intent.isFronting
+          ? ref.read(systemSettingsProvider).value?.frontingRemindersEnabled !=
+                true
+          : !ref.read(featureFlagsProvider).reminders) {
+        destination = null;
+      }
+      if (!intents.complete(claim)) return;
+      if (destination != null) GoRouter.of(context).go(destination);
+    } catch (_) {
+      // Malformed/stale or unavailable targets never trigger writes or expose
+      // platform payload text through logs, errors or UI.
+      if (mounted && _notificationReady()) intents.complete(claim);
+    } finally {
+      intents.release(claim);
+      _notificationClaim = null;
+      _notificationOwner = null;
+      _notificationDrainBusy = false;
+      if (_notificationDrainRequested) {
+        _notificationDrainRequested = false;
+        if (mounted) _scheduleNotificationDrain();
+      }
+    }
+  }
+
   bool _wasDesktop = false;
   bool _locked = false;
   int _lockGeneration = 0;
@@ -789,6 +923,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   void dispose() {
+    final claim = _notificationClaim;
+    if (claim != null) _notificationOwner?.release(claim);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -855,6 +991,7 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    _notificationLifecycleEpoch++;
     // Face ID can report `inactive` without leaving the foreground.
     // Only hidden/paused states arm auto-lock.
     if (state == AppLifecycleState.hidden ||
@@ -869,6 +1006,11 @@ class _AppShellState extends ConsumerState<AppShell>
       ref.invalidate(currentDateProvider);
       ref.read(pkAutoPollProvider.notifier).markForegrounded(true);
       _retryDeferredSyncConfigure();
+      if (mounted &&
+          ref.read(notificationNavigationProvider.notifier).pending != null) {
+        setState(() {});
+      }
+      _scheduleNotificationDrain();
     }
   }
 
@@ -908,6 +1050,22 @@ class _AppShellState extends ConsumerState<AppShell>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(notificationNavigationProvider);
+    final pendingNotification = ref
+        .read(notificationNavigationProvider.notifier)
+        .pending;
+    if (pendingNotification != null) {
+      // Observe only lightweight gate state before privacy authorization.
+      ref.watch(systemSettingsProvider);
+      ref.watch(syncPasswordSheetVisibleProvider);
+      ref.watch(syncRewrapSheetVisibleProvider);
+      if (_notificationPrivacyReady()) {
+        ref.watch(databaseReadyProvider);
+        ref.watch(notificationTapBootstrapProvider);
+        if (_notificationReady()) ref.watch(syncIdProvider);
+      }
+      _scheduleNotificationDrain();
+    }
     // Re-check once async lock settings resolve.
     if (!_pinCheckResolved) {
       ref.listen(systemSettingsProvider, (_, _) => _checkInitialLock());
@@ -1334,6 +1492,7 @@ class _AppShellState extends ConsumerState<AppShell>
         isDismissible: latestDecision.isDismissible,
       ).whenComplete(() {
         _frontingUpgradeSheetShowing = false;
+        _scheduleNotificationDrain();
       });
     });
   }

@@ -246,6 +246,7 @@ class ReminderSchedulerService {
       title: reminder.name,
       body: reminder.message,
       details: details,
+      payload: 'prism:reminder:immediate:${reminder.id}',
     );
   }
 

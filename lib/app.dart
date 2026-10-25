@@ -11,6 +11,7 @@ import 'core/database/database_encryption.dart';
 import 'core/database/database_provider.dart';
 import 'core/diagnostics/main_isolate_stalls.dart';
 import 'core/router/app_router.dart';
+import 'core/router/notification_navigation_providers.dart';
 import 'core/services/media/bio_media_reconciler.dart';
 import 'core/services/media/media_heal_providers.dart';
 import 'core/services/media/media_providers.dart';
@@ -234,6 +235,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(notificationTapBootstrapProvider);
     final databaseReady = ref.watch(databaseReadyProvider);
     if (!databaseReady.hasValue) {
       return _DatabaseStartupApp(databaseReady: databaseReady);

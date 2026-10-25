@@ -16,6 +16,7 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     })
   >
   scheduleRepeatingWithDurationCalls = [];
+  final payloads = <String?>[];
   final List<int> cancelCalls = [];
   Completer<void>? cancellation;
 
@@ -26,7 +27,9 @@ class _FakeLocalNotificationService extends LocalNotificationService {
     required String body,
     required Duration interval,
     required NotificationDetails details,
+    String? payload,
   }) async {
+    payloads.add(payload);
     scheduleRepeatingWithDurationCalls.add((
       id: id,
       title: title,
@@ -80,6 +83,7 @@ void main() {
           interval: const Duration(minutes: 15),
         );
 
+        expect(fake.payloads, ['prism:fronting:v1']);
         expect(fake.cancelCalls, [1000]);
         expect(fake.scheduleRepeatingWithDurationCalls, hasLength(1));
         final call = fake.scheduleRepeatingWithDurationCalls.single;

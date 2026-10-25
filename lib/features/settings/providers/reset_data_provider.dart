@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:prism_plurality/core/router/notification_navigation_providers.dart';
+
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -382,6 +384,18 @@ class ResetDataNotifier extends AsyncNotifier<void> {
 
   /// Reset a specific category of data.
   Future<void> reset(ResetCategory category) async {
+    final notificationIntents = ref.read(
+      notificationNavigationProvider.notifier,
+    );
+    notificationIntents.beginContextChange();
+    try {
+      await _resetCategory(category);
+    } finally {
+      notificationIntents.endContextChange();
+    }
+  }
+
+  Future<void> _resetCategory(ResetCategory category) async {
     final result = await AsyncValue.guard(() async {
       switch (category) {
         case ResetCategory.members:
@@ -419,6 +433,18 @@ class ResetDataNotifier extends AsyncNotifier<void> {
   }
 
   Future<void> replaceLocalDataAndPrepareForPairing() async {
+    final notificationIntents = ref.read(
+      notificationNavigationProvider.notifier,
+    );
+    notificationIntents.beginContextChange();
+    try {
+      await _replaceLocalDataAndPrepareForPairing();
+    } finally {
+      notificationIntents.endContextChange();
+    }
+  }
+
+  Future<void> _replaceLocalDataAndPrepareForPairing() async {
     final result = await AsyncValue.guard(() async {
       await _resetSyncSystem(
         reason: SyncDisconnectReason.replaceByPairing,
@@ -665,6 +691,28 @@ class ResetDataNotifier extends AsyncNotifier<void> {
   }
 
   Future<void> _resetSyncSystem({
+    required SyncDisconnectReason reason,
+    required SyncRelayCleanupPolicy cleanupPolicy,
+    required LocalAppDataOutcome localAppDataOutcome,
+    required SyncSetupConstraint nextSetupConstraint,
+  }) async {
+    final notificationIntents = ref.read(
+      notificationNavigationProvider.notifier,
+    );
+    notificationIntents.beginContextChange();
+    try {
+      await _resetSyncSystemData(
+        reason: reason,
+        cleanupPolicy: cleanupPolicy,
+        localAppDataOutcome: localAppDataOutcome,
+        nextSetupConstraint: nextSetupConstraint,
+      );
+    } finally {
+      notificationIntents.endContextChange();
+    }
+  }
+
+  Future<void> _resetSyncSystemData({
     required SyncDisconnectReason reason,
     required SyncRelayCleanupPolicy cleanupPolicy,
     required LocalAppDataOutcome localAppDataOutcome,

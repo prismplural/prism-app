@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show ProviderException;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -25,6 +27,7 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
+import 'package:prism_plurality/core/router/notification_navigation_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_sync_v2_catchup_service.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
@@ -172,6 +175,22 @@ const _memberRefAllowlist = <(String, String)>{
   ('pk_identity_sync_aliases', 'member_id'),
 };
 
+class _PausedNotificationResetDatabase extends AppDatabase {
+  _PausedNotificationResetDatabase() : super(NativeDatabase.memory());
+  final pending = Completer<void>();
+  bool entered = false;
+
+  @override
+  Future<T> transaction<T>(
+    Future<T> Function() action, {
+    bool requireNew = false,
+  }) async {
+    entered = true;
+    await pending.future;
+    throw StateError('Synthetic reset failure before storage mutation');
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -193,6 +212,92 @@ void main() {
           null,
         );
   });
+
+  test(
+    'new notification tap during deferred reset is suppressed and throwing reset reopens intake',
+    () async {
+      final database = _PausedNotificationResetDatabase();
+      addTearDown(database.close);
+      final container = ProviderContainer(
+        overrides: [databaseProvider.overrideWithValue(database)],
+      );
+      addTearDown(container.dispose);
+      await container.read(resetDataNotifierProvider.future);
+      final intents = container.read(notificationNavigationProvider.notifier);
+      intents.receiveCallback('prism:reminder:scheduled:before');
+      final oldClaim = intents.claim()!;
+      final resetting = container
+          .read(resetDataNotifierProvider.notifier)
+          .reset(ResetCategory.members);
+      expect(database.entered, isTrue);
+      expect(intents.contextChanging, isTrue);
+      intents.receiveCallback('prism:reminder:scheduled:during');
+      expect(intents.pending, isNull);
+      expect(intents.claim(), isNull);
+      final checkedFailure = expectLater(resetting, throwsStateError);
+      database.pending.complete();
+      await checkedFailure;
+      expect(intents.contextChanging, isFalse);
+      expect(intents.complete(oldClaim), isFalse);
+      expect(intents.pending, isNull);
+      intents.receiveCallback('prism:reminder:scheduled:after');
+      expect(intents.claim()?.intent.reminderId, 'after');
+    },
+  );
+
+  for (final resetPath in ['members', 'sync', 'replace']) {
+    test(
+      'notification claims clear before $resetPath reset first protected access',
+      () async {
+        late NotificationNavigation intents;
+        var protectedAccesses = 0;
+        final syntheticError = StateError(
+          'Synthetic stop before any storage or native reset',
+        );
+        Never stopBeforeStorage() {
+          protectedAccesses++;
+          expect(intents.pending, isNull);
+          throw syntheticError;
+        }
+
+        final container = ProviderContainer(
+          overrides: [
+            databaseProvider.overrideWith((ref) => stopBeforeStorage()),
+            resetSyncHandleProvider.overrideWith((ref) => stopBeforeStorage()),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(resetDataNotifierProvider.future);
+        intents = container.read(notificationNavigationProvider.notifier);
+        intents.receiveCallback('prism:reminder:scheduled:synthetic-id');
+        final claim = intents.claim()!;
+        final owner = container.read(resetDataNotifierProvider.notifier);
+        final resetting = resetPath == 'replace'
+            ? owner.replaceLocalDataAndPrepareForPairing()
+            : owner.reset(
+                resetPath == 'members'
+                    ? ResetCategory.members
+                    : ResetCategory.sync,
+              );
+        expect(intents.pending, isNull);
+        expect(intents.complete(claim), isFalse);
+        await expectLater(
+          resetting,
+          throwsA(
+            isA<ProviderException>().having(
+              (error) => error.exception,
+              'underlying reset sentinel',
+              same(syntheticError),
+            ),
+          ),
+        );
+        expect(protectedAccesses, 1);
+        expect(intents.contextChanging, isFalse);
+        intents.receiveCallback('prism:reminder:scheduled:after-error');
+        expect(intents.claim()?.intent.reminderId, 'after-error');
+      },
+    );
+  }
 
   // ── Completeness guard ──────────────────────────────────────────────
   // Fails when a new table is added to the schema but not to the reset
