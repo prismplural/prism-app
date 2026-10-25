@@ -136,13 +136,17 @@ class ListDetailLayout extends StatelessWidget {
           ),
         );
 
-        if (clearSelection == null) return content;
-
+        // Editing can disable clearing without replacing the pane subtree.
+        // Keep focus and list scroll state mounted across that transition.
         content = CallbackShortcuts(
           bindings: <ShortcutActivator, VoidCallback>{
-            const SingleActivator(LogicalKeyboardKey.escape): clearSelection,
+            const SingleActivator(LogicalKeyboardKey.escape): ?clearSelection,
           },
-          child: Focus(autofocus: true, child: content),
+          child: Focus(
+            autofocus: true,
+            skipTraversal: clearSelection == null,
+            child: content,
+          ),
         );
 
         return content;

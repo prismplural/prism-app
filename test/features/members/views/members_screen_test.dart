@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +8,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/app_database.dart' as db;
+import 'package:prism_plurality/core/database/database_provider.dart'
+    show databaseProvider;
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
+import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
@@ -29,6 +37,7 @@ import 'package:prism_plurality/features/members/providers/member_stats_provider
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
+import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/members/views/member_custom_field_group_page.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
 import 'package:prism_plurality/features/members/views/members_screen.dart';
@@ -44,7 +53,9 @@ import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/providers/member_avatar_image_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
+import '../../../helpers/bio_image_test_utils.dart';
 import '../../../helpers/fake_repositories.dart';
 import '../../../helpers/fronting_term_fixtures.dart';
 
@@ -89,6 +100,8 @@ Widget _buildSubject({
   FrontingTerms? frontingTerms,
   void Function(FakeAppPreferenceRepository appPrefs)? seedAppPreferences,
   bool withRouter = false,
+  db.AppDatabase? memberDatabase,
+  TestBioImageInfra? imageInfra,
   Set<String>? customFieldValueMemberIds,
 }) {
   final activeMembers = members.where((member) => member.isActive).toList();
@@ -113,8 +126,12 @@ Widget _buildSubject({
                   ),
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) =>
-                        Text('Member detail ${state.pathParameters['id']}'),
+                    builder: (context, state) => memberDatabase == null
+                        ? Text('Member detail ${state.pathParameters['id']}')
+                        : MemberDetailScreen(
+                            memberId: state.pathParameters['id']!,
+                            branch: MemberNavigationBranch.members,
+                          ),
                   ),
                 ],
               ),
@@ -141,18 +158,39 @@ Widget _buildSubject({
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
-      activeMembersProvider.overrideWith((ref) => Stream.value(activeMembers)),
-      allMembersProvider.overrideWith((ref) => Stream.value(members)),
-      activeMemberListProvider.overrideWith(
-        (ref) => Stream.value(activeMembers),
-      ),
-      allMemberListProvider.overrideWith((ref) => Stream.value(members)),
-      memberByIdProvider.overrideWith((ref, id) {
-        for (final member in members) {
-          if (member.id == id) return Stream.value(member);
-        }
-        return Stream.value(null);
-      }),
+      if (memberDatabase != null) ...[
+        databaseProvider.overrideWithValue(memberDatabase),
+        prismSyncHandleProvider.overrideWithBuild((ref, notifier) => null),
+        memberRepositoryProvider.overrideWithValue(
+          DriftMemberRepository(memberDatabase.membersDao, null),
+        ),
+        mediaAttachmentRepositoryProvider.overrideWithValue(
+          DriftMediaAttachmentRepository(
+            memberDatabase.mediaAttachmentsDao,
+            null,
+          ),
+        ),
+      ] else ...[
+        activeMembersProvider.overrideWith(
+          (ref) => Stream.value(activeMembers),
+        ),
+        allMembersProvider.overrideWith((ref) => Stream.value(members)),
+        activeMemberListProvider.overrideWith(
+          (ref) => Stream.value(activeMembers),
+        ),
+        allMemberListProvider.overrideWith((ref) => Stream.value(members)),
+        memberByIdProvider.overrideWith((ref, id) {
+          for (final member in members) {
+            if (member.id == id) return Stream.value(member);
+          }
+          return Stream.value(null);
+        }),
+      ],
+      if (imageInfra != null) ...[
+        mediaServiceProvider.overrideWithValue(imageInfra.mediaService),
+        uploadQueueProvider.overrideWithValue(imageInfra.uploadQueue),
+        downloadManagerProvider.overrideWithValue(imageInfra.downloadManager),
+      ],
       memberAvatarImageDataProvider.overrideWith(
         (ref, memberId) => Stream.value(null),
       ),
@@ -324,12 +362,283 @@ class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
   PkSyncDirection build() => _direction;
 }
 
+Future<T> _pumpDatabaseOperation<T>(
+  WidgetTester tester,
+  String phase,
+  Future<T> Function() operation,
+) async {
+  debugPrint('[member-anchor-fixture] $phase start');
+  var completed = false;
+  T? result;
+  Object? failure;
+  StackTrace? failureStack;
+  // Attach both handlers before pumping: an asynchronous DB failure must never
+  // become an unhandled future while the widget test drives its own zone.
+  unawaited(
+    Future<T>.sync(operation).then<void>(
+      (value) {
+        result = value;
+        completed = true;
+      },
+      onError: (Object error, StackTrace stack) {
+        failure = error;
+        failureStack = stack;
+        completed = true;
+      },
+    ),
+  );
+  for (var pump = 0; pump < 100 && !completed; pump++) {
+    await tester.pump(const Duration(milliseconds: 20));
+  }
+  expect(completed, isTrue, reason: '$phase exceeded 100 database pumps');
+  if (failure != null) {
+    Error.throwWithStackTrace(failure!, failureStack!);
+  }
+  debugPrint('[member-anchor-fixture] $phase complete');
+  return result as T;
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'prism.members.view_settings_banner_seen': true,
     });
   });
+
+  // Local SQLite/UI regressions: null sync handles deliberately do not claim
+  // native sync, peer delivery, process restart, or physical Windows coverage.
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final grouped in [false, true]) {
+      for (final operation in ['cancel', 'save', 'reactive']) {
+        testWidgets('500-member anchor ${platform.name} '
+            '${grouped ? 'grouped' : 'flat'} $operation', (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          addTearDown(() => debugDefaultTargetPlatformOverride = null);
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = platform == TargetPlatform.windows
+              ? const Size(1200, 800)
+              : const Size(390, 844);
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+
+          final members = List.generate(
+            500,
+            (index) => _member(
+              'm${index.toString().padLeft(4, '0')}',
+              displayOrder: index,
+              isActive: index % 5 != 0,
+            ),
+          );
+          // Own all media/queue/DB dependencies in the same ProviderScope.
+          // TestBioImageInfra uses resumeOnStart:false and a null download
+          // handle; no production database or SDK initialization is allowed.
+          final imageInfra = TestBioImageInfra.create();
+          final database = imageInfra.database;
+          final repository = DriftMemberRepository(database.membersDao, null);
+          try {
+            await tester.runAsync(
+              () => database.transaction(() async {
+                for (final member in members) {
+                  await repository.createMember(member);
+                }
+              }),
+            );
+            final groups = [_group('even', 'Even'), _group('odd', 'Odd')];
+            final entries = [
+              for (var i = 0; i < members.length; i++)
+                MemberGroupEntry(
+                  id: 'entry-$i',
+                  groupId: i.isEven ? 'even' : 'odd',
+                  memberId: members[i].id,
+                ),
+            ];
+            await tester.pumpWidget(
+              _buildSubject(
+                members: members,
+                groups: groups,
+                entries: entries,
+                memberDatabase: database,
+                imageInfra: imageInfra,
+                withRouter: true,
+                settings: SystemSettings(
+                  notesEnabled: false,
+                  boardsEnabled: false,
+                  membersShowGroups: grouped,
+                  membersListViewMode: MembersListViewMode.groupedSections,
+                  membersShowFrontButtons: false,
+                ),
+              ),
+            );
+            await tester.runAsync(
+              () => repository.watchActiveMembersForList().first,
+            );
+            await tester.pumpAndSettle();
+            final container = ProviderScope.containerOf(
+              tester.element(find.byType(MembersScreen)),
+            );
+            if (grouped) {
+              container.read(collapsedGroupsProvider.notifier).toggle('even');
+              await tester.pumpAndSettle();
+            }
+            // The real active-only filter removes 100 synthetic inactive rows.
+            expect(
+              container.read(userVisibleMemberListProvider).requireValue.length,
+              400,
+            );
+            expect(container.read(showInactiveMembersProvider), isFalse);
+            final scrollable = find
+                .ancestor(
+                  of: find.byType(MemberCard).first,
+                  matching: find.byType(Scrollable),
+                )
+                .first;
+            await tester.scrollUntilVisible(
+              find.text('Member m0301'),
+              600,
+              scrollable: scrollable,
+              maxScrolls: 75,
+            );
+            await tester.pumpAndSettle();
+            final viewport = tester.getRect(scrollable);
+            final visibleCards =
+                find.byType(MemberCard).evaluate().where((element) {
+                  final rect = tester.getRect(find.byWidget(element.widget));
+                  return rect.top >= viewport.top &&
+                      rect.bottom <= viewport.bottom;
+                }).toList()..sort(
+                  (a, b) => tester
+                      .getTopLeft(find.byWidget(a.widget))
+                      .dy
+                      .compareTo(tester.getTopLeft(find.byWidget(b.widget)).dy),
+                );
+            expect(visibleCards, isNotEmpty);
+            final anchor = (visibleCards.first.widget as MemberCard).member;
+            Finder anchorCard() => find.byWidgetPredicate(
+              (widget) => widget is MemberCard && widget.member.id == anchor.id,
+            );
+            final anchorY = tester.getTopLeft(anchorCard()).dy;
+            expect(int.parse(anchor.id.substring(1)), greaterThan(200));
+            // Guard virtualization: don't turn this fixture into full-list UI
+            // hydration just to make anchor discovery convenient.
+            expect(find.byType(MemberCard).evaluate().length, lessThan(60));
+
+            await tester.tap(anchorCard());
+            await tester.pumpAndSettle();
+            expect(find.byType(MemberDetailScreen), findsOneWidget);
+            if (operation == 'reactive') {
+              await _pumpDatabaseOperation<void>(
+                tester,
+                'reactive write',
+                () => repository.updateMember(
+                  anchor.copyWith(pronouns: 'they/them'),
+                ),
+              );
+              final refreshed = await _pumpDatabaseOperation<Member?>(
+                tester,
+                'reactive read',
+                () => repository.getMemberById(anchor.id),
+              );
+              expect(refreshed!.pronouns, 'they/them');
+              await tester.pumpAndSettle();
+            } else {
+              await tester.tap(_memberDetailEditButton().first);
+              await tester.pumpAndSettle();
+              expect(find.byType(AddEditMemberSheet), findsOneWidget);
+              if (operation == 'save') {
+                final editor = find.byType(AddEditMemberSheet);
+                // PrismTextField's visual label is outside its TextFormField.
+                final pronouns = find.descendant(
+                  of: editor,
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is PrismTextField &&
+                        widget.labelText == 'Pronouns',
+                  ),
+                );
+                await tester.scrollUntilVisible(
+                  pronouns,
+                  300,
+                  scrollable: find
+                      .descendant(
+                        of: editor,
+                        matching: find.byWidgetPredicate(
+                          (widget) =>
+                              widget is Scrollable &&
+                              widget.axisDirection == AxisDirection.down,
+                        ),
+                      )
+                      .first,
+                  maxScrolls: 12,
+                );
+                await tester.enterText(
+                  find.descendant(
+                    of: pronouns,
+                    matching: find.byType(TextFormField),
+                  ),
+                  'they/them',
+                );
+                await tester.pumpAndSettle();
+                await tester.tap(
+                  find
+                      .descendant(
+                        of: find.byType(AddEditMemberSheet),
+                        matching: find.byIcon(AppIcons.check),
+                      )
+                      .hitTestable()
+                      .first,
+                );
+                await tester.pumpAndSettle();
+                final saved = await tester.runAsync(
+                  () => repository.getMemberById(anchor.id),
+                );
+                expect(saved!.pronouns, 'they/them');
+                expect(saved.name, anchor.name);
+                expect(saved.displayOrder, anchor.displayOrder);
+              } else {
+                expect(await tester.binding.handlePopRoute(), isTrue);
+                await tester.pumpAndSettle();
+                final saved = await tester.runAsync(
+                  () => repository.getMemberById(anchor.id),
+                );
+                expect(saved!.pronouns, anchor.pronouns);
+              }
+              expect(find.byType(AddEditMemberSheet), findsNothing);
+            }
+            if (platform == TargetPlatform.android) {
+              GoRouter.of(
+                tester.element(find.byType(MemberDetailScreen)),
+              ).pop();
+              await tester.pumpAndSettle();
+            }
+            // Identity + visual inset, not merely the old raw pixel offset.
+            expect(anchorCard(), findsOneWidget);
+            expect(tester.getTopLeft(anchorCard()).dy, closeTo(anchorY, 1));
+            expect(container.read(showInactiveMembersProvider), isFalse);
+            expect(container.read(membersShowGroupsProvider), grouped);
+            expect(
+              container.read(membersListViewModeProvider),
+              MembersListViewMode.groupedSections,
+            );
+            if (grouped) {
+              expect(container.read(collapsedGroupsProvider), contains('even'));
+            }
+            expect(tester.takeException(), isNull);
+          } finally {
+            try {
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pumpAndSettle();
+              await tester.runAsync(
+                () => imageInfra.close().timeout(const Duration(seconds: 10)),
+              );
+            } finally {
+              // flutter_test checks this before addTearDown callbacks run.
+              debugDefaultTargetPlatformOverride = null;
+            }
+          }
+        });
+      }
+    }
+  }
 
   testWidgets('wide layout starts with no member selected', (tester) async {
     _setWideWindow(tester);
