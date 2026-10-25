@@ -25,6 +25,7 @@ import 'package:prism_plurality/features/members/utils/member_search_groups.dart
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
+import 'package:prism_plurality/features/members/widgets/member_front_actions_menu.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -1644,59 +1645,62 @@ class _GroupMemberTile extends ConsumerWidget {
     final l10n = context.l10n;
     final isManual = sortMode == GroupSortMode.manual;
 
-    return Focus(
-      key: ValueKey('member_focus_${entry.id}'),
-      focusNode: focusNode,
-      child: Semantics(
-        customSemanticsActions: <CustomSemanticsAction, VoidCallback>{
-          if (reorderIndex > 0)
-            CustomSemanticsAction(label: l10n.groupSortActionMoveUp): () =>
-                unawaited(onMoveTo(reorderIndex - 1)),
-          if (reorderIndex < totalCount - 1)
-            CustomSemanticsAction(label: l10n.groupSortActionMoveDown): () =>
-                unawaited(onMoveTo(reorderIndex + 1)),
-          if (reorderIndex > 0)
-            CustomSemanticsAction(label: l10n.groupSortActionMoveToTop): () =>
-                unawaited(onMoveTo(0)),
-          if (reorderIndex < totalCount - 1)
-            CustomSemanticsAction(
-              label: l10n.groupSortActionMoveToBottom,
-            ): () =>
-                unawaited(onMoveTo(totalCount - 1)),
-        },
-        child: Dismissible(
-          key: ValueKey('member_dismiss_${entry.id}'),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 24),
-            color: theme.colorScheme.error,
-            child: Icon(
-              AppIcons.removeCircleOutline,
-              color: theme.colorScheme.onError,
+    return MemberFrontActionsMenu(
+      member: member,
+      child: Focus(
+        key: ValueKey('member_focus_${entry.id}'),
+        focusNode: focusNode,
+        child: Semantics(
+          customSemanticsActions: <CustomSemanticsAction, VoidCallback>{
+            if (reorderIndex > 0)
+              CustomSemanticsAction(label: l10n.groupSortActionMoveUp): () =>
+                  unawaited(onMoveTo(reorderIndex - 1)),
+            if (reorderIndex < totalCount - 1)
+              CustomSemanticsAction(label: l10n.groupSortActionMoveDown): () =>
+                  unawaited(onMoveTo(reorderIndex + 1)),
+            if (reorderIndex > 0)
+              CustomSemanticsAction(label: l10n.groupSortActionMoveToTop): () =>
+                  unawaited(onMoveTo(0)),
+            if (reorderIndex < totalCount - 1)
+              CustomSemanticsAction(
+                label: l10n.groupSortActionMoveToBottom,
+              ): () =>
+                  unawaited(onMoveTo(totalCount - 1)),
+          },
+          child: Dismissible(
+            key: ValueKey('member_dismiss_${entry.id}'),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 24),
+              color: theme.colorScheme.error,
+              child: Icon(
+                AppIcons.removeCircleOutline,
+                color: theme.colorScheme.onError,
+              ),
             ),
-          ),
-          confirmDismiss: (_) => _confirmRemove(context, ref, member),
-          child: MemberCard(
-            member: member,
-            resolvedName: primaryNameFor(member, namePresentation),
-            subtitleName: alternateNameFor(member, namePresentation),
-            deferAvatarLookup: true,
-            reorderIndex: reorderIndex,
-            dragHandleHint: isManual
-                ? l10n.groupMemberDragHandleHintManual
-                : l10n.groupMemberDragHandleHintSorted,
-            selected:
-                ListDetailPaneScope.maybeOf(context)?.selectedDetailId ==
-                member.id,
-            onTap: () {
-              final paneScope = ListDetailPaneScope.maybeOf(context);
-              if (paneScope != null) {
-                paneScope.selectDetail(member.id);
-              } else {
-                context.push(_memberPathFor(branch, groupId, member.id));
-              }
-            },
+            confirmDismiss: (_) => _confirmRemove(context, ref, member),
+            child: MemberCard(
+              member: member,
+              resolvedName: primaryNameFor(member, namePresentation),
+              subtitleName: alternateNameFor(member, namePresentation),
+              deferAvatarLookup: true,
+              reorderIndex: reorderIndex,
+              dragHandleHint: isManual
+                  ? l10n.groupMemberDragHandleHintManual
+                  : l10n.groupMemberDragHandleHintSorted,
+              selected:
+                  ListDetailPaneScope.maybeOf(context)?.selectedDetailId ==
+                  member.id,
+              onTap: () {
+                final paneScope = ListDetailPaneScope.maybeOf(context);
+                if (paneScope != null) {
+                  paneScope.selectDetail(member.id);
+                } else {
+                  context.push(_memberPathFor(branch, groupId, member.id));
+                }
+              },
+            ),
           ),
         ),
       ),

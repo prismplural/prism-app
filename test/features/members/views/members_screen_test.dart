@@ -58,6 +58,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import '../../../helpers/bio_image_test_utils.dart';
 import '../../../helpers/fake_repositories.dart';
 import '../../../helpers/fronting_term_fixtures.dart';
+import '../../../helpers/member_front_actions_contract.dart';
 
 Member _member(
   String id, {
@@ -95,7 +96,7 @@ Widget _buildSubject({
   List<FrontingSession> activeSessions = const [],
   List<CustomField> customFields = const [],
   List<CustomFieldValue> customFieldValues = const [],
-  _FakeFrontingNotifier? frontingNotifier,
+  FrontingNotifier? frontingNotifier,
   _FakeMembersNotifier? membersNotifier,
   FrontingTerms? frontingTerms,
   void Function(FakeAppPreferenceRepository appPrefs)? seedAppPreferences,
@@ -105,38 +106,42 @@ Widget _buildSubject({
   Set<String>? customFieldValueMemberIds,
 }) {
   final activeMembers = members.where((member) => member.isActive).toList();
+  final router = withRouter
+      ? GoRouter(
+          initialLocation: AppRoutePaths.members,
+          routes: [
+            GoRoute(
+              path: AppRoutePaths.members,
+              builder: (context, state) => const MembersScreen(
+                showBackButton: false,
+                branch: MemberNavigationBranch.members,
+              ),
+              routes: [
+                GoRoute(
+                  path: 'groups/:id',
+                  builder: (context, state) =>
+                      Text('Group detail ${state.pathParameters['id']}'),
+                ),
+                GoRoute(
+                  path: ':id',
+                  builder: (context, state) => memberDatabase == null
+                      ? Text('Member detail ${state.pathParameters['id']}')
+                      : MemberDetailScreen(
+                          memberId: state.pathParameters['id']!,
+                          branch: MemberNavigationBranch.members,
+                        ),
+                ),
+              ],
+            ),
+          ],
+        )
+      : null;
+  if (router != null) addTearDown(router.dispose);
   final child = withRouter
       ? MaterialApp.router(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: const [Locale('en')],
-          routerConfig: GoRouter(
-            initialLocation: AppRoutePaths.members,
-            routes: [
-              GoRoute(
-                path: AppRoutePaths.members,
-                builder: (context, state) => const MembersScreen(
-                  showBackButton: false,
-                  branch: MemberNavigationBranch.members,
-                ),
-                routes: [
-                  GoRoute(
-                    path: 'groups/:id',
-                    builder: (context, state) =>
-                        Text('Group detail ${state.pathParameters['id']}'),
-                  ),
-                  GoRoute(
-                    path: ':id',
-                    builder: (context, state) => memberDatabase == null
-                        ? Text('Member detail ${state.pathParameters['id']}')
-                        : MemberDetailScreen(
-                            memberId: state.pathParameters['id']!,
-                            branch: MemberNavigationBranch.members,
-                          ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          routerConfig: router,
         )
       : const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -156,6 +161,9 @@ Widget _buildSubject({
   return ProviderScope(
     overrides: [
       verifiedStartupKeyProvider.overrideWithValue('aa' * 32),
+      frontingSessionRepositoryProvider.overrideWithValue(
+        FakeFrontingSessionRepository()..sessions.addAll(activeSessions),
+      ),
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       if (memberDatabase != null) ...[
@@ -639,6 +647,18 @@ void main() {
       }
     }
   }
+
+  memberFrontActionsContract(
+    surface: 'main list',
+    build: (member, sessions, notifier) => _buildSubject(
+      members: [member],
+      groups: const [],
+      entries: const [],
+      activeSessions: sessions,
+      frontingNotifier: notifier,
+      withRouter: true,
+    ),
+  );
 
   testWidgets('wide layout starts with no member selected', (tester) async {
     _setWideWindow(tester);
@@ -2196,36 +2216,49 @@ void main() {
     expect(dragHandleBounds.right, closeTo(cardBounds.right - 32, 0.1));
   });
 
-  testWidgets('long-press set as fronter follows replace preference', (
-    tester,
-  ) async {
-    final notifier = _FakeFrontingNotifier();
-    final members = [_member('alice')];
-
-    await tester.pumpWidget(
-      _buildSubject(
-        settings: const SystemSettings(
-          membersFrontButtonBehavior: FrontStartBehavior.replace,
-        ),
-        members: members,
-        groups: const [],
-        entries: const [],
-        frontingNotifier: notifier,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.longPress(find.text('Member alice'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Set as fronter'));
-    await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 3));
-
-    expect(notifier.startFrontingCalls, isEmpty);
-    expect(notifier.replaceFrontingCalls, [
-      ['alice'],
-    ]);
-  });
+  for (final preference in FrontStartBehavior.values) {
+    for (final replace in [false, true]) {
+      testWidgets('long-press explicit ${replace ? 'replace' : 'add'} ignores '
+          '$preference quick-button preference', (tester) async {
+        final notifier = _FakeFrontingNotifier();
+        await tester.pumpWidget(
+          _buildSubject(
+            settings: SystemSettings(membersFrontButtonBehavior: preference),
+            members: [_member('alice')],
+            groups: const [],
+            entries: const [],
+            frontingNotifier: notifier,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.longPress(find.text('Member alice'));
+        await tester.pumpAndSettle();
+        expect(find.text('Add as fronter'), findsOneWidget);
+        expect(find.text('Replace current fronters'), findsOneWidget);
+        expect(find.text('Set as fronter'), findsNothing);
+        await tester.tap(
+          find.text(replace ? 'Replace current fronters' : 'Add as fronter'),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          notifier.startFrontingCalls,
+          replace
+              ? isEmpty
+              : [
+                  ['alice'],
+                ],
+        );
+        expect(
+          notifier.replaceFrontingCalls,
+          replace
+              ? [
+                  ['alice'],
+                ]
+              : isEmpty,
+        );
+      });
+    }
+  }
 
   testWidgets('member rows expose actions from long-press menu', (
     tester,
@@ -2242,7 +2275,8 @@ void main() {
     await tester.longPress(find.text('Member alice'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Set as fronter'), findsOneWidget);
+    expect(find.text('Add as fronter'), findsOneWidget);
+    expect(find.text('Replace current fronters'), findsOneWidget);
     expect(find.text('Add to group'), findsOneWidget);
     expect(find.text('Archive'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
@@ -2280,7 +2314,8 @@ void main() {
     await tester.longPress(find.text('Member alice'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Set as fronter'), findsOneWidget);
+    expect(find.text('Add as fronter'), findsOneWidget);
+    expect(find.text('Replace current fronters'), findsOneWidget);
     expect(
       hapticCalls.any(
         (call) => call.arguments == 'HapticFeedbackType.selectionClick',

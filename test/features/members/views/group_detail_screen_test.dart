@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/group_sort_mode.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/domain/models/group_sort_state.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -38,6 +40,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 import '../../../helpers/fake_repositories.dart';
+import '../../../helpers/member_front_actions_contract.dart';
 
 List<MemberGroup> _chain(int n) => [
   for (var i = 0; i < n; i++)
@@ -204,7 +207,30 @@ Widget _buildSubject({
   List<Member>? allMembers,
   _FakeMemberGroupsRepository? repository,
   FrontingTerms? frontingTerms,
+  List<FrontingSession>? activeSessions,
+  bool withMemberRouter = false,
+  FrontingNotifier? frontingNotifier,
 }) {
+  final router = withMemberRouter
+      ? GoRouter(
+          initialLocation: MemberNavigationBranch.groups.groupPath(group.id),
+          routes: [
+            GoRoute(
+              path: MemberNavigationBranch.groups.groupPath(group.id),
+              builder: (context, state) => GroupDetailScreen(groupId: group.id),
+            ),
+            GoRoute(
+              path: MemberNavigationBranch.groups.memberPath(
+                ':memberId',
+                groupId: group.id,
+              ),
+              builder: (context, state) =>
+                  const Scaffold(body: Text('Synthetic member destination')),
+            ),
+          ],
+        )
+      : null;
+  if (router != null) addTearDown(router.dispose);
   final resolvedAll = allMembers ?? activeMembers;
   final repo =
       repository ??
@@ -217,6 +243,10 @@ Widget _buildSubject({
   return ProviderScope(
     overrides: [
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+      frontingSessionRepositoryProvider.overrideWithValue(
+        FakeFrontingSessionRepository()
+          ..sessions.addAll(activeSessions ?? const []),
+      ),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -252,6 +282,11 @@ Widget _buildSubject({
       groupTreeProvider.overrideWith(
         (ref) => GroupTreeUtils.buildGroupTree(allGroups),
       ),
+      activeSessionsProvider.overrideWith(
+        (ref) => Stream.value(activeSessions ?? const <FrontingSession>[]),
+      ),
+      if (frontingNotifier != null)
+        frontingNotifierProvider.overrideWith(() => frontingNotifier),
       groupNotifierProvider.overrideWith(() => notifier),
       memberGroupsRepositoryProvider.overrideWithValue(repo),
       // Stats providers need explicit fakes — their underlying
@@ -266,16 +301,24 @@ Widget _buildSubject({
         ),
       ),
     ],
-    child: MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en')],
-      // Mirror production: `PrismToastHost` is mounted in
-      // `MaterialApp.builder` so toast text becomes findable via
-      // `find.text(...)`.
-      builder: (context, child) =>
-          PrismToastHost(child: child ?? const SizedBox.shrink()),
-      home: GroupDetailScreen(groupId: group.id),
-    ),
+    child: router != null
+        ? MaterialApp.router(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            routerConfig: router,
+            builder: (context, child) =>
+                PrismToastHost(child: child ?? const SizedBox.shrink()),
+          )
+        : MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            // Mirror production: `PrismToastHost` is mounted in
+            // `MaterialApp.builder` so toast text becomes findable via
+            // `find.text(...)`.
+            builder: (context, child) =>
+                PrismToastHost(child: child ?? const SizedBox.shrink()),
+            home: GroupDetailScreen(groupId: group.id),
+          ),
   );
 }
 
@@ -291,6 +334,9 @@ Widget _buildRoutedSubject({
   addTearDown(appPrefs.close);
   return ProviderScope(
     overrides: [
+      activeSessionsProvider.overrideWith(
+        (ref) => Stream.value(const <FrontingSession>[]),
+      ),
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
@@ -378,6 +424,29 @@ List<Map<Object?, Object?>> _captureSemanticAnnouncements() {
 }
 
 void main() {
+  memberFrontActionsContract(
+    surface: 'group detail',
+    build: (member, sessions, frontingNotifier) {
+      final group = _group(id: 'contract-group', name: 'Synthetic group');
+      return _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: [
+          MemberGroupEntry(
+            id: 'contract-entry',
+            groupId: group.id,
+            memberId: member.id,
+          ),
+        ],
+        activeMembers: [member],
+        notifier: _FakeGroupNotifier(),
+        activeSessions: sessions,
+        withMemberRouter: true,
+        frontingNotifier: frontingNotifier,
+      );
+    },
+  );
+
   testWidgets('group header stretches to fit long descriptions', (
     tester,
   ) async {
@@ -661,6 +730,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          activeSessionsProvider.overrideWith(
+            (ref) => Stream.value(const <FrontingSession>[]),
+          ),
           systemSettingsProvider.overrideWith(
             (ref) => Stream.value(const SystemSettings()),
           ),
@@ -1424,6 +1496,12 @@ void main() {
           matching: find.byType(MemberCard),
         );
         final semantics = tester.getSemantics(aliceCard);
+        printOnFailure(
+          'first-row ancestor semantics:\n${tester.getSemantics(find.byKey(const ValueKey('member_focus_e1'))).toStringDeep()}',
+        );
+        printOnFailure(
+          'Alice card semantics:\n${semantics.toStringDeep()}',
+        );
         final actions =
             semantics.getSemanticsData().customSemanticsActionIds ??
             const <int>[];

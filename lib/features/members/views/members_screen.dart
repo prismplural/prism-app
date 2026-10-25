@@ -22,6 +22,7 @@ import 'package:prism_plurality/features/members/widgets/member_group_filter_bar
 import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/widgets/manage_groups_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
+import 'package:prism_plurality/features/members/widgets/member_front_actions_menu.dart';
 import 'package:prism_plurality/features/members/widgets/member_list_view_settings_sheet.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
@@ -658,7 +659,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     final showPronouns = ref.watch(membersShowPronounsProvider);
     final showFrontButtons = ref.watch(membersShowFrontButtonsProvider);
     final frontButtonBehavior = ref.watch(membersFrontButtonBehaviorProvider);
-    final frontingActionBusy = ref.watch(frontingNotifierProvider).isLoading;
+    final frontingActionBusy =
+        ref.watch(frontingNotifierProvider).isLoading ||
+        ref.watch(memberFrontActionBusyProvider);
     final namePresentation = ref.watch(memberNamePresentationProvider);
     final memberTilePrefs = _MemberTilePrefs(
       showPronouns: showPronouns,
@@ -1290,11 +1293,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     int? reorderIndex,
   }) {
     final theme = Theme.of(context);
-    final actions = _memberContextActions(
-      member,
-      isFronting,
-      memberTilePrefs.frontingTerms,
-    );
+    final actions = _memberContextActions(member);
     final resolvedName = primaryNameFor(
       member,
       memberTilePrefs.namePresentation,
@@ -1311,26 +1310,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
       builder: (context, constraints) {
         // Grouped rows can be indented; use the tile width.
         final maxTrailingWidth = constraints.maxWidth * 0.4;
-        return BlurPopupAnchor(
-          trigger: BlurPopupTrigger.longPress,
-          width: 220,
-          maxHeight: 320,
-          semanticLabel: context.l10n.memberMoreOptionsTooltip,
-          itemCount: actions.length,
-          itemBuilder: (context, index, close) {
-            final action = actions[index];
-            return PrismListRow(
-              dense: true,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              leading: Icon(action.icon, size: 20),
-              title: Text(action.label),
-              destructive: action.destructive,
-              onTap: () {
-                close();
-                unawaited(Future<void>.sync(action.onSelected));
-              },
-            );
-          },
+        return MemberFrontActionsMenu(
+          member: member,
+          additionalActions: actions,
           child: MemberCard(
             member: member,
             resolvedName: resolvedName,
@@ -1430,31 +1412,21 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
     );
   }
 
-  List<_MemberContextAction> _memberContextActions(
-    Member member,
-    bool isFronting,
-    FrontingTermBundle frontingTerms,
-  ) {
+  List<MemberContextAction> _memberContextActions(Member member) {
     return [
-      if (!isFronting)
-        _MemberContextAction(
-          label: frontingTerms.setAsAction,
-          icon: AppIcons.flashOn,
-          onSelected: () => _startFronting(member),
-        ),
-      _MemberContextAction(
+      MemberContextAction(
         label: context.l10n.memberGroupAddToGroup,
         icon: AppIcons.groupOutlined,
         onSelected: () => _showManageGroupsSheet(member),
       ),
-      _MemberContextAction(
+      MemberContextAction(
         label: member.isActive ? 'Archive' : 'Unarchive',
         icon: member.isActive
             ? AppIcons.archiveOutlined
             : AppIcons.unarchiveOutlined,
         onSelected: () => _handleArchiveAction(member),
       ),
-      _MemberContextAction(
+      MemberContextAction(
         label: context.l10n.delete,
         icon: AppIcons.deleteOutline,
         destructive: true,
@@ -1495,14 +1467,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen>
   Future<void> _startFronting(Member member) async {
     try {
       final behavior = ref.read(membersFrontButtonBehaviorProvider);
-      final notifier = ref.read(frontingNotifierProvider.notifier);
-      switch (behavior) {
-        case FrontStartBehavior.additive:
-          await notifier.startFronting([member.id]);
-        case FrontStartBehavior.replace:
-          await notifier.replaceFronting([member.id]);
-      }
-      if (!mounted) return;
+      final submitted = await ref
+          .read(memberFrontActionBusyProvider.notifier)
+          .submit(
+            member,
+            behavior == FrontStartBehavior.additive
+                ? MemberFrontAction.add
+                : MemberFrontAction.replace,
+          );
+      if (!submitted || !mounted) return;
       final frontingTerms = readFrontingTerms(context, ref);
       PrismToast.show(
         context,
@@ -1582,18 +1555,4 @@ class _MemberListSectionHeader extends StatelessWidget {
       ),
     );
   }
-}
-
-class _MemberContextAction {
-  const _MemberContextAction({
-    required this.label,
-    required this.icon,
-    required this.onSelected,
-    this.destructive = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final FutureOr<void> Function() onSelected;
-  final bool destructive;
 }
