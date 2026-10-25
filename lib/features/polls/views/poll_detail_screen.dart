@@ -898,6 +898,30 @@ class _OptionTile extends ConsumerWidget {
             ),
           ],
 
+          // Anonymous Other answers are results, not voter identities.
+          if (isAnonymous && showResults && option.isOtherOption) ...[
+            if (option.votes.any(
+              (vote) => vote.responseText?.trim().isNotEmpty ?? false,
+            )) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  for (final vote in option.votes)
+                    if (vote.responseText?.trim().isNotEmpty ?? false)
+                      PrismPill(
+                        label: vote.responseText!,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                      ),
+                ],
+              ),
+            ],
+          ],
+
           // Voter names (if not anonymous and results are visible)
           if (!isAnonymous && showResults && option.votes.isNotEmpty) ...[
             const SizedBox(height: 8),
