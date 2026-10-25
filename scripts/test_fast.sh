@@ -2,6 +2,13 @@
 # Deterministic PR lane. Fetch dependencies first with `flutter pub get`.
 set -euo pipefail
 
+# Keep Flutter's default when unset; CI/resource-constrained runs can opt in.
+test_concurrency=${PRISM_TEST_CONCURRENCY:-}
+if [[ -n $test_concurrency && ! $test_concurrency =~ ^[1-9][0-9]*$ ]]; then
+  echo 'PRISM_TEST_CONCURRENCY must be a positive integer.' >&2
+  exit 2
+fi
+
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root"
 results_dir=${PRISM_TEST_RESULTS_DIR:-test-results}
@@ -46,7 +53,7 @@ env -u PK_TOKEN -u PK_TEST_TOKEN -u PLURALKIT_TOKEN -u PRISM_LIVE_TEST_TOKEN -u 
   flutter analyze --no-fatal-infos --no-fatal-warnings \
   | tee "$results_dir/fast-analyze.log"
 env -u PK_TOKEN -u PK_TEST_TOKEN -u PLURALKIT_TOKEN -u PRISM_LIVE_TEST_TOKEN -u PRISM_ALLOW_LIVE_TESTS \
-  flutter test "${tests[@]}" \
+  flutter test ${test_concurrency:+--concurrency="$test_concurrency"} "${tests[@]}" \
     --exclude-tags='integration || slow || fixture-gen || benchmark || golden' \
     --file-reporter "json:$results_dir/fast-tests.json" \
     | tee "$results_dir/fast-tests.log"

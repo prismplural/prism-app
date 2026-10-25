@@ -2,6 +2,13 @@
 # Required native lane for the resolved prism-sync revision and app codec.
 set -euo pipefail
 
+# Keep Flutter's default when unset; CI/resource-constrained runs can opt in.
+test_concurrency=${PRISM_TEST_CONCURRENCY:-}
+if [[ -n $test_concurrency && ! $test_concurrency =~ ^[1-9][0-9]*$ ]]; then
+  echo 'PRISM_TEST_CONCURRENCY must be a positive integer.' >&2
+  exit 2
+fi
+
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$root"
 for tool in flutter cargo git jq; do
@@ -200,7 +207,7 @@ env -u PK_TOKEN -u PK_TEST_TOKEN -u PLURALKIT_TOKEN -u PRISM_LIVE_TEST_TOKEN -u 
 PRISM_REQUIRE_NATIVE_ASSETS=1 PRISM_ENABLE_NATIVE_E2E=1 \
 PRISM_EXPECTED_SYNC_REV="$expected_sync_rev" PRISM_NATIVE_PROVENANCE="$provenance" \
 PRISM_SYNC_FFI_LIB="$ffi_lib" PRISM_SYNC_RELAY_BIN="$relay_bin" \
-  flutter test "${test_paths[@]}" "${native_test_args[@]}" \
+  flutter test ${test_concurrency:+--concurrency="$test_concurrency"} "${test_paths[@]}" "${native_test_args[@]}" \
     --file-reporter "json:$native_report" \
     | tee "$results_dir/native-tests.log"
 completed=$(scripts/audit_required_native_report.sh \
@@ -214,7 +221,7 @@ if [[ $mode == broad && -z ${PRISM_NATIVE_TEST_ARGS:-} ]]; then
   SP_AVATAR_SYNC_E2E_COUNT=3 PRISM_REQUIRE_NATIVE_ASSETS=1 PRISM_ENABLE_NATIVE_E2E=1 \
   PRISM_EXPECTED_SYNC_REV="$expected_sync_rev" PRISM_NATIVE_PROVENANCE="$provenance" \
   PRISM_SYNC_FFI_LIB="$ffi_lib" PRISM_SYNC_RELAY_BIN="$relay_bin" \
-    flutter test test/e2e/sp_avatar_zip_sync_volume_e2e_test.dart --tags=benchmark \
+    flutter test ${test_concurrency:+--concurrency="$test_concurrency"} test/e2e/sp_avatar_zip_sync_volume_e2e_test.dart --tags=benchmark \
       --file-reporter "json:$results_dir/native-sp-avatar-smoke.json" \
       | tee "$results_dir/native-sp-avatar-smoke.log"
 fi

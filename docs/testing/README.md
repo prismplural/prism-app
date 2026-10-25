@@ -21,6 +21,12 @@ This runs analysis and Dart/widget tests outside `test/e2e/`, excluding the inte
 
 Results, logs, and environment information go to `test-results/` by default. Set `PRISM_TEST_RESULTS_DIR` to choose another location.
 
+Set `PRISM_TEST_CONCURRENCY=2` to limit concurrent Flutter test suites in the
+fast and native runners, including the required-native wrapper and native
+avatar smoke. The value must be a positive integer; unset or empty preserves
+Flutter's default. This does not limit native compiler jobs; configure those
+separately (for example, `CARGO_BUILD_JOBS=2`).
+
 ## Native sync and media
 
 ```bash
