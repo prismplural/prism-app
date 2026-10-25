@@ -923,10 +923,23 @@ Future<MemberGroupRow?> _memberGroupRowByPkGroupUuid(
   AppDatabase db,
   String pkGroupUuid, {
   Iterable<String> preferredLocalRowIds = const <String>[],
+  bool preferIndexedActive = false,
 }) async {
-  final rows = await (db.select(
-    db.memberGroups,
-  )..where((t) => t.pluralkitUuid.equals(pkGroupUuid))).get();
+  // Parent resolution usually targets a live family. Try the existing partial
+  // UUID index first, but retain the tombstone-inclusive fallback on a miss:
+  // a deleted UUID row must still block an unrelated canonical-id fallback.
+  final activeRows = preferIndexedActive
+      ? await (db.select(db.memberGroups)..where(
+          (t) =>
+              t.pluralkitUuid.equals(pkGroupUuid) &
+              t.isDeleted.equalsExp(const Constant(false)),
+        )).get()
+      : <MemberGroupRow>[];
+  final rows = activeRows.isNotEmpty
+      ? activeRows
+      : await (db.select(
+          db.memberGroups,
+        )..where((t) => t.pluralkitUuid.equals(pkGroupUuid))).get();
   if (rows.isEmpty) return null;
 
   final preferredIds = preferredLocalRowIds
@@ -1007,6 +1020,7 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncId(
   AppDatabase db,
   String entityId, {
   String? payloadPkGroupUuid,
+  bool preferIndexedActive = false,
 }) async {
   _PkGroupAliasResolution? alias;
   if (payloadPkGroupUuid == null &&
@@ -1026,6 +1040,7 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncId(
         entityId,
         if (alias != null) alias.canonicalEntityId,
       },
+      preferIndexedActive: preferIndexedActive,
     );
     if (byPkUuid != null) return byPkUuid;
 
@@ -1037,6 +1052,85 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncId(
   }
 
   return _memberGroupRowById(db, entityId);
+}
+
+// Parent links are local Drift references, while PK groups can arrive under a
+// canonical/incarnation sync id or the importer's deterministic local id. Keep
+// unknown references verbatim: absence of a parent is not an explicit root move.
+Future<String> _resolveMemberGroupParentReference(
+  AppDatabase db,
+  String parentId, {
+  MemberGroupRow? knownParent,
+}) async {
+  final exact = await _memberGroupRowById(db, parentId);
+  if (exact != null) return exact.id;
+  final importedPkUuid =
+      parentId.startsWith('pk-group-') &&
+          parseGroupIncarnationEntityId(parentId) == null
+      ? parentId.substring('pk-group-'.length)
+      : null;
+  final resolved =
+      knownParent ??
+      await _resolveMemberGroupRowForSyncId(
+        db,
+        parentId,
+        payloadPkGroupUuid: importedPkUuid,
+        preferIndexedActive: true,
+      );
+  // Resolving a link must never create or revive the referenced parent, or
+  // attach an edge to an incarnation whose create has not arrived yet.
+  final generation = parseGroupIncarnationEntityId(parentId)?.generation;
+  return resolved != null &&
+          !resolved.isDeleted &&
+          (generation == null || generation == resolved.syncGeneration)
+      ? resolved.id
+      : parentId;
+}
+
+Future<void> _resolveChildrenOfArrivingPkGroup(
+  AppDatabase db,
+  MemberGroupRow parent,
+  String incomingId,
+) async {
+  final pkUuid = parent.pluralkitUuid;
+  if (parent.isDeleted || pkUuid == null || pkUuid.isEmpty) return;
+  final references = <String>{
+    incomingId,
+    _canonicalPkGroupEntityId(pkUuid),
+    'pk-group-$pkUuid',
+    deriveGroupIncarnationEntityId(pkUuid, parent.syncGeneration),
+  };
+  if (await _tableExists(db, _pkGroupSyncAliasesTableName)) {
+    final aliases = await db.pkGroupSyncAliasesDao.getByPkGroupUuid(pkUuid);
+    references.addAll(aliases.map((alias) => alias.legacyEntityId));
+  }
+  references.remove(parent.id);
+  // Exact references use idx_member_groups_parent_id. A suffix search for
+  // arbitrary incarnations would scan every group on every parent create;
+  // only the parent's current incarnation can resolve safely anyway.
+  final children =
+      await (db.select(db.memberGroups)..where(
+            (g) =>
+                g.isDeleted.equals(false) &
+                g.parentGroupId.isNotNull() &
+                g.parentGroupId.isIn(references),
+          ))
+          .get();
+  final resolutions = <String, String>{};
+  for (final child in children) {
+    final reference = child.parentGroupId!;
+    final resolved = resolutions[reference] ??=
+        await _resolveMemberGroupParentReference(
+          db,
+          reference,
+          knownParent: parent,
+        );
+    if (resolved != parent.id || reference == resolved) continue;
+    await (db.update(db.memberGroups)..where(
+          (g) => g.id.equals(child.id) & g.parentGroupId.equals(reference),
+        ))
+        .write(MemberGroupsCompanion(parentGroupId: Value(resolved)));
+  }
 }
 
 Future<MemberGroupRow?> _resolveMemberGroupRowForSyncDelete(
@@ -4621,6 +4715,16 @@ DriftSyncEntity _memberGroupsEntity(
       final groupIsDeletedValue = incomingGroupGen < localGroupGen
           ? const Value<bool>.absent()
           : f.boolField('is_deleted');
+      final incomingParent = f.stringFieldNullable('parent_group_id');
+      final parentGroupId =
+          incomingParent.present && incomingParent.value != null
+          ? Value<String?>(
+              await _resolveMemberGroupParentReference(
+                db,
+                incomingParent.value!,
+              ),
+            )
+          : incomingParent;
       final companion = MemberGroupsCompanion(
         id: Value(localRowId),
         name: f.stringField('name'),
@@ -4631,7 +4735,7 @@ DriftSyncEntity _memberGroupsEntity(
             ? f.blobFieldNullable('avatar_image_data')
             : const Value.absent(),
         displayOrder: f.intField('display_order'),
-        parentGroupId: f.stringFieldNullable('parent_group_id'),
+        parentGroupId: parentGroupId,
         groupType: f.intField('group_type'),
         filterRules: f.stringFieldNullable('filter_rules'),
         createdAt: f.dateTimeField('created_at'),
@@ -4673,6 +4777,14 @@ DriftSyncEntity _memberGroupsEntity(
           pkGroupUuid: tombstonePkGroupUuid,
         );
       } else {
+        if (existingRow == null ||
+            fields.containsKey('pluralkit_uuid') ||
+            incomingGroupGen > localGroupGen) {
+          final stored = await _memberGroupRowById(db, localRowId);
+          if (stored != null) {
+            await _resolveChildrenOfArrivingPkGroup(db, stored, id);
+          }
+        }
         await requestDeferredPkEntryReplay();
       }
     },
