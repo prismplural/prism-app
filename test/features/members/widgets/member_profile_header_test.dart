@@ -6,11 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/core/database/database_provider.dart'
+    show databaseProvider;
+import 'package:prism_plurality/core/database/database_providers.dart';
+import '../../../helpers/fake_repositories.dart';
 import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header_editor.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/member_card.dart';
 
 final Uint8List _pngBytes = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lB0Q9wAAAABJRU5ErkJggg==',
@@ -44,9 +49,19 @@ Member _member({
   pkBannerCachedUrl: pkBannerCachedUrl,
 );
 
-Widget _wrap(Widget child, {FrontingTerms? frontingTerms}) {
+Widget _wrap(
+  Widget child, {
+  FrontingTerms? frontingTerms,
+  FakeAppPreferenceRepository? appPreferences,
+}) {
   return ProviderScope(
     overrides: [
+      if (appPreferences != null) ...[
+        appPreferenceRepositoryProvider.overrideWithValue(appPreferences),
+        databaseProvider.overrideWith((ref) {
+          throw StateError('Pronoun header tests must not open a database');
+        }),
+      ],
       if (frontingTerms != null)
         frontingTermsSettingProvider.overrideWithValue(frontingTerms),
     ],
@@ -63,7 +78,77 @@ Finder get _headerImages => find.byWidgetPredicate(
       widget is Image && widget.semanticLabel == 'Profile header for Alice',
 );
 
+Future<void> _pumpIsolatedPronounHeader(
+  WidgetTester tester,
+  String pronouns,
+) async {
+  final appPrefs = FakeAppPreferenceRepository();
+  addTearDown(() async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.runAsync(
+      () => appPrefs.close().timeout(const Duration(seconds: 5)),
+    );
+  });
+  await tester.pumpWidget(
+    _wrap(
+      MemberProfileHeader(member: _member(pronouns: pronouns)),
+      appPreferences: appPrefs,
+    ),
+  );
+}
+
 void main() {
+  testWidgets(
+    'member list pronoun preview remains one line with detail action',
+    (tester) async {
+      const pronouns = 'elle / accords féminins\nshe / her\nthey / them';
+      var openedDetail = false;
+      await tester.pumpWidget(
+        _wrap(
+          SizedBox(
+            width: 280,
+            child: MemberCard(
+              member: _member(pronouns: pronouns),
+              onTap: () => openedDetail = true,
+            ),
+          ),
+        ),
+      );
+      final preview = tester.widget<Text>(find.text(pronouns));
+      expect(preview.maxLines, 1);
+      expect(preview.overflow, TextOverflow.ellipsis);
+      await tester.tap(find.byType(MemberCard));
+      expect(openedDetail, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('short multiline pronouns do not become part of the title', (
+    tester,
+  ) async {
+    const pronouns = 'elle\nshe\nthey';
+    await _pumpIsolatedPronounHeader(tester, pronouns);
+    final title = tester.widget<Text>(find.text('Alice'));
+    expect(title.textSpan!.toPlainText(), 'Alice');
+    final preview = tester.widget<Text>(find.text(pronouns));
+    expect(preview.maxLines, 2);
+    expect(preview.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('multiline header pronoun preview remains capped at two lines', (
+    tester,
+  ) async {
+    const pronouns =
+        'elle / accords féminins\nshe / her\nthey / them\nother terms';
+    await _pumpIsolatedPronounHeader(tester, pronouns);
+    final preview = tester.widget<Text>(find.text(pronouns));
+    expect(preview.maxLines, 2);
+    expect(preview.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('compact header renders metadata over background image', (
     tester,
   ) async {

@@ -46,6 +46,7 @@ import 'package:prism_plurality/features/members/widgets/custom_fields_display.d
 import 'package:prism_plurality/features/boards/widgets/board_message_section.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
 import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -216,6 +217,18 @@ class _MemberDetailBody extends ConsumerWidget {
     return [
       const SizedBox(height: 16),
       MemberProfileHeader(member: member, isFronting: isFronting),
+      if (member.pronouns?.trim().isNotEmpty ?? false) ...[
+        const SizedBox(height: 12),
+        Text(
+          context.l10n.memberPronounsLabel,
+          style: theme.textTheme.labelLarge,
+        ),
+        const SizedBox(height: 4),
+        FieldInlineMarkdownText(
+          member.pronouns!.trim(),
+          style: theme.textTheme.bodyLarge,
+        ),
+      ],
       if (member.bio != null && member.bio!.isNotEmpty) ...[
         const SizedBox(height: 12),
         PrismMarkdownText(

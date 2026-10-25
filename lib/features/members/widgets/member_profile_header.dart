@@ -395,7 +395,10 @@ class _MemberHeaderMetadata extends ConsumerWidget {
         primaryTitle.length +
         (secondaryTitle != null ? secondaryTitle.length + 3 : 0);
     final pronounsInline =
-        hasPronouns && titleCharBudget + pronouns.length + 3 <= 30;
+        hasPronouns &&
+        !pronouns.contains('\n') &&
+        !pronouns.contains('\r') &&
+        titleCharBudget + pronouns.length + 3 <= 30;
 
     final baseHeadlineStyle =
         titleStyle ??

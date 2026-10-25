@@ -2017,6 +2017,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet>
           controller: _pronounsController,
           labelText: l10n.memberPronounsLabel,
           hintText: l10n.memberPronounsHint,
+          minLines: 2,
+          maxLines: 4,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
         ),
         const SizedBox(height: 16),
 

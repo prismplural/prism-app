@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/database/database_provider.dart'
+    show databaseProvider;
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/conversation.dart';
@@ -30,6 +32,8 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
 import 'package:prism_plurality/features/members/views/member_custom_field_group_page.dart';
 import 'package:prism_plurality/features/members/views/member_detail_screen.dart';
+import 'package:prism_plurality/features/members/widgets/custom_field_display_widgets.dart';
+import 'package:prism_plurality/features/members/widgets/member_profile_header.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -245,6 +249,8 @@ Widget _buildApp({
     notesEnabled: false,
     boardsEnabled: false,
   ),
+  double textScale = 1,
+  bool forbidDatabaseAccess = false,
   VoidCallback? onStatsProviderBuilt,
   VoidCallback? onRecentSessionsProviderBuilt,
   VoidCallback? onConversationsProviderBuilt,
@@ -272,6 +278,10 @@ Widget _buildApp({
 
   return ProviderScope(
     overrides: [
+      if (forbidDatabaseAccess)
+        databaseProvider.overrideWith((ref) {
+          throw StateError('Pronoun profile tests must not open a database');
+        }),
       systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       memberByIdProvider(member.id).overrideWith((ref) => Stream.value(member)),
@@ -357,6 +367,12 @@ Widget _buildApp({
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
       routerConfig: router,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
     ),
   );
 }
@@ -380,6 +396,80 @@ class _StaticPkSyncDirectionNotifier extends PkSyncDirectionNotifier {
 }
 
 void main() {
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('multiline pronouns render fully on narrow profile at $scale', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const pronouns =
+          'elle / accords féminins et termes français très longs\n'
+          'she / her / English terms\n'
+          '[terms](https://example.com)\n'
+          '[unsafe](javascript:alert(1))';
+      final alice = _member('alice', 'Alice').copyWith(pronouns: pronouns);
+      final router = _router(memberId: alice.id);
+      final appPrefs = FakeAppPreferenceRepository();
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        router.dispose();
+        await tester.runAsync(
+          () => appPrefs.close().timeout(const Duration(seconds: 5)),
+        );
+      });
+      await tester.pumpWidget(
+        _buildApp(
+          router: router,
+          member: alice,
+          textScale: scale,
+          appPreferences: appPrefs,
+          forbidDatabaseAccess: true,
+        ),
+      );
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      final screen = find.byType(MemberDetailScreen);
+      expect(screen, findsOneWidget);
+      final container = ProviderScope.containerOf(tester.element(screen));
+      final resolved = container.read(activeMemberByIdProvider(alice.id));
+      expect(resolved, isA<AsyncData<Member?>>());
+      expect(resolved.value, alice);
+      expect(find.byType(MemberProfileHeader), findsOneWidget);
+      expect(find.text('Pronouns'), findsOneWidget);
+      final detail = find.byWidgetPredicate(
+        (widget) =>
+            widget is FieldInlineMarkdownText && widget.data == pronouns,
+      );
+      expect(detail, findsOneWidget);
+      final texts = tester.widgetList<RichText>(
+        find.descendant(of: detail, matching: find.byType(RichText)),
+      );
+      expect(texts, isNotEmpty);
+      final rendered = texts.map((text) => text.text.toPlainText()).join();
+      expect(
+        rendered,
+        contains('elle / accords féminins et termes français très longs\n'),
+      );
+      expect(rendered, contains('she / her / English terms\n'));
+      expect(rendered, contains('terms'));
+      expect(rendered, contains('unsafe'));
+      expect(rendered, isNot(contains('javascript:')));
+      expect(rendered, isNot(contains('](')));
+      for (final text in texts) {
+        expect(text.maxLines, isNull);
+        expect(text.overflow, isNot(TextOverflow.ellipsis));
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('mobile member detail still edits in a sheet route', (
     tester,
   ) async {

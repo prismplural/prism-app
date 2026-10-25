@@ -685,6 +685,29 @@ void main() {
       );
     }
 
+    test(
+      'multiline pronouns survive storage and sync patch emission',
+      () async {
+        const initial = 'elle / accord féminin\nshe / her';
+        const updated =
+            'iel / accords neutres\nthey / them\n[terms](https://example.com)';
+        await repo.createMember(makeMember(pronouns: initial));
+        expect((await repo.getMemberById('m1'))!.pronouns, initial);
+
+        final captured = <CapturedSyncOp>[];
+        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+        await repo.updateMember(makeMember(pronouns: updated));
+
+        expect((await repo.getMemberById('m1'))!.pronouns, updated);
+        expect(captured, hasLength(1));
+        expect(captured.single.opType, SyncRecordOpType.update);
+        expect(captured.single.fields, {'pronouns': updated});
+        final payload = jsonDecode(jsonEncode(captured.single.fields));
+        expect(payload['pronouns'], updated);
+      },
+    );
+
     test('emits only the changed fields', () async {
       await repo.createMember(makeMember());
       final captured = <CapturedSyncOp>[];

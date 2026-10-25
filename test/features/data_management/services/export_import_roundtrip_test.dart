@@ -182,6 +182,27 @@ void main() {
       await targetDb.close();
     });
 
+    test('multiline pronouns survive export JSON and import', () async {
+      const pronouns =
+          'elle / accord féminin\nshe / her\n[terms](https://example.com)';
+      await exportService.memberRepository.createMember(
+        Member(
+          id: 'pronouns-member',
+          name: 'Alice',
+          pronouns: pronouns,
+          createdAt: DateTime.utc(2026, 1, 15),
+        ),
+      );
+
+      final result = await _roundtrip(exportService, importService);
+      expect(result.membersCreated, 1);
+      final restored = await importService.memberRepository.getMemberById(
+        'pronouns-member',
+      );
+      expect(restored, isNotNull);
+      expect(restored!.pronouns, pronouns);
+    });
+
     test('everyone-group conversations survive export -> import', () async {
       final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc();
       await exportService.conversationRepository.createConversation(
