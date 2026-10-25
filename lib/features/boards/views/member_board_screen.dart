@@ -8,8 +8,8 @@ import 'package:prism_plurality/features/boards/providers/board_posts_providers.
 import 'package:prism_plurality/features/boards/views/post_detail_screen.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
-import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
-    show speakingAsProvider;
+import 'package:prism_plurality/features/boards/providers/board_actor_provider.dart';
+import 'package:prism_plurality/features/boards/widgets/board_actor_selector.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -38,11 +38,7 @@ class MemberBoardScreen extends ConsumerWidget {
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     final memberName = member?.effectiveName(preferDisplayName: prefer);
 
-    final speakingAsId = ref.watch(speakingAsProvider);
-    final viewerAsync = speakingAsId != null
-        ? ref.watch(activeMemberByIdProvider(speakingAsId))
-        : const AsyncValue<Member?>.data(null);
-    final viewerMember = viewerAsync.value;
+    final viewerMember = ref.watch(boardActorMemberProvider);
 
     return PrismPageScaffold(
       topBar: _MemberBoardTopBar(
@@ -109,11 +105,14 @@ class _MemberBoardTopBar extends StatelessWidget
       subtitle: memberName,
       leading: leadingAvatar,
       showBackButton: leadingAvatar == null,
-      trailing: PrismTopBarAction(
-        icon: AppIcons.add,
-        tooltip: l10n.add,
-        onPressed: onComposeTap,
-      ),
+      actions: [
+        const BoardActorSelector(),
+        PrismTopBarAction(
+          icon: AppIcons.add,
+          tooltip: l10n.add,
+          onPressed: onComposeTap,
+        ),
+      ],
     );
   }
 }

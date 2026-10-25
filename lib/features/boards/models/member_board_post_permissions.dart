@@ -22,11 +22,13 @@ class MemberBoardPostPermissions {
   final Member? speakingAsMember;
 
   /// True when [speakingAsMember] authored this post.
-  bool get isAuthor => post.authorId == speakingAsMember?.id;
+  bool get isAuthor =>
+      speakingAsMember != null && post.authorId == speakingAsMember!.id;
 
   /// True when [speakingAsMember] is the member whose profile this post is on
   /// (i.e. [MemberBoardPost.targetMemberId] matches).
-  bool get isProfileOwner => post.targetMemberId == speakingAsMember?.id;
+  bool get isProfileOwner =>
+      speakingAsMember != null && post.targetMemberId == speakingAsMember!.id;
 
   /// True when [speakingAsMember] holds the admin role.
   bool get isAdmin => speakingAsMember?.isAdmin ?? false;

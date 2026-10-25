@@ -4,6 +4,29 @@ import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/features/boards/models/member_board_post_permissions.dart';
 
 void main() {
+  test('no actor cannot manage a post with a null author or target', () {
+    final now = DateTime(2026, 5, 1);
+    for (final authorId in <String?>[null, 'author']) {
+      for (final targetId in <String?>[null, 'owner']) {
+        final post = MemberBoardPost(
+          id: 'post',
+          authorId: authorId,
+          targetMemberId: targetId,
+          audience: 'public',
+          body: 'Synthetic post',
+          createdAt: now,
+          writtenAt: now,
+        );
+        final permissions = MemberBoardPostPermissions(
+          post: post,
+          speakingAsMember: null,
+        );
+        expect(permissions.canEdit, isFalse);
+        expect(permissions.canDelete, isFalse);
+      }
+    }
+  });
+
   final now = DateTime(2026, 5, 1);
 
   // ── Fixture builders ──────────────────────────────────────────────────────
@@ -82,7 +105,8 @@ void main() {
 
   for (final combo in actorCombos) {
     for (final audience in audienceValues) {
-      final label = 'isAuthor=${combo.isAuthor}, '
+      final label =
+          'isAuthor=${combo.isAuthor}, '
           'isProfileOwner=${combo.isProfileOwner}, '
           'isAdmin=${combo.isAdmin}, '
           'audience=$audience';
@@ -107,10 +131,7 @@ void main() {
         test('isAdmin', () => expect(perms.isAdmin, combo.isAdmin));
 
         test('canEdit', () {
-          expect(
-            perms.canEdit,
-            expectedCanEdit(isAuthor: combo.isAuthor),
-          );
+          expect(perms.canEdit, expectedCanEdit(isAuthor: combo.isAuthor));
         });
 
         test('canDelete', () {
@@ -140,7 +161,10 @@ void main() {
     });
 
     test('isAuthor is false', () => expect(perms.isAuthor, isFalse));
-    test('isProfileOwner is false', () => expect(perms.isProfileOwner, isFalse));
+    test(
+      'isProfileOwner is false',
+      () => expect(perms.isProfileOwner, isFalse),
+    );
     test('isAdmin is false', () => expect(perms.isAdmin, isFalse));
     test('canEdit is false', () => expect(perms.canEdit, isFalse));
     test('canDelete is false', () => expect(perms.canDelete, isFalse));

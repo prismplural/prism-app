@@ -24,6 +24,7 @@ import 'package:prism_plurality/domain/preferences/composer_default_member.dart'
 import 'package:prism_plurality/domain/preferences/fronting_terms.dart';
 import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
+import 'package:prism_plurality/features/boards/providers/board_actor_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
@@ -44,12 +45,32 @@ import '../../../helpers/bio_image_test_utils.dart';
 // Fake providers
 // ---------------------------------------------------------------------------
 
-class _FakeSpeakingAsNotifier extends SpeakingAsNotifier {
-  _FakeSpeakingAsNotifier([this._id]);
+class _FakeBoardActorNotifier extends BoardActorNotifier {
+  _FakeBoardActorNotifier([this._id]);
   final String? _id;
 
   @override
   String? build() => _id;
+}
+
+class _MutableBoardActorNotifier extends BoardActorNotifier {
+  @override
+  String? build() => 'alice';
+
+  @override
+  void setMember(String? memberId) {
+    state = memberId;
+  }
+}
+
+class _MutableSpeakingAsNotifier extends SpeakingAsNotifier {
+  @override
+  String? build() => 'bob';
+
+  @override
+  void setMember(String? memberId, {bool recordLastUsed = true}) {
+    state = memberId;
+  }
 }
 
 class _FakeComposerDefaultNotifier extends ComposerDefaultMemberNotifier {
@@ -66,6 +87,7 @@ class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
   String? createdTargetMemberId;
   String? createdBody;
   int createCalls = 0;
+  int updateCalls = 0;
   Completer<void>? createCompleter;
   String? updatedId;
   String? updatedAudience;
@@ -109,6 +131,7 @@ class _FakeBoardPostNotifier extends MemberBoardPostNotifier {
     String? title,
     required String body,
   }) async {
+    updateCalls++;
     updatedId = id;
     updatedAudience = audience;
     updatedTargetMemberId = targetMemberId;
@@ -195,7 +218,9 @@ final _charlie = _member('charlie', 'Charlie');
 
 Widget _buildSubject({
   List<Member> members = const [],
-  String? speakingAs,
+  String? boardActor,
+  BoardActorNotifier? actorNotifier,
+  SpeakingAsNotifier? chatSpeaker,
   String? defaultTargetMemberId,
   String defaultAudience = 'public',
   String? defaultTitle,
@@ -229,9 +254,12 @@ Widget _buildSubject({
         prismSyncHandleProvider.overrideWithBuild((ref, notifier) => null),
       if (mediaService != null)
         mediaServiceProvider.overrideWithValue(mediaService),
-      speakingAsProvider.overrideWith(
-        () => _FakeSpeakingAsNotifier(speakingAs),
-      ),
+      if (actorNotifier != null || boardActor != null)
+        boardActorProvider.overrideWith(
+          () => actorNotifier ?? _FakeBoardActorNotifier(boardActor),
+        ),
+      if (chatSpeaker != null)
+        speakingAsProvider.overrideWith(() => chatSpeaker),
       composerDefaultMemberProvider.overrideWith(
         () => _FakeComposerDefaultNotifier(composerDefaultMember),
       ),
@@ -291,6 +319,80 @@ Future<void> _openSheet(WidgetTester tester) async {
 // ---------------------------------------------------------------------------
 
 void main() {
+  for (final nextActor in <String?>['bob', null]) {
+    testWidgets('edit cannot save after board actor changes to $nextActor', (
+      tester,
+    ) async {
+      final original = MemberBoardPost(
+        id: 'author-edit',
+        authorId: 'alice',
+        audience: 'public',
+        body: 'Original body',
+        createdAt: _now,
+        writtenAt: _now,
+      );
+      final notifier = _FakeBoardPostNotifier();
+      await tester.pumpWidget(
+        _buildSubject(
+          members: [_alice, _bob],
+          actorNotifier: _MutableBoardActorNotifier(),
+          editingPostId: original.id,
+          repoPost: original,
+          notifier: notifier,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.text('Open')),
+      );
+      await _openSheet(tester);
+      await tester.enterText(find.byType(TextField).last, 'Unauthorized edit');
+      await tester.pump();
+      container.read(boardActorProvider.notifier).setMember(nextActor);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Post'));
+      await tester.pumpAndSettle();
+      expect(notifier.updateCalls, 0);
+      expect(notifier.updatedBody, isNull);
+      expect(original.authorId, 'alice');
+    });
+  }
+
+  testWidgets('board author selection does not change the chat speaker', (
+    tester,
+  ) async {
+    final notifier = _FakeBoardPostNotifier();
+    await tester.pumpWidget(
+      _buildSubject(
+        members: [_alice, _bob],
+        chatSpeaker: _MutableSpeakingAsNotifier(),
+        notifier: notifier,
+        defaultBody: 'A post by Alice',
+      ),
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('Open')),
+    );
+    expect(container.read(speakingAsProvider), 'bob');
+    await _openSheet(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('boards.compose.authorSelector')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(MemberSearchSheet),
+        matching: find.text('Alice'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(container.read(speakingAsProvider), 'bob');
+    await tester.tap(find.byTooltip('Post'));
+    await tester.pumpAndSettle();
+    expect(notifier.createdAuthorId, 'alice');
+    expect(container.read(speakingAsProvider), 'bob');
+  });
+
   group('ComposePostSheet — smoke', () {
     testWidgets('sheet opens when triggered', (tester) async {
       await tester.pumpWidget(_buildSubject(members: [_alice, _bob]));
@@ -332,7 +434,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           defaultTargetMemberId: 'alice',
         ),
       );
@@ -364,7 +466,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           defaultTargetMemberId: 'alice',
         ),
       );
@@ -413,7 +515,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           notifier: notifier,
         ),
       );
@@ -439,7 +541,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           imageProcessing: true,
           notifier: notifier,
         ),
@@ -497,7 +599,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice, _bob, _charlie],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           activeSessions: [
             FrontingSession(
               id: 'front-alice',
@@ -524,12 +626,12 @@ void main() {
     testWidgets(
       'latest-fronter (default): multiple co-fronters do not force a picker',
       (tester) async {
-        // The default mode auto-seeds the resolved author instead of forcing a
-        // tap — the prompt friction is opt-in via "ask each time".
+        // An explicitly selected board actor does not force another picker;
+        // prompt friction is opt-in via "ask each time".
         await tester.pumpWidget(
           _buildSubject(
             members: [_alice, _bob],
-            speakingAs: 'bob',
+            boardActor: 'bob',
             activeSessions: [
               FrontingSession(
                 id: 'front-alice',
@@ -569,7 +671,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           database: imageInfra.database,
           mediaService: imageInfra.mediaService,
         ),
@@ -642,7 +744,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           defaultTargetMemberId: 'alice',
           defaultAudience: 'private',
           defaultBody: 'Hello',
@@ -721,7 +823,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           editingPostId: 'edit-3',
           repoPost: existingPost,
           notifier: notifier,
@@ -760,7 +862,7 @@ void main() {
       await tester.pumpWidget(
         _buildSubject(
           members: [_alice],
-          speakingAs: 'alice',
+          boardActor: 'alice',
           editingPostId: 'edit-4',
           repoPost: existingPost,
           notifier: notifier,

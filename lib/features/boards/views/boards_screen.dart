@@ -11,8 +11,8 @@ import 'package:prism_plurality/features/boards/providers/board_posts_providers.
 import 'package:prism_plurality/features/boards/views/post_detail_screen.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
 import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
-import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
-    show speakingAsProvider;
+import 'package:prism_plurality/features/boards/providers/board_actor_provider.dart';
+import 'package:prism_plurality/features/boards/widgets/board_actor_selector.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -196,11 +196,14 @@ class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
     return PrismTopBar(
       title: context.l10n.boardsScreenTitle,
       leading: const _BoardsMemberFilterButton(),
-      trailing: PrismTopBarAction(
-        icon: AppIcons.add,
-        tooltip: context.l10n.add,
-        onPressed: onComposeTap,
-      ),
+      actions: [
+        const BoardActorSelector(),
+        PrismTopBarAction(
+          icon: AppIcons.add,
+          tooltip: context.l10n.add,
+          onPressed: onComposeTap,
+        ),
+      ],
     );
   }
 }
@@ -482,12 +485,8 @@ class _PublicPageState extends ConsumerState<_PublicPage> {
     if (!_isActive) return const SizedBox.shrink();
 
     final l10n = context.l10n;
-    final speakingAsId = ref.watch(speakingAsProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
-    final viewerAsync = speakingAsId != null
-        ? ref.watch(activeMemberByIdProvider(speakingAsId))
-        : const AsyncValue<Member?>.data(null);
-    final viewerMember = viewerAsync.value;
+    final viewerMember = ref.watch(boardActorMemberProvider);
 
     final postsAsync = ref.watch(publicBoardFeedProvider);
 
@@ -631,11 +630,7 @@ class _InboxPageState extends ConsumerState<_InboxPage> {
     final fronterMembers = ref.watch(currentFronterMembersProvider);
     final filterId = ref.watch(inboxViewFilterProvider);
 
-    final speakingAsId = ref.watch(speakingAsProvider);
-    final viewerAsync = speakingAsId != null
-        ? ref.watch(activeMemberByIdProvider(speakingAsId))
-        : const AsyncValue<Member?>.data(null);
-    final viewerMember = viewerAsync.value;
+    final viewerMember = ref.watch(boardActorMemberProvider);
 
     final postsAsync = ref.watch(inboxBoardFeedProvider);
 

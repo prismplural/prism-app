@@ -16,8 +16,7 @@ import 'package:prism_plurality/domain/preferences/composer_default_member.dart'
 import 'package:prism_plurality/domain/repositories/member_board_posts_repository.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
-import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
-    show speakingAsProvider, SpeakingAsNotifier;
+import 'package:prism_plurality/features/boards/providers/board_actor_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -39,8 +38,8 @@ class _FakeClipboardReader implements AppClipboardReader {
   Future<ClipboardImageData?> readImageUri(String uri) async => null;
 }
 
-class _FakeSpeakingAsNotifier extends SpeakingAsNotifier {
-  _FakeSpeakingAsNotifier([this._id]);
+class _FakeBoardActorNotifier extends BoardActorNotifier {
+  _FakeBoardActorNotifier([this._id]);
   final String? _id;
 
   @override
@@ -115,9 +114,10 @@ void main() {
         systemSettingsProvider.overrideWith(
           (ref) => Stream.value(const SystemSettings()),
         ),
-        speakingAsProvider.overrideWith(() => _FakeSpeakingAsNotifier('alice')),
+        boardActorProvider.overrideWith(() => _FakeBoardActorNotifier('alice')),
         composerDefaultMemberProvider.overrideWith(
-          () => _FakeComposerDefaultNotifier(ComposerDefaultMember.latestFronter),
+          () =>
+              _FakeComposerDefaultNotifier(ComposerDefaultMember.latestFronter),
         ),
         activeSessionsProvider.overrideWithValue(const AsyncValue.data([])),
         activeMembersProvider.overrideWith((ref) => Stream.value([alice])),
@@ -132,7 +132,9 @@ void main() {
         ),
         memberByIdProvider('alice').overrideWith((ref) => Stream.value(alice)),
         memberBoardPostsRepositoryProvider.overrideWithValue(_FakeRepository()),
-        memberBoardPostNotifierProvider.overrideWith(_FakeBoardPostNotifier.new),
+        memberBoardPostNotifierProvider.overrideWith(
+          _FakeBoardPostNotifier.new,
+        ),
       ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,

@@ -10,8 +10,8 @@ import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/features/boards/models/member_board_post_permissions.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/features/boards/widgets/compose_post_sheet.dart';
-import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
-    show speakingAsProvider;
+import 'package:prism_plurality/features/boards/providers/board_actor_provider.dart';
+import 'package:prism_plurality/features/boards/widgets/board_actor_selector.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
@@ -39,11 +39,7 @@ class PostDetailScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final postAsync = ref.watch(_postByIdStreamProvider(postId));
 
-    final speakingAsId = ref.watch(speakingAsProvider);
-    final viewerAsync = speakingAsId != null
-        ? ref.watch(activeMemberByIdProvider(speakingAsId))
-        : const AsyncValue<Member?>.data(null);
-    final viewerMember = viewerAsync.value;
+    final viewerMember = ref.watch(boardActorMemberProvider);
 
     final post = postAsync.value;
     final perms = post == null
@@ -54,6 +50,7 @@ class PostDetailScreen extends ConsumerWidget {
           );
 
     final actions = <Widget>[
+      const BoardActorSelector(),
       if (perms?.canEdit ?? false)
         PrismTopBarAction(
           icon: Icons.edit_outlined,
@@ -309,10 +306,7 @@ class _DetailParticipantsRow extends StatelessWidget {
               size: 32,
             ),
             const SizedBox(width: 8),
-            Text(
-              authorName,
-              style: authorStyle,
-            ),
+            Text(authorName, style: authorStyle),
           ],
         ),
         Text('to', style: connectorStyle),

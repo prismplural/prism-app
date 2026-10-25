@@ -3,14 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/clipboard/app_clipboard.dart';
-import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/member_board_post.dart';
 import 'package:prism_plurality/domain/preferences/composer_default_member.dart';
 import 'package:prism_plurality/features/boards/providers/board_posts_providers.dart';
 import 'package:prism_plurality/domain/models/member.dart';
-import 'package:prism_plurality/features/chat/providers/chat_providers.dart'
-    show speakingAsProvider;
+import 'package:prism_plurality/features/boards/providers/board_actor_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/bio_image_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -116,6 +114,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
 
   bool _isSaving = false;
   bool _loaded = false;
+  String? _editingAuthorId;
 
   // Baseline values for dirty detection in edit mode.
   String _initialTitle = '';
@@ -217,6 +216,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     if (!mounted || post == null) return;
 
     setState(() {
+      _editingAuthorId = post.authorId;
       _audience = post.audience;
       _initialAudience = post.audience;
       _targetMemberId = post.targetMemberId;
@@ -263,7 +263,12 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
       }
 
       final notifier = ref.read(memberBoardPostNotifierProvider.notifier);
-      final speakingAsId = ref.read(speakingAsProvider);
+      final actorId = ref.read(boardActorMemberProvider)?.id;
+      final isEditing = widget.editingPostId != null;
+      if (actorId == null || (isEditing && actorId != _editingAuthorId)) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
       MemberBoardPost? result;
 
       if (widget.editingPostId != null) {
@@ -281,7 +286,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
       } else {
         result = await notifier.createPost(
           targetMemberId: _targetMemberId,
-          authorId: speakingAsId ?? '',
+          authorId: actorId,
           audience: _audience,
           title: _titleController.text.trim().isEmpty
               ? null
@@ -370,19 +375,6 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
       }
       return;
     }
-
-    // Otherwise pin the author from the resolved default. Seeded, not recorded,
-    // so the auto-pick never overwrites the "last used" memory of a manual one.
-    final resolved = ref.read(speakingAsProvider);
-    if (resolved != null && resolved != unknownSentinelMemberId) {
-      ref
-          .read(speakingAsProvider.notifier)
-          .setMember(resolved, recordLastUsed: false);
-    } else if (fronterIds.length == 1) {
-      ref
-          .read(speakingAsProvider.notifier)
-          .setMember(fronterIds.first, recordLastUsed: false);
-    }
   }
 
   Future<void> _showCoFronterPicker(List<Member> coFronters) async {
@@ -404,7 +396,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     );
     if (!mounted) return;
     if (result is MemberSearchResultSelected) {
-      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
+      ref.read(boardActorProvider.notifier).setMember(result.memberId);
     }
   }
 
@@ -438,7 +430,7 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     );
     if (!mounted) return;
     if (result is MemberSearchResultSelected) {
-      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
+      ref.read(boardActorProvider.notifier).setMember(result.memberId);
     }
   }
 
@@ -469,13 +461,16 @@ class _ComposePostSheetBodyState extends ConsumerState<_ComposePostSheetBody> {
     final isEditing = widget.editingPostId != null;
 
     _bodyController.updateTheme(context);
-    // In edit mode the author is already set; only new posts require a selection.
-    final speakingAs = ref.watch(speakingAsProvider);
+    // Editing always requires the live board actor to remain the author.
+    final actorId = ref.watch(boardActorMemberProvider)?.id;
     final isImageProcessing =
         ref.watch(bioImageProcessingStateProvider).status ==
         BioImageProcessingStatus.processing;
     final canPost =
-        _canSave && !isImageProcessing && (isEditing || speakingAs != null);
+        _canSave &&
+        !isImageProcessing &&
+        actorId != null &&
+        (!isEditing || actorId == _editingAuthorId);
 
     final targetMember = _targetMemberId != null
         ? ref.watch(activeMemberByIdProvider(_targetMemberId!)).value
@@ -684,10 +679,7 @@ class _BottomToolbar extends ConsumerWidget {
     final bottomInset = modalBottomInsetOf(context);
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
-    final speakingAsId = isEditing ? null : ref.watch(speakingAsProvider);
-    final authorMember = speakingAsId != null
-        ? ref.watch(activeMemberByIdProvider(speakingAsId)).value
-        : null;
+    final authorMember = isEditing ? null : ref.watch(boardActorMemberProvider);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     final authorName = authorMember?.effectiveName(preferDisplayName: prefer);
 
