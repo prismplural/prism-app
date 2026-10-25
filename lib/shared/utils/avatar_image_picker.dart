@@ -52,7 +52,6 @@ class AvatarImagePicker {
   AvatarImagePicker._();
 
   static const int _cropOutputSize = AvatarNormalizer.maxDimension;
-  static const int _quality = 85;
 
   static Future<Uint8List?> pickCroppedAvatarBytes(
     BuildContext context, {
@@ -88,10 +87,15 @@ class AvatarImagePicker {
       return null;
     }
 
-    final normalizedBytes = await (normalizeBytes ?? normalizePickedImageBytes)(
-      pickedBytes,
-      platform: resolvedPlatform,
-    );
+    // iOS's general picker converter intentionally emits JPEG. Avatars need
+    // an alpha-preserving PNG path, with the same pre-crop detail ceiling.
+    final normalizedBytes =
+        resolvedPlatform == TargetPlatform.iOS && _hasPngSignature(pickedBytes)
+        ? await compute(_prepareAvatarPngForCrop, pickedBytes)
+        : await (normalizeBytes ?? normalizePickedImageBytes)(
+            pickedBytes,
+            platform: resolvedPlatform,
+          );
     if (!context.mounted) return null;
     if (normalizedBytes == null || normalizedBytes.isEmpty) {
       PrismToast.error(context, message: l10n.imageCropProcessingError);
@@ -151,6 +155,9 @@ Future<Uint8List?> _defaultCropImage(
 Uint8List encodeAvatarOutputForStorage(Uint8List bytes) {
   img.Image? decoded;
   try {
+    final info = img.findDecoderForData(bytes)?.startDecode(bytes);
+    if (info == null) throw StateError('Invalid cropped avatar header');
+    AvatarNormalizer.validateSourceDimensions(info.width, info.height);
     decoded = img.decodeImage(bytes);
   } catch (_) {
     throw StateError('Unable to decode cropped avatar image');
@@ -171,9 +178,56 @@ Uint8List encodeAvatarOutputForStorage(Uint8List bytes) {
           interpolation: img.Interpolation.average,
         );
 
-  return Uint8List.fromList(
-    img.encodeJpg(resized, quality: AvatarImagePicker._quality),
-  );
+  // The crop result must use the same alpha/byte-budget policy as subsequent
+  // repository writes. This work stays inside the crop encoder's compute call.
+  return AvatarNormalizer.normalize(
+    Uint8List.fromList(img.encodePng(resized)),
+  )!;
+}
+
+bool _hasPngSignature(Uint8List bytes) {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < signature.length) return false;
+  for (var i = 0; i < signature.length; i++) {
+    if (bytes[i] != signature[i]) return false;
+  }
+  return true;
+}
+
+// Called only through compute: header probing, pixel decoding and resizing must
+// not block the UI isolate. Do not use storage normalization here: the user
+// still needs up to 4096px of detail to select and zoom their crop.
+Uint8List? _prepareAvatarPngForCrop(Uint8List bytes) {
+  const maxCropDimension = 4096;
+  try {
+    final info = img.PngDecoder().startDecode(bytes);
+    if (info == null) return null;
+    AvatarNormalizer.validateSourceDimensions(info.width, info.height);
+    if (info.width <= maxCropDimension && info.height <= maxCropDimension) {
+      return bytes;
+    }
+    final decoded = img.decodePng(bytes);
+    if (decoded == null) return null;
+    final longEdge = decoded.width >= decoded.height
+        ? decoded.width
+        : decoded.height;
+    final resized = img.copyResize(
+      decoded,
+      width: (decoded.width * maxCropDimension / longEdge).round().clamp(
+        1,
+        maxCropDimension,
+      ),
+      height: (decoded.height * maxCropDimension / longEdge).round().clamp(
+        1,
+        maxCropDimension,
+      ),
+      interpolation: img.Interpolation.average,
+    );
+    return Uint8List.fromList(img.encodePng(resized));
+  } catch (_) {
+    // Never fall back to JPEG for an invalid or oversized alpha image.
+    return null;
+  }
 }
 
 class _XFileAvatarPickedImage implements AvatarPickedImage {

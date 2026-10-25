@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -46,6 +47,164 @@ class _FakePickedImage implements AvatarPickedImage {
 
 void main() {
   group('AvatarImagePicker', () {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('routes alpha PNG before crop on $platform', (tester) async {
+        final source = img.Image(width: 24, height: 24, numChannels: 4);
+        img.fill(source, color: img.ColorRgba8(40, 100, 180, 128));
+        final input = Uint8List.fromList(img.encodePng(source));
+        var converterCalls = 0;
+        Uint8List? cropInput;
+        await tester.runAsync(
+          () => _pick(
+            tester,
+            pickImage: (_) async =>
+                _FakePickedImage(path: 'fixture.png', bytes: input),
+            normalizeBytes: (bytes, {platform}) async {
+              converterCalls++;
+              return Uint8List.fromList(img.encodeJpg(img.decodeImage(bytes)!));
+            },
+            cropImage:
+                (
+                  bytes,
+                  context, {
+                  required title,
+                  required doneButtonTitle,
+                  required cancelButtonTitle,
+                }) async {
+                  cropInput = bytes;
+                  return null;
+                },
+            platform: platform,
+          ),
+        );
+        expect(converterCalls, platform == TargetPlatform.iOS ? 0 : 1);
+        expect(cropInput, isNotNull);
+        expect(
+          img.decodeImage(cropInput!)!.getPixel(12, 12).a,
+          platform == TargetPlatform.iOS ? 128 : 255,
+        );
+      });
+    }
+
+    testWidgets('iOS JPEG keeps the existing converter path', (tester) async {
+      final source = img.Image(width: 24, height: 24);
+      final input = Uint8List.fromList(img.encodeJpg(source));
+      final converted = Uint8List.fromList(img.encodeJpg(source, quality: 80));
+      var converterCalls = 0;
+      Uint8List? cropInput;
+      await _pick(
+        tester,
+        pickImage: (_) async =>
+            _FakePickedImage(path: 'fixture.jpg', bytes: input),
+        normalizeBytes: (bytes, {platform}) async {
+          converterCalls++;
+          expect(bytes, input);
+          expect(platform, TargetPlatform.iOS);
+          return converted;
+        },
+        cropImage:
+            (
+              bytes,
+              context, {
+              required title,
+              required doneButtonTitle,
+              required cancelButtonTitle,
+            }) async {
+              cropInput = bytes;
+              return null;
+            },
+        platform: TargetPlatform.iOS,
+      );
+      expect(converterCalls, 1);
+      expect(cropInput, converted);
+    });
+
+    testWidgets('iOS PNG preparation preserves alpha and 4096 crop detail', (
+      tester,
+    ) async {
+      final source = img.Image(width: 4200, height: 8, numChannels: 4);
+      img.fill(source, color: img.ColorRgba8(40, 100, 180, 128));
+      final input = Uint8List.fromList(img.encodePng(source));
+      var converterCalls = 0;
+      Uint8List? cropInput;
+      await tester.runAsync(
+        () => _pick(
+          tester,
+          pickImage: (_) async =>
+              _FakePickedImage(path: 'fixture.png', bytes: input),
+          normalizeBytes: (bytes, {platform}) async {
+            converterCalls++;
+            return bytes;
+          },
+          cropImage:
+              (
+                bytes,
+                context, {
+                required title,
+                required doneButtonTitle,
+                required cancelButtonTitle,
+              }) async {
+                cropInput = bytes;
+                return null;
+              },
+          platform: TargetPlatform.iOS,
+        ),
+      );
+      expect(converterCalls, 0);
+      final decoded = img.decodeImage(cropInput!)!;
+      expect(decoded.width, 4096);
+      expect(decoded.height, inInclusiveRange(1, 4096));
+      expect(decoded.getPixel(2000, 2).a, 128);
+    });
+
+    testWidgets('oversized declared iOS PNG never opens cropper', (
+      tester,
+    ) async {
+      final source = img.Image(width: 2, height: 2, numChannels: 4);
+      final input = Uint8List.fromList(img.encodePng(source));
+      // IHDR declares 8000x8000 without allocating a corresponding bitmap.
+      final header = ByteData.sublistView(input);
+      header.setUint32(16, 8000);
+      header.setUint32(20, 8000);
+      var crc = 0xffffffff;
+      for (var i = 12; i < 29; i++) {
+        crc ^= input[i];
+        for (var bit = 0; bit < 8; bit++) {
+          crc = (crc >> 1) ^ ((crc & 1) == 0 ? 0 : 0xedb88320);
+        }
+      }
+      header.setUint32(29, crc ^ 0xffffffff);
+      var cropCalls = 0;
+      var converterCalls = 0;
+      final result = await tester.runAsync(
+        () => _pick(
+          tester,
+          pickImage: (_) async =>
+              _FakePickedImage(path: 'fixture.png', bytes: input),
+          normalizeBytes: (bytes, {platform}) async {
+            converterCalls++;
+            return bytes;
+          },
+          cropImage:
+              (
+                bytes,
+                context, {
+                required title,
+                required doneButtonTitle,
+                required cancelButtonTitle,
+              }) async {
+                cropCalls++;
+                return bytes;
+              },
+          platform: TargetPlatform.iOS,
+        ),
+      );
+      expect(result, isNull);
+      expect(cropCalls, 0);
+      expect(converterCalls, 0);
+      PrismToast.dismiss();
+    });
+
     testWidgets('returns null when image picking is cancelled', (tester) async {
       final pickCalls = <_PickCall>[];
       final cropCalls = <_CropCall>[];

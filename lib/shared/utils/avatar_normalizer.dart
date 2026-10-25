@@ -45,19 +45,24 @@ class AvatarNormalizer {
     if (info == null) {
       throw StateError('Unsupported avatar image format');
     }
-    if (info.width <= 0 || info.height <= 0) {
-      throw StateError('Unsupported avatar image format');
-    }
-    if (info.width * info.height > maxSourcePixels) {
-      throw StateError(
-        'Avatar source image is too large to decode safely '
-        '(${info.width}x${info.height})',
-      );
-    }
+    validateSourceDimensions(info.width, info.height);
     return _isJpeg(bytes) &&
         bytes.length <= targetMaxBytes &&
         info.width <= maxDimension &&
         info.height <= maxDimension;
+  }
+
+  /// Reject unsafe source dimensions before allocating a decoded pixel buffer.
+  static void validateSourceDimensions(int width, int height) {
+    if (width <= 0 || height <= 0) {
+      throw StateError('Unsupported avatar image format');
+    }
+    if (width * height > maxSourcePixels) {
+      throw StateError(
+        'Avatar source image is too large to decode safely '
+        '(${width}x$height)',
+      );
+    }
   }
 
   static Uint8List? _reencode(Uint8List bytes) {
@@ -66,20 +71,36 @@ class AvatarNormalizer {
       throw StateError('Unsupported avatar image format');
     }
 
-    final resized = _resize(decoded);
-
-    Uint8List? bestEffort;
-    for (final quality in _jpegQualities) {
-      final encoded = Uint8List.fromList(
-        img.encodeJpg(resized, quality: quality),
-      );
-      bestEffort = encoded;
-      if (encoded.length <= targetMaxBytes) {
-        return encoded;
+    var resized = _resize(decoded);
+    // A channel alone does not imply transparency: opaque RGBA photos should
+    // retain the efficient JPEG path. Check real pixels before choosing PNG.
+    final hasTransparency =
+        decoded.hasAlpha &&
+        decoded.any((pixel) => pixel.a < pixel.maxChannelValue);
+    while (true) {
+      if (hasTransparency) {
+        final encoded = Uint8List.fromList(img.encodePng(resized));
+        if (encoded.length <= targetMaxBytes) return encoded;
+      } else {
+        for (final quality in _jpegQualities) {
+          final encoded = Uint8List.fromList(
+            img.encodeJpg(resized, quality: quality),
+          );
+          if (encoded.length <= targetMaxBytes) return encoded;
+        }
       }
+      // Lossless alpha cannot be made smaller by lowering JPEG quality. Shrink
+      // only after trying this frame, and force progress down to a single pixel.
+      if (resized.width == 1 && resized.height == 1) {
+        throw StateError('Avatar image cannot fit the storage byte budget');
+      }
+      resized = img.copyResize(
+        resized,
+        width: (resized.width * 0.8).floor().clamp(1, resized.width),
+        height: (resized.height * 0.8).floor().clamp(1, resized.height),
+        interpolation: img.Interpolation.average,
+      );
     }
-
-    return bestEffort;
   }
 
   /// Off-main-isolate single normalize — identical result to [normalize]. Use
@@ -105,8 +126,9 @@ class AvatarNormalizer {
     return compute(_normalizeBatch, images);
   }
 
-  static List<Uint8List?> _normalizeBatch(List<Uint8List?> images) =>
-      [for (final bytes in images) normalize(bytes)];
+  static List<Uint8List?> _normalizeBatch(List<Uint8List?> images) => [
+    for (final bytes in images) normalize(bytes),
+  ];
 
   static bool _isJpeg(Uint8List bytes) {
     return bytes.length >= 3 &&
@@ -126,12 +148,20 @@ class AvatarNormalizer {
       return img.copyResize(
         source,
         width: maxDimension,
+        height: (source.height * maxDimension / source.width).round().clamp(
+          1,
+          maxDimension,
+        ),
         interpolation: img.Interpolation.average,
       );
     }
 
     return img.copyResize(
       source,
+      width: (source.width * maxDimension / source.height).round().clamp(
+        1,
+        maxDimension,
+      ),
       height: maxDimension,
       interpolation: img.Interpolation.average,
     );
