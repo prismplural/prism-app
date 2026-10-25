@@ -23,6 +23,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/constants/fronting_namespaces.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
@@ -31,6 +32,7 @@ import 'package:prism_plurality/domain/models/fronting_session.dart'
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_sync_event_bus.dart';
@@ -83,8 +85,8 @@ class _SecureStorageStub {
 
 class _FakeClient implements PluralKitClient {
   @override
-  Future<PKSwitch> getSwitch(String switchRef) =>
-      throw UnimplementedError();
+  Future<PKSwitch> getSwitch(String switchRef) => throw UnimplementedError();
+
   /// Pages are popped in order. Each call to getSwitches removes the first page.
   /// When empty, returns [].
   final List<List<PKSwitch>> switchPages;
@@ -185,8 +187,8 @@ class _FakeClient implements PluralKitClient {
 
 class _PaginatingClient implements PluralKitClient {
   @override
-  Future<PKSwitch> getSwitch(String switchRef) =>
-      throw UnimplementedError();
+  Future<PKSwitch> getSwitch(String switchRef) => throw UnimplementedError();
+
   /// Full history, any order — sorted newest-first internally.
   _PaginatingClient(List<PKSwitch> history)
     : _history = [...history]
@@ -198,7 +200,10 @@ class _PaginatingClient implements PluralKitClient {
   int pageCalls = 0;
 
   @override
-  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) async {
+  Future<List<PKSwitch>> getSwitches({
+    DateTime? before,
+    int limit = 100,
+  }) async {
     pageCalls++;
     final clamped = limit > 100 ? 100 : limit;
     final filtered = before == null
@@ -235,14 +240,20 @@ class _PaginatingClient implements PluralKitClient {
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
       throw UnimplementedError();
   @override
-  Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> createSwitch(
+    List<String> memberIds, {
+    DateTime? timestamp,
+  }) => throw UnimplementedError();
   @override
-  Future<PKSwitch> updateSwitch(String switchId, {required DateTime timestamp}) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) => throw UnimplementedError();
   @override
-  Future<PKSwitch> updateSwitchMembers(String switchId, List<String> memberIds) =>
-      throw UnimplementedError();
+  Future<PKSwitch> updateSwitchMembers(
+    String switchId,
+    List<String> memberIds,
+  ) => throw UnimplementedError();
   @override
   Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
   @override
@@ -2581,86 +2592,89 @@ void main() {
   // >150-switch fixture and assert the null-cursor path walks every page.
 
   group('null-cursor incremental pagination (H3)', () {
-    test('null cursor imports ALL switches, not just the newest page', () async {
-      final db = _makeDb();
-      addTearDown(db.close);
-
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
-      await memberRepo.createMember(
-        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
-      );
-
-      // 175 switches: A enters at the OLDEST and stays fronting the whole
-      // time (every switch lists ['pkA']). The diff sweep collapses this to
-      // exactly ONE open A row anchored at the OLDEST switch — but only if
-      // the sweep actually paged back far enough to SEE the oldest switch.
-      // If H3 regressed (only the newest 100 fetched), the row would anchor
-      // on a newer switch and the oldest pages would be silently dropped.
-      const total = 175;
-      final base = DateTime.utc(2026, 1, 1, 0);
-      final history = <PKSwitch>[
-        for (var i = 0; i < total; i++)
-          PKSwitch(
-            // Zero-padded ids so lexicographic id tiebreaks are stable.
-            id: 'sw-${i.toString().padLeft(4, '0')}',
-            timestamp: base.add(Duration(minutes: i)),
-            members: const ['pkA'],
-          ),
-      ];
-      const oldestSwitchId = 'sw-0000';
-      final newestSwitchId = 'sw-${(total - 1).toString().padLeft(4, '0')}';
-
-      // Incremental branch: lastSyncDate set, cursor NULL.
-      await db.pluralKitSyncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          switchCursorTimestamp: const Value(null),
-          switchCursorId: const Value(null),
-          lastSyncDate: Value(base.add(const Duration(days: 1))),
-        ),
-      );
-
-      final client = _PaginatingClient(history);
-      final service = _makeService(db: db, client: client);
-      await service.setToken('t');
-      await service.confirmDirection();
-      await service.acknowledgeMapping();
-      await service.loadState();
-
-      await service.syncRecentData();
-
-      final sessionRepo = DriftFrontingSessionRepository(
-        db.frontingSessionsDao,
-        null,
-      );
-      final sessions = await sessionRepo.getAllSessions();
-      expect(
-        sessions,
-        hasLength(1),
-        reason: 'A fronted continuously → one collapsed open row',
-      );
-      expect(
-        sessions.single.pluralkitUuid,
-        oldestSwitchId,
-        reason: 'H3: the OLDEST switch must be reached — the row anchors there '
-            'only if every page back to the start was fetched',
-      );
-      expect(sessions.single.endTime, isNull);
-
-      // Proof the client genuinely paged (175 over 100/page = ≥2 pages).
-      expect(
-        client.pageCalls,
-        greaterThanOrEqualTo(2),
-        reason: 'a single page could not have covered 175 switches',
-      );
-
-      // Cursor advanced to the newest switch.
-      final state = await db.pluralKitSyncDao.getSyncState();
-      expect(state.switchCursorId, newestSwitchId);
-    });
-
     test(
-        'F7: a same-timestamp switch straddling a 100-item page boundary is '
+      'null cursor imports ALL switches, not just the newest page',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+
+        // 175 switches: A enters at the OLDEST and stays fronting the whole
+        // time (every switch lists ['pkA']). The diff sweep collapses this to
+        // exactly ONE open A row anchored at the OLDEST switch — but only if
+        // the sweep actually paged back far enough to SEE the oldest switch.
+        // If H3 regressed (only the newest 100 fetched), the row would anchor
+        // on a newer switch and the oldest pages would be silently dropped.
+        const total = 175;
+        final base = DateTime.utc(2026, 1, 1, 0);
+        final history = <PKSwitch>[
+          for (var i = 0; i < total; i++)
+            PKSwitch(
+              // Zero-padded ids so lexicographic id tiebreaks are stable.
+              id: 'sw-${i.toString().padLeft(4, '0')}',
+              timestamp: base.add(Duration(minutes: i)),
+              members: const ['pkA'],
+            ),
+        ];
+        const oldestSwitchId = 'sw-0000';
+        final newestSwitchId = 'sw-${(total - 1).toString().padLeft(4, '0')}';
+
+        // Incremental branch: lastSyncDate set, cursor NULL.
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            switchCursorTimestamp: const Value(null),
+            switchCursorId: const Value(null),
+            lastSyncDate: Value(base.add(const Duration(days: 1))),
+          ),
+        );
+
+        final client = _PaginatingClient(history);
+        final service = _makeService(db: db, client: client);
+        await service.setToken('t');
+        await service.confirmDirection();
+        await service.acknowledgeMapping();
+        await service.loadState();
+
+        await service.syncRecentData();
+
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        final sessions = await sessionRepo.getAllSessions();
+        expect(
+          sessions,
+          hasLength(1),
+          reason: 'A fronted continuously → one collapsed open row',
+        );
+        expect(
+          sessions.single.pluralkitUuid,
+          oldestSwitchId,
+          reason:
+              'H3: the OLDEST switch must be reached — the row anchors there '
+              'only if every page back to the start was fetched',
+        );
+        expect(sessions.single.endTime, isNull);
+
+        // Proof the client genuinely paged (175 over 100/page = ≥2 pages).
+        expect(
+          client.pageCalls,
+          greaterThanOrEqualTo(2),
+          reason: 'a single page could not have covered 175 switches',
+        );
+
+        // Cursor advanced to the newest switch.
+        final state = await db.pluralKitSyncDao.getSyncState();
+        expect(state.switchCursorId, newestSwitchId);
+      },
+    );
+
+    test('F7: a same-timestamp switch straddling a 100-item page boundary is '
         'not skipped', () async {
       final db = _makeDb();
       addTearDown(db.close);
@@ -2713,90 +2727,98 @@ void main() {
 
       await service.syncRecentData();
 
-      expect(client.pageCalls, greaterThanOrEqualTo(2),
-          reason: '101 switches over 100/page must page at least twice');
+      expect(
+        client.pageCalls,
+        greaterThanOrEqualTo(2),
+        reason: '101 switches over 100/page must page at least twice',
+      );
 
-      final sessions =
-          await DriftFrontingSessionRepository(db.frontingSessionsDao, null)
-              .getAllSessions();
+      final sessions = await DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      ).getAllSessions();
       expect(
         sessions.where((s) => s.memberId == 'local-z'),
         isNotEmpty,
-        reason: 'F7: the boundary same-timestamp switch (Z\'s only front) must '
+        reason:
+            'F7: the boundary same-timestamp switch (Z\'s only front) must '
             'survive paging',
       );
     });
 
     test(
-        'F7: a 100-switch same-timestamp group does NOT wall off older history',
-        () async {
-      final db = _makeDb();
-      addTearDown(db.close);
+      'F7: a 100-switch same-timestamp group does NOT wall off older history',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
 
-      final memberRepo = DriftMemberRepository(db.membersDao, null);
-      await memberRepo.createMember(
-        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
-      );
-      await memberRepo.createMember(
-        _member(localId: 'local-z', pkShortId: 'pkZ', pkUuid: 'uuid-z'),
-      );
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+        await memberRepo.createMember(
+          _member(localId: 'local-z', pkShortId: 'pkZ', pkUuid: 'uuid-z'),
+        );
 
-      // 50 newer A switches at distinct timestamps, a 100-switch A group all at
-      // ONE timestamp, then the oldest switch (Z) strictly below it. The
-      // inclusive +1µs boundary cannot advance past the 100-group; the cursor
-      // must step strictly below it to reach Z. If Z's session exists, older
-      // history past the group was fetched (not stranded, and no false throw).
-      final base = DateTime.utc(2026, 1, 1, 0);
-      final tieTs = base.add(const Duration(minutes: 200));
-      final history = <PKSwitch>[
-        for (var i = 0; i < 50; i++)
+        // 50 newer A switches at distinct timestamps, a 100-switch A group all at
+        // ONE timestamp, then the oldest switch (Z) strictly below it. The
+        // inclusive +1µs boundary cannot advance past the 100-group; the cursor
+        // must step strictly below it to reach Z. If Z's session exists, older
+        // history past the group was fetched (not stranded, and no false throw).
+        final base = DateTime.utc(2026, 1, 1, 0);
+        final tieTs = base.add(const Duration(minutes: 200));
+        final history = <PKSwitch>[
+          for (var i = 0; i < 50; i++)
+            PKSwitch(
+              id: 'new-${i.toString().padLeft(3, '0')}',
+              timestamp: base.add(Duration(minutes: 300 + i)),
+              members: const ['pkA'],
+            ),
+          for (var i = 0; i < 100; i++)
+            PKSwitch(
+              id: 'tie-${i.toString().padLeft(3, '0')}',
+              timestamp: tieTs,
+              members: const ['pkA'],
+            ),
           PKSwitch(
-            id: 'new-${i.toString().padLeft(3, '0')}',
-            timestamp: base.add(Duration(minutes: 300 + i)),
-            members: const ['pkA'],
+            id: 'old-z',
+            timestamp: base.add(const Duration(minutes: 100)),
+            members: const ['pkZ'],
           ),
-        for (var i = 0; i < 100; i++)
-          PKSwitch(
-            id: 'tie-${i.toString().padLeft(3, '0')}',
-            timestamp: tieTs,
-            members: const ['pkA'],
+        ];
+
+        await db.pluralKitSyncDao.upsertSyncState(
+          PluralKitSyncStateCompanion(
+            id: const Value('pk_config'),
+            switchCursorTimestamp: const Value(null),
+            switchCursorId: const Value(null),
+            lastSyncDate: Value(base.add(const Duration(days: 1))),
           ),
-        PKSwitch(
-          id: 'old-z',
-          timestamp: base.add(const Duration(minutes: 100)),
-          members: const ['pkZ'],
-        ),
-      ];
+        );
 
-      await db.pluralKitSyncDao.upsertSyncState(
-        PluralKitSyncStateCompanion(
-          id: const Value('pk_config'),
-          switchCursorTimestamp: const Value(null),
-          switchCursorId: const Value(null),
-          lastSyncDate: Value(base.add(const Duration(days: 1))),
-        ),
-      );
+        final client = _PaginatingClient(history);
+        final service = _makeService(db: db, client: client);
+        await service.setToken('t');
+        await service.confirmDirection();
+        await service.acknowledgeMapping();
+        await service.loadState();
 
-      final client = _PaginatingClient(history);
-      final service = _makeService(db: db, client: client);
-      await service.setToken('t');
-      await service.confirmDirection();
-      await service.acknowledgeMapping();
-      await service.loadState();
+        // Must not throw a no-progress / too-large error on this legitimate group.
+        await service.syncRecentData();
 
-      // Must not throw a no-progress / too-large error on this legitimate group.
-      await service.syncRecentData();
-
-      final sessions =
-          await DriftFrontingSessionRepository(db.frontingSessionsDao, null)
-              .getAllSessions();
-      expect(
-        sessions.where((s) => s.memberId == 'local-z'),
-        isNotEmpty,
-        reason: 'history older than a 100-switch same-timestamp group must be '
-            'reached, not walled off',
-      );
-    });
+        final sessions = await DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        ).getAllSessions();
+        expect(
+          sessions.where((s) => s.memberId == 'local-z'),
+          isNotEmpty,
+          reason:
+              'history older than a 100-switch same-timestamp group must be '
+              'reached, not walled off',
+        );
+      },
+    );
   });
 
   // -- M2: live-poll/sweep duplicate open row --------------------------------
@@ -2887,10 +2909,7 @@ void main() {
         expect(bAfterPoll.single.id, detS3B);
         // The poll must NOT advance the cursor (that's the correct
         // pre-existing behavior the duplicate slipped through).
-        expect(
-          (await db.pluralKitSyncDao.getSyncState()).switchCursorId,
-          u1,
-        );
+        expect((await db.pluralKitSyncDao.getSyncState()).switchCursorId, u1);
 
         // (ii) The incremental sweep covering [S1, S2, S3] arrives.
         await service.importSwitchesAfterLink();
@@ -2946,6 +2965,124 @@ void main() {
     );
   });
 
+  group('same-second live replay', () {
+    for (final exactTie in [false, true]) {
+      for (final direction in [
+        PkSyncDirection.pullOnly,
+        PkSyncDirection.bidirectional,
+      ]) {
+        test('preserves the latest entrant after historical replay '
+            '(${direction.name}, exactTie=$exactTie)', () async {
+          final db = _makeDb();
+          addTearDown(db.close);
+          final memberRepo = DriftMemberRepository(db.membersDao, null);
+          final sessionRepo = DriftFrontingSessionRepository(
+            db.frontingSessionsDao,
+            null,
+          );
+          for (final label in ['a', 'b']) {
+            await memberRepo.createMember(
+              _member(
+                localId: 'local-$label',
+                pkShortId: 'pk$label',
+                pkUuid: 'uuid-$label',
+              ),
+            );
+          }
+          final second = DateTime.utc(2026, 1, 1, 12);
+          // UUID lexical order is deliberately NOT timestamp order. Persisted
+          // row timestamps lose these subsecond differences, but PK does not.
+          final first = PKSwitch(
+            id: exactTie
+                ? '00000000-0000-0000-0000-000000000001'
+                : '00000000-0000-0000-0000-000000000999',
+            timestamp: exactTie
+                ? second
+                : second.add(const Duration(milliseconds: 100)),
+            members: const ['pka'],
+          );
+          final middle = PKSwitch(
+            id: '00000000-0000-0000-0000-000000000100',
+            timestamp: exactTie
+                ? second
+                : second.add(const Duration(milliseconds: 400)),
+            members: const ['pkb'],
+          );
+          final current = PKSwitch(
+            id: exactTie
+                ? '00000000-0000-0000-0000-000000000999'
+                : '00000000-0000-0000-0000-000000000001',
+            timestamp: exactTie
+                ? second
+                : second.add(const Duration(milliseconds: 800)),
+            members: const ['pka'],
+          );
+          final continuing = [
+            for (var i = 101; i <= 198; i++)
+              PKSwitch(
+                id: '00000000-0000-0000-0000-${i.toString().padLeft(12, '0')}',
+                timestamp: middle.timestamp,
+                members: const ['pkb'],
+              ),
+          ];
+          final client = _FakeClient([
+            // Full page + overlapping boundary on the second page. Tie entries
+            // arrive out of UUID order; the sweep must sort them consistently.
+            [current, ...continuing, middle],
+            [middle, first, first],
+            [current, ...continuing, middle],
+          ], currentFronters: current);
+          final service = _makeService(db: db, client: client);
+          await service.setToken('t');
+          await service.confirmDirection();
+          await service.acknowledgeMapping();
+          await service.syncLiveFrontersOnly(direction: direction);
+          final currentId = _expectedRowId(current.id, 'uuid-a');
+          expect(
+            (await sessionRepo.getSessionById(currentId))!.isDeleted,
+            isFalse,
+          );
+
+          await service.importSwitchesAfterLink();
+          final active = await sessionRepo.getAllActiveSessionsUnfiltered();
+          expect(
+            active.map((s) => s.id),
+            [currentId],
+            reason:
+                'historical switches must not tombstone the later live '
+                'entrant merely because their persisted second is equal',
+          );
+          expect(await sessionRepo.getDeletedLinkedSessions(), isEmpty);
+          final beforeReplay = await sessionRepo.getAllSessions();
+          await service.importSwitchesAfterLink();
+          expect(await sessionRepo.getAllSessions(), beforeReplay);
+          // The fake throws on any POST/PATCH: an unintended push cannot silently
+          // pass this test. The current PK front already matches the local front.
+          final summary = await service.syncLiveFrontersOnly(
+            direction: direction,
+          );
+          expect(summary!.switchesPushed, 0);
+          expect(
+            (await sessionRepo.getSessionById(currentId))!.isDeleted,
+            isFalse,
+          );
+          final switchOut = PKSwitch(
+            id: '00000000-0000-0000-0000-000000001000',
+            timestamp: second.add(const Duration(hours: 1)),
+            members: const [],
+          );
+          client.switchPages.add([switchOut, current]);
+          await service.importSwitchesAfterLink();
+          expect(await sessionRepo.getAllActiveSessionsUnfiltered(), isEmpty);
+          expect(
+            (await sessionRepo.getSessionById(currentId))!.endTime,
+            _sameInstant(switchOut.timestamp),
+          );
+        });
+      }
+    }
+  });
+
   // -- M6: drift-precision timestamps ----------------------------------------
 
   group('M6: drift second-precision timestamps', () {
@@ -2953,81 +3090,74 @@ void main() {
     const u2 = '00000000-0000-0000-0000-000000000012';
     const u3 = '00000000-0000-0000-0000-000000000013';
 
-    test(
-      'corrective re-import over an unchanged DB emits ZERO sync ops '
-      '(fractional-second PK timestamps)',
-      () async {
-        // The audit's churn engine: drift stores datetimes as whole SECONDS
-        // while PK timestamps carry µs, so pre-fix every corrective import
-        // emitted a start_time update op per row. Post-fix both sides are
-        // whole-second and an unchanged DB diffs clean.
-        final t1 = DateTime.utc(2026, 3, 1, 10, 0, 0, 123, 456); // µs-precise
-        final t2 = DateTime.utc(2026, 3, 1, 12, 0, 0, 654, 321);
-        final s1 = PKSwitch(id: u1, timestamp: t1, members: const ['pkA']);
-        final s2 = PKSwitch(
-          id: u2,
-          timestamp: t2,
-          members: const ['pkA', 'pkB'],
-        );
+    test('corrective re-import over an unchanged DB emits ZERO sync ops '
+        '(fractional-second PK timestamps)', () async {
+      // The audit's churn engine: drift stores datetimes as whole SECONDS
+      // while PK timestamps carry µs, so pre-fix every corrective import
+      // emitted a start_time update op per row. Post-fix both sides are
+      // whole-second and an unchanged DB diffs clean.
+      final t1 = DateTime.utc(2026, 3, 1, 10, 0, 0, 123, 456); // µs-precise
+      final t2 = DateTime.utc(2026, 3, 1, 12, 0, 0, 654, 321);
+      final s1 = PKSwitch(id: u1, timestamp: t1, members: const ['pkA']);
+      final s2 = PKSwitch(id: u2, timestamp: t2, members: const ['pkA', 'pkB']);
 
-        final db = _makeDb();
-        addTearDown(db.close);
-        final memberRepo = DriftMemberRepository(db.membersDao, null);
-        await memberRepo.createMember(
-          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
-        );
-        await memberRepo.createMember(
-          _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
-        );
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      await memberRepo.createMember(
+        _member(localId: 'local-b', pkShortId: 'pkB', pkUuid: 'uuid-b'),
+      );
 
-        final client = _FakeClient([
-          [s2, s1], // corrective import #1
-          [s2, s1], // corrective import #2 over the unchanged DB
-        ]);
-        final service = _makeService(db: db, client: client);
+      final client = _FakeClient([
+        [s2, s1], // corrective import #1
+        [s2, s1], // corrective import #2 over the unchanged DB
+      ]);
+      final service = _makeService(db: db, client: client);
 
-        await service.performOneTimeFullImport(token: 't');
+      await service.performOneTimeFullImport(token: 't');
 
-        // Persisted rows carry the whole-second truncation of the µs
-        // timestamps (drift's storage precision).
-        final sessionRepo = DriftFrontingSessionRepository(
-          db.frontingSessionsDao,
-          null,
-        );
-        final rows = await sessionRepo.getAllSessions();
-        final rowA = rows.singleWhere((s) => s.memberId == 'local-a');
-        final rowB = rows.singleWhere((s) => s.memberId == 'local-b');
-        expect(
-          rowA.startTime,
-          _sameInstant(truncatePkTimestampToDriftPrecision(t1)),
-        );
-        expect(
-          rowB.startTime,
-          _sameInstant(truncatePkTimestampToDriftPrecision(t2)),
-        );
+      // Persisted rows carry the whole-second truncation of the µs
+      // timestamps (drift's storage precision).
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      final rows = await sessionRepo.getAllSessions();
+      final rowA = rows.singleWhere((s) => s.memberId == 'local-a');
+      final rowB = rows.singleWhere((s) => s.memberId == 'local-b');
+      expect(
+        rowA.startTime,
+        _sameInstant(truncatePkTimestampToDriftPrecision(t1)),
+      );
+      expect(
+        rowB.startTime,
+        _sameInstant(truncatePkTimestampToDriftPrecision(t2)),
+      );
 
-        // The key assertion: re-running the SAME
-        // corrective import over the unchanged DB emits ZERO sync ops.
-        final captured = <CapturedSyncOp>[];
-        SyncRecordMixin.installCaptureSinkForTesting(captured.add);
-        addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
+      // The key assertion: re-running the SAME
+      // corrective import over the unchanged DB emits ZERO sync ops.
+      final captured = <CapturedSyncOp>[];
+      SyncRecordMixin.installCaptureSinkForTesting(captured.add);
+      addTearDown(SyncRecordMixin.removeCaptureSinkForTesting);
 
-        await service.performOneTimeFullImport(token: 't');
+      await service.performOneTimeFullImport(token: 't');
 
-        expect(
-          captured.where((op) => op.table == 'fronting_sessions').toList(),
-          isEmpty,
-          reason:
-              'an unchanged corrective re-import must be op-silent — '
-              'pre-fix every row emitted a start_time update per run',
-        );
-        expect(
-          captured,
-          isEmpty,
-          reason: 'no other table should churn on an unchanged re-import',
-        );
-      },
-    );
+      expect(
+        captured.where((op) => op.table == 'fronting_sessions').toList(),
+        isEmpty,
+        reason:
+            'an unchanged corrective re-import must be op-silent — '
+            'pre-fix every row emitted a start_time update per run',
+      );
+      expect(
+        captured,
+        isEmpty,
+        reason: 'no other table should churn on an unchanged re-import',
+      );
+    });
 
     test(
       'corrective re-import never emits start_time ops for closed rows '
@@ -3142,26 +3272,438 @@ void main() {
       expect(state.switchCursorTimestamp, _sameInstant(newer));
     });
 
-    test('same-timestamp advance only wins with a lexically-greater id',
-        () async {
+    test(
+      'same-timestamp advance only wins with a lexically-greater id',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+
+        final service = _makeService(db: db, client: _FakeClient([]));
+        final ts = DateTime.utc(2026, 1, 1, 12);
+
+        await service.advanceImportCursorPast(switchId: 'sw-5', timestamp: ts);
+
+        // Same timestamp, lexically-SMALLER id → no-op.
+        await service.advanceImportCursorPast(switchId: 'sw-1', timestamp: ts);
+        var state = await db.pluralKitSyncDao.getSyncState();
+        expect(state.switchCursorId, 'sw-5');
+
+        // Same timestamp, lexically-GREATER id → advances.
+        await service.advanceImportCursorPast(switchId: 'sw-9', timestamp: ts);
+        state = await db.pluralKitSyncDao.getSyncState();
+        expect(state.switchCursorId, 'sw-9');
+        expect(state.switchCursorTimestamp, _sameInstant(ts));
+      },
+    );
+  });
+
+  // -- engine burned-id gate ----------------------------------------
+  //
+  // A peer delete arrives as `is_delete` and the receiving device's consumer
+  // row is HARD-deleted (prism_sync_providers.dart:4954 ->
+  // drift_sync_adapter.dart `hardDelete`), so the absorbing tombstone survives
+  // only in that device's ENGINE. Every Drift-row-based guard in
+  // `_upsertEntrantSession` is blind there, and the incremental sweep then
+  // re-creates the deterministic row id — an in-place revival no peer can
+  // accept (client.rs::without_phantom_undelete strips the create's
+  // `is_deleted=false`; the merge tombstone gate rejects it fleet-wide).
+  //
+  // The guard these tests pin: `_upsertEntrantSession` consults
+  // `AppDatabase.tombstoneGate` for the deterministic id ONLY when both
+  // lookups (id, then the (switch uuid, member id) pair) found no Drift row
+  // and the sweep is NOT corrective, and treats a burned id as the existing
+  // `tombstoneCollision` outcome (no row written, no id-derivation change).
+  //
+  // LEGACY LIMITS pinned here (documented current behaviour, NOT guarantees):
+  // R1 a failing engine read is indistinguishable from "no tombstone"
+  //    (TombstoneGate.isTombstoned fails OPEN, tombstone_gate.dart:58-71);
+  // R2 the corrective path is unchanged and still creates at a burned id;
+  // R3 a null gate (no engine / cold migration) keeps the pre-gate behaviour.
+  group('engine burned-id gate', () {
+    /// Counting stand-in for the engine's absorbing-delete view: records every
+    /// read so a test can pin whether the sweep consulted the engine at all.
+    TombstoneGate countingGate(Set<String> burned, List<String> reads) {
+      Future<String?> read(String table, String entityId, String field) async {
+        reads.add('$table/$entityId/$field');
+        return burned.contains('$table/$entityId') ? 'true' : null;
+      }
+
+      return TombstoneGate(read);
+    }
+
+    /// Stand-in for an engine whose field-version read fails (R1).
+    TombstoneGate throwingGate(List<String> reads) {
+      Future<String?> read(String table, String entityId, String field) async {
+        reads.add('$table/$entityId/$field');
+        throw StateError('engine read unavailable');
+      }
+
+      return TombstoneGate(read);
+    }
+
+    test('incremental entrant with no Drift row refuses to revive an '
+        'engine-tombstoned deterministic id', () async {
       final db = _makeDb();
       addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      const switchId = 'sw-1';
+      final burnedId = derivePkSessionId(switchId, 'uuid-a');
+      final reads = <String>[];
+      db.tombstoneGate = countingGate({'fronting_sessions/$burnedId'}, reads);
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: DateTime.utc(2026, 3, 1, 10),
+        members: const ['pkA'],
+      );
+      final service = _makeService(
+        db: db,
+        client: _FakeClient([
+          [sw],
+          [],
+        ]),
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.importSwitchesAfterLink();
 
-      final service = _makeService(db: db, client: _FakeClient([]));
-      final ts = DateTime.utc(2026, 1, 1, 12);
+      expect(
+        await sessionRepo.getSessionById(burnedId),
+        isNull,
+        reason: 'RED until the guard lands: the row must stay absent',
+      );
+      expect(
+        await db.frontingSessionsDao.getAllSessionsIncludingDeleted(),
+        isEmpty,
+        reason: 'nothing may be written at a burned id, not even a tombstone',
+      );
+      expect(reads, [
+        'fronting_sessions/$burnedId/is_deleted',
+      ], reason: 'the guard reads the engine once for the missing id');
+    });
 
-      await service.advanceImportCursorPast(switchId: 'sw-5', timestamp: ts);
+    test('unburned missing row is created and the engine is consulted exactly '
+        'once', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      const switchId = 'sw-1';
+      final rowId = derivePkSessionId(switchId, 'uuid-a');
+      final reads = <String>[];
+      db.tombstoneGate = countingGate(const <String>{}, reads);
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: DateTime.utc(2026, 3, 1, 10),
+        members: const ['pkA'],
+      );
+      final service = _makeService(
+        db: db,
+        client: _FakeClient([
+          [sw],
+          [],
+        ]),
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.importSwitchesAfterLink();
 
-      // Same timestamp, lexically-SMALLER id → no-op.
-      await service.advanceImportCursorPast(switchId: 'sw-1', timestamp: ts);
-      var state = await db.pluralKitSyncDao.getSyncState();
-      expect(state.switchCursorId, 'sw-5');
+      final row = await sessionRepo.getSessionById(rowId);
+      expect(row, isNotNull, reason: 'an unburned id is created as before');
+      expect(row!.memberId, 'local-a');
+      expect(row.pluralkitUuid, switchId);
+      expect(row.isDeleted, isFalse);
+      expect(row.startTime, _sameInstant(DateTime.utc(2026, 3, 1, 10)));
+      expect(reads, [
+        'fronting_sessions/$rowId/is_deleted',
+      ], reason: 'the guard consults the engine once and then creates');
+    });
 
-      // Same timestamp, lexically-GREATER id → advances.
-      await service.advanceImportCursorPast(switchId: 'sw-9', timestamp: ts);
-      state = await db.pluralKitSyncDao.getSyncState();
-      expect(state.switchCursorId, 'sw-9');
-      expect(state.switchCursorTimestamp, _sameInstant(ts));
+    test('existing closed row is not gate-probed and keeps its end_time '
+        '(incremental collision policy)', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      const switchId = 'sw-1';
+      final rowId = derivePkSessionId(switchId, 'uuid-a');
+      final closedEnd = DateTime.utc(2026, 3, 1, 9);
+      await sessionRepo.createSession(
+        domain_fs.FrontingSession(
+          id: rowId,
+          startTime: DateTime.utc(2026, 3, 1, 8),
+          endTime: closedEnd,
+          memberId: 'local-a',
+          pluralkitUuid: switchId,
+        ),
+      );
+      final reads = <String>[];
+      // Adversarial: a guard that probed a PRESENT row would refuse to
+      // reconcile it, so any read here is a defect.
+      db.tombstoneGate = countingGate({'fronting_sessions/$rowId'}, reads);
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: DateTime.utc(2026, 3, 1, 10),
+        members: const ['pkA'],
+      );
+      final service = _makeService(
+        db: db,
+        client: _FakeClient([
+          [sw],
+          [],
+        ]),
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.importSwitchesAfterLink();
+
+      expect(
+        reads.where((r) => r == 'fronting_sessions/$rowId/is_deleted'),
+        isEmpty,
+        reason: 'no engine round-trip for a present row',
+      );
+      final dao = db.frontingSessionsDao;
+      final all = await dao.getAllSessionsIncludingDeleted();
+      expect(all, hasLength(1), reason: 'no extra row was created');
+      expect(all.single.id, rowId);
+      expect(
+        all.single.endTime,
+        _sameInstant(closedEnd),
+        reason: 'incremental entrant collisions preserve a pre-existing end',
+      );
+    });
+
+    test(
+      'pair-adopted row under a non-canonical id is not gate-probed',
+      () async {
+        final db = _makeDb();
+        addTearDown(db.close);
+        final memberRepo = DriftMemberRepository(db.membersDao, null);
+        await memberRepo.createMember(
+          _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+        );
+        final sessionRepo = DriftFrontingSessionRepository(
+          db.frontingSessionsDao,
+          null,
+        );
+        const switchId = 'sw-1';
+        final canonicalId = derivePkSessionId(switchId, 'uuid-a');
+        // A locally-pushed front under a random v4 id: only the
+        // (switch uuid, member id) pair identifies it, and its start is after
+        // the batch's first switch so the seed excludes it.
+        await sessionRepo.createSession(
+          domain_fs.FrontingSession(
+            id: 'legacy-pair-row',
+            startTime: DateTime.utc(2026, 3, 1, 11),
+            memberId: 'local-a',
+            pluralkitUuid: switchId,
+          ),
+        );
+        final reads = <String>[];
+        db.tombstoneGate = countingGate({
+          'fronting_sessions/$canonicalId',
+        }, reads);
+        final sw = PKSwitch(
+          id: switchId,
+          timestamp: DateTime.utc(2026, 3, 1, 10),
+          members: const ['pkA'],
+        );
+        final service = _makeService(
+          db: db,
+          client: _FakeClient([
+            [sw],
+            [],
+          ]),
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo,
+        );
+        await service.setToken('t');
+        await service.confirmDirection();
+        await service.acknowledgeMapping();
+        await service.importSwitchesAfterLink();
+
+        expect(
+          reads.where((r) => r == 'fronting_sessions/$canonicalId/is_deleted'),
+          isEmpty,
+          reason: 'the pair fallback found the row; the engine is not probed',
+        );
+        expect(
+          await sessionRepo.getSessionById(canonicalId),
+          isNull,
+          reason: 'the pair-adopted row is never re-keyed or duplicated',
+        );
+        final adopted = await sessionRepo.getSessionById('legacy-pair-row');
+        expect(adopted, isNotNull);
+        expect(adopted!.endTime, isNull, reason: 'still the open presence');
+        expect(
+          adopted.startTime,
+          _sameInstant(DateTime.utc(2026, 3, 1, 10)),
+          reason: 'adopted in place with the API switch start',
+        );
+      },
+    );
+
+    test('LEGACY LIMIT R3: a null gate creates exactly as before the gate '
+        'existed', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      const switchId = 'sw-1';
+      final rowId = derivePkSessionId(switchId, 'uuid-a');
+      expect(db.tombstoneGate, isNull, reason: 'premise: no engine view');
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: DateTime.utc(2026, 3, 1, 10),
+        members: const ['pkA'],
+      );
+      final service = _makeService(
+        db: db,
+        client: _FakeClient([
+          [sw],
+          [],
+        ]),
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.importSwitchesAfterLink();
+
+      final row = await sessionRepo.getSessionById(rowId);
+      expect(row, isNotNull, reason: 'null gate = no engine to consult');
+      expect(row!.isDeleted, isFalse);
+    });
+
+    test('LEGACY LIMIT R1: a failing engine read is indistinguishable from '
+        'unburned and creates', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      const switchId = 'sw-1';
+      final rowId = derivePkSessionId(switchId, 'uuid-a');
+      final reads = <String>[];
+      db.tombstoneGate = throwingGate(reads);
+      expect(
+        await db.tombstoneGate!.isTombstoned('fronting_sessions', rowId),
+        isFalse,
+        reason:
+            'TombstoneGate swallows read errors (fails OPEN), so an '
+            'unreadable engine is reported as "not tombstoned"',
+      );
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: DateTime.utc(2026, 3, 1, 10),
+        members: const ['pkA'],
+      );
+      final service = _makeService(
+        db: db,
+        client: _FakeClient([
+          [sw],
+          [],
+        ]),
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      await service.importSwitchesAfterLink();
+
+      final row = await sessionRepo.getSessionById(rowId);
+      expect(row, isNotNull, reason: 'a failed read means "create", as today');
+      expect(row!.isDeleted, isFalse);
+    });
+
+    test('LEGACY LIMIT R2: the corrective path still creates at a burned id '
+        '(policy unchanged)', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+      final memberRepo = DriftMemberRepository(db.membersDao, null);
+      await memberRepo.createMember(
+        _member(localId: 'local-a', pkShortId: 'pkA', pkUuid: 'uuid-a'),
+      );
+      final sessionRepo = DriftFrontingSessionRepository(
+        db.frontingSessionsDao,
+        null,
+      );
+      const switchId = 'sw-1';
+      final burnedId = derivePkSessionId(switchId, 'uuid-a');
+      final reads = <String>[];
+      db.tombstoneGate = countingGate({'fronting_sessions/$burnedId'}, reads);
+      final sw = PKSwitch(
+        id: switchId,
+        timestamp: DateTime.utc(2026, 3, 1, 10),
+        members: const ['pkA'],
+      );
+      final service = _makeService(
+        db: db,
+        client: _FakeClient([
+          [sw],
+          [],
+        ]),
+        memberRepo: memberRepo,
+        sessionRepo: sessionRepo,
+      );
+      await service.setToken('t');
+      await service.confirmDirection();
+      await service.acknowledgeMapping();
+      // performFullImport = corrective re-import path.
+      await service.performFullImport();
+
+      final row = await sessionRepo.getSessionById(burnedId);
+      expect(
+        row,
+        isNotNull,
+        reason: 'corrective policy is out of scope for this guard',
+      );
+      expect(row!.isDeleted, isFalse);
+      expect(
+        reads.where((r) => r == 'fronting_sessions/$burnedId/is_deleted'),
+        isEmpty,
+        reason: 'a corrective sweep must not consult the burned-id gate',
+      );
     });
   });
 }

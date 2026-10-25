@@ -1,10 +1,14 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_sync/generated/frb_generated.dart';
 
 import 'e2e_fixture.dart';
@@ -223,4 +227,216 @@ void main() {
       }
     },
   );
+
+  for (final direction in [
+    PkSyncDirection.pullOnly,
+    PkSyncDirection.bidirectional,
+  ]) {
+    test(
+      'historical PK replay preserves offline edits and tombstones on two peers '
+      '(${direction.name})',
+      skip: e2eSkip(),
+      timeout: const Timeout(Duration(minutes: 5)),
+      () async {
+        final relay = await spawnRelay();
+        final dir = await Directory.systemTemp.createTemp('pk-history-peer-');
+        E2EDevice? aDevice;
+        E2EDevice? bDevice;
+        PkServicePeer? a;
+        PkServicePeer? b;
+        const members = [
+          PKMember(id: 'old-a', uuid: 'member-uuid-a', name: 'Historical A'),
+          PKMember(id: 'old-b', uuid: 'member-uuid-b', name: 'Historical B'),
+          PKMember(id: 'now-c', uuid: 'member-uuid-c', name: 'Current C'),
+        ];
+        final history = [
+          for (var i = 0; i < members.length; i++)
+            PKSwitch(
+              id: '00000000-0000-0000-0000-00000000000${i + 1}',
+              timestamp: DateTime.utc(2026, 1, i + 1, 12),
+              members: [members[i].id],
+            ),
+        ];
+        try {
+          aDevice = await createDevice(relay);
+          bDevice = await pairNewDevice(relay, aDevice);
+          a = await PkServicePeer.open(
+            aDevice,
+            dir,
+            'a',
+            SyntheticPluralKitClient(members: members, switches: history),
+          );
+          b = await PkServicePeer.open(
+            bDevice,
+            dir,
+            'b',
+            SyntheticPluralKitClient(members: members, switches: history),
+          );
+          a.client.current = history.last;
+          b.client.current = history.last;
+          await a.connectAndImport();
+          await b.connectAndImport();
+          for (var i = 0; i < 3; i++) {
+            await a.syncAndApply();
+            await b.syncAndApply();
+          }
+          final original = await a.fronts.getAllSessions();
+          expect(original, hasLength(3));
+          final oldA = original.singleWhere(
+            (s) => s.pluralkitUuid == history.first.id,
+          );
+          final oldB = original.singleWhere(
+            (s) => s.pluralkitUuid == history[1].id,
+          );
+          final currentId = original
+              .singleWhere((s) => s.pluralkitUuid == history.last.id)
+              .id;
+          // Device A edits while disconnected from B; B deletes another
+          // historical session. Neither mutation should become a fresh front.
+          await a.activate();
+          await a.fronts.updateSession(oldA.copyWith(notes: 'offline note'));
+          await a.outbox.drain(a.device.handle);
+          await b.activate();
+          await b.fronts.deleteSession(oldB.id);
+          await b.outbox.drain(b.device.handle);
+          for (var i = 0; i < 3; i++) {
+            await a.syncAndApply();
+            await b.syncAndApply();
+          }
+
+          // Boundary checkpoint, BEFORE any cursor rewind: a peer delete
+          // reaches the receiver as `is_delete` and its consumer row is
+          // HARD-deleted (prism_sync_providers.dart:4954 ->
+          // drift_sync_adapter.dart `hardDelete`), while the deleting device
+          // keeps its soft tombstone row
+          // (drift_fronting_session_repository.dart:224-245). The absorbing
+          // tombstone therefore survives only in the RECEIVER's engine, which
+          // is exactly why every Drift-row-based PK guard is blind there.
+          expect(
+            await a.fronts.getSessionById(oldB.id),
+            isNull,
+            reason:
+                'receiver must have hard-deleted the peer-deleted row: a '
+                'present row here falsifies the hardDelete boundary and moves '
+                'the defect to delete push/relay instead of the PK sweep',
+          );
+          final bRowBeforeReplay = await b.fronts.getSessionById(oldB.id);
+          expect(
+            bRowBeforeReplay,
+            isNotNull,
+            reason: 'the deleting device keeps its soft tombstone row',
+          );
+          expect(
+            bRowBeforeReplay!.isDeleted,
+            isTrue,
+            reason: 'the deleting device must still hold a tombstone',
+          );
+          expect(
+            await a.engineTombstoned(oldB.id),
+            isTrue,
+            reason:
+                'the receiver engine must hold the absorbing tombstone '
+                'even though its consumer row is gone',
+          );
+          expect(
+            await b.engineTombstoned(oldB.id),
+            isTrue,
+            reason: 'the author engine holds the tombstone it emitted',
+          );
+
+          for (final peer in [a, b]) {
+            await peer.activate();
+            // PK cursors are device-local. Rewind only the cursor to reproduce
+            // overlapping replay after peer history has already arrived.
+            await peer.db.pluralKitSyncDao.upsertSyncState(
+              const PluralKitSyncStateCompanion(
+                id: Value('pk_config'),
+                switchCursorTimestamp: Value(null),
+                switchCursorId: Value(null),
+              ),
+            );
+            await peer.service.importSwitchesAfterLink();
+            await peer.service.importSwitchesAfterLink();
+            await peer.service.syncLiveFrontersOnly(direction: direction);
+            await peer.outbox.drain(peer.device.handle);
+          }
+          for (var i = 0; i < 3; i++) {
+            await a.syncAndApply();
+            await b.syncAndApply();
+          }
+
+          // Role-aware tombstone checkpoint AFTER the rewind replay. The
+          // engine must still say tombstoned on BOTH peers; a live receiver
+          // row with a tombstoned receiver engine is an in-place revival of a
+          // burned deterministic id, which can never propagate (the create's
+          // `is_deleted=false` is stripped by
+          // client.rs::without_phantom_undelete and rejected by the merge
+          // tombstone gate on every peer).
+          expect(
+            await a.engineTombstoned(oldB.id),
+            isTrue,
+            reason:
+                'replaying history must not un-tombstone the receiver '
+                'engine',
+          );
+          expect(
+            await b.engineTombstoned(oldB.id),
+            isTrue,
+            reason: 'replaying history must not un-tombstone the author engine',
+          );
+          final bRowAfterReplay = await b.fronts.getSessionById(oldB.id);
+          expect(
+            bRowAfterReplay,
+            isNotNull,
+            reason: 'the deleting device keeps its tombstone row',
+          );
+          expect(
+            bRowAfterReplay!.isDeleted,
+            isTrue,
+            reason: 'the deleting device stays tombstoned through the replay',
+          );
+          expect(
+            await a.fronts.getSessionById(oldB.id),
+            isNull,
+            reason:
+                'RED until the burned-id guard lands: the receiver must '
+                'not revive an engine-tombstoned deterministic PK session id',
+          );
+
+          for (final peer in [a, b]) {
+            final sessions = await peer.fronts.getAllSessions();
+            expect(sessions, hasLength(2));
+            expect(
+              sessions.singleWhere((s) => s.id == oldA.id).notes,
+              'offline note',
+            );
+            expect(
+              sessions.singleWhere((s) => s.id == oldA.id).endTime?.toUtc(),
+              history[1].timestamp,
+            );
+            // The tombstone is asserted role-aware above: the receiver's
+            // consumer row is hard-deleted (absent), the deleting device keeps
+            // a soft tombstone. A single Drift-row expectation cannot hold for
+            // both roles.
+            expect(sessions.where((s) => s.endTime == null).map((s) => s.id), [
+              currentId,
+            ]);
+            expect(peer.client.createdSwitchMembers, isEmpty);
+            expect(peer.client.deletedSwitches, isEmpty);
+            expect(peer.client.deletedMembers, isEmpty);
+            expect(await peer.quarantine.count(), 0);
+          }
+        } finally {
+          syncCurrentHandle.value = null;
+          syncCredentialsPersisted.value = false;
+          await a?.close();
+          await b?.close();
+          aDevice?.dispose();
+          bDevice?.dispose();
+          relay.stop();
+          await dir.delete(recursive: true);
+        }
+      },
+    );
+  }
 }

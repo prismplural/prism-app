@@ -507,7 +507,8 @@ class PkManualSyncCooldownException implements Exception {
 
   @override
   String toString() {
-    final seconds = remaining.inSeconds + (remaining.inMilliseconds % 1000 > 0 ? 1 : 0);
+    final seconds =
+        remaining.inSeconds + (remaining.inMilliseconds % 1000 > 0 ? 1 : 0);
     final clamped = seconds < 1 ? 1 : seconds;
     return 'Please wait $clamped more '
         '${clamped == 1 ? 'second' : 'seconds'} before syncing with '
@@ -1026,16 +1027,14 @@ class PluralKitSyncService {
                   'push.',
                 );
               }
-              droppedLabels.add(m?.name.trim().isNotEmpty == true
-                  ? m!.name
-                  : localId);
+              droppedLabels.add(
+                m?.name.trim().isNotEmpty == true ? m!.name : localId,
+              );
               continue;
             }
             // uuid-first wire ref — short id required above, uuid preferred
             // on the wire when both are present.
-            wireRefs.add(
-              (pkUuid != null && pkUuid.isNotEmpty) ? pkUuid : pkId,
-            );
+            wireRefs.add((pkUuid != null && pkUuid.isNotEmpty) ? pkUuid : pkId);
           }
 
           if (wireRefs.isEmpty) {
@@ -1151,7 +1150,9 @@ class PluralKitSyncService {
     } catch (e, st) {
       // Transport / 5xx / anything else: a transient failure must NOT touch
       // the stored token or the connection state.
-      debugPrint('[PK_SVC] setToken: validation failed (token unchanged): $e\n$st');
+      debugPrint(
+        '[PK_SVC] setToken: validation failed (token unchanged): $e\n$st',
+      );
       _emit(
         _state.copyWith(
           syncError: formatPluralKitSyncError('Connection failed: $e'),
@@ -1269,9 +1270,7 @@ class PluralKitSyncService {
         mappingAcknowledged: isSameSystem
             ? existing.mappingAcknowledged
             : false,
-        directionConfirmed: isSameSystem
-            ? existing.directionConfirmed
-            : false,
+        directionConfirmed: isSameSystem ? existing.directionConfirmed : false,
         linkedAt: linkedAt,
         clearError: true,
       ),
@@ -2127,9 +2126,11 @@ class PluralKitSyncService {
                 m.pluralkitId!.trim(),
           };
           final unseen = pkMembers
-              .where((pk) =>
-                  !linkedUuids.contains(pk.uuid.trim()) &&
-                  !linkedIds.contains(pk.id.trim()))
+              .where(
+                (pk) =>
+                    !linkedUuids.contains(pk.uuid.trim()) &&
+                    !linkedIds.contains(pk.id.trim()),
+              )
               .toList();
           if (unseen.isNotEmpty) {
             // matchUnlinkedByName: an after-setup PK member skips the mapping
@@ -2224,7 +2225,6 @@ class PluralKitSyncService {
           '[PK_PULL] incremental sweep cursor='
           '${cursor?.toString() ?? 'null'}',
         );
-
 
         final newSwitches = <PKSwitch>[];
         // `reachedCursor` must start false: a null cursor means "walk ALL of
@@ -3108,7 +3108,8 @@ class PluralKitSyncService {
       if (pkId != null && pkId.isNotEmpty) {
         byPkId[pkId] = m;
       }
-      final unlinked = !m.isDeleted &&
+      final unlinked =
+          !m.isDeleted &&
           !m.pluralkitSyncIgnored &&
           (pkUuid == null || pkUuid.isEmpty) &&
           (pkId == null || pkId.isEmpty);
@@ -3126,7 +3127,9 @@ class PluralKitSyncService {
         final name = m.name.trim();
         if (name.isNotEmpty) {
           (unlinkedByExactName[name] ??= <domain.Member>[]).add(m);
-          (unlinkedByLowerName[name.toLowerCase()] ??= <domain.Member>[]).add(m);
+          (unlinkedByLowerName[name.toLowerCase()] ??= <domain.Member>[]).add(
+            m,
+          );
         }
       }
     }
@@ -3886,8 +3889,9 @@ class PluralKitSyncService {
       onPage: (fresh) {
         var reachedBeforeFileRange = false;
         for (final switchEntry in fresh) {
-          final timestampMicros =
-              switchEntry.timestamp.toUtc().microsecondsSinceEpoch;
+          final timestampMicros = switchEntry.timestamp
+              .toUtc()
+              .microsecondsSinceEpoch;
           if (timestampMicros >= minFileTimestampMicros) {
             switches.add(switchEntry);
           } else {
@@ -3932,7 +3936,8 @@ class PluralKitSyncService {
   ///   partial-batch crash re-processes safely because row ids are
   ///   deterministic and the upsert is idempotent.
   /// - `active` is seeded only from open PK-linked DB rows whose start is at or
-  ///   before the first switch timestamp, so incremental resume can close a
+  ///   before the first switch timestamp and whose entry switch is not later
+  ///   in this batch, so incremental resume can close a
   ///   member who was already fronting without a corrective replay closing a
   ///   current row against a switch that predates it.
   /// - Tombstones are absorbing: a deleted row is never revived in place. A
@@ -3984,8 +3989,16 @@ class PluralKitSyncService {
         ? null
         : truncatePkTimestampToDriftPrecision(switches.first.timestamp);
 
+    // Row times lose PK's subsecond precision. A row already pulled by the live
+    // poll can therefore look active at the first switch even though its entry
+    // is later in this batch. Use the known switch identity/order as well as
+    // the persisted time bound; otherwise an earlier leaver can burn the live
+    // row's deterministic id through zero-length cleanup before its real entry.
+    final laterSwitchIds = switches.skip(1).map((s) => s.id.trim()).toSet();
+
     // Open PK-linked rows the seed bound EXCLUDES (started after the first
-    // switch), keyed by (switch uuid, member id). Live-poll artifacts: a
+    // switch, or entered at a known later switch in the batch), keyed by
+    // (switch uuid, member id). Live-poll artifacts: a
     // no-advance poll opens det(S3, B), then a sweep over [S2, S3] opens
     // det(S2, B) too — a phantom fronter the loop merges when it reaches S3.
     final seedExcludedOpenRowsByPair = <String, domain.FrontingSession>{};
@@ -4000,13 +4013,15 @@ class PluralKitSyncService {
           !s.isDeleted &&
           s.memberId != null) {
         if (firstSwitchTimestamp != null &&
-            s.startTime.isAfter(firstSwitchTimestamp)) {
+            (s.startTime.isAfter(firstSwitchTimestamp) ||
+                laterSwitchIds.contains(s.pluralkitUuid!.trim()))) {
           // Remember the excluded open row so the loop can merge it if it
           // turns out to duplicate a continuing presence at its own switch.
           seedExcludedOpenRowsByPair[_canonicalPairKey(
-            s.pluralkitUuid!.trim(),
-            s.memberId!,
-          )] = s;
+                s.pluralkitUuid!.trim(),
+                s.memberId!,
+              )] =
+              s;
           continue;
         }
         final localId = s.memberId!;
@@ -4220,7 +4235,6 @@ class PluralKitSyncService {
         batchNewestTs = sw.timestamp;
         batchNewestId = sw.id;
       }
-
     }
 
     if (advanceCursor && batchNewestTs != null && batchNewestId != null) {
@@ -4277,6 +4291,30 @@ class PluralKitSyncService {
         );
 
     if (existing == null) {
+      // Incremental scope only (`!corrective` leaves the corrective rebuild
+      // policy untouched). A peer delete hard-deletes this device's consumer
+      // row (prism_sync_providers.dart:4954 -> drift_sync_adapter
+      // `hardDelete`), so the absorbing tombstone survives only in the
+      // engine's field_versions; creating at the burned deterministic id
+      // would write a row whose `is_deleted=false` cannot reach peers
+      // (client.rs::without_phantom_undelete strips it, and the merge
+      // tombstone gate rejects non-`is_deleted` ops on a tombstoned entity).
+      // Readable-engine scope only: a null gate (no engine / cold migration)
+      // or a failing gate read both keep the historical create path.
+      final tombstoneGate = _syncDao.attachedDatabase.tombstoneGate;
+      if (!corrective && tombstoneGate != null) {
+        final isBurned = await tombstoneGate.isTombstoned(
+          'fronting_sessions',
+          rowId,
+        );
+        if (isBurned) {
+          debugPrint(
+            '[PK_SWEEP] entrant id $rowId is engine-tombstoned; skipping '
+            'in-place revival on the incremental path.',
+          );
+          return const _PkUpsertOutcome.tombstoneCollision();
+        }
+      }
       try {
         await _frontingSessionRepository.createSession(
           domain.FrontingSession(
@@ -5202,9 +5240,8 @@ class PluralKitSyncService {
 
   /// Test-only seam onto the family's shared switch-level cascade-guard input.
   @visibleForTesting
-  Set<String> debugLiveLinkedSwitchUuids(
-    List<domain.FrontingSession> rows,
-  ) => _liveLinkedSwitchUuids(rows);
+  Set<String> debugLiveLinkedSwitchUuids(List<domain.FrontingSession> rows) =>
+      _liveLinkedSwitchUuids(rows);
 
   /// Test-only seam onto the importer-artifact tombstone helper
   /// (clear PK link, then soft delete — no delete-intent stamp).
@@ -5935,9 +5972,7 @@ class PluralKitSyncService {
     List<String> orderedShortIds,
     Map<String, String> pkIdToPkUuid,
   ) {
-    return [
-      for (final pkId in orderedShortIds) pkIdToPkUuid[pkId] ?? pkId,
-    ];
+    return [for (final pkId in orderedShortIds) pkIdToPkUuid[pkId] ?? pkId];
   }
 
   List<String> _sortedUniqueStrings(Iterable<String> values) {
@@ -6065,10 +6100,7 @@ class PluralKitSyncService {
               PkRequestFailed(
                 stage: 'pushMemberUpdate',
                 errorKind: 'unknown',
-                message: PkSyncEvent.redact(
-                  e.toString(),
-                  client?.currentToken,
-                ),
+                message: PkSyncEvent.redact(e.toString(), client?.currentToken),
               ),
             );
           }

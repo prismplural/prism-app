@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/sync_outbox_drainer.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
+import 'package:prism_plurality/core/sync/tombstone_gate.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
@@ -150,6 +151,12 @@ class PkServicePeer {
     SyntheticPluralKitClient client,
   ) async {
     final db = AppDatabase(NativeDatabase(File('${dir.path}/$name.sqlite')));
+    // EXACT production wiring (prism_sync_providers.dart: `db.tombstoneGate =
+    // TombstoneGate.forHandle(handle)`): the absorbing-delete view that the
+    // deterministic-id ingress paths consult. Without it a tombstone whose
+    // consumer row was already hard-deleted by a remote `is_delete` delivery
+    // is invisible to every Drift-row-based guard.
+    db.tombstoneGate = TombstoneGate.forHandle(device.handle);
     final members = DriftMemberRepository(
       db.membersDao,
       device.handle,
@@ -187,6 +194,26 @@ class PkServicePeer {
       db: db,
       drainTrigger: (_) async {},
     );
+  }
+
+  /// The engine's absorbing-delete state for [entityId], read through the
+  /// [TombstoneGate] this peer installed on [AppDatabase.tombstoneGate] — the
+  /// same public API production uses. Throws instead of returning a default
+  /// when the gate was never wired: a silently-null gate would turn the
+  /// tombstone assertions into no-ops.
+  Future<bool> engineTombstoned(
+    String entityId, {
+    String table = 'fronting_sessions',
+  }) async {
+    final gate = db.tombstoneGate;
+    if (gate == null) {
+      throw StateError(
+        'AppDatabase.tombstoneGate is not wired for this PkServicePeer; '
+        'PkServicePeer.open must install '
+        'TombstoneGate.forHandle(device.handle)',
+      );
+    }
+    return gate.isTombstoned(table, entityId);
   }
 
   Future<void> importAll() async {
