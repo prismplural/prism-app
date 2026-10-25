@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -108,7 +109,17 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.textContaining('@Alice'));
+    final mention = tester.renderObject<RenderParagraph>(
+      find.textContaining('@Alice'),
+    );
+    final labelOffset = mention.text.toPlainText().indexOf('@Alice');
+    expect(labelOffset, greaterThanOrEqualTo(0));
+    final glyphBoxes = mention.getBoxesForSelection(
+      TextSelection(baseOffset: labelOffset, extentOffset: labelOffset + 6),
+    );
+    expect(glyphBoxes, isNotEmpty);
+    // Tap linked glyphs rather than the full paragraph's line-height box.
+    await tester.tapAt(mention.localToGlobal(glyphBoxes.first.toRect().center));
     await tester.pump();
 
     expect(selectedMemberId, isNull);

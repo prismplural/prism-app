@@ -205,10 +205,16 @@ class MarkdownText extends StatelessWidget {
   MarkdownStyleSheet _buildStyleSheet(BuildContext context, ThemeData theme) {
     final base = MarkdownStyleSheet.fromTheme(theme);
 
-    // Strip letter spacing from all text styles and apply reasonable heading caps.
-    TextStyle strip(TextStyle? style) {
-      final stripped = (style ?? const TextStyle()).copyWith(letterSpacing: 0);
-      return textStyleForTextPresentation(stripped, data);
+    final bodyStyle = (base.p ?? const TextStyle()).merge(baseStyle);
+    final letterSpacing = bodyStyle.letterSpacing ?? 0;
+
+    // Inline overrides must keep the body's resolved spacing, including an
+    // explicit zero. Code retains its fixed-width metrics instead.
+    TextStyle present(TextStyle? style, {bool code = false}) {
+      final spaced = (style ?? const TextStyle()).copyWith(
+        letterSpacing: code ? 0 : letterSpacing,
+      );
+      return textStyleForTextPresentation(spaced, data);
     }
 
     final radius = PrismShapes.of(context).radius(8);
@@ -217,7 +223,7 @@ class MarkdownText extends StatelessWidget {
     final markdownAlign = _wrapAlignmentForTextAlign(textAlign);
 
     final sheet = base.copyWith(
-      p: strip(baseStyle ?? base.p),
+      p: present(bodyStyle),
       textAlign: markdownAlign,
       h1Align: markdownAlign,
       h2Align: markdownAlign,
@@ -229,20 +235,20 @@ class MarkdownText extends StatelessWidget {
       orderedListAlign: markdownAlign,
       blockquoteAlign: markdownAlign,
       codeblockAlign: markdownAlign,
-      a: strip(base.a).copyWith(
+      a: present(base.a).copyWith(
         color: theme.colorScheme.primary,
         decoration: TextDecoration.underline,
         decorationColor: theme.colorScheme.primary.withValues(alpha: 0.5),
       ),
-      h1: strip(base.h1).copyWith(fontSize: 24, fontWeight: FontWeight.bold),
-      h2: strip(base.h2).copyWith(fontSize: 21, fontWeight: FontWeight.bold),
-      h3: strip(base.h3).copyWith(fontSize: 18, fontWeight: FontWeight.w600),
-      h4: strip(base.h4).copyWith(fontSize: 16, fontWeight: FontWeight.w600),
-      h5: strip(base.h5).copyWith(fontSize: 15),
-      h6: strip(base.h6).copyWith(fontSize: 14),
-      em: strip(base.em),
-      strong: strip(base.strong),
-      blockquote: strip(base.blockquote).copyWith(color: mutedFg),
+      h1: present(base.h1).copyWith(fontSize: 24, fontWeight: FontWeight.bold),
+      h2: present(base.h2).copyWith(fontSize: 21, fontWeight: FontWeight.bold),
+      h3: present(base.h3).copyWith(fontSize: 18, fontWeight: FontWeight.w600),
+      h4: present(base.h4).copyWith(fontSize: 16, fontWeight: FontWeight.w600),
+      h5: present(base.h5).copyWith(fontSize: 15),
+      h6: present(base.h6).copyWith(fontSize: 14),
+      em: present(base.em),
+      strong: present(base.strong),
+      blockquote: present(base.blockquote).copyWith(color: mutedFg),
       blockquoteDecoration: BoxDecoration(
         color: mutedSurface,
         borderRadius: BorderRadius.circular(radius),
@@ -250,11 +256,14 @@ class MarkdownText extends StatelessWidget {
           left: BorderSide(color: theme.colorScheme.primary, width: 3),
         ),
       ),
-      listBullet: strip(base.listBullet),
-      checkbox: strip(
+      listBullet: present(base.listBullet),
+      checkbox: present(
         base.checkbox,
       ).copyWith(color: mutedFg.withValues(alpha: 0.92)),
-      code: strip(base.code).copyWith(backgroundColor: mutedSurface),
+      code: present(
+        base.code,
+        code: true,
+      ).copyWith(backgroundColor: mutedSurface),
       codeblockDecoration: BoxDecoration(
         color: mutedSurface,
         borderRadius: BorderRadius.circular(radius),
