@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -605,7 +606,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 ///
 /// Voted members show a checkmark overlay on their avatar to indicate
 /// they have already cast a vote.
-class _VotingAsChipRow extends ConsumerWidget {
+class _VotingAsChipRow extends ConsumerStatefulWidget {
   const _VotingAsChipRow({
     required this.members,
     required this.votingAs,
@@ -618,14 +619,27 @@ class _VotingAsChipRow extends ConsumerWidget {
   final List<PollOption> options;
   final ValueChanged<String> onSelectMember;
 
+  @override
+  ConsumerState<_VotingAsChipRow> createState() => _VotingAsChipRowState();
+}
+
+class _VotingAsChipRowState extends ConsumerState<_VotingAsChipRow> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   bool _hasVoted(String memberId) {
-    return options.any(
+    return widget.options.any(
       (option) => option.votes.any((vote) => vote.memberId == memberId),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final activeSession = ref.watch(activeSessionProvider).value;
     final currentFronterId = activeSession?.memberId;
     final frontingCountsAsync = ref.watch(memberFrontingCountsProvider);
@@ -635,84 +649,105 @@ class _VotingAsChipRow extends ConsumerWidget {
 
     // Build the ordered member list: fronter first, then by frequency desc.
     final fronterMember = currentFronterId != null
-        ? members.where((m) => m.id == currentFronterId).firstOrNull
+        ? widget.members.where((m) => m.id == currentFronterId).firstOrNull
         : null;
-    final others = members.where((m) => m.id != currentFronterId).toList()
-      ..sort((a, b) {
-        final countA = frontingCounts[a.id] ?? 0;
-        final countB = frontingCounts[b.id] ?? 0;
-        return countB.compareTo(countA);
-      });
+    final others =
+        widget.members.where((m) => m.id != currentFronterId).toList()
+          ..sort((a, b) {
+            final countA = frontingCounts[a.id] ?? 0;
+            final countB = frontingCounts[b.id] ?? 0;
+            return countB.compareTo(countA);
+          });
 
     final orderedMembers = [?fronterMember, ...others];
 
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: orderedMembers.length + 1, // +1 for the Select chip
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          // First item: [Select] chip
-          if (index == 0) {
-            return _SelectChip(
-              members: members,
-              termPlural: termPlural,
-              onSelectMember: onSelectMember,
-            );
-          }
-          final member = orderedMembers[index - 1];
-          final isSelected = votingAs == member.id;
-          final voted = _hasVoted(member.id);
-          final memberName = member.effectiveName(preferDisplayName: prefer);
-          return PrismChip(
-            label: memberName,
-            selected: isSelected,
-            onTap: () => onSelectMember(member.id),
-            avatar: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                MemberAvatar(
-                  memberId: member.id,
-                  avatarImageData: member.avatarImageData,
-                  memberName: memberName,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 24,
-                  deferAvatarLookup: true,
-                ),
-                if (voted)
-                  Positioned(
-                    right: -4,
-                    bottom: -4,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.surface,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Icon(
-                        AppIcons.check,
-                        size: 8,
-                        color: Theme.of(context).colorScheme.onPrimary,
+    final showScrollbar =
+        kIsWeb ||
+        switch (Theme.of(context).platform) {
+          TargetPlatform.windows ||
+          TargetPlatform.macOS ||
+          TargetPlatform.linux => true,
+          _ => false,
+        };
+    final list = ListView.separated(
+      controller: _scrollController,
+      // Leave the original 48px chip content above the desktop track.
+      padding: showScrollbar ? const EdgeInsets.only(bottom: 16) : null,
+      scrollDirection: Axis.horizontal,
+      itemCount: orderedMembers.length + 1, // +1 for the Select chip
+      separatorBuilder: (context, index) => const SizedBox(width: 8),
+      itemBuilder: (context, index) {
+        // First item: [Select] chip
+        if (index == 0) {
+          return _SelectChip(
+            members: widget.members,
+            termPlural: termPlural,
+            onSelectMember: widget.onSelectMember,
+          );
+        }
+        final member = orderedMembers[index - 1];
+        final isSelected = widget.votingAs == member.id;
+        final voted = _hasVoted(member.id);
+        final memberName = member.effectiveName(preferDisplayName: prefer);
+        return PrismChip(
+          label: memberName,
+          selected: isSelected,
+          onTap: () => widget.onSelectMember(member.id),
+          avatar: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              MemberAvatar(
+                memberId: member.id,
+                avatarImageData: member.avatarImageData,
+                memberName: memberName,
+                emoji: member.emoji,
+                customColorEnabled: member.customColorEnabled,
+                customColorHex: member.customColorHex,
+                size: 24,
+                deferAvatarLookup: true,
+              ),
+              if (voted)
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.surface,
+                        width: 1.5,
                       ),
                     ),
+                    child: Icon(
+                      AppIcons.check,
+                      size: 8,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
                   ),
-              ],
-            ),
-            selectedColor:
-                member.customColorEnabled && member.customColorHex != null
-                ? AppColors.fromHex(member.customColorHex!)
-                : null,
-          );
-        },
-      ),
+                ),
+            ],
+          ),
+          selectedColor:
+              member.customColorEnabled && member.customColorHex != null
+              ? AppColors.fromHex(member.customColorHex!)
+              : null,
+        );
+      },
+    );
+    return SizedBox(
+      height: showScrollbar ? 64 : 48,
+      child: showScrollbar
+          ? Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              interactive: true,
+              thickness: 10,
+              child: list,
+            )
+          : list,
     );
   }
 }
