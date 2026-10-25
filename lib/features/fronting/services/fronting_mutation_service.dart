@@ -488,8 +488,15 @@ class FrontingMutationService {
           await _earliestAlwaysFrontingByMember(activeSessions),
         );
         final preservedIds = {for (final s in preservedByMember.values) s.id};
-        for (final session in activeSessions) {
-          if (preservedIds.contains(session.id)) continue;
+        final sessionsToEnd = activeSessions
+            .where((session) => !preservedIds.contains(session.id))
+            .toList();
+        // Validate every closure before any write or sync emission. A backdated
+        // sleep must not end an active row at or before that row's start.
+        for (final session in sessionsToEnd) {
+          _assertTimeRange(session.startTime, now);
+        }
+        for (final session in sessionsToEnd) {
           await _repository.endSession(session.id, now);
         }
 
