@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
@@ -6,6 +7,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
+import 'package:prism_plurality/shared/widgets/reorder_list_freeze.dart';
 
 class MemberGroupRow extends StatelessWidget {
   const MemberGroupRow({
@@ -159,10 +161,13 @@ class _GroupRowSurface extends StatelessWidget {
                       _CountChip(memberCount: memberCount),
                     if (reorderIndex != null) ...[
                       const SizedBox(width: 4),
-                      ReorderableDragStartListener(
+                      GroupReorderHandle(
                         index: reorderIndex!,
                         child: Tooltip(
                           message: context.l10n.reorder,
+                          // A touch long-press on the handle starts the
+                          // reorder drag, so the tooltip must not claim it.
+                          triggerMode: TooltipTriggerMode.manual,
                           child: Icon(
                             AppIcons.dragHandle,
                             color: theme.colorScheme.onSurfaceVariant
@@ -185,6 +190,53 @@ class _GroupRowSurface extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Drag handle for group rows in a reorderable list.
+///
+/// Mouse presses start the reorder drag immediately, matching desktop
+/// expectations. Touch and stylus presses must be held for the long-press
+/// timeout before the drag starts; a press that moves first is left to the
+/// enclosing scrollable. Without the hold, a scroll or fling that happens to
+/// begin on the handle is captured as a reorder and written on release.
+///
+/// Every press is also reported to the nearest [ReorderPressScope], so the
+/// list can keep its rows steady until the press (and any drag) has ended.
+class GroupReorderHandle extends ReorderableDragStartListener {
+  const GroupReorderHandle({
+    super.key,
+    required super.index,
+    required super.child,
+    super.enabled,
+  });
+
+  static const _immediateDragKinds = <PointerDeviceKind>{
+    PointerDeviceKind.mouse,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: enabled ? (event) => _startDragging(context, event) : null,
+      child: child,
+    );
+  }
+
+  void _startDragging(BuildContext context, PointerDownEvent event) {
+    final list = SliverReorderableList.maybeOf(context);
+    if (list == null) return;
+    ReorderPressScope.maybeOf(context)?.onReorderPress(event);
+    final MultiDragGestureRecognizer recognizer =
+        _immediateDragKinds.contains(event.kind)
+        ? ImmediateMultiDragGestureRecognizer(debugOwner: this)
+        : DelayedMultiDragGestureRecognizer(debugOwner: this);
+    list.startItemDragReorder(
+      index: index,
+      event: event,
+      recognizer: recognizer
+        ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context),
     );
   }
 }

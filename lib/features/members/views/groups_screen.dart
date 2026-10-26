@@ -31,6 +31,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/reorder_list_freeze.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/natural_text_sort.dart';
 import 'package:prism_plurality/shared/utils/optimistic_list_controller.dart';
@@ -40,6 +41,8 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 enum _GroupSortScope { topLevelOnly, allLevels }
+
+typedef _FlatGroup = ({MemberGroup group, int depth});
 
 /// Screen listing all member groups with reordering support.
 class GroupsScreen extends ConsumerStatefulWidget {
@@ -60,6 +63,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   final GlobalKey<BlurPopupAnchorState> _optionsPopupKey = GlobalKey();
   late final OptimisticListController<MemberGroup, String> _optimisticGroups;
 
+  /// Keeps the shown rows steady while a reorder handle is pressed or a row
+  /// is being dragged; sync updates are shown once the gesture ends.
+  late final ReorderListFreeze<_FlatGroup> _reorderFreeze;
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +74,17 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       keyOf: (group) => group.id,
       providerItemsMatch: _sameGroupDisplayOrders,
     );
+    _reorderFreeze = ReorderListFreeze<_FlatGroup>(
+      onRelease: () {
+        if (mounted) setState(() {});
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _reorderFreeze.dispose();
+    super.dispose();
   }
 
   // Wide-layout group drill stack.
@@ -144,9 +162,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     final providerFlatItems = ref.watch(flatGroupListProvider);
     final providerGroups = [for (final item in providerFlatItems) item.group];
     final optimisticGroups = _optimisticGroups.items;
-    final flatItems = optimisticGroups == null
-        ? providerFlatItems
-        : _flattenGroups(optimisticGroups);
+    final flatItems = _reorderFreeze.shown(_liveFlatItems(providerFlatItems));
     if (_optimisticGroups.shouldClearFor(providerGroups)) {
       _clearOptimisticGroupsAfterBuild(optimisticGroups!);
     }
@@ -191,44 +207,49 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                         actionLabel: l10n.memberNewGroupTooltip,
                         onAction: _openCreateSheet,
                       )
-                    : ReorderableListView.builder(
-                        padding: EdgeInsets.only(
-                          top: 8,
-                          bottom: NavBarInset.of(context),
-                        ),
-                        itemCount: flatItems.length,
-                        buildDefaultDragHandles: false,
-                        onReorder: (oldIndex, newIndex) =>
-                            _onReorder(flatItems, oldIndex, newIndex),
-                        proxyDecorator: (child, index, animation) {
-                          return AnimatedBuilder(
-                            animation: animation,
-                            builder: (context, child) => Material(
-                              elevation: 4,
-                              borderRadius: BorderRadius.circular(
-                                PrismShapes.of(context).radius(12),
+                    : ReorderPressScope(
+                        listener: _reorderFreeze,
+                        child: ReorderableListView.builder(
+                          padding: EdgeInsets.only(
+                            top: 8,
+                            bottom: NavBarInset.of(context),
+                          ),
+                          itemCount: flatItems.length,
+                          buildDefaultDragHandles: false,
+                          onReorder: (oldIndex, newIndex) =>
+                              _onReorder(flatItems, oldIndex, newIndex),
+                          proxyDecorator: (child, index, animation) {
+                            return _reorderFreeze.wrapProxy(
+                              AnimatedBuilder(
+                                animation: animation,
+                                builder: (context, child) => Material(
+                                  elevation: 4,
+                                  borderRadius: BorderRadius.circular(
+                                    PrismShapes.of(context).radius(12),
+                                  ),
+                                  child: child,
+                                ),
+                                child: child,
                               ),
-                              child: child,
-                            ),
-                            child: child,
-                          );
-                        },
-                        itemBuilder: (context, index) {
-                          final entry = flatItems[index];
-                          return MemberGroupRow(
-                            key: ValueKey(entry.group.id),
-                            group: entry.group,
-                            depth: entry.depth.clamp(
-                              0,
-                              kSectionsVisualDepthCap,
-                            ),
-                            reorderIndex: index,
-                            memberCount: counts[entry.group.id] ?? 0,
-                            showMemberCount: !hideMemberCounts,
-                            onTap: () => _openGroup(entry.group.id),
-                            onDelete: () => _confirmDelete(entry.group),
-                          );
-                        },
+                            );
+                          },
+                          itemBuilder: (context, index) {
+                            final entry = flatItems[index];
+                            return MemberGroupRow(
+                              key: ValueKey(entry.group.id),
+                              group: entry.group,
+                              depth: entry.depth.clamp(
+                                0,
+                                kSectionsVisualDepthCap,
+                              ),
+                              reorderIndex: index,
+                              memberCount: counts[entry.group.id] ?? 0,
+                              showMemberCount: !hideMemberCounts,
+                              onTap: () => _openGroup(entry.group.id),
+                              onDelete: () => _confirmDelete(entry.group),
+                            );
+                          },
+                        ),
                       ),
               ),
             ),
@@ -298,15 +319,52 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
   }
 
-  void _onReorder(
-    List<({MemberGroup group, int depth})> flatItems,
-    int oldIndex,
-    int newIndex,
-  ) {
-    final reordered = _reorderedSiblingsForDrop(flatItems, oldIndex, newIndex);
+  /// The rows to show when no reorder gesture holds the list: the optimistic
+  /// order of the last drop while it is being written, else the provider's.
+  List<_FlatGroup> _liveFlatItems(List<_FlatGroup> providerFlatItems) {
+    if (_optimisticGroups.items == null) return providerFlatItems;
+    return _flattenGroups(
+      _currentGroupsWithPendingOrder([
+        for (final item in providerFlatItems) item.group,
+      ]),
+    );
+  }
+
+  /// Handles a drop. [shownItems] is the list the user dragged in; Flutter's
+  /// indices refer to it. It can be older than the latest groups when sync
+  /// changed them during the gesture, so the move is re-applied to the latest
+  /// siblings by group id before anything is shown or written.
+  void _onReorder(List<_FlatGroup> shownItems, int oldIndex, int newIndex) {
+    final droppedSiblings = _reorderedSiblingsForDrop(
+      shownItems,
+      oldIndex,
+      newIndex,
+    );
+    if (droppedSiblings == null) return;
+
+    final dragged = shownItems[oldIndex].group;
+    // The provider decides which groups exist and their parents; a pending
+    // optimistic order (an earlier drop still being written) only supplies
+    // display orders for groups whose parent has not changed since.
+    final currentGroups = _currentGroupsWithPendingOrder([
+      for (final item in ref.read(flatGroupListProvider)) item.group,
+    ]);
+    final liveItems = _flattenGroups(currentGroups);
+    final liveSiblings = [
+      for (final item in liveItems)
+        if (item.group.parentGroupId == dragged.parentGroupId) item.group,
+    ];
+    // Null when sync deleted or re-parented the dragged group, or when the
+    // move no longer changes the latest order: nothing is written.
+    final reordered = moveByIdentity<MemberGroup, String>(
+      dropped: droppedSiblings,
+      movedKey: dragged.id,
+      latest: liveSiblings,
+      keyOf: (group) => group.id,
+    );
     if (reordered == null) return;
 
-    final allGroups = [for (final item in flatItems) item.group];
+    final allGroups = currentGroups;
     setState(() {
       _optimisticGroups.set(
         _groupsWithSiblingDisplayOrder(allGroups, reordered),
@@ -425,6 +483,24 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     return GroupTreeUtils.flattenTree(
       GroupTreeUtils.buildGroupTree(GroupTreeUtils.resolveSyncCycles(ordered)),
     );
+  }
+
+  /// [providerGroups] with the display order of a pending optimistic drop
+  /// applied to every group that still has the same parent.
+  List<MemberGroup> _currentGroupsWithPendingOrder(
+    List<MemberGroup> providerGroups,
+  ) {
+    final pending = _optimisticGroups.items;
+    if (pending == null) return providerGroups;
+    final pendingById = {for (final group in pending) group.id: group};
+    return [
+      for (final group in providerGroups)
+        if (pendingById[group.id] case final optimistic?
+            when optimistic.parentGroupId == group.parentGroupId)
+          group.copyWith(displayOrder: optimistic.displayOrder)
+        else
+          group,
+    ];
   }
 
   bool _sameGroupDisplayOrders(

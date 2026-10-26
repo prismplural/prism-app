@@ -118,6 +118,29 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateGroup(String id, MemberGroupsCompanion companion) =>
       (update(memberGroups)..where((g) => g.id.equals(id))).write(companion);
 
+  /// Active (not deleted) groups with the given ids, keyed by id. Missing or
+  /// deleted ids are absent. Looks ids up in batches of [_lookupBatchSize]
+  /// so large reorders stay within SQLite's bound-variable limit.
+  Future<Map<String, MemberGroupRow>> getActiveGroupsByIds(
+    Iterable<String> ids,
+  ) async {
+    final idList = ids.toSet().toList(growable: false);
+    final byId = <String, MemberGroupRow>{};
+    for (var start = 0; start < idList.length; start += _lookupBatchSize) {
+      final end = start + _lookupBatchSize > idList.length
+          ? idList.length
+          : start + _lookupBatchSize;
+      final batch = idList.sublist(start, end);
+      final rows = await (select(
+        memberGroups,
+      )..where((g) => g.id.isIn(batch) & g.isDeleted.equals(false))).get();
+      for (final row in rows) {
+        byId[row.id] = row;
+      }
+    }
+    return byId;
+  }
+
   /// Bulk-update display orders in one SQL statement.
   ///
   /// Large nested systems can reorder hundreds or thousands of groups. Keeping
@@ -568,9 +591,9 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// un-deleted.
   Future<List<MemberGroupEntryRow>> entriesForGroupIncludingDeleted(
     String groupId,
-  ) => (select(memberGroupEntries)
-        ..where((e) => e.groupId.equals(groupId)))
-      .get();
+  ) => (select(
+    memberGroupEntries,
+  )..where((e) => e.groupId.equals(groupId))).get();
 
   /// Read EVERY entry across all groups, including tombstones. The membership
   /// joins of [getAllGroupEntries] would hide rows whose member is itself

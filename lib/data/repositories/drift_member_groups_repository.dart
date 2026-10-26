@@ -151,28 +151,68 @@ class DriftMemberGroupsRepository
     });
   }
 
+  /// Writes [groups]' order as display orders 0..n-1 among one parent's
+  /// children.
+  ///
+  /// [groups] must be siblings (one parent) with distinct ids; otherwise the
+  /// call throws [ArgumentError] before writing anything. An empty list is a
+  /// no-op.
+  ///
+  /// The caller's list can be older than the database (for example a sync
+  /// change landed after the UI read it). So inside one transaction this
+  /// re-reads the stored rows and skips any group that is now missing,
+  /// deleted, or under a different parent; the remaining groups are numbered
+  /// in the given order and compared with their STORED display order, not the
+  /// caller's copy. Groups not in [groups] are never touched. Skipped groups
+  /// get no write and no sync update.
   @override
   Future<void> reorderGroups(List<domain.MemberGroup> groups) async {
-    return runSyncedWrite(() async {
-      final changedGroups = <domain.MemberGroup>[];
-      final displayOrders = <String, int>{};
-
-      for (var i = 0; i < groups.length; i++) {
-        final group = groups[i];
-        if (group.displayOrder == i) continue;
-        final updated = group.copyWith(displayOrder: i);
-        changedGroups.add(updated);
-        displayOrders[updated.id] = i;
+    if (groups.isEmpty) return;
+    final parentGroupId = groups.first.parentGroupId;
+    final ids = <String>{};
+    for (final group in groups) {
+      if (group.parentGroupId != parentGroupId) {
+        throw ArgumentError.value(
+          groups,
+          'groups',
+          'reorderGroups expects siblings of one parent',
+        );
       }
+      if (!ids.add(group.id)) {
+        throw ArgumentError.value(
+          groups,
+          'groups',
+          'reorderGroups got duplicate group id ${group.id}',
+        );
+      }
+    }
 
-      if (changedGroups.isEmpty) return;
+    return runSyncedWrite(() async {
+      final changed = <({MemberGroupRow row, int displayOrder})>[];
+      // runSyncedWrite only opens a transaction when no outer suppress/capture
+      // seam is active, so open one here: the validation read and the update
+      // must see the same rows either way. Inside an outer transaction this
+      // nests and commits or rolls back with it.
+      await _dao.transaction(() async {
+        final stored = await _dao.getActiveGroupsByIds(ids);
+        final displayOrders = <String, int>{};
+        var position = 0;
+        for (final group in groups) {
+          final row = stored[group.id];
+          if (row == null || row.parentGroupId != parentGroupId) continue;
+          final displayOrder = position++;
+          if (row.displayOrder == displayOrder) continue;
+          displayOrders[row.id] = displayOrder;
+          changed.add((row: row, displayOrder: displayOrder));
+        }
+        await _dao.bulkUpdateDisplayOrders(displayOrders);
+      });
 
-      await _dao.bulkUpdateDisplayOrders(displayOrders);
-      for (final group in changedGroups) {
-        final stored = await _dao.getGroupById(group.id);
-        if (stored == null) continue;
-        await _syncGroupUpdateIfAllowed(stored, {
-          'display_order': group.displayOrder,
+      // Only display_order changed, so the rows read above still carry the
+      // identity (id, PluralKit UUID) the sync update and alias fan-out use.
+      for (final change in changed) {
+        await _syncGroupUpdateIfAllowed(change.row, {
+          'display_order': change.displayOrder,
         });
       }
     });

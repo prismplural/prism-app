@@ -46,6 +46,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/group_avatar.dart';
 import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
+import 'package:prism_plurality/shared/widgets/reorder_list_freeze.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -1452,6 +1453,21 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
   final OptimisticListController<MemberGroup, String> _optimisticChildren =
       OptimisticListController<MemberGroup, String>(keyOf: (group) => group.id);
 
+  /// Keeps the shown sub-groups steady while a reorder handle is pressed or a
+  /// row is being dragged; sync updates are shown once the gesture ends.
+  late final ReorderListFreeze<MemberGroup> _reorderFreeze =
+      ReorderListFreeze<MemberGroup>(
+        onRelease: () {
+          if (mounted) setState(() {});
+        },
+      );
+
+  @override
+  void dispose() {
+    _reorderFreeze.dispose();
+    super.dispose();
+  }
+
   @override
   void didUpdateWidget(covariant _SubGroupsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1466,7 +1482,9 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
     final l10n = context.l10n;
     final providerChildren = ref.watch(childGroupsProvider(widget.groupId));
     final optimisticChildren = _optimisticChildren.items;
-    final children = _optimisticChildren.displayItems(providerChildren);
+    final children = _reorderFreeze.shown(
+      _optimisticChildren.displayItems(providerChildren),
+    );
 
     if (_optimisticChildren.shouldClearFor(providerChildren)) {
       _clearOptimisticChildrenAfterBuild(optimisticChildren!);
@@ -1514,6 +1532,29 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
     );
   }
 
+  /// The provider's current sub-groups (which decide membership), in the
+  /// order of a pending optimistic drop if one is still being written. Items
+  /// from that drop carry the display order the pending write gives them.
+  List<MemberGroup> _currentChildrenWithPendingOrder() {
+    final current = ref.read(childGroupsProvider(widget.groupId));
+    final pending = _optimisticChildren.items;
+    if (pending == null) return current;
+    final pendingIndex = {
+      for (var i = 0; i < pending.length; i++) pending[i].id: i,
+    };
+    return [
+      for (final group in orderLike<MemberGroup, String>(
+        current,
+        pending,
+        keyOf: (group) => group.id,
+      ))
+        if (pendingIndex[group.id] case final index?)
+          group.copyWith(displayOrder: index)
+        else
+          group,
+    ];
+  }
+
   void _clearOptimisticChildrenAfterBuild(List<MemberGroup> current) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_optimisticChildren.isCurrent(current)) return;
@@ -1540,36 +1581,52 @@ class _SubGroupsSectionState extends ConsumerState<_SubGroupsSection> {
       );
     }
 
-    return ReorderableListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      buildDefaultDragHandles: false,
-      itemCount: children.length,
-      onReorder: (oldIndex, newIndex) {
-        final reordered = reorderedItems(children, oldIndex, newIndex);
-        if (reordered == null) return;
-        setState(() => _optimisticChildren.set(reordered));
-        Haptics.selection();
-        unawaited(
-          ref.read(groupNotifierProvider.notifier).reorderGroups(reordered),
-        );
-      },
-      proxyDecorator: (child, index, animation) => AnimatedBuilder(
-        animation: animation,
-        builder: (context, child) => Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(
-            PrismShapes.of(context).radius(12),
+    return ReorderPressScope(
+      listener: _reorderFreeze,
+      child: ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        buildDefaultDragHandles: false,
+        itemCount: children.length,
+        onReorder: (oldIndex, newIndex) {
+          final dropped = reorderedItems(children, oldIndex, newIndex);
+          if (dropped == null) return;
+          // [children] is the list the user dragged in. Sync may have changed
+          // the sub-groups during the gesture, so re-apply the move to the
+          // latest ones by id; null means the dragged group is gone or the
+          // latest order already matches, and nothing is written.
+          final reordered = moveByIdentity<MemberGroup, String>(
+            dropped: dropped,
+            movedKey: children[oldIndex].id,
+            latest: _currentChildrenWithPendingOrder(),
+            keyOf: (group) => group.id,
+          );
+          if (reordered == null) return;
+          setState(() => _optimisticChildren.set(reordered));
+          Haptics.selection();
+          unawaited(
+            ref.read(groupNotifierProvider.notifier).reorderGroups(reordered),
+          );
+        },
+        proxyDecorator: (child, index, animation) => _reorderFreeze.wrapProxy(
+          AnimatedBuilder(
+            animation: animation,
+            builder: (context, child) => Material(
+              elevation: 4,
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
+              child: child,
+            ),
+            child: child,
           ),
-          child: child,
         ),
-        child: child,
+        itemBuilder: (context, index) {
+          final group = children[index];
+          return _buildChildRow(context, ref, group, reorderIndex: index);
+        },
       ),
-      itemBuilder: (context, index) {
-        final group = children[index];
-        return _buildChildRow(context, ref, group, reorderIndex: index);
-      },
     );
   }
 

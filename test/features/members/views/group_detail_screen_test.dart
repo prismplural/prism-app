@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +28,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/navigation/member_navigation_branch.dart';
 import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/views/group_detail_screen.dart';
+import 'package:prism_plurality/features/members/widgets/member_group_row.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -187,9 +189,11 @@ MemberGroup _group({
   String? colorHex,
   String? emoji,
   GroupSortState sortState = GroupSortState.manualEmpty,
+  int displayOrder = 0,
 }) => MemberGroup(
   id: id,
   name: name,
+  displayOrder: displayOrder,
   description: description,
   colorHex: colorHex,
   emoji: emoji,
@@ -210,6 +214,7 @@ Widget _buildSubject({
   List<FrontingSession>? activeSessions,
   bool withMemberRouter = false,
   FrontingNotifier? frontingNotifier,
+  Stream<List<MemberGroup>>? allGroupsStream,
 }) {
   final router = withMemberRouter
       ? GoRouter(
@@ -269,7 +274,9 @@ Widget _buildSubject({
         final matching = resolvedAll.where((member) => member.id == memberId);
         return Stream.value(matching.isEmpty ? null : matching.first);
       }),
-      allGroupsProvider.overrideWith((ref) => Stream.value(allGroups)),
+      allGroupsProvider.overrideWith(
+        (ref) => allGroupsStream ?? Stream.value(allGroups),
+      ),
       allGroupEntriesProvider.overrideWith((ref) => Stream.value(allEntries)),
       groupByIdProvider.overrideWith(
         (ref, groupId) => Stream.value(groupId == group.id ? group : null),
@@ -280,7 +287,11 @@ Widget _buildSubject({
         ),
       ),
       groupTreeProvider.overrideWith(
-        (ref) => GroupTreeUtils.buildGroupTree(allGroups),
+        (ref) => GroupTreeUtils.buildGroupTree(
+          allGroupsStream == null
+              ? allGroups
+              : ref.watch(allGroupsProvider).value ?? allGroups,
+        ),
       ),
       activeSessionsProvider.overrideWith(
         (ref) => Stream.value(activeSessions ?? const <FrontingSession>[]),
@@ -1499,9 +1510,7 @@ void main() {
         printOnFailure(
           'first-row ancestor semantics:\n${tester.getSemantics(find.byKey(const ValueKey('member_focus_e1'))).toStringDeep()}',
         );
-        printOnFailure(
-          'Alice card semantics:\n${semantics.toStringDeep()}',
-        );
+        printOnFailure('Alice card semantics:\n${semantics.toStringDeep()}');
         final actions =
             semantics.getSemanticsData().customSemanticsActionIds ??
             const <int>[];
@@ -2064,6 +2073,340 @@ void main() {
   // ── Task 5.2 sub-group reorder ───────────────────────────────────────────
 
   group('sub-group reorder', () {
+    Finder subgroupHandle(String name) => find.descendant(
+      of: find.widgetWithText(MemberGroupRow, name),
+      matching: find.byWidgetPredicate(
+        (w) => w is ReorderableDragStartListener,
+      ),
+    );
+
+    Future<_ReorderingFakeGroupNotifier> pumpParentWithChildren(
+      WidgetTester tester,
+      int count,
+    ) async {
+      tester.view.devicePixelRatio = 3;
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.padding = const FakeViewPadding(top: 141, bottom: 102);
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetPadding();
+      });
+      final parent = _group(id: 'parent', name: 'Parent');
+      final children = [
+        for (var index = 0; index < count; index++)
+          _group(
+            id: 'child-$index',
+            name: 'Child $index',
+            parentGroupId: parent.id,
+          ),
+      ];
+      final notifier = _ReorderingFakeGroupNotifier();
+      await tester.pumpWidget(
+        _buildSubject(
+          group: parent,
+          allGroups: [parent, ...children],
+          allEntries: const [],
+          activeMembers: const [],
+          notifier: notifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+      return notifier;
+    }
+
+    Future<void> framedSwipe(
+      WidgetTester tester,
+      Offset start,
+      Offset total, {
+      int frames = 12,
+      Duration holdBeforeMove = Duration.zero,
+      PointerDeviceKind kind = PointerDeviceKind.touch,
+    }) async {
+      final gesture = await tester.startGesture(start, kind: kind);
+      var elapsed = Duration.zero;
+      if (holdBeforeMove > Duration.zero) {
+        await tester.pump(holdBeforeMove);
+        elapsed += holdBeforeMove;
+      }
+      final step = total / frames.toDouble();
+      for (var frame = 1; frame <= frames; frame++) {
+        elapsed += const Duration(milliseconds: 16);
+        await gesture.moveBy(step, timeStamp: elapsed);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up(timeStamp: elapsed);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'touch scroll that starts on a subgroup handle scrolls the page and '
+      'never writes',
+      (tester) async {
+        final notifier = await pumpParentWithChildren(tester, 20);
+        final child = find.text('Child 1');
+        await tester.ensureVisible(child);
+        await tester.pumpAndSettle();
+        final initialY = tester.getTopLeft(child).dy;
+
+        await framedSwipe(
+          tester,
+          tester.getCenter(subgroupHandle('Child 1')),
+          const Offset(0, -180),
+        );
+
+        expect(notifier.reorderedSequences, isEmpty);
+        expect(tester.getTopLeft(child).dy, lessThan(initialY));
+      },
+    );
+
+    testWidgets(
+      'holding a subgroup handle with touch, then dragging, reorders',
+      (tester) async {
+        final notifier = await pumpParentWithChildren(tester, 3);
+        final rowHeight = tester
+            .getSize(find.widgetWithText(MemberGroupRow, 'Child 0'))
+            .height;
+
+        await framedSwipe(
+          tester,
+          tester.getCenter(subgroupHandle('Child 0')),
+          Offset(0, rowHeight * 0.75),
+          frames: 20,
+          holdBeforeMove: kLongPressTimeout + const Duration(milliseconds: 100),
+        );
+
+        expect(notifier.reorderedSequences, hasLength(1));
+        expect(notifier.reorderedSequences.single.map((g) => g.id), [
+          'child-1',
+          'child-0',
+          'child-2',
+        ]);
+      },
+    );
+
+    testWidgets('mouse drag on a subgroup handle reorders without a hold', (
+      tester,
+    ) async {
+      final notifier = await pumpParentWithChildren(tester, 3);
+      final rowHeight = tester
+          .getSize(find.widgetWithText(MemberGroupRow, 'Child 0'))
+          .height;
+
+      await framedSwipe(
+        tester,
+        tester.getCenter(subgroupHandle('Child 0')),
+        Offset(0, rowHeight * 0.75),
+        frames: 20,
+        kind: PointerDeviceKind.mouse,
+      );
+
+      expect(notifier.reorderedSequences, hasLength(1));
+      expect(notifier.reorderedSequences.single.map((g) => g.id), [
+        'child-1',
+        'child-0',
+        'child-2',
+      ]);
+    });
+    Future<
+      ({
+        _ReorderingFakeGroupNotifier notifier,
+        StreamController<List<MemberGroup>> controller,
+        List<MemberGroup> groups,
+      })
+    >
+    pumpLiveParent(WidgetTester tester) async {
+      final parent = _group(id: 'parent', name: 'Parent');
+      final other = _group(id: 'other', name: 'Other', displayOrder: 1);
+      final groups = [
+        parent,
+        other,
+        for (var index = 0; index < 4; index++)
+          _group(
+            id: 'child-$index',
+            name: 'Child $index',
+            displayOrder: index,
+            parentGroupId: parent.id,
+          ),
+      ];
+      final controller = StreamController<List<MemberGroup>>();
+      addTearDown(controller.close);
+      controller.add(groups);
+      final notifier = _ReorderingFakeGroupNotifier();
+      await tester.pumpWidget(
+        _buildSubject(
+          group: parent,
+          allGroups: groups,
+          allEntries: const [],
+          activeMembers: const [],
+          notifier: notifier,
+          // Like MemberGroupsDao.watchAllGroups, emit groups ordered by
+          // display order; the group tree keeps its input order.
+          allGroupsStream: controller.stream.map(
+            (groups) =>
+                [...groups]
+                  ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Child 3'));
+      await tester.pumpAndSettle();
+      return (notifier: notifier, controller: controller, groups: groups);
+    }
+
+    /// Mouse-drags Child 2 to the top of the sub-group list, running [midway]
+    /// halfway through the drag.
+    Future<void> dragChild2ToTop(
+      WidgetTester tester,
+      Future<void> Function() midway,
+    ) async {
+      final start = tester.getCenter(subgroupHandle('Child 2'));
+      final dy =
+          tester.getTopLeft(find.text('Child 0')).dy -
+          tester.getTopLeft(find.text('Child 2')).dy -
+          20;
+      final gesture = await tester.startGesture(
+        start,
+        kind: PointerDeviceKind.mouse,
+      );
+      const frames = 20;
+      for (var frame = 1; frame <= frames; frame++) {
+        await gesture.moveBy(Offset(0, dy / frames));
+        await tester.pump(const Duration(milliseconds: 16));
+        if (frame == frames ~/ 2) await midway();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets(
+      'a sub-group synced during a drag is kept and only the dragged one moves',
+      (tester) async {
+        final live = await pumpLiveParent(tester);
+        final added = _group(
+          id: 'child-new',
+          name: 'Child new',
+          displayOrder: 4,
+          parentGroupId: 'parent',
+        );
+
+        await dragChild2ToTop(tester, () async {
+          live.controller.add([...live.groups, added]);
+          await tester.pump();
+          await tester.pump();
+        });
+
+        expect(live.notifier.reorderedSequences, hasLength(1));
+        expect(live.notifier.reorderedSequences.single.map((g) => g.id), [
+          'child-2',
+          'child-0',
+          'child-1',
+          'child-3',
+          'child-new',
+        ]);
+        expect(find.text('Child new'), findsOneWidget);
+      },
+    );
+
+    testWidgets('a group moved into this group by sync during a drag is kept', (
+      tester,
+    ) async {
+      final live = await pumpLiveParent(tester);
+
+      await dragChild2ToTop(tester, () async {
+        live.controller.add([
+          for (final g in live.groups)
+            g.id == 'other'
+                ? g.copyWith(parentGroupId: 'parent', displayOrder: 5)
+                : g,
+        ]);
+        await tester.pump();
+        await tester.pump();
+      });
+
+      expect(live.notifier.reorderedSequences, hasLength(1));
+      expect(live.notifier.reorderedSequences.single.map((g) => g.id), [
+        'child-2',
+        'child-0',
+        'child-1',
+        'child-3',
+        'other',
+      ]);
+    });
+
+    testWidgets(
+      'a dragged sub-group moved elsewhere by sync during a drag is never '
+      'written',
+      (tester) async {
+        final live = await pumpLiveParent(tester);
+
+        await dragChild2ToTop(tester, () async {
+          live.controller.add([
+            for (final g in live.groups)
+              g.id == 'child-2' ? g.copyWith(parentGroupId: 'other') : g,
+          ]);
+          await tester.pump();
+          await tester.pump();
+        });
+
+        expect(live.notifier.reorderedSequences, isEmpty);
+        expect(find.text('Child 2'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a second sub-group drag while the first write is pending keeps a '
+      'group synced into this group',
+      (tester) async {
+        final live = await pumpLiveParent(tester);
+
+        await dragChild2ToTop(tester, () async {});
+        expect(live.notifier.reorderedSequences, hasLength(1));
+
+        // Drag Child 3 to the top while the first write is still pending in
+        // the fake; another device moves Other into this group meanwhile.
+        final start = tester.getCenter(subgroupHandle('Child 3'));
+        final dy =
+            tester.getTopLeft(find.byType(MemberGroupRow).first).dy -
+            tester.getTopLeft(find.text('Child 3')).dy -
+            20;
+        final gesture = await tester.startGesture(
+          start,
+          kind: PointerDeviceKind.mouse,
+        );
+        for (var frame = 1; frame <= 20; frame++) {
+          await gesture.moveBy(Offset(0, dy / 20));
+          await tester.pump(const Duration(milliseconds: 16));
+          if (frame == 10) {
+            live.controller.add([
+              for (final g in live.groups)
+                g.id == 'other'
+                    ? g.copyWith(parentGroupId: 'parent', displayOrder: 5)
+                    : g,
+            ]);
+            await tester.pump();
+            await tester.pump();
+          }
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        expect(live.notifier.reorderedSequences, hasLength(2));
+        final second = [
+          for (final g in live.notifier.reorderedSequences.last) g.id,
+        ];
+        expect(second.first, 'child-3');
+        expect(second.toSet(), {
+          'child-0',
+          'child-1',
+          'child-2',
+          'child-3',
+          'other',
+        });
+      },
+    );
+
     testWidgets('drag handle hidden when there is one sub-group', (
       tester,
     ) async {
@@ -2087,6 +2430,10 @@ void main() {
           of: find.byType(ReorderableDragStartListener),
           matching: find.text('Child'),
         ),
+        findsNothing,
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is ReorderableDragStartListener),
         findsNothing,
       );
       // No ReorderableListView in the sub-groups area.
@@ -2123,13 +2470,14 @@ void main() {
         // a custom listener we drive it via `tester.timedDrag`. The default
         // `tester.drag` uses too-fast a velocity and the framework treats it
         // as a scroll instead of a reorder gesture.
-        final handle = find.byType(ReorderableDragStartListener).first;
-        await tester.timedDrag(
-          handle,
+        // Touch reorders start with a hold on the handle.
+        await framedSwipe(
+          tester,
+          tester.getCenter(subgroupHandle('Alpha')),
           const Offset(0, 120),
-          const Duration(seconds: 1),
+          frames: 60,
+          holdBeforeMove: kLongPressTimeout + const Duration(milliseconds: 100),
         );
-        await tester.pumpAndSettle();
 
         expect(notifier.reorderedSequences.length, greaterThanOrEqualTo(1));
         expect(notifier.reorderedSequences.last.map((g) => g.id).toList(), [
