@@ -242,33 +242,56 @@ class _MemberDetailBody extends ConsumerWidget {
         ),
       ],
       const SizedBox(height: 24),
-      CustomFieldsDisplay(
-        memberId: member.id,
-        branch: branch,
-        groupId: groupId,
-        onOpenGroupPage: onOpenCustomFieldGroupPage,
+      _RetainedProfileSection(
+        key: const ValueKey('customFields'),
+        child: CustomFieldsDisplay(
+          memberId: member.id,
+          branch: branch,
+          groupId: groupId,
+          onOpenGroupPage: onOpenCustomFieldGroupPage,
+        ),
       ),
-      NotesSection(memberId: member.id),
-      MemberGroupsSection(
-        memberId: member.id,
-        memberName: member.effectiveName(preferDisplayName: preferDisplayName),
-        branch: branch,
+      _RetainedProfileSection(
+        key: const ValueKey('notes'),
+        child: NotesSection(memberId: member.id),
+      ),
+      _RetainedProfileSection(
+        key: const ValueKey('groups'),
+        child: MemberGroupsSection(
+          memberId: member.id,
+          memberName: member.effectiveName(
+            preferDisplayName: preferDisplayName,
+          ),
+          branch: branch,
+        ),
       ),
       ProxyTagsSection(member: member),
-      _FrontingStatsSection(memberId: member.id),
-      const SizedBox(height: 8),
-      _RecentSessionsSection(
-        memberId: member.id,
-        branch: branch,
-        groupId: groupId,
+      _RetainedProfileSection(
+        key: const ValueKey('frontingStats'),
+        child: _FrontingStatsSection(memberId: member.id),
       ),
       const SizedBox(height: 8),
-      _ConversationsSection(
-        memberId: member.id,
-        branch: branch,
-        groupId: groupId,
+      _RetainedProfileSection(
+        key: const ValueKey('recentSessions'),
+        child: _RecentSessionsSection(
+          memberId: member.id,
+          branch: branch,
+          groupId: groupId,
+        ),
       ),
-      BoardMessageSection(memberId: member.id),
+      const SizedBox(height: 8),
+      _RetainedProfileSection(
+        key: const ValueKey('conversations'),
+        child: _ConversationsSection(
+          memberId: member.id,
+          branch: branch,
+          groupId: groupId,
+        ),
+      ),
+      _RetainedProfileSection(
+        key: const ValueKey('boardMessages'),
+        child: BoardMessageSection(memberId: member.id),
+      ),
       const SizedBox(height: 24),
       _MemberCreatedAtFooter(member: member),
       const SizedBox(height: 32),
@@ -348,6 +371,35 @@ class _MemberDetailBody extends ConsumerWidget {
         closeDetailSurface(context, routeBacked: showBackButton);
       }
     }
+  }
+}
+
+/// Keeps a data-backed profile section mounted once it has been built.
+///
+/// The profile list builds its lower sections lazily, so their queries wait
+/// until the user scrolls near them. Without retention, scrolling back to the
+/// top destroys those sections and disposes their providers; returning to the
+/// bottom then reloads them and the answers resize the list beneath a resting
+/// bottom position.
+class _RetainedProfileSection extends StatefulWidget {
+  const _RetainedProfileSection({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<_RetainedProfileSection> createState() =>
+      _RetainedProfileSectionState();
+}
+
+class _RetainedProfileSectionState extends State<_RetainedProfileSection>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
@@ -443,10 +495,10 @@ class _FrontingStatsSection extends ConsumerWidget {
     final statsAsync = ref.watch(memberFrontingStatsProvider(memberId));
 
     return statsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: PrismLoadingState(),
-      ),
+      // Zero height like the sibling sections: a placeholder that collapses
+      // when a member has no sessions would pull a resting bottom position
+      // back up.
+      loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (stats) {
         if (stats.totalSessions == 0) {
