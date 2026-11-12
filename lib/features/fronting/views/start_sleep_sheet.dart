@@ -31,6 +31,13 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
   late DateTime _initialStartTime;
   DateTime? _endTime;
   bool _isHistorical = false;
+
+  /// True once the user has picked a Start time themselves.
+  ///
+  /// Past-sleep mode only seeds its "8 hours ago" default while this is false,
+  /// so a deliberate Start edit is never overwritten by the mode toggle.
+  bool _startTimeEdited = false;
+
   bool _saving = false;
 
   bool get _isDirty =>
@@ -52,19 +59,35 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
     super.dispose();
   }
 
+  void _setStartTime(DateTime value) {
+    setState(() {
+      _startTime = value;
+      _startTimeEdited = true;
+    });
+  }
+
   void _enterHistorical() {
     setState(() {
       _isHistorical = true;
-      // Default historical entry: start 8h ago, end now
-      _startTime = DateTime.now().subtract(const Duration(hours: 8));
-      _endTime = DateTime.now();
+      final now = DateTime.now();
+      // Default historical entry: start 8h ago, end now. A Start time the user
+      // already picked is what they came here to log, so leave it alone.
+      if (!_startTimeEdited) {
+        _startTime = now.subtract(const Duration(hours: 8));
+      }
+      _endTime = now;
     });
   }
 
   void _exitHistorical() {
     setState(() {
       _isHistorical = false;
-      _startTime = DateTime.now();
+      final now = DateTime.now();
+      // Leaving past-sleep mode drops the end-time field, but a deliberately
+      // picked Start keeps its value instead of snapping back to "now".
+      if (!_startTimeEdited) {
+        _startTime = now;
+      }
       _endTime = null;
     });
   }
@@ -191,7 +214,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                       dateTime: _startTime,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
-                      onChanged: (dt) => setState(() => _startTime = dt),
+                      onChanged: _setStartTime,
                     ),
                     if (_isHistorical) ...[
                       const SizedBox(height: 16),

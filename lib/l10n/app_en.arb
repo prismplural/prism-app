@@ -10762,7 +10762,7 @@
     "description": "Semantics hint announced on rows that open a long-press context menu"
   },
   "cancelHistoricalSleep": "Cancel",
-  "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults" },
+  "@cancelHistoricalSleep": { "description": "Link in StartSleepSheet to cancel historical-logging mode; the End field is dropped and a picked Start time is kept" },
 
   "onboardingWelcomeTitle": "Welcome to Prism.",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },

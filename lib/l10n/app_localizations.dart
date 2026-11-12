@@ -15846,7 +15846,7 @@ abstract class AppLocalizations {
   /// **'Long-press for more options'**
   String get longPressForOptionsHint;
 
-  /// Link in StartSleepSheet to cancel historical-logging mode and return to start-now defaults
+  /// Link in StartSleepSheet to cancel historical-logging mode; the End field is dropped and a picked Start time is kept
   ///
   /// In en, this message translates to:
   /// **'Cancel'**
