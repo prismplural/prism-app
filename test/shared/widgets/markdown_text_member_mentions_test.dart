@@ -69,6 +69,36 @@ void main() {
       },
     );
   }
+
+  testWidgets('markdown inside a SelectionArea keeps member mention taps', (
+    tester,
+  ) async {
+    // Board post bodies wrap their markdown in a SelectionArea so the body is
+    // copyable; the mention span must stay tappable inside it.
+    final taps = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SelectionArea(
+            child: MarkdownText(
+              data: 'hello @[$aliceId]',
+              memberMap: {alice.id: alice},
+              onTapMember: taps.add,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // SelectionArea must not turn the body into a text field.
+    expect(find.byType(SelectionArea), findsOneWidget);
+    expect(find.byType(SelectableText), findsNothing);
+
+    await _tapGlyphs(tester, 'hello @Alice', '@Alice');
+    await tester.pumpAndSettle();
+
+    expect(taps, [aliceId]);
+  });
 }
 
 Future<void> _tapGlyphs(

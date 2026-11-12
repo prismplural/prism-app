@@ -222,11 +222,17 @@ class _PostDetailBody extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                 ],
-                PrismMarkdownText(
-                  data: post.body,
-                  baseStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    height: 1.55,
+                // Copyable body: `SelectionArea` keeps the body's plain-text
+                // semantics (no read-only text field) and lets a single
+                // selection span the whole rendered body. Long-press/drag
+                // selects; the app-bar actions stay the edit/delete affordance.
+                SelectionArea(
+                  child: PrismMarkdownText(
+                    data: post.body,
+                    baseStyle: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      height: 1.55,
+                    ),
                   ),
                 ),
               ],

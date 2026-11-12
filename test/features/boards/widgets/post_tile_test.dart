@@ -1,6 +1,9 @@
 // ignore_for_file: subtype_of_sealed_class
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +15,10 @@ import 'package:prism_plurality/features/boards/widgets/post_tile.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/markdown/spoiler_syntax.dart';
+
+/// Channel the url_launcher plugin answers on (links in post bodies).
+const urlLauncherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -71,6 +78,8 @@ Widget _buildTile(
   Member? viewerMember,
   bool showAudiencePill = false,
   List<Member> allMembers = const [],
+  VoidCallback? onTap,
+  Widget Function(Widget tile)? wrapBody,
 }) {
   return ProviderScope(
     overrides: [
@@ -91,11 +100,21 @@ Widget _buildTile(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
       home: Scaffold(
-        body: PostTile(
-          post: post,
-          viewerMember: viewerMember,
-          showAudiencePill: showAudiencePill,
-        ),
+        body: wrapBody == null
+            ? PostTile(
+                post: post,
+                viewerMember: viewerMember,
+                showAudiencePill: showAudiencePill,
+                onTap: onTap,
+              )
+            : wrapBody(
+                PostTile(
+                  post: post,
+                  viewerMember: viewerMember,
+                  showAudiencePill: showAudiencePill,
+                  onTap: onTap,
+                ),
+              ),
       ),
     ),
   );
@@ -434,4 +453,369 @@ void main() {
       expect(stripMarkdownForA11y('||a|| and ||b||'), 'spoiler and spoiler');
     });
   });
+  // -------------------------------------------------------------------------
+  // Selectable body (issue #2): post text must be selectable and copyable, and
+  // the tile's other interactions must keep working around it.
+  // -------------------------------------------------------------------------
+
+  group('PostTile — selectable body', () {
+    const bodyKey = ValueKey('post-body-post-1');
+    final clipboardWrites = <String>[];
+    final launchedUrls = <String>[];
+
+    setUp(() {
+      clipboardWrites.clear();
+      launchedUrls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              final args = call.arguments as Map<Object?, Object?>;
+              clipboardWrites.add(args['text']! as String);
+            }
+            return null;
+          });
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(urlLauncherChannel, (call) async {
+            if (call.method == 'launch') {
+              final args = call.arguments as Map<Object?, Object?>;
+              launchedUrls.add(args['url']! as String);
+              return true;
+            }
+            return false;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(urlLauncherChannel, null);
+    });
+
+    /// Runs [body] under [platform]. The override is restored in `finally`
+    /// because flutter_test verifies this debug variable before tear-downs.
+    Future<void> withPlatform(
+      TargetPlatform platform,
+      Future<void> Function() body,
+    ) async {
+      final previous = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = platform;
+      try {
+        await body();
+      } finally {
+        debugDefaultTargetPlatformOverride = previous;
+      }
+    }
+
+    Finder bodySelectionArea() => find.ancestor(
+          of: find.byKey(bodyKey),
+          matching: find.byType(SelectionArea),
+        );
+
+    Finder bodyRichTexts() => find.descendant(
+          of: find.byKey(bodyKey),
+          matching: find.byType(RichText),
+        );
+
+    /// Hit-testable body text on either mechanism: a RichText paragraph
+    /// (SelectionArea) or an EditableText field (Android selectable body).
+    Finder bodyTextTarget() => find
+        .descendant(
+          of: find.byKey(bodyKey),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is RichText || widget is EditableText,
+          ),
+        )
+        .first;
+
+    Future<void> dragSelect(
+      WidgetTester tester,
+      Offset from,
+      Offset to,
+    ) async {
+      final gesture = await tester.startGesture(from);
+      await tester.pump(const Duration(milliseconds: 600));
+      await gesture.moveTo(to);
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> copySelection(WidgetTester tester) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> dragSelectBodyAndCopy(WidgetTester tester) async {
+      final body = bodyTextTarget();
+      await dragSelect(
+        tester,
+        tester.getTopLeft(body) + const Offset(2, 6),
+        tester.getTopRight(body) + const Offset(-2, 6),
+      );
+      await copySelection(tester);
+    }
+
+    /// Taps [target] inside the rendered body on either mechanism.
+    Future<void> tapBodyGlyphs(
+      WidgetTester tester,
+      String bodyText,
+      String target,
+    ) async {
+      final start = bodyText.indexOf(target);
+      expect(start, greaterThanOrEqualTo(0));
+      final selection = TextSelection(
+        baseOffset: start,
+        extentOffset: start + target.length,
+      );
+      final paragraphFinder = find.descendant(
+        of: find.byKey(bodyKey),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is RichText && widget.text.toPlainText() == bodyText,
+        ),
+      );
+      if (paragraphFinder.evaluate().isNotEmpty) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          paragraphFinder.first,
+        );
+        final boxes = paragraph.getBoxesForSelection(selection);
+        expect(boxes, isNotEmpty);
+        await tester.tapAt(paragraph.localToGlobal(boxes.first.toRect().center));
+        return;
+      }
+      final editable = tester.renderObject<RenderEditable>(
+        find
+            .descendant(
+              of: find.byKey(bodyKey),
+              matching: find.byType(EditableText),
+            )
+            .first,
+      );
+      final boxes = editable.getBoxesForSelection(selection);
+      expect(boxes, isNotEmpty);
+      await tester.tapAt(editable.localToGlobal(boxes.first.toRect().center));
+    }
+
+    /// Swipes left from [from] on a tile inside a PageView (the Boards screen
+    /// pages between tabs) and asserts the page turned.
+    Future<void> expectSwipePages(WidgetTester tester, Finder from) async {
+      final pageController = PageController();
+      addTearDown(pageController.dispose);
+
+      await tester.pumpWidget(
+        _buildTile(
+          _post(body: 'Hello headmates!'),
+          allMembers: [_alice],
+          wrapBody: (tile) => PageView(
+            controller: pageController,
+            children: [tile, const Center(child: Text('second page'))],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.flingFrom(
+        tester.getCenter(from),
+        const Offset(-400, 0),
+        800,
+      );
+      await tester.pumpAndSettle();
+
+      expect(pageController.page, closeTo(1, 0.01));
+      expect(find.text('second page'), findsOneWidget);
+    }
+
+    testWidgets('body is copied via SelectionArea, not a read-only text field', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildTile(_post(body: 'Hello headmates!'), allMembers: [_alice]),
+      );
+      await tester.pump();
+
+      expect(bodySelectionArea(), findsOneWidget);
+      // Plain-text semantics: the body must stay a RenderParagraph, not a
+      // SelectableText/EditableText (which announces itself as a text field).
+      expect(
+        find.descendant(
+          of: bodySelectionArea(),
+          matching: find.byType(SelectableText),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: bodySelectionArea(),
+          matching: find.byType(EditableText),
+        ),
+        findsNothing,
+      );
+
+      await dragSelectBodyAndCopy(tester);
+
+      expect(clipboardWrites, isNotEmpty);
+      expect(clipboardWrites.last, contains('Hello headmates'));
+    });
+
+    testWidgets('one selection spans every rendered body block', (tester) async {
+      // A `:::` fence splits the body into two separately rendered markdown
+      // blocks; one SelectionArea must still cover both.
+      await tester.pumpWidget(
+        _buildTile(
+          _post(
+            body:
+                'first paragraph text\n\n'
+                ':::center\nsecond paragraph text\n:::',
+          ),
+          allMembers: [_alice],
+        ),
+      );
+      await tester.pump();
+
+      final blocks = bodyRichTexts();
+      expect(blocks, findsNWidgets(2));
+
+      await dragSelect(
+        tester,
+        tester.getTopLeft(blocks.first) + const Offset(2, 6),
+        tester.getBottomRight(blocks.last) + const Offset(-2, -4),
+      );
+      await copySelection(tester);
+
+      expect(clipboardWrites, isNotEmpty);
+      expect(clipboardWrites.last, contains('first paragraph text'));
+      expect(clipboardWrites.last, contains('second paragraph text'));
+    });
+
+    testWidgets('swipe from the header still pages the board', (tester) async {
+      // On Android/Fuchsia a selection gesture that starts on the body takes
+      // precedence over horizontal paging, so paging is exercised from
+      // non-body space — here the header author name.
+      await withPlatform(TargetPlatform.android, () async {
+        expect(defaultTargetPlatform, TargetPlatform.android);
+        await expectSwipePages(tester, find.text('Alice'));
+      });
+    });
+
+    testWidgets('iOS: swipe that starts on body text still pages the board', (
+      tester,
+    ) async {
+      await withPlatform(TargetPlatform.iOS, () async {
+        await expectSwipePages(tester, bodyTextTarget());
+      });
+    });
+
+    testWidgets('body exposes no text-field semantics node', (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          _buildTile(_post(body: 'Hello headmates!'), allMembers: [_alice]),
+        );
+        await tester.pump();
+
+        expect(_exposesTextFieldSemantics(tester), isFalse);
+      } finally {
+        handle.dispose();
+      }
+    });
+
+    testWidgets('tapping a non-text control area still opens the post', (
+      tester,
+    ) async {
+      var opened = 0;
+      await tester.pumpWidget(
+        _buildTile(
+          _post(body: 'Hello headmates!'),
+          allMembers: [_alice],
+          onTap: () => opened++,
+        ),
+      );
+      await tester.pump();
+
+      // The header participant row is not body text, so the card's tap handler
+      // must still fire there.
+      await tester.tap(find.text('everyone'));
+      await tester.pumpAndSettle();
+
+      expect(opened, 1);
+    });
+
+    testWidgets('spoilers still reveal inside the selectable body', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildTile(_post(body: 'the ||secret|| thing'), allMembers: [_alice]),
+      );
+      await tester.pump();
+
+      List<double> opacities() => tester
+          .widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity))
+          .map((w) => w.opacity)
+          .toList();
+
+      expect(opacities(), [1.0, 0.0]);
+      await tester.tap(find.byType(SpoilerPill));
+      await tester.pumpAndSettle();
+      expect(opacities(), [0.0, 1.0]);
+    });
+
+    testWidgets('links inside the body still open on tap', (tester) async {
+      await tester.pumpWidget(
+        _buildTile(
+          _post(body: 'see [here](https://example.com) ok'),
+          allMembers: [_alice],
+        ),
+      );
+      await tester.pump();
+
+      await tapBodyGlyphs(tester, 'see here ok', 'here');
+      await tester.pumpAndSettle();
+
+      expect(launchedUrls, contains('https://example.com'));
+    });
+
+    testWidgets('edit/delete action menu stays reachable from the header', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildTile(
+          _post(body: 'Hello headmates!'),
+          viewerMember: _alice,
+          allMembers: [_alice],
+        ),
+      );
+      await tester.pump();
+
+      // Long-press on the body selects text, so the action menu lives on the
+      // header/footer instead; the author name is a clearly non-body control.
+      await tester.longPress(find.text('Alice'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit'), findsOneWidget);
+    });
+  });
+}
+
+/// Whether any node in the current semantics tree is exposed as a text field.
+bool _exposesTextFieldSemantics(WidgetTester tester) {
+  final root = tester.binding.rootPipelineOwner.semanticsOwner
+      ?.rootSemanticsNode;
+  if (root == null) return false;
+  var found = false;
+  void visit(SemanticsNode node) {
+    if (found) return;
+    if (node.getSemanticsData().flagsCollection.isTextField) {
+      found = true;
+      return;
+    }
+    node.visitChildren((child) {
+      visit(child);
+      return !found;
+    });
+  }
+
+  visit(root);
+  return found;
 }

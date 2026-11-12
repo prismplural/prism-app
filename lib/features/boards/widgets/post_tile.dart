@@ -331,14 +331,29 @@ class _PostTileContent extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                 ],
-                PrismMarkdownText(
-                  // Keyed by post id so a recycled tile never carries spoiler
-                  // reveal state onto a different post with identical body text.
-                  key: ValueKey('post-body-${post.id}'),
-                  data: post.body,
-                  baseStyle: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    height: 1.45,
+                // Body text is copyable. `SelectionArea` keeps the body's
+                // plain-text semantics (a selectable text field would announce
+                // itself as an editable field) and lets one selection span
+                // every rendered block of the body.
+                //
+                // Interaction: long-press/drag on the body selects text, so
+                // the tile's long-press action menu is offered from the
+                // header/footer instead (plus the trailing "…" menu on
+                // desktop/web and the detail screen's app-bar actions). On
+                // Android/Fuchsia a gesture starting on the body selects
+                // rather than pages, so board paging comes from header/footer
+                // space or the segmented control.
+                SelectionArea(
+                  child: PrismMarkdownText(
+                    // Keyed by post id so a recycled tile never carries spoiler
+                    // reveal state onto a different post with identical body
+                    // text.
+                    key: ValueKey('post-body-${post.id}'),
+                    data: post.body,
+                    baseStyle: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      height: 1.45,
+                    ),
                   ),
                 ),
                 if (post.editedAt != null) ...[
