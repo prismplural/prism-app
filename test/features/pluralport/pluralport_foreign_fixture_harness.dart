@@ -1776,13 +1776,11 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
     check(
       'reimport_export_stable',
       repeatExportDiffer.isEmpty,
-      'Out of scope: repeated-import baseline stability is owned by another lane.',
+      'Re-export after a repeated import preserves the first bundle content.',
       {
-        'out_of_scope': true,
         'export_differing_content': repeatExportDiffer,
         'prism_references_added': prismReferenceDelta(export1, export1Repeat),
       },
-      true,
     );
 
     // -- Explicit producer differences ------------------------------------
@@ -1953,7 +1951,6 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
     if (repeatExportDiffer.isNotEmpty) {
       differences.add({
         'id': 'repeat_import_export_drift',
-        'out_of_scope': true,
         'area': 'repeated import',
         'observed':
             'A repeated import of the same archive leaves native rows unchanged but changes the next re-export.',
