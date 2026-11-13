@@ -51,6 +51,13 @@ class PluralPortService {
         for (final row in PluralPortMapper.rows(existingNative, key))
           '$key/${row['id']}',
     };
+    // Storage canonicalizes what an import writes (timestamps lose sub-second
+    // precision, JSON is re-serialized, image assets are rebuilt). Earlier
+    // imports recorded that canonical post-import state as their baseline, so a
+    // repeat import compares stored rows against stored rows; using the
+    // source-shaped plan rows here would report every unchanged record as a
+    // local edit and drop the preserved source out of export.
+    final previousBaselines = _recordedBaselines(existingNative);
     final desired = V1Export.fromJson(plan.native).toJson();
     final desiredRows = <String, Json>{
       for (final key in PluralPortMapper.collections.values)
@@ -308,8 +315,12 @@ class PluralPortService {
         for (final entry in PluralPortMapper.collections.entries) {
           for (final row in PluralPortMapper.rows(current, entry.value)) {
             final key = '${entry.value}/${row['id']}';
+            // An existing native row was not rewritten by this import, so its
+            // canonical state comes from the baseline an earlier import
+            // recorded. Falling back to the plan row keeps records Prism never
+            // imported comparable against their source shape.
             baseline[key] = existingIds.contains(key)
-                ? desiredRows[key] ?? row
+                ? previousBaselines[key] ?? desiredRows[key] ?? row
                 : row;
           }
         }
@@ -339,6 +350,35 @@ class PluralPortService {
         await PluralPortPreservation(db).retain(archive);
       },
     );
+  }
+
+  /// The native rows storage kept right after an earlier import, keyed the way
+  /// an archive baseline is (`collection/nativeId`). A later import of the same
+  /// origin compares live rows against these, never against the shape the
+  /// source file used, so canonicalization is not mistaken for a local edit.
+  /// Newer archives win, matching the snapshot export uses for an origin.
+  static Map<String, Json> _recordedBaselines(Json existingNative) {
+    final baselines = <String, Json>{};
+    final archives =
+        (existingNative['pluralPortArchives'] as List? ?? const [])
+            .whereType<Map>()
+            .where((a) => a['kind'] == 'import' && a['baseline'] is Map)
+            .toList()
+          ..sort(
+            (a, b) => (a['imported_at'] as String? ?? '').compareTo(
+              b['imported_at'] as String? ?? '',
+            ),
+          );
+    for (final archive in archives) {
+      for (final entry in (archive['baseline'] as Map).entries) {
+        final key = entry.key;
+        final row = entry.value;
+        if (key is String && row is Map) {
+          baselines[key] = row.cast<String, dynamic>();
+        }
+      }
+    }
+    return baselines;
   }
 
   Future<void> _removeTombstonedNativeRows(Json data) async {
