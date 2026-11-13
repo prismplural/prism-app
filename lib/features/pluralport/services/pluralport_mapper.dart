@@ -333,7 +333,7 @@ class PluralPortMapper {
         warnings.add('asset_archived_only: ${asset['id']}');
       }
     }
-    _validateReferences(document);
+    _validateReferences(document, ids);
     final native = emptyNative();
     final prismExtension = extensionObject(document['extensions'])?['prism'];
     final prismModules = prismExtension is Map
@@ -875,7 +875,16 @@ class PluralPortMapper {
     return [];
   }
 
-  static void _validateReferences(Json doc) {
+  /// [fileIds] maps a file-local record id to its resolved Prism id; it lets a
+  /// diagnostic name the record as it appears in the archive instead of the
+  /// derived identity, which is what a user can search for.
+  static void _validateReferences(
+    Json doc, [
+    Map<String, String> fileIds = const {},
+  ]) {
+    final localIds = {
+      for (final entry in fileIds.entries) entry.value: entry.key,
+    };
     final sets = <String, Set<String>>{
       for (final path in recordPaths)
         path: rows(doc, path).map((r) => r['id'] as String).toSet(),
@@ -949,7 +958,10 @@ class PluralPortMapper {
       final start = DateTime.parse(time(p['started_at']));
       if (p['ended_at'] != null &&
           DateTime.parse(time(p['ended_at'])).isBefore(start)) {
-        throw const FormatException('Front period ends before it starts.');
+        throw FormatException(
+          'Front period ends before it starts: '
+          'front_periods/${localIds[p['id']] ?? p['id']}.',
+        );
       }
     }
   }

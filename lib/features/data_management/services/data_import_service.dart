@@ -2342,6 +2342,14 @@ class DataImportService {
           // post-commit. `isDeleted` carries the row's real state so an imported
           // tombstoned attachment propagates as a tombstone and can't resurrect
           // on a peer (mirroring the board-post path below).
+          //
+          // Every field below must mirror the inserted row EXACTLY, thumbnail
+          // crypto material included: the model's `@Default('')` would otherwise
+          // emit default-empty `thumbnail_content_hash`/`thumbnail_plaintext_hash`
+          // while the local row keeps the real values. A peer that applied such
+          // an op would persist `thumbnail_media_id` with no hashes — the shape
+          // that blocks thumbnail healing (hydration skips empty hashes) and
+          // makes a PluralPort export fabricate a dangling thumbnail asset.
           captured.add(
             CapturedSyncOp(
               'media_attachments',
@@ -2366,6 +2374,8 @@ class DataImportService {
                   blurhash: a.blurhash,
                   waveformB64: a.waveformB64,
                   thumbnailMediaId: a.thumbnailMediaId,
+                  thumbnailContentHash: a.thumbnailContentHash,
+                  thumbnailPlaintextHash: a.thumbnailPlaintextHash,
                   sourceUrl: a.sourceUrl,
                   previewUrl: a.previewUrl,
                   isDeleted: a.isDeleted,
