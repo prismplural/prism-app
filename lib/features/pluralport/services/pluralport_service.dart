@@ -21,8 +21,7 @@ import 'pluralport_exporter.dart';
 import 'pluralport_mapper.dart';
 import 'pluralport_preservation.dart';
 
-/// A media payload the exporter may add to a bundle, plus the mime type the
-/// producing encoder reported. An empty [mimeType] means "sniff the bytes".
+/// Recovered bytes; an empty [mimeType] requests content sniffing.
 class PluralPortRecoveredMedia {
   const PluralPortRecoveredMedia({required this.bytes, this.mimeType = ''});
 
@@ -30,11 +29,7 @@ class PluralPortRecoveredMedia {
   final String mimeType;
 }
 
-/// One request for a blob the export did not find in the local cache.
-///
-/// Only Prism media ids ever appear here. Recovery never fetches
-/// `source_url`/`preview_url` references, and the production implementation is
-/// the app's authenticated sync download path.
+/// Authenticated recovery of a Prism media id, never an external URL.
 class PluralPortMediaFetchRequest {
   const PluralPortMediaFetchRequest({
     required this.mediaId,
@@ -49,9 +44,7 @@ class PluralPortMediaFetchRequest {
   final String plaintextHash;
 }
 
-/// Outcome of one recovery fetch. Failures carry a reason for the warning and
-/// never throw across this boundary: a failed fetch degrades to a warning and
-/// can never fail the archive.
+/// Recovery failures become metadata-only warnings, not export failures.
 class PluralPortRemoteMedia {
   const PluralPortRemoteMedia.ok(this.bytes) : failure = null;
   const PluralPortRemoteMedia.failed(this.failure) : bytes = null;
@@ -76,7 +69,6 @@ class PluralPortMediaRecoveryLimits {
     this.maxBundleMediaBytes = 96 * 1024 * 1024,
   });
 
-  /// Blobs one export may ask the sync relay for.
   final int maxRemoteItems;
 
   /// Maximum plaintext bytes accepted from recovery. The download manager's
@@ -87,21 +79,14 @@ class PluralPortMediaRecoveryLimits {
   /// request can still complete its encrypted cache write in the background.
   final Duration remoteDeadline;
 
-  /// Thumbnails regenerated from verified originals in one export.
   final int maxGeneratedThumbnails;
 
-  /// Total bytes one export will add to the bundle (originals plus
-  /// thumbnails), kept well under [PluralPortBundle.maxExpanded] so a large
-  /// library cannot turn a successful recovery into a failed `encode()`.
+  /// Media budget below [PluralPortBundle.maxExpanded], including thumbnails.
   final int maxBundleMediaBytes;
 }
 
-/// Injectable media source for export recovery.
-///
-/// Production wires [fetch] to the app's authenticated download manager (the
-/// only network path an export may use) and [generateThumbnail] to the image
-/// codec; tests inject fakes and never touch the network. A null
-/// [PluralPortService.recovery] means offline cache-only recovery.
+/// Authenticated downloads and local thumbnail generation for export recovery.
+/// A null [PluralPortService.recovery] keeps export cache-only.
 class PluralPortMediaRecovery {
   const PluralPortMediaRecovery({
     required this.fetch,
@@ -114,9 +99,7 @@ class PluralPortMediaRecovery {
   final PluralPortMediaRecoveryLimits limits;
 }
 
-/// Book-keeping for one export's media pass: shared remote caps and a bundle
-/// byte budget, so recovery can never turn into an unbounded download or an
-/// `encode()` that overflows the archive limits.
+/// Shared recovery and bundle budgets for one export.
 class _ExportMediaState {
   _ExportMediaState(this.recovery, PluralPortBundle bundle)
     : limits = recovery?.limits ?? const PluralPortMediaRecoveryLimits(),
@@ -741,9 +724,7 @@ class PluralPortService {
       for (final m in PluralPortMapper.rows(bundle.envelope, 'chat.messages'))
         m['id'] as String: m,
     };
-    // One media pass with shared budgets: local bytes first, then (only when a
-    // recovery adapter is wired and the caps allow) the authenticated download
-    // path. Every miss becomes a warning; nothing here can fail the archive.
+    // Share budgets across attachments; unresolved media remains metadata-only.
     final mediaState = _ExportMediaState(recovery, bundle);
     for (final attachment in PluralPortMapper.rows(data, 'mediaAttachments')) {
       await _addAttachmentMedia(
@@ -803,9 +784,7 @@ class PluralPortService {
     final warnings = bundle.envelope['warnings'] as List;
     final id = PluralPortMapper.stableId('prism/media', attachmentId);
 
-    // 1. Original bytes. The cache is authoritative when present; the relay is
-    //    only consulted for a Prism media id whose integrity fields are all
-    //    present, and never for an external URL.
+    // Remote recovery requires a Prism id and complete integrity metadata.
     var original = await _cachedPlaintext(
       directory: directory,
       mediaId: mediaId,
@@ -836,8 +815,6 @@ class PluralPortService {
       });
     }
 
-    // 2. The asset record: reuse a retained one only when it describes the same
-    //    bytes, otherwise Prism's stable media id.
     final existingAsset = assetRecords
         .cast<Json>()
         .where(
@@ -873,7 +850,6 @@ class PluralPortService {
         bundle.files[path] = bytes;
         storedPath = path;
         asset['bundle_path'] = path;
-        // Path, hash, size and mime all derive from the bytes actually stored.
         asset['sha256'] = digest;
         asset['size_bytes'] = bytes.length;
         asset['mime_type'] = _sniffMediaMime(bytes, fallback: rowMime);
@@ -958,9 +934,7 @@ class PluralPortService {
       'mime_type': attachment['mimeType'],
     };
 
-    // 3. Thumbnail: cached bytes when present, otherwise regenerated from the
-    //    verified original already in hand. Generation stays local: it needs no
-    //    second round trip and works offline.
+    // Regenerate thumbnails locally from verified originals, without another fetch.
     final thumbnailId = attachment['thumbnailMediaId'] as String? ?? '';
     final thumbnailContentHash =
         attachment['thumbnailContentHash'] as String? ?? '';
@@ -1179,8 +1153,7 @@ class PluralPortService {
         state.remoteBytes > state.limits.maxRemoteBytes) {
       return (bytes: null, failure: 'remote_byte_limit');
     }
-    // Trust nothing that crosses the boundary: the bytes must still match the
-    // row's plaintext digest before they can seed a thumbnail or the bundle.
+    // Verify the plaintext digest even when the recovery adapter reports success.
     if (sha256.convert(bytes).toString() != plaintextHash) {
       return (bytes: null, failure: 'integrity');
     }
@@ -1208,8 +1181,6 @@ class PluralPortService {
       );
       return (bytes: plaintext, failure: null);
     } on StateError {
-      // A digest mismatch is terminal for this blob and must never be turned
-      // into a "recovered" file: report it and export metadata only.
       return (bytes: null, failure: 'integrity');
     } on Object {
       return (bytes: null, failure: 'decrypt_failed');

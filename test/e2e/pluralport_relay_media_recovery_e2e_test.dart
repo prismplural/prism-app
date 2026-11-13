@@ -1,6 +1,3 @@
-// Real local relay + pinned FFI + production PluralPort provider wiring.
-// Only paths and database/service dependencies are isolated; network, crypto,
-// DownloadManager and thumbnail generation are real. No user data or credentials.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' show Abi;
@@ -13,7 +10,6 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show ExternalLibrary;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-// Same test-only temporary-path seam used by the native sync fixtures.
 // ignore: depend_on_referenced_packages
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:prism_media_codec/prism_media_codec.dart' as media_codec;
@@ -148,8 +144,7 @@ void main() {
             fieldsJson: jsonEncode(fields),
           );
           b = await pairNewDevice(relay, a);
-          // Assert reference transport through the REAL snapshot before projecting
-          // that received reference into the separate application Drift database.
+          // Project only the reference received by pairing into the app database.
           final received = <String, dynamic>{};
           for (final field in fields.keys) {
             final raw = await ffi.readFieldValue(
@@ -215,13 +210,12 @@ void main() {
               downloadManagerProvider.overrideWithValue(downloads),
             ],
           );
-          // Crucial: do NOT override pluralPortServiceProvider or its recovery
-          // adapter. These closures are the production wiring under qualification.
+          // Keep the production recovery callbacks under test.
           final service = container.read(pluralPortServiceProvider);
           final bundle = await service.exportBundle();
           expect(PluralPortService.validateBundle(bundle), isEmpty);
           final preview = PluralPortService.previewBytes(bundle.encode());
-          // Unavailable media loses its byte declaration: unbundled, not a broken ZIP reference.
+          // Missing bytes must not leave broken bundle declarations.
           expect(preview.summary.missingFiles, 0);
           expect([
             for (final r in await db.mediaAttachmentsDao.getAll()) r.toJson(),
@@ -259,7 +253,6 @@ void main() {
             );
             expect(preview.summary.bundledFiles, bundle.files.length);
             expect(actualDownloadAttempts, 1);
-            // A later cache loss must recover on the SAME paired session too.
             await File('${cache.path}/$mediaId.enc').delete();
             expect(await downloads.isCached(mediaId), isFalse);
             final afterCacheLoss = await service.exportBundle();
@@ -292,7 +285,7 @@ void main() {
             final prismExtension =
                 (originalAsset['extensions'] as Map)['prism'] as Map;
             final unavailable = prismExtension['unavailable'] as Map;
-            // An empty-cache integrity failure is deliberately classified as retryable server.
+            // Fresh-download integrity failures are retryable, unlike corrupt cache hits.
             expect(
               unavailable['reason'],
               contains(scenario == 'not-found' ? 'notFound' : 'server'),
