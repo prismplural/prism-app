@@ -93,7 +93,7 @@ class PluralPortService {
     };
     if (restorePrismPreferences) {
       final modules =
-          ((envelope['extensions'] as Map?)?['prism']
+          (extensionObject(envelope['extensions'])?['prism']
                   as Map?)?['native_modules']
               as Map?;
       final savedSettings = (modules?['systemSettings'] as List?)
@@ -260,7 +260,7 @@ class PluralPortService {
     }
 
     for (final asset in assets.values) {
-      final prism = (asset['extensions'] as Map?)?['prism'] as Map?;
+      final prism = extensionObject(asset['extensions'])?['prism'] as Map?;
       for (final association in (prism?['media_attachments'] as List? ?? [])) {
         if (association is Map) {
           await restoreMedia(asset, association.cast<String, dynamic>());
@@ -526,7 +526,7 @@ class PluralPortService {
     ).map((r) => r['id']).toSet();
     final previousAssociations = <String, Json>{};
     for (final asset in assetRecords.whereType<Map>()) {
-      final prism = (asset['extensions'] as Map?)?['prism'] as Map?;
+      final prism = extensionObject(asset['extensions'])?['prism'] as Map?;
       final associations = prism?['media_attachments'];
       if (associations is! List) continue;
       final retained = <dynamic>[];
@@ -585,7 +585,8 @@ class PluralPortService {
         (a) => a['id'] == exportAssetId,
       );
       final extensions =
-          asset.putIfAbsent('extensions', () => <String, dynamic>{}) as Json;
+          extensionObject(asset['extensions']) ?? <String, dynamic>{};
+      asset['extensions'] = extensions;
       final prism =
           extensions.putIfAbsent('prism', () => <String, dynamic>{}) as Json;
       final associations =

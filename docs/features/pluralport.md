@@ -30,7 +30,17 @@ preserved files.
 - Resolve `assets[].bundle_path` and the legacy
   `assets[].extensions.sheaf.bundle_path`, with core taking precedence.
   Inline base64/data URI assets are also supported. Remote URLs are retained
-  without downloading them.
+  without downloading them. An archive-local `assets[].uri` is resolved only
+  when it safely names an entry in the same bundle; schemes, absolute paths,
+  traversal and network URLs are left untouched.
+- Read select and multiselect `options` as either a string array or an object
+  with a `choices` string array. Other option metadata stays in the preserved
+  source record.
+- Accept an empty `extensions` array as no extension object. Other non-object
+  extension values are rejected before app data is written.
+- When a producer repeats a field value for one member, the last value is bound
+  natively (matching one-value-per-member storage) and earlier rows stay
+  preserved for export rather than being dropped.
 
 ## Mapping
 

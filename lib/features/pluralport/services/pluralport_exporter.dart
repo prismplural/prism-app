@@ -49,7 +49,7 @@ class PluralPortExporter {
       final envelope = PluralPortMapper.clone(archive['envelope'] as Json);
       final moduleBindings = archive['nativeModuleBindings'] as Map? ?? {};
       final sourceModules =
-          ((envelope['extensions'] as Map?)?['prism']
+          (extensionObject(envelope['extensions'])?['prism']
               as Map?)?['native_modules'];
       if (sourceModules is Map) {
         if (archive['prismPreferencesRestored'] == true) {
@@ -138,7 +138,7 @@ class PluralPortExporter {
       final boundAssociations = (archive['mediaAssociations'] as List? ?? [])
           .toSet();
       for (final asset in PluralPortMapper.rows(envelope, 'assets')) {
-        final prism = (asset['extensions'] as Map?)?['prism'] as Map?;
+        final prism = extensionObject(asset['extensions'])?['prism'] as Map?;
         final associations = prism?['media_attachments'];
         if (associations is List) {
           prism!['media_attachments'] = associations
@@ -241,6 +241,16 @@ class PluralPortExporter {
           for (var i = 0; i < survivors.length; i++) {
             final nativeId = survivors[i];
             final current = convert(entry.key, live[nativeId]!);
+            if (entry.key == 'custom_fields' &&
+                source['options'] is Map &&
+                current['options'] is List) {
+              // Preserve producer option metadata (for example a `choices`
+              // object) while replacing the labels Prism understands.
+              current['options'] = {
+                ...(source['options'] as Map).cast<String, dynamic>(),
+                'choices': List<dynamic>.from(current['options'] as List),
+              };
+            }
             final previous = convert(
               entry.key,
               (baseline['${entry.value}/$nativeId'] as Map)
@@ -734,7 +744,7 @@ class PluralPortExporter {
 
   void _removeDanglingReferences(Json envelope) {
     final extensions = Map<String, dynamic>.from(
-      envelope['extensions'] as Map? ?? const {},
+      extensionObject(envelope['extensions']) ?? const {},
     );
     envelope['extensions'] = extensions;
     final prism = Map<String, dynamic>.from(
@@ -780,7 +790,7 @@ class PluralPortExporter {
     ) {
       if (removed.isEmpty) return;
       final rowExtensions = Map<String, dynamic>.from(
-        row['extensions'] as Map? ?? const {},
+        extensionObject(row['extensions']) ?? const {},
       );
       row['extensions'] = rowExtensions;
       final rowPrism = Map<String, dynamic>.from(
@@ -974,8 +984,8 @@ class PluralPortExporter {
   }
 
   static Json _extensions(dynamic a, dynamic b) {
-    final result = Map<String, dynamic>.from(a as Map? ?? const {});
-    for (final e in (b as Json? ?? {}).entries) {
+    final result = Map<String, dynamic>.from(extensionObject(a) ?? const {});
+    for (final e in (extensionObject(b) ?? const {}).entries) {
       result[e.key] = e.value is Map && result[e.key] is Map
           ? {...result[e.key] as Map, ...e.value as Map}
           : e.value;

@@ -289,11 +289,14 @@ class PluralPortMapper {
         if (assetTotal > PluralPortBundle.maxExpanded) {
           throw const FormatException('Assets exceed the expanded size limit.');
         }
+        final localUri = PluralPortBundle.localBundlePath(
+          originalAssets[i]['uri'],
+        );
         final path =
-            originalAssets[i]['bundle_path'] as String? ??
-            (((originalAssets[i]['extensions'] as Map?)?['sheaf']
-                    as Map?)?['bundle_path']
-                as String?) ??
+            PluralPortBundle.declaredBundlePath(originalAssets[i]) ??
+            (localUri != null && bundle.files.containsKey(localUri)
+                ? localUri
+                : null) ??
             'assets/${sha256.convert(bytes)}';
         assetFiles[path] = base64Encode(bytes);
         asset
@@ -303,14 +306,11 @@ class PluralPortMapper {
           ..remove('data_base64')
           ..remove('data_uri');
       } else {
-        if (originalAssets[i]['bundle_path'] != null ||
-            ((originalAssets[i]['extensions'] as Map?)?['sheaf']
-                    as Map?)?['bundle_path'] !=
-                null) {
+        if (PluralPortBundle.declaredBundlePath(originalAssets[i]) != null) {
           warnings.add('asset_bundle_missing: ${originalAssets[i]['id']}');
         } else {
           warnings.add(
-            'asset_uri_only: ${originalAssets[i]['id']} (URL retained; not downloaded)',
+            'asset_uri_only: ${originalAssets[i]['id']} (URI retained; not fetched)',
           );
         }
       }
@@ -322,8 +322,10 @@ class PluralPortMapper {
     }
     _validateReferences(document);
     final native = emptyNative();
-    final prismModules =
-        ((document['extensions'] as Map?)?['prism'] as Map?)?['native_modules'];
+    final prismExtension = extensionObject(document['extensions'])?['prism'];
+    final prismModules = prismExtension is Map
+        ? prismExtension['native_modules']
+        : null;
     if (prismModules is Map) {
       for (final key in nativeModuleKeys) {
         final records = prismModules[key];
@@ -346,9 +348,29 @@ class PluralPortMapper {
       return assetFiles[asset['bundle_path']];
     }
 
+    // Native storage keeps at most one value per (field, member); its import
+    // reconciliation explicitly lets the last input win. Bind the last source
+    // row and preserve earlier duplicate rows for export rather than binding
+    // them to rows the importer will collapse.
+    final lastValueIdByPair = <String, String>{};
+    for (final value in rows(document, 'custom_field_values')) {
+      if (value['subject_type'] != 'member') continue;
+      final field = value['field_id'];
+      final subject = value['subject_id'];
+      if (field is String && subject is String) {
+        lastValueIdByPair['$field\u0000$subject'] = value['id'] as String;
+      }
+    }
     for (final entry in collections.entries) {
       final imported = <Json>[];
       for (final portable in rows(document, entry.key)) {
+        if (entry.key == 'custom_field_values' &&
+            portable['subject_type'] == 'member' &&
+            lastValueIdByPair['${portable['field_id']}\u0000${portable['subject_id']}'] !=
+                portable['id']) {
+          warnings.add('preserved_only: ${entry.key}/${portable['id']}');
+          continue;
+        }
         final mapped = _toNative(entry.key, portable, image);
         if (entry.key == 'custom_field_values') {
           final definition = rows(
@@ -382,7 +404,7 @@ class PluralPortMapper {
             }
           }
         }
-        final prism = (portable['extensions'] as Map?)?['prism'];
+        final prism = extensionObject(portable['extensions'])?['prism'];
         final extra = prism is Map ? prism['native'] : null;
         if (extra is Map) {
           // Native fields remain useful after a foreign app preserves this
@@ -536,7 +558,7 @@ class PluralPortMapper {
       for (final record in rows(document, path)) {
         record['id'] = ids[record['id']] ?? record['id'];
         if (path == 'members') {
-          final prism = (record['extensions'] as Map?)?['prism'] as Map?;
+          final prism = extensionObject(record['extensions'])?['prism'] as Map?;
           if (prism?['pk_banner_asset_id'] is String) {
             final ref = prism!['pk_banner_asset_id'];
             prism['pk_banner_asset_id'] = ids[ref] ?? ref;
@@ -623,6 +645,19 @@ class PluralPortMapper {
     return DateTime.parse(value).toUtc().toIso8601String();
   }
 
+  /// Producers encode select/multiselect choices either as a bare string array
+  /// or as an object with a `choices` array. Only the labels are interpreted;
+  /// every other option field remains in the preserved source record.
+  static List<String>? optionLabels(dynamic options) {
+    final values = options is List
+        ? options
+        : options is Map && options['choices'] is List
+        ? options['choices'] as List
+        : null;
+    if (values == null || values.any((value) => value is! String)) return null;
+    return values.cast<String>().toSet().toList();
+  }
+
   static List<Json> _toNative(
     String path,
     Json r,
@@ -646,7 +681,7 @@ class PluralPortMapper {
             'profilePhotoData': image(r['avatar_asset_id']),
             'profileHeaderImageData': image(r['banner_asset_id']),
             'pkBannerImageData': image(
-              ((r['extensions'] as Map?)?['prism']
+              (extensionObject(r['extensions'])?['prism']
                   as Map?)?['pk_banner_asset_id'],
             ),
             'isActive': r['archived'] != true, 'createdAt': created,
@@ -715,13 +750,10 @@ class PluralPortMapper {
           },
         ];
       case 'custom_fields':
+        final labels = PluralPortMapper.optionLabels(r['options']);
         if (['select', 'multiselect'].contains(r['field_type']) &&
-            r['options'] is List &&
-            (r['options'] as List).every((o) => o is String)) {
-          final options = (r['options'] as List)
-              .cast<String>()
-              .toSet()
-              .toList();
+            labels != null) {
+          final options = labels;
           return [
             {
               'id': id,

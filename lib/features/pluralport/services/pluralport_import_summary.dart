@@ -1,5 +1,6 @@
 import '../../../domain/preferences/preference_entity_id.dart';
 import '../../../domain/preferences/preference_registry.dart';
+import '../services/pluralport_bundle.dart';
 import '../services/pluralport_mapper.dart';
 
 /// Counts describe the mapped file, before existing records and tombstones are
@@ -25,7 +26,8 @@ class PluralPortImportSummary {
     systemProfiles = PluralPortMapper.rows(envelope, 'systems').length;
 
     final modules =
-        ((envelope['extensions'] as Map?)?['prism'] as Map?)?['native_modules'];
+        (extensionObject(envelope['extensions'])?['prism']
+            as Map?)?['native_modules'];
     final knownKeys = appPreferenceRegistry.definitions
         .map((definition) => PreferenceEntityId.app(definition.key))
         .toSet();

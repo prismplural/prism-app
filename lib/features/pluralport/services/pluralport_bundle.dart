@@ -145,14 +145,54 @@ class PluralPortBundle {
     }
   }
 
+  /// The declared in-bundle path, preferring core over the legacy Sheaf
+  /// extension. Does not consult `uri`; that is a separate fallback.
+  static String? declaredBundlePath(Map<String, dynamic> asset) {
+    final core = asset['bundle_path'];
+    if (core != null && core is! String) {
+      throw const FormatException('Asset bundle_path must be a string.');
+    }
+    final sheaf = extensionObject(asset['extensions'])?['sheaf'];
+    final legacy = sheaf is Map ? sheaf['bundle_path'] : null;
+    if (legacy != null && legacy is! String) {
+      throw const FormatException(
+        'Asset extensions.sheaf.bundle_path must be a string.',
+      );
+    }
+    return (core as String?) ?? (legacy as String?);
+  }
+
+  /// A producer may use `assets[].uri` for an archive-local file. Accept only a
+  /// relative path that safely names a bundle entry: no scheme, network,
+  /// absolute path, traversal, backslash, or empty segment.
+  static String? localBundlePath(dynamic uri) {
+    if (uri is! String || uri.isEmpty) return null;
+    if (uri.startsWith('/') ||
+        uri.startsWith(r'\') ||
+        uri.startsWith('//') ||
+        uri.contains(r'\') ||
+        uri.contains(':')) {
+      return null;
+    }
+    final parsed = Uri.tryParse(uri);
+    if (parsed == null || parsed.scheme.isNotEmpty) return null;
+    try {
+      return safePath(uri);
+    } on FormatException {
+      return null;
+    }
+  }
+
   /// Resolve only explicitly referenced files. Never fetch external URIs.
   Uint8List? assetBytes(Map<String, dynamic> asset) {
-    final sheaf = (asset['extensions'] as Map?)?['sheaf'];
-    final path =
-        asset['bundle_path'] ?? (sheaf is Map ? sheaf['bundle_path'] : null);
+    final path = declaredBundlePath(asset);
     final sources = <Uint8List>[];
     if (path != null) {
-      final data = files[safePath(path as String)];
+      final data = files[safePath(path)];
+      if (data != null) sources.add(data);
+    } else {
+      final local = localBundlePath(asset['uri']);
+      final data = local == null ? null : files[local];
       if (data != null) sources.add(data);
     }
     final b64 = asset['data_base64'];
@@ -239,6 +279,19 @@ class PluralPortBundle {
     }
     return path;
   }
+}
+
+/// Record extensions are JSON objects. PluralSpace writes an empty array to
+/// mean “none”; that is accepted as absent and left untouched in the preserved
+/// source record. Any other non-object value is malformed and rejected.
+Map<String, dynamic>? extensionObject(
+  dynamic value, {
+  String field = 'extensions',
+}) {
+  if (value == null) return null;
+  if (value is Map) return value.cast<String, dynamic>();
+  if (value is List && value.isEmpty) return null;
+  throw FormatException('$field must be an object or an empty array.');
 }
 
 String canonicalJson(Object? value) {
