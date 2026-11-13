@@ -192,7 +192,8 @@ void main() {
     });
 
     test(
-      'non-fresh databases are rejected with the v1-baseline error',
+      'a database stamped newer than this build is refused with the downgrade '
+      'diagnosis and left untouched',
       () async {
         final tempDir = Directory.systemTemp.createTempSync('prism_migration_');
         addTearDown(() {
@@ -204,7 +205,7 @@ void main() {
         final dbFile = File('${tempDir.path}/legacy.db');
         final rawDb = raw.sqlite3.open(dbFile.path);
         try {
-          // Any pre-beta schema version (v30..v58) hits the same rejection.
+          // A rolled-back install: the file is stamped by a future build.
           rawDb.execute('PRAGMA user_version = 58;');
         } finally {
           rawDb.close();
@@ -213,16 +214,47 @@ void main() {
         final db = AppDatabase(NativeDatabase(dbFile));
         addTearDown(db.close);
 
+        // Drift runs onUpgrade before beforeOpen, so the refusal has to happen
+        // there: the user gets the actionable "upgrade or export-reimport"
+        // message rather than the v1-baseline error, which would misdiagnose a
+        // downgrade as a pre-beta database.
         await expectLater(
           db.customSelect('SELECT 1').get(),
           throwsA(
-            isA<UnsupportedError>().having(
+            isA<StateError>().having(
               (error) => error.message,
               'message',
-              contains('Schema baseline was reset to v1'),
+              allOf(
+                contains(
+                  'schema v58 is newer than this app '
+                  '(v${AppDatabase.currentSchemaVersion})',
+                ),
+                contains('downgraded to an older build'),
+                contains('re-import'),
+                isNot(contains('Schema baseline was reset to v1')),
+              ),
             ),
           ),
         );
+
+        // Refused before any migration step: no schema objects were created and
+        // the stamp still belongs to the newer build.
+        final afterRefusal = raw.sqlite3.open(dbFile.path);
+        try {
+          expect(
+            afterRefusal.select('PRAGMA user_version').single['user_version'],
+            58,
+          );
+          expect(
+            afterRefusal
+                .select("SELECT name FROM sqlite_master WHERE type = 'table'")
+                .map((row) => row['name'] as String)
+                .where((name) => !name.startsWith('sqlite_')),
+            isEmpty,
+          );
+        } finally {
+          afterRefusal.close();
+        }
       },
     );
 
@@ -322,7 +354,9 @@ void main() {
         rawDb.execute(
           'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
         );
-        rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+        rawDb.execute(
+          'ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled',
+        );
         rawDb.execute('PRAGMA user_version = 3;');
         rawDb.execute('PRAGMA foreign_keys = ON;');
       } finally {
@@ -401,7 +435,9 @@ void main() {
         rawDb.execute(
           'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
         );
-        rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+        rawDb.execute(
+          'ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled',
+        );
         rawDb.execute('PRAGMA user_version = 1;');
         rawDb.execute('PRAGMA foreign_keys = ON;');
       } finally {
@@ -519,7 +555,9 @@ void main() {
           rawDb.execute(
             'ALTER TABLE member_group_entries DROP COLUMN pending_pk_op',
           );
-          rawDb.execute('ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled');
+          rawDb.execute(
+            'ALTER TABLE system_settings DROP COLUMN bio_markdown_enabled',
+          );
           rawDb.execute('PRAGMA user_version = 3;');
           rawDb.execute('PRAGMA foreign_keys = ON;');
         } finally {

@@ -131,9 +131,34 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => currentSchemaVersion;
 
+  /// The actionable refusal for a database stamped with a schema newer than
+  /// this build understands.
+  ///
+  /// SQLite happily opens such a file; the DAOs would then query columns the
+  /// older build never learned to add and fail with confusing "no such column"
+  /// errors. Both migration callbacks that can observe the version use this one
+  /// message so a user who rolled back from TestFlight / beta is told to upgrade
+  /// or export-reimport instead of seeing a corrupted-looking app.
+  ///
+  /// Drift invokes [MigrationStrategy.onUpgrade] BEFORE
+  /// [MigrationStrategy.beforeOpen], so on a downgraded file the guard has to be
+  /// the first thing onUpgrade does — reaching [_runMigrationSteps] with
+  /// `from > to` would instead throw the "schema baseline was reset to v1"
+  /// error and misdiagnose a downgrade as a pre-beta database. The beforeOpen
+  /// guard stays as the defense for any path that skips onUpgrade.
+  static StateError _downgradeError(int foundSchemaVersion) => StateError(
+    'Database schema v$foundSchemaVersion is newer than this app '
+    '(v$currentSchemaVersion). You have downgraded to an older build. Upgrade '
+    'the app, or export your data from the newer version and re-import into a '
+    'fresh install.',
+  );
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
+      // Downgrade guard, before any DDL or DML (see [_downgradeError]: drift runs
+      // this callback first, so a newer-stamped file has to be refused here).
+      if (from > to) throw _downgradeError(from);
       // Ensure the sync-repair queue exists before the runtime drain /
       // blanket backfill needs it, regardless of which step the upgrade resumes
       // from. The v37->v38 flatten step also creates it (and stamps it); this
@@ -158,20 +183,12 @@ class AppDatabase extends _$AppDatabase {
       await _createChatMessagesFtsArtifacts();
     },
     beforeOpen: (details) async {
-      // Downgrade guard. SQLite itself will happily open a file whose
-      // user_version is newer than the running app's schemaVersion —
-      // queries then fail at runtime with confusing "no such column"
-      // errors because the DAOs expect columns the older build never
-      // learned to add. Fail fast with an actionable message so a user
-      // who rolled back from TestFlight / beta knows to upgrade or
-      // export-reimport rather than hitting a corrupted-looking app.
+      // Downgrade guard, kept as the defense for any open path that does not run
+      // onUpgrade (the normal downgrade is already refused there, before any
+      // migration step; see [_downgradeError]).
       final before = details.versionBefore;
       if (before != null && before > schemaVersion) {
-        throw StateError(
-          'Database schema v$before is newer than this app (v$schemaVersion). '
-          'You have downgraded to an older build. Upgrade the app, or export '
-          'your data from the newer version and re-import into a fresh install.',
-        );
+        throw _downgradeError(before);
       }
 
       // Idempotent column reconcile. Heals databases that reached the current

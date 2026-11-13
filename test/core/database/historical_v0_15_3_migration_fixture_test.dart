@@ -799,12 +799,13 @@ void main() {
     });
 
     test(
-      'does not claim a downgrade path: a newer file is refused and kept',
+      'does not claim a downgrade path: a v42 file is refused up front, untouched',
       () async {
         final futureFile = await _seedReleasedV0153Database(
           'prism_released_v0153_downgrade_',
         );
         final seededRows = _rowSnapshot(futureFile.path);
+        final seededFingerprint = _schemaFingerprint(futureFile.path);
         final stamped = raw.sqlite3.open(futureFile.path);
         try {
           stamped.execute('PRAGMA user_version = 42');
@@ -812,22 +813,24 @@ void main() {
           stamped.close();
         }
 
-        // No downgrade path is claimed: this build refuses a v42 file. Drift
-        // runs `onUpgrade` before `beforeOpen`, so the refusal surfaces as the
-        // migration runner's "cannot be upgraded" baseline error rather than the
-        // `beforeOpen` downgrade guard — the app fails fast either way instead of
-        // running DAOs against a newer schema, and nothing in the file is
-        // rewritten. (The guard's reachability is tracked separately; this test
-        // pins the shipped behavior, not a wished-for message.)
+        // No downgrade path is claimed: a file stamped newer than this build is
+        // refused before any migration step runs, with the actionable
+        // "you have downgraded" diagnosis (drift calls onUpgrade before
+        // beforeOpen, so the refusal has to happen there to win the race).
         final refused = AppDatabase(NativeDatabase(futureFile));
         addTearDown(refused.close);
         await expectLater(
           refused.customSelect('SELECT 1').get(),
           throwsA(
-            isA<UnsupportedError>().having(
+            isA<StateError>().having(
               (error) => error.message,
               'message',
-              allOf(contains('cannot be upgraded'), contains('import')),
+              allOf(
+                contains('schema v42 is newer than this app (v41)'),
+                contains('downgraded to an older build'),
+                contains('re-import'),
+                isNot(contains('Schema baseline was reset to v1')),
+              ),
             ),
           ),
         );
@@ -842,6 +845,9 @@ void main() {
         } finally {
           afterRefusal.close();
         }
+        // No DDL ran: not even the v40 -> v41 table the runner creates before
+        // any step, and the schema object set is identical to the seeded one.
+        expect(_schemaFingerprint(futureFile.path), seededFingerprint);
         expect(
           _rowSnapshot(futureFile.path),
           seededRows,
