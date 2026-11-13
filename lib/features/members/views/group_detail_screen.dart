@@ -144,6 +144,10 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
   /// non-input rebuilt widgets is not contractual.
   final Map<String, FocusNode> _entryFocusNodes = {};
   String? _pendingFocusEntryId;
+  // Presentation only: a changing batch-query key must not erase loaded rows.
+  // Never use this snapshot for bulk fronting/search/sort decisions. It is
+  // replaced on resolution, pruned by live entries, and reset on group changes.
+  List<_GroupMemberPair>? _lastResolvedMemberPairs;
   late final OptimisticListController<_GroupMemberPair, String>
   _optimisticMemberPairs;
 
@@ -171,6 +175,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.group.id != widget.group.id) {
       _optimisticMemberPairs.clear();
+      _lastResolvedMemberPairs = null;
     }
   }
 
@@ -199,7 +204,10 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         allGroupsAsync.whenOrNull(data: (g) => g) ?? const <MemberGroup>[];
     final ancestors = _resolveAncestors(group, allGroups);
     final subGroups = ref.watch(childGroupsProvider(group.id));
-    final entries = entriesAsync.whenOrNull(data: (entries) => entries);
+    final entries = entriesAsync.whenOrNull(
+      skipLoadingOnReload: true,
+      data: (entries) => entries,
+    );
     final hasMembers = entries?.isNotEmpty ?? false;
 
     final providerVisiblePairsAsync = ref.watch(
@@ -215,20 +223,46 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             !providerVisiblePairsAsync.hasValue
         ? providerVisiblePairsAsync.error
         : null;
+    if (providerVisiblePairsAsync.hasValue) {
+      _lastResolvedMemberPairs = providerVisiblePairs;
+    }
+    final showInactive = ref.watch(showInactiveMembersProvider);
     final optimisticVisiblePairs = _optimisticMemberPairs.items;
-    final visiblePairs = _optimisticMemberPairs.displayItems(
-      providerVisiblePairs,
+    final displayedPairs = _optimisticMemberPairs.displayItems(
+      providerVisiblePairsInitialLoading
+          ? _lastResolvedMemberPairs ?? const []
+          : providerVisiblePairs,
     );
-    if (_optimisticMemberPairs.shouldClearFor(providerVisiblePairs) &&
+    // The normal resolved path needs no extra membership scan. Only retained
+    // presentation/optimistic snapshots can lag behind authoritative entries.
+    final List<_GroupMemberPair> visiblePairs;
+    if (providerVisiblePairsInitialLoading || optimisticVisiblePairs != null) {
+      final liveEntries = {
+        for (final entry in entries ?? const <MemberGroupEntry>[])
+          entry.id: entry,
+      };
+      visiblePairs = [
+        for (final pair in displayedPairs)
+          if (liveEntries[pair.$1.id]?.memberId == pair.$2.id &&
+              !pair.$2.isDeleted &&
+              (showInactive || pair.$2.isActive))
+            pair,
+      ];
+    } else {
+      visiblePairs = displayedPairs;
+    }
+    if (providerVisiblePairsAsync.hasValue &&
+        _optimisticMemberPairs.shouldClearFor(providerVisiblePairs) &&
         optimisticVisiblePairs != null) {
       _clearOptimisticMemberPairsAfterBuild(optimisticVisiblePairs);
     }
     // Prune stale FocusNodes only on membership change, not every build —
     // avoids O(n) set-construction on every scroll/drag tick/keystroke.
-    ref.listen<List<(MemberGroupEntry, Member)>>(
-      sortedGroupMembersProvider(group.id),
+    ref.listen<AsyncValue<List<MemberGroupEntry>>>(
+      groupEntriesProvider(group.id),
       (_, next) {
-        final liveIds = next.map((pair) => pair.$1.id).toSet();
+        if (!next.hasValue) return;
+        final liveIds = next.requireValue.map((entry) => entry.id).toSet();
         final stale = _entryFocusNodes.keys
             .where((id) => !liveIds.contains(id))
             .toList();
@@ -237,7 +271,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
         }
       },
     );
-    final visibleMembers = [for (final pair in visiblePairs) pair.$2];
+    final visibleMembers = [for (final pair in providerVisiblePairs) pair.$2];
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -257,7 +291,7 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
             onPressed: () => _openEditSheet(context),
           ),
           _buildOptionsMenuAction(
-            visiblePairs: visiblePairs,
+            visiblePairs: providerVisiblePairs,
             visibleMembers: visibleMembers,
             terms: terms,
             frontingTerms: frontingTerms,
@@ -354,7 +388,10 @@ class _GroupDetailBodyState extends ConsumerState<_GroupDetailBody> {
                     ),
                   );
                 }
-                if (providerVisiblePairsInitialLoading) {
+                if (providerVisiblePairsInitialLoading &&
+                    visiblePairs.isEmpty &&
+                    (_lastResolvedMemberPairs == null ||
+                        _lastResolvedMemberPairs!.isNotEmpty)) {
                   return const SliverToBoxAdapter(
                     child: SizedBox(height: _groupDetailRowsLoadingHeight),
                   );

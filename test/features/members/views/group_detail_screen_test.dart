@@ -215,6 +215,9 @@ Widget _buildSubject({
   bool withMemberRouter = false,
   FrontingNotifier? frontingNotifier,
   Stream<List<MemberGroup>>? allGroupsStream,
+  Stream<List<MemberGroupEntry>>? groupEntriesStream,
+  Stream<Map<String, Member>> Function(String)? memberBatchStream,
+  bool disableProviderRetries = false,
 }) {
   final router = withMemberRouter
       ? GoRouter(
@@ -246,6 +249,7 @@ Widget _buildSubject({
   }
   addTearDown(appPrefs.close);
   return ProviderScope(
+    retry: disableProviderRetries ? (count, error) => null : null,
     overrides: [
       appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
       frontingSessionRepositoryProvider.overrideWithValue(
@@ -262,6 +266,7 @@ Widget _buildSubject({
       ),
       allMemberListProvider.overrideWith((ref) => Stream.value(resolvedAll)),
       membersByIdsListProvider.overrideWith((ref, idsKey) {
+        if (memberBatchStream != null) return memberBatchStream(idsKey);
         final ids = idsKey.isEmpty
             ? const <String>{}
             : idsKey.split(',').toSet();
@@ -282,9 +287,11 @@ Widget _buildSubject({
         (ref, groupId) => Stream.value(groupId == group.id ? group : null),
       ),
       groupEntriesProvider.overrideWith(
-        (ref, groupId) => Stream.value(
-          allEntries.where((entry) => entry.groupId == groupId).toList(),
-        ),
+        (ref, groupId) =>
+            groupEntriesStream ??
+            Stream.value(
+              allEntries.where((entry) => entry.groupId == groupId).toList(),
+            ),
       ),
       groupTreeProvider.overrideWith(
         (ref) => GroupTreeUtils.buildGroupTree(
@@ -435,6 +442,219 @@ List<Map<Object?, Object?>> _captureSemanticAnnouncements() {
 }
 
 void main() {
+  testWidgets('bulk membership hydration never blanks already visible rows', (
+    tester,
+  ) async {
+    final group = _group(id: 'flicker-group', name: 'Synthetic group');
+    final members = [
+      for (var i = 0; i < 4; i++)
+        _member(id: 'flicker-member-$i', name: 'Stable member $i'),
+    ];
+    final entries = [
+      for (var i = 0; i < 4; i++)
+        MemberGroupEntry(
+          id: 'flicker-entry-$i',
+          groupId: group.id,
+          memberId: members[i].id,
+        ),
+    ];
+    final entryChanges = StreamController<List<MemberGroupEntry>>();
+    final batches = <String, StreamController<Map<String, Member>>>{};
+    addTearDown(() async {
+      await entryChanges.close();
+      for (final batch in batches.values) {
+        await batch.close();
+      }
+    });
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: entries,
+        activeMembers: members,
+        notifier: _FakeGroupNotifier(),
+        groupEntriesStream: entryChanges.stream,
+        memberBatchStream: (key) => batches
+            .putIfAbsent(key, StreamController<Map<String, Member>>.new)
+            .stream,
+      ),
+    );
+    entryChanges.add([entries.first]);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Stable member 0'), findsNothing);
+    final firstKey = memberIdsKey([members.first.id]);
+    batches[firstKey]!.add({members.first.id: members.first});
+    await tester.pumpAndSettle();
+    final anchor = find.text('Stable member 0');
+    expect(anchor, findsOneWidget);
+    final anchorPosition = tester.getTopLeft(anchor);
+    final focus = tester
+        .widget<Focus>(find.byKey(ValueKey('member_focus_${entries.first.id}')))
+        .focusNode!;
+    focus.requestFocus();
+    await tester.pump();
+    expect(focus.hasFocus, isTrue);
+
+    for (var count = 2; count <= 4; count++) {
+      entryChanges.add(entries.take(count).toList());
+      for (var frame = 0; frame < 4; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          anchor,
+          findsOneWidget,
+          reason:
+              'existing rows vanished during replacement batch $count, frame $frame',
+        );
+        expect(tester.getTopLeft(anchor), anchorPosition);
+        expect(
+          tester
+              .widget<Focus>(
+                find.byKey(ValueKey('member_focus_${entries.first.id}')),
+              )
+              .focusNode,
+          same(focus),
+        );
+        expect(focus.hasFocus, isTrue);
+      }
+      final key = memberIdsKey(members.take(count).map((m) => m.id));
+      batches[key]!.add({for (final m in members.take(count)) m.id: m});
+      await tester.pumpAndSettle();
+      expect(anchor, findsOneWidget);
+    }
+    // Authoritative removals are not disguised as loading or stale content.
+    entryChanges.add([entries.last]);
+    await tester.pump();
+    await tester.pump();
+    expect(anchor, findsNothing);
+    expect(find.text('Stable member 3'), findsOneWidget);
+    entryChanges.add([]);
+    await tester.pumpAndSettle();
+    expect(find.text('Stable member 3'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'resolved hidden-member empty state does not flash during additions',
+    (tester) async {
+      final group = _group(id: 'hidden-group', name: 'Synthetic hidden group');
+      final a = _member(
+        id: 'hidden-a',
+        name: 'Hidden member A',
+        isActive: false,
+      );
+      final b = _member(
+        id: 'hidden-b',
+        name: 'Hidden member B',
+        isActive: false,
+      );
+      final first = MemberGroupEntry(
+        id: 'hidden-entry-a',
+        groupId: group.id,
+        memberId: a.id,
+      );
+      final second = MemberGroupEntry(
+        id: 'hidden-entry-b',
+        groupId: group.id,
+        memberId: b.id,
+      );
+      final changes = StreamController<List<MemberGroupEntry>>();
+      final pending = StreamController<Map<String, Member>>();
+      addTearDown(() async {
+        await changes.close();
+        await pending.close();
+      });
+      await tester.pumpWidget(
+        _buildSubject(
+          group: group,
+          allGroups: [group],
+          allEntries: [first],
+          activeMembers: [],
+          allMembers: [a, b],
+          notifier: _FakeGroupNotifier(),
+          groupEntriesStream: changes.stream,
+          memberBatchStream: (key) => key == memberIdsKey([a.id])
+              ? Stream.value({a.id: a})
+              : pending.stream,
+        ),
+      );
+      changes.add([first]);
+      await tester.pumpAndSettle();
+      final title = AppLocalizations.of(
+        tester.element(find.byType(GroupDetailScreen)),
+      )!.memberGroupAllInactiveHiddenTitle;
+      expect(find.text(title), findsOneWidget);
+      changes.add([first, second]);
+      for (var frame = 0; frame < 4; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.text(title), findsOneWidget);
+        expect(
+          find.byWidgetPredicate((w) => w is SizedBox && w.height == 160),
+          findsNothing,
+        );
+      }
+      pending.add({a.id: a, b.id: b});
+      await tester.pumpAndSettle();
+      expect(find.text(title), findsOneWidget);
+    },
+  );
+
+  testWidgets('cached group rows never conceal a hydration error', (
+    tester,
+  ) async {
+    final group = _group(id: 'error-group', name: 'Synthetic error group');
+    final a = _member(id: 'error-a', name: 'Before error member');
+    final b = _member(id: 'error-b', name: 'After error member');
+    final first = MemberGroupEntry(
+      id: 'error-entry-a',
+      groupId: group.id,
+      memberId: a.id,
+    );
+    final second = MemberGroupEntry(
+      id: 'error-entry-b',
+      groupId: group.id,
+      memberId: b.id,
+    );
+    final changes = StreamController<List<MemberGroupEntry>>();
+    final pending = StreamController<Map<String, Member>>();
+    addTearDown(() async {
+      await changes.close();
+      await pending.close();
+    });
+    await tester.pumpWidget(
+      _buildSubject(
+        group: group,
+        allGroups: [group],
+        allEntries: [first],
+        activeMembers: [a, b],
+        notifier: _FakeGroupNotifier(),
+        disableProviderRetries: true,
+        groupEntriesStream: changes.stream,
+        memberBatchStream: (key) => key == memberIdsKey([a.id])
+            ? Stream.value({a.id: a})
+            : pending.stream,
+      ),
+    );
+    changes.add([first]);
+    await tester.pumpAndSettle();
+    expect(find.text(a.name), findsOneWidget);
+    changes.add([first, second]);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text(a.name), findsOneWidget);
+    pending.addError(
+      StateError('Synthetic member hydration failure'),
+      StackTrace.current,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Synthetic member hydration failure'),
+      findsOneWidget,
+    );
+    expect(find.text(a.name), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   memberFrontActionsContract(
     surface: 'group detail',
     build: (member, sessions, frontingNotifier) {
