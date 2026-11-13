@@ -12,23 +12,27 @@ import 'package:prism_plurality/core/sync/sync_schema.dart';
 
 /// Release-critical upgrade proof for a **released v0.15.3 install**.
 ///
-/// v0.15.3 shipped `AppDatabase.currentSchemaVersion == 40`; the current build
-/// is v41, whose only schema delta is the `plural_port_unsupported` table
-/// (imported interchange records retained for re-export). This test starts from
-/// the *released* v40 DDL captured in [fixturePath] — never from current tables
-/// — seeds representative user data, and proves the upgrade path:
+/// v0.15.3 shipped `AppDatabase.currentSchemaVersion == 40`; the current build is
+/// later, and its only schema delta over that release is the
+/// `plural_port_unsupported` table (imported interchange records retained for
+/// re-export). This test starts from the *released* v40 DDL captured in
+/// [fixturePath] — never from current tables — seeds representative user data,
+/// and proves the upgrade path:
 ///
-///  1. open diagnostics: `user_version` 40 before, 41 after, reported as a
+///  1. open diagnostics: the released `user_version` is observed before the open
+///     and the current version after it, and the pair is classified as a
 ///     migration rather than a fresh install;
 ///  2. data preservation for every seeded row (settings, members, groups,
 ///     fronts, reminders, custom fields/values, media metadata, tombstones and
 ///     burned incarnation ids, chats + FTS, sync bookkeeping);
-///  3. the expected v41 objects: `plural_port_unsupported` with its exact
+///  3. the expected current-schema objects: `plural_port_unsupported` with its
 ///     columns, plus the pre-existing columns and indexes the upgrade keeps;
-///  4. idempotent reopen, and resumability after an injected mid-chain kill;
+///  4. idempotent reopen, and resumability when an open fails ahead of the last
+///     step (the injected failure fires before that step's transaction opens);
+///
 ///  5. fresh-schema / upgraded-schema equivalence, object by object;
-///  6. no downgrade claim: a v42 file is still refused with the actionable
-///     "upgrade or export-reimport" error.
+///  6. no downgrade claim: a file stamped one version newer is still refused,
+///     with the actionable "upgrade or export-reimport" error.
 const fixturePath = 'test/core/database/fixtures/v0_15_3_schema.sql';
 
 /// The schema version the fixture was captured from (annotated tag v0.15.3).
@@ -459,15 +463,24 @@ Future<void> _expectUpgradedFromReleasedV0153(
   required Map<String, List<Map<String, String>>> seededRows,
   required String path,
 }) async {
-  expect(AppDatabase.currentSchemaVersion, 41);
-  expect(await _schemaVersion(database), AppDatabase.currentSchemaVersion);
+  const currentSchemaVersion = AppDatabase.currentSchemaVersion;
+  expect(
+    currentSchemaVersion,
+    greaterThan(releasedSchemaVersion),
+    reason: 'the released v0.15.3 fixture must be older than this build',
+  );
+  // The observation: the file carries the released stamp before the open and the
+  // current stamp after it.
+  expect(await _schemaVersion(database), currentSchemaVersion);
 
-  // 1. Open diagnostics: released v40 -> current v41, reported as a migration
-  //    rather than a fresh install. `DatabaseReadyReport` is what the startup
-  //    gate renders its copy from.
+  // 1. Open diagnostics classification. `DatabaseReadyReport.createdFresh` /
+  //    `.migrated` are what the startup gate renders its copy from, so pin the
+  //    CLASSIFICATION (a migration off the released version, not a fresh
+  //    install) for that observed pair — this assertion does not claim the
+  //    constants observed the open; `_schemaVersion` above is the observation.
   const diagnostics = DatabaseReadyReport(
     schemaVersionBeforeOpen: releasedSchemaVersion,
-    schemaVersionAfterOpen: 41,
+    schemaVersionAfterOpen: currentSchemaVersion,
   );
   expect(diagnostics.createdFresh, isFalse);
   expect(diagnostics.migrated, isTrue);
@@ -476,11 +489,13 @@ Future<void> _expectUpgradedFromReleasedV0153(
   expect(
     _rowSnapshot(path),
     seededRows,
-    reason: 'the v40 -> v41 upgrade must not rewrite or drop released data',
+    reason:
+        'the upgrade off the released v40 must not rewrite or drop '
+        'released data',
   );
 
   // The v37 -> v38 PluralKit delete-intent clearing step must not re-run for a
-  // v40 database: only the v40 -> v41 step applies.
+  // v40 database: only the release's final step applies.
   expect(
     await _scalar(
       database,
@@ -522,7 +537,7 @@ Future<void> _expectUpgradedFromReleasedV0153(
   // device-local.
   expect(prismSyncSchema, contains('"plural_port_unsupported"'));
 
-  // Pre-existing columns the v40 -> v41 step must leave alone.
+  // Pre-existing columns the upgrade step must leave alone.
   expect(
     await _columns(database, 'members'),
     containsAll(<String>[
@@ -670,25 +685,23 @@ Future<void> _expectUpgradedFromReleasedV0153(
 
 void main() {
   group('released v0.15.3 (schema v40) upgrade fixture', () {
-    test(
-      'opens as v41 with diagnostics, data, indexes and the new table',
-      () async {
-        final databaseFile = await _seedReleasedV0153Database(
-          'prism_released_v0153_normal_',
-        );
-        final seededRows = _rowSnapshot(databaseFile.path);
+    test('opens at the current schema with diagnostics, data, indexes and the '
+        'new table', () async {
+      final databaseFile = await _seedReleasedV0153Database(
+        'prism_released_v0153_normal_',
+      );
+      final seededRows = _rowSnapshot(databaseFile.path);
 
-        final database = AppDatabase(NativeDatabase(databaseFile));
-        addTearDown(database.close);
-        await database.customSelect('SELECT 1').get();
+      final database = AppDatabase(NativeDatabase(databaseFile));
+      addTearDown(database.close);
+      await database.customSelect('SELECT 1').get();
 
-        await _expectUpgradedFromReleasedV0153(
-          database,
-          seededRows: seededRows,
-          path: databaseFile.path,
-        );
-      },
-    );
+      await _expectUpgradedFromReleasedV0153(
+        database,
+        seededRows: seededRows,
+        path: databaseFile.path,
+      );
+    });
 
     test('reopening the upgraded database is idempotent', () async {
       final databaseFile = await _seedReleasedV0153Database(
@@ -711,7 +724,8 @@ void main() {
         _rowSnapshot(databaseFile.path),
         seededRows,
         reason:
-            're-running the chain from 41 must be a no-op for released rows',
+            're-running the chain from the current version must be a no-op '
+            'for released rows',
       );
       final importedRows = await second
           .customSelect('SELECT COUNT(*) AS c FROM plural_port_unsupported')
@@ -723,137 +737,147 @@ void main() {
       );
     });
 
-    test(
-      'resumes an injected mid-chain kill without losing released data',
-      () async {
-        final databaseFile = await _seedReleasedV0153Database(
-          'prism_released_v0153_resume_',
-        );
-        final seededRows = _rowSnapshot(databaseFile.path);
+    test('resumes when an open fails ahead of the last step, without losing '
+        'released data', () async {
+      final databaseFile = await _seedReleasedV0153Database(
+        'prism_released_v0153_resume_',
+      );
+      final seededRows = _rowSnapshot(databaseFile.path);
 
-        final interrupted = AppDatabase(NativeDatabase(databaseFile))
-          ..debugFailMigrationStepTo = 41;
-        await expectLater(
-          interrupted.customSelect('SELECT 1').get(),
-          throwsA(isA<StateError>()),
-        );
-        await interrupted.close();
+      // `debugFailMigrationStepTo` throws before the step's transaction opens,
+      // so this models an open that died just ahead of the last step. It does
+      // NOT exercise a mid-transaction rollback — there is no fault-injection
+      // seam for that in this release, and none is added here.
+      final interrupted = AppDatabase(NativeDatabase(databaseFile))
+        ..debugFailMigrationStepTo = AppDatabase.currentSchemaVersion;
+      await expectLater(
+        interrupted.customSelect('SELECT 1').get(),
+        throwsA(isA<StateError>()),
+      );
+      await interrupted.close();
 
-        final afterKill = raw.sqlite3.open(databaseFile.path);
-        try {
-          expect(
-            _userVersion(afterKill),
-            40,
-            reason:
-                'the v40 -> v41 step committed neither its DDL nor its stamp',
-          );
-          final tables = afterKill
-              .select("SELECT name FROM sqlite_master WHERE type = 'table'")
-              .map((row) => row['name'] as String)
-              .toSet();
-          expect(tables, isNot(contains('plural_port_unsupported')));
-        } finally {
-          afterKill.close();
-        }
+      final afterKill = raw.sqlite3.open(databaseFile.path);
+      try {
         expect(
-          _rowSnapshot(databaseFile.path),
-          seededRows,
-          reason: 'a failed upgrade step must roll back completely',
+          _userVersion(afterKill),
+          releasedSchemaVersion,
+          reason:
+              'the failure fired before the last step opened its '
+              'transaction, so neither its DDL nor its stamp was attempted',
         );
-
-        final resumed = AppDatabase(NativeDatabase(databaseFile));
-        addTearDown(resumed.close);
-        await resumed.customSelect('SELECT 1').get();
-
-        await _expectUpgradedFromReleasedV0153(
-          resumed,
-          seededRows: seededRows,
-          path: databaseFile.path,
-        );
-      },
-    );
-
-    test('fresh v41 schema and upgraded v40 schema are equivalent', () async {
-      final upgradedFile = await _seedReleasedV0153Database(
-        'prism_released_v0153_equivalence_',
-      );
-      final upgraded = AppDatabase(NativeDatabase(upgradedFile));
-      await upgraded.customSelect('SELECT 1').get();
-      await upgraded.close();
-
-      final freshDirectory = await _temporaryDirectory(
-        'prism_fresh_v41_equivalence_',
-      );
-      final freshFile = File('${freshDirectory.path}/prism.sqlite');
-      final fresh = AppDatabase(NativeDatabase(freshFile));
-      await fresh.customSelect('SELECT 1').get();
-      await fresh.close();
-
+        final tables = afterKill
+            .select("SELECT name FROM sqlite_master WHERE type = 'table'")
+            .map((row) => row['name'] as String)
+            .toSet();
+        expect(tables, isNot(contains('plural_port_unsupported')));
+      } finally {
+        afterKill.close();
+      }
       expect(
-        _schemaFingerprint(upgradedFile.path),
-        _schemaFingerprint(freshFile.path),
+        _rowSnapshot(databaseFile.path),
+        seededRows,
         reason:
-            'an upgraded v40 database must match a freshly created v41 '
-            'database object for object',
+            'an open that fails ahead of the last step must leave the '
+            'released rows exactly as seeded',
+      );
+
+      final resumed = AppDatabase(NativeDatabase(databaseFile));
+      addTearDown(resumed.close);
+      await resumed.customSelect('SELECT 1').get();
+
+      await _expectUpgradedFromReleasedV0153(
+        resumed,
+        seededRows: seededRows,
+        path: databaseFile.path,
       );
     });
 
     test(
-      'does not claim a downgrade path: a v42 file is refused up front, untouched',
+      'fresh current schema and upgraded released schema are equivalent',
       () async {
-        final futureFile = await _seedReleasedV0153Database(
-          'prism_released_v0153_downgrade_',
+        final upgradedFile = await _seedReleasedV0153Database(
+          'prism_released_v0153_equivalence_',
         );
-        final seededRows = _rowSnapshot(futureFile.path);
-        final seededFingerprint = _schemaFingerprint(futureFile.path);
-        final stamped = raw.sqlite3.open(futureFile.path);
-        try {
-          stamped.execute('PRAGMA user_version = 42');
-        } finally {
-          stamped.close();
-        }
+        final upgraded = AppDatabase(NativeDatabase(upgradedFile));
+        await upgraded.customSelect('SELECT 1').get();
+        await upgraded.close();
 
-        // No downgrade path is claimed: a file stamped newer than this build is
-        // refused before any migration step runs, with the actionable
-        // "you have downgraded" diagnosis (drift calls onUpgrade before
-        // beforeOpen, so the refusal has to happen there to win the race).
-        final refused = AppDatabase(NativeDatabase(futureFile));
-        addTearDown(refused.close);
-        await expectLater(
-          refused.customSelect('SELECT 1').get(),
-          throwsA(
-            isA<StateError>().having(
-              (error) => error.message,
-              'message',
-              allOf(
-                contains('schema v42 is newer than this app (v41)'),
-                contains('downgraded to an older build'),
-                contains('re-import'),
-                isNot(contains('Schema baseline was reset to v1')),
-              ),
-            ),
-          ),
+        final freshDirectory = await _temporaryDirectory(
+          'prism_fresh_schema_equivalence_',
         );
+        final freshFile = File('${freshDirectory.path}/prism.sqlite');
+        final fresh = AppDatabase(NativeDatabase(freshFile));
+        await fresh.customSelect('SELECT 1').get();
+        await fresh.close();
 
-        final afterRefusal = raw.sqlite3.open(futureFile.path);
-        try {
-          expect(
-            _userVersion(afterRefusal),
-            42,
-            reason: 'a refused open must not stamp the file with this schema',
-          );
-        } finally {
-          afterRefusal.close();
-        }
-        // No DDL ran: not even the v40 -> v41 table the runner creates before
-        // any step, and the schema object set is identical to the seeded one.
-        expect(_schemaFingerprint(futureFile.path), seededFingerprint);
         expect(
-          _rowSnapshot(futureFile.path),
-          seededRows,
-          reason: 'a refused downgrade must leave the newer file untouched',
+          _schemaFingerprint(upgradedFile.path),
+          _schemaFingerprint(freshFile.path),
+          reason:
+              'an upgraded released database must match a freshly created '
+              'current-schema database object for object',
         );
       },
     );
+
+    test('does not claim a downgrade path: a newer-stamped file is refused up '
+        'front, untouched', () async {
+      const newerSchemaVersion = AppDatabase.currentSchemaVersion + 1;
+      final futureFile = await _seedReleasedV0153Database(
+        'prism_released_v0153_downgrade_',
+      );
+      final seededRows = _rowSnapshot(futureFile.path);
+      final seededFingerprint = _schemaFingerprint(futureFile.path);
+      final stamped = raw.sqlite3.open(futureFile.path);
+      try {
+        stamped.execute('PRAGMA user_version = $newerSchemaVersion');
+      } finally {
+        stamped.close();
+      }
+
+      // No downgrade path is claimed: a file stamped newer than this build is
+      // refused before any migration step runs, with the actionable
+      // "you have downgraded" diagnosis (drift calls onUpgrade before
+      // beforeOpen, so the refusal has to happen there to win the race).
+      final refused = AppDatabase(NativeDatabase(futureFile));
+      addTearDown(refused.close);
+      await expectLater(
+        refused.customSelect('SELECT 1').get(),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains(
+                'schema v$newerSchemaVersion is newer than this app '
+                '(v${AppDatabase.currentSchemaVersion})',
+              ),
+              contains('downgraded to an older build'),
+              contains('re-import'),
+              isNot(contains('Schema baseline was reset to v1')),
+            ),
+          ),
+        ),
+      );
+
+      final afterRefusal = raw.sqlite3.open(futureFile.path);
+      try {
+        expect(
+          _userVersion(afterRefusal),
+          newerSchemaVersion,
+          reason: 'a refused open must not stamp the file with this schema',
+        );
+      } finally {
+        afterRefusal.close();
+      }
+      // No DDL ran: not even `plural_port_unsupported`, and the schema object
+      // set is identical to the seeded one.
+      expect(_schemaFingerprint(futureFile.path), seededFingerprint);
+      expect(
+        _rowSnapshot(futureFile.path),
+        seededRows,
+        reason: 'a refused downgrade must leave the newer file untouched',
+      );
+    });
   });
 }
