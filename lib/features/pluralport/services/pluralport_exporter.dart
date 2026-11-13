@@ -475,6 +475,9 @@ class PluralPortExporter {
       PluralPortMapper.setRows(result, path, unique.values.toList());
     }
     _removeDanglingReferences(result);
+    // After detachment, so records archived as source evidence keep their
+    // original boundaries verbatim; only the live portable module is repaired.
+    _repairFrontPeriodBoundaries(result);
     result['warnings'] = warnings
         .map(
           (s) => {'level': 'warning', 'code': s.split(':').first, 'message': s},
@@ -510,6 +513,46 @@ class PluralPortExporter {
         .toSet()
         .toList();
     return PluralPortBundle(result, files: files);
+  }
+
+  /// Repairs portable front-period intervals that Prism's own validator would
+  /// reject, without touching native storage.
+  ///
+  /// [convert] emits the untouched native row under `extensions.prism.native`,
+  /// so the original values stay traceable in the file; only the portable
+  /// `ended_at` is clamped to the smallest interval Prism accepts (`started_at`
+  /// + 1 second). Dropping the record instead would silently lose history, and
+  /// copying the native values through would emit a file this app refuses to
+  /// import. Each adjusted record is named by id in a warning; no member name,
+  /// note, or timestamp detail is included.
+  void _repairFrontPeriodBoundaries(Json envelope) {
+    for (final record in PluralPortMapper.rows(envelope, 'front_periods')) {
+      final rawStart = record['started_at'];
+      final rawEnd = record['ended_at'];
+      if (rawStart is! String || rawEnd is! String) continue;
+      final start = DateTime.tryParse(rawStart);
+      final end = DateTime.tryParse(rawEnd);
+      if (start == null || end == null || !end.isBefore(start)) continue;
+      final extensions =
+          extensionObject(record['extensions']) ?? <String, dynamic>{};
+      record['extensions'] = extensions;
+      final prism =
+          extensions.putIfAbsent('prism', () => <String, dynamic>{}) as Json;
+      prism.putIfAbsent(
+        'original_front_period_boundaries',
+        () => {'started_at': rawStart, 'ended_at': rawEnd},
+      );
+      record['ended_at'] = start
+          .toUtc()
+          .add(const Duration(seconds: 1))
+          .toIso8601String();
+      warnings.add(
+        'front_period_adjusted: front_periods/${record['id']} ended before it '
+        'started; exported ended_at is one second after started_at. The '
+        'original boundaries are preserved under '
+        'extensions.prism.original_front_period_boundaries.',
+      );
+    }
   }
 
   Json convert(String path, Json r, {Json? fieldDefinition}) {

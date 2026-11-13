@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/pluralport/widgets/pluralport_brand.dar
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
+import 'package:prism_plurality/features/pluralport/services/pluralport_bundle.dart';
 import 'package:prism_plurality/features/pluralport/services/pluralport_mapper.dart';
 import 'package:prism_plurality/features/pluralport/services/pluralport_service.dart';
 import 'package:prism_plurality/features/pluralport/views/pluralport_sheet.dart';
@@ -36,11 +37,19 @@ class _Service extends PluralPortService {
   Completer<void>? importGate;
   int importCalls = 0;
   Object? importError;
+  Object? previewError;
+  PluralPortBundle? exportedBundle;
   bool? replacedProfile;
   bool? restoredPreferences;
   @override
-  Future<PluralPortImportPlan> preview(Uint8List bytes) async =>
-      PluralPortService.previewBytes(bytes);
+  Future<PluralPortImportPlan> preview(Uint8List bytes) async {
+    if (previewError case final error?) throw error;
+    return PluralPortService.previewBytes(bytes);
+  }
+
+  @override
+  Future<PluralPortBundle> exportBundle() async =>
+      exportedBundle ?? super.exportBundle();
   @override
   Future<ImportResult> importPlan(
     PluralPortImportPlan plan, {
@@ -68,6 +77,15 @@ class _Files implements PrismFileDialogService {
   _Files(this.bytes);
   Uint8List bytes;
   bool cancel = false;
+  int saveCalls = 0;
+  @override
+  Future<SaveFileOutcome> saveExistingFile(
+    ExistingFileSaveRequest request,
+  ) async {
+    saveCalls++;
+    return const SaveFileOutcome(status: SaveFileStatus.saved);
+  }
+
   @override
   Future<PickedFileHandle?> pickFile({
     required List<String> allowedExtensions,
@@ -246,6 +264,31 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('export preview failure never opens the save dialog', (
+    tester,
+  ) async {
+    final db = makeDb();
+    addTearDown(db.close);
+    final service = _Service(db)
+      ..exportedBundle = PluralPortBundle({
+        'openplural_version': '0.1',
+        'producer': {'app': 'Test'},
+      })
+      ..previewError = const FormatException('self-preview failed');
+    final files = _Files(Uint8List(0));
+    await _showSheet(tester, service, files);
+
+    await tester.tap(find.text('Export PluralPort'));
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(files.saveCalls, 0);
+    expect(find.textContaining('self-preview failed'), findsOneWidget);
+  });
 
   testWidgets(
     'preview is separate from import; profile replacement is opt-in',

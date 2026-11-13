@@ -123,6 +123,28 @@ asset, and 10,000 ZIP entries. The encoded preservation document has its own
 384 MiB limit. Media missing from this device is reported in export warnings.
 Portable files are not a replacement for encrypted native backups.
 
+Export verifies cached media before including it. If sync is available, it can
+recover missing Prism media through the authenticated download manager; it never
+fetches arbitrary external URLs. Recovery attempts at most 32 items, accepts at
+most 32 MiB of recovered plaintext, and waits at most 45 seconds on recovery.
+These are export-side limits, not a streaming network quota: a final response can
+exceed the byte allowance before it is rejected, and a timed-out download may
+still finish writing encrypted cache bytes. Plaintext stays in memory or the
+explicit export staging file. Verified originals can regenerate up to 200 missing
+image thumbnails without changing native attachment metadata. The export media
+budget is 96 MiB, including retained files; omitted media is counted in warnings.
+
+Missing or unverifiable media declarations become metadata-only records rather
+than dangling paths. Their original path/hash/size declarations are retained as
+Prism extension evidence. Strictly inverted legacy front periods export with an
+end one second after the start; original portable boundaries and native evidence
+remain in extensions, and the live database is not repaired by exporting. Foreign
+malformed intervals are still rejected on import.
+
+Before the save dialog opens, the exact encoded export must pass Prism's import
+preview. A failed check stops saving and reports the error rather than claiming a
+successful export.
+
 The implementation uses the draft contract; no upstream machine-readable schema
 or conformance fixtures are available yet. Tests cover aliases, round trips,
 local edits/deletions, unknown data, ZIP validation, native backup restoration,

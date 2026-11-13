@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -8,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/services/media/download_manager.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -26,6 +29,35 @@ final pluralPortServiceProvider = Provider(
     db: ref.watch(databaseProvider),
     exporter: ref.watch(dataExportServiceProvider),
     importer: ref.watch(dataImportServiceProvider),
+    // Recovery stays on the app's authenticated sync download path: no external
+    // URL is ever fetched, and both closures read their provider at call time so
+    // a sync-handle blip mid-export cannot rebuild the service underneath it.
+    recovery: PluralPortMediaRecovery(
+      fetch: (request) async {
+        final result = await ref
+            .read(downloadManagerProvider)
+            .getMedia(
+              mediaId: request.mediaId,
+              encryptionKey: Uint8List.fromList(
+                base64Decode(request.encryptionKeyB64),
+              ),
+              ciphertextHash: request.contentHash,
+              plaintextHash: request.plaintextHash,
+            );
+        return switch (result) {
+          MediaFetchOk(:final bytes) => PluralPortRemoteMedia.ok(bytes),
+          MediaFetchFailure(:final kind) => PluralPortRemoteMedia.failed(
+            '$kind',
+          ),
+        };
+      },
+      generateThumbnail: (original) async {
+        final thumbnail = await ref
+            .read(imageCompressionServiceProvider)
+            .generateThumbnail(original);
+        return PluralPortRecoveredMedia(bytes: thumbnail);
+      },
+    ),
   ),
 );
 
@@ -159,10 +191,38 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
     }
   });
 
-  static Uint8List _encode(PluralPortBundle bundle) => bundle.encode();
+  static Uint8List _encode(PluralPortBundle bundle) {
+    try {
+      return bundle.encode();
+    } on FormatException catch (error) {
+      if (const {
+        'PluralPort JSON exceeds 32 MiB.',
+        'PluralPort bundle exceeds its limit.',
+        'PluralPort ZIP exceeds 128 MiB.',
+      }.contains(error.message)) {
+        throw const FormatException(
+          'This export exceeds PluralPort archive limits. '
+          'Create a native Prism backup to preserve your data instead.',
+        );
+      }
+      rethrow;
+    }
+  }
+
   Future<void> _export() => _run(() async {
-    final bundle = await ref.read(pluralPortServiceProvider).exportBundle();
+    final service = ref.read(pluralPortServiceProvider);
+    final bundle = await service.exportBundle();
+    // Self-consistency first: every declared media path must name bytes the
+    // bundle actually holds, or the archive would promise a file it cannot ship.
+    final mediaProblems = PluralPortService.validateBundle(bundle);
+    if (mediaProblems.isNotEmpty) {
+      throw StateError(mediaProblems.join('\n'));
+    }
     final bytes = await compute(_encode, bundle);
+    // Prove the exact encoded bytes can be previewed before offering them to
+    // the save dialog. An export Prism itself cannot read must never report
+    // success; known legacy incompatibilities are repaired during projection.
+    await service.preview(bytes);
     final directory = await getTemporaryDirectory();
     final staging = await Directory(
       '${directory.path}/pluralport-${const Uuid().v4()}',
@@ -179,10 +239,12 @@ class _PluralPortSheetState extends ConsumerState<PluralPortSheet> {
     if (oldDirectory != null) await oldDirectory.delete(recursive: true);
     if (!mounted) return;
     final warnings = bundle.envelope['warnings'] as List;
-    if (warnings.isNotEmpty) {
-      setState(
-        () => _status = warnings.map((w) => (w as Map)['message']).join('\n'),
-      );
+    final statusLines = <String>[
+      if (warnings.isNotEmpty)
+        warnings.map((w) => (w as Map)['message']).join('\n'),
+    ];
+    if (statusLines.isNotEmpty) {
+      setState(() => _status = statusLines.join('\n'));
     }
     await _save();
   });

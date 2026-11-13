@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +21,154 @@ import 'pluralport_exporter.dart';
 import 'pluralport_mapper.dart';
 import 'pluralport_preservation.dart';
 
+/// A media payload the exporter may add to a bundle, plus the mime type the
+/// producing encoder reported. An empty [mimeType] means "sniff the bytes".
+class PluralPortRecoveredMedia {
+  const PluralPortRecoveredMedia({required this.bytes, this.mimeType = ''});
+
+  final Uint8List bytes;
+  final String mimeType;
+}
+
+/// One request for a blob the export did not find in the local cache.
+///
+/// Only Prism media ids ever appear here. Recovery never fetches
+/// `source_url`/`preview_url` references, and the production implementation is
+/// the app's authenticated sync download path.
+class PluralPortMediaFetchRequest {
+  const PluralPortMediaFetchRequest({
+    required this.mediaId,
+    required this.encryptionKeyB64,
+    required this.contentHash,
+    required this.plaintextHash,
+  });
+
+  final String mediaId;
+  final String encryptionKeyB64;
+  final String contentHash;
+  final String plaintextHash;
+}
+
+/// Outcome of one recovery fetch. Failures carry a reason for the warning and
+/// never throw across this boundary: a failed fetch degrades to a warning and
+/// can never fail the archive.
+class PluralPortRemoteMedia {
+  const PluralPortRemoteMedia.ok(this.bytes) : failure = null;
+  const PluralPortRemoteMedia.failed(this.failure) : bytes = null;
+
+  final Uint8List? bytes;
+  final String? failure;
+}
+
+typedef PluralPortMediaFetchFn =
+    Future<PluralPortRemoteMedia> Function(PluralPortMediaFetchRequest request);
+
+typedef PluralPortThumbnailFn =
+    Future<PluralPortRecoveredMedia> Function(Uint8List original);
+
+/// Caps for on-demand media recovery during an explicit export.
+class PluralPortMediaRecoveryLimits {
+  const PluralPortMediaRecoveryLimits({
+    this.maxRemoteItems = 32,
+    this.maxRemoteBytes = 32 * 1024 * 1024,
+    this.remoteDeadline = const Duration(seconds: 45),
+    this.maxGeneratedThumbnails = 200,
+    this.maxBundleMediaBytes = 96 * 1024 * 1024,
+  });
+
+  /// Blobs one export may ask the sync relay for.
+  final int maxRemoteItems;
+
+  /// Maximum plaintext bytes accepted from recovery. The download manager's
+  /// underlying request may receive one final blob before this limit is checked.
+  final int maxRemoteBytes;
+
+  /// Maximum time the export waits on remote recovery. A timed-out manager
+  /// request can still complete its encrypted cache write in the background.
+  final Duration remoteDeadline;
+
+  /// Thumbnails regenerated from verified originals in one export.
+  final int maxGeneratedThumbnails;
+
+  /// Total bytes one export will add to the bundle (originals plus
+  /// thumbnails), kept well under [PluralPortBundle.maxExpanded] so a large
+  /// library cannot turn a successful recovery into a failed `encode()`.
+  final int maxBundleMediaBytes;
+}
+
+/// Injectable media source for export recovery.
+///
+/// Production wires [fetch] to the app's authenticated download manager (the
+/// only network path an export may use) and [generateThumbnail] to the image
+/// codec; tests inject fakes and never touch the network. A null
+/// [PluralPortService.recovery] means offline cache-only recovery.
+class PluralPortMediaRecovery {
+  const PluralPortMediaRecovery({
+    required this.fetch,
+    required this.generateThumbnail,
+    this.limits = const PluralPortMediaRecoveryLimits(),
+  });
+
+  final PluralPortMediaFetchFn fetch;
+  final PluralPortThumbnailFn generateThumbnail;
+  final PluralPortMediaRecoveryLimits limits;
+}
+
+/// Book-keeping for one export's media pass: shared remote caps and a bundle
+/// byte budget, so recovery can never turn into an unbounded download or an
+/// `encode()` that overflows the archive limits.
+class _ExportMediaState {
+  _ExportMediaState(this.recovery, PluralPortBundle bundle)
+    : limits = recovery?.limits ?? const PluralPortMediaRecoveryLimits(),
+      _watch = Stopwatch()..start() {
+    bundleBytes = bundle.files.values.fold(
+      0,
+      (total, bytes) => total + bytes.length,
+    );
+  }
+
+  final PluralPortMediaRecovery? recovery;
+  final PluralPortMediaRecoveryLimits limits;
+  final Stopwatch _watch;
+
+  int remoteAttempts = 0;
+  int remoteBytes = 0;
+  int generatedThumbnails = 0;
+  int bundleBytes = 0;
+  int omittedBundleItems = 0;
+  int omittedBundleBytes = 0;
+
+  /// Set once, so an exhausted cap produces one explanation instead of one per
+  /// remaining attachment.
+  bool remoteLimitReported = false;
+
+  /// Whether another authenticated fetch fits the item, byte and time caps.
+  bool get canFetchRemote =>
+      recovery != null &&
+      remoteAttempts < limits.maxRemoteItems &&
+      remoteBytes < limits.maxRemoteBytes &&
+      _watch.elapsed < limits.remoteDeadline;
+
+  Duration get remainingRemoteTime => limits.remoteDeadline - _watch.elapsed;
+
+  bool get canGenerateThumbnail =>
+      recovery != null && generatedThumbnails < limits.maxGeneratedThumbnails;
+
+  /// Reserve [length] bundle bytes for [path], or report that the media budget
+  /// is exhausted. A path already in the bundle costs nothing.
+  bool reserveMediaBytes(PluralPortBundle bundle, String path, int length) {
+    if (bundle.files.containsKey(path)) return true;
+    if (length > PluralPortBundle.maxAsset ||
+        bundleBytes + length > limits.maxBundleMediaBytes) {
+      omittedBundleItems += 1;
+      omittedBundleBytes += length;
+      return false;
+    }
+    bundleBytes += length;
+    return true;
+  }
+}
+
 class PluralPortService {
   PluralPortService({
     required this.db,
@@ -26,6 +176,7 @@ class PluralPortService {
     required this.importer,
     MediaEncryptionService? encryption,
     Future<Directory> Function()? supportDirectory,
+    this.recovery,
   }) : encryption = encryption ?? MediaEncryptionService(),
        supportDirectory = supportDirectory ?? getApplicationSupportDirectory;
   final AppDatabase db;
@@ -33,6 +184,10 @@ class PluralPortService {
   final DataImportService importer;
   final MediaEncryptionService encryption;
   final Future<Directory> Function() supportDirectory;
+
+  /// Optional on-demand recovery for media the local cache no longer holds.
+  /// Null keeps the export fully offline (cached bytes and metadata only).
+  final PluralPortMediaRecovery? recovery;
 
   static PluralPortImportPlan previewBytes(Uint8List bytes) =>
       PluralPortMapper.plan(PluralPortBundle.decode(bytes));
@@ -582,183 +737,633 @@ class PluralPortService {
       }
       prism!['media_attachments'] = retained;
     }
-    final messages = {
+    final messages = <String, Json>{
       for (final m in PluralPortMapper.rows(bundle.envelope, 'chat.messages'))
-        m['id']: m,
+        m['id'] as String: m,
     };
+    // One media pass with shared budgets: local bytes first, then (only when a
+    // recovery adapter is wired and the caps allow) the authenticated download
+    // path. Every miss becomes a warning; nothing here can fail the archive.
+    final mediaState = _ExportMediaState(recovery, bundle);
     for (final attachment in PluralPortMapper.rows(data, 'mediaAttachments')) {
-      final mediaId = attachment['mediaId'] as String;
-      final id = PluralPortMapper.stableId(
-        'prism/media',
-        attachment['id'] as String,
+      await _addAttachmentMedia(
+        bundle: bundle,
+        assetRecords: assetRecords,
+        previousAssociations: previousAssociations,
+        messages: messages,
+        directory: directory,
+        state: mediaState,
+        attachment: attachment,
       );
-      final existingAsset = assetRecords
-          .cast<Json>()
-          .where(
-            (a) =>
-                ((attachment['plaintextHash'] as String? ?? '').isNotEmpty &&
-                    a['sha256'] == attachment['plaintextHash']) ||
-                // URL-only media has no content hash. Reuse its stable asset
-                // identity when re-exporting a previously imported archive.
-                (mediaId.isEmpty && a['id'] == id),
-          )
-          .firstOrNull;
-      final exportAssetId = existingAsset?['id'] ?? id;
-      if (existingAsset == null) {
-        assetRecords.add({
-          'id': id,
-          'kind': attachment['mediaType'] == 'gif'
-              ? 'video'
-              : attachment['mediaType'],
-          'source_refs': [
-            {'app': 'prism', 'collection': 'assets', 'id': id},
-          ],
-          'mime_type': attachment['mimeType'],
-          if (mediaId.isNotEmpty)
-            'bundle_path': 'assets/${attachment['plaintextHash']}',
-          if (mediaId.isEmpty) 'uri': attachment['sourceUrl'],
-          'sha256': attachment['plaintextHash'],
-          'width': attachment['width'],
-          'height': attachment['height'],
-        });
-      }
-      final asset = assetRecords.cast<Json>().firstWhere(
-        (a) => a['id'] == exportAssetId,
-      );
-      final extensions =
-          extensionObject(asset['extensions']) ?? <String, dynamic>{};
-      asset['extensions'] = extensions;
-      final prism =
-          extensions.putIfAbsent('prism', () => <String, dynamic>{}) as Json;
-      final associations =
-          prism.putIfAbsent('media_attachments', () => <dynamic>[]) as List;
-      final previous = previousAssociations[attachment['id']] ?? {};
-      final association = <String, dynamic>{
-        ...previous,
-        'native': {
-          ...((previous['native'] as Map?)?.cast<String, dynamic>() ?? {}),
-          for (final entry in attachment.entries)
-            if (!const {
-              'mediaId',
-              'encryptionKeyB64',
-              'contentHash',
-              'plaintextHash',
-              'thumbnailMediaId',
-              'thumbnailContentHash',
-              'thumbnailPlaintextHash',
-            }.contains(entry.key))
-              entry.key: entry.value,
-        },
-        'id': attachment['id'],
-        'member_id': attachment['memberId'],
-        'message_id': attachment['messageId'],
-        'tag': attachment['tag'],
-        'duration_ms': attachment['durationMs'],
-        'waveform_b64': attachment['waveformB64'],
-        'media_type': attachment['mediaType'],
-        'blurhash': attachment['blurhash'],
-        'source_url': attachment['sourceUrl'],
-        'preview_url': attachment['previewUrl'],
-        'width': attachment['width'],
-        'height': attachment['height'],
-        'mime_type': attachment['mimeType'],
-      };
-      final thumbnailId = attachment['thumbnailMediaId'] as String? ?? '';
-      if (thumbnailId.isNotEmpty) {
-        final thumbnailAssetId = PluralPortMapper.stableId(
-          'prism/thumbnail',
-          attachment['id'] as String,
-        );
-        final thumbnailPath = 'assets/${attachment['thumbnailPlaintextHash']}';
-        association['thumbnail_asset_id'] = thumbnailAssetId;
-        if (!assetRecords.cast<Json>().any(
-          (a) => a['id'] == thumbnailAssetId,
-        )) {
-          assetRecords.add({
-            'id': thumbnailAssetId,
-            'source_refs': [
-              {'app': 'prism', 'collection': 'assets', 'id': thumbnailAssetId},
-            ],
-            'kind': 'image',
-            'mime_type': 'image/jpeg',
-            'bundle_path': thumbnailPath,
-            'sha256': attachment['thumbnailPlaintextHash'],
-          });
-        }
-        try {
-          final thumbnailFile = File(
-            '${directory.path}/prism_media/$thumbnailId.enc',
-          );
-          if (await thumbnailFile.length() > PluralPortBundle.maxAsset + 1024) {
-            throw const FormatException(
-              'Thumbnail exceeds the bundle asset limit.',
-            );
-          }
-          bundle.files[thumbnailPath] = await encryption.decryptMedia(
-            ciphertext: await thumbnailFile.readAsBytes(),
-            key: base64Decode(attachment['encryptionKeyB64'] as String),
-            expectedCiphertextHash:
-                attachment['thumbnailContentHash'] as String,
-            expectedPlaintextHash:
-                attachment['thumbnailPlaintextHash'] as String,
-          );
-        } on FileSystemException {
-          (bundle.envelope['warnings'] as List).add({
-            'level': 'warning',
-            'code': 'asset_bundle_missing',
-            'message':
-                'Thumbnail ${attachment['id']} is not cached on this device.',
-          });
-        }
-      }
-      if (!associations.any(
-        (a) => canonicalJson(a) == canonicalJson(association),
-      )) {
-        associations.add(association);
-      }
-      if (attachment['memberId'] != null) {
-        (bundle.envelope['warnings'] as List).add({
-          'level': 'warning',
-          'code': 'member_media_archived',
-          'message':
-              'Member media is included with its Prism association metadata; other apps may not display it.',
-        });
-      }
-      final message = messages[attachment['messageId']];
-      if (message != null) {
-        final linked =
-            message.putIfAbsent('attachment_asset_ids', () => <dynamic>[])
-                as List;
-        if (!linked.contains(exportAssetId)) linked.add(exportAssetId);
-      }
-      if (mediaId.isEmpty) continue;
-      final file = File('${directory.path}/prism_media/$mediaId.enc');
-      try {
-        if (await file.length() > PluralPortBundle.maxAsset + 1024) {
-          throw const FormatException('Media exceeds the bundle asset limit.');
-        }
-        final bytes = await encryption.decryptMedia(
-          ciphertext: await file.readAsBytes(),
-          key: base64Decode(attachment['encryptionKeyB64'] as String),
-          expectedCiphertextHash: attachment['contentHash'] as String,
-          expectedPlaintextHash: attachment['plaintextHash'] as String,
-        );
-        final path = asset['bundle_path'] as String;
-        asset['size_bytes'] = bytes.length;
-        bundle.files[path] = bytes;
-      } on FileSystemException {
-        (bundle.envelope['warnings'] as List).add({
-          'level': 'warning',
-          'code': 'asset_bundle_missing',
-          'message': 'Media ${attachment['id']} is not cached on this device.',
-        });
-      }
     }
+    if (mediaState.omittedBundleItems > 0) {
+      (bundle.envelope['warnings'] as List).add({
+        'level': 'warning',
+        'code': 'asset_bundle_omitted',
+        'message':
+            '${mediaState.omittedBundleItems} media item(s) '
+            '(${mediaState.omittedBundleBytes} bytes) were omitted because '
+            'this export reached its media size limit.',
+      });
+    }
+    _repairAbsentDeclarations(bundle);
     if (assetRecords.isNotEmpty) {
       final modules =
           (bundle.envelope['capabilities'] as Json)['modules'] as List;
       if (!modules.contains('assets')) modules.add('assets');
     }
     return bundle;
+  }
+
+  /// Add one native attachment's original, thumbnail and metadata to [bundle].
+  ///
+  /// Local-first: the cached encrypted blob, then — only when a
+  /// [PluralPortMediaRecovery] is wired and the budgets allow — the app's
+  /// authenticated sync download. A missing image thumbnail is regenerated from
+  /// the verified original rather than left empty. Every failure becomes a
+  /// warning, and a blob that never resolves is exported as metadata only: the
+  /// export never declares a path, hash or size for bytes it does not hold.
+  Future<void> _addAttachmentMedia({
+    required PluralPortBundle bundle,
+    required List assetRecords,
+    required Map<String, Json> previousAssociations,
+    required Map<String, Json> messages,
+    required Directory directory,
+    required _ExportMediaState state,
+    required Json attachment,
+  }) async {
+    final attachmentId = attachment['id'] as String;
+    final mediaType = attachment['mediaType'] as String? ?? '';
+    final mediaId = attachment['mediaId'] as String? ?? '';
+    final encryptionKeyB64 = attachment['encryptionKeyB64'] as String? ?? '';
+    final contentHash = attachment['contentHash'] as String? ?? '';
+    final plaintextHash = attachment['plaintextHash'] as String? ?? '';
+    final sourceUrl = attachment['sourceUrl'] as String? ?? '';
+    final rowMime = attachment['mimeType'] as String? ?? '';
+    final warnings = bundle.envelope['warnings'] as List;
+    final id = PluralPortMapper.stableId('prism/media', attachmentId);
+
+    // 1. Original bytes. The cache is authoritative when present; the relay is
+    //    only consulted for a Prism media id whose integrity fields are all
+    //    present, and never for an external URL.
+    var original = await _cachedPlaintext(
+      directory: directory,
+      mediaId: mediaId,
+      encryptionKeyB64: encryptionKeyB64,
+      ciphertextHash: contentHash,
+      plaintextHash: plaintextHash,
+    );
+    var recoveredFromSync = false;
+    if (original.bytes == null && mediaId.isNotEmpty) {
+      final remote = await _remotePlaintext(
+        state: state,
+        mediaId: mediaId,
+        encryptionKeyB64: encryptionKeyB64,
+        contentHash: contentHash,
+        plaintextHash: plaintextHash,
+      );
+      if (remote.bytes != null || remote.failure != null) {
+        original = remote;
+        recoveredFromSync = remote.bytes != null;
+      }
+    }
+    final Uint8List? bytes = original.bytes;
+    if (recoveredFromSync) {
+      warnings.add({
+        'level': 'info',
+        'code': 'asset_media_recovered',
+        'message': 'Media $attachmentId was fetched from sync for this export.',
+      });
+    }
+
+    // 2. The asset record: reuse a retained one only when it describes the same
+    //    bytes, otherwise Prism's stable media id.
+    final existingAsset = assetRecords
+        .cast<Json>()
+        .where(
+          (a) =>
+              (plaintextHash.isNotEmpty && a['sha256'] == plaintextHash) ||
+              // URL-only media has no content hash. Reuse its stable asset
+              // identity when re-exporting a previously imported archive.
+              (mediaId.isEmpty && a['id'] == id),
+        )
+        .firstOrNull;
+    final exportAssetId = existingAsset?['id'] ?? id;
+    final Json asset;
+    if (existingAsset == null) {
+      asset = <String, dynamic>{
+        'id': id,
+        'kind': mediaType == 'gif' ? 'video' : mediaType,
+        'source_refs': [
+          {'app': 'prism', 'collection': 'assets', 'id': id},
+        ],
+      };
+      assetRecords.add(asset);
+    } else {
+      asset = existingAsset;
+    }
+    asset['width'] = attachment['width'];
+    asset['height'] = attachment['height'];
+
+    String? storedPath;
+    if (bytes != null) {
+      final digest = sha256.convert(bytes).toString();
+      final path = 'assets/$digest';
+      if (state.reserveMediaBytes(bundle, path, bytes.length)) {
+        bundle.files[path] = bytes;
+        storedPath = path;
+        asset['bundle_path'] = path;
+        // Path, hash, size and mime all derive from the bytes actually stored.
+        asset['sha256'] = digest;
+        asset['size_bytes'] = bytes.length;
+        asset['mime_type'] = _sniffMediaMime(bytes, fallback: rowMime);
+        asset.remove('data_base64');
+        asset.remove('data_uri');
+      }
+    }
+    if (storedPath == null) {
+      final retained = _resolvedAssetBytes(bundle, asset) != null;
+      if (!retained) {
+        asset.remove('bundle_path');
+        asset.remove('sha256');
+        asset.remove('size_bytes');
+      }
+      if (rowMime.isNotEmpty && asset['mime_type'] == null) {
+        asset['mime_type'] = rowMime;
+      }
+      if (mediaId.isEmpty && sourceUrl.isNotEmpty) asset['uri'] = sourceUrl;
+      if (mediaId.isNotEmpty && !retained) {
+        final reason = bytes != null
+            ? 'bundle_budget_exhausted'
+            : original.failure ?? 'bytes_not_on_this_device';
+        _markUnavailable(asset, mediaId, reason);
+        if (bytes == null) {
+          warnings.add({
+            'level': 'warning',
+            'code': 'asset_bundle_missing',
+            'message': 'Media $attachmentId is not cached on this device.',
+          });
+        }
+        if (state.recovery != null &&
+            !state.canFetchRemote &&
+            !state.remoteLimitReported) {
+          state.remoteLimitReported = true;
+          warnings.add({
+            'level': 'warning',
+            'code': 'asset_recovery_skipped',
+            'message':
+                'Some media was not recovered: this export reached its '
+                'recovery limit.',
+          });
+        }
+      }
+    }
+
+    final extensions =
+        extensionObject(asset['extensions']) ?? <String, dynamic>{};
+    asset['extensions'] = extensions;
+    final prism =
+        extensions.putIfAbsent('prism', () => <String, dynamic>{}) as Json;
+    final associations =
+        prism.putIfAbsent('media_attachments', () => <dynamic>[]) as List;
+    final previous = previousAssociations[attachmentId] ?? {};
+    final association = <String, dynamic>{
+      ...previous,
+      'native': {
+        ...((previous['native'] as Map?)?.cast<String, dynamic>() ?? {}),
+        for (final entry in attachment.entries)
+          if (!const {
+            'mediaId',
+            'encryptionKeyB64',
+            'contentHash',
+            'plaintextHash',
+            'thumbnailMediaId',
+            'thumbnailContentHash',
+            'thumbnailPlaintextHash',
+          }.contains(entry.key))
+            entry.key: entry.value,
+      },
+      'id': attachmentId,
+      'member_id': attachment['memberId'],
+      'message_id': attachment['messageId'],
+      'tag': attachment['tag'],
+      'duration_ms': attachment['durationMs'],
+      'waveform_b64': attachment['waveformB64'],
+      'media_type': attachment['mediaType'],
+      'blurhash': attachment['blurhash'],
+      'source_url': attachment['sourceUrl'],
+      'preview_url': attachment['previewUrl'],
+      'width': attachment['width'],
+      'height': attachment['height'],
+      'mime_type': attachment['mimeType'],
+    };
+
+    // 3. Thumbnail: cached bytes when present, otherwise regenerated from the
+    //    verified original already in hand. Generation stays local: it needs no
+    //    second round trip and works offline.
+    final thumbnailId = attachment['thumbnailMediaId'] as String? ?? '';
+    final thumbnailContentHash =
+        attachment['thumbnailContentHash'] as String? ?? '';
+    final thumbnailPlaintextHash =
+        attachment['thumbnailPlaintextHash'] as String? ?? '';
+    final wantsThumbnail =
+        (mediaType == 'image' || mediaType == 'gif') &&
+        (thumbnailId.isNotEmpty ||
+            (thumbnailContentHash.isNotEmpty &&
+                thumbnailPlaintextHash.isNotEmpty));
+    Uint8List? thumbnail;
+    var generatedThumbnail = false;
+    var generatedMime = '';
+    if (wantsThumbnail) {
+      if (thumbnailId.isNotEmpty) {
+        thumbnail = (await _cachedPlaintext(
+          directory: directory,
+          mediaId: thumbnailId,
+          encryptionKeyB64: encryptionKeyB64,
+          ciphertextHash: thumbnailContentHash,
+          plaintextHash: thumbnailPlaintextHash,
+        )).bytes;
+      }
+      if (thumbnail == null && bytes != null && state.canGenerateThumbnail) {
+        state.generatedThumbnails += 1;
+        try {
+          final generated = await state.recovery!.generateThumbnail(bytes);
+          if (generated.bytes.isNotEmpty) {
+            thumbnail = generated.bytes;
+            generatedMime = generated.mimeType;
+            generatedThumbnail = true;
+          }
+        } on Object {
+          // A codec failure is a missing thumbnail, never a failed export.
+          thumbnail = null;
+        }
+      }
+    }
+
+    final thumbnailAssetId = PluralPortMapper.stableId(
+      'prism/thumbnail',
+      attachmentId,
+    );
+    var storedThumbnail = false;
+    if (thumbnail != null) {
+      final digest = sha256.convert(thumbnail).toString();
+      final path = 'assets/$digest';
+      if (state.reserveMediaBytes(bundle, path, thumbnail.length)) {
+        bundle.files[path] = thumbnail;
+        storedThumbnail = true;
+        final record = assetRecords.cast<Json>().firstWhere(
+          (a) => a['id'] == thumbnailAssetId,
+          orElse: () {
+            final created = <String, dynamic>{
+              'id': thumbnailAssetId,
+              'source_refs': [
+                {
+                  'app': 'prism',
+                  'collection': 'assets',
+                  'id': thumbnailAssetId,
+                },
+              ],
+            };
+            assetRecords.add(created);
+            return created;
+          },
+        );
+        record['kind'] = 'image';
+        record['bundle_path'] = path;
+        record['sha256'] = digest;
+        record['size_bytes'] = thumbnail.length;
+        record['mime_type'] = _sniffMediaMime(
+          thumbnail,
+          fallback: generatedMime.isNotEmpty ? generatedMime : 'image/jpeg',
+        );
+        record.remove('data_base64');
+        record.remove('data_uri');
+        association['thumbnail_asset_id'] = thumbnailAssetId;
+        if (generatedThumbnail) {
+          warnings.add({
+            'level': 'info',
+            'code': 'asset_thumbnail_generated',
+            'message':
+                'Thumbnail $attachmentId was generated from the original for '
+                'this export.',
+          });
+        }
+      }
+    }
+    if (!storedThumbnail) {
+      // Nothing to point at: drop a stale link, but keep one that still
+      // resolves inside the archive (a retained source thumbnail).
+      final previousThumbnail = previous['thumbnail_asset_id'];
+      final keepPrevious =
+          previousThumbnail is String &&
+          assetRecords.cast<Json>().any(
+            (a) =>
+                a['id'] == previousThumbnail &&
+                _resolvedAssetBytes(bundle, a) != null,
+          );
+      if (!keepPrevious) association.remove('thumbnail_asset_id');
+      if (wantsThumbnail && thumbnail == null && !keepPrevious) {
+        warnings.add({
+          'level': 'warning',
+          'code': 'asset_bundle_missing',
+          'message': 'Thumbnail $attachmentId is not cached on this device.',
+        });
+      }
+    }
+
+    if (!associations.any(
+      (a) => canonicalJson(a) == canonicalJson(association),
+    )) {
+      associations.add(association);
+    }
+    if (attachment['memberId'] != null) {
+      warnings.add({
+        'level': 'warning',
+        'code': 'member_media_archived',
+        'message':
+            'Member media is included with its Prism association metadata; other apps may not display it.',
+      });
+    }
+    final message = messages[attachment['messageId']];
+    if (message != null) {
+      final linked =
+          message.putIfAbsent('attachment_asset_ids', () => <dynamic>[])
+              as List;
+      if (!linked.contains(exportAssetId)) linked.add(exportAssetId);
+    }
+    if (mediaId.isEmpty && storedPath == null) {
+      // URL-only media keeps its reference; there are no local bytes to export.
+      return;
+    }
+  }
+
+  /// Decrypt one cached blob, verifying both digests. Returns a null result
+  /// with an optional reason instead of throwing: a missing, oversized,
+  /// unreadable or tampered blob is an export warning, not an export failure.
+  Future<({Uint8List? bytes, String? failure})> _cachedPlaintext({
+    required Directory directory,
+    required String mediaId,
+    required String encryptionKeyB64,
+    required String ciphertextHash,
+    required String plaintextHash,
+  }) async {
+    if (mediaId.isEmpty ||
+        encryptionKeyB64.isEmpty ||
+        ciphertextHash.isEmpty ||
+        plaintextHash.isEmpty) {
+      return (bytes: null, failure: null);
+    }
+    final file = File('${directory.path}/prism_media/$mediaId.enc');
+    Uint8List? ciphertext;
+    try {
+      ciphertext = await file.length() > PluralPortBundle.maxAsset + 1024
+          ? null
+          : await file.readAsBytes();
+    } on FileSystemException {
+      return (bytes: null, failure: null);
+    }
+    if (ciphertext == null) {
+      return (bytes: null, failure: 'blob_too_large');
+    }
+    return _decryptVerified(
+      ciphertext: ciphertext,
+      encryptionKeyB64: encryptionKeyB64,
+      ciphertextHash: ciphertextHash,
+      plaintextHash: plaintextHash,
+    );
+  }
+
+  /// Ask the injected recovery source for one blob, within the shared caps.
+  Future<({Uint8List? bytes, String? failure})> _remotePlaintext({
+    required _ExportMediaState state,
+    required String mediaId,
+    required String encryptionKeyB64,
+    required String contentHash,
+    required String plaintextHash,
+  }) async {
+    final recovery = state.recovery;
+    if (recovery == null ||
+        !state.canFetchRemote ||
+        mediaId.isEmpty ||
+        encryptionKeyB64.isEmpty ||
+        contentHash.isEmpty ||
+        plaintextHash.isEmpty) {
+      return (bytes: null, failure: null);
+    }
+    state.remoteAttempts += 1;
+    PluralPortRemoteMedia fetched;
+    try {
+      fetched = await recovery
+          .fetch(
+            PluralPortMediaFetchRequest(
+              mediaId: mediaId,
+              encryptionKeyB64: encryptionKeyB64,
+              contentHash: contentHash,
+              plaintextHash: plaintextHash,
+            ),
+          )
+          .timeout(state.remainingRemoteTime);
+    } on TimeoutException {
+      return (bytes: null, failure: 'recovery_deadline');
+    } on Object {
+      return (bytes: null, failure: 'fetch_failed');
+    }
+    final bytes = fetched.bytes;
+    if (bytes == null) {
+      return (bytes: null, failure: fetched.failure ?? 'unavailable');
+    }
+    // Count even rejected bytes so oversized or corrupt responses cannot
+    // repeatedly consume recovery work under the same byte budget.
+    state.remoteBytes += bytes.length;
+    if (bytes.length > PluralPortBundle.maxAsset ||
+        state.remoteBytes > state.limits.maxRemoteBytes) {
+      return (bytes: null, failure: 'remote_byte_limit');
+    }
+    // Trust nothing that crosses the boundary: the bytes must still match the
+    // row's plaintext digest before they can seed a thumbnail or the bundle.
+    if (sha256.convert(bytes).toString() != plaintextHash) {
+      return (bytes: null, failure: 'integrity');
+    }
+    return (bytes: bytes, failure: null);
+  }
+
+  Future<({Uint8List? bytes, String? failure})> _decryptVerified({
+    required Uint8List ciphertext,
+    required String encryptionKeyB64,
+    required String ciphertextHash,
+    required String plaintextHash,
+  }) async {
+    final Uint8List key;
+    try {
+      key = base64Decode(encryptionKeyB64);
+    } on FormatException {
+      return (bytes: null, failure: 'invalid_key');
+    }
+    try {
+      final plaintext = await encryption.decryptMedia(
+        ciphertext: ciphertext,
+        key: key,
+        expectedCiphertextHash: ciphertextHash,
+        expectedPlaintextHash: plaintextHash,
+      );
+      return (bytes: plaintext, failure: null);
+    } on StateError {
+      // A digest mismatch is terminal for this blob and must never be turned
+      // into a "recovered" file: report it and export metadata only.
+      return (bytes: null, failure: 'integrity');
+    } on Object {
+      return (bytes: null, failure: 'decrypt_failed');
+    }
+  }
+
+  /// Bytes this asset still resolves to *inside the archive*: a bundled file, a
+  /// retained source file, or inline base64/data URI. Null means the record
+  /// declares nothing this archive can produce.
+  Uint8List? _resolvedAssetBytes(PluralPortBundle bundle, Json asset) {
+    try {
+      return bundle.assetBytes(asset);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Record why a media asset carries metadata but no bytes.
+  void _markUnavailable(Json asset, String mediaId, String reason) {
+    final extensions =
+        extensionObject(asset['extensions']) ?? <String, dynamic>{};
+    asset['extensions'] = extensions;
+    final prism =
+        extensions.putIfAbsent('prism', () => <String, dynamic>{}) as Json;
+    prism['unavailable'] = {'reason': reason, 'media_id': mediaId};
+  }
+
+  /// Safety net over all live and retained media records: a declaration that does not
+  /// resolve inside the archive is metadata-only from now on. This is what keeps
+  /// a legacy record (or an older export) from shipping `assets/null`-shaped
+  /// declarations, and it can only ever remove fields.
+  void _repairAbsentDeclarations(PluralPortBundle bundle) {
+    final warnings = bundle.envelope['warnings'] as List;
+    for (final asset in PluralPortMapper.rows(bundle.envelope, 'assets')) {
+      if (_resolvedAssetBytes(bundle, asset) != null) continue;
+      final extensions = extensionObject(asset['extensions']);
+      final sheaf = extensions?['sheaf'];
+      final legacyPath = sheaf is Map ? sheaf['bundle_path'] : null;
+      final hasDeclaration =
+          asset['bundle_path'] != null ||
+          legacyPath != null ||
+          asset['data_base64'] != null ||
+          asset['data_uri'] != null;
+      if (!hasDeclaration) continue;
+      final retainedEvidence = <String, dynamic>{
+        'bundle_path': asset['bundle_path'],
+        'sheaf_bundle_path': legacyPath,
+        'sha256': asset['sha256'],
+        'size_bytes': asset['size_bytes'],
+      }..removeWhere((key, value) => value == null);
+      asset.remove('bundle_path');
+      if (sheaf is Map) sheaf.remove('bundle_path');
+      asset.remove('sha256');
+      asset.remove('size_bytes');
+      asset.remove('data_base64');
+      asset.remove('data_uri');
+      final mediaId = asset['id'] as String;
+      _markUnavailable(asset, mediaId, 'declared_bytes_unusable');
+      final prism = (asset['extensions'] as Json)['prism'] as Json;
+      prism.putIfAbsent('unusable_media_declaration', () => retainedEvidence);
+      warnings.add({
+        'level': 'warning',
+        'code': 'export_self_check',
+        'message':
+            'Asset $mediaId declared bytes that could not be verified; it was '
+            'exported as metadata only.',
+      });
+    }
+  }
+
+  /// Problems with a bundle's own media declarations, checked before encoding:
+  /// every declared path must name a file in the bundle. Empty means the
+  /// archive is self-consistent.
+  static List<String> validateBundle(PluralPortBundle bundle) {
+    final problems = <String>[];
+    var expandedBytes = 0;
+    for (final entry in bundle.files.entries) {
+      expandedBytes += entry.value.length;
+      if (entry.value.length > PluralPortBundle.maxAsset) {
+        problems.add(
+          '${entry.key} exceeds the per-file size limit. '
+          'Create a native Prism backup to preserve your data instead.',
+        );
+      }
+    }
+    if (expandedBytes > PluralPortBundle.maxExpanded) {
+      problems.add(
+        'Bundled files exceed the expanded archive size limit. '
+        'Create a native Prism backup to preserve your data instead.',
+      );
+    }
+    for (final asset in PluralPortMapper.rows(bundle.envelope, 'assets')) {
+      String? declared;
+      try {
+        declared = PluralPortBundle.declaredBundlePath(asset);
+      } on FormatException {
+        problems.add('Asset ${asset['id']} declares a malformed bundle_path.');
+        continue;
+      }
+      if (declared == null) continue;
+      if (!bundle.files.containsKey(declared)) {
+        problems.add(
+          'Asset ${asset['id']} declares $declared, which is not in the bundle.',
+        );
+      }
+    }
+    return problems;
+  }
+
+  /// Mime type from the bytes themselves, so a generated thumbnail is labelled
+  /// with what it actually is (the codec emits WebP for alpha sources).
+  static String _sniffMediaMime(Uint8List bytes, {String fallback = ''}) {
+    bool startsWith(List<int> signature) {
+      if (bytes.length < signature.length) return false;
+      for (var i = 0; i < signature.length; i++) {
+        if (bytes[i] != signature[i]) return false;
+      }
+      return true;
+    }
+
+    if (startsWith([0xFF, 0xD8, 0xFF])) return 'image/jpeg';
+    if (startsWith([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) {
+      return 'image/png';
+    }
+    if (bytes.length >= 12 &&
+        startsWith([0x52, 0x49, 0x46, 0x46]) &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
+      return 'image/webp';
+    }
+    if (startsWith([0x47, 0x49, 0x46, 0x38])) return 'image/gif';
+    if (bytes.length >= 12 &&
+        bytes[4] == 0x66 &&
+        bytes[5] == 0x74 &&
+        bytes[6] == 0x79 &&
+        bytes[7] == 0x70) {
+      final brand = String.fromCharCodes(bytes.sublist(8, 12));
+      return switch (brand) {
+        'avif' || 'avis' => 'image/avif',
+        'heic' || 'heix' || 'hevc' || 'hevx' => 'image/heic',
+        'mif1' || 'msf1' => 'image/heif',
+        'M4A ' || 'M4B ' => 'audio/mp4',
+        'qt  ' => 'video/quicktime',
+        _ => fallback.isNotEmpty ? fallback : 'video/mp4',
+      };
+    }
+    if (startsWith([0x4F, 0x67, 0x67, 0x53])) return 'audio/ogg';
+    if (bytes.length >= 12 &&
+        startsWith([0x52, 0x49, 0x46, 0x46]) &&
+        String.fromCharCodes(bytes.sublist(8, 12)) == 'WAVE') {
+      return 'audio/wav';
+    }
+    return fallback.isNotEmpty ? fallback : 'application/octet-stream';
   }
 }
