@@ -32,15 +32,19 @@ preserved files.
   Inline base64/data URI assets are also supported. Remote URLs are retained
   without downloading them. An archive-local `assets[].uri` is resolved only
   when it safely names an entry in the same bundle; schemes, absolute paths,
-  traversal and network URLs are left untouched.
+  traversal, percent-encoded traversal/separators and network URLs are left
+  untouched.
 - Read select and multiselect `options` as either a string array or an object
   with a `choices` string array. Other option metadata stays in the preserved
-  source record.
-- Accept an empty `extensions` array as no extension object. Other non-object
-  extension values are rejected before app data is written.
-- When a producer repeats a field value for one member, the last value is bound
-  natively (matching one-value-per-member storage) and earlier rows stay
-  preserved for export rather than being dropped.
+  source record, including when the field changes type away from choice.
+- Accept an empty `extensions` array as no extension object. Every portable
+  record path is validated before app data is written; other non-object
+  extension values fail the import.
+- When a producer repeats a field value for one member, only the last value
+  stays live and bound natively (matching one-value-per-member storage). Earlier
+  rows move to `extensions.prism.detached_records` with their complete source
+  evidence, so no stale duplicate is exported and deleting the native value
+  cannot recreate an earlier one.
 
 ## Mapping
 

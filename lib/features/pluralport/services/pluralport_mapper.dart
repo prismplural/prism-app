@@ -212,9 +212,22 @@ class PluralPortMapper {
   static String stableId(String namespace, String id) =>
       const Uuid().v5(Namespace.url.value, '$namespace/$id');
 
+  /// Validate every record's extension container before mapping or writing.
+  /// An empty array is the accepted PluralSpace spelling of "none"; any other
+  /// non-object value is malformed and fails the import.
+  static void validateExtensions(Json envelope) {
+    extensionObject(envelope['extensions']);
+    for (final path in recordPaths) {
+      for (final record in rows(envelope, path)) {
+        extensionObject(record['extensions'], field: '$path extensions');
+      }
+    }
+  }
+
   static PluralPortImportPlan plan(PluralPortBundle bundle) {
     bundle.validateVersion();
     final source = clone(bundle.envelope);
+    validateExtensions(source);
     final producer = source['producer'] as Map;
     final systems = rows(source, 'systems');
     final origin = canonicalJson([

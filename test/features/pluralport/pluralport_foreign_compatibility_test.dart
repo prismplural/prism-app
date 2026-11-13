@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -7,6 +8,8 @@ import 'package:prism_plurality/features/pluralport/services/pluralport_bundle.d
 import 'package:prism_plurality/features/pluralport/services/pluralport_exporter.dart';
 import 'package:prism_plurality/features/pluralport/services/pluralport_mapper.dart';
 import 'package:prism_plurality/features/pluralport/services/pluralport_service.dart';
+
+import 'harness.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -40,6 +43,35 @@ Json _document({
 
 PluralPortBundle _bundle(Json doc, {Map<String, Uint8List>? files}) =>
     PluralPortBundle(doc, files: files ?? {});
+
+Json _duplicateValueDocument(List<String> values) => _document(
+  members: [
+    {'id': 'm', 'name': 'Member'},
+  ],
+  fields: [
+    {'id': 'f', 'name': 'Text', 'field_type': 'text'},
+  ],
+  values: [
+    for (var index = 0; index < values.length; index++)
+      {
+        'id': 'v$index',
+        'field_id': 'f',
+        'subject_type': 'member',
+        'subject_id': 'm',
+        'value': values[index],
+      },
+  ],
+);
+
+List<Json> _detached(Json envelope) {
+  final extensions = envelope['extensions'];
+  if (extensions is! Map) return const [];
+  final prism = extensions['prism'];
+  if (prism is! Map) return const [];
+  return (prism['detached_records'] as List? ?? const [])
+      .whereType<Json>()
+      .toList();
+}
 
 void main() {
   test('empty-list record extensions import and survive a round trip', () {
@@ -157,6 +189,60 @@ void main() {
     }
   });
 
+  test('extension shape is validated for every portable record path', () {
+    for (final path in PluralPortMapper.recordPaths) {
+      final malformed = _document();
+      PluralPortMapper.setRows(malformed, path, [
+        {
+          'id': 'bad',
+          'extensions': <dynamic>['bad'],
+        },
+      ]);
+      expect(
+        () => PluralPortMapper.plan(_bundle(malformed)),
+        throwsFormatException,
+        reason: path,
+      );
+
+      final empty = _document();
+      PluralPortMapper.setRows(empty, path, [
+        {'id': 'empty', 'extensions': <dynamic>[]},
+      ]);
+      expect(
+        () => PluralPortMapper.validateExtensions(empty),
+        returnsNormally,
+        reason: path,
+      );
+    }
+  });
+
+  test('importPlan validates extensions before writing', () async {
+    final plan = PluralPortMapper.plan(
+      _bundle(
+        _document(
+          members: [
+            {'id': 'm', 'name': 'Member'},
+          ],
+        ),
+      ),
+    );
+    PluralPortMapper.setRows(plan.archive['envelope'] as Json, 'notes', [
+      {
+        'id': 'bad-note',
+        'extensions': <dynamic>['bad'],
+      },
+    ]);
+    final db = makeDb();
+    addTearDown(db.close);
+    final service = PluralPortService(
+      db: db,
+      exporter: makeExport(db),
+      importer: makeImport(db),
+    );
+    await expectLater(service.importPlan(plan), throwsFormatException);
+    expect(await db.membersDao.getAllMembersIncludingDeleted(), isEmpty);
+  });
+
   test('empty-list extensions survive optional-reference cleanup', () {
     final doc = _document(
       members: [
@@ -232,8 +318,186 @@ void main() {
         exported.envelope,
         'custom_field_values',
       ).map((value) => value['value']).toList(),
-      ['first', 'last'],
+      ['last'],
     );
+    expect(_detached(exported.envelope).single['record']['value'], 'first');
+  });
+
+  test('duplicate values emit one last-wins live row and detach evidence', () {
+    for (final values in [
+      ['first', 'last'],
+      ['last', 'first'],
+    ]) {
+      final plan = PluralPortMapper.plan(
+        _bundle(_duplicateValueDocument(values)),
+      );
+      final nativeValues = PluralPortMapper.rows(
+        plan.native,
+        'customFieldValues',
+      );
+      expect(nativeValues, hasLength(1));
+      expect(nativeValues.single['value'], values.last);
+
+      final exported = PluralPortExporter(
+        plan.native,
+        'local',
+      ).build([plan.archive]);
+      final live = PluralPortMapper.rows(
+        exported.envelope,
+        'custom_field_values',
+      );
+      expect(live, hasLength(1), reason: values.toString());
+      expect(live.single['value'], values.last);
+      final detached = _detached(exported.envelope);
+      expect(detached, hasLength(1));
+      expect(detached.single['reason'], 'duplicate_field_value');
+      expect(detached.single['record']['value'], values.first);
+
+      final reimported = PluralPortMapper.plan(exported);
+      expect(
+        PluralPortMapper.rows(
+          reimported.native,
+          'customFieldValues',
+        ).single['value'],
+        values.last,
+      );
+      final reexported = PluralPortExporter(
+        reimported.native,
+        'local',
+      ).build([reimported.archive]);
+      expect(
+        PluralPortMapper.rows(
+          reexported.envelope,
+          'custom_field_values',
+        ).single['value'],
+        values.last,
+      );
+      expect(_detached(reexported.envelope), hasLength(1));
+    }
+  });
+
+  test('local edits keep one live duplicate and detach the stale row', () {
+    final plan = PluralPortMapper.plan(
+      _bundle(_duplicateValueDocument(['first', 'last'])),
+    );
+    final edited = PluralPortMapper.clone(plan.native);
+    PluralPortMapper.rows(edited, 'customFieldValues').single['value'] =
+        'edited';
+    final exported = PluralPortExporter(edited, 'local').build([plan.archive]);
+    final live = PluralPortMapper.rows(
+      exported.envelope,
+      'custom_field_values',
+    );
+    expect(live, hasLength(1));
+    expect(live.single['value'], 'edited');
+    final detached = _detached(exported.envelope);
+    expect(detached, hasLength(1));
+    expect(detached.single['record']['value'], 'first');
+  });
+
+  test('deleting the native duplicate leaves no live row to resurrect', () {
+    final plan = PluralPortMapper.plan(
+      _bundle(_duplicateValueDocument(['first', 'last'])),
+    );
+    final deleted = PluralPortMapper.clone(plan.native)
+      ..['customFieldValues'] = <Json>[];
+    final exported = PluralPortExporter(deleted, 'local').build([plan.archive]);
+    expect(
+      PluralPortMapper.rows(exported.envelope, 'custom_field_values'),
+      isEmpty,
+    );
+    expect(_detached(exported.envelope), hasLength(2));
+
+    final reimported = PluralPortMapper.plan(exported);
+    expect(
+      PluralPortMapper.rows(reimported.native, 'customFieldValues'),
+      isEmpty,
+    );
+    final reexported = PluralPortExporter(
+      reimported.native,
+      'local',
+    ).build([reimported.archive]);
+    expect(
+      PluralPortMapper.rows(reexported.envelope, 'custom_field_values'),
+      isEmpty,
+    );
+    expect(_detached(reexported.envelope), hasLength(2));
+  });
+
+  test('an existing native pair wins over duplicate source rows', () async {
+    final temp = await Directory.systemTemp.createTemp('compat-existing-');
+    addTearDown(() => temp.delete(recursive: true));
+    final db = makeDb();
+    addTearDown(db.close);
+    final service = PluralPortService(
+      db: db,
+      exporter: makeExport(db),
+      importer: makeImport(db, supportDirectory: temp),
+      supportDirectory: () async => temp,
+    );
+    await service.importPlan(
+      PluralPortMapper.plan(
+        _bundle(
+          _document(
+            members: [
+              {'id': 'm', 'name': 'Member'},
+            ],
+            fields: [
+              {'id': 'f', 'name': 'Text', 'field_type': 'text'},
+            ],
+            values: [
+              {
+                'id': 'existing',
+                'field_id': 'f',
+                'subject_type': 'member',
+                'subject_id': 'm',
+                'value': 'existing',
+              },
+            ],
+          ),
+        ),
+      ),
+      importSystemProfile: true,
+    );
+    await service.importPlan(
+      PluralPortMapper.plan(
+        _bundle(
+          _document(
+            members: [
+              {'id': 'm', 'name': 'Member'},
+            ],
+            fields: [
+              {'id': 'f', 'name': 'Text', 'field_type': 'text'},
+            ],
+            values: [
+              {
+                'id': 'first',
+                'field_id': 'f',
+                'subject_type': 'member',
+                'subject_id': 'm',
+                'value': 'first',
+              },
+              {
+                'id': 'last',
+                'field_id': 'f',
+                'subject_type': 'member',
+                'subject_id': 'm',
+                'value': 'last',
+              },
+            ],
+          ),
+        ),
+      ),
+      importSystemProfile: true,
+    );
+    final exported = await service.exportBundle();
+    final live = PluralPortMapper.rows(
+      exported.envelope,
+      'custom_field_values',
+    );
+    expect(live, hasLength(1));
+    expect(live.single['value'], 'existing');
+    expect(_detached(exported.envelope), hasLength(2));
   });
 
   test('select options accept list and choices-object shapes', () {
@@ -320,6 +584,28 @@ void main() {
       ).singleWhere((value) => value['field_id'] == objectField['id'])['value'],
       ['Renamed', 'B'],
     );
+
+    final typeChanged = PluralPortMapper.clone(plan.native);
+    final textField = PluralPortMapper.rows(
+      typeChanged,
+      'customFields',
+    ).singleWhere((field) => field['id'] == objectField['id']);
+    textField['fieldType'] = 0;
+    textField['fieldTypeId'] = 'text';
+    textField.remove('typeConfigJson');
+    textField.remove('datePrecision');
+    final typeExport = PluralPortExporter(
+      typeChanged,
+      'local',
+    ).build([plan.archive]);
+    final exportedTextField = PluralPortMapper.rows(
+      typeExport.envelope,
+      'custom_fields',
+    ).singleWhere((field) => field['id'] == objectField['id']);
+    expect(exportedTextField['field_type'], 'text');
+    expect(exportedTextField['options'], isA<Map>());
+    expect(exportedTextField['options']['choices'], ['A', 'B']);
+    expect(exportedTextField['options']['unknown'], {'keep': true});
   });
 
   test('archive-local uri assets resolve; remote and unsafe paths do not', () {
@@ -337,6 +623,7 @@ void main() {
           'uri': 'media/avatar.png',
           'sha256': digest,
           'size_bytes': localBytes.length,
+          'extensions': <dynamic>[],
         },
         {
           'id': 'remote',
@@ -381,6 +668,12 @@ void main() {
       hasLength(5),
     );
     expect(
+      plan.warnings.where(
+        (warning) => warning.contains('asset_uri_only: local'),
+      ),
+      isEmpty,
+    );
+    expect(
       (plan.archive['files'] as Map).containsKey('media/avatar.png'),
       isTrue,
     );
@@ -391,6 +684,11 @@ void main() {
       'https://example.invalid/x',
       'C:/x',
       '//host/x',
+      'media/%2e%2e/secret.png',
+      'media/%2E%2E/secret.png',
+      'media%2F..%2Fsecret.png',
+      '%2fetc%2fpasswd',
+      r'media%5C..%5Csecret.png',
       r'a\b',
       '',
     ]) {

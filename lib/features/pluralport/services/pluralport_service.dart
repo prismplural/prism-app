@@ -44,6 +44,7 @@ class PluralPortService {
     bool importSystemProfile = false,
     bool restorePrismPreferences = false,
   }) async {
+    PluralPortMapper.validateExtensions(plan.archive['envelope'] as Json);
     final existingNative = (await exporter.buildExport()).toJson();
     final existingIds = <String>{
       for (final key in PluralPortMapper.collections.values)

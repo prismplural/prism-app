@@ -201,6 +201,10 @@ class PluralPortExporter {
         return definition is Map ? definition.cast<String, dynamic>() : null;
       }
 
+      final sourceValues = PluralPortMapper.rows(
+        envelope,
+        'custom_field_values',
+      );
       for (final entry in PluralPortMapper.collections.entries) {
         final live = {
           for (final row in PluralPortMapper.rows(native, entry.value))
@@ -241,15 +245,27 @@ class PluralPortExporter {
           for (var i = 0; i < survivors.length; i++) {
             final nativeId = survivors[i];
             final current = convert(entry.key, live[nativeId]!);
-            if (entry.key == 'custom_fields' &&
-                source['options'] is Map &&
-                current['options'] is List) {
-              // Preserve producer option metadata (for example a `choices`
-              // object) while replacing the labels Prism understands.
-              current['options'] = {
-                ...(source['options'] as Map).cast<String, dynamic>(),
-                'choices': List<dynamic>.from(current['options'] as List),
-              };
+            if (entry.key == 'custom_fields') {
+              final sourceOptions = source['options'];
+              if (sourceOptions is Map) {
+                if (current['options'] is List) {
+                  // Preserve producer option metadata (for example a `choices`
+                  // object) while replacing the labels Prism understands.
+                  current['options'] = {
+                    ...sourceOptions.cast<String, dynamic>(),
+                    'choices': List<dynamic>.from(current['options'] as List),
+                  };
+                } else if (!current.containsKey('options')) {
+                  // A type change away from choice must not erase the source
+                  // option container or its unknown keys.
+                  current['options'] = PluralPortMapper.clone(
+                    sourceOptions.cast<String, dynamic>(),
+                  );
+                }
+              } else if (sourceOptions is List &&
+                  !current.containsKey('options')) {
+                current['options'] = List<dynamic>.from(sourceOptions);
+              }
             }
             final previous = convert(
               entry.key,
@@ -304,6 +320,7 @@ class PluralPortExporter {
         }
         PluralPortMapper.setRows(envelope, entry.key, updated);
       }
+      _detachDuplicateFieldValues(envelope, sourceValues, bindings, native);
       archivedSystems.addAll(PluralPortMapper.rows(envelope, 'systems'));
       for (final entry in envelope.entries) {
         if ([
@@ -738,6 +755,85 @@ class PluralPortExporter {
         );
       } else {
         target[key] = after[key];
+      }
+    }
+  }
+
+  /// Native storage keeps one value per (field, member). A producer can emit
+  /// several; only the source row for the live native value may stay in the
+  /// live module. Earlier rows are moved to `detached_records` with their full
+  /// source evidence, so first-wins consumers cannot read a stale duplicate and
+  /// deleting the native value cannot resurrect one from the archive.
+  void _detachDuplicateFieldValues(
+    Json envelope,
+    List<Json> sourceValues,
+    Map bindings,
+    Json native,
+  ) {
+    final groups = <String, List<Json>>{};
+    for (final value in sourceValues) {
+      if (value['subject_type'] != 'member') continue;
+      final field = value['field_id'];
+      final member = value['subject_id'];
+      if (field is! String || member is! String) continue;
+      groups.putIfAbsent('$field\u0000$member', () => []).add(value);
+    }
+    final duplicates = groups.values.where((rows) => rows.length > 1).toList();
+    if (duplicates.isEmpty) return;
+    final liveIds = {
+      for (final row in PluralPortMapper.rows(native, 'customFieldValues'))
+        row['id'] as String,
+    };
+    final duplicateIds = <String>{};
+    final keepIds = <String>{};
+    final detachedRows = <Json>[];
+    for (final group in duplicates) {
+      Json? keep;
+      for (final row in group) {
+        duplicateIds.add(row['id'] as String);
+        final linked = bindings['custom_field_values/${row['id']}'] as List?;
+        if (linked != null && linked.any(liveIds.contains)) {
+          // Last source row with a live native value wins.
+          keep = row;
+        }
+      }
+      if (keep != null) keepIds.add(keep['id'] as String);
+      for (final row in group) {
+        if (keep != null && row['id'] == keep['id']) continue;
+        detachedRows.add(row);
+      }
+    }
+    PluralPortMapper.setRows(envelope, 'custom_field_values', [
+      for (final row in PluralPortMapper.rows(envelope, 'custom_field_values'))
+        if (!duplicateIds.contains(row['id']) || keepIds.contains(row['id']))
+          row,
+    ]);
+    if (detachedRows.isEmpty) return;
+    final extensions =
+        extensionObject(envelope['extensions']) ?? <String, dynamic>{};
+    envelope['extensions'] = extensions;
+    final prism = Map<String, dynamic>.from(
+      extensions['prism'] as Map? ?? const {},
+    );
+    extensions['prism'] = prism;
+    final detached = List<dynamic>.from(
+      prism['detached_records'] as List? ?? const [],
+    );
+    prism['detached_records'] = detached;
+    for (final row in detachedRows) {
+      final entry = {
+        'reason': 'duplicate_field_value',
+        'source': {
+          'record_path': 'custom_field_values',
+          'record_id': row['id'],
+          'references': <dynamic>[],
+        },
+        'record': PluralPortMapper.clone(row),
+      };
+      if (!detached.any(
+        (existing) => canonicalJson(existing) == canonicalJson(entry),
+      )) {
+        detached.add(entry);
       }
     }
   }

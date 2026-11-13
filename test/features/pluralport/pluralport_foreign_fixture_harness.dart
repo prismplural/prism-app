@@ -277,7 +277,7 @@ List<String> bundleContentDifference(
       .cast<String, dynamic>();
   final rightPrism = (rightExtensions['prism'] as Map? ?? const {})
       .cast<String, dynamic>();
-  for (final key in ['native_modules', 'import_sources']) {
+  for (final key in ['native_modules', 'import_sources', 'detached_records']) {
     if (canonicalJson(leftPrism[key]) != canonicalJson(rightPrism[key])) {
       differences.add('extensions.prism.$key');
     }
@@ -736,6 +736,27 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
       return projected;
     }
 
+    final detachedRecords = <String, Json>{};
+    final detachedPrism = extensionObject(
+      export1.envelope['extensions'],
+    )?['prism'];
+    for (final entry
+        in (detachedPrism is Map
+            ? detachedPrism['detached_records'] as List? ?? const []
+            : const [])) {
+      if (entry is! Map || entry['reason'] != 'duplicate_field_value') {
+        continue;
+      }
+      final source = entry['source'];
+      final record = entry['record'];
+      if (source is Map &&
+          source['record_path'] is String &&
+          source['record_id'] is String &&
+          record is Map) {
+        detachedRecords['${source['record_path']}/${source['record_id']}'] =
+            record.cast<String, dynamic>();
+      }
+    }
     final recordMismatches = <String>[];
     final missingRecords = <String>[];
     final extraRecords = <String>[];
@@ -767,7 +788,20 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
       for (final id in expectedIds) {
         if (id == null) continue;
         if (!exported.containsKey(id)) {
-          missingRecords.add('$path/$id');
+          final detached = detachedRecords['$path/$id'];
+          if (detached == null) {
+            missingRecords.add('$path/$id');
+            continue;
+          }
+          final expected = _contentCanonical(
+            sourceRows[path]!.singleWhere(
+              (row) => nativeId(path, row['id']) == id,
+            ),
+          );
+          final actual = _contentCanonical(projectExportRecord(path, detached));
+          if (expected != actual) {
+            missingRecords.add('$path/$id (detached mismatch)');
+          }
         }
       }
       for (final id in exported.keys) {
@@ -797,13 +831,64 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
       },
     );
 
+    final duplicateGroups = <String, List<Json>>{};
+    for (final value in sourceRows['custom_field_values']!) {
+      if (value['subject_type'] != 'member') continue;
+      final key =
+          '${nativeId('custom_fields', value['field_id'])}|'
+          '${nativeId('members', value['subject_id'])}';
+      duplicateGroups.putIfAbsent(key, () => []).add(value);
+    }
+    final liveValues = PluralPortMapper.rows(
+      export1.envelope,
+      'custom_field_values',
+    );
+    final liveByPair = <String, List<Json>>{};
+    for (final value in liveValues) {
+      final key = '${value['field_id']}|${value['subject_id']}';
+      liveByPair.putIfAbsent(key, () => []).add(value);
+    }
+    final duplicateLiveMismatches = <String>[];
+    final duplicateDetachedMismatches = <String>[];
+    for (final entry in duplicateGroups.entries) {
+      if (entry.value.length < 2) continue;
+      final live = liveByPair[entry.key] ?? const <Json>[];
+      if (live.length > 1) {
+        duplicateLiveMismatches.add('${entry.key} (${live.length} live)');
+      }
+      final liveId = live.length == 1 ? live.single['id'] as String : null;
+      for (final value in entry.value) {
+        final native = nativeId('custom_field_values', value['id']);
+        final detached = detachedRecords['custom_field_values/$native'];
+        final isLive = native == liveId;
+        if (isLive && detached != null) {
+          duplicateLiveMismatches.add('$native (both live and detached)');
+        } else if (!isLive && detached == null) {
+          duplicateDetachedMismatches.add('$native (missing detached)');
+        }
+      }
+    }
+    check(
+      'duplicate_values_not_live',
+      duplicateLiveMismatches.isEmpty && duplicateDetachedMismatches.isEmpty,
+      'At most one live row per field/member; earlier duplicate evidence is detached.',
+      {
+        'duplicate_pairs': duplicateGroups.entries
+            .where((entry) => entry.value.length > 1)
+            .length,
+        'live_mismatches': duplicateLiveMismatches,
+        'detached_mismatches': duplicateDetachedMismatches,
+      },
+    );
+
     final sourceRefMismatches = <String>[];
     for (final path in PluralPortMapper.recordPaths) {
       final exported = _byId(PluralPortMapper.rows(export1.envelope, path));
       for (final row in sourceRows[path]!) {
         final refs = row['source_refs'];
         if (refs is! List || refs.isEmpty) continue;
-        final out = exported[nativeId(path, row['id'])];
+        final id = nativeId(path, row['id']);
+        final out = exported[id] ?? detachedRecords['$path/$id'];
         final outRefs = out?['source_refs'];
         final retained = {
           for (final ref in (outRefs is List ? outRefs : const []))
@@ -1732,7 +1817,7 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
         'observed':
             '${preservedValues.length} field values are preserved for export without native rows.',
         'effect':
-            'Prism retains them in the archive and re-export but cannot display them natively.',
+            'Prism binds the last value natively and retains earlier duplicate rows under extensions.prism.detached_records; no stale duplicate stays in the live module.',
         'values': preservedValues,
       });
     }
@@ -1746,7 +1831,7 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
         'observed':
             '${duplicateValues.length} source values repeat a field/member pair; native storage keeps one value per pair.',
         'effect':
-            'Prism binds the last source value natively and preserves earlier duplicate rows for export, so no portable value is dropped.',
+            'Prism binds the last source value natively and moves earlier duplicate rows to extensions.prism.detached_records, so no portable value is dropped and no stale live row remains.',
         'values': duplicateValues,
       });
     }
@@ -1907,6 +1992,12 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
       'version': export1.envelope['pluralport_version'],
       'system_count': PluralPortMapper.rows(export1.envelope, 'systems').length,
       'asset_count': PluralPortMapper.rows(export1.envelope, 'assets').length,
+      'detached_records':
+          ((extensionObject(export1.envelope['extensions'])?['prism']
+                      as Map?)?['detached_records']
+                  as List?)
+              ?.length ??
+          0,
     };
     report['second_import'] = {
       'native_counts': {
@@ -1935,6 +2026,12 @@ Future<Json> qualifyForeignFixture(ForeignFixtureCase fixture) async {
       'warnings': export2.envelope['warnings'],
       'system_count': PluralPortMapper.rows(export2.envelope, 'systems').length,
       'asset_count': PluralPortMapper.rows(export2.envelope, 'assets').length,
+      'detached_records':
+          ((extensionObject(export2.envelope['extensions'])?['prism']
+                      as Map?)?['detached_records']
+                  as List?)
+              ?.length ??
+          0,
     };
     report['repeat_import'] = {
       'native_counts': {

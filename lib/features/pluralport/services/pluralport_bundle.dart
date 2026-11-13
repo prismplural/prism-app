@@ -176,6 +176,24 @@ class PluralPortBundle {
     }
     final parsed = Uri.tryParse(uri);
     if (parsed == null || parsed.scheme.isNotEmpty) return null;
+    String decoded;
+    try {
+      decoded = Uri.decodeComponent(uri);
+    } catch (_) {
+      return null;
+    }
+    if (decoded != uri) {
+      final segments = decoded.split('/');
+      if (decoded.startsWith('/') ||
+          decoded.startsWith(r'\') ||
+          decoded.contains(r'\') ||
+          decoded.contains(':') ||
+          decoded.contains('//') ||
+          decoded.codeUnits.any((unit) => unit < 32) ||
+          segments.any((segment) => segment == '.' || segment == '..')) {
+        return null;
+      }
+    }
     try {
       return safePath(uri);
     } on FormatException {
