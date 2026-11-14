@@ -389,8 +389,15 @@ class Owned:
             "keychain": None,
             "keychain_search_list": None,
             "profiles": [],
+            "public_profile_leaves": [],
         }
         self.flush()
+
+    def claim_public_profile_leaf(self, relative: str, digest: str, profile_name: str) -> None:
+        entry = {"path": relative, "sha256": digest, "profile": profile_name}
+        if entry not in self.state["public_profile_leaves"]:
+            self.state["public_profile_leaves"].append(entry)
+            self.flush()
 
     def flush(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -1823,6 +1830,9 @@ def build_apple(owned: Owned, platform: str, metadata: dict, defines: Path) -> d
         )
 
     register_secret(p12_password, mask=True)
+    if platform == "macos":
+        # Claimed before the lane can create either copy, and all-or-nothing.
+        claim_macos_public_profile_leaves(owned, profile)
     fields = profile_fields(profile)
     installed = install_profile(owned, profile)
     profile_name = str(fields.get("Name", "")).strip()
@@ -1944,9 +1954,144 @@ def _remove_profiles(state: dict) -> None:
             log(f"cleanup: removed provisioned profile {path.name}")
 
 
-# The only repository paths this tool may create and delete: Gradle's release
-# signing config and nothing else. Everything else it writes lives in RUNNER_TEMP.
+# Generic owned-path cleanup covers exactly one repository path: Gradle's release
+# signing config. Everything else the tool writes lives in RUNNER_TEMP. The two
+# macOS embedded-profile leaves are NOT covered here — they have their own
+# dedicated claim/release policy below (see MACOS_PUBLIC_PROFILE_LEAVES), which
+# permits removing only those two public profile files and nothing else.
 REPO_OWNED_FILES = ("android/app/key.properties",)
+
+# The only repository files the macOS lane may remove: the public provisioning
+# profile it embeds into the two build copies of the app. Nothing else in an app
+# or staging tree is ever removed, so a credential copied in there stays visible
+# to the final scan.
+MACOS_PUBLIC_PROFILE_LEAVES = (
+    "build/macos/Build/Products/Release/Prism.app/Contents/embedded.provisionprofile",
+    "build/macos/dmg-staging/Prism.app/Contents/embedded.provisionprofile",
+)
+
+
+def canonical_leaf_problem(root: Path, relative: str) -> str | None:
+    """Reject ancestor symlinks and any path that escapes the checkout.
+
+    A relative string plus `lstat` on the leaf is not enough: a symlinked
+    ancestor could point the leaf somewhere else entirely.
+    """
+    current = root
+    for part in Path(relative).parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            return f"{current.relative_to(root)} is a symlinked ancestor"
+        if current.exists():
+            if not current.is_dir():
+                return f"{current.relative_to(root)} is not a directory"
+            if current.resolve() != current:
+                return f"{current.relative_to(root)} does not resolve inside the checkout"
+    return None
+
+
+def precheck_macos_public_profile_leaves() -> None:
+    """Abort before any builder work if a claimed leaf path is already occupied."""
+    root = REPO_ROOT.resolve()
+    problems = []
+    for relative in MACOS_PUBLIC_PROFILE_LEAVES:
+        ancestor = canonical_leaf_problem(root, relative)
+        if ancestor:
+            problems.append(f"{relative}: {ancestor}")
+            continue
+        leaf = root / relative
+        if leaf.is_symlink() or leaf.exists():
+            problems.append(f"{relative} already exists before the build")
+    if problems:
+        raise ReleaseError(
+            "refusing to start the macOS build: the embedded-profile cleanup cannot claim its "
+            "paths (" + "; ".join(problems) + "). Nothing was overwritten."
+        )
+
+
+def claim_macos_public_profile_leaves(owned: Owned, profile_path: Path) -> None:
+    """Claim the two embedded-profile leaves before the lane can create them.
+
+    All-or-nothing and validated up front: any pre-existing file, directory,
+    broken symlink, symlinked ancestor or escaping path aborts the build before
+    the lane runs, so a foreign file at one of these paths can never be
+    overwritten by the builder.
+    """
+    root = REPO_ROOT.resolve()
+    digest = sha256_file(profile_path)
+    problems = []
+    for relative in MACOS_PUBLIC_PROFILE_LEAVES:
+        ancestor = canonical_leaf_problem(root, relative)
+        if ancestor:
+            problems.append(f"{relative}: {ancestor}")
+            continue
+        leaf = root / relative
+        if leaf.is_symlink() or leaf.exists():
+            problems.append(f"{relative} already exists before the build")
+    if problems:
+        raise ReleaseError(
+            "refusing to start the macOS build: the embedded-profile cleanup cannot claim its "
+            "paths (" + "; ".join(problems) + "). Nothing was overwritten."
+        )
+    for relative in MACOS_PUBLIC_PROFILE_LEAVES:
+        owned.claim_public_profile_leaf(relative, digest, profile_path.name)
+    log(f"claimed {len(MACOS_PUBLIC_PROFILE_LEAVES)} embedded profile leaf(s) for cleanup")
+
+
+def release_macos_public_profile_leaves(state: dict) -> list[str]:
+    """Remove the claimed leaves; return the reasons any could not be removed.
+
+    Every check must pass before an unlink: GitHub Actions, exact allowlisted
+    path, canonical containment, regular file, and a digest matching the profile
+    this run decoded. A refusal leaves the file alone and is reported, so the
+    build fails even when the final filename-based scan could not see the problem
+    (a directory named like the leaf, or a symlink to a directory).
+    """
+    entries = state.get("public_profile_leaves") or []
+    if not entries:
+        return []
+    if not github_actions():
+        return [
+            f"refusing to remove {len(entries)} embedded profile leaf(s) outside GitHub Actions"
+        ]
+    root = REPO_ROOT.resolve()
+    problems = []
+    for entry in entries:
+        relative = str(entry.get("path", ""))
+        if relative not in MACOS_PUBLIC_PROFILE_LEAVES:
+            problems.append(f"{relative!r} is not one of the claimable embedded profile paths")
+            continue
+        ancestor = canonical_leaf_problem(root, relative)
+        if ancestor:
+            problems.append(f"{relative}: {ancestor}")
+            continue
+        leaf = root / relative
+        try:
+            if leaf.is_symlink():
+                problems.append(f"{relative} is a symlink; leaving it for the final scan")
+                continue
+            if not leaf.exists():
+                continue
+            if not stat.S_ISREG(leaf.lstat().st_mode):
+                problems.append(f"{relative} is not a regular file; leaving it for the final scan")
+                continue
+            if sha256_file(leaf) != entry.get("sha256"):
+                problems.append(
+                    f"{relative} does not match the profile this run decoded "
+                    f"({entry.get('profile')}); leaving it for the final scan"
+                )
+                continue
+            leaf.unlink()
+        except OSError as error:
+            # A read, stat, permission or unlink failure is a refusal, reported
+            # like any other so the build fails on it rather than escaping.
+            problems.append(
+                f"{relative}: {type(error).__name__} while inspecting or removing it "
+                f"({str(error)[:160]})"
+            )
+            continue
+        log(f"cleanup: removed embedded public profile leaf {relative}")
+    return problems
 
 
 def _deletable(path: Path, temp_root: Path) -> bool:
@@ -1981,12 +2126,32 @@ def cleanup() -> int:
     state = owned.state
     _restore_keychain(state)
     _remove_profiles(state)
-    _remove_owned_paths(state)
-    shutil.rmtree(state_dir(), ignore_errors=True)
+    leaf_problems: list[str] = []
+    try:
+        # After the keychain and profiles are gone, and before the final scan.
+        try:
+            leaf_problems = release_macos_public_profile_leaves(state)
+        except ReleaseError as error:
+            leaf_problems = [str(error)]
+        except Exception as error:  # never strand credentials on a leaf problem
+            leaf_problems = [
+                f"unexpected {type(error).__name__} during embedded profile leaf cleanup"
+            ]
+    finally:
+        # Private inputs, keychain state and the state file are cleaned even when
+        # the leaf step refuses or raises.
+        _remove_owned_paths(state)
+        shutil.rmtree(state_dir(), ignore_errors=True)
     try:
         assert_no_signing_material_in_tree()
     except ReleaseError as error:
         warn(str(error))
+    if leaf_problems:
+        # Independent of the scan: a refusal here fails the build even when the
+        # filename-based scan could not see the problem.
+        raise ReleaseError(
+            "embedded profile leaf cleanup failed: " + "; ".join(leaf_problems)
+        )
     log("cleanup: run-owned secret and signing state removed")
     return EXIT_OK
 
@@ -2046,6 +2211,10 @@ def build(platform: str) -> int:
         require_tools(platform)
         metadata.update(require_config(platform))
         save_frozen(metadata)
+        if platform == "macos":
+            # Before any builder work, so a foreign file at a claimed path can
+            # never be overwritten; the digest is bound again before the lane.
+            precheck_macos_public_profile_leaves()
         require_credentials(platform)
         defines = write_dart_defines(owned, metadata, beta_token(platform))
         flutter_pub_get(platform)
