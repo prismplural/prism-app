@@ -1224,8 +1224,19 @@ def fastlane_provenance() -> dict:
     }
 
 
-def fastlane_lane_command(lane: str) -> list[str]:
-    return fastlane_command(lane)
+# fastlane resolves a lane inside the default platform unless the platform is
+# named. With default_platform(:ios), a bare `ci_macos_dmg` is looked up in the
+# iOS namespace and fails with "Could not find lane 'ios ci_macos_dmg'", so the
+# macOS lane is invoked as `fastlane _<v>_ mac ci_macos_dmg`. The iOS lane keeps
+# its bare invocation: it lives in the default platform.
+APPLE_LANE_INVOCATIONS = {
+    "ios-store": ("ci_ios_store",),
+    "macos": ("mac", "ci_macos_dmg"),
+}
+
+
+def fastlane_lane_command(platform: str) -> list[str]:
+    return fastlane_command(*APPLE_LANE_INVOCATIONS[platform])
 
 
 def write_secret_file(owned: Owned, path: Path, data: bytes) -> Path:
@@ -1804,14 +1815,12 @@ def build_apple(owned: Owned, platform: str, metadata: dict, defines: Path) -> d
         profile = decode_base64_secret(
             "IOS_APP_STORE_PROFILE_BASE64", creds / "ios-app-store.mobileprovision", owned
         )
-        lane = "ci_ios_store"
     else:
         p12 = decode_base64_secret("MACOS_DEVELOPER_ID_P12_BASE64", creds / "developer-id.p12", owned)
         p12_password = require_env("MACOS_DEVELOPER_ID_P12_PASSWORD")
         profile = decode_base64_secret(
             "MACOS_DEVELOPER_ID_PROFILE_BASE64", creds / "developer-id.provisionprofile", owned
         )
-        lane = "ci_macos_dmg"
 
     register_secret(p12_password, mask=True)
     fields = profile_fields(profile)
@@ -1855,7 +1864,7 @@ def build_apple(owned: Owned, platform: str, metadata: dict, defines: Path) -> d
 
     dist = dist_dir(platform)
     dist.mkdir(parents=True, exist_ok=True)
-    run(fastlane_lane_command(lane), cwd=REPO_ROOT, env=env, stream=True)
+    run(fastlane_lane_command(platform), cwd=REPO_ROOT, env=env, stream=True)
 
     produced = [
         path
