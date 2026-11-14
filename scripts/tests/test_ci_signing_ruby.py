@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -435,7 +436,7 @@ class SignatureStateTest(unittest.TestCase):
         script.chmod(0o755)
         return directory
 
-    @unittest.skipUnless(CLANG, "clang is not available on this machine")
+    @unittest.skipUnless(sys.platform == "darwin" and os.uname().machine == "arm64" and CLANG and shutil.which("codesign"), "requires Apple-silicon clang and codesign")
     def test_linker_adhoc_binary_is_accepted_and_classified(self):
         result = self.run_guard(self.compile_binary(adhoc=True))
         self.assertTrue(result["ok"], result)
@@ -446,7 +447,7 @@ class SignatureStateTest(unittest.TestCase):
         self.assertEqual(classification["authorities"], [])
         self.assertIn("adhoc", classification["flags"])
 
-    @unittest.skipUnless(CLANG, "clang is not available on this machine")
+    @unittest.skipUnless(sys.platform == "darwin" and CLANG and shutil.which("codesign"), "requires Apple clang and codesign")
     def test_genuinely_unsigned_binary_is_accepted_as_unsigned(self):
         result = self.run_guard(self.compile_binary(adhoc=False))
         self.assertTrue(result["ok"], result)
