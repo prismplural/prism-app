@@ -12,8 +12,10 @@ Run: python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 from __future__ import annotations
 
 import base64
+import datetime
 import json
 import os
+import plistlib
 import re
 import shutil
 import subprocess
@@ -287,17 +289,20 @@ class ReleaseTestCase(unittest.TestCase):
         if platform == "ios-store":
             os.environ["PRISM_BETA_REGISTRATION_TOKEN"] = "beta-token-value"
 
+        # A real synthetic profile: date and data values included, exactly the
+        # types that make a JSON conversion impossible.
         profile = {
             "Name": "Prism App Store",
             "UUID": "11111111-2222-3333-4444-555555555555",
             "TeamIdentifier": ["GF2W9X3Y6L"],
             "Platform": ["iOS"] if platform == "ios-store" else ["OSX"],
-            "ExpirationDate": "2027-04-19T00:00:00Z",
+            "ExpirationDate": datetime.datetime(2099, 1, 1),
             "ProvisionsAllDevices": platform == "macos",
+            "DeveloperCertificates": [b"synthetic-der-certificate"],
         }
-        self.commands.on_prefix(["security", "cms", "-D", "-i"], stdout="<plist/>\n")
         self.commands.on_prefix(
-            ["plutil", "-convert", "json", "-o", "-"], stdout=json.dumps(profile)
+            ["security", "cms", "-D", "-i"],
+            stdout=plistlib.dumps(profile, fmt=plistlib.FMT_XML).decode("utf-8"),
         )
         self.commands.on_prefix(["security", "list-keychains", "-d", "user"], stdout='    "/old/login.keychain-db"\n')
         self.commands.on(
@@ -2603,3 +2608,79 @@ class PodVersionGuardTest(ReleaseTestCase):
         self.assertIn("assert_tracked_source_unchanged()", source.split("def build(", 1)[1])
         # The guard still refuses any tracked change; nothing was waived.
         self.assertIn('git("status", "--porcelain", "--untracked-files=no")', source)
+
+
+class ProfilePlistParsingTest(ReleaseTestCase):
+    """The profile plist carries date and data values; JSON cannot hold them."""
+
+    def synthetic_profile(self) -> dict:
+        return {
+            "Name": "Prism Developer ID",
+            "UUID": "11111111-2222-3333-4444-555555555555",
+            "TeamIdentifier": ["GF2W9X3Y6L"],
+            "Platform": ["OSX"],
+            "ProvisionsAllDevices": True,
+            "ExpirationDate": datetime.datetime(2044, 5, 25, 12, 30),
+            "DeveloperCertificates": [b"\x30\x82\x01\x0a-synthetic-der-", b"\x30\x82\x02-second-cert"],
+            "Entitlements": {
+                "com.apple.application-identifier": "GF2W9X3Y6L.com.prismplural.prism",
+                "keychain-access-groups": ["GF2W9X3Y6L.*"],
+                "get-task-allow": False,
+            },
+        }
+
+    def assert_native_types(self, fields: dict) -> None:
+        self.assertEqual(fields["Name"], "Prism Developer ID")
+        self.assertIsInstance(fields["ExpirationDate"], datetime.datetime)
+        self.assertEqual(fields["ExpirationDate"].year, 2044)
+        self.assertIsInstance(fields["DeveloperCertificates"], list)
+        for certificate in fields["DeveloperCertificates"]:
+            self.assertIsInstance(certificate, bytes)
+        self.assertEqual(fields["DeveloperCertificates"][0][:2], b"\x30\x82")
+        self.assertIs(fields["ProvisionsAllDevices"], True)
+        self.assertEqual(fields["Entitlements"]["keychain-access-groups"], ["GF2W9X3Y6L.*"])
+
+    def test_xml_plist_roundtrips_with_native_types(self):
+        payload = plistlib.dumps(self.synthetic_profile(), fmt=plistlib.FMT_XML)
+        self.assert_native_types(release_ci.parse_profile_plist(payload))
+
+    def test_binary_plist_roundtrips_with_native_types(self):
+        payload = plistlib.dumps(self.synthetic_profile(), fmt=plistlib.FMT_BINARY)
+        self.assertTrue(payload.startswith(b"bplist"))
+        self.assert_native_types(release_ci.parse_profile_plist(payload))
+
+    def test_profile_fields_reads_a_decoded_xml_profile(self):
+        payload = plistlib.dumps(self.synthetic_profile(), fmt=plistlib.FMT_XML)
+        self.commands.remove(["security", "cms", "-D", "-i"])
+        self.commands.on_prefix(
+            ["security", "cms", "-D", "-i"], stdout=payload.decode("utf-8")
+        )
+        path = self.runner_temp / "synthetic.provisionprofile"
+        path.write_bytes(b"synthetic-cms-payload")
+        fields = release_ci.profile_fields(path)
+        self.assert_native_types(fields)
+        # The receipt summarises it without leaking bytes or the certificate data.
+        summary = release_ci.profile_summary(fields)
+        self.assertEqual(summary["expires"], "2044-05-25T12:30:00Z")
+        self.assertNotIn("synthetic-der", json.dumps(summary))
+
+    def test_malformed_profile_fails_closed_without_echoing_content(self):
+        marker = "TOP-SECRET-PROFILE-BODY"
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.parse_profile_plist(f"<plist><dict>{marker}".encode())
+        message = str(caught.exception)
+        self.assertIn("could not parse", message)
+        self.assertIn("not echoed", message)
+        self.assertNotIn(marker, message)
+
+    def test_non_dictionary_root_fails_closed(self):
+        payload = plistlib.dumps(["not", "a", "dict"], fmt=plistlib.FMT_XML)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.parse_profile_plist(payload)
+        self.assertIn("not a dictionary", str(caught.exception))
+
+    def test_plutil_json_can_not_represent_a_profile(self):
+        # Documents why the old path failed: the same plist is not JSON-safe.
+        payload = plistlib.dumps(self.synthetic_profile(), fmt=plistlib.FMT_XML)
+        with self.assertRaises(TypeError):
+            json.dumps(plistlib.loads(payload))
