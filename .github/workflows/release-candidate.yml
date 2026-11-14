@@ -1,0 +1,728 @@
+# Hosted release-candidate builds for prism-app.
+#
+# BUILD-ONLY. This workflow never attaches an asset to a GitHub release, never
+# uploads to Play or TestFlight, never publishes a site and never bumps a
+# version. Each job leaves a build output in dist/<platform>/ and uploads it as
+# a 7-day Actions artifact. Publishing stays a manual, owner-run step.
+#
+# Settings this file depends on, configured in repository settings rather than
+# here: the `google-play-release` and `apple-release` environments are limited
+# to the default branch and `v*` tags, have a required reviewer and have admin
+# bypass disabled. Dispatch a candidate from `main` (or a `v*` tag); a dispatch
+# from any other branch is refused by the `dispatch-guard` job before a
+# toolchain is installed or a secret is read.
+#
+# Reproducibility pins: every action is pinned to a full commit SHA. Standard
+# GitHub-hosted runner labels cannot be pinned to an image build (GitHub rolls
+# the image under a stable label), so the Apple toolchain is pinned by
+# DEVELOPER_DIR to /Applications/Xcode_26.6.app, the default Xcode of the
+# `macos-26` (Apple silicon, standard, not billed xlarge) image. Verified
+# 2026-11-14 against actions/runner-images images/macos/macos-26-arm64-Readme.md
+# at blob df5d3950c08c80e3a8a6caa99084261dbd6a50d2.
+#
+# Every build job runs `scripts/release_ci.py preflight`, then `build`, then an
+# always-run `cleanup`; the helper owns signing, keychain/profile install and
+# the public-safe receipt in dist/<platform>/.
+
+name: Release candidate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-candidate.yml'
+      - 'scripts/release_ci.py'
+      - 'scripts/tests/**'
+      - 'fastlane/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build (build-only; nothing is published)'
+        type: choice
+        required: true
+        default: all
+        options:
+          - all
+          - android
+          - ios-unsigned
+          - ios-store
+          - macos
+
+permissions:
+  contents: read
+
+env:
+  # Pin the SDK used for release candidates; full SDK revisions are recorded
+  # in each build receipt. This version declares NDK 28.2.13676358 and SDK 36.
+  FLUTTER_VERSION: '3.44.8'
+  FLUTTER_CHANNEL: 'stable'
+  # Pin the native compiler instead of following a moving stable channel.
+  RUST_VERSION: '1.100.0'
+  # Xcode 26.6 is the default Xcode on the macos-26 image; a missing directory
+  # fails the job with the list of installed Xcodes instead of drifting.
+  XCODE_VERSION: '26.6'
+  # 2.239.0 is the fastlane that produced the 0.16.0 artifacts, not the newest
+  # release. Its gemspec requires Ruby >= 3.1; the macos-26 image ships 3.4.12.
+  # Pinned as a plain `gem install` because the repo has no Gemfile and the
+  # helper calls the lanes through `fastlane` on PATH rather than Bundler.
+  FASTLANE_VERSION: '2.239.0'
+  PRISM_EXPECTED_REVISION: ${{ github.sha }}
+
+jobs:
+  # A candidate is only ever built from the default branch or a v* tag: the
+  # signing environments are restricted to those refs, and an unreviewed branch
+  # must not produce a candidate artifact. Fails before any toolchain or secret
+  # is touched, with a message instead of a confusing environment error.
+  dispatch-guard:
+    name: Dispatch context
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require the default branch or a v* tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF}" in
+            refs/heads/main | refs/tags/v*)
+              echo "dispatching from ${GITHUB_REF}"
+              ;;
+            *)
+              echo "release candidates must be dispatched from main or a v* tag, not ${GITHUB_REF}; nothing was built" >&2
+              exit 1
+              ;;
+          esac
+
+  # Lightweight PR check: script unit tests only, no secrets, no builds.
+  script-tests:
+    name: Release script unit tests
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out pull request revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Run release script unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
+  android:
+    name: Android signed AAB
+    needs: dispatch-guard
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'android')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: google-play-release
+    concurrency:
+      group: release-candidate-android
+      cancel-in-progress: false
+    steps:
+      - name: Check out candidate revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Java 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install Rust with Android targets
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: android-release-cargokit
+
+      - name: Install the NDK the pinned Flutter SDK requires
+        shell: bash
+        # The ubuntu-24.04 image ships NDK 27.3/29.0/30.0 only, and
+        # android/app/build.gradle.kts uses flutter.ndkVersion.
+        run: |
+          set -euo pipefail
+          ndk_version=28.2.13676358
+          if [ ! -d "${ANDROID_HOME}/ndk/${ndk_version}" ]; then
+            yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${ndk_version}"
+          fi
+          test -d "${ANDROID_HOME}/ndk/${ndk_version}"
+
+      # age for the encrypted crash-symbol archive, before the build step. The
+      # official upstream v1.3.2 linux-amd64 release asset, pinned by hardcoded
+      # digest (verified 2026-11-14: the GitHub release asset digest and a local
+      # sha256 of the download agree). No apt, no Ubuntu Pro, no floating
+      # version: a re-uploaded or superseded asset fails here instead of
+      # changing the tool underneath a release.
+      - name: Install age for the encrypted symbol archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          age_version=1.3.2
+          age_sha256=cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10
+          tarball="${RUNNER_TEMP}/age-v${age_version}-linux-amd64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "${tarball}" \
+            "https://github.com/FiloSottile/age/releases/download/v${age_version}/age-v${age_version}-linux-amd64.tar.gz"
+          printf '%s  %s\n' "${age_sha256}" "${tarball}" > "${RUNNER_TEMP}/age-tarball.sha256"
+          sha256sum --check "${RUNNER_TEMP}/age-tarball.sha256"
+          rm -rf "${RUNNER_TEMP}/age"
+          mkdir -p "${RUNNER_TEMP}/age"
+          tar --extract --gzip --file "${tarball}" --directory "${RUNNER_TEMP}/age" --strip-components 1 age/age
+          rm -f "${tarball}" "${RUNNER_TEMP}/age-tarball.sha256"
+          echo "${RUNNER_TEMP}/age" >> "${GITHUB_PATH}"
+          export PATH="${RUNNER_TEMP}/age:${PATH}"
+          reported="$(age --version)"
+          echo "age ${reported}"
+          case "${reported}" in
+            "v${age_version}" | "${age_version}") ;;
+            *)
+              echo "unexpected age version from the pinned release: ${reported}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Record build toolchain versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner image: ${ImageOS:-unknown}/${ImageVersion:-unknown}"
+          flutter --version
+          dart --version
+          rustc --version
+          cargo --version
+          java -version
+          ls "${ANDROID_HOME}/ndk"
+
+      - name: Check source preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py preflight --platform android
+
+      - name: Build signed release AAB
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          PRISM_BETA_REGISTRATION_TOKEN: ${{ secrets.PRISM_BETA_REGISTRATION_TOKEN }}
+          # Public age recipient, not a secret: the private identity never
+          # leaves the owner's custody, so nothing here can decrypt the archive.
+          PRISM_RELEASE_SYMBOLS_RECIPIENT: ${{ vars.PRISM_RELEASE_SYMBOLS_RECIPIENT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py build --platform android
+
+      - name: Upload candidate artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-candidate-android
+          path: dist/android/*
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Clean up run-owned signing material
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/release_ci.py ]; then
+            echo "Release helper absent from the workspace; nothing to clean up."
+            exit 0
+          fi
+          python3 scripts/release_ci.py cleanup
+
+      - name: Remove run-owned temporary roots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${RUNNER_TEMP:?}/prism-release" "${RUNNER_TEMP:?}/prism-release-symbols"
+
+  ios-unsigned:
+    name: iOS unsigned sideload IPA
+    needs: dispatch-guard
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'ios-unsigned')
+    runs-on: macos-26
+    timeout-minutes: 120
+    concurrency:
+      group: release-candidate-ios-unsigned
+      cancel-in-progress: false
+    steps:
+      - name: Check out candidate revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select the pinned Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcode_app="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "${xcode_app}" ]; then
+            echo "Xcode ${XCODE_VERSION} is not installed on this image. Installed:" >&2
+            ls -d /Applications/Xcode*.app >&2 || true
+            exit 1
+          fi
+          developer_dir="${xcode_app}/Contents/Developer"
+          echo "DEVELOPER_DIR=${developer_dir}" >> "${GITHUB_ENV}"
+          DEVELOPER_DIR="${developer_dir}" xcodebuild -version
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install Rust with the iOS device target
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-ios
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: ios-unsigned-cargokit
+
+      - name: Record build toolchain versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner image: ${ImageOS:-unknown}/${ImageVersion:-unknown}"
+          sw_vers -productVersion
+          flutter --version
+          dart --version
+          rustc --version
+          cargo --version
+          xcodebuild -version
+          pod --version
+          ruby -v
+          gem --version
+
+      - name: Check source preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py preflight --platform ios-unsigned
+
+      - name: Build unsigned sideload IPA
+        # No environment, no credentials: an unsigned IPA needs no Apple
+        # signing material, and the beta token must not be present here.
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py build --platform ios-unsigned
+
+      - name: Upload candidate artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-candidate-ios-unsigned
+          path: dist/ios-unsigned/*
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Clean up run-owned signing material
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/release_ci.py ]; then
+            echo "Release helper absent from the workspace; nothing to clean up."
+            exit 0
+          fi
+          python3 scripts/release_ci.py cleanup
+
+      - name: Remove run-owned temporary roots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${RUNNER_TEMP:?}/prism-release" "${RUNNER_TEMP:?}/prism-release-symbols"
+
+  ios-store:
+    name: iOS App Store-signed IPA
+    needs: dispatch-guard
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'ios-store')
+    runs-on: macos-26
+    timeout-minutes: 120
+    environment: apple-release
+    concurrency:
+      group: release-candidate-ios-store
+      cancel-in-progress: false
+    env:
+      PRISM_APPLE_TEAM_ID: ${{ vars.PRISM_APPLE_TEAM_ID }}
+    steps:
+      - name: Check out candidate revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select the pinned Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcode_app="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "${xcode_app}" ]; then
+            echo "Xcode ${XCODE_VERSION} is not installed on this image. Installed:" >&2
+            ls -d /Applications/Xcode*.app >&2 || true
+            exit 1
+          fi
+          developer_dir="${xcode_app}/Contents/Developer"
+          echo "DEVELOPER_DIR=${developer_dir}" >> "${GITHUB_ENV}"
+          DEVELOPER_DIR="${developer_dir}" xcodebuild -version
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install Rust with the iOS device target
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-ios
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: ios-store-cargokit
+
+      # This runs before the build step, which is the only step that receives
+      # secrets, so a Ruby or install problem fails before a credential is read.
+      - name: Install and verify pinned fastlane
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_ruby=3.1
+          ruby --version
+          gem --version
+          if ! ruby -e 'exit(Gem::Version.new(RUBY_VERSION) >= Gem::Version.new(ARGV[0]) ? 0 : 1)' "${required_ruby}"; then
+            echo "fastlane ${FASTLANE_VERSION} requires Ruby >= ${required_ruby} but this image reports $(ruby -e 'print RUBY_VERSION'); nothing was installed and no credential was read" >&2
+            exit 1
+          fi
+          gem install --no-document --user-install --version "${FASTLANE_VERSION}" fastlane
+          gem_bin="$(ruby -e 'print Gem.user_dir')/bin"
+          echo "${gem_bin}" >> "${GITHUB_PATH}"
+          listed="$(gem list --exact --installed fastlane)"
+          case "${listed}" in
+            *"fastlane (${FASTLANE_VERSION})"*) ;;
+            *)
+              echo "the pinned fastlane version did not install: ${listed}" >&2
+              exit 1
+              ;;
+          esac
+          reported="$("${gem_bin}/fastlane" --version)"
+          echo "${reported}"
+          case "${reported}" in
+            *"${FASTLANE_VERSION}"*) ;;
+            *)
+              echo "fastlane reported an unexpected version: ${reported}" >&2
+              exit 1
+              ;;
+          esac
+
+      # age for the encrypted dSYM archive. The macOS image does not ship age and
+      # Homebrew floats, so this is the official v1.3.2 darwin-arm64 release asset
+      # pinned by digest (verified 2026-11-14: release asset digest and a local
+      # sha256 of the download agree). An upstream re-upload fails here rather
+      # than silently changing the tool.
+      - name: Install age for the encrypted dSYM archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          age_version=1.3.2
+          age_sha256=e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5
+          tarball="${RUNNER_TEMP}/age-v${age_version}-darwin-arm64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "${tarball}" \
+            "https://github.com/FiloSottile/age/releases/download/v${age_version}/age-v${age_version}-darwin-arm64.tar.gz"
+          printf '%s  %s\n' "${age_sha256}" "${tarball}" > "${RUNNER_TEMP}/age-tarball.sha256"
+          shasum -a 256 --check "${RUNNER_TEMP}/age-tarball.sha256"
+          rm -rf "${RUNNER_TEMP}/age"
+          mkdir -p "${RUNNER_TEMP}/age"
+          tar --extract --gzip --file "${tarball}" --directory "${RUNNER_TEMP}/age" --strip-components 1 age/age
+          rm -f "${tarball}" "${RUNNER_TEMP}/age-tarball.sha256"
+          echo "${RUNNER_TEMP}/age" >> "${GITHUB_PATH}"
+          export PATH="${RUNNER_TEMP}/age:${PATH}"
+          reported="$(age --version)"
+          echo "age ${reported}"
+          case "${reported}" in
+            "v${age_version}" | "${age_version}") ;;
+            *)
+              echo "unexpected age version from the pinned release: ${reported}" >&2
+              exit 1
+              ;;
+          esac
+
+
+      - name: Record build toolchain versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner image: ${ImageOS:-unknown}/${ImageVersion:-unknown}"
+          sw_vers -productVersion
+          flutter --version
+          dart --version
+          rustc --version
+          cargo --version
+          xcodebuild -version
+          pod --version
+          ruby -v
+          gem --version
+          fastlane --version
+
+      - name: Check source preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py preflight --platform ios-store
+
+      - name: Build App Store-signed IPA
+        env:
+          # Public age recipient for the encrypted dSYM archive (nonsecret).
+          PRISM_RELEASE_SYMBOLS_RECIPIENT: ${{ vars.PRISM_RELEASE_SYMBOLS_RECIPIENT }}
+          IOS_DISTRIBUTION_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_P12_BASE64 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+          IOS_APP_STORE_PROFILE_BASE64: ${{ secrets.IOS_APP_STORE_PROFILE_BASE64 }}
+          PRISM_BETA_REGISTRATION_TOKEN: ${{ secrets.PRISM_BETA_REGISTRATION_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py build --platform ios-store
+
+      - name: Upload candidate artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-candidate-ios-store
+          path: dist/ios-store/*
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Clean up run-owned signing material
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/release_ci.py ]; then
+            echo "Release helper absent from the workspace; nothing to clean up."
+            exit 0
+          fi
+          python3 scripts/release_ci.py cleanup
+
+      - name: Remove run-owned temporary roots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${RUNNER_TEMP:?}/prism-release" "${RUNNER_TEMP:?}/prism-release-symbols"
+
+  macos:
+    name: macOS signed and notarized DMG
+    needs: dispatch-guard
+    if: github.event_name == 'workflow_dispatch' && (inputs.platform == 'all' || inputs.platform == 'macos')
+    runs-on: macos-26
+    timeout-minutes: 120
+    environment: apple-release
+    concurrency:
+      group: release-candidate-macos
+      cancel-in-progress: false
+    env:
+      PRISM_APPLE_TEAM_ID: ${{ vars.PRISM_APPLE_TEAM_ID }}
+    steps:
+      - name: Check out candidate revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Select the pinned Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcode_app="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "${xcode_app}" ]; then
+            echo "Xcode ${XCODE_VERSION} is not installed on this image. Installed:" >&2
+            ls -d /Applications/Xcode*.app >&2 || true
+            exit 1
+          fi
+          developer_dir="${xcode_app}/Contents/Developer"
+          echo "DEVELOPER_DIR=${developer_dir}" >> "${GITHUB_ENV}"
+          DEVELOPER_DIR="${developer_dir}" xcodebuild -version
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Install Rust with both macOS architectures
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          shared-key: macos-release-cargokit
+
+      # This runs before the build step, which is the only step that receives
+      # secrets, so a Ruby or install problem fails before a credential is read.
+      - name: Install and verify pinned fastlane
+        shell: bash
+        run: |
+          set -euo pipefail
+          required_ruby=3.1
+          ruby --version
+          gem --version
+          if ! ruby -e 'exit(Gem::Version.new(RUBY_VERSION) >= Gem::Version.new(ARGV[0]) ? 0 : 1)' "${required_ruby}"; then
+            echo "fastlane ${FASTLANE_VERSION} requires Ruby >= ${required_ruby} but this image reports $(ruby -e 'print RUBY_VERSION'); nothing was installed and no credential was read" >&2
+            exit 1
+          fi
+          gem install --no-document --user-install --version "${FASTLANE_VERSION}" fastlane
+          gem_bin="$(ruby -e 'print Gem.user_dir')/bin"
+          echo "${gem_bin}" >> "${GITHUB_PATH}"
+          listed="$(gem list --exact --installed fastlane)"
+          case "${listed}" in
+            *"fastlane (${FASTLANE_VERSION})"*) ;;
+            *)
+              echo "the pinned fastlane version did not install: ${listed}" >&2
+              exit 1
+              ;;
+          esac
+          reported="$("${gem_bin}/fastlane" --version)"
+          echo "${reported}"
+          case "${reported}" in
+            *"${FASTLANE_VERSION}"*) ;;
+            *)
+              echo "fastlane reported an unexpected version: ${reported}" >&2
+              exit 1
+              ;;
+          esac
+
+      # age for the encrypted dSYM archive. The macOS image does not ship age and
+      # Homebrew floats, so this is the official v1.3.2 darwin-arm64 release asset
+      # pinned by digest (verified 2026-11-14: release asset digest and a local
+      # sha256 of the download agree). An upstream re-upload fails here rather
+      # than silently changing the tool.
+      - name: Install age for the encrypted dSYM archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          age_version=1.3.2
+          age_sha256=e2020b073c44f692685a24d6abc378817eb81ffaaf49fd0531ef8565f767f2f5
+          tarball="${RUNNER_TEMP}/age-v${age_version}-darwin-arm64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "${tarball}" \
+            "https://github.com/FiloSottile/age/releases/download/v${age_version}/age-v${age_version}-darwin-arm64.tar.gz"
+          printf '%s  %s\n' "${age_sha256}" "${tarball}" > "${RUNNER_TEMP}/age-tarball.sha256"
+          shasum -a 256 --check "${RUNNER_TEMP}/age-tarball.sha256"
+          rm -rf "${RUNNER_TEMP}/age"
+          mkdir -p "${RUNNER_TEMP}/age"
+          tar --extract --gzip --file "${tarball}" --directory "${RUNNER_TEMP}/age" --strip-components 1 age/age
+          rm -f "${tarball}" "${RUNNER_TEMP}/age-tarball.sha256"
+          echo "${RUNNER_TEMP}/age" >> "${GITHUB_PATH}"
+          export PATH="${RUNNER_TEMP}/age:${PATH}"
+          reported="$(age --version)"
+          echo "age ${reported}"
+          case "${reported}" in
+            "v${age_version}" | "${age_version}") ;;
+            *)
+              echo "unexpected age version from the pinned release: ${reported}" >&2
+              exit 1
+              ;;
+          esac
+
+
+      - name: Record build toolchain versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner image: ${ImageOS:-unknown}/${ImageVersion:-unknown}"
+          sw_vers -productVersion
+          flutter --version
+          dart --version
+          rustc --version
+          cargo --version
+          xcodebuild -version
+          pod --version
+          ruby -v
+          gem --version
+          fastlane --version
+
+      - name: Check source preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py preflight --platform macos
+
+      # A Developer ID DMG is a metadata-only sideload build (Fastlane mac:sideload),
+      # not a beta build, so the beta registration token is deliberately absent here.
+      - name: Build signed and notarized DMG
+        env:
+          # Public age recipient for the encrypted dSYM archive (nonsecret).
+          PRISM_RELEASE_SYMBOLS_RECIPIENT: ${{ vars.PRISM_RELEASE_SYMBOLS_RECIPIENT }}
+          MACOS_DEVELOPER_ID_P12_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_P12_BASE64 }}
+          MACOS_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
+          MACOS_DEVELOPER_ID_PROFILE_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/release_ci.py build --platform macos
+
+      - name: Upload candidate artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-candidate-macos
+          path: dist/macos/*
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Clean up run-owned signing material
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f scripts/release_ci.py ]; then
+            echo "Release helper absent from the workspace; nothing to clean up."
+            exit 0
+          fi
+          python3 scripts/release_ci.py cleanup
+
+      - name: Remove run-owned temporary roots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "${RUNNER_TEMP:?}/prism-release" "${RUNNER_TEMP:?}/prism-release-symbols"

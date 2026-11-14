@@ -57,6 +57,14 @@ app.*.map.json
 # *.g.dart
 # *.freezed.dart
 
+# Release output and signing inputs
+/dist/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.provisionprofile
+
 # Secrets
 .env
 *.key

@@ -6,6 +6,7 @@ require "open3"
 require "shellwords"
 require "tmpdir"
 require "yaml"
+require_relative "ci_signing"
 require_relative "macos_signing"
 
 # Resolve a config path that may be absolute, ~ relative, or relative to the
@@ -567,8 +568,171 @@ platform :mac do
   end
 end
 
+# ---------------------------------------------------------------------------
+# Hosted release lanes. Build only: nothing here uploads to a store, attaches a
+# GitHub release asset or publishes a version. The hosted workflow runs them
+# through scripts/release_ci.py, which owns credentials, receipt and cleanup.
+
+platform :ios do
+  desc "[hosted release] Build a verified App Store-signed IPA (build only; never uploads)"
+  lane :ci_ios_store do
+    CISigning.require_ci!("build a signed App Store IPA")
+
+    version = CISigning.env!("PRISM_CI_VERSION")
+    version_name = CISigning.env!("PRISM_CI_VERSION_NAME")
+    build_number = CISigning.env!("PRISM_CI_BUILD_NUMBER")
+    profile_name = CISigning.env!("PRISM_CI_PROFILE_NAME")
+    defines = Shellwords.escape(CISigning.dart_define_flag)
+
+    root = File.expand_path("..", __dir__)
+    ci_dir = File.join(root, "build", "ios", "ci")
+    archive_path = File.join(ci_dir, "Runner.xcarchive")
+    export_dir = File.join(ci_dir, "export")
+    FileUtils.rm_rf(ci_dir)
+    FileUtils.mkdir_p(ci_dir)
+
+    # Compile first without any signing identity, then provision the Runner
+    # target from the installed App Store profile.
+    sh(
+      "cd #{Shellwords.escape(root)} && #{scrubbed_flutter_env} " \
+      "flutter build ios --release --no-codesign --no-tree-shake-icons #{defines}"
+    )
+
+    # Resolved from the Release build settings (not the pbxproj text), so the
+    # RunnerTests identifier can never be provisioned by accident.
+    bundle_id = CISigning.bundle_identifier(
+      workspace: File.join(root, "ios", "Runner.xcworkspace"),
+      scheme: "Runner",
+      destination: "generic/platform=iOS",
+    )
+
+    xcargs = Shellwords.join([
+      "CODE_SIGN_STYLE=Manual",
+      "CODE_SIGN_IDENTITY=Apple Distribution",
+      "DEVELOPMENT_TEAM=#{apple_team_id}",
+      "PROVISIONING_PROFILE_SPECIFIER=#{profile_name}",
+    ])
+    sh(
+      "cd #{Shellwords.escape(root)} && #{scrubbed_flutter_env} xcodebuild archive " \
+      "-workspace ios/Runner.xcworkspace -scheme Runner -configuration Release " \
+      "-destination 'generic/platform=iOS' " \
+      "-archivePath #{Shellwords.escape(archive_path)} #{xcargs}"
+    )
+
+    app_path = CISigning.single_application!(File.join(archive_path, "Products", "Applications"))
+    unless File.file?(File.join(app_path, "embedded.mobileprovision"))
+      UI.user_error!("archived Runner.app has no embedded provisioning profile")
+    end
+    unless CISigning.codesign_authorities(app_path).any? { |authority| authority.start_with?("Apple Distribution") }
+      UI.user_error!("archived Runner.app is not signed with an Apple Distribution identity")
+    end
+
+    export_plist = CISigning.write_export_options_plist(
+      File.join(ci_dir, "ExportOptions.plist"),
+      method: CISigning.app_store_export_method,
+      team_id: apple_team_id,
+      bundle_id: bundle_id,
+      profile_name: profile_name,
+      signing_certificate: "Apple Distribution",
+    )
+    sh(
+      "cd #{Shellwords.escape(root)} && #{scrubbed_flutter_env} xcodebuild -exportArchive " \
+      "-archivePath #{Shellwords.escape(archive_path)} " \
+      "-exportOptionsPlist #{Shellwords.escape(export_plist)} " \
+      "-exportPath #{Shellwords.escape(export_dir)}"
+    )
+
+    ipa_path = Dir[File.join(export_dir, "*.ipa")].first
+    UI.user_error!("xcodebuild -exportArchive produced no IPA") unless ipa_path
+
+    facts = CISigning.verify_ios_store_ipa(
+      ipa_path,
+      version_name: version_name,
+      build_number: build_number,
+      bundle_id: bundle_id,
+      team_id: apple_team_id,
+    )
+    destination = File.join(CISigning.artifact_dir, "Prism-#{version}-ios-store.ipa")
+    FileUtils.cp(ipa_path, destination)
+    CISigning.write_signing_facts(facts.merge("artifact" => File.basename(destination)))
+    UI.success("Built #{File.basename(destination)} (verified, not uploaded)")
+  end
+end
+
+platform :mac do
+  desc "[hosted release] Build a signed, notarized Developer ID DMG (build only; never uploads)"
+  lane :ci_macos_dmg do
+    CISigning.require_ci!("build a signed Developer ID DMG")
+
+    version = CISigning.env!("PRISM_CI_VERSION")
+    version_name = CISigning.env!("PRISM_CI_VERSION_NAME")
+    build_number = CISigning.env!("PRISM_CI_BUILD_NUMBER")
+    # Metadata-only defines, like mac:sideload: no beta registration token.
+    defines = Shellwords.escape(CISigning.dart_define_flag)
+
+    root = File.expand_path("..", __dir__)
+    dmg_path = File.join(CISigning.artifact_dir, "Prism-#{version}-macos.dmg")
+
+    # The Runner Release configuration signs with "Apple Development" +
+    # Automatic, which needs a personal development identity and an Xcode
+    # account this runner does not have (and must not export). Compile with
+    # signing disabled through a temporary xcconfig outside the repo, then sign
+    # explicitly with Developer ID and the installed profile below.
+    no_sign_xcconfig = File.join(CISigning.state_dir, "macos-no-sign.xcconfig")
+    File.write(no_sign_xcconfig, "CODE_SIGNING_ALLOWED = NO\nCODE_SIGNING_REQUIRED = NO\n")
+    begin
+      sh(
+        "cd #{Shellwords.escape(root)} && XCODE_XCCONFIG_FILE=#{Shellwords.escape(no_sign_xcconfig)} " \
+        "#{scrubbed_flutter_env} flutter build macos --release --no-tree-shake-icons #{defines}"
+      )
+    ensure
+      FileUtils.rm_f(no_sign_xcconfig)
+    end
+
+    app_path = Dir[File.join(root, "build", "macos", "Build", "Products", "Release", "*.app")].first
+    UI.user_error!("flutter build macos produced no .app in build/macos/Build/Products/Release") unless app_path
+
+    # Audited helpers, unchanged: profile/entitlement/certificate validation,
+    # Developer ID signing of frameworks + app, DMG creation and notarization.
+    CISigning.assert_unsigned!(app_path)
+    developer_id_sign_macos_app(app_path)
+    verify_macos_release_app(app_path)
+    archs = CISigning.universal_archs!(app_path)
+
+    info = CISigning.plist_json(File.join(app_path, "Contents", "Info.plist"))
+    unless info["CFBundleShortVersionString"] == version_name && info["CFBundleVersion"].to_s == build_number.to_s
+      UI.user_error!(
+        "built macOS app is #{info['CFBundleShortVersionString']}/#{info['CFBundleVersion']}, " \
+        "expected #{version_name}/#{build_number}"
+      )
+    end
+
+    create_macos_dmg(app_path, dmg_path, "Prism #{version.split("+").first}")
+    developer_id_sign_macos_dmg(dmg_path)
+    notarize_and_staple(dmg_path)
+    sh("spctl --assess --type open --context context:primary-signature --verbose=4 #{Shellwords.escape(dmg_path)}")
+    verify_macos_release_dmg(dmg_path)
+
+    CISigning.write_signing_facts(
+      "scheme" => "developer-id",
+      "artifact" => File.basename(dmg_path),
+      "identity" => developer_id_signing_certificate,
+      "compiled_unsigned" => true,
+      "archs" => archs,
+      "version" => info["CFBundleShortVersionString"],
+      "build" => info["CFBundleVersion"],
+      "notarized" => true,
+      "stapled" => true,
+      "gatekeeper_assessment" => "accepted",
+      "verified" => "Developer ID signature, entitlements, universal payload, notarization, " \
+                    "stapling and mounted DMG payload verified",
+    )
+    UI.success("Built #{File.basename(dmg_path)} (verified, not uploaded)")
+  end
+end
+
 platform :android do
-  desc "Build and upload to the Play Store closed beta testing track"
+  desc "Build and upload to the Play Store open testing track (beta)"
   lane :beta do
     note = release_store_note
     defines = build_info_defines
