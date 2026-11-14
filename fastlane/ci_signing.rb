@@ -167,11 +167,18 @@ module CISigning
     apps.first
   end
 
+  # App Attest must ship in the production environment; a development value
+  # silently makes attestation fail on real devices.
+  APP_ATTEST_ENTITLEMENT = "com.apple.developer.devicecheck.appattest-environment"
+
   def validate_ios_store_profile!(profile, app_entitlements, team_id:, bundle_id:, certificate_sha1:)
     errors = []
     allowed = profile["Entitlements"] || {}
     app_id = "#{team_id}.#{bundle_id}"
     errors << "profile is device-bound, so it is not an App Store profile" if profile.key?("ProvisionedDevices")
+    if profile["ProvisionsAllDevices"] == true
+      errors << "profile provisions all devices, so it is an enterprise rather than App Store profile"
+    end
     errors << "profile is not an iOS profile" unless Array(profile["Platform"]).include?("iOS")
     errors << "profile team does not match" unless Array(profile["TeamIdentifier"]).include?(team_id)
     expiry = profile["ExpirationDate"]
@@ -181,10 +188,30 @@ module CISigning
     end
     errors << "app identifier claim does not match" unless app_entitlements["application-identifier"] == app_id
     errors << "app team claim does not match" unless app_entitlements["com.apple.developer.team-identifier"] == team_id
-    Array(app_entitlements["keychain-access-groups"]).each do |claim|
-      next if Array(allowed["keychain-access-groups"]).any? { |pattern| MacOSSigning.authorizes?(pattern, claim) }
 
-      errors << "profile does not authorize keychain access group #{claim.inspect}"
+    # The default keychain group is not optional: an absent or empty array would
+    # otherwise pass this check vacuously and leave the app without its own
+    # keychain after install.
+    groups = app_entitlements["keychain-access-groups"]
+    if !groups.is_a?(Array) || groups.empty?
+      errors << "app has no keychain-access-groups entitlement (its default group must be present)"
+    elsif !groups.include?(app_id)
+      errors << "app is missing its default keychain group #{app_id}"
+    else
+      groups.each do |claim|
+        next if Array(allowed["keychain-access-groups"]).any? { |pattern| MacOSSigning.authorizes?(pattern, claim) }
+
+        errors << "profile does not authorize keychain access group #{claim.inspect}"
+      end
+    end
+
+    app_attest = app_entitlements[APP_ATTEST_ENTITLEMENT]
+    if app_attest.to_s.strip.empty?
+      errors << "app is missing the App Attest entitlement (#{APP_ATTEST_ENTITLEMENT})"
+    elsif app_attest.to_s != "production"
+      errors << "app Attest environment is #{app_attest.inspect}, not production"
+    elsif !Array(allowed[APP_ATTEST_ENTITLEMENT]).map(&:to_s).include?("production")
+      errors << "profile does not authorize the production App Attest environment"
     end
     if app_entitlements["get-task-allow"] == true || allowed["get-task-allow"] == true
       errors << "debug attachment (get-task-allow) is enabled"
@@ -203,7 +230,8 @@ module CISigning
       app_path = File.join(dir, "Payload", "Runner.app")
       UI.user_error!("exported IPA has no Payload/Runner.app") unless Dir.exist?(app_path)
 
-      capture!("codesign", "--verify", "--strict", "--verbose=2", app_path)
+      # Verification only; signing stays explicit elsewhere and never uses --deep.
+      capture!("codesign", "--verify", "--deep", "--strict", "--verbose=2", app_path)
       authorities = codesign_authorities(app_path)
       unless authorities.any? { |authority| authority.start_with?("Apple Distribution") }
         UI.user_error!("IPA is not signed with an Apple Distribution identity (found: #{authorities.join(', ')})")
@@ -246,9 +274,12 @@ module CISigning
         "build" => info["CFBundleVersion"],
         "bundle_id" => info["CFBundleIdentifier"],
         "get_task_allow" => entitlements["get-task-allow"] == true,
+        "app_attest_environment" => entitlements[APP_ATTEST_ENTITLEMENT],
+        "keychain_access_groups" => Array(entitlements["keychain-access-groups"]),
         "entitlement_keys" => entitlements.keys.sort,
         "signing_certificate_sha1" => signing_certificate_sha1(app_path),
-        "verified" => "distribution signature, production entitlements and version/build verified"
+        "verified" => "distribution signature verified deep+strict; App Attest production, default keychain " \
+                      "group, profile authorization, get-task-allow false and version/build checked"
       )
     end
     facts
