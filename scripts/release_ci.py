@@ -844,7 +844,7 @@ def flutter_provenance() -> dict:
     return {key: str(data[key]) for key in FLUTTER_PROVENANCE_KEYS if data.get(key)}
 
 
-def toolchain(platform: str) -> dict:
+def toolchain(platform: str, metadata: dict | None = None) -> dict:
     facts = {
         "flutter": tool_version(["flutter", "--version"]),
         "flutter_provenance": flutter_provenance() or None,
@@ -854,11 +854,18 @@ def toolchain(platform: str) -> dict:
     }
     if platform in APPLE_PLATFORMS:
         facts["xcode"] = tool_version(["xcodebuild", "-version"])
-        facts["fastlane"] = tool_version(["fastlane", "--version"], allow_failure=False)
+        # Reuse the pre-build observation; only a direct caller without metadata
+        # (for example a test) probes here.
+        provenance = (metadata or {}).get("fastlane_provenance") or fastlane_provenance()
+        facts["fastlane"] = f"fastlane {provenance['reported']}"
+        facts["fastlane_provenance"] = provenance
         facts["swift"] = tool_version(["swift", "--version"])
         facts["ruby"] = tool_version(["ruby", "--version"])
         facts["gems"] = gem_versions("fastlane", "cocoapods")
-        facts["cocoapods"] = tool_version(["pod", "--version"])
+        # The pre-build guard already observed the version; reuse it.
+        facts["cocoapods"] = (metadata or {}).get("pods", {}).get("installed") or tool_version(
+            ["pod", "--version"]
+        )
     if platform in SYMBOL_PLATFORMS:
         facts["age"] = tool_version(["age", "--version"])
     if platform == "android":
@@ -922,11 +929,12 @@ def write_receipt(
         "version": metadata["version"],
         "source": metadata["source"],
         "run": metadata["run"],
-        "toolchain": toolchain(platform),
+        "toolchain": toolchain(platform, metadata),
         "artifacts": artifacts,
         "signing": signing,
         "symbols": symbols,
         "symbols_archive": symbols_archive,
+        "pods": metadata.get("pods"),
         "dart_defines": metadata.get("dart_defines", {}),
         "publication": {
             "store_upload": False,
@@ -991,18 +999,32 @@ def require_credentials(platform: str) -> list[str]:
 
 PLATFORM_TOOLS = {
     "android": ("flutter", "java", "keytool", "jarsigner", "unzip", "tar", "age"),
-    "ios-unsigned": ("flutter", "unzip", "zip"),
-    "ios-store": ("flutter", "fastlane", "security", "ditto", "xcodebuild", "tar", "age"),
-    "macos": ("flutter", "fastlane", "security", "codesign", "hdiutil", "spctl", "xcrun", "tar", "age"),
+    "ios-unsigned": ("flutter", "unzip", "zip", "pod"),
+    "ios-store": ("flutter", "fastlane", "security", "ditto", "xcodebuild", "tar", "age", "pod"),
+    "macos": ("flutter", "fastlane", "security", "codesign", "hdiutil", "spctl", "xcrun", "tar", "age", "pod"),
 }
 
 
 # Nonsecret configuration a platform cannot build without.
 PLATFORM_CONFIG = {
     "android": ("PRISM_RELEASE_SYMBOLS_RECIPIENT",),
-    "ios-store": ("PRISM_RELEASE_SYMBOLS_RECIPIENT",),
-    "macos": ("PRISM_RELEASE_SYMBOLS_RECIPIENT",),
+    "ios-store": ("PRISM_RELEASE_SYMBOLS_RECIPIENT", "FASTLANE_VERSION"),
+    "macos": ("PRISM_RELEASE_SYMBOLS_RECIPIENT", "FASTLANE_VERSION"),
 }
+
+# A plain `fastlane` resolves the newest installed gem, so a preinstalled newer
+# fastlane on a runner silently replaces the pinned one. RubyGems' underscore
+# selector activates exactly the requested version for the probe, the lane and
+# the recorded provenance.
+# RubyGems versions may carry dotted prerelease/build segments (2.239.0.pre.1).
+GEM_VERSION_RE = re.compile(r"\d+\.\d+\.\d+(?:[.+-][0-9A-Za-z.\-+]+)*")
+
+# `fastlane --version` prints a "fastlane installation at path:" banner whose
+# following line is a path that happens to contain the version. Neither is a
+# version report, so only an exact "fastlane X.Y.Z" line counts.
+FASTLANE_REPORTED_RE = re.compile(
+    r"^fastlane\s+(?P<version>\d+\.\d+\.\d+(?:[.+-][0-9A-Za-z.\-+]+)*)\s*$", re.MULTILINE
+)
 
 # Platforms whose generated symbolication data ships as an encrypted archive.
 # ios-unsigned is deferred by the contract.
@@ -1047,15 +1069,136 @@ def symbols_recipient() -> str:
     return validate_age_recipient(value)
 
 
-def require_config(platform: str) -> None:
+PODFILE_LOCKS = {
+    "ios-unsigned": "ios/Podfile.lock",
+    "ios-store": "ios/Podfile.lock",
+    "macos": "macos/Podfile.lock",
+}
+
+POD_VERSION_RE = re.compile(r"^\s*(\d+\.\d+\.\d+(?:[.+-][0-9A-Za-z.\-+]+)*)\s*$", re.MULTILINE)
+
+
+def pod_lock_stamp(platform: str) -> tuple[str, str]:
+    """The CocoaPods version stamped in this platform's committed Podfile.lock."""
+    relative = PODFILE_LOCKS[platform]
+    path = REPO_ROOT / relative
+    if not path.is_file():
+        raise ReleaseError(
+            f"{relative} is missing; CocoaPods resolution cannot be verified before compiling"
+        )
+    match = re.search(r"^COCOAPODS:\s*(\S+)\s*$", path.read_text(encoding="utf-8"), re.MULTILINE)
+    if match is None:
+        raise ReleaseError(f"{relative} has no COCOAPODS: version stamp to compare against")
+    return relative, match.group(1)
+
+
+def installed_cocoapods_version() -> str:
+    """`pod --version`, ignoring the UTF-8 warning CocoaPods prints on stderr."""
+    text = run(["pod", "--version"], quiet=True, check=True).text
+    matches = POD_VERSION_RE.findall(text)
+    if not matches:
+        raise ReleaseError(
+            "could not read `pod --version`; CocoaPods did not print a version line. "
+            "No compilation was started."
+        )
+    return matches[-1]
+
+
+def assert_pod_version_matches_lock(platform: str) -> dict:
+    """Fail before compiling when `pod install` would rewrite the committed lock.
+
+    CocoaPods stamps its own version into Podfile.lock, so a runner whose pod
+    differs from the one that wrote the lock rewrites that line and the final
+    tracked-source guard fails after a full build. This catches it in seconds,
+    before compilation, without weakening that guard.
+    """
+    relative, stamped = pod_lock_stamp(platform)
+    installed = installed_cocoapods_version()
+    if stamped != installed:
+        raise ReleaseError(
+            f"CocoaPods {installed} is installed but {relative} is stamped COCOAPODS: {stamped}; "
+            "`pod install` would rewrite the lock and the build would fail the tracked-source guard "
+            "after compiling. Reconcile the lock deliberately rather than in a build. "
+            "No compilation was started."
+        )
+    return {"lock": relative, "stamped": stamped, "installed": installed}
+
+
+def require_config(platform: str) -> dict:
+    """Validate configuration and, for Apple platforms, prove the fastlane pin early.
+
+    The probe runs here — before any keychain is created, any identity imported,
+    any lane started and any compilation — so a selector that resolved the wrong
+    gem fails in seconds instead of after a signed build. The observation is
+    returned for caching in the build metadata; the receipt reuses it rather than
+    probing a second time.
+    """
     for name in PLATFORM_CONFIG.get(platform, ()):
         if not env_value(name):
             raise UsageError(
-                f"{platform} build requires {name} (nonsecret repository variable); "
+                f"{platform} build requires {name} (nonsecret configuration); "
                 "an unset variable arrives as an empty string. No compilation was started."
             )
     if platform in SYMBOL_PLATFORMS:
         symbols_recipient()
+    observations: dict = {}
+    if platform in PODFILE_LOCKS:
+        observations["pods"] = assert_pod_version_matches_lock(platform)
+    if platform in APPLE_PLATFORMS:
+        observations["fastlane_provenance"] = fastlane_provenance()
+    return observations
+
+
+def fastlane_version() -> str:
+    """The pinned fastlane gem version the workflow installed."""
+    value = require_env(
+        "FASTLANE_VERSION", purpose="pinned fastlane gem version (workflow environment)"
+    )
+    if not GEM_VERSION_RE.fullmatch(value):
+        raise UsageError(
+            f"FASTLANE_VERSION must be a plain gem version such as 2.239.0, got {value!r}"
+        )
+    return value
+
+
+def fastlane_command(*arguments: str) -> list[str]:
+    """`fastlane` with RubyGems activation pinned to FASTLANE_VERSION."""
+    return ["fastlane", f"_{fastlane_version()}_", *arguments]
+
+
+def fastlane_provenance() -> dict:
+    """Prove the pinned gem is the one that actually ran.
+
+    The banner and its path line both mention a version, so the only acceptable
+    evidence is the exact "fastlane <version>" line the running gem prints. If
+    that line is missing, the build fails rather than recording a value nobody
+    observed.
+    """
+    pinned = fastlane_version()
+    text = run(fastlane_command("--version"), quiet=True, check=True).text
+    match = FASTLANE_REPORTED_RE.search(text)
+    if match is None:
+        raise ReleaseError(
+            f"could not read the activated fastlane version: `fastlane _{pinned}_ --version` printed no "
+            "exact 'fastlane <version>' line, and the installation banner or its path is not a version "
+            "report. Refusing to record provenance that was never observed."
+        )
+    reported = match.group("version")
+    if reported != pinned:
+        raise ReleaseError(
+            f"`fastlane _{pinned}_ --version` reports {reported} but the controlled pin is {pinned}; "
+            "a newer preinstalled gem may have been selected"
+        )
+    return {
+        "pinned": pinned,
+        "reported": reported,
+        "activation": f"_{pinned}_",
+        "verified": "the underscore-selected gem printed the exact pinned version",
+    }
+
+
+def fastlane_lane_command(lane: str) -> list[str]:
+    return fastlane_command(lane)
 
 
 def write_secret_file(owned: Owned, path: Path, data: bytes) -> Path:
@@ -1685,7 +1828,7 @@ def build_apple(owned: Owned, platform: str, metadata: dict, defines: Path) -> d
 
     dist = dist_dir(platform)
     dist.mkdir(parents=True, exist_ok=True)
-    run(["fastlane", lane], cwd=REPO_ROOT, env=env, stream=True)
+    run(fastlane_lane_command(lane), cwd=REPO_ROOT, env=env, stream=True)
 
     produced = [
         path
@@ -1865,7 +2008,8 @@ def build(platform: str) -> int:
     try:
         metadata = freeze_metadata(platform)
         require_tools(platform)
-        require_config(platform)
+        metadata.update(require_config(platform))
+        save_frozen(metadata)
         require_credentials(platform)
         defines = write_dart_defines(owned, metadata, beta_token(platform))
         flutter_pub_get(platform)

@@ -159,8 +159,21 @@ jobs:
         run: |
           set -euo pipefail
           ndk_version=28.2.13676358
+          sdkmanager="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -d "${ANDROID_HOME}/ndk/${ndk_version}" ]; then
-            yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;${ndk_version}"
+            # `yes` feeds license prompts and takes SIGPIPE when sdkmanager closes
+            # stdin at the end of a successful install; with pipefail that used to
+            # fail a step that had actually succeeded. The pipeline's status is
+            # therefore ignored and sdkmanager's own exit code is kept, so a real
+            # SDK failure still fails the step with its real code.
+            set +e
+            yes | "${sdkmanager}" --install "ndk;${ndk_version}"
+            sdkmanager_status=${PIPESTATUS[1]}
+            set -e
+            if [ "${sdkmanager_status}" -ne 0 ]; then
+              echo "sdkmanager failed to install ndk;${ndk_version} (exit ${sdkmanager_status})" >&2
+              exit "${sdkmanager_status}"
+            fi
           fi
           test -d "${ANDROID_HOME}/ndk/${ndk_version}"
 
@@ -420,6 +433,16 @@ jobs:
         run: |
           set -euo pipefail
           required_ruby=3.1
+          # Deliberately STRICTER than the build step's own shape check: this
+          # requires a 3-part numeric core plus dotted suffixes, so it accepts
+          # 2.239.0 and 2.239.0.pre.1 but refuses hyphen or plus suffixes that
+          # the helper tolerates, as well as "true", "latest", "2.239" and
+          # "v2.239.0". The pin is a workflow constant, so failing earlier here
+          # is the intended direction rather than a second source of truth.
+          if ! ruby -e 'exit(ARGV[0] =~ /\A\d+\.\d+\.\d+(\.[0-9A-Za-z]+)*\z/ ? 0 : 1)' "${FASTLANE_VERSION}"; then
+            echo "FASTLANE_VERSION must be a plain gem version, got '${FASTLANE_VERSION}'" >&2
+            exit 1
+          fi
           ruby --version
           gem --version
           if ! ruby -e 'exit(Gem::Version.new(RUBY_VERSION) >= Gem::Version.new(ARGV[0]) ? 0 : 1)' "${required_ruby}"; then
@@ -429,20 +452,23 @@ jobs:
           gem install --no-document --user-install --version "${FASTLANE_VERSION}" fastlane
           gem_bin="$(ruby -e 'print Gem.user_dir')/bin"
           echo "${gem_bin}" >> "${GITHUB_PATH}"
-          listed="$(gem list --exact --installed fastlane)"
-          case "${listed}" in
-            *"fastlane (${FASTLANE_VERSION})"*) ;;
-            *)
-              echo "the pinned fastlane version did not install: ${listed}" >&2
-              exit 1
-              ;;
-          esac
-          reported="$("${gem_bin}/fastlane" --version)"
-          echo "${reported}"
+          # RubyGems semantics, not a version matched against a listing:
+          # `gem list --installed` is the boolean "is it installed?" flag and
+          # prints `true`, so ask RubyGems which specification actually exists.
+          resolved="$(ruby -e 'require "rubygems"; spec = Gem::Specification.find_all_by_name("fastlane").find { |candidate| candidate.version.to_s == ARGV[0] }; print(spec ? spec.version.to_s : "")' "${FASTLANE_VERSION}")"
+          if [ "${resolved}" != "${FASTLANE_VERSION}" ]; then
+            echo "fastlane ${FASTLANE_VERSION} is not present as a RubyGem specification (found '${resolved}')" >&2
+            exit 1
+          fi
+          # A bare `fastlane` can activate a newer preinstalled gem, so probe the
+          # pinned version explicitly with the RubyGems underscore selector. The
+          # build step receives FASTLANE_VERSION and invokes its lanes the same way.
+          reported="$("${gem_bin}/fastlane" "_${FASTLANE_VERSION}_" --version)"
+          echo "fastlane ${reported}"
           case "${reported}" in
             *"${FASTLANE_VERSION}"*) ;;
             *)
-              echo "fastlane reported an unexpected version: ${reported}" >&2
+              echo "fastlane activated an unexpected version: ${reported}" >&2
               exit 1
               ;;
           esac
@@ -495,7 +521,7 @@ jobs:
           pod --version
           ruby -v
           gem --version
-          fastlane --version
+          fastlane "_${FASTLANE_VERSION}_" --version
 
       - name: Check source preconditions
         shell: bash
@@ -601,6 +627,16 @@ jobs:
         run: |
           set -euo pipefail
           required_ruby=3.1
+          # Deliberately STRICTER than the build step's own shape check: this
+          # requires a 3-part numeric core plus dotted suffixes, so it accepts
+          # 2.239.0 and 2.239.0.pre.1 but refuses hyphen or plus suffixes that
+          # the helper tolerates, as well as "true", "latest", "2.239" and
+          # "v2.239.0". The pin is a workflow constant, so failing earlier here
+          # is the intended direction rather than a second source of truth.
+          if ! ruby -e 'exit(ARGV[0] =~ /\A\d+\.\d+\.\d+(\.[0-9A-Za-z]+)*\z/ ? 0 : 1)' "${FASTLANE_VERSION}"; then
+            echo "FASTLANE_VERSION must be a plain gem version, got '${FASTLANE_VERSION}'" >&2
+            exit 1
+          fi
           ruby --version
           gem --version
           if ! ruby -e 'exit(Gem::Version.new(RUBY_VERSION) >= Gem::Version.new(ARGV[0]) ? 0 : 1)' "${required_ruby}"; then
@@ -610,20 +646,23 @@ jobs:
           gem install --no-document --user-install --version "${FASTLANE_VERSION}" fastlane
           gem_bin="$(ruby -e 'print Gem.user_dir')/bin"
           echo "${gem_bin}" >> "${GITHUB_PATH}"
-          listed="$(gem list --exact --installed fastlane)"
-          case "${listed}" in
-            *"fastlane (${FASTLANE_VERSION})"*) ;;
-            *)
-              echo "the pinned fastlane version did not install: ${listed}" >&2
-              exit 1
-              ;;
-          esac
-          reported="$("${gem_bin}/fastlane" --version)"
-          echo "${reported}"
+          # RubyGems semantics, not a version matched against a listing:
+          # `gem list --installed` is the boolean "is it installed?" flag and
+          # prints `true`, so ask RubyGems which specification actually exists.
+          resolved="$(ruby -e 'require "rubygems"; spec = Gem::Specification.find_all_by_name("fastlane").find { |candidate| candidate.version.to_s == ARGV[0] }; print(spec ? spec.version.to_s : "")' "${FASTLANE_VERSION}")"
+          if [ "${resolved}" != "${FASTLANE_VERSION}" ]; then
+            echo "fastlane ${FASTLANE_VERSION} is not present as a RubyGem specification (found '${resolved}')" >&2
+            exit 1
+          fi
+          # A bare `fastlane` can activate a newer preinstalled gem, so probe the
+          # pinned version explicitly with the RubyGems underscore selector. The
+          # build step receives FASTLANE_VERSION and invokes its lanes the same way.
+          reported="$("${gem_bin}/fastlane" "_${FASTLANE_VERSION}_" --version)"
+          echo "fastlane ${reported}"
           case "${reported}" in
             *"${FASTLANE_VERSION}"*) ;;
             *)
-              echo "fastlane reported an unexpected version: ${reported}" >&2
+              echo "fastlane activated an unexpected version: ${reported}" >&2
               exit 1
               ;;
           esac
@@ -676,7 +715,7 @@ jobs:
           pod --version
           ruby -v
           gem --version
-          fastlane --version
+          fastlane "_${FASTLANE_VERSION}_" --version
 
       - name: Check source preconditions
         shell: bash

@@ -60,6 +60,14 @@ dependencies:
 """
 
 
+FASTLANE_PINNED = "2.239.0"
+
+
+def FASTLANE_LANE(lane: str):
+    """Match the activated lane invocation: fastlane _2.239.0_ <lane>."""
+    return lambda argv: argv[:1] == ["fastlane"] and argv[-1:] == [lane]
+
+
 def fingerprint(value: str) -> str:
     """Format a hex fingerprint the way keytool prints it."""
     pairs = [value[index : index + 2] for index in range(0, len(value), 2)]
@@ -111,6 +119,12 @@ class FakeCommands:
     def calls_with(self, *prefix) -> list[list[str]]:
         return [call["argv"] for call in self.calls if call["argv"][: len(prefix)] == list(prefix)]
 
+    def fastlane_calls(self) -> list[list[str]]:
+        return [call["argv"] for call in self.calls if call["argv"][:1] == ["fastlane"]]
+
+    def calls_for_lane(self, lane: str) -> list[list[str]]:
+        return [call["argv"] for call in self.calls if FASTLANE_LANE(lane)(call["argv"])]
+
     def remove(self, probe) -> None:
         """Drop handlers whose matcher answers the probe argv."""
         self.handlers = [handler for handler in self.handlers if not handler[0](list(probe))]
@@ -122,6 +136,8 @@ class FakeCommands:
 class ReleaseTestCase(unittest.TestCase):
     """Shared fixture: temporary repo, temporary RUNNER_TEMP, fake commands."""
 
+    fastlane_pinned = FASTLANE_PINNED
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -129,6 +145,12 @@ class ReleaseTestCase(unittest.TestCase):
         self.repo = root / "repo"
         (self.repo / "scripts").mkdir(parents=True)
         (self.repo / "android" / "app").mkdir(parents=True)
+        for relative in ("ios/Podfile.lock", "macos/Podfile.lock"):
+            lock = self.repo / relative
+            lock.parent.mkdir(parents=True, exist_ok=True)
+            lock.write_text(
+                "PODS:\n  - Flutter (1.0.0)\n\nCOCOAPODS: 1.16.2\n"
+            )
         (self.repo / "fastlane").mkdir(parents=True)
         (self.repo / "pubspec.yaml").write_text(PUBSPEC.format(ref=SHA))
         self.runner_temp = root / "runner-temp"
@@ -143,6 +165,7 @@ class ReleaseTestCase(unittest.TestCase):
             "RUNNER_TEMP": str(self.runner_temp),
             "PRISM_EXPECTED_REVISION": SHA,
             "PRISM_RELEASE_SYMBOLS_RECIPIENT": self.recipient,
+            "FASTLANE_VERSION": "2.239.0",
         }
         patches = [
             (release_ci, "REPO_ROOT", self.repo),
@@ -193,7 +216,10 @@ class ReleaseTestCase(unittest.TestCase):
 
     def stub_toolchain(self):
         self.commands.on_prefix(["flutter", "--version"], stdout="Flutter 3.44.8 • channel stable\n")
-        self.commands.on_prefix(["fastlane", "--version"], stdout="fastlane 2.229.0\n")
+        self.commands.on(
+            lambda argv: argv[:1] == ["fastlane"] and argv[-1:] == ["--version"],
+            lambda argv, env: (0, f"fastlane installation at path: /fake/gems\nfastlane {self.fastlane_pinned}\n", ""),
+        )
         self.commands.on_prefix(["xcodebuild", "-version"], stdout="Xcode 26.6\nBuild version 17A1\n")
         self.commands.on_prefix(["swift", "--version"], stdout="Apple Swift version 6.2\n")
         self.commands.on_prefix(["age", "--version"], stdout="1.3.2\n")
@@ -700,7 +726,7 @@ class IosUnsignedBuildTest(ReleaseTestCase):
         self.assertEqual(receipt["signing"]["scheme"], "none")
         self.assertIsNone(receipt["signing"]["identity"])
         self.assertEqual(self.commands.calls_with("security"), [])
-        self.assertEqual(self.commands.calls_with("fastlane"), [])
+        self.assertEqual(self.commands.fastlane_calls(), [])
         command = self.commands.calls_with("flutter", "build", "ios")[0]
         self.assertIn("--no-codesign", command)
         self.assertNotIn("PRISM_BETA_REGISTRATION_TOKEN", observed["defines"])
@@ -724,7 +750,7 @@ class IosUnsignedBuildTest(ReleaseTestCase):
 class AppleBuildTest(ReleaseTestCase):
     def test_macos_build_uses_ephemeral_keychain_and_never_logs_secrets(self):
         self.stub_apple_credentials("macos")
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=self._fastlane_macos)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane_macos)
         self.assertEqual(release_ci.build("macos"), 0)
 
         receipt = json.loads((self.repo / "dist" / "macos" / "release-receipt.json").read_text())
@@ -737,7 +763,7 @@ class AppleBuildTest(ReleaseTestCase):
         self.assertNotIn("-A", imports[0])
         self.assertIn("-T", imports[0])
 
-        call = [entry for entry in self.commands.calls if entry["argv"] == ["fastlane", "ci_macos_dmg"]][0]
+        call = [entry for entry in self.commands.calls if entry["argv"][:1] == ["fastlane"] and entry["argv"][-1:] == ["ci_macos_dmg"]][0]
         env = call["env"]
         self.assertEqual(env["GITHUB_ACTIONS"], "true")
         self.assertTrue(env["PRISM_CI_DART_DEFINES_FILE"].endswith("dart-defines.json"))
@@ -748,7 +774,7 @@ class AppleBuildTest(ReleaseTestCase):
 
     def test_macos_build_removes_keychain_and_profile(self):
         self.stub_apple_credentials("macos")
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=self._fastlane_macos)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane_macos)
         release_ci.build("macos")
         keychain = self.runner_temp / "prism-release" / "prism-release.keychain-db"
         self.assertFalse(keychain.exists())
@@ -769,8 +795,8 @@ class AppleBuildTest(ReleaseTestCase):
 
     def test_ios_store_build_writes_receipt_from_signing_facts(self):
         self.stub_apple_credentials("ios-store")
-        self.commands.on_prefix(
-            ["fastlane", "ci_ios_store"], respond=lambda argv, env: self._fastlane_ios(argv, env)
+        self.commands.on(
+            FASTLANE_LANE("ci_ios_store"), respond=lambda argv, env: self._fastlane_ios(argv, env)
         )
         self.assertEqual(release_ci.build("ios-store"), 0)
         receipt = json.loads((self.repo / "dist" / "ios-store" / "release-receipt.json").read_text())
@@ -1000,7 +1026,7 @@ class FailureContainmentTest(ReleaseTestCase):
             (artifact_dir / "Prism-0.16.0+16004-macos.dmg").write_bytes(b"partial")
             return 1, "", "notarization failed"
 
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=failing_fastlane)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=failing_fastlane)
         with self.assertRaises(release_ci.ReleaseError):
             release_ci.build("macos")
         self.assertFalse((self.repo / "dist" / "macos").exists())
@@ -1015,7 +1041,7 @@ class FailureContainmentTest(ReleaseTestCase):
             (artifact_dir / "Prism-0.16.0+16004-macos.dmg").write_bytes(b"dmg")
             return 0, "", ""
 
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=no_facts)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=no_facts)
         with self.assertRaises(release_ci.ReleaseError) as caught:
             release_ci.build("macos")
         self.assertIn("signing facts", str(caught.exception))
@@ -1032,7 +1058,7 @@ class FailureContainmentTest(ReleaseTestCase):
             (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text("{}")
             return 0, "", ""
 
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=two_artifacts)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=two_artifacts)
         with self.assertRaises(release_ci.ReleaseError) as caught:
             release_ci.build("macos")
         self.assertIn("exactly one", str(caught.exception))
@@ -1238,7 +1264,7 @@ class ToolRequirementTest(ReleaseTestCase):
             release_ci.build("macos")
         self.assertIn("fastlane", str(caught.exception))
         self.assertIn("No compilation was started", str(caught.exception))
-        self.assertEqual(self.commands.calls_with("fastlane", "ci_macos_dmg"), [])
+        self.assertEqual(self.commands.calls_for_lane("ci_macos_dmg"), [])
         self.assertFalse((self.repo / "dist" / "macos").exists())
 
     def test_every_platform_declares_its_tools(self):
@@ -1287,9 +1313,9 @@ class BetaTokenScopeTest(ReleaseTestCase):
 
     def test_macos_build_runs_without_a_token_in_the_lane_environment(self):
         self.stub_apple_credentials("macos")
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=self._fastlane_macos)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane_macos)
         self.assertEqual(release_ci.build("macos"), 0)
-        call = [entry for entry in self.commands.calls if entry["argv"] == ["fastlane", "ci_macos_dmg"]][0]
+        call = [entry for entry in self.commands.calls if entry["argv"][:1] == ["fastlane"] and entry["argv"][-1:] == ["ci_macos_dmg"]][0]
         self.assertNotIn("PRISM_BETA_REGISTRATION_TOKEN", call["env"])
         defines = json.loads(Path(call["env"]["PRISM_CI_DART_DEFINES_FILE"]).read_text()) if Path(
             call["env"]["PRISM_CI_DART_DEFINES_FILE"]
@@ -1476,7 +1502,7 @@ class ReceiptDefineEvidenceTest(ReleaseTestCase):
 
     def test_macos_receipt_states_no_beta_token(self):
         self.stub_apple_credentials("macos")
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=self._fastlane)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
         release_ci.build("macos")
         receipt = json.loads((self.repo / "dist" / "macos" / "release-receipt.json").read_text())
         self.assertFalse(receipt["dart_defines"]["includes_beta_registration_token"])
@@ -1765,7 +1791,7 @@ class SymbolsEncryptionTest(ReleaseTestCase):
 class AppleSymbolsArchiveTest(ReleaseTestCase):
     def test_macos_build_ships_an_encrypted_dsym_archive(self):
         self.stub_apple_credentials("macos")
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=self._fastlane)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
         self.assertEqual(release_ci.build("macos"), 0)
         dist = self.repo / "dist" / "macos"
         self.assertIn("Prism-0.16.0+16004-macos-symbols.tar.gz.age", {path.name for path in dist.iterdir()})
@@ -1776,7 +1802,7 @@ class AppleSymbolsArchiveTest(ReleaseTestCase):
 
     def test_missing_dsyms_fail_the_build(self):
         self.stub_apple_credentials("macos")
-        self.commands.on_prefix(["fastlane", "ci_macos_dmg"], respond=self._no_dsyms)
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._no_dsyms)
         with self.assertRaises(release_ci.ReleaseError) as caught:
             release_ci.build("macos")
         self.assertIn("cannot be symbolicated", str(caught.exception))
@@ -1784,7 +1810,7 @@ class AppleSymbolsArchiveTest(ReleaseTestCase):
 
     def test_ios_store_build_ships_an_encrypted_dsym_archive(self):
         self.stub_apple_credentials("ios-store")
-        self.commands.on_prefix(["fastlane", "ci_ios_store"], respond=self._fastlane_ios)
+        self.commands.on(FASTLANE_LANE("ci_ios_store"), respond=self._fastlane_ios)
         self.assertEqual(release_ci.build("ios-store"), 0)
         receipt = json.loads((self.repo / "dist" / "ios-store" / "release-receipt.json").read_text())
         self.assertIn("symbols_archive", receipt)
@@ -2194,3 +2220,386 @@ class UnsignedIpaConsumerNameTest(ReleaseTestCase):
         # artifact names are produced by the frozen Fastfile lanes.
         self.assertIn('-android.aab"', source)
         self.assertIn("-symbols.tar.gz.age", source)
+
+
+class FastlaneActivationTest(ReleaseTestCase):
+    """A plain `fastlane` picks the newest installed gem; the pin must be explicit."""
+
+    def test_command_uses_the_rubygems_underscore_selector(self):
+        self.assertEqual(
+            release_ci.fastlane_lane_command("ci_macos_dmg"),
+            ["fastlane", "_2.239.0_", "ci_macos_dmg"],
+        )
+        self.assertEqual(
+            release_ci.fastlane_command("--version"),
+            ["fastlane", "_2.239.0_", "--version"],
+        )
+
+    def test_version_must_come_from_controlled_configuration(self):
+        for platform in ("ios-store", "macos"):
+            del os.environ["FASTLANE_VERSION"]
+            with self.assertRaises(release_ci.UsageError) as caught:
+                release_ci.require_config(platform)
+            self.assertIn("FASTLANE_VERSION", str(caught.exception))
+            self.assertIn("No compilation was started", str(caught.exception))
+            os.environ["FASTLANE_VERSION"] = FASTLANE_PINNED
+
+    def test_empty_version_fails_closed(self):
+        os.environ["FASTLANE_VERSION"] = ""
+        for platform in ("ios-store", "macos"):
+            with self.assertRaises(release_ci.UsageError) as caught:
+                release_ci.require_config(platform)
+            self.assertIn("FASTLANE_VERSION", str(caught.exception))
+        os.environ["FASTLANE_VERSION"] = FASTLANE_PINNED
+
+    def test_version_must_be_a_gem_semver(self):
+        for value in ("true", "latest", "2.239", "2", "", "v2.239.0", "2.239.0 latest"):
+            os.environ["FASTLANE_VERSION"] = value
+            with self.assertRaises(release_ci.UsageError, msg=f"{value!r} should be refused"):
+                release_ci.fastlane_version()
+        for value in ("2.239.0", "2.239.0.pre.1", "2.239.0+meta"):
+            os.environ["FASTLANE_VERSION"] = value
+            self.assertEqual(release_ci.fastlane_version(), value)
+        # Surrounding whitespace is stripped from the environment value.
+        os.environ["FASTLANE_VERSION"] = " 2.239.0 "
+        self.assertEqual(release_ci.fastlane_version(), "2.239.0")
+        os.environ["FASTLANE_VERSION"] = FASTLANE_PINNED
+
+    def test_android_does_not_require_a_fastlane_version(self):
+        del os.environ["FASTLANE_VERSION"]
+        release_ci.require_config("android")  # no fastlane on this path
+        os.environ["FASTLANE_VERSION"] = FASTLANE_PINNED
+
+    def test_provenance_proves_the_pinned_version_actually_ran(self):
+        provenance = release_ci.fastlane_provenance()
+        self.assertEqual(provenance["pinned"], FASTLANE_PINNED)
+        self.assertEqual(provenance["activation"], f"_{FASTLANE_PINNED}_")
+        self.assertIn(FASTLANE_PINNED, provenance["reported"])
+        self.assertEqual(
+            self.commands.calls_with("fastlane", f"_{FASTLANE_PINNED}_", "--version"),
+            [["fastlane", f"_{FASTLANE_PINNED}_", "--version"]],
+        )
+
+    def test_a_newer_preinstalled_gem_is_detected(self):
+        self.commands.remove(["fastlane", "--version"])
+        self.commands.on(
+            lambda argv: argv[:1] == ["fastlane"] and argv[-1:] == ["--version"],
+            lambda argv, env: (0, "fastlane installation at path: /fake/gems\nfastlane 2.241.2\n", ""),
+        )
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.fastlane_provenance()
+        message = str(caught.exception)
+        self.assertIn(FASTLANE_PINNED, message)
+        self.assertIn("2.241.2", message)
+        self.assertIn("preinstalled gem", message)
+
+    def test_macos_build_invokes_the_pinned_lane(self):
+        self.stub_apple_credentials("macos")
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
+        self.assertEqual(release_ci.build("macos"), 0)
+        calls = self.commands.calls_for_lane("ci_macos_dmg")
+        self.assertEqual(calls, [["fastlane", f"_{FASTLANE_PINNED}_", "ci_macos_dmg"]])
+
+    def test_receipt_records_activation_and_reported_version(self):
+        self.stub_apple_credentials("macos")
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
+        release_ci.build("macos")
+        receipt = json.loads((self.repo / "dist" / "macos" / "release-receipt.json").read_text())
+        provenance = receipt["toolchain"]["fastlane_provenance"]
+        self.assertEqual(provenance["pinned"], FASTLANE_PINNED)
+        self.assertEqual(provenance["activation"], f"_{FASTLANE_PINNED}_")
+        self.assertIn(FASTLANE_PINNED, receipt["toolchain"]["fastlane"])
+
+    def test_build_fails_before_compiling_without_the_pin(self):
+        self.stub_apple_credentials("ios-store")
+        del os.environ["FASTLANE_VERSION"]
+        with self.assertRaises(release_ci.UsageError):
+            release_ci.build("ios-store")
+        self.assertEqual(self.commands.fastlane_calls(), [])
+        self.assertEqual(self.commands.calls_with("flutter", "pub", "get"), [])
+        self.assertFalse((self.repo / "dist" / "ios-store").exists())
+        os.environ["FASTLANE_VERSION"] = FASTLANE_PINNED
+
+    def _fastlane(self, argv, env):
+        self.write_dsyms("macos")
+        artifact_dir = Path(env["PRISM_CI_ARTIFACT_DIR"])
+        (artifact_dir / "Prism-0.16.0+16004-macos.dmg").write_bytes(b"dmg")
+        (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text(json.dumps({"scheme": "developer-id"}))
+        return 0, "", ""
+
+
+class FastlaneVersionLineTest(ReleaseTestCase):
+    """Only an exact "fastlane X.Y.Z" line proves the activated gem version."""
+
+    def respond_with(self, text: str) -> None:
+        self.commands.remove(["fastlane", "--version"])
+        self.commands.on(
+            lambda argv: argv[:1] == ["fastlane"] and argv[-1:] == ["--version"],
+            lambda argv, env: (0, text, ""),
+        )
+
+    def test_banner_and_path_alone_are_not_a_version(self):
+        # The parent's exact concern: the banner path contains the pinned
+        # version, but that is not a version report.
+        self.respond_with(
+            "fastlane installation at path:\n"
+            "/home/runner/.gem/ruby/3.3.0/gems/fastlane-2.239.0/bin/fastlane\n"
+            "-----------------------------\n"
+        )
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.fastlane_provenance()
+        self.assertIn("printed no exact 'fastlane <version>' line", str(caught.exception))
+        self.assertIn("never observed", str(caught.exception))
+
+    def test_exact_line_is_parsed_out_of_the_banner_noise(self):
+        self.respond_with(
+            "fastlane installation at path:\n"
+            "/home/runner/.gem/ruby/3.3.0/gems/fastlane-2.239.0/bin/fastlane\n"
+            "-----------------------------\n"
+            "[12:00:00]: WARNING: locale is not UTF-8\n"
+            "fastlane 2.239.0\n"
+            "[12:00:00]: WARNING: locale is not UTF-8\n"
+        )
+        provenance = release_ci.fastlane_provenance()
+        self.assertEqual(provenance["reported"], "2.239.0")
+        self.assertEqual(provenance["pinned"], "2.239.0")
+        self.assertEqual(provenance["activation"], "_2.239.0_")
+
+    def test_a_different_activated_version_is_refused_even_if_the_path_matches(self):
+        # Path says the pinned gem, the running gem says otherwise: refuse.
+        self.respond_with(
+            "fastlane installation at path:\n"
+            "/home/runner/.gem/ruby/3.3.0/gems/fastlane-2.239.0/bin/fastlane\n"
+            "fastlane 2.241.2\n"
+        )
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.fastlane_provenance()
+        message = str(caught.exception)
+        self.assertIn("2.241.2", message)
+        self.assertIn("2.239.0", message)
+        self.assertIn("preinstalled gem", message)
+
+    def test_the_receipt_never_invents_a_version(self):
+        self.respond_with("fastlane installation at path:\n/opt/gems/fastlane-2.239.0/bin/fastlane\n")
+        with self.assertRaises(release_ci.ReleaseError):
+            release_ci.fastlane_provenance()
+        # No provenance is recorded because the build stops before the receipt.
+        self.assertFalse((self.repo / "dist" / "macos").exists())
+
+    def test_receipt_reports_the_observed_version(self):
+        self.stub_apple_credentials("macos")
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
+        release_ci.build("macos")
+        receipt = json.loads((self.repo / "dist" / "macos" / "release-receipt.json").read_text())
+        provenance = receipt["toolchain"]["fastlane_provenance"]
+        self.assertEqual(provenance["reported"], "2.239.0")
+        self.assertEqual(receipt["toolchain"]["fastlane"], "fastlane 2.239.0")
+        self.assertIn("underscore-selected gem", provenance["verified"])
+
+    def _fastlane(self, argv, env):
+        self.write_dsyms("macos")
+        artifact_dir = Path(env["PRISM_CI_ARTIFACT_DIR"])
+        (artifact_dir / "Prism-0.16.0+16004-macos.dmg").write_bytes(b"dmg")
+        (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text(json.dumps({"scheme": "developer-id"}))
+        return 0, "", ""
+
+
+class FastlaneProbeOrderingTest(ReleaseTestCase):
+    """P2: the pin must be proven before any signed work, and only once."""
+
+    def probe_positions(self) -> list[int]:
+        return [
+            index
+            for index, call in enumerate(self.commands.calls)
+            if call["argv"][:1] == ["fastlane"] and call["argv"][-1:] == ["--version"]
+        ]
+
+    def first_position(self, predicate) -> int | None:
+        for index, call in enumerate(self.commands.calls):
+            if predicate(call["argv"]):
+                return index
+        return None
+
+    def test_probe_runs_before_lane_keychain_and_compile(self):
+        self.stub_apple_credentials("macos")
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
+        self.assertEqual(release_ci.build("macos"), 0)
+
+        probes = self.probe_positions()
+        self.assertEqual(len(probes), 1, "the pin must be probed exactly once")
+        probe = probes[0]
+        lane = self.first_position(lambda argv: FASTLANE_LANE("ci_macos_dmg")(argv))
+        keychain = self.first_position(lambda argv: argv[:2] == ["security", "create-keychain"])
+        keychain_import = self.first_position(lambda argv: argv[:2] == ["security", "import"])
+        compile_step = self.first_position(lambda argv: argv[:3] == ["flutter", "pub", "get"])
+        self.assertIsNotNone(lane)
+        for label, position in (("lane", lane), ("keychain", keychain),
+                                ("identity import", keychain_import), ("pub get", compile_step)):
+            self.assertIsNotNone(position, label)
+            self.assertLess(probe, position, f"fastlane probe must precede the {label}")
+
+    def test_receipt_reuses_the_pre_build_observation(self):
+        self.stub_apple_credentials("macos")
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
+        release_ci.build("macos")
+        self.assertEqual(len(self.probe_positions()), 1)
+        receipt = json.loads((self.repo / "dist" / "macos" / "release-receipt.json").read_text())
+        self.assertEqual(receipt["toolchain"]["fastlane_provenance"]["reported"], FASTLANE_PINNED)
+
+    def test_a_wrong_selected_version_fails_before_any_signed_work(self):
+        self.stub_apple_credentials("macos")
+        self.commands.remove(["fastlane", "--version"])
+        self.commands.on(
+            lambda argv: argv[:1] == ["fastlane"] and argv[-1:] == ["--version"],
+            lambda argv, env: (0, "fastlane installation at path:\n/x/gems/fastlane-2.241.2/bin/fastlane\nfastlane 2.241.2\n", ""),
+        )
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.build("macos")
+        self.assertIn("2.241.2", str(caught.exception))
+        # Nothing signed, nothing compiled, nothing left behind.
+        self.assertEqual(self.first_position(lambda a: a[:2] == ["security", "create-keychain"]), None)
+        self.assertEqual(self.first_position(lambda a: a[:2] == ["security", "import"]), None)
+        self.assertEqual(self.commands.calls_for_lane("ci_macos_dmg"), [])
+        self.assertEqual(self.commands.calls_with("flutter", "pub", "get"), [])
+        self.assertFalse((self.repo / "dist" / "macos").exists())
+
+    def test_android_never_probes_fastlane(self):
+        os.environ.update(
+            {
+                "ANDROID_UPLOAD_KEYSTORE_BASE64": base64.b64encode(b"keystore").decode(),
+                "ANDROID_UPLOAD_STORE_PASSWORD": "store-pass",
+                "ANDROID_UPLOAD_KEY_PASSWORD": "key-pass",
+                "ANDROID_UPLOAD_KEY_ALIAS": "upload",
+                "PRISM_BETA_REGISTRATION_TOKEN": "beta-token-value",
+            }
+        )
+        self.commands.on_prefix(["flutter", "pub", "get"], stdout="")
+        self.stub_android_build()
+        release_ci.build("android")
+        self.assertEqual(self.probe_positions(), [])
+        self.assertEqual(self.commands.fastlane_calls(), [])
+
+    def _fastlane(self, argv, env):
+        self.write_dsyms("macos")
+        artifact_dir = Path(env["PRISM_CI_ARTIFACT_DIR"])
+        (artifact_dir / "Prism-0.16.0+16004-macos.dmg").write_bytes(b"dmg")
+        (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text(json.dumps({"scheme": "developer-id"}))
+        return 0, "", ""
+
+
+class PodVersionGuardTest(ReleaseTestCase):
+    """A CocoaPods version that differs from the lock stamp must fail before compiling."""
+
+    def apple_build(self, platform):
+        self.stub_apple_credentials(platform)
+        self.commands.on(
+            FASTLANE_LANE("ci_macos_dmg" if platform == "macos" else "ci_ios_store"),
+            respond=self._fastlane,
+        )
+        return release_ci.build(platform)
+
+    def _fastlane(self, argv, env):
+        platform = "macos" if argv[-1] == "ci_macos_dmg" else "ios-store"
+        self.write_dsyms(platform)
+        artifact_dir = Path(env["PRISM_CI_ARTIFACT_DIR"])
+        suffix = "dmg" if platform == "macos" else "ipa"
+        (artifact_dir / f"Prism-0.16.0+16004-{platform}.{suffix}").write_bytes(b"artifact")
+        (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text(json.dumps({"scheme": "test"}))
+        return 0, "", ""
+
+    def test_matching_stamp_is_accepted_and_recorded(self):
+        self.assertEqual(self.apple_build("macos"), 0)
+        receipt = json.loads((self.repo / "dist" / "macos" / "release-receipt.json").read_text())
+        self.assertEqual(
+            receipt["pods"], {"lock": "macos/Podfile.lock", "stamped": "1.16.2", "installed": "1.16.2"}
+        )
+
+    def test_ios_modes_compare_the_ios_lock(self):
+        self.assertEqual(self.apple_build("ios-store"), 0)
+        receipt = json.loads((self.repo / "dist" / "ios-store" / "release-receipt.json").read_text())
+        self.assertEqual(receipt["pods"]["lock"], "ios/Podfile.lock")
+
+    def test_mismatch_fails_before_any_build_work(self):
+        self.commands.remove(["pod", "--version"])
+        self.commands.on_prefix(["pod", "--version"], stdout="1.17.0\n")
+        for platform in ("ios-store", "macos"):
+            with self.assertRaises(release_ci.ReleaseError) as caught:
+                self.apple_build(platform)
+            message = str(caught.exception)
+            self.assertIn("1.17.0", message)
+            self.assertIn("1.16.2", message)
+            self.assertIn("COCOAPODS:", message)
+            self.assertIn("No compilation was started", message)
+            self.assertIn("tracked-source guard", message)
+        self.assertEqual(self.commands.calls_with("flutter", "pub", "get"), [])
+        self.assertEqual(self.commands.calls_for_lane("ci_macos_dmg"), [])
+        self.assertEqual(self.commands.fastlane_calls(), [])
+        self.assertEqual(self.commands.calls_with("security", "create-keychain"), [])
+        self.assertFalse((self.repo / "dist").exists())
+
+    def test_ios_unsigned_is_guarded_too(self):
+        self.commands.remove(["pod", "--version"])
+        self.commands.on_prefix(["pod", "--version"], stdout="1.17.0\n")
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.build("ios-unsigned")
+        self.assertIn("ios/Podfile.lock", str(caught.exception))
+        self.assertEqual(self.commands.calls_with("flutter", "build"), [])
+
+    def test_missing_lock_is_refused(self):
+        (self.repo / "macos" / "Podfile.lock").unlink()
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.build("macos")
+        self.assertIn("macos/Podfile.lock is missing", str(caught.exception))
+
+    def test_lock_without_a_stamp_is_refused(self):
+        (self.repo / "macos" / "Podfile.lock").write_text("PODS:\n  - Flutter (1.0.0)\n")
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.build("macos")
+        self.assertIn("no COCOAPODS: version stamp", str(caught.exception))
+
+    def test_version_is_parsed_out_of_the_cocoapods_warning_noise(self):
+        # CocoaPods prints a UTF-8 warning on stderr before the version.
+        self.commands.remove(["pod", "--version"])
+        self.commands.on(
+            lambda argv: argv[:2] == ["pod", "--version"],
+            lambda argv, env: (
+                0,
+                "1.16.2\n",
+                "WARNING: CocoaPods requires your terminal to be using UTF-8 encoding.\n"
+                "    Consider adding the following to ~/.profile:\n\n    export LANG=en_US.UTF-8\n",
+            ),
+        )
+        self.assertEqual(release_ci.installed_cocoapods_version(), "1.16.2")
+        self.assertEqual(self.apple_build("macos"), 0)
+
+    def test_guard_runs_before_compilation_and_lane(self):
+        self.assertEqual(self.apple_build("macos"), 0)
+        pods_probe = [
+            index for index, call in enumerate(self.commands.calls)
+            if call["argv"][:2] == ["pod", "--version"]
+        ]
+        fastlane_probe = [
+            index for index, call in enumerate(self.commands.calls)
+            if call["argv"][:1] == ["fastlane"] and call["argv"][-1:] == ["--version"]
+        ]
+        self.assertEqual(len(pods_probe), 1)
+        self.assertEqual(len(fastlane_probe), 1)
+        for label, predicate in (
+            ("pub get", lambda argv: argv[:3] == ["flutter", "pub", "get"]),
+            ("keychain", lambda argv: argv[:2] == ["security", "create-keychain"]),
+            ("lane", FASTLANE_LANE("ci_macos_dmg")),
+        ):
+            position = next(
+                (index for index, call in enumerate(self.commands.calls) if predicate(call["argv"])),
+                None,
+            )
+            self.assertIsNotNone(position, label)
+            self.assertLess(pods_probe[0], position, f"pod guard must precede {label}")
+
+    def test_the_final_tracked_source_guard_is_unchanged(self):
+        source = open(release_ci.__file__).read()
+        self.assertIn("def assert_tracked_source_unchanged()", source)
+        self.assertIn("assert_tracked_source_unchanged()", source.split("def build(", 1)[1])
+        # The guard still refuses any tracked change; nothing was waived.
+        self.assertIn('git("status", "--porcelain", "--untracked-files=no")', source)
