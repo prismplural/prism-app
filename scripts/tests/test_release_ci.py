@@ -2231,9 +2231,15 @@ class FastlaneActivationTest(ReleaseTestCase):
     """A plain `fastlane` picks the newest installed gem; the pin must be explicit."""
 
     def test_command_uses_the_rubygems_underscore_selector(self):
+        # macOS names its platform; a bare lane resolves in the iOS namespace.
         self.assertEqual(
-            release_ci.fastlane_lane_command("ci_macos_dmg"),
-            ["fastlane", "_2.239.0_", "ci_macos_dmg"],
+            release_ci.fastlane_lane_command("macos"),
+            ["fastlane", "_2.239.0_", "mac", "ci_macos_dmg"],
+        )
+        # iOS is the default platform, so its lane stays bare.
+        self.assertEqual(
+            release_ci.fastlane_lane_command("ios-store"),
+            ["fastlane", "_2.239.0_", "ci_ios_store"],
         )
         self.assertEqual(
             release_ci.fastlane_command("--version"),
@@ -2303,7 +2309,9 @@ class FastlaneActivationTest(ReleaseTestCase):
         self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=self._fastlane)
         self.assertEqual(release_ci.build("macos"), 0)
         calls = self.commands.calls_for_lane("ci_macos_dmg")
-        self.assertEqual(calls, [["fastlane", f"_{FASTLANE_PINNED}_", "ci_macos_dmg"]])
+        self.assertEqual(
+            calls, [["fastlane", f"_{FASTLANE_PINNED}_", "mac", "ci_macos_dmg"]]
+        )
 
     def test_receipt_records_activation_and_reported_version(self):
         self.stub_apple_credentials("macos")
@@ -2684,3 +2692,78 @@ class ProfilePlistParsingTest(ReleaseTestCase):
         payload = plistlib.dumps(self.synthetic_profile(), fmt=plistlib.FMT_XML)
         with self.assertRaises(TypeError):
             json.dumps(plistlib.loads(payload))
+
+
+FASTLANE_BIN = shutil.which("fastlane")
+SCRATCH_FASTFILE = """default_platform(:ios)
+
+platform :ios do
+  lane :ci_ios_store do
+    puts "ios-lane-marker"
+  end
+end
+
+platform :mac do
+  lane :ci_macos_dmg do
+    puts "mac-lane-marker"
+  end
+end
+"""
+
+
+@unittest.skipUnless(FASTLANE_BIN, "fastlane is not installed on this machine")
+class FastlaneLaneNamespaceTest(unittest.TestCase):
+    """A bare lane name cannot reach a lane in a non-default platform."""
+
+    @classmethod
+    def setUpClass(cls):
+        completed = subprocess.run(
+            [FASTLANE_BIN, "--version"], capture_output=True, text=True, timeout=120,
+            env={**os.environ, "FASTLANE_SKIP_UPDATE_CHECK": "1"},
+        )
+        match = re.search(r"^fastlane (\d+\.\d+\.\d+)$", completed.stdout, re.MULTILINE)
+        if match is None:
+            raise unittest.SkipTest("could not determine the installed fastlane version")
+        cls.version = match.group(1)
+        cls.directory = tempfile.mkdtemp(prefix="prism-fastlane-namespace-")
+        fastlane_dir = Path(cls.directory) / "fastlane"
+        fastlane_dir.mkdir()
+        (fastlane_dir / "Fastfile").write_text(SCRATCH_FASTFILE)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(getattr(cls, "directory", ""), ignore_errors=True)
+
+    def run_fastlane(self, *arguments):
+        env = {
+            **os.environ,
+            "FASTLANE_SKIP_UPDATE_CHECK": "1",
+            "FASTLANE_HIDE_CHANGELOG": "1",
+            "FASTLANE_DISABLE_ANALYTICS": "1",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8",
+        }
+        return subprocess.run(
+            [FASTLANE_BIN, f"_{self.version}_", *arguments],
+            cwd=self.directory, capture_output=True, text=True, env=env, timeout=180,
+        )
+
+    def test_the_scratch_fastfile_is_not_the_repository_one(self):
+        self.assertNotEqual(Path(self.directory).resolve(), FASTFILE.parent.parent.resolve())
+        self.assertIn("mac-lane-marker", (Path(self.directory) / "fastlane" / "Fastfile").read_text())
+
+    def test_bare_lane_name_fails_for_the_non_default_platform(self):
+        result = self.run_fastlane("ci_macos_dmg")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Could not find lane", result.stderr + result.stdout)
+        self.assertIn("ios ci_macos_dmg", result.stderr + result.stdout)
+
+    def test_naming_the_platform_reaches_the_lane(self):
+        result = self.run_fastlane("mac", "ci_macos_dmg")
+        self.assertEqual(result.returncode, 0, result.stderr[-800:])
+        self.assertIn("mac-lane-marker", result.stdout)
+
+    def test_the_default_platform_lane_stays_bare(self):
+        result = self.run_fastlane("ci_ios_store")
+        self.assertEqual(result.returncode, 0, result.stderr[-800:])
+        self.assertIn("ios-lane-marker", result.stdout)
