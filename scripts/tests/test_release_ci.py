@@ -1149,7 +1149,10 @@ class FastfileContractTest(unittest.TestCase):
         body = lane_body("ci_macos_dmg")
         self.assertIn("XCODE_XCCONFIG_FILE=", body)
         self.assertIn("CODE_SIGNING_ALLOWED = NO", body)
-        self.assertIn("assert_unsigned!", body)
+        self.assertIn("CISigning.assert_no_identity_signature!(app_path)", body)
+        self.assertIn("compiled_signature = CISigning.assert_no_identity_signature!(app_path)", body)
+        self.assertIn('"compiled_signature" => compiled_signature', body)
+        self.assertNotIn("compiled_unsigned", body)
         # The xcconfig lives outside the repo so tracked source stays clean.
         self.assertIn("CISigning.state_dir", body)
         self.assertNotIn("build_mac_app", body)
