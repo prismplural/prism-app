@@ -1,2 +1,30 @@
 #!/bin/sh
-exec ccache "$(xcrun --find clang++)" "$@"
+# Compiler wrapper referenced by macos/Podfile post_install (CC/CXX for pod
+# targets). macos/Podfile promises that the wrappers "fall back to plain clang
+# if ccache is not installed", so ccache is used only when it is present:
+#
+#   * resolve Apple's real compiler through `xcrun --find`, which keeps the
+#     toolchain Xcode selects; a failure there is propagated unchanged and the
+#     wrapper never invokes anything;
+#   * with ccache installed, delegate to it (`exec ccache <compiler> "$@"`) so
+#     its exit status is the compile's exit status — there is no retry path, a
+#     cache failure is a build failure;
+#   * without ccache, exec the compiler directly with every argument and the
+#     environment untouched.
+#
+# Two lookups per compile, no stored state, no caches or dependencies changed.
+compiler="$(xcrun --find clang++)"
+xcrun_status=$?
+if [ "$xcrun_status" -ne 0 ]; then
+  exit "$xcrun_status"
+fi
+if [ -z "$compiler" ]; then
+  echo ".ccache-clang++: xcrun --find clang++ returned no compiler" >&2
+  exit 1
+fi
+
+if command -v ccache >/dev/null 2>&1; then
+  exec ccache "$compiler" "$@"
+fi
+
+exec "$compiler" "$@"
