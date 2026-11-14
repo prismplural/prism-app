@@ -2770,3 +2770,345 @@ class FastlaneLaneNamespaceTest(unittest.TestCase):
         result = self.run_fastlane("ci_ios_store")
         self.assertEqual(result.returncode, 0, result.stderr[-800:])
         self.assertIn("ios-lane-marker", result.stdout)
+
+
+class EmbeddedProfileLeafCleanupTest(ReleaseTestCase):
+    """Only the two embedded public-profile leaves are ever removed, and only safely."""
+
+    PROFILE_BYTES = b"profile"  # what stub_apple_credentials decodes
+
+    def setUp(self):
+        super().setUp()
+        self.stub_apple_credentials("macos")
+
+    # -- helpers ---------------------------------------------------------
+
+    def app_contents(self) -> Path:
+        return self.repo / "build" / "macos" / "Build" / "Products" / "Release" / "Prism.app" / "Contents"
+
+    def staging_contents(self) -> Path:
+        return self.repo / "build" / "macos" / "dmg-staging" / "Prism.app" / "Contents"
+
+    def write_leaf(self, contents: Path, payload: bytes | None = None) -> Path:
+        leaf = contents / "embedded.provisionprofile"
+        leaf.parent.mkdir(parents=True, exist_ok=True)
+        leaf.write_bytes(self.PROFILE_BYTES if payload is None else payload)
+        return leaf
+
+    def lane(self, writer) -> None:
+        def responder(argv, env):
+            self.write_dsyms("macos")
+            artifact_dir = Path(env["PRISM_CI_ARTIFACT_DIR"])
+            (artifact_dir / "Prism-0.16.0+16004-macos.dmg").write_bytes(b"dmg")
+            (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text(
+                json.dumps({"scheme": "developer-id"})
+            )
+            writer(artifact_dir)
+            return 0, "", ""
+        self.commands.on(FASTLANE_LANE("ci_macos_dmg"), respond=responder)
+
+    def build_macos(self):
+        return release_ci.build("macos")
+
+    # -- the happy path --------------------------------------------------
+
+    def test_both_leaves_are_removed_and_the_artifacts_survive(self):
+        def writer(_artifact_dir):
+            self.write_leaf(self.app_contents())
+            self.write_leaf(self.staging_contents())
+            (self.app_contents() / "Info.plist").write_text("plist")
+        self.lane(writer)
+        self.assertEqual(self.build_macos(), 0)
+        self.assertFalse((self.app_contents() / "embedded.provisionprofile").exists())
+        self.assertFalse((self.staging_contents() / "embedded.provisionprofile").exists())
+        # Everything else in the intermediate app copies stays.
+        self.assertTrue((self.app_contents() / "Info.plist").exists())
+        self.assertTrue((self.repo / "build" / "macos" / "Build" / "Products" / "Release").is_dir())
+        dist = self.repo / "dist" / "macos"
+        self.assertEqual(
+            sorted(path.name for path in dist.iterdir()),
+            [
+                "Prism-0.16.0+16004-macos-symbols.tar.gz.age",
+                "Prism-0.16.0+16004-macos-symbols.tar.gz.age.sha256",
+                "Prism-0.16.0+16004-macos.dmg",
+                "Prism-0.16.0+16004-macos.dmg.sha256",
+                "release-receipt.json",
+            ],
+        )
+        self.assertEqual((dist / "Prism-0.16.0+16004-macos.dmg").read_bytes(), b"dmg")
+
+    def test_a_leaf_that_was_never_created_is_fine(self):
+        self.lane(lambda _artifact_dir: None)
+        self.assertEqual(self.build_macos(), 0)
+
+    # -- correction 1: pre-existing paths abort before the builder -------
+
+    def assert_aborted_before_builder(self, prepare):
+        prepare()
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        message = str(caught.exception)
+        self.assertIn("refusing to start the macOS build", message)
+        self.assertEqual(self.commands.calls_with("flutter", "pub", "get"), [])
+        self.assertEqual(self.commands.calls_for_lane("ci_macos_dmg"), [])
+        self.assertEqual(self.commands.calls_with("flutter", "build", "macos"), [])
+        return message
+
+    def test_pre_existing_regular_file_aborts_before_the_builder(self):
+        def prepare():
+            self.write_leaf(self.app_contents(), b"someone else's profile")
+        self.assert_aborted_before_builder(prepare)
+        self.assertEqual(
+            (self.app_contents() / "embedded.provisionprofile").read_bytes(),
+            b"someone else's profile",
+        )
+
+    def test_pre_existing_directory_aborts_before_the_builder(self):
+        def prepare():
+            leaf = self.staging_contents() / "embedded.provisionprofile"
+            leaf.mkdir(parents=True)
+        self.assert_aborted_before_builder(prepare)
+
+    def test_pre_existing_broken_symlink_aborts_before_the_builder(self):
+        def prepare():
+            leaf = self.app_contents() / "embedded.provisionprofile"
+            leaf.parent.mkdir(parents=True, exist_ok=True)
+            leaf.symlink_to(self.runner_temp / "missing-target")
+        self.assert_aborted_before_builder(prepare)
+
+    def test_foreign_ancestor_symlink_aborts_and_target_is_not_deleted(self):
+        outside = Path(self.tmp.name) / "outside-app"
+        contents = outside / "Contents"
+        contents.mkdir(parents=True)
+        (contents / "embedded.provisionprofile").write_bytes(self.PROFILE_BYTES)
+
+        def prepare():
+            (self.repo / "build" / "macos").mkdir(parents=True, exist_ok=True)
+            (self.repo / "build" / "macos" / "Build").symlink_to(outside)
+        self.assert_aborted_before_builder(prepare)
+        self.assertEqual((contents / "embedded.provisionprofile").read_bytes(), self.PROFILE_BYTES)
+
+    # -- correction 2: release-time ancestor symlink ---------------------
+
+    def test_ancestor_symlink_created_by_the_lane_blocks_release(self):
+        outside = Path(self.tmp.name) / "outside-release"
+        contents = outside / "Prism.app" / "Contents"
+        contents.mkdir(parents=True)
+        (contents / "embedded.provisionprofile").write_bytes(self.PROFILE_BYTES)
+
+        def writer(_artifact_dir):
+            self.write_leaf(self.app_contents())
+            staging = self.repo / "build" / "macos" / "dmg-staging"
+            staging.parent.mkdir(parents=True, exist_ok=True)
+            staging.symlink_to(outside)
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        self.assertIn("symlinked ancestor", str(caught.exception))
+        self.assertEqual((contents / "embedded.provisionprofile").read_bytes(), self.PROFILE_BYTES)
+        self.assertFalse((self.repo / "dist" / "macos").exists(), "dist must not be uploaded")
+
+    # -- correction 3: refusal fails the build independently of the scan --
+
+    def test_directory_leaf_fails_the_build_without_the_scan(self):
+        def writer(_artifact_dir):
+            (self.app_contents() / "embedded.provisionprofile").mkdir(parents=True)
+            self.write_leaf(self.staging_contents())
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        self.assertIn("not a regular file", str(caught.exception))
+        self.assertFalse((self.repo / "dist" / "macos").exists())
+        self.assertTrue((self.app_contents() / "embedded.provisionprofile").is_dir())
+
+    def test_symlink_to_a_directory_fails_the_build(self):
+        target = self.runner_temp / "linked-dir"
+        target.mkdir(parents=True)
+
+        def writer(_artifact_dir):
+            leaf = self.staging_contents() / "embedded.provisionprofile"
+            leaf.parent.mkdir(parents=True, exist_ok=True)
+            leaf.symlink_to(target)
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        self.assertIn("symlink", str(caught.exception))
+        self.assertFalse((self.repo / "dist" / "macos").exists())
+
+    def test_digest_mismatch_is_refused_and_fails_the_build(self):
+        def writer(_artifact_dir):
+            self.write_leaf(self.app_contents(), b"a different profile")
+            self.write_leaf(self.staging_contents())
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        self.assertIn("does not match the profile this run decoded", str(caught.exception))
+        self.assertEqual(
+            (self.app_contents() / "embedded.provisionprofile").read_bytes(), b"a different profile"
+        )
+        self.assertFalse((self.repo / "dist" / "macos").exists())
+
+    def test_private_credentials_are_still_cleaned_when_a_leaf_is_refused(self):
+        def writer(_artifact_dir):
+            (self.app_contents() / "embedded.provisionprofile").mkdir(parents=True)
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError):
+            self.build_macos()
+        self.assertFalse((self.runner_temp / "prism-release").exists(), "run state must be cleaned")
+        self.assertEqual(self.commands.calls_with("security", "delete-keychain") != [], True)
+        self.assertEqual(list(self.profiles.iterdir()), [])
+        self.assertFalse(
+            any(path.is_file() for path in (self.repo / "dist").rglob("*")),
+            "nothing may be left for an upload step",
+        )
+
+    # -- the scan keeps its teeth ---------------------------------------
+
+    def test_a_private_key_inside_the_app_still_fails_after_the_leaves_are_gone(self):
+        def writer(_artifact_dir):
+            self.write_leaf(self.app_contents())
+            self.write_leaf(self.staging_contents())
+            (self.app_contents() / "Resources").mkdir(parents=True)
+            (self.app_contents() / "Resources" / "upload.p12").write_bytes(b"private")
+            (self.staging_contents() / "Resources").mkdir(parents=True)
+            (self.staging_contents() / "Resources" / "AuthKey.p8").write_bytes(b"private")
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        message = str(caught.exception)
+        self.assertIn("upload.p12", message)
+        self.assertIn("AuthKey.p8", message)
+        self.assertFalse((self.repo / "dist" / "macos").exists())
+
+    def test_a_foreign_profile_outside_the_two_leaves_still_fails(self):
+        def writer(_artifact_dir):
+            self.write_leaf(self.app_contents())
+            self.write_leaf(self.staging_contents())
+            (self.repo / "build" / "macos" / "foreign.provisionprofile").write_bytes(self.PROFILE_BYTES)
+        self.lane(writer)
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        self.assertIn("foreign.provisionprofile", str(caught.exception))
+
+    # -- guards ----------------------------------------------------------
+
+    def test_cleanup_outside_github_actions_leaves_the_leaves(self):
+        leaf = self.write_leaf(self.app_contents())
+        owned = release_ci.Owned()
+        owned.claim_public_profile_leaf(
+            release_ci.MACOS_PUBLIC_PROFILE_LEAVES[0],
+            release_ci.sha256_file(leaf),
+            "developer-id.provisionprofile",
+        )
+        os.environ["GITHUB_ACTIONS"] = "false"
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.cleanup()
+        self.assertIn("outside GitHub Actions", str(caught.exception))
+        self.assertTrue(leaf.exists())
+
+    def test_allowlist_is_exactly_the_two_leaves(self):
+        self.assertEqual(
+            release_ci.MACOS_PUBLIC_PROFILE_LEAVES,
+            (
+                "build/macos/Build/Products/Release/Prism.app/Contents/embedded.provisionprofile",
+                "build/macos/dmg-staging/Prism.app/Contents/embedded.provisionprofile",
+            ),
+        )
+        for relative in release_ci.MACOS_PUBLIC_PROFILE_LEAVES:
+            self.assertNotIn("*", relative)
+            self.assertNotIn("dist/", relative)
+        self.assertEqual(release_ci.REPO_OWNED_FILES, ("android/app/key.properties",))
+
+    def test_the_scanner_is_unchanged(self):
+        source = open(release_ci.__file__).read()
+        body = source.split("def assert_no_signing_material_in_tree(", 1)[1].split("\n\n\n", 1)[0]
+        self.assertIn("os.walk(REPO_ROOT)", body)
+        self.assertIn("filename.endswith(SECRET_SUFFIXES)", body)
+        self.assertNotIn("MACOS_PUBLIC_PROFILE_LEAVES", body)
+
+
+class EmbeddedProfileCleanupFailureTest(EmbeddedProfileLeafCleanupTest):
+    """A leaf-step failure must still clean every private input, and must fail the build."""
+
+    def test_restore_failure_preserves_state_for_cleanup_retry(self):
+        from unittest import mock
+
+        owned = release_ci.Owned()
+        credential = self.runner_temp / "synthetic.p12"
+        credential.write_bytes(b"synthetic credential")
+        owned.add_file(credential)
+        with mock.patch.object(
+            release_ci, "_restore_keychain", side_effect=release_ci.ReleaseError("restore failed")
+        ):
+            with self.assertRaisesRegex(release_ci.ReleaseError, "restore failed"):
+                release_ci.cleanup()
+        self.assertTrue(owned.path.exists())
+        self.assertTrue(credential.exists())
+        self.assertEqual(release_ci.cleanup(), release_ci.EXIT_OK)
+        self.assertFalse(owned.path.exists())
+        self.assertFalse(credential.exists())
+
+    def assert_refused_but_clean(self, message_fragment: str) -> str:
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            self.build_macos()
+        message = str(caught.exception)
+        self.assertIn(message_fragment, message)
+        # Nothing publishable is left behind.
+        self.assertFalse(any(path.is_file() for path in (self.repo / "dist").rglob("*")))
+        # Private inputs, keychain and state are gone regardless.
+        self.assertFalse((self.runner_temp / "prism-release").exists(), "state/creds must be removed")
+        self.assertTrue(
+            self.commands.calls_with("security", "delete-keychain"), "keychain must be deleted"
+        )
+        self.assertEqual(list(self.profiles.iterdir()), [], "profiles must be removed")
+        return message
+
+    def test_unreadable_leaf_is_a_refusal_and_cleans_everything(self):
+        leaves = {}
+
+        def writer(_artifact_dir):
+            leaves["app"] = self.write_leaf(self.app_contents())
+            leaves["staging"] = self.write_leaf(self.staging_contents())
+            os.chmod(leaves["app"], 0o000)
+        self.lane(writer)
+        try:
+            message = self.assert_refused_but_clean("while inspecting or removing")
+        finally:
+            os.chmod(leaves["app"], 0o600)
+        self.assertIn("PermissionError", message)
+        # Per-leaf independence: the unreadable leaf is left untouched, while the
+        # other, valid leaf is still cleaned.
+        self.assertTrue(leaves["app"].exists(), "the unreadable leaf must be left in place")
+        self.assertFalse((self.staging_contents() / "embedded.provisionprofile").exists())
+
+    def test_unlink_failure_is_a_refusal_and_cleans_everything(self):
+        leaves = {}
+
+        def writer(_artifact_dir):
+            leaves["app"] = self.write_leaf(self.app_contents())
+            leaves["staging"] = self.write_leaf(self.staging_contents())
+            os.chmod(self.app_contents(), 0o500)  # removing the entry fails
+        self.lane(writer)
+        try:
+            message = self.assert_refused_but_clean("while inspecting or removing")
+        finally:
+            os.chmod(self.app_contents(), 0o700)
+        self.assertIn("PermissionError", message)
+        self.assertTrue(leaves["app"].exists(), "the unremovable leaf is left in place")
+        self.assertFalse(
+            (self.staging_contents() / "embedded.provisionprofile").exists(),
+            "the removable leaf is still cleaned",
+        )
+
+    def test_an_unexpected_leaf_step_exception_still_cleans_private_state(self):
+        from unittest import mock
+
+        def writer(_artifact_dir):
+            self.write_leaf(self.app_contents())
+            self.write_leaf(self.staging_contents())
+        self.lane(writer)
+        with mock.patch.object(
+            release_ci, "release_macos_public_profile_leaves", side_effect=RuntimeError("boom")
+        ):
+            self.assert_refused_but_clean("unexpected RuntimeError during embedded profile leaf cleanup")
+        self.assertTrue((self.runner_temp / "prism-release" / "owned.json").exists() is False)
