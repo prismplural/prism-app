@@ -1,0 +1,226 @@
+# Diagnose CocoaPods drift between a clean checkout and a hosted macOS runner.
+#
+# DIAGNOSTIC ONLY. This workflow exists to answer one question: what does a
+# hosted macOS 26 runner actually change in ios/Podfile.lock (and, if touched,
+# macos/Podfile.lock) when it prepares the iOS project. It never compiles the
+# app, never signs, reads no secrets, touches no environment, and calls no store
+# or release API. It uploads the two lock files plus a public-safe JSON/diff
+# artifact and nothing else.
+#
+# Why: the qualification run failed its strict source guard with a modified
+# ios/Podfile.lock after a successful unsigned compile. The committed locks
+# record `COCOAPODS: 1.16.2` while the macos-26 image reports pod 1.17.0, so the
+# trailing stamp is an expected difference; this run shows whether anything else
+# moves (for example the generated Flutter podspec checksum) before anyone pins
+# CocoaPods or regenerates a lock. Nothing here is used by a qualified build,
+# and a changed lock is never ignored for one.
+#
+# Dispatch from main (or any reviewed revision): the checkout is exactly
+# github.sha and the first step fails if that checkout is not already clean, so
+# a non-empty diff is attributable to the runner, not to the dispatch.
+
+name: Release toolchain check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.44.8'
+  FLUTTER_CHANNEL: 'stable'
+  XCODE_VERSION: '26.6'
+
+jobs:
+  pod-drift:
+    name: iOS Podfile.lock drift on macos-26
+    runs-on: macos-26
+    timeout-minutes: 30
+    concurrency:
+      group: release-toolchain-check
+      cancel-in-progress: false
+    steps:
+      - name: Check out the dispatched revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require a clean initial checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "${status}" ]; then
+            echo "this diagnostic must start from a clean checkout; refusing to attribute drift:" >&2
+            echo "${status}" >&2
+            exit 1
+          fi
+          echo "clean checkout at ${GITHUB_SHA}"
+
+      - name: Select the pinned Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcode_app="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "${xcode_app}" ]; then
+            echo "Xcode ${XCODE_VERSION} is not installed on this image. Installed:" >&2
+            ls -d /Applications/Xcode*.app >&2 || true
+            exit 1
+          fi
+          developer_dir="${xcode_app}/Contents/Developer"
+          echo "DEVELOPER_DIR=${developer_dir}" >> "${GITHUB_ENV}"
+          DEVELOPER_DIR="${developer_dir}" xcodebuild -version
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      - name: Record toolchain versions and committed lock stamps
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "runner image: ${ImageOS:-unknown}/${ImageVersion:-unknown}"
+          sw_vers -productVersion
+          xcodebuild -version
+          ruby -v
+          gem --version
+          pod --version
+          flutter --version
+          dart --version
+          echo "committed ios/Podfile.lock stamp:"
+          grep -E '^COCOAPODS:' ios/Podfile.lock || echo "(no COCOAPODS line)"
+          echo "committed macos/Podfile.lock stamp:"
+          grep -E '^COCOAPODS:' macos/Podfile.lock || echo "(no COCOAPODS line)"
+
+      - name: Resolve dependencies from the committed lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter pub get --enforce-lockfile
+
+      - name: Prepare the iOS project without compiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `--config-only` exists on the pinned SDK for iOS, but it is a hidden
+          # flag: plain `--help` omits it and only `--help -v` shows
+          # `--[no-]config-only` (declared in flutter_tools build_ios.dart).
+          # Probe instead of assuming, so a future SDK that drops it degrades to
+          # the CocoaPods step alone rather than failing the diagnostic.
+          ios_help=$(flutter build ios --help -v 2>&1)
+          if [[ "${ios_help}" == *config-only* ]]; then
+            echo "preparing iOS with flutter build ios --config-only (no compile)"
+            flutter build ios --release --no-codesign --config-only
+          else
+            echo "this Flutter SDK does not expose --config-only for iOS; running pod install after pub get (no compile)"
+            ( cd ios && pod install )
+          fi
+          if git diff --quiet -- ios/Podfile.lock; then
+            echo "config-only left ios/Podfile.lock untouched; running pod install to reproduce the lock rewrite"
+            ( cd ios && pod install )
+          fi
+          git status --short -- ios/Podfile.lock macos/Podfile.lock || true
+
+      - name: Prepare the macOS project without compiling
+        shell: bash
+        run: |
+          set -euo pipefail
+          macos_help=$(flutter build macos --help -v 2>&1)
+          if [[ "${macos_help}" == *config-only* ]]; then
+            echo "preparing macOS with flutter build macos --config-only (no compile)"
+            flutter build macos --release --config-only
+          else
+            echo "this Flutter SDK does not expose --config-only for macOS; running pod install after pub get (no compile)"
+            ( cd macos && pod install )
+          fi
+          if git diff --quiet -- macos/Podfile.lock; then
+            echo "the macOS preparation left macos/Podfile.lock untouched; running pod install to reproduce the lock rewrite"
+            ( cd macos && pod install )
+          fi
+          git status --short -- ios/Podfile.lock macos/Podfile.lock || true
+
+      - name: Collect the lockfiles and a public-safe report
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="${RUNNER_TEMP}/pod-drift"
+          rm -rf "${out}"
+          mkdir -p "${out}"
+          cp ios/Podfile.lock "${out}/ios-Podfile.lock"
+          cp macos/Podfile.lock "${out}/macos-Podfile.lock"
+          git diff -- ios/Podfile.lock macos/Podfile.lock > "${out}/podfile-lock.diff" || true
+          git diff --stat -- ios/Podfile.lock macos/Podfile.lock > "${out}/podfile-lock.diffstat" || true
+          {
+            echo "runner_image: ${ImageOS:-unknown}/${ImageVersion:-unknown}"
+            echo "macos: $(sw_vers -productVersion)"
+            echo "xcode: $(xcodebuild -version | tr '\n' ' ')"
+            echo "ruby: $(ruby -v)"
+            echo "gem: $(gem --version)"
+            echo "pod: $(pod --version | tail -n 1)"
+            echo "flutter: $(flutter --version 2>&1 | head -n 1)"
+            echo "dart: $(dart --version 2>&1 | head -n 1)"
+          } > "${out}/toolchain.txt"
+          python3 - "${out}" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          out = pathlib.Path(sys.argv[1])
+
+
+          def stamp(name):
+              path = out / name
+              if not path.exists():
+                  return None
+              for line in path.read_text(errors="replace").splitlines():
+                  if line.startswith("COCOAPODS:"):
+                      return line.split(":", 1)[1].strip()
+              return None
+
+
+          diff = (out / "podfile-lock.diff").read_text(errors="replace")
+          toolchain = {}
+          toolchain_file = out / "toolchain.txt"
+          if toolchain_file.exists():
+              for line in toolchain_file.read_text(errors="replace").splitlines():
+                  key, _, value = line.partition(":")
+                  if value:
+                      toolchain[key.strip()] = value.strip()
+          report = {
+              "toolchain": toolchain,
+              "ios_lock_stamp_after": stamp("ios-Podfile.lock"),
+              "macos_lock_stamp_after": stamp("macos-Podfile.lock"),
+              "diff_empty": diff.strip() == "",
+              "diff_hunk_headers": [line for line in diff.splitlines() if line.startswith("@@")],
+              "note": (
+                  "committed locks recorded COCOAPODS 1.16.2; a stamp-only change means the drift is the "
+                  "CocoaPods version, other hunks mean pod resolution or podspec checksum drift"
+              ),
+          }
+          (out / "pod-drift.json").write_text(json.dumps(report, indent=2) + "\n")
+          print(json.dumps(report, indent=2))
+          PY
+          echo "--- podfile-lock.diff ---"
+          cat "${out}/podfile-lock.diff"
+          echo "--- podfile-lock.diffstat ---"
+          cat "${out}/podfile-lock.diffstat"
+
+      - name: Upload the diagnostic artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pod-drift
+          path: |
+            ${{ runner.temp }}/pod-drift/ios-Podfile.lock
+            ${{ runner.temp }}/pod-drift/macos-Podfile.lock
+            ${{ runner.temp }}/pod-drift/podfile-lock.diff
+            ${{ runner.temp }}/pod-drift/podfile-lock.diffstat
+            ${{ runner.temp }}/pod-drift/pod-drift.json
+            ${{ runner.temp }}/pod-drift/toolchain.txt
+          retention-days: 7
+          if-no-files-found: error
