@@ -623,6 +623,19 @@ def checked_out_revision() -> str:
     return git("rev-parse", "HEAD")
 
 
+def short_revision() -> str:
+    """The short revision git reports for the built commit.
+
+    The published unsigned IPA name embeds it and prism-site's release.js builds
+    Prism-${VERSION}-${IOS_BUILD_HASH}-ios-unsigned.ipa from it, so it must come
+    from git itself rather than a fixed-width slice of the full SHA.
+    """
+    value = git("rev-parse", "--short", "HEAD")
+    if not re.fullmatch(r"[0-9a-f]{4,40}", value):
+        raise ReleaseError(f"git reported an unexpected short revision {value!r}")
+    return value
+
+
 def assert_expected_revision() -> str:
     expected = require_env("PRISM_EXPECTED_REVISION", purpose="full github.sha for this run")
     if not re.fullmatch(r"[0-9a-f]{40}", expected):
@@ -687,6 +700,7 @@ def freeze_metadata(platform: str) -> dict:
         "version": version,
         "source": {
             "revision": revision,
+            "short_revision": short_revision(),
             # A tag dispatch checks out a detached HEAD, where --abbrev-ref
             # says "HEAD"; the workflow's ref name is the honest answer.
             "branch": env_value("GITHUB_REF_NAME") or git("rev-parse", "--abbrev-ref", "HEAD"),
@@ -1563,7 +1577,10 @@ def build_ios_unsigned(owned: Owned, metadata: dict, defines: Path) -> dict:
     )
 
     version = metadata["version"]["pubspec"]
-    artifact = dist_dir("ios-unsigned") / f"Prism-{version}-ios-unsigned.ipa"
+    # Consumer contract: prism-site builds this name with the short revision in
+    # it (Prism-<version>-<git short>-ios-unsigned.ipa). Do not drop the hash.
+    short = metadata["source"]["short_revision"]
+    artifact = dist_dir("ios-unsigned") / f"Prism-{version}-{short}-ios-unsigned.ipa"
     artifact.parent.mkdir(parents=True, exist_ok=True)
     run(
         ["scripts/package_unsigned_ipa.sh", str(artifact)],

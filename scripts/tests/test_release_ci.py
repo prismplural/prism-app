@@ -179,6 +179,7 @@ class ReleaseTestCase(unittest.TestCase):
 
     def stub_git(self, *, head=SHA, status="", tracked_status=""):
         self.commands.on_prefix(["git", "rev-parse", "HEAD"], stdout=head + "\n")
+        self.commands.on_prefix(["git", "rev-parse", "--short", "HEAD"], stdout="abc1234\n")
         self.commands.on_prefix(["git", "rev-parse", "--abbrev-ref", "HEAD"], stdout="main\n")
         self.commands.on_prefix(["git", "describe", "--always"], stdout="v0.16.0-3-gbad84f30a\n")
         self.commands.on(
@@ -693,7 +694,7 @@ class IosUnsignedBuildTest(ReleaseTestCase):
         dist = self.repo / "dist" / "ios-unsigned"
         self.assertEqual(
             sorted(path.name for path in dist.iterdir()),
-            ["Prism-0.16.0+16004-ios-unsigned.ipa", "Prism-0.16.0+16004-ios-unsigned.ipa.sha256", "release-receipt.json"],
+            ["Prism-0.16.0+16004-abc1234-ios-unsigned.ipa", "Prism-0.16.0+16004-abc1234-ios-unsigned.ipa.sha256", "release-receipt.json"],
         )
         receipt = json.loads((dist / "release-receipt.json").read_text())
         self.assertEqual(receipt["signing"]["scheme"], "none")
@@ -2132,3 +2133,64 @@ class FlutterProvenanceTest(ReleaseTestCase):
         for platform in ("android", "ios-store", "macos"):
             self.assertEqual(release_ci.toolchain(platform).get("age"), "1.3.2", platform)
         self.assertIsNone(release_ci.toolchain("ios-unsigned").get("age"))
+
+
+class UnsignedIpaConsumerNameTest(ReleaseTestCase):
+    """The published unsigned IPA name is a consumer contract (prism-site)."""
+
+    def setUp(self):
+        super().setUp()
+        self.commands.on_prefix(["flutter", "pub", "get"], stdout="")
+
+        def build(argv, env):
+            app = self.repo / "build" / "ios" / "iphoneos" / "Runner.app"
+            app.mkdir(parents=True, exist_ok=True)
+            (app / "Info.plist").write_text("plist")
+            return 0, "", ""
+
+        def package(argv, env):
+            artifact = Path(argv[1])
+            artifact.parent.mkdir(parents=True, exist_ok=True)
+            artifact.write_bytes(b"ipa")
+            return 0, "", ""
+
+        self.commands.on_prefix(["flutter", "build", "ios"], respond=build)
+        self.commands.on(
+            lambda argv: argv[:1] == ["scripts/package_unsigned_ipa.sh"], respond=package
+        )
+        self.commands.on_prefix(["unzip", "-l"], stdout="Payload/Runner.app/Info.plist\n")
+
+    def test_name_matches_the_site_consumer_pattern(self):
+        release_ci.build("ios-unsigned")
+        names = {path.name for path in (self.repo / "dist" / "ios-unsigned").iterdir()}
+        self.assertIn("Prism-0.16.0+16004-abc1234-ios-unsigned.ipa", names)
+        # prism-site: Prism-${VERSION}-${IOS_BUILD_HASH}-ios-unsigned.ipa
+        receipt = json.loads((self.repo / "dist" / "ios-unsigned" / "release-receipt.json").read_text())
+        expected = f"Prism-{receipt['version']['pubspec']}-{receipt['source']['short_revision']}-ios-unsigned.ipa"
+        self.assertIn(expected, names)
+        self.assertEqual(receipt["source"]["short_revision"], "abc1234")
+        self.assertEqual(receipt["artifacts"][0]["name"], expected)
+
+    def test_short_revision_comes_from_git_not_a_fixed_slice(self):
+        # A 9-character short revision must survive verbatim.
+        self.commands.remove(["git", "rev-parse", "--short", "HEAD"])
+        self.commands.on_prefix(["git", "rev-parse", "--short", "HEAD"], stdout="420c760f5\n")
+        release_ci.build("ios-unsigned")
+        names = {path.name for path in (self.repo / "dist" / "ios-unsigned").iterdir()}
+        self.assertIn("Prism-0.16.0+16004-420c760f5-ios-unsigned.ipa", names)
+
+    def test_unexpected_short_revision_is_refused(self):
+        self.commands.remove(["git", "rev-parse", "--short", "HEAD"])
+        self.commands.on_prefix(["git", "rev-parse", "--short", "HEAD"], stdout="not-a-sha\n")
+        with self.assertRaises(release_ci.ReleaseError) as caught:
+            release_ci.build("ios-unsigned")
+        self.assertIn("unexpected short revision", str(caught.exception))
+        self.assertFalse((self.repo / "dist" / "ios-unsigned").exists())
+
+    def test_other_artifacts_keep_their_names(self):
+        # Only the unsigned sideload IPA carries the hash; nothing else moved.
+        source = open(release_ci.__file__).read()
+        # Python names only the Android AAB and the unsigned IPA; the Apple
+        # artifact names are produced by the frozen Fastfile lanes.
+        self.assertIn('-android.aab"', source)
+        self.assertIn("-symbols.tar.gz.age", source)
