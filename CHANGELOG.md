@@ -2,6 +2,55 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.16.0] - 2026-11-13
+
+PluralPort import and export lets you move your system between plural apps. This release also adds pairing upload progress, desktop reminders and an option to keep fronting sessions through sleep.
+
+### Added
+
+- PluralPort import/export in Settings and onboarding, with record previews, preservation of unsupported source data, and opt-in system-profile and preference restoration.
+- Pairing snapshot upload progress and retry, including fallback for relays without resumable upload support.
+- Linux and Windows reminder notifications while Prism is running.
+- “Keep current fronts during sleep.”
+
+### Fixed
+
+#### Imports, exports and media
+- Validate PluralPort exports before saving; repair invalid portable fronting intervals without changing the stored native history.
+- Recover uncached original media through authenticated sync downloads and generate missing thumbnails from verified originals.
+- Export unavailable media as metadata with warnings instead of declaring files that are absent.
+- Preserve media integrity metadata and thumbnails during import and re-export.
+- Accept foreign extension, choice-option and archive-local asset shapes; reject unsafe asset paths and malformed records before import writes.
+- Preserve duplicate or unsupported source records without letting them replace the live native value.
+- Keep repeat imports and subsequent exports stable when nothing was edited.
+- Omit deleted chat content and skip duplicate votes in backup export.
+
+#### Members, groups and fronting
+- Keep member rows stable while bulk membership updates load, and stop group reordering during scrolling or sync updates.
+- Preserve subgroup nesting through import, reparenting, reopen and peer sync.
+- Preserve member-list position after profile edits; prevent profile footer jumps and retain multiline pronouns.
+- Keep archived members available in mention suggestions.
+- Preserve chosen past-sleep start times, reject invalid or future-ending historical ranges, and accept history before 2020.
+- Restore session comment actions and access to all sessions from the pinned header.
+- Prevent incremental PluralKit replay from recreating deleted fronts.
+
+#### Boards, polls and notifications
+- Make board post bodies selectable without losing link, mention, spoiler or navigation actions.
+- Use the active board actor for post actions.
+- Support mouse input in poll voter choosers and show anonymous “Other” answers without voter identities.
+- Preserve imported Simply Plural poll creation dates.
+- Route reminder taps to their destination, including cold starts, without repeating the action.
+
+#### Platform and accessibility
+- Respect configured letter spacing and system text scaling.
+- Use the appropriate photo/file picker and close open menus with Android Back.
+- Isolate abandoned pairing setup attempts and fence their credential writes.
+- Diagnose newer-schema databases as an unsupported downgrade rather than a pre-beta reset.
+
+### Before updating
+
+Back up your data and update in place. This release uses a newer database schema; do not downgrade to an older build as a rollback. PluralPort exports are unencrypted.
+
 ## [0.15.3] - 2026-09-30
 
 Patch release. Prism does less work on the main thread while unlocking,
