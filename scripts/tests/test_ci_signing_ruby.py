@@ -13,6 +13,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -38,13 +40,23 @@ module FastlaneCore
   module Interface
     class UserError < StandardError; end
   end
-end
-module UI
-  def self.user_error!(message)
-    raise FastlaneCore::Interface::UserError, message.to_s
+
+  # The real namespace. A top-level ::UI must NOT be defined: fastlane has no
+  # such constant, and stubbing one is what hid the NameError that broke the
+  # hosted macOS run.
+  module UI
+    def self.user_error!(message)
+      raise FastlaneCore::Interface::UserError, message.to_s
+    end
+
+    def self.abort_with_message!(message)
+      raise FastlaneCore::Interface::UserError, message.to_s
+    end
+
+    def self.success(_message); end
+    def self.message(_message); end
+    def self.important(_message); end
   end
-  def self.success(_message); end
-  def self.important(_message); end
 end
 require "ci_signing"
 
@@ -345,3 +357,259 @@ class ReceiptWordingTest(unittest.TestCase):
         # it, the app does not gain an entitlement for the validator's sake.
         entitlements = (Path(__file__).resolve().parents[2] / "ios" / "Runner" / "Runner.entitlements").read_text()
         self.assertNotIn("keychain-access-groups", entitlements)
+
+
+SIGNATURE_DRIVER = r"""
+$LOAD_PATH.unshift ARGV.shift
+require "json"
+module FastlaneCore
+  module Interface
+    class UserError < StandardError; end
+  end
+  module UI
+    def self.user_error!(message)
+      raise FastlaneCore::Interface::UserError, message.to_s
+    end
+    def self.important(_message); end
+    def self.success(_message); end
+    def self.message(_message); end
+  end
+end
+require "ci_signing"
+begin
+  classification = CISigning.assert_no_identity_signature!(ARGV.shift)
+  puts JSON.generate("ok" => true, "classification" => classification)
+rescue FastlaneCore::Interface::UserError => error
+  puts JSON.generate("ok" => false, "error" => error.message)
+end
+"""
+
+SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+CLANG = shutil.which("clang")
+FASTLANE_BIN = shutil.which("fastlane")
+
+
+@unittest.skipUnless(RUBY, "ruby is not available on this machine")
+class SignatureStateTest(unittest.TestCase):
+    """The guard must classify, never equate codesign success with an identity."""
+
+    def setUp(self):
+        self.temp = tempfile.mkdtemp(prefix="prism-signature-state-")
+        self.addCleanup(shutil.rmtree, self.temp, True)
+        self.dir = Path(self.temp)
+        self.driver = self.dir / "signature_driver.rb"
+        self.driver.write_text(SIGNATURE_DRIVER)
+
+    def run_guard(self, target: Path, *, path: str = SYSTEM_PATH) -> dict:
+        completed = subprocess.run(
+            [RUBY, str(self.driver), str(FASTLANE), str(target)],
+            capture_output=True, text=True, env={**os.environ, "PATH": path},
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return json.loads(completed.stdout)
+
+    @unittest.skipUnless(CLANG, "clang is not available on this machine")
+    def compile_binary(self, *, adhoc: bool) -> Path:
+        source = self.dir / "mini.c"
+        source.write_text("int main(void){return 0;}\n")
+        target = self.dir / ("adhoc-mini" if adhoc else "unsigned-mini")
+        arguments = ["clang", "-O0"]
+        if not adhoc:
+            arguments.append("-Wl,-no_adhoc_codesign")
+        subprocess.run([*arguments, "-o", str(target), str(source)], check=True, capture_output=True)
+        return target
+
+    def fake_codesign(self, *, stdout: str = "", stderr: str = "", status: int = 0) -> Path:
+        directory = self.dir / f"fake-codesign-{abs(hash((stdout, stderr, status)))}"
+        directory.mkdir(exist_ok=True)
+        (directory / "stdout.txt").write_text(stdout)
+        (directory / "stderr.txt").write_text(stderr)
+        script = directory / "codesign"
+        script.write_text(
+            "#!/bin/sh\n"
+            'here="$(dirname "$0")"\n'
+            'cat "$here/stdout.txt"\n'
+            'cat "$here/stderr.txt" 1>&2\n'
+            f"exit {status}\n"
+        )
+        script.chmod(0o755)
+        return directory
+
+    @unittest.skipUnless(CLANG, "clang is not available on this machine")
+    def test_linker_adhoc_binary_is_accepted_and_classified(self):
+        result = self.run_guard(self.compile_binary(adhoc=True))
+        self.assertTrue(result["ok"], result)
+        classification = result["classification"]
+        self.assertEqual(classification["state"], "adhoc")
+        self.assertEqual(classification["signature"], "adhoc")
+        self.assertEqual(classification["team_identifier"], "not set")
+        self.assertEqual(classification["authorities"], [])
+        self.assertIn("adhoc", classification["flags"])
+
+    @unittest.skipUnless(CLANG, "clang is not available on this machine")
+    def test_genuinely_unsigned_binary_is_accepted_as_unsigned(self):
+        result = self.run_guard(self.compile_binary(adhoc=False))
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["classification"]["state"], "unsigned")
+
+    def test_identity_signature_is_refused_and_named(self):
+        directory = self.fake_codesign(stderr=(
+            "Authority=Developer ID Application: Prism Plural (GF2W9X3Y6L)\n"
+            "Authority=Developer ID Certification Authority\n"
+            "TeamIdentifier=GF2W9X3Y6L\n"
+            "Signature=adhoc\n"
+        ))
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("signed by an identity", result["error"])
+        self.assertIn("Prism Plural", result["error"])
+        self.assertIn("GF2W9X3Y6L", result["error"])
+        self.assertIn("did not take effect", result["error"])
+
+    def test_unrecognised_signed_metadata_is_refused(self):
+        directory = self.fake_codesign(stderr="Signature=someday-new-format\nTeamIdentifier=not set\n")
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("not understood", result["error"])
+        self.assertIn("refused", result["error"])
+
+    def test_inspection_error_is_not_treated_as_unsigned(self):
+        directory = self.fake_codesign(stderr="csops: operation not permitted\n", status=1)
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("inspection error as unsigned", result["error"])
+        self.assertIn("operation not permitted", result["error"])
+
+    def test_the_documented_not_signed_line_is_accepted_for_this_path(self):
+        target = self.dir / "unsigned.app"
+        directory = self.fake_codesign(
+            stderr=f"{target}: code object is not signed at all\n", status=1
+        )
+        result = self.run_guard(target, path=f"{directory}:{SYSTEM_PATH}")
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["classification"]["state"], "unsigned")
+
+    def test_a_not_signed_line_for_another_path_is_refused(self):
+        directory = self.fake_codesign(stderr="/tmp/x: code object is not signed at all\n", status=1)
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("inspection error as unsigned", result["error"])
+
+    def test_a_mixed_not_signed_line_and_error_is_refused(self):
+        target = self.dir / "mixed.app"
+        directory = self.fake_codesign(
+            stderr=f"{target}: code object is not signed at all\ncsops: operation not permitted\n",
+            status=1,
+        )
+        result = self.run_guard(target, path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("inspection error as unsigned", result["error"])
+
+    def test_not_signed_output_with_a_zero_exit_is_refused(self):
+        target = self.dir / "weird.app"
+        directory = self.fake_codesign(
+            stderr=f"{target}: code object is not signed at all\n", status=0
+        )
+        result = self.run_guard(target, path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("not understood", result["error"])
+
+    def test_missing_team_identifier_is_not_accepted_as_adhoc(self):
+        directory = self.fake_codesign(stderr="Signature=adhoc\nCodeDirectory v=20400 flags=0x2(adhoc)\n")
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("not understood", result["error"])
+
+    def test_empty_authority_marker_with_adhoc_is_refused(self):
+        directory = self.fake_codesign(
+            stderr="Signature=adhoc\nTeamIdentifier=not set\nAuthority=\n"
+        )
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("signed by an identity", result["error"])
+
+    def test_authority_after_the_metadata_budget_is_refused_as_truncated(self):
+        filler = "\n".join(["TeamIdentifier=not set"] * 600)
+        directory = self.fake_codesign(
+            stderr=f"Signature=adhoc\n{filler}\nAuthority=Developer ID Application: Someone\n"
+        )
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("exceeded the", result["error"])
+        self.assertIn("partial inspection", result["error"])
+
+    def test_conflicting_signature_metadata_is_refused(self):
+        directory = self.fake_codesign(
+            stderr="Signature=adhoc\nSignature=other\nTeamIdentifier=not set\n"
+        )
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("conflicting signature metadata", result["error"])
+        self.assertIn("Signature", result["error"])
+
+    def test_conflicting_team_metadata_is_refused(self):
+        directory = self.fake_codesign(
+            stderr="Signature=adhoc\nTeamIdentifier=not set\nTeamIdentifier=GF2W9X3Y6L\n"
+        )
+        result = self.run_guard(self.dir / "whatever.app", path=f"{directory}:{SYSTEM_PATH}")
+        self.assertFalse(result["ok"])
+        self.assertIn("conflicting signature metadata", result["error"])
+        self.assertIn("TeamIdentifier", result["error"])
+
+
+@unittest.skipUnless(RUBY, "ruby is not available on this machine")
+class UiNamespaceTest(unittest.TestCase):
+    """The real gem has no top-level UI; only FastlaneCore::UI exists."""
+
+    def test_ci_signing_has_no_bare_ui_reference(self):
+        source = CI_SIGNING.read_text()
+        self.assertIsNone(re.search(r"(?<!FastlaneCore::)\bUI\.", source))
+        self.assertIn("FastlaneCore::UI.user_error!", source)
+
+    def test_a_required_file_using_bare_ui_raises_name_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            library = Path(directory) / "bare_ui_lib.rb"
+            library.write_text("module BareUiLib\n  module_function\n\n  def go\n    UI.user_error!('x')\n  end\nend\n")
+            driver = Path(directory) / "driver.rb"
+            driver.write_text(
+                "module FastlaneCore\n  module Interface\n    class UserError < StandardError; end\n  end\n"
+                "  module UI\n    def self.user_error!(m)\n      raise FastlaneCore::Interface::UserError, m.to_s\n    end\n  end\nend\n"
+                f"require {json.dumps(str(library))}\n"
+                "begin\n  BareUiLib.go\n  puts 'NO ERROR'\nrescue NameError => error\n  puts error.class\nend\n"
+            )
+            completed = subprocess.run([RUBY, str(driver)], capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("NameError", completed.stdout)
+
+
+@unittest.skipUnless(FASTLANE_BIN and RUBY, "fastlane is not installed on this machine")
+class RealGemErrorPathTest(unittest.TestCase):
+    """Drive the actual gem: FastlaneCore::UI works from a required file."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.directory = tempfile.mkdtemp(prefix="prism-fastlane-ui-")
+        fastlane_dir = Path(cls.directory) / "fastlane"
+        fastlane_dir.mkdir()
+        (Path(cls.directory) / "helper_lib.rb").write_text(
+            "module HelperLib\n  module_function\n\n"
+            "  def boom\n    FastlaneCore::UI.user_error!('helper says no')\n  end\nend\n"
+        )
+        (fastlane_dir / "Fastfile").write_text(
+            "default_platform(:ios)\nrequire_relative \"../helper_lib\"\n\n"
+            "platform :ios do\n  lane :boom do\n    HelperLib.boom\n  end\nend\n"
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(getattr(cls, "directory", ""), ignore_errors=True)
+
+    def test_required_file_error_path_reaches_the_real_gem_ui(self):
+        completed = subprocess.run(
+            [FASTLANE_BIN, "boom"], cwd=self.directory, capture_output=True, text=True, timeout=180,
+            env={**os.environ, "FASTLANE_SKIP_UPDATE_CHECK": "1", "FASTLANE_HIDE_CHANGELOG": "1",
+                 "FASTLANE_DISABLE_ANALYTICS": "1", "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8"},
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("helper says no", completed.stderr + completed.stdout)
+        self.assertNotIn("uninitialized constant", completed.stderr + completed.stdout)

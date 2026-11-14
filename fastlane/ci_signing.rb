@@ -18,7 +18,7 @@ module CISigning
   def require_ci!(action)
     return if ENV["GITHUB_ACTIONS"].to_s.strip.casecmp("true").zero?
 
-    UI.user_error!(
+    FastlaneCore::UI.user_error!(
       "refusing to #{action}: hosted release lanes only run inside GitHub Actions " \
       "(GITHUB_ACTIONS=true). Nothing was changed."
     )
@@ -26,7 +26,7 @@ module CISigning
 
   def env!(name)
     value = ENV[name].to_s.strip
-    UI.user_error!("#{name} is not set") if value.empty?
+    FastlaneCore::UI.user_error!("#{name} is not set") if value.empty?
     value
   end
 
@@ -34,7 +34,7 @@ module CISigning
   # token reaches Flutter as a file, never as a CLI literal.
   def dart_define_flag
     path = env!("PRISM_CI_DART_DEFINES_FILE")
-    UI.user_error!("dart defines file is missing: #{path}") unless File.file?(path)
+    FastlaneCore::UI.user_error!("dart defines file is missing: #{path}") unless File.file?(path)
     "--dart-define-from-file=#{path}"
   end
 
@@ -63,7 +63,7 @@ module CISigning
     stdout, stderr, status = Open3.capture3(*argv.map(&:to_s))
     unless status.success?
       tail = (stderr.lines.last(20) + stdout.lines.last(5)).join.strip
-      UI.user_error!("command failed (#{status.exitstatus}): #{argv.join(' ')}\n#{tail}")
+      FastlaneCore::UI.user_error!("command failed (#{status.exitstatus}): #{argv.join(' ')}\n#{tail}")
     end
     stdout
   end
@@ -78,7 +78,7 @@ module CISigning
 
   def entitlements(app_path)
     stdout, stderr, status = Open3.capture3("codesign", "-d", "--entitlements", ":-", app_path.to_s)
-    UI.user_error!("could not read entitlements from #{app_path}:\n#{stderr}") unless status.success?
+    FastlaneCore::UI.user_error!("could not read entitlements from #{app_path}:\n#{stderr}") unless status.success?
     xml = stdout.strip
     return {} if xml.empty?
 
@@ -91,7 +91,7 @@ module CISigning
 
   def codesign_authorities(app_path)
     _stdout, stderr, status = Open3.capture3("codesign", "-dvvv", app_path.to_s)
-    UI.user_error!("could not read the signature of #{app_path}:\n#{stderr}") unless status.success?
+    FastlaneCore::UI.user_error!("could not read the signature of #{app_path}:\n#{stderr}") unless status.success?
     stderr.scan(/^Authority=(.*)$/).flatten.map(&:strip)
   end
 
@@ -100,7 +100,7 @@ module CISigning
       prefix = File.join(dir, "signer")
       capture!("codesign", "-d", "--extract-certificates=#{prefix}", app_path)
       der = "#{prefix}0"
-      UI.user_error!("could not extract the signing certificate from #{app_path}") unless File.file?(der)
+      FastlaneCore::UI.user_error!("could not extract the signing certificate from #{app_path}") unless File.file?(der)
       Digest::SHA1.hexdigest(File.binread(der)).upcase
     end
   end
@@ -121,7 +121,7 @@ module CISigning
     rescue JSON::ParserError
       value = capture!(*base).scan(/^\s*PRODUCT_BUNDLE_IDENTIFIER = (\S+)/).flatten.first.to_s.strip
     end
-    UI.user_error!("could not resolve PRODUCT_BUNDLE_IDENTIFIER for #{scheme} in #{configuration}") if value.to_s.empty?
+    FastlaneCore::UI.user_error!("could not resolve PRODUCT_BUNDLE_IDENTIFIER for #{scheme} in #{configuration}") if value.to_s.empty?
     value
   end
 
@@ -163,7 +163,7 @@ module CISigning
   # would mean a target other than Runner was provisioned.
   def single_application!(applications_dir)
     apps = Dir[File.join(applications_dir, "*.app")]
-    UI.user_error!("expected exactly one .app in the archive, found #{apps.length}") unless apps.length == 1
+    FastlaneCore::UI.user_error!("expected exactly one .app in the archive, found #{apps.length}") unless apps.length == 1
     apps.first
   end
 
@@ -251,21 +251,21 @@ module CISigning
     Dir.mktmpdir("prism-ios-store-verify") do |dir|
       capture!("ditto", "-x", "-k", ipa_path, dir)
       app_path = File.join(dir, "Payload", "Runner.app")
-      UI.user_error!("exported IPA has no Payload/Runner.app") unless Dir.exist?(app_path)
+      FastlaneCore::UI.user_error!("exported IPA has no Payload/Runner.app") unless Dir.exist?(app_path)
 
       # Verification only; signing stays explicit elsewhere and never uses --deep.
       capture!("codesign", "--verify", "--deep", "--strict", "--verbose=2", app_path)
       authorities = codesign_authorities(app_path)
       unless authorities.any? { |authority| authority.start_with?("Apple Distribution") }
-        UI.user_error!("IPA is not signed with an Apple Distribution identity (found: #{authorities.join(', ')})")
+        FastlaneCore::UI.user_error!("IPA is not signed with an Apple Distribution identity (found: #{authorities.join(', ')})")
       end
       if authorities.any? { |authority| authority.start_with?("Apple Development") }
-        UI.user_error!("IPA carries an Apple Development identity; a personal development certificate must not sign a release")
+        FastlaneCore::UI.user_error!("IPA carries an Apple Development identity; a personal development certificate must not sign a release")
       end
 
       entitlements = entitlements(app_path)
       profile_path = File.join(app_path, "embedded.mobileprovision")
-      UI.user_error!("exported IPA has no embedded provisioning profile") unless File.file?(profile_path)
+      FastlaneCore::UI.user_error!("exported IPA has no embedded provisioning profile") unless File.file?(profile_path)
       profile = provisioning_profile(profile_path)
       begin
         keychain = validate_ios_store_profile!(
@@ -274,20 +274,20 @@ module CISigning
           certificate_sha1: signing_certificate_sha1(app_path)
         )
       rescue RuntimeError, ArgumentError => error
-        UI.user_error!("exported IPA failed distribution validation: #{error.message}")
+        FastlaneCore::UI.user_error!("exported IPA failed distribution validation: #{error.message}")
       end
 
       info = plist_json(File.join(app_path, "Info.plist"))
       unless info["CFBundleShortVersionString"] == version_name
-        UI.user_error!(
+        FastlaneCore::UI.user_error!(
           "IPA version #{info['CFBundleShortVersionString'].inspect} does not match pubspec #{version_name.inspect}"
         )
       end
       unless info["CFBundleVersion"].to_s == build_number.to_s
-        UI.user_error!("IPA build #{info['CFBundleVersion'].inspect} does not match pubspec #{build_number.inspect}")
+        FastlaneCore::UI.user_error!("IPA build #{info['CFBundleVersion'].inspect} does not match pubspec #{build_number.inspect}")
       end
       unless info["CFBundleIdentifier"] == bundle_id
-        UI.user_error!("IPA bundle identifier #{info['CFBundleIdentifier'].inspect} is not #{bundle_id}")
+        FastlaneCore::UI.user_error!("IPA bundle identifier #{info['CFBundleIdentifier'].inspect} is not #{bundle_id}")
       end
 
       keychain_claim =
@@ -319,31 +319,166 @@ module CISigning
     facts
   end
 
-  # The macOS project signs with "Apple Development" + Automatic, which a
-  # hosted runner has neither an account nor a personal development identity
-  # for. Compilation therefore disables signing and this asserts it held, so an
-  # implicitly signed payload can never be mistaken for the explicit Developer
-  # ID signature that follows.
-  def assert_unsigned!(app_path)
-    _stdout, _stderr, status = Open3.capture3("codesign", "-dvvv", app_path.to_s)
-    return true unless status.success?
+  # The macOS project signs with "Apple Development" + Automatic, which a hosted
+  # runner has neither an account nor a personal development identity for, so
+  # compilation disables signing. This proves that override held — WITHOUT
+  # treating the linker's ad-hoc signature as an identity: on Apple Silicon every
+  # link adds one (`Signature=adhoc`, no Authority, `TeamIdentifier=not set`), so
+  # "codesign returned success" says nothing on its own.
+  #
+  # Closed classification; there is no default-allow path:
+  #   exit 0, exact Signature=adhoc, no Authority, TeamIdentifier=not set -> adhoc
+  #   exit 0 with any Authority or a real TeamIdentifier                   -> identity (refuse)
+  #   exit 0 with anything else                                           -> unknown (refuse)
+  #   non-zero exit whose output holds the known not-signed message        -> unsigned
+  #   non-zero exit with any other error                       -> inspection_error (refuse)
+  NOT_SIGNED_MESSAGE = "code object is not signed at all"
+  SIGNATURE_METADATA_KEYS = ["Signature", "Authority", "TeamIdentifier", "CodeDirectory"].freeze
+  MAX_METADATA_BYTES = 8 * 1024
 
-    UI.user_error!(
-      "#{app_path} is already signed; the compile-time signing override did not take effect, " \
-      "so the Developer ID signature would not be the one we verified"
-    )
+  # Parse only the metadata lines this guard needs, and record enough to notice a
+  # partial or self-contradicting inspection rather than accepting it.
+  def bounded_signature_metadata(text)
+    bytes = text.to_s
+    truncated = bytes.bytesize > MAX_METADATA_BYTES
+    slice = truncated ? bytes.byteslice(0, MAX_METADATA_BYTES) : bytes
+    values = {}
+    authority_markers = 0
+    slice.each_line do |line|
+      line = line.strip
+      if (code_directory = line.match(/\ACodeDirectory\b(?<rest>.*)\z/))
+        (values["CodeDirectory"] ||= []) << code_directory[:rest].strip[0, 300]
+        next
+      end
+      key, value = line.split("=", 2)
+      next unless SIGNATURE_METADATA_KEYS.include?(key)
+
+      if key == "Authority"
+        # Any Authority line counts, even an empty one: its presence means an
+        # identity signed this payload.
+        authority_markers += 1
+        (values["Authority"] ||= []) << value.to_s[0, 200] unless value.to_s.empty?
+      else
+        (values[key] ||= []) << value.to_s[0, 300]
+      end
+    end
+    { "values" => values, "authority_markers" => authority_markers, "truncated" => truncated }
+  end
+
+  def signature_flags(code_directory)
+    Array(code_directory).first.to_s[/flags=(\S+)/, 1]
+  end
+
+  def conflicting_metadata_keys(values)
+    values.select { |key, list| key != "Authority" && list.uniq.length > 1 }.keys.sort
+  end
+
+  def classify_signed_state(inspection)
+    return "truncated" if inspection["truncated"]
+
+    values = inspection["values"]
+    conflicts = conflicting_metadata_keys(values)
+    return "conflicting" unless conflicts.empty?
+
+    signature = Array(values["Signature"]).first
+    team = Array(values["TeamIdentifier"]).first
+    return "identity" if inspection["authority_markers"].positive?
+    return "identity" if team && team != "not set"
+    # The linker's signature is accepted only in its exact documented shape: the
+    # explicit "not set" team is required, so a missing team is never ad-hoc.
+    return "adhoc" if signature == "adhoc" && team == "not set"
+
+    "unknown"
+  end
+
+  # A payload counts as genuinely unsigned only for the documented native
+  # format: codesign exit 1 and exactly one line naming this path. A mixed or
+  # unexpected error is an inspection error, never "unsigned".
+  def not_signed_output?(text, status, app_path)
+    return false unless status && status.exitstatus == 1
+
+    lines = text.to_s.lines.map(&:rstrip).reject(&:empty?)
+    lines.length == 1 && lines.first == "#{app_path}: #{NOT_SIGNED_MESSAGE}"
+  end
+
+  def assert_no_identity_signature!(app_path)
+    stdout, stderr, status = Open3.capture3("codesign", "-dvvv", app_path.to_s)
+    text = "#{stderr}#{stdout}"
+    inspection = bounded_signature_metadata(text)
+    state =
+      if status.success?
+        classify_signed_state(inspection)
+      elsif not_signed_output?(text, status, app_path.to_s)
+        "unsigned"
+      else
+        "inspection_error"
+      end
+    values = inspection["values"]
+    classification = {
+      "state" => state,
+      "signature" => Array(values["Signature"]).first,
+      "flags" => signature_flags(values["CodeDirectory"]),
+      "authorities" => Array(values["Authority"]),
+      "team_identifier" => Array(values["TeamIdentifier"]).first,
+      "metadata_truncated" => inspection["truncated"],
+      "conflicting_keys" => conflicting_metadata_keys(values),
+    }
+    case state
+    when "adhoc", "unsigned"
+      FastlaneCore::UI.important(
+        "#{app_path}: compiled without an identity signature (state #{state}, " \
+        "signature #{classification['signature'].inspect}, flags #{classification['flags'].inspect})"
+      )
+      classification
+    when "identity"
+      FastlaneCore::UI.user_error!(
+        "#{app_path} is signed by an identity before our Developer ID signature: " \
+        "authorities #{classification['authorities'].inspect}, " \
+        "team #{classification['team_identifier'].inspect}, " \
+        "signature #{classification['signature'].inspect}. " \
+        "The compile-time signing override did not take effect, so the Developer ID " \
+        "signature would not be the one we verified."
+      )
+    when "truncated"
+      FastlaneCore::UI.user_error!(
+        "signature inspection of #{app_path} exceeded the #{MAX_METADATA_BYTES}-byte metadata budget, " \
+        "so an Authority or TeamIdentifier could be hidden after the cut-off. " \
+        "Refusing to classify a partial inspection as unsigned."
+      )
+    when "conflicting"
+      FastlaneCore::UI.user_error!(
+        "#{app_path} reports conflicting signature metadata for " \
+        "#{classification['conflicting_keys'].inspect} " \
+        "(signature #{classification['signature'].inspect}, " \
+        "team #{classification['team_identifier'].inspect}). Refusing to classify it as unsigned."
+      )
+    when "unknown"
+      FastlaneCore::UI.user_error!(
+        "#{app_path} has a signature whose metadata is not understood: " \
+        "signature #{classification['signature'].inspect}, " \
+        "flags #{classification['flags'].inspect}, " \
+        "team #{classification['team_identifier'].inspect}. " \
+        "It is neither the exact linker ad-hoc shape nor unsigned, so it is refused."
+      )
+    else
+      FastlaneCore::UI.user_error!(
+        "could not inspect the signature of #{app_path} (exit #{status.exitstatus}) and the output is " \
+        "not the documented not-signed line for this path; refusing to treat an inspection error " \
+        "as unsigned. Bounded output: #{text.to_s.byteslice(0, 400).inspect}"
+      )
+    end
   end
 
   def universal_archs!(app_path)
     macos_dir = File.join(app_path, "Contents", "MacOS")
     executables = Dir.children(macos_dir).sort
-    UI.user_error!("macOS app has no executable in #{macos_dir}") if executables.empty?
+    FastlaneCore::UI.user_error!("macOS app has no executable in #{macos_dir}") if executables.empty?
     archs = capture!("lipo", "-archs", File.join(macos_dir, executables.first)).split
     missing = []
     missing << "arm64" unless archs.any? { |arch| arch.start_with?("arm64") }
     missing << "x86_64" unless archs.include?("x86_64")
     unless missing.empty?
-      UI.user_error!("macOS payload is not universal (missing #{missing.join(', ')}; archs: #{archs.join(', ')})")
+      FastlaneCore::UI.user_error!("macOS payload is not universal (missing #{missing.join(', ')}; archs: #{archs.join(', ')})")
     end
     archs
   end

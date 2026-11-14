@@ -694,7 +694,7 @@ platform :mac do
 
     # Audited helpers, unchanged: profile/entitlement/certificate validation,
     # Developer ID signing of frameworks + app, DMG creation and notarization.
-    CISigning.assert_unsigned!(app_path)
+    compiled_signature = CISigning.assert_no_identity_signature!(app_path)
     developer_id_sign_macos_app(app_path)
     verify_macos_release_app(app_path)
     archs = CISigning.universal_archs!(app_path)
@@ -717,7 +717,8 @@ platform :mac do
       "scheme" => "developer-id",
       "artifact" => File.basename(dmg_path),
       "identity" => developer_id_signing_certificate,
-      "compiled_unsigned" => true,
+      "compiled_without_identity" => true,
+      "compiled_signature" => compiled_signature,
       "archs" => archs,
       "version" => info["CFBundleShortVersionString"],
       "build" => info["CFBundleVersion"],
