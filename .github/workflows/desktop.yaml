@@ -125,8 +125,9 @@ jobs:
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.attach_to_release != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
+          draft: true
           tag_name: ${{ github.event.inputs.attach_to_release || github.ref_name }}
           files: |
             dist/*.tar.gz
@@ -276,8 +277,9 @@ jobs:
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.attach_to_release != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
+          draft: true
           tag_name: ${{ github.event.inputs.attach_to_release || github.ref_name }}
           files: |
             dist/*.zip
