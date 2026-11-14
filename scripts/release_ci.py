@@ -51,7 +51,9 @@ import base64
 import collections
 import hashlib
 import json
+import datetime
 import os
+import plistlib
 import re
 import shutil
 import stat
@@ -491,16 +493,33 @@ def profile_search_path() -> Path:
 
 
 def profile_fields(profile_path: Path) -> dict:
-    """Read a provisioning profile's public fields through security + plutil."""
-    xml = capture(["security", "cms", "-D", "-i", str(profile_path)])
-    with tempfile.NamedTemporaryFile("w", suffix=".plist", delete=False) as handle:
-        handle.write(xml)
-        xml_path = Path(handle.name)
+    """Decode a provisioning profile and read its fields with plistlib.
+
+    ``plutil -convert json`` cannot represent a provisioning profile: they carry
+    date and data values (ExpirationDate, DeveloperCertificates), so the
+    conversion fails outright. plistlib parses the plist natively and keeps those
+    types — the certificate bytes are what the signing check hashes.
+    """
+    payload = capture(["security", "cms", "-D", "-i", str(profile_path)])
+    return parse_profile_plist(payload.encode("utf-8"))
+
+
+def parse_profile_plist(payload: bytes) -> dict:
+    """Parse a provisioning-profile plist, keeping its native value types."""
     try:
-        converted = run(["plutil", "-convert", "json", "-o", "-", str(xml_path)]).stdout
-    finally:
-        xml_path.unlink(missing_ok=True)
-    return json.loads(converted)
+        fields = plistlib.loads(payload)
+    except Exception as error:  # plistlib raises several unrelated types
+        raise ReleaseError(
+            "could not parse the decoded provisioning profile "
+            f"({type(error).__name__}); refusing to continue without its fields. "
+            "The profile content is not echoed."
+        ) from error
+    if not isinstance(fields, dict):
+        raise ReleaseError(
+            "the decoded provisioning profile is not a dictionary; refusing to continue. "
+            "The profile content is not echoed."
+        )
+    return fields
 
 
 def install_profile(owned: Owned, profile_path: Path) -> Path:
@@ -523,9 +542,17 @@ def install_profile(owned: Owned, profile_path: Path) -> Path:
     return target
 
 
+def utc_timestamp(value) -> str:
+    """Render a plist date as explicit UTC (plist dates are UTC but naive)."""
+    if isinstance(value, datetime.datetime):
+        stamp = value if value.tzinfo else value.replace(tzinfo=datetime.timezone.utc)
+        return stamp.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return str(value)
+
+
 def profile_summary(profile: dict) -> dict:
     """Public-safe facts about a profile for the receipt."""
-    expiry = str(profile.get("ExpirationDate", ""))
+    expiry = utc_timestamp(profile.get("ExpirationDate", ""))
     return {
         "name": str(profile.get("Name", "")),
         "uuid": str(profile.get("UUID", "")),
