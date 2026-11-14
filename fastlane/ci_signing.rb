@@ -189,16 +189,33 @@ module CISigning
     errors << "app identifier claim does not match" unless app_entitlements["application-identifier"] == app_id
     errors << "app team claim does not match" unless app_entitlements["com.apple.developer.team-identifier"] == team_id
 
-    # The default keychain group is not optional: an absent or empty array would
-    # otherwise pass this check vacuously and leave the app without its own
-    # keychain after install.
-    groups = app_entitlements["keychain-access-groups"]
-    if !groups.is_a?(Array) || groups.empty?
-      errors << "app has no keychain-access-groups entitlement (its default group must be present)"
-    elsif !groups.include?(app_id)
-      errors << "app is missing its default keychain group #{app_id}"
+    # iOS apps that do not declare Keychain Sharing have no keychain-access-groups
+    # entitlement at all; their default access group is the implicit
+    # TEAM.bundle-id, which the profile authorizes through its own patterns. An
+    # app that does declare groups makes the FIRST entry its default, so that
+    # entry must be TEAM.bundle-id and every claim must still be authorized.
+    declared_groups = app_entitlements["keychain-access-groups"]
+    declared = app_entitlements.key?("keychain-access-groups")
+    keychain_mode = "implicit"
+    effective_default = app_id
+    claimed_groups = []
+    if !declared
+      unless Array(allowed["keychain-access-groups"]).any? { |pattern| MacOSSigning.authorizes?(pattern, app_id) }
+        errors << "profile does not authorize the implicit default keychain group #{app_id}"
+      end
+    elsif !declared_groups.is_a?(Array) || declared_groups.empty?
+      keychain_mode = "malformed"
+      errors << "app declares malformed keychain-access-groups #{declared_groups.inspect}; " \
+                "it must be a non-empty array of group identifiers"
     else
-      groups.each do |claim|
+      keychain_mode = "explicit"
+      claimed_groups = declared_groups.map(&:to_s)
+      effective_default = claimed_groups.first
+      if effective_default != app_id
+        errors << "app declares #{effective_default.inspect} as its effective default keychain group " \
+                  "(the first entry is the default on iOS); it must be #{app_id}"
+      end
+      claimed_groups.each do |claim|
         next if Array(allowed["keychain-access-groups"]).any? { |pattern| MacOSSigning.authorizes?(pattern, claim) }
 
         errors << "profile does not authorize keychain access group #{claim.inspect}"
@@ -221,6 +238,12 @@ module CISigning
       errors << "profile does not authorize the signing certificate"
     end
     raise errors.join("; ") unless errors.empty?
+
+    {
+      "keychain_groups" => keychain_mode,
+      "keychain_access_groups" => claimed_groups,
+      "effective_default_keychain_group" => effective_default,
+    }
   end
 
   def verify_ios_store_ipa(ipa_path, version_name:, build_number:, bundle_id:, team_id:)
@@ -245,7 +268,7 @@ module CISigning
       UI.user_error!("exported IPA has no embedded provisioning profile") unless File.file?(profile_path)
       profile = provisioning_profile(profile_path)
       begin
-        validate_ios_store_profile!(
+        keychain = validate_ios_store_profile!(
           profile, entitlements,
           team_id: team_id, bundle_id: bundle_id,
           certificate_sha1: signing_certificate_sha1(app_path)
@@ -267,6 +290,13 @@ module CISigning
         UI.user_error!("IPA bundle identifier #{info['CFBundleIdentifier'].inspect} is not #{bundle_id}")
       end
 
+      keychain_claim =
+        if keychain["keychain_groups"] == "implicit"
+          "implicit default keychain group #{keychain['effective_default_keychain_group']} authorized by the profile"
+        else
+          "declared keychain groups authorized (effective default " \
+            "#{keychain['effective_default_keychain_group']})"
+        end
       facts.merge!(
         "identity" => authorities.first,
         "authority_chain" => authorities,
@@ -275,11 +305,15 @@ module CISigning
         "bundle_id" => info["CFBundleIdentifier"],
         "get_task_allow" => entitlements["get-task-allow"] == true,
         "app_attest_environment" => entitlements[APP_ATTEST_ENTITLEMENT],
-        "keychain_access_groups" => Array(entitlements["keychain-access-groups"]),
+        # Actual claims only: an app without Keychain Sharing declares none, and
+        # the receipt says so rather than inventing a group it never claimed.
+        "keychain_groups" => keychain["keychain_groups"],
+        "keychain_access_groups" => keychain["keychain_access_groups"],
+        "effective_default_keychain_group" => keychain["effective_default_keychain_group"],
         "entitlement_keys" => entitlements.keys.sort,
         "signing_certificate_sha1" => signing_certificate_sha1(app_path),
-        "verified" => "distribution signature verified deep+strict; App Attest production, default keychain " \
-                      "group, profile authorization, get-task-allow false and version/build checked"
+        "verified" => "distribution signature verified deep+strict; App Attest production; " \
+                      "#{keychain_claim}; get-task-allow false; version/build checked"
       )
     end
     facts
