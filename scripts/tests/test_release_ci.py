@@ -3112,3 +3112,97 @@ class EmbeddedProfileCleanupFailureTest(EmbeddedProfileLeafCleanupTest):
         ):
             self.assert_refused_but_clean("unexpected RuntimeError during embedded profile leaf cleanup")
         self.assertTrue((self.runner_temp / "prism-release" / "owned.json").exists() is False)
+
+
+class FastlaneSkipDocsTest(ReleaseTestCase):
+    """The lane must not regenerate fastlane/README.md (it is tracked source)."""
+
+    def lane_env(self, platform):
+        self.stub_apple_credentials(platform)
+        lane = "ci_macos_dmg" if platform == "macos" else "ci_ios_store"
+        self.commands.on(FASTLANE_LANE(lane), respond=self._lane)
+        self.assertEqual(release_ci.build(platform), 0)
+        calls = [call for call in self.commands.calls if FASTLANE_LANE(lane)(call["argv"])]
+        self.assertEqual(len(calls), 1)
+        return calls[0]["env"]
+
+    def _lane(self, argv, env):
+        platform = "macos" if argv[-1] == "ci_macos_dmg" else "ios-store"
+        self.write_dsyms(platform)
+        artifact_dir = Path(env["PRISM_CI_ARTIFACT_DIR"])
+        suffix = "dmg" if platform == "macos" else "ipa"
+        (artifact_dir / f"Prism-0.16.0+16004-{platform}.{suffix}").write_bytes(b"artifact")
+        (Path(env["PRISM_CI_STATE_DIR"]) / "signing-facts.json").write_text(json.dumps({"scheme": "test"}))
+        return 0, "", ""
+
+    def test_both_apple_lanes_receive_skip_docs(self):
+        for platform in ("macos", "ios-store"):
+            env = self.lane_env(platform)
+            self.assertEqual(env.get("FASTLANE_SKIP_DOCS"), "1", platform)
+            # Nothing else was added to the lane environment.
+            self.assertEqual(env.get("GITHUB_ACTIONS"), "true")
+
+    def test_android_never_sets_skip_docs(self):
+        os.environ.update(
+            {
+                "ANDROID_UPLOAD_KEYSTORE_BASE64": base64.b64encode(b"keystore").decode(),
+                "ANDROID_UPLOAD_STORE_PASSWORD": "store-pass",
+                "ANDROID_UPLOAD_KEY_PASSWORD": "key-pass",
+                "ANDROID_UPLOAD_KEY_ALIAS": "upload",
+                "PRISM_BETA_REGISTRATION_TOKEN": "beta-token-value",
+            }
+        )
+        self.commands.on_prefix(["flutter", "pub", "get"], stdout="")
+        self.stub_android_build()
+        release_ci.build("android")
+        self.assertNotIn("FASTLANE_SKIP_DOCS", os.environ)
+
+    def test_skip_docs_is_only_set_by_the_lane_environment_helper(self):
+        source = open(release_ci.__file__).read()
+        self.assertEqual(source.count('env["FASTLANE_SKIP_DOCS"] = "1"'), 1)
+        self.assertIn("def apple_lane_env(", source)
+
+
+@unittest.skipUnless(FASTLANE_BIN, "fastlane is not installed on this machine")
+class RealFastlaneSkipDocsTest(unittest.TestCase):
+    """Real gem: the flag keeps a sentinel README byte-identical, its absence rewrites it."""
+
+    SENTINEL = "# SENTINEL — this README must not be regenerated\n"
+
+    def setUp(self):
+        self.directory = tempfile.mkdtemp(prefix="prism-fastlane-docs-")
+        self.addCleanup(shutil.rmtree, self.directory, True)
+        fastlane_dir = Path(self.directory) / "fastlane"
+        fastlane_dir.mkdir()
+        (fastlane_dir / "Fastfile").write_text(
+            "default_platform(:ios)\n\nplatform :ios do\n  lane :hi do\n    puts \"hi\"\n  end\nend\n"
+        )
+        self.readme = fastlane_dir / "README.md"
+        self.readme.write_text(self.SENTINEL)
+        self.env = {
+            **os.environ,
+            "FASTLANE_SKIP_UPDATE_CHECK": "1",
+            "FASTLANE_HIDE_CHANGELOG": "1",
+            "FASTLANE_DISABLE_ANALYTICS": "1",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8",
+        }
+
+    def run_lane(self, *, skip_docs: bool):
+        env = dict(self.env)
+        if skip_docs:
+            env["FASTLANE_SKIP_DOCS"] = "1"
+        return subprocess.run(
+            [FASTLANE_BIN, "hi"], cwd=self.directory, capture_output=True, text=True,
+            env=env, timeout=180,
+        )
+
+    def test_control_without_the_flag_rewrites_the_readme(self):
+        completed = self.run_lane(skip_docs=False)
+        self.assertEqual(completed.returncode, 0, completed.stderr[-600:])
+        self.assertNotEqual(self.readme.read_text(), self.SENTINEL, "control must show the rewrite")
+
+    def test_with_the_flag_the_lane_succeeds_and_the_readme_is_untouched(self):
+        completed = self.run_lane(skip_docs=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr[-600:])
+        self.assertEqual(self.readme.read_text(), self.SENTINEL)
