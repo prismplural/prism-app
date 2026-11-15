@@ -591,8 +591,8 @@ platform :ios do
     FileUtils.rm_rf(ci_dir)
     FileUtils.mkdir_p(ci_dir)
 
-    # Compile first without any signing identity, then provision the Runner
-    # target from the installed App Store profile.
+    # Compile first without any signing identity; the archive below is also
+    # built unsigned, and the only IDENTITY signing happens at export.
     sh(
       "cd #{Shellwords.escape(root)} && #{scrubbed_flutter_env} " \
       "flutter build ios --release --no-codesign --no-tree-shake-icons #{defines}"
@@ -606,11 +606,14 @@ platform :ios do
       destination: "generic/platform=iOS",
     )
 
+    # Signing is disabled for the archive. Passing a provisioning profile
+    # specifier here applies it to every Pod and SwiftPM resource bundle, which
+    # cannot carry profiles at all; the app's profile is selected exclusively by
+    # the export options map below.
     xcargs = Shellwords.join([
-      "CODE_SIGN_STYLE=Manual",
-      "CODE_SIGN_IDENTITY=Apple Distribution",
-      "DEVELOPMENT_TEAM=#{apple_team_id}",
-      "PROVISIONING_PROFILE_SPECIFIER=#{profile_name}",
+      "CODE_SIGNING_ALLOWED=NO",
+      "CODE_SIGNING_REQUIRED=NO",
+      "CODE_SIGN_IDENTITY=",
     ])
     sh(
       "cd #{Shellwords.escape(root)} && #{scrubbed_flutter_env} xcodebuild archive " \
@@ -620,12 +623,15 @@ platform :ios do
     )
 
     app_path = CISigning.single_application!(File.join(archive_path, "Products", "Applications"))
-    unless File.file?(File.join(app_path, "embedded.mobileprovision"))
-      UI.user_error!("archived Runner.app has no embedded provisioning profile")
-    end
-    unless CISigning.codesign_authorities(app_path).any? { |authority| authority.start_with?("Apple Distribution") }
-      UI.user_error!("archived Runner.app is not signed with an Apple Distribution identity")
-    end
+
+    # The archive carries no signature, so seed one with the app's own
+    # entitlements; without it the export would drop custom entitlements such as
+    # App Attest. The export below re-signs with Apple Distribution and the
+    # App Store profile named in the export options.
+    CISigning.seed_archive_adhoc_entitlements!(
+      app_path,
+      entitlements_path: File.join(root, "ios", "Runner", "Runner.entitlements"),
+    )
 
     export_plist = CISigning.write_export_options_plist(
       File.join(ci_dir, "ExportOptions.plist"),
