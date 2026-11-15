@@ -1309,9 +1309,15 @@ def apple_team_id() -> str:
 
 
 def apple_lane_env(platform: str) -> dict[str, str]:
-    """Environment for a fastlane lane: paths only, never credential values."""
+    """Environment for a fastlane lane: paths only, never credential values.
+
+    FASTLANE_SKIP_DOCS stops the pinned lane manager from regenerating
+    fastlane/README.md during a run. CI builds must not rewrite checked-in
+    documentation; the final tracked-source integrity check remains required.
+    """
     env = child_env(platform, system_first_path=True)
     env["GITHUB_ACTIONS"] = "true"
+    env["FASTLANE_SKIP_DOCS"] = "1"
     return env
 
 
