@@ -1157,10 +1157,13 @@ class FastfileContractTest(unittest.TestCase):
         self.assertIn("CISigning.state_dir", body)
         self.assertNotIn("build_mac_app", body)
 
-    def test_signing_style_is_manual_and_narrow(self):
+    def test_ios_store_archive_is_unsigned_and_narrow(self):
+        # Option B: the archive carries no signature, the seed supplies the
+        # entitlements, and the export map owns profile selection.
         body = lane_body("ci_ios_store")
-        self.assertIn("CODE_SIGN_STYLE=Manual", body)
-        self.assertIn("PROVISIONING_PROFILE_SPECIFIER", body)
+        self.assertIn("CODE_SIGNING_ALLOWED=NO", body)
+        self.assertNotIn("PROVISIONING_PROFILE_SPECIFIER", body)
+        self.assertIn("seed_archive_adhoc_entitlements!", body)
         self.assertIn("single_application!", body)
 
     def test_every_ci_signing_call_is_defined(self):

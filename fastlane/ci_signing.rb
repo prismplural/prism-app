@@ -319,6 +319,89 @@ module CISigning
     facts
   end
 
+  # Option B for the iOS store lane: the archive is built with signing disabled,
+  # so nothing carries the app's entitlements into the export. xcodebuild's
+  # export only preserves custom entitlements that already exist in a signature,
+  # so the archived app is seeded with an ad-hoc signature applied with the SOURCE
+  # entitlements file (App Attest production included). No capability is invented,
+  # nested code is signed inside-out first, and --deep is never used to sign.
+  def seed_archive_adhoc_entitlements!(app_path, entitlements_path:)
+    FastlaneCore::UI.user_error!("source entitlements are missing: #{entitlements_path}") unless File.file?(entitlements_path)
+
+    entitlements = plist_json(entitlements_path)
+    unless entitlements.is_a?(Hash)
+      FastlaneCore::UI.user_error!("#{entitlements_path} is not an entitlements dictionary")
+    end
+    app_attest = entitlements[APP_ATTEST_ENTITLEMENT].to_s
+    unless app_attest == "production"
+      FastlaneCore::UI.user_error!(
+        "source entitlements must carry #{APP_ATTEST_ENTITLEMENT}=production (found " \
+        "#{entitlements[APP_ATTEST_ENTITLEMENT].inspect}); refusing to seed an archive without it"
+      )
+    end
+
+    # The approved App Store profile covers the main app only. An extension needs
+    # its own entitlements and provisioning entry, so refuse before signing
+    # anything rather than shipping a partially signed payload.
+    extensions = Dir[File.join(app_path, "PlugIns", "*.appex")].sort
+    unless extensions.empty?
+      FastlaneCore::UI.user_error!(
+        "#{app_path} contains app extensions (#{extensions.map { |path| File.basename(path) }.join(', ')}). " \
+        "The approved profile covers the main app only, so each extension needs its own " \
+        "entitlements and provisioning entry. Nothing was signed."
+      )
+    end
+
+    nested = nested_code_paths(app_path)
+    nested[:paths].each do |nested_path|
+      capture!("codesign", "--force", "--sign", "-", nested_path)
+    end
+    capture!("codesign", "--force", "--sign", "-", "--entitlements", entitlements_path, app_path)
+
+    seeded = entitlements(app_path)
+    unless seeded[APP_ATTEST_ENTITLEMENT].to_s == "production"
+      FastlaneCore::UI.user_error!(
+        "the ad-hoc seed did not carry #{APP_ATTEST_ENTITLEMENT}=production into #{app_path}"
+      )
+    end
+    FastlaneCore::UI.important(
+      "#{app_path}: seeded an ad-hoc signature with the source entitlements " \
+      "(#{nested[:paths].length} nested item(s)); the only identity signing happens at export"
+    )
+    {
+      "seeded" => true,
+      "nested" => nested[:paths].length,
+      "skipped_symlinks" => nested[:skipped_symlinks],
+      "app_attest_environment" => app_attest,
+    }
+  end
+
+  # Every nested code item under Frameworks, deepest first, then lexically, so an
+  # enclosing framework is always signed after the frameworks it contains.
+  # Symlinked aliases are skipped rather than signed through.
+  def nested_code_paths(app_path)
+    frameworks = File.join(app_path, "Frameworks")
+    paths = []
+    skipped_symlinks = []
+    return { paths: paths, skipped_symlinks: skipped_symlinks } unless Dir.exist?(frameworks)
+
+    Dir.glob(File.join(frameworks, "**", "*"), File::FNM_DOTMATCH).each do |path|
+      next if [".", ".."].include?(File.basename(path))
+      next unless File.symlink?(path) || File.exist?(path)
+
+      if File.symlink?(path)
+        skipped_symlinks << path
+        next
+      end
+      next unless path.end_with?(".framework", ".dylib", ".so")
+      next unless File.directory?(path) || File.file?(path)
+
+      paths << path
+    end
+    paths.sort_by! { |path| [-path.split(File::SEPARATOR).length, path] }
+    { paths: paths, skipped_symlinks: skipped_symlinks }
+  end
+
   # The macOS project signs with "Apple Development" + Automatic, which a hosted
   # runner has neither an account nor a personal development identity for, so
   # compilation disables signing. This proves that override held — WITHOUT

@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import plistlib
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,7 @@ from pathlib import Path
 
 FASTLANE = Path(__file__).resolve().parents[2] / "fastlane"
 CI_SIGNING = FASTLANE / "ci_signing.rb"
+FASTFILE = FASTLANE / "Fastfile"
 RUBY = shutil.which("ruby")
 
 TEAM = "GF2W9X3Y6L"
@@ -614,3 +616,297 @@ class RealGemErrorPathTest(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("helper says no", completed.stderr + completed.stdout)
         self.assertNotIn("uninitialized constant", completed.stderr + completed.stdout)
+
+
+SEED_DRIVER = r"""
+$LOAD_PATH.unshift ARGV.shift
+require "json"
+module FastlaneCore
+  module Interface
+    class UserError < StandardError; end
+  end
+  module UI
+    def self.user_error!(message)
+      raise FastlaneCore::Interface::UserError, message.to_s
+    end
+    def self.important(message)
+      File.write(ENV["SEED_LOG"], "important: #{message}\n", mode: "a")
+    end
+    def self.success(_message); end
+    def self.message(_message); end
+  end
+end
+require "ci_signing"
+begin
+  result = CISigning.seed_archive_adhoc_entitlements!(ARGV[0], entitlements_path: ARGV[1])
+  puts JSON.generate("ok" => true, "result" => result)
+rescue FastlaneCore::Interface::UserError => error
+  puts JSON.generate("ok" => false, "error" => error.message)
+end
+"""
+
+
+@unittest.skipUnless(RUBY, "ruby is not available on this machine")
+class ArchiveAdhocSeedTest(unittest.TestCase):
+    """The seed signs nested code inside-out, never --deep, and refuses without App Attest."""
+
+    def setUp(self):
+        self.temp = tempfile.mkdtemp(prefix="prism-adhoc-seed-")
+        self.addCleanup(shutil.rmtree, self.temp, True)
+        self.dir = Path(self.temp)
+        self.driver = self.dir / "seed_driver.rb"
+        self.driver.write_text(SEED_DRIVER)
+        self.log = self.dir / "calls.log"
+        self.log.touch()
+        self.app = self.dir / "Runner.app"
+        (self.app / "Frameworks" / "App.framework").mkdir(parents=True)
+        (self.app / "Frameworks" / "Flutter.framework").mkdir(parents=True)
+        (self.app / "Frameworks" / "libplugin.dylib").parent.mkdir(parents=True, exist_ok=True)
+        (self.app / "Frameworks" / "libplugin.dylib").write_bytes(b"binary")
+        self.entitlements = self.dir / "Runner.entitlements"
+        self.write_entitlements("production")
+        self.bin = self.dir / "bin"
+        self.bin.mkdir()
+        self.fake_tools()
+
+    def write_entitlements(self, app_attest):
+        payload = {"com.apple.developer.devicecheck.appattest-environment": app_attest} if app_attest else {}
+        self.entitlements.write_bytes(plistlib.dumps(payload, fmt=plistlib.FMT_XML))
+
+    def fake_tools(self):
+        codesign = self.bin / "codesign"
+        codesign.write_text(
+            "#!/bin/sh\n"
+            f'printf "%s\\n" "$*" >> {self.log}\n'
+            'last=""\n'
+            'for a in "$@"; do last="$a"; done\n'
+            'case "$*" in\n'
+            '  *"-d --entitlements"*)\n'
+            f'    cat "{self.entitlements}"\n'
+            '    ;;\n'
+            'esac\n'
+            "exit 0\n"
+        )
+        codesign.chmod(0o755)
+        plutil = self.bin / "plutil"
+        plutil.write_text(
+            "#!/bin/sh\n"
+            'last=""\n'
+            'for a in "$@"; do last="$a"; done\n'
+            f'exec {sys.executable} -c "import plistlib,sys,json;'
+            "print(json.dumps(plistlib.loads(open(sys.argv[1],'rb').read()),default=str))\" \"$last\"\n"
+        )
+        plutil.chmod(0o755)
+
+    def run_seed(self) -> dict:
+        completed = subprocess.run(
+            [RUBY, str(self.driver), str(FASTLANE), str(self.app), str(self.entitlements)],
+            capture_output=True, text=True,
+            env={**os.environ, "PATH": f"{self.bin}:{os.environ.get('PATH','')}", "SEED_LOG": str(self.dir / "seed.log")},
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return json.loads(completed.stdout)
+
+    def seed_calls(self):
+        return [line for line in self.log.read_text().splitlines() if "--sign" in line]
+
+    def test_nested_code_is_signed_inside_out_before_the_app(self):
+        result = self.run_seed()
+        self.assertTrue(result["ok"], result)
+        self.assertTrue(result["result"]["seeded"])
+        self.assertEqual(result["result"]["app_attest_environment"], "production")
+        calls = self.seed_calls()
+        self.assertEqual(len(calls), 4, calls)  # two frameworks, one dylib, then the app
+        self.assertTrue(calls[0].endswith("App.framework"))
+        self.assertTrue(calls[1].endswith("Flutter.framework"))
+        self.assertTrue(calls[2].endswith("libplugin.dylib"))
+        self.assertTrue(calls[3].endswith("Runner.app"), calls[3])
+        # The app is the only call carrying entitlements, and nothing uses --deep.
+        self.assertEqual([call for call in calls if "--entitlements" in call], [calls[3]])
+        for call in calls:
+            self.assertNotIn("--deep", call)
+            self.assertIn("--sign -", call)
+
+    def test_app_extension_is_refused_before_any_signing(self):
+        (self.app / "PlugIns" / "Widget.appex").mkdir(parents=True)
+        result = self.run_seed()
+        self.assertFalse(result["ok"])
+        self.assertIn("app extensions", result["error"])
+        self.assertIn("Nothing was signed", result["error"])
+        self.assertEqual(self.seed_calls(), [], "no codesign call may happen before the refusal")
+
+    def test_nested_frameworks_are_signed_before_their_enclosing_framework(self):
+        shutil.rmtree(self.app)
+        (self.app / "Frameworks" / "Outer.framework" / "Frameworks").mkdir(parents=True)
+        (self.app / "Frameworks" / "Outer.framework" / "Frameworks" / "Inner.framework").mkdir()
+        (self.app / "Frameworks" / "Outer.framework" / "Frameworks" / "Lib.dylib").write_bytes(b"bin")
+        (self.app / "Frameworks" / "z.dylib").write_bytes(b"bin")
+        result = self.run_seed()
+        self.assertTrue(result["ok"], result)
+        calls = self.seed_calls()
+        order = [call.split()[-1] for call in calls]
+        self.assertEqual(
+            order,
+            [
+                str(self.app / "Frameworks" / "Outer.framework" / "Frameworks" / "Inner.framework"),
+                str(self.app / "Frameworks" / "Outer.framework" / "Frameworks" / "Lib.dylib"),
+                str(self.app / "Frameworks" / "Outer.framework"),
+                str(self.app / "Frameworks" / "z.dylib"),
+                str(self.app),
+            ],
+            order,
+        )
+        self.assertEqual(result["result"]["nested"], 4)
+        # Still exactly one entitlements-bearing call, and it is the app.
+        self.assertEqual([call for call in calls if "--entitlements" in call], [calls[-1]])
+
+    def test_symlinked_nested_item_is_skipped_not_signed(self):
+        target = self.dir / "outside.dylib"
+        target.write_bytes(b"bin")
+        (self.app / "Frameworks" / "linked.dylib").symlink_to(target)
+        result = self.run_seed()
+        self.assertTrue(result["ok"], result)
+        self.assertNotIn(
+            str(self.app / "Frameworks" / "linked.dylib"), [call.split()[-1] for call in self.seed_calls()]
+        )
+        skipped = result["result"]["skipped_symlinks"]
+        self.assertEqual(len(skipped), 1, skipped)
+        self.assertTrue(skipped[0].endswith("linked.dylib"))
+        self.assertTrue(target.exists(), "the symlink target must not be touched")
+
+    def test_missing_app_attest_is_refused_before_any_signing(self):
+        self.write_entitlements(None)
+        result = self.run_seed()
+        self.assertFalse(result["ok"])
+        self.assertIn("must carry", result["error"])
+        self.assertEqual(self.seed_calls(), [])
+
+    def test_development_app_attest_is_refused(self):
+        self.write_entitlements("development")
+        result = self.run_seed()
+        self.assertFalse(result["ok"])
+        self.assertIn("production", result["error"])
+        self.assertEqual(self.seed_calls(), [])
+
+    def test_a_missing_entitlements_file_is_refused(self):
+        self.entitlements.unlink()
+        result = self.run_seed()
+        self.assertFalse(result["ok"])
+        self.assertIn("source entitlements are missing", result["error"])
+
+
+class IosStoreLaneShapeTest(unittest.TestCase):
+    """Static contract for the Option B lane: unsigned archive, seed, standard export, verify."""
+
+    def lane(self) -> str:
+        source = FASTFILE.read_text()
+        start = source.index("lane :ci_ios_store do")
+        end = source.index("platform :mac do", start)
+        return source[start:end]
+
+    def test_archive_disables_signing_and_names_no_profile(self):
+        body = self.lane()
+        for expected in ("CODE_SIGNING_ALLOWED=NO", "CODE_SIGNING_REQUIRED=NO", "CODE_SIGN_IDENTITY="):
+            self.assertIn(expected, body)
+        self.assertNotIn("PROVISIONING_PROFILE_SPECIFIER", body)
+        self.assertNotIn("CODE_SIGN_STYLE=Manual", body)
+        self.assertNotIn("allowProvisioningUpdates", body)
+
+    def test_seed_sits_between_archive_and_export(self):
+        body = self.lane()
+        archive = body.index("xcodebuild archive")
+        seed = body.index("seed_archive_adhoc_entitlements!")
+        export = body.index("xcodebuild -exportArchive")
+        verify = body.index("verify_ios_store_ipa")
+        self.assertLess(archive, seed)
+        self.assertLess(seed, export)
+        self.assertLess(export, verify)
+
+    def test_seed_uses_the_source_entitlements_file(self):
+        self.assertIn(
+            'entitlements_path: File.join(root, "ios", "Runner", "Runner.entitlements")',
+            self.lane(),
+        )
+
+    def test_export_keeps_the_app_only_profile_map(self):
+        body = self.lane()
+        self.assertIn("write_export_options_plist", body)
+        self.assertIn("bundle_id: bundle_id", body)
+        self.assertIn("provisioningProfiles", CI_SIGNING.read_text())
+
+    def test_final_verification_still_requires_app_attest_and_keychain_policy(self):
+        verifier = CI_SIGNING.read_text()
+        self.assertIn("validate_ios_store_profile!", verifier)
+        self.assertIn("APP_ATTEST_ENTITLEMENT", verifier)
+        self.assertIn("keychain-access-groups", verifier)
+        self.assertIn("get-task-allow", verifier)
+        # The seed never manufactures an explicit keychain-sharing claim.
+        seed = verifier.split("def seed_archive_adhoc_entitlements!", 1)[1].split("\n  end", 1)[0]
+        self.assertNotIn("keychain-access-groups", seed)
+
+
+@unittest.skipUnless(
+    RUBY and sys.platform == "darwin" and shutil.which("codesign") and shutil.which("clang") and shutil.which("plutil"),
+    "requires Darwin codesign, clang and plutil",
+)
+class RealCodesignSeedTest(unittest.TestCase):
+    """The real seed CLI on a synthetic iOS bundle: ad-hoc, entitlements preserved."""
+
+    def setUp(self):
+        self.temp = tempfile.mkdtemp(prefix="prism-real-seed-")
+        self.addCleanup(shutil.rmtree, self.temp, True)
+        self.dir = Path(self.temp)
+        self.app = self.dir / "Runner.app"
+        (self.app / "Frameworks").mkdir(parents=True)
+        (self.app / "Info.plist").write_text(
+            '<?xml version="1.0"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+            '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>'
+            "<key>CFBundleExecutable</key><string>Runner</string>"
+            "<key>CFBundleIdentifier</key><string>com.prismplural.prism</string></dict></plist>"
+        )
+        source = self.dir / "m.c"
+        source.write_text("int main(void){return 0;}\n")
+        subprocess.run(["clang", "-O0", "-o", str(self.app / "Runner"), str(source)], check=True, capture_output=True)
+        subprocess.run(
+            ["clang", "-O0", "-dynamiclib", "-o", str(self.app / "Frameworks" / "libplugin.dylib"), str(source)],
+            check=True, capture_output=True,
+        )
+        self.entitlements = self.dir / "Runner.entitlements"
+        self.entitlements.write_bytes(plistlib.dumps(
+            {"com.apple.developer.devicecheck.appattest-environment": "production"}, fmt=plistlib.FMT_XML
+        ))
+        self.driver = self.dir / "seed_driver.rb"
+        self.driver.write_text(SEED_DRIVER)
+
+    def run_seed(self) -> dict:
+        completed = subprocess.run(
+            [RUBY, str(self.driver), str(FASTLANE), str(self.app), str(self.entitlements)],
+            capture_output=True, text=True,
+            env={**os.environ, "PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "SEED_LOG": str(self.dir / "seed.log")},
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return json.loads(completed.stdout)
+
+    def test_real_seed_produces_an_adhoc_app_with_app_attest(self):
+        result = self.run_seed()
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["result"]["app_attest_environment"], "production")
+        self.assertEqual(result["result"]["nested"], 1)
+        verify = subprocess.run(["codesign", "--verify", "--strict", str(self.app)], capture_output=True, text=True)
+        self.assertEqual(verify.returncode, 0, verify.stderr)
+        shown = subprocess.run(
+            ["codesign", "-d", "--entitlements", ":-", str(self.app)], capture_output=True, text=True
+        ).stdout
+        self.assertIn("com.apple.developer.devicecheck.appattest-environment", shown)
+        self.assertIn("production", shown)
+
+    def test_real_seed_refuses_without_app_attest(self):
+        self.entitlements.write_bytes(plistlib.dumps({"get-task-allow": False}, fmt=plistlib.FMT_XML))
+        result = self.run_seed()
+        self.assertFalse(result["ok"])
+        self.assertIn("must carry", result["error"])
+        # Nothing was signed: the app still carries only the linker signature.
+        shown = subprocess.run(
+            ["codesign", "-d", "--entitlements", ":-", str(self.app)], capture_output=True, text=True
+        ).stdout
+        self.assertNotIn("appattest-environment", shown)
