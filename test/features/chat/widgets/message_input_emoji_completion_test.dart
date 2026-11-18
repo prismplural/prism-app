@@ -597,6 +597,66 @@ void main() {
       });
     });
   });
+
+  group('3.375x narrow composer', () {
+    testWidgets('keeps the popup usable and inserts the chosen emoji', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(buildSubject(textScale: 3.375));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), ':sun');
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(emojiSurface, findsOneWidget);
+
+      expect(
+        MediaQuery.textScalerOf(tester.element(emojiSurface)).scale(14),
+        47.25,
+        reason: 'The real popup, not only the route, must see 3.375x scaling.',
+      );
+
+      final surface = tester.getRect(emojiSurface);
+      final screenWidth =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      final screenHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(surface.left, greaterThanOrEqualTo(0));
+      expect(surface.right, lessThanOrEqualTo(screenWidth));
+      expect(surface.top, greaterThanOrEqualTo(0));
+      expect(
+        surface.bottom,
+        lessThanOrEqualTo(screenHeight),
+        reason: 'A 3.375x popup must not paint past the bottom of the window.',
+      );
+      expect(
+        surface.bottom,
+        lessThanOrEqualTo(tester.getTopLeft(find.byType(TextField)).dy),
+        reason: 'The popup sits above the field, never over it.',
+      );
+
+      // The popup scrolls its own rows, so the chosen row can be below the
+      // fold at this scale; bring it into view before tapping.
+      await tester.ensureVisible(emojiRow('sun'));
+      await tester.pumpAndSettle();
+      final scrolledSurface = tester.getRect(emojiSurface);
+      expect(
+        scrolledSurface.bottom,
+        lessThanOrEqualTo(tester.getTopLeft(find.byType(TextField)).dy),
+        reason: 'Scrolling inside the popup must not move it over the field.',
+      );
+
+      await tester.tap(emojiRow('sun'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(composerText(tester), '☀️');
+    });
+  });
 }
 
 /// Run [body] with the desktop platform override in place.

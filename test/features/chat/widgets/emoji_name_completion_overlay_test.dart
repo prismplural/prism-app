@@ -358,4 +358,116 @@ void main() {
 
     expect(selected?.emoji, '☀️');
   });
+
+  group('3.375x bounds', () {
+    testWidgets('3.375x scrolls each row into view and keeps it hittable', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final selections = <Emoji>[];
+      await tester.pumpWidget(
+        buildSubject(
+          availableWidth: 240,
+          availableHeight: 200,
+          textScale: 3.375,
+          onSelect: selections.add,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final surfaceFinder = find.byKey(EmojiNameCompletionOverlay.surfaceKey);
+      expect(surfaceFinder, findsOneWidget);
+
+      final surface = tester.getRect(surfaceFinder);
+      expect(surface.left, greaterThanOrEqualTo(0));
+      expect(surface.top, greaterThanOrEqualTo(0));
+      expect(surface.right, lessThanOrEqualTo(360));
+      expect(surface.bottom, lessThanOrEqualTo(640));
+      expect(
+        surface.height,
+        lessThanOrEqualTo(200),
+        reason: 'The surface may never grow past the height it was offered.',
+      );
+
+      const fixtures = <({String label, String glyph})>[
+        (label: 'sunflower | flower', glyph: '🌻'),
+        (label: 'sun with face | sun', glyph: '🌞'),
+        (label: 'sun', glyph: '☀️'),
+      ];
+
+      for (final fixture in fixtures) {
+        final row = find
+            .ancestor(
+              of: rowText(fixture.label),
+              matching: find.byType(GestureDetector),
+            )
+            .first;
+        expect(
+          tester.getSize(row).height,
+          greaterThanOrEqualTo(44),
+          reason:
+              'Every row at 3.375x is a 44dp touch target, on or off '
+              'screen.',
+        );
+
+        final glyph = find.descendant(
+          of: row,
+          matching: find.text(fixture.glyph),
+        );
+        expect(glyph, findsOneWidget);
+
+        // The overlay builds every row eagerly inside a capped, scrollable
+        // viewport, so a row below the fold is legitimate scroll content and
+        // not overflow. Bring this row's glyph into view before asserting.
+        await tester.ensureVisible(glyph);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        final viewport = tester.getRect(surfaceFinder);
+        final rowRect = tester.getRect(row);
+        final glyphRect = tester.getRect(glyph);
+
+        // The glyph stays inside the row it was laid out in.
+        expect(glyphRect.left, greaterThanOrEqualTo(rowRect.left));
+        expect(glyphRect.top, greaterThanOrEqualTo(rowRect.top));
+        expect(glyphRect.right, lessThanOrEqualTo(rowRect.right));
+        expect(
+          glyphRect.bottom,
+          lessThanOrEqualTo(rowRect.bottom),
+          reason: 'The glyph must not be clipped by its own row.',
+        );
+
+        // After scrolling, the glyph itself is visible inside the viewport.
+        expect(glyphRect.left, greaterThanOrEqualTo(viewport.left));
+        expect(glyphRect.top, greaterThanOrEqualTo(viewport.top));
+        expect(glyphRect.right, lessThanOrEqualTo(viewport.right));
+        expect(
+          glyphRect.bottom,
+          lessThanOrEqualTo(viewport.bottom),
+          reason:
+              'A scrolled row glyph must paint inside the surface '
+              'viewport.',
+        );
+        expect(
+          viewport.contains(tester.getCenter(glyph)),
+          isTrue,
+          reason: 'The glyph centre must be hittable inside the surface.',
+        );
+
+        final before = selections.length;
+        await tester.tapAt(tester.getCenter(glyph));
+        await tester.pumpAndSettle();
+        expect(
+          selections.length,
+          before + 1,
+          reason: 'Tapping the glyph centre selects exactly once.',
+        );
+        expect(selections.last.emoji, fixture.glyph);
+      }
+    });
+  });
 }
