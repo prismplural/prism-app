@@ -55,7 +55,7 @@ class ChatMessageText extends StatefulWidget {
 }
 
 class _ChatMessageTextState extends State<ChatMessageText> {
-  static const int _fastPathThreshold = 2000;
+  static const int _fastPathThreshold = chatMarkdownParseLimit;
 
   final _revealController = SpoilerRevealController();
   final _segmentRevealControllers = <int, SpoilerRevealController>{};
