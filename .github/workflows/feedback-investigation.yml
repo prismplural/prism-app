@@ -1,0 +1,39 @@
+name: Feedback contract investigation
+on:
+  push:
+    branches: [investigate/feedback-20261118]
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Install native test prerequisites
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends clang cmake pkg-config libasound2-dev libsqlite3-dev
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: '1.100.0'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.44.8'
+          channel: stable
+          cache: true
+      - name: Resolve the committed dependency lock
+        run: flutter pub get --enforce-lockfile
+      - name: Run isolated sleep and export contract tests
+        run: |
+          mkdir -p test-results
+          flutter test --concurrency=2 --reporter=expanded --file-reporter=json:test-results/feedback-tests.json test/features/fronting/providers/feedback_sleep_stats_boundary_test.dart test/features/pluralport/feedback_export_contract_test.dart
+      - name: Preserve synthetic test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: feedback-contract-results
+          path: test-results/
+          if-no-files-found: warn
+          retention-days: 7
