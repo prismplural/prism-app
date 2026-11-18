@@ -176,6 +176,27 @@ class HabitNotificationService {
     );
   }
 
+  /// Cancel every reminder owned by [habitIds] and invalidate any reschedule
+  /// batch that is already running.
+  ///
+  /// Used when the habit rows are gone (a reset): the IDs this service derives
+  /// from a habit can no longer be recovered from storage, so the caller has to
+  /// hand them over before they are lost.
+  ///
+  /// The batch epoch is bumped before the first await, so a stale
+  /// [rescheduleAll] list stops at its next loop guard instead of starting a
+  /// later habit whose reminders were just retracted. Every per-habit
+  /// generation is bumped before any cancellation is awaited and every ID is
+  /// attempted: a failure is rethrown only after all of them have completed, so
+  /// one platform error cannot strand the remaining habits.
+  Future<void> cancelForHabits(Iterable<String> habitIds) async {
+    ++_rescheduleGeneration;
+    final ids = habitIds.toSet();
+    if (ids.isEmpty) return;
+    final cancellations = [for (final id in ids) cancelForHabit(id)];
+    await Future.wait(cancellations, eagerError: false);
+  }
+
   /// Reschedule notifications for all habits.
   ///
   /// [skipCurrentPeriodFor] is consulted per-habit to suppress same-period

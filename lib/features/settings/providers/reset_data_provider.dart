@@ -26,6 +26,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/core/sync/relay_cleanup.dart';
 import 'package:prism_plurality/core/sync/sync_disconnect_marker.dart';
 import 'package:prism_plurality/core/sync/sync_runtime_state.dart';
+import 'package:prism_plurality/features/habits/services/habit_notification_service.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/core/router/onboarding_local_completion.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -289,6 +290,22 @@ enum ResetCategory {
   const ResetCategory(this.label, this.description);
   final String label;
   final String description;
+}
+
+/// Raised when habit rows were deleted but their scheduled reminders could not
+/// all be retracted.
+///
+/// The deletion is committed, so this must not read as a rollback or as a plain
+/// success. The message stays privacy-safe: it names no habit, carries no
+/// notification or habit IDs, and the platform error behind it is only logged by
+/// type.
+class _HabitReminderCancellationFailure implements Exception {
+  const _HabitReminderCancellationFailure();
+
+  @override
+  String toString() =>
+      'Habit data was deleted, but some habit reminders may still fire. '
+      'Notification cleanup did not complete.';
 }
 
 class ResetDataNotifier extends AsyncNotifier<void> {
@@ -654,11 +671,38 @@ class ResetDataNotifier extends AsyncNotifier<void> {
   Future<void> _resetHabits() async {
     final db = ref.read(databaseProvider);
     _log('Resetting habit data');
-    await db.transaction(() async {
+    // Capture the row IDs inside the deletion transaction: habit reminders are
+    // keyed by a hash of the habit ID, so once the rows are gone the IDs cannot
+    // be recovered and their pending notifications could never be retracted. No
+    // active/deleted filter — the reset removes deactivated and soft-deleted rows
+    // too. If the transaction fails, nothing is captured and nothing is
+    // cancelled.
+    final habitIds = await db.transaction(() async {
+      final rows = await db.customSelect('SELECT id FROM habits').get();
+      final ids = rows.map((row) => row.read<String>('id')).toList();
       await db.customStatement('DELETE FROM habit_completions');
       await db.customStatement('DELETE FROM habits');
+      return ids;
     });
+    // Observers hear about the committed delete before the reminder cleanup: if
+    // that cleanup fails the rows are already gone, so streams must not be left
+    // showing habits that no longer exist.
     _notifyTableChanges(['habit_completions', 'habits']);
+
+    try {
+      await ref
+          .read(habitNotificationServiceProvider)
+          .cancelForHabits(habitIds);
+    } catch (e) {
+      // The delete is committed; report the reminder risk truthfully instead of
+      // a success or a rollback. Only the error type is logged — the platform
+      // error can carry notification IDs.
+      _log(
+        'Habit data was deleted but reminder cancellation failed '
+        '(${e.runtimeType}); some habit reminders may still fire',
+      );
+      throw const _HabitReminderCancellationFailure();
+    }
   }
 
   Future<void> _resetSleep() async {
