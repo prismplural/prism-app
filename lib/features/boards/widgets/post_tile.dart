@@ -24,7 +24,12 @@ import 'package:prism_plurality/shared/widgets/prism_markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+
+/// The same visibility word is rendered by the pill and measured by its header.
+String _audienceLabel(String audience) =>
+    audience == 'public' ? 'public' : 'private';
 
 // ---------------------------------------------------------------------------
 // Inline markdown stripper — for accessibility labels only.
@@ -272,43 +277,101 @@ class _PostTileContent extends ConsumerWidget {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: _PostHeaderParticipants(
-                      author: author,
-                      target: target,
-                      post: post,
-                      authorColor: authorColor,
-                      theme: theme,
-                      l10n: l10n,
-                      prefer: prefer,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (showAudiencePill) ...[
-                    _AudiencePill(audience: post.audience, theme: theme),
-                    const SizedBox(width: 8),
-                  ],
-                  Text(
-                    _formatTimestamp(post.writtenAt, context),
+              // Measured fit, not a container that reflows on its own: the metadata
+              // keeps today's inline position beside the participant strip whenever it
+              // fits next to the strip's non-shrinkable pieces, and a long user name
+              // keeps ellipsising on that one line. Only metadata that genuinely cannot
+              // fit - the 3.375x case that overflowed by 90px - takes its own line, and
+              // it then wraps internally rather than overflowing the card.
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final timestampLabel = _formatTimestamp(
+                    post.writtenAt,
+                    context,
+                  );
+                  final hasMenu = hasActions && isDesktopOrWeb;
+                  final fitsInline =
+                      _headerMetaWidth(
+                            context,
+                            theme: theme,
+                            timestamp: timestampLabel,
+                            audience: post.audience,
+                            showAudiencePill: showAudiencePill,
+                            hasMenu: hasMenu,
+                          ) +
+                          8 +
+                          _headerStripFixedWidth(
+                            context,
+                            theme: theme,
+                            hasTargetAvatar: post.targetMemberId != null,
+                          ) <=
+                      constraints.maxWidth;
+
+                  final participants = _PostHeaderParticipants(
+                    author: author,
+                    target: target,
+                    post: post,
+                    authorColor: authorColor,
+                    theme: theme,
+                    l10n: l10n,
+                    prefer: prefer,
+                  );
+                  final timestamp = Text(
+                    timestampLabel,
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.7,
                       ),
                       fontSize: 11,
                     ),
-                  ),
-                  if (hasActions && isDesktopOrWeb) ...[
-                    const SizedBox(width: 4),
-                    _InlineMenuButton(
-                      post: post,
-                      viewerMember: viewerMember,
-                      buildActions: _buildActions,
-                    ),
-                  ],
-                ],
+                  );
+                  final pill = showAudiencePill
+                      ? _AudiencePill(audience: post.audience, theme: theme)
+                      : null;
+                  final menu = hasMenu
+                      ? _InlineMenuButton(
+                          post: post,
+                          viewerMember: viewerMember,
+                          buildActions: _buildActions,
+                        )
+                      : null;
+
+                  if (fitsInline) {
+                    // Unchanged default geometry: names ellipsise, metadata inline.
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(child: participants),
+                        const SizedBox(width: 8),
+                        if (pill != null) ...[pill, const SizedBox(width: 8)],
+                        timestamp,
+                        if (menu != null) ...[const SizedBox(width: 4), menu],
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(child: participants),
+                          if (menu != null) ...[const SizedBox(width: 4), menu],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 2,
+                        children: [?pill, timestamp],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -404,6 +467,79 @@ class _PostTileContent extends ConsumerWidget {
     }
 
     return card;
+  }
+
+  /// Width of one line of [text] as the header paints it.
+  ///
+  /// [style] is the style handed to `Text`; [prismTextStyleForMeasurement] applies the
+  /// ambient [DefaultTextStyle] merge and the bold-text flag exactly as `Text` does, and
+  /// the painter gets the inherited locale and height behaviour, so the measured line and
+  /// the painted line resolve the same face.
+  double _headerLineWidth(BuildContext context, String text, TextStyle? style) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: prismTextStyleForMeasurement(context, style),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      textHeightBehavior: prismTextHeightBehaviorFor(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  /// Width the header metadata needs side by side, from the strings and styles it
+  /// actually renders: the visibility word in the pill (+ its 16dp padding and the
+  /// 8dp gap before it), the formatted timestamp, and the desktop menu when present.
+  double _headerMetaWidth(
+    BuildContext context, {
+    required ThemeData theme,
+    required String timestamp,
+    required String audience,
+    required bool showAudiencePill,
+    required bool hasMenu,
+  }) {
+    var width = _headerLineWidth(
+      context,
+      timestamp,
+      theme.textTheme.labelMedium?.copyWith(fontSize: 11),
+    );
+    if (showAudiencePill) {
+      width +=
+          8 +
+          16 +
+          _headerLineWidth(
+            context,
+            _audienceLabel(audience),
+            theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+          );
+    }
+    if (hasMenu) width += 4 + 26; // 4dp gap + the 18dp icon in its 4dp padding.
+    return width;
+  }
+
+  /// Width the participant strip cannot give away: the author avatar and its gap, the
+  /// gaps around the "to" connector, the connector itself, and the target avatar when
+  /// the post has one. Both names are flexible and ellipsise, so they count as zero -
+  /// a long name must never force the metadata off the line on its own.
+  double _headerStripFixedWidth(
+    BuildContext context, {
+    required ThemeData theme,
+    required bool hasTargetAvatar,
+  }) {
+    final to = _headerLineWidth(
+      context,
+      'to',
+      theme.textTheme.labelMedium?.copyWith(fontSize: 12),
+    );
+    return 22 + 6 + 8 + to + 8 + (hasTargetAvatar ? 22 + 6 : 0);
   }
 
   String _formatTimestamp(DateTime dt, BuildContext context) {
@@ -550,7 +686,7 @@ class _AudiencePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       ),
       child: Text(
-        isPublic ? 'public' : 'private',
+        _audienceLabel(audience),
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w600,

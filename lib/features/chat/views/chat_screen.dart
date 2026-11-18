@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _kLastChatSubTabKey = 'chat.last_sub_tab';
@@ -48,6 +50,12 @@ const _kDirectMessagesTabPreferenceValue = 0;
 const _kGroupChatsTabPreferenceValue = 1;
 
 enum _ChatSubTab { directMessages, groupChats }
+
+/// Room the chat list keeps below its pinned bar + switcher header before the
+/// header gives up pinning and scrolls with the content: enough for a couple of
+/// conversation tiles. Only this composite header opts in; a plain bar keeps the
+/// default (pinned whenever it fits at all).
+const double _chatHeaderMinBodyExtent = 120.0;
 
 /// Main conversation list screen.
 class ChatScreen extends ConsumerStatefulWidget {
@@ -526,17 +534,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         },
         child: CustomScrollView(
           slivers: [
-            SliverPinnedTopBar(
-              child: _ChatTopBar(
-                activeTab: _activeTab,
-                onTabSelected: _selectTab,
-                speakingAs: speakingAs,
-                hasArchived: hasArchived,
-                showArchived: showArchived,
-                onSearchTap: () => context.go('${AppRoutePaths.chat}/search'),
-                onArchiveTap: () =>
-                    ref.read(showArchivedProvider.notifier).toggle(),
-                onCreateTap: () => _showCreateSheet(context),
+            // The unread counts are watched here, around the header alone, so a
+            // badge change rebuilds the pinned bar instead of re-enumerating the
+            // whole conversation list. The counts reach the bar as immutable
+            // fields, so the measured height and the rendered switcher always see
+            // the same badges.
+            Consumer(
+              builder: (context, ref, _) => SliverPinnedTopBar(
+                // This header is a bar plus a switcher and grows with the text
+                // scale, so on a viewport too short for both it and a usable list
+                // (landscape with the keyboard up) it scrolls instead of
+                // squeezing the list away. Ordinary bars keep the default (pinned
+                // whenever they fit).
+                minBodyExtent: _chatHeaderMinBodyExtent,
+                child: _ChatTopBar(
+                  activeTab: _activeTab,
+                  onTabSelected: _selectTab,
+                  speakingAs: speakingAs,
+                  hasArchived: hasArchived,
+                  showArchived: showArchived,
+                  onSearchTap: () => context.go('${AppRoutePaths.chat}/search'),
+                  onArchiveTap: () =>
+                      ref.read(showArchivedProvider.notifier).toggle(),
+                  onCreateTap: () => _showCreateSheet(context),
+                  groupUnread: ref.watch(unreadGroupCountProvider),
+                  dmUnread: ref.watch(unreadDmCountProvider),
+                ),
               ),
             ),
 
@@ -840,7 +863,8 @@ class _PickSpeakerBanner extends StatelessWidget {
   }
 }
 
-class _ChatTopBar extends ConsumerWidget implements PreferredSizeWidget {
+class _ChatTopBar extends StatelessWidget
+    implements PreferredSizeWidget, PrismScaledHeight {
   const _ChatTopBar({
     required this.activeTab,
     required this.onTabSelected,
@@ -850,6 +874,8 @@ class _ChatTopBar extends ConsumerWidget implements PreferredSizeWidget {
     required this.onSearchTap,
     required this.onArchiveTap,
     required this.onCreateTap,
+    required this.groupUnread,
+    required this.dmUnread,
   });
 
   final _ChatSubTab activeTab;
@@ -861,58 +887,108 @@ class _ChatTopBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback onArchiveTap;
   final VoidCallback onCreateTap;
 
-  @override
-  Size get preferredSize =>
-      const Size.fromHeight(PrismTokens.topBarHeight + 60);
+  /// Immutable unread counts, read once by the parent so the measured height and
+  /// the rendered switcher always see the same badges.
+  final int groupUnread;
+  final int dmUnread;
+
+  /// Padding around the tab switcher.
+  static const double _switcherVerticalPadding = 8;
+  static const double _switcherHorizontalPadding = 16;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dmUnread = ref.watch(unreadDmCountProvider);
-    final groupUnread = ref.watch(unreadGroupCountProvider);
+  Size get preferredSize => const Size.fromHeight(
+    PrismTokens.topBarHeight +
+        _switcherVerticalPadding * 2 +
+        kPrismSegmentedControlMinHeight,
+  );
+
+  /// Exact extent of the pinned band: the bar's measured height plus the padding
+  /// and the switcher's own height at the same width and the same badges.
+  /// [build] composes the identical children, so the band can neither clip them
+  /// nor leave a gap.
+  @override
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    final barHeight = _buildBar(
+      context,
+    ).preferredHeightFor(context, availableWidth: availableWidth);
+    return barHeight +
+        _switcherVerticalPadding * 2 +
+        _switcherHeight(context, availableWidth);
+  }
+
+  PrismTopBar _buildBar(BuildContext context) {
+    return PrismTopBar(
+      title: context.l10n.chatTitle,
+      leading: const _ChatMemberSelectorButton(),
+      actions: [
+        PrismTopBarAction(
+          icon: AppIcons.add,
+          tooltip: context.l10n.chatNewConversation,
+          onPressed: onCreateTap,
+        ),
+        _OverflowMenuButton(
+          speakingAs: speakingAs,
+          hasArchived: hasArchived,
+          showArchived: showArchived,
+          onSearchTap: onSearchTap,
+          onArchiveTap: onArchiveTap,
+        ),
+      ],
+    );
+  }
+
+  PrismSegmentedControl<_ChatSubTab> _buildSwitcher(BuildContext context) {
+    return PrismSegmentedControl<_ChatSubTab>(
+      segments: [
+        PrismSegment(
+          value: _ChatSubTab.groupChats,
+          label: context.l10n.chatTabGroupChats,
+          badgeCount: groupUnread,
+          badgeSemanticLabel: groupUnread > 0
+              ? context.l10n.chatUnreadGroupsBadge(groupUnread)
+              : null,
+        ),
+        PrismSegment(
+          value: _ChatSubTab.directMessages,
+          label: context.l10n.chatTabDirectMessages,
+          badgeCount: dmUnread,
+          badgeSemanticLabel: dmUnread > 0
+              ? context.l10n.chatUnreadDmsBadge(dmUnread)
+              : null,
+        ),
+      ],
+      selected: activeTab,
+      onChanged: onTabSelected,
+    );
+  }
+
+  /// Height of the switcher's track at the ambient text scale, measured by the
+  /// control itself at the width it will really be given (the band minus its
+  /// horizontal padding) and with the badges it will really render.
+  ///
+  /// [PrismSegmentedControl] implements [PrismScaledHeight], so there is no
+  /// fallback branch to keep here.
+  double _switcherHeight(BuildContext context, double? availableWidth) {
+    final width = availableWidth == null
+        ? null
+        : math.max(0.0, availableWidth - _switcherHorizontalPadding * 2);
+    return _buildSwitcher(
+      context,
+    ).preferredHeightFor(context, availableWidth: width);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
-        PrismTopBar(
-          title: context.l10n.chatTitle,
-          leading: const _ChatMemberSelectorButton(),
-          actions: [
-            PrismTopBarAction(
-              icon: AppIcons.add,
-              tooltip: context.l10n.chatNewConversation,
-              onPressed: onCreateTap,
-            ),
-            _OverflowMenuButton(
-              speakingAs: speakingAs,
-              hasArchived: hasArchived,
-              showArchived: showArchived,
-              onSearchTap: onSearchTap,
-              onArchiveTap: onArchiveTap,
-            ),
-          ],
-        ),
+        _buildBar(context),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: PrismSegmentedControl<_ChatSubTab>(
-            segments: [
-              PrismSegment(
-                value: _ChatSubTab.groupChats,
-                label: context.l10n.chatTabGroupChats,
-                badgeCount: groupUnread,
-                badgeSemanticLabel: groupUnread > 0
-                    ? context.l10n.chatUnreadGroupsBadge(groupUnread)
-                    : null,
-              ),
-              PrismSegment(
-                value: _ChatSubTab.directMessages,
-                label: context.l10n.chatTabDirectMessages,
-                badgeCount: dmUnread,
-                badgeSemanticLabel: dmUnread > 0
-                    ? context.l10n.chatUnreadDmsBadge(dmUnread)
-                    : null,
-              ),
-            ],
-            selected: activeTab,
-            onChanged: onTabSelected,
+          padding: const EdgeInsets.symmetric(
+            horizontal: _switcherHorizontalPadding,
+            vertical: _switcherVerticalPadding,
           ),
+          child: _buildSwitcher(context),
         ),
       ],
     );

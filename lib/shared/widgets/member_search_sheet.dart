@@ -6,7 +6,6 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/member_filter.dart';
 import 'package:prism_plurality/shared/utils/member_picker_order.dart';
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
@@ -17,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 
 /// Typed result returned by [MemberSearchSheet.showSingle].
 ///
@@ -441,7 +441,14 @@ class _MemberSearchSheetState extends ConsumerState<MemberSearchSheet> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxHeight < PrismTokens.topBarHeight) {
+        // The bar grows with the ambient text scale; compare against what it
+        // needs rather than the fixed 66dp.
+        final barHeight = prismScaledHeightOf(
+          context,
+          topBar,
+          availableWidth: constraints.maxWidth,
+        );
+        if (constraints.maxHeight < barHeight) {
           return CustomScrollView(
             controller: widget.scrollController,
             primary: widget.scrollController == null,

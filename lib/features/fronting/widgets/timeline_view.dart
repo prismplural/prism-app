@@ -59,8 +59,6 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     0.0,
   );
 
-  static const double _headerRowHeight = 56.0;
-  static const double _minColumnWidth = 36.0;
   static const double _maxColumnWidth = 48.0;
   static const double _wideMaxColumnWidth = 64.0;
   static const double _wideColumnBreakpoint = 900.0;
@@ -122,6 +120,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     final theme = Theme.of(context);
     final timelineState = ref.watch(timelineStateProvider);
     final rowsAsync = ref.watch(timelineRowsProvider);
+    final preferDisplayName = ref.watch(memberNamePreferDisplayProvider);
     final frontingTerms = watchFrontingTerms(context, ref);
 
     // Listen (not watch) for jump target — fires only on change, avoids
@@ -180,27 +179,50 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth - _timeGutterWidth;
-        final maxColumnWidth = constraints.maxWidth >= _wideColumnBreakpoint
+        final baseMaxColumnWidth = constraints.maxWidth >= _wideColumnBreakpoint
             ? _wideMaxColumnWidth
             : _maxColumnWidth;
-        final idealColumnWidth = rows.isNotEmpty
-            ? (availableWidth / rows.length - _columnPadding).clamp(
-                _minColumnWidth,
-                maxColumnWidth,
-              )
-            : maxColumnWidth;
-        // Viewport height for the scrollable area:
-        // total height minus header row and divider.
-        final scrollableHeight = constraints.maxHeight - _headerRowHeight - 1;
+        // One text-scale-aware layout owns the column width, the band height
+        // and the style the header renders, so the metrics it measures and the
+        // glyphs that get painted cannot drift apart.
+        final headerLayout = _TimelineHeaderLayout.resolve(
+          context: context,
+          availableWidth: availableWidth,
+          columnCount: rows.length,
+          names: rows.map(
+            (row) =>
+                row.member.effectiveName(preferDisplayName: preferDisplayName),
+          ),
+          columnPadding: _columnPadding,
+          baseMaxColumnWidth: baseMaxColumnWidth,
+        );
+        // A header band never takes the whole view: past that cap it scrolls
+        // its content, which keeps the text size instead of shrinking it.
+        final minGridHeight = math.min(
+          _TimelineHeaderLayout.minGridViewportHeight,
+          constraints.maxHeight,
+        );
+        final headerBandHeight = math.min(
+          headerLayout.rowHeight,
+          math.max(0.0, constraints.maxHeight - minGridHeight - 1),
+        );
+        // Viewport height for the scrollable area: total height minus the
+        // resolved header band and the divider.
+        final scrollableHeight = math.max(
+          0.0,
+          constraints.maxHeight - headerBandHeight - 1,
+        );
         return _buildTimeline(
           context,
           theme,
           timelineState,
           rows,
           sleepSessions,
-          idealColumnWidth,
+          headerLayout.columnWidth,
           availableWidth,
           scrollableHeight,
+          headerBandHeight: headerBandHeight,
+          headerLayout: headerLayout,
         );
       },
     );
@@ -214,8 +236,10 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     List<FrontingSession> sleepSessions,
     double columnWidth,
     double availableWidth,
-    double scrollableViewportHeight,
-  ) {
+    double scrollableViewportHeight, {
+    required double headerBandHeight,
+    required _TimelineHeaderLayout headerLayout,
+  }) {
     final pxPerHour = timelineState.pixelsPerHour;
     final totalColumnWidth = columnWidth + _columnPadding;
 
@@ -336,9 +360,11 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                 rows: rows,
                 columnsWidth: columnsWidth,
                 totalColumnWidth: totalColumnWidth,
-                columnWidth: columnWidth,
                 primaryColor: theme.colorScheme.primary,
                 brightness: theme.brightness,
+                nameMaxLines: headerLayout.nameMaxLines,
+                nameStyle: headerLayout.nameStyle,
+                nameSlotHeight: headerLayout.nameSlotHeight,
                 controller: _horizontalController,
               ),
             )
@@ -347,9 +373,11 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               rows: rows,
               columnsWidth: columnsWidth,
               totalColumnWidth: totalColumnWidth,
-              columnWidth: columnWidth,
               primaryColor: theme.colorScheme.primary,
               brightness: theme.brightness,
+              nameMaxLines: headerLayout.nameMaxLines,
+              nameStyle: headerLayout.nameStyle,
+              nameSlotHeight: headerLayout.nameSlotHeight,
             ),
         ],
       );
@@ -405,12 +433,23 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       );
     }
 
+    final headerRow = buildHeaderRow();
     return Column(
       children: [
-        // Sticky header row: member avatars/names
+        // Sticky header row: member avatars/names. The band follows the scaled
+        // text; in a window too short for it the row scrolls at full height.
         SizedBox(
-          height: _headerRowHeight,
-          child: centerShortTimeline(buildHeaderRow()),
+          height: headerBandHeight,
+          child: centerShortTimeline(
+            headerLayout.rowHeight > headerBandHeight
+                ? SingleChildScrollView(
+                    child: SizedBox(
+                      height: headerLayout.rowHeight,
+                      child: headerRow,
+                    ),
+                  )
+                : headerRow,
+          ),
         ),
         // Divider
         centerShortTimeline(
@@ -655,18 +694,22 @@ class _HeaderRow extends StatelessWidget {
     required this.rows,
     required this.columnsWidth,
     required this.totalColumnWidth,
-    required this.columnWidth,
     required this.primaryColor,
     required this.brightness,
+    required this.nameMaxLines,
+    required this.nameStyle,
+    required this.nameSlotHeight,
     this.controller,
   });
 
   final List<TimelineMemberRow> rows;
   final double columnsWidth;
   final double totalColumnWidth;
-  final double columnWidth;
   final Color primaryColor;
   final Brightness brightness;
+  final int nameMaxLines;
+  final TextStyle nameStyle;
+  final double nameSlotHeight;
   final ScrollController? controller;
 
   @override
@@ -685,9 +728,11 @@ class _HeaderRow extends StatelessWidget {
           row: rows[i],
           rowIndex: i,
           width: totalColumnWidth,
-          columnWidth: columnWidth,
           primaryColor: primaryColor,
           brightness: brightness,
+          maxLines: nameMaxLines,
+          nameStyle: nameStyle,
+          nameSlotHeight: nameSlotHeight,
         ),
       ),
     );
@@ -700,21 +745,24 @@ class _MemberHeader extends ConsumerWidget {
     required this.row,
     required this.rowIndex,
     required this.width,
-    required this.columnWidth,
     required this.primaryColor,
     required this.brightness,
+    required this.maxLines,
+    required this.nameStyle,
+    required this.nameSlotHeight,
   });
 
   final TimelineMemberRow row;
   final int rowIndex;
   final double width;
-  final double columnWidth;
   final Color primaryColor;
   final Brightness brightness;
+  final int maxLines;
+  final TextStyle nameStyle;
+  final double nameSlotHeight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final color = row.resolveColor(rowIndex, primaryColor, brightness);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     final name = row.member.effectiveName(preferDisplayName: prefer);
@@ -736,19 +784,243 @@ class _MemberHeader extends ConsumerWidget {
             tintOverride: color,
           ),
           const SizedBox(height: 2),
-          Text(
-            name,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w500,
-              color: color,
-              fontSize: columnWidth > 44 ? 11 : 10,
+          // Every column reserves the same name slot, so the avatar row and the
+          // first name baseline stay level whether a name takes one line or two.
+          SizedBox(
+            height: nameSlotHeight,
+            child: Align(
+              alignment: Alignment.topCenter,
+              // The full name stays available when the column is too narrow.
+              child: Tooltip(
+                message: name,
+                child: Text(
+                  name,
+                  style: nameStyle.copyWith(color: color),
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
+  }
+}
+
+/// Text-scale-aware geometry for the sticky member header row.
+///
+/// Keeps the released fit-to-window behavior at small/default text sizes.
+/// Larger text scales the minimum and maximum slot widths independently;
+/// the header grows to fit one or two lines without reducing the text size.
+/// Name fitting has fixed count/length budgets, independent of history size.
+@immutable
+class _TimelineHeaderLayout {
+  const _TimelineHeaderLayout._({
+    required this.columnWidth,
+    required this.rowHeight,
+    required this.nameMaxLines,
+    required this.nameStyle,
+    required this.nameSlotHeight,
+  });
+
+  /// Today's compact band, kept whenever a single scaled line fits it.
+  static const double defaultRowHeight = 56.0;
+
+  /// Released column floor before applying the inherited text scale.
+  static const double defaultMinColumnWidth = 36.0;
+
+  /// Shortest grid viewport a capped header band may leave.
+  static const double minGridViewportHeight = 48.0;
+
+  static const double _avatarSize = 28.0;
+  static const double _avatarGap = 2.0;
+
+  /// Released, unscaled width at which the label uses the larger text role.
+  static const double _nameFontSizeBreakpoint = 44.0;
+  static const double _narrowNameFontSize = 10.0;
+  static const double _wideNameFontSize = 11.0;
+
+  static const int _maxMeasuredNames = 32;
+  static const int _maxMeasuredNameLength = 128;
+
+  /// Fixed glyph reference for accented capitals, deep descenders,
+  /// punctuation and digits. Ink allowance does not scan member names.
+  static const String _inkProbe = 'ÉÅÇÑÖÜģgjpqyQ(),;0123';
+
+  /// Width of one member column, excluding the caller's column padding.
+  final double columnWidth;
+
+  /// Height of the sticky header band that fits [nameStyle] and its ink.
+  final double rowHeight;
+
+  /// One compact line, or two when bounded name fitting requires wrapping.
+  final int nameMaxLines;
+
+  /// Height reserved for the name under the avatar, identical for every column
+  /// so the avatar row and the first name baseline stay level whether a name
+  /// takes one line or two. It is `nameMaxLines * lineHeight` from the
+  /// measurement above, so it adds no layout pass.
+  final double nameSlotHeight;
+
+  /// Style the header name is rendered with. It is measured here, so the
+  /// metrics used for layout and the drawn glyphs are one style object.
+  final TextStyle nameStyle;
+
+  /// Fits the released column slots to the viewport with distinct scaled bounds.
+  /// Name fitting is bounded and only runs once text outgrows the compact band.
+  static _TimelineHeaderLayout resolve({
+    required BuildContext context,
+    required double availableWidth,
+    required int columnCount,
+    required Iterable<String> names,
+    required double columnPadding,
+    required double baseMaxColumnWidth,
+  }) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    final idealColumnWidth = columnCount > 0
+        ? availableWidth / columnCount - columnPadding
+        : baseMaxColumnWidth;
+    final unscaledColumnWidth = idealColumnWidth.clamp(
+      defaultMinColumnWidth,
+      baseMaxColumnWidth,
+    );
+    // Keep the released text role: accessibility scaling must not itself
+    // switch a compressed 10px label into the wider 11px role.
+    final fontSize = unscaledColumnWidth > _nameFontSizeBreakpoint
+        ? _wideNameFontSize
+        : _narrowNameFontSize;
+    final style = (Theme.of(context).textTheme.labelSmall ?? const TextStyle())
+        .copyWith(fontSize: fontSize, fontWeight: FontWeight.w500);
+    // Scale complete slots, while retaining the chart's existing gap and
+    // enough space for its unscaled 28px avatars at small text settings.
+    final slotScale = math.max(1.0, scaler.scale(fontSize) / fontSize);
+    final minColumnWidth =
+        (defaultMinColumnWidth + columnPadding) * slotScale - columnPadding;
+    final maxColumnWidth =
+        (baseMaxColumnWidth + columnPadding) * slotScale - columnPadding;
+    final columnWidth = idealColumnWidth.clamp(minColumnWidth, maxColumnWidth);
+    final lineHeight = _lineHeight(style, scaler, direction);
+    final inkAllowance = _inkAllowance(style, scaler, direction, lineHeight);
+    final compactLineFits =
+        _avatarSize + _avatarGap + lineHeight + inkAllowance <=
+        defaultRowHeight;
+    final nameMaxLines =
+        !compactLineFits &&
+            _namesNeedSecondLine(
+              names,
+              style,
+              scaler,
+              direction,
+              columnWidth + columnPadding,
+              Localizations.maybeLocaleOf(context),
+            )
+        ? 2
+        : 1;
+    final rowHeight = columnCount == 0
+        ? defaultRowHeight
+        : math.max(
+            defaultRowHeight,
+            (_avatarSize +
+                    _avatarGap +
+                    nameMaxLines * lineHeight +
+                    inkAllowance)
+                .ceilToDouble(),
+          );
+    return _TimelineHeaderLayout._(
+      columnWidth: columnWidth,
+      rowHeight: rowHeight,
+      nameMaxLines: nameMaxLines,
+      nameStyle: style,
+      nameSlotHeight: nameMaxLines * lineHeight,
+    );
+  }
+
+  /// Prefer two lines conservatively once a bounded name-fitting budget is
+  /// exhausted; do not shape arbitrary-length names or scan session history.
+  static bool _namesNeedSecondLine(
+    Iterable<String> names,
+    TextStyle style,
+    TextScaler scaler,
+    TextDirection direction,
+    double width,
+    Locale? locale,
+  ) {
+    final painter = TextPainter(
+      textDirection: direction,
+      textScaler: scaler,
+      locale: locale,
+      maxLines: 1,
+    );
+    try {
+      var measured = 0;
+      for (final name in names) {
+        if (measured >= _maxMeasuredNames ||
+            name.length > _maxMeasuredNameLength) {
+          return true;
+        }
+        measured++;
+        painter.text = TextSpan(text: name, style: style);
+        painter.layout(maxWidth: width);
+        if (painter.didExceedMaxLines) return true;
+      }
+      return false;
+    } finally {
+      painter.dispose();
+    }
+  }
+
+  /// Laid-out line height of [style] at [scaler], i.e. what the paragraph
+  /// reserves for each line.
+  static double _lineHeight(
+    TextStyle style,
+    TextScaler scaler,
+    TextDirection direction,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: 'M', style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final height = painter.preferredLineHeight;
+    painter.dispose();
+    return height;
+  }
+
+  /// Vertical room the glyph ink needs beyond the laid-out line boxes.
+  ///
+  /// The label style fixes a line box (1.45 em here), but real faces reach past
+  /// it: accented capitals rise above the allocated ascent and deep descenders
+  /// fall below the allocated descent. The header row is a horizontally
+  /// scrolling list, which clips to the band, so the band must cover that ink
+  /// rather than let the font's shape decide whether a name is cut. The result
+  /// allows the larger excursion on both sides, because the name is centred in
+  /// the band.
+  static double _inkAllowance(
+    TextStyle style,
+    TextScaler scaler,
+    TextDirection direction,
+    double lineHeight,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: _inkProbe, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    var above = 0.0;
+    var below = 0.0;
+    for (final box in painter.getBoxesForSelection(
+      const TextSelection(baseOffset: 0, extentOffset: _inkProbe.length),
+    )) {
+      above = math.max(above, -box.top);
+      below = math.max(below, box.bottom - lineHeight);
+    }
+    painter.dispose();
+    // Two extra pixels absorb subpixel ink rounding at high scale factors.
+    return 2 * math.max(above, below) + 2;
   }
 }

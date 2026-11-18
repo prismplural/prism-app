@@ -334,6 +334,13 @@ void debugResetChatStylesheetCache() {
 // Extension set
 // ---------------------------------------------------------------------------
 
+/// Longest text the chat pipeline parses as Markdown.
+///
+/// Shared by the message bubble's render fast path and the composer's `:name`
+/// code-context check so the two cannot drift. Above this length the bubble
+/// renders plain text, and the composer hides its optional emoji suggestions.
+const int chatMarkdownParseLimit = 2000;
+
 /// CommonMark block syntaxes + [SpoilerSyntax] and [MentionSyntax] inline,
 /// for chat rendering.
 final md.ExtensionSet chatExtensionSet =

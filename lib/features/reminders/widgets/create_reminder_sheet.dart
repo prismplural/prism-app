@@ -536,8 +536,15 @@ class _LabeledRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // `OverflowBar`: label and control stay side by side while they fit - the
+    // default look - and the control takes its own end-aligned line when the scaled
+    // label no longer leaves room for it. Both keep the requested text size and the
+    // control stays on the card (measured 223px over at 3.375x, 79px in RTL).
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      spacing: 12,
+      overflowSpacing: 4,
+      overflowAlignment: OverflowBarAlignment.end,
       children: [
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
         child,

@@ -139,9 +139,7 @@ class MentionOverlayState extends ConsumerState<MentionOverlay>
   /// Handle keyboard navigation. Returns true if the event was consumed.
   bool handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
-    final filtered = _filteredFor(
-      ref.read(memberNamePreferDisplayProvider),
-    );
+    final filtered = _filteredFor(ref.read(memberNamePreferDisplayProvider));
     if (filtered.isEmpty) return false;
 
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
@@ -267,11 +265,16 @@ class MentionOverlayState extends ConsumerState<MentionOverlay>
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => _select(entry),
-                              child: SizedBox(
-                                height: 48,
+                              // Grow with the name's line box instead of
+                              // pinning it inside a fixed 48dp row.
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 48,
+                                ),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
+                                    vertical: 8,
                                   ),
                                   child: Row(
                                     children: [
@@ -344,10 +347,11 @@ class _BroadcastMentionRow extends StatelessWidget {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: SizedBox(
-            height: 52,
+          // Two lines need ~77dp at 2.25x; keep 52dp as the floor only.
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   Container(

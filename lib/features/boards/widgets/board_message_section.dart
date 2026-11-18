@@ -70,14 +70,20 @@ class BoardMessageSection extends ConsumerWidget {
                       color: theme.colorScheme.primary,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      l10n.memberSectionBoardMessages,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w600,
+                    // The title takes the leftover width and wraps; while it kept its
+                    // intrinsic width behind a Spacer it pushed the actor selector and
+                    // the compose action off the card (measured 80 / 127px over at
+                    // 3.375x). Selector identity, actions and keys are unchanged.
+                    Expanded(
+                      child: Text(
+                        l10n.memberSectionBoardMessages,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                    const Spacer(),
+                    const SizedBox(width: 8),
                     const BoardActorSelector(),
                     PrismInlineIconButton(
                       icon: AppIcons.add,

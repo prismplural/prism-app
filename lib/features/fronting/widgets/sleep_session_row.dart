@@ -43,12 +43,11 @@ class SleepSessionRow extends StatelessWidget {
 
     final isFutureDate = session.startTime.isAfter(DateTime.now());
 
-    final hasNotes =
-        session.notes != null && session.notes!.isNotEmpty;
+    final hasNotes = session.notes != null && session.notes!.isNotEmpty;
 
     final semanticDurationWords = _semanticDuration(duration);
-    final qualityWord = session.quality?.localizedLabel(l10n) ??
-        l10n.sleepQualityNotRated;
+    final qualityWord =
+        session.quality?.localizedLabel(l10n) ?? l10n.sleepQualityNotRated;
     final semanticLabel =
         'Sleep on $dateLabel, $semanticDurationWords, quality $qualityWord';
 
@@ -66,7 +65,9 @@ class SleepSessionRow extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 48),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -125,8 +126,9 @@ class SleepSessionRow extends StatelessWidget {
                       Text(
                         session.notes!,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.8),
+                          color: theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.8,
+                          ),
                           fontStyle: FontStyle.italic,
                         ),
                         maxLines: 1,
@@ -173,9 +175,7 @@ class _DateWarningChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.warning.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.warning.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -186,10 +186,17 @@ class _DateWarningChip extends StatelessWidget {
             color: AppColors.warning,
           ),
           const SizedBox(width: 4),
-          Text(
-            'Date looks off',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: AppColors.warning,
+          // The chip is a min-size row inside a loose column, so an un-flexed label
+          // kept its intrinsic width and painted past the row edge (10dp with Lexend,
+          // 83dp with OpenDyslexic at 3.375x on a 320dp phone). Flexible lets it wrap
+          // inside the chip at the requested size. The string was a hardcoded English
+          // literal; `sleepDateLooksOff` already ships in every locale.
+          Flexible(
+            child: Text(
+              context.l10n.sleepDateLooksOff,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.warning,
+              ),
             ),
           ),
         ],

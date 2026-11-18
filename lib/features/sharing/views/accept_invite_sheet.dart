@@ -15,7 +15,13 @@ import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
 /// Bottom sheet for sending a sharing request from someone else's sharing code.
 class AcceptInviteSheet extends ConsumerStatefulWidget {
-  const AcceptInviteSheet({super.key});
+  const AcceptInviteSheet({super.key, this.scrollController});
+
+  /// Scroll controller handed over by `PrismSheet.showFullScreen`.
+  ///
+  /// Passing it keeps drag-to-dismiss coordinated with the body scroll view;
+  /// without it the sheet still scrolls, it just uses its own controller.
+  final ScrollController? scrollController;
 
   @override
   ConsumerState<AcceptInviteSheet> createState() => _AcceptInviteSheetState();
@@ -53,105 +59,123 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
       builder: (context, _) => UnsavedChangesGuard<bool>(
         hasUnsavedChanges: _isDirty,
         child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 24,
-              right: 24,
-              top: 24,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  context.l10n.sharingUseSharingCode,
-                  style: theme.textTheme.titleLarge,
-                ),
-                const SizedBox(height: 16),
-                if (_error != null) ...[
-                  PrismSurface(
-                    padding: const EdgeInsets.all(12),
-                    fillColor: theme.colorScheme.errorContainer,
-                    borderColor: theme.colorScheme.error.withValues(alpha: 0.2),
-                    child: Text(
-                      _error!,
-                      style: TextStyle(
-                        color: theme.colorScheme.onErrorContainer,
-                      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // The sheet is mounted by PrismSheet.showFullScreen, whose body is
+              // height-tight: a plain Column put the Cancel / Send Request row
+              // below the sheet bottom as soon as the text grew (263dp of
+              // overflow at default text on a 320x568 phone, 859dp at 1.5x), so
+              // the body scrolls and the actions stay pinned where they can
+              // always be reached.
+              Expanded(
+                child: ListView(
+                  controller: widget.scrollController,
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                  children: [
+                    Text(
+                      context.l10n.sharingUseSharingCode,
+                      style: theme.textTheme.titleLarge,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                PrismTextField(
-                  controller: _inviteController,
-                  labelText: context.l10n.sharingSharingCodeLabel,
-                  hintText: context.l10n.sharingSharingCodeHint,
-                  maxLines: 4,
-                  minLines: 3,
-                  textInputAction: TextInputAction.newline,
-                  onChanged: (_) => _parseInvite(),
-                ),
-                const SizedBox(height: 12),
-                if (_parsedInvite != null)
-                  PrismSurface(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(AppIcons.link, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _parsedInvite!.displayName != null
-                                ? context.l10n.sharingConnectingWith(
-                                    _parsedInvite!.displayName!,
-                                  )
-                                : context.l10n.sharingReadyToSend,
-                            style: theme.textTheme.bodyMedium,
+                    const SizedBox(height: 16),
+                    if (_error != null) ...[
+                      PrismSurface(
+                        padding: const EdgeInsets.all(12),
+                        fillColor: theme.colorScheme.errorContainer,
+                        borderColor: theme.colorScheme.error.withValues(
+                          alpha: 0.2,
+                        ),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: theme.colorScheme.onErrorContainer,
                           ),
                         ),
-                      ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    PrismTextField(
+                      controller: _inviteController,
+                      labelText: context.l10n.sharingSharingCodeLabel,
+                      hintText: context.l10n.sharingSharingCodeHint,
+                      maxLines: 4,
+                      minLines: 3,
+                      textInputAction: TextInputAction.newline,
+                      onChanged: (_) => _parseInvite(),
                     ),
-                  ),
-                const SizedBox(height: 16),
-                PrismTextField(
-                  controller: _nameController,
-                  labelText: context.l10n.sharingYourDisplayName,
-                  hintText: context.l10n.sharingDisplayNameHint,
-                  textInputAction: TextInputAction.done,
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  context.l10n.sharingWhatToShare,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...ShareScope.values.map(
-                  (scope) => PrismCheckboxRow(
-                    dense: true,
-                    leading: Icon(scope.icon, size: 20),
-                    title: Text(scope.displayNameFor(termPlural: terms.plural)),
-                    subtitle: Text(
-                      scope.descriptionFor(termSingular: terms.singular),
+                    const SizedBox(height: 12),
+                    if (_parsedInvite != null)
+                      PrismSurface(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Icon(AppIcons.link, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _parsedInvite!.displayName != null
+                                    ? context.l10n.sharingConnectingWith(
+                                        _parsedInvite!.displayName!,
+                                      )
+                                    : context.l10n.sharingReadyToSend,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    PrismTextField(
+                      controller: _nameController,
+                      labelText: context.l10n.sharingYourDisplayName,
+                      hintText: context.l10n.sharingDisplayNameHint,
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) => setState(() {}),
                     ),
-                    value: _selectedScopes.contains(scope),
-                    onChanged: (checked) {
-                      setState(() {
-                        if (checked) {
-                          _selectedScopes.add(scope);
-                        } else {
-                          _selectedScopes.remove(scope);
-                        }
-                      });
-                    },
-                  ),
+                    const SizedBox(height: 16),
+                    Text(
+                      context.l10n.sharingWhatToShare,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...ShareScope.values.map(
+                      (scope) => PrismCheckboxRow(
+                        dense: true,
+                        leading: Icon(scope.icon, size: 20),
+                        title: Text(
+                          scope.displayNameFor(termPlural: terms.plural),
+                        ),
+                        subtitle: Text(
+                          scope.descriptionFor(termSingular: terms.singular),
+                        ),
+                        value: _selectedScopes.contains(scope),
+                        onChanged: (checked) {
+                          setState(() {
+                            if (checked) {
+                              _selectedScopes.add(scope);
+                            } else {
+                              _selectedScopes.remove(scope);
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Row(
+              ),
+              // Pinned: the only way to send, and the only way out without
+              // sending. It never scrolls away.
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  4,
+                  24,
+                  MediaQuery.of(context).viewInsets.bottom + 24,
+                ),
+                child: Row(
                   children: [
                     Expanded(
                       child: PrismButton(
@@ -178,8 +202,8 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

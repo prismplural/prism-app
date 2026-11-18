@@ -442,14 +442,27 @@ void main() {
       expect(resolved, isA<AsyncData<Member?>>());
       expect(resolved.value, alice);
       expect(find.byType(MemberProfileHeader), findsOneWidget);
-      expect(find.text('Pronouns'), findsOneWidget);
-      final detail = find.byWidgetPredicate(
-        (widget) =>
-            widget is FieldInlineMarkdownText && widget.data == pronouns,
+      // Exactly one pronoun display: the header capsule. The separate
+      // "Pronouns" label block under the header is gone.
+      expect(find.text('Pronouns'), findsNothing);
+      final capsule = find.byKey(memberProfilePronounsCapsuleKey);
+      expect(capsule, findsOneWidget);
+      final detail = find.descendant(
+        of: capsule,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is FieldInlineMarkdownText && widget.data == pronouns,
+        ),
       );
       expect(detail, findsOneWidget);
+      // Nothing outside the capsule renders the field renderer for pronouns.
+      expect(
+        find.byType(FieldInlineMarkdownText),
+        findsOneWidget,
+        reason: 'the header capsule must be the only pronoun display',
+      );
       final texts = tester.widgetList<RichText>(
-        find.descendant(of: detail, matching: find.byType(RichText)),
+        find.descendant(of: capsule, matching: find.byType(RichText)),
       );
       expect(texts, isNotEmpty);
       final rendered = texts.map((text) => text.text.toPlainText()).join();

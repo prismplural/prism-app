@@ -21,6 +21,7 @@ class PrismPageScaffold extends StatelessWidget {
     this.resizeToAvoidBottomInset,
     this.safeAreaBottom = true,
     this.topBarMaxWidth = double.infinity,
+    this.topBarMinBodyExtent = 0.0,
   });
 
   final Widget body;
@@ -38,6 +39,13 @@ class PrismPageScaffold extends StatelessWidget {
   /// clamped, so the bar lines up with the content column.
   final double topBarMaxWidth;
 
+  /// Body height that must remain visible for [topBar] to stay pinned. Defaults
+  /// to zero, i.e. the bar is pinned whenever it fits at all (unchanged
+  /// behaviour). A composite header whose measured content can outgrow a short
+  /// viewport (keyboard up) passes the room it needs here; the header then
+  /// scrolls with the content instead of squeezing the body away.
+  final double topBarMinBodyExtent;
+
   @override
   Widget build(BuildContext context) {
     final paddedBody = Padding(
@@ -48,7 +56,11 @@ class PrismPageScaffold extends StatelessWidget {
     final scaffoldBody = topBar != null
         ? NestedScrollView(
             headerSliverBuilder: (_, _) => [
-              SliverPinnedTopBar(maxWidth: topBarMaxWidth, child: topBar!),
+              SliverPinnedTopBar(
+                maxWidth: topBarMaxWidth,
+                minBodyExtent: topBarMinBodyExtent,
+                child: topBar!,
+              ),
             ],
             body: paddedBody,
           )

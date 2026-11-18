@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -530,99 +531,133 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     final theme = Theme.of(context);
     final accentColor = theme.colorScheme.primary;
 
-    final screen = Material(
-      color: theme.scaffoldBackgroundColor,
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Back button
-            Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8),
-                child: PrismInlineIconButton(
-                  icon: AppIcons.arrowBack,
-                  iconSize: 20,
-                  tooltip: context.l10n.back,
-                  // The null here lags a frame behind the final digit, so
-                  // the tap re-checks.
-                  onPressed: _isSubmitting
-                      ? null
-                      : () {
-                          if (!_isSubmitting) Navigator.of(context).pop();
-                        },
+    final backButton = Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 8, top: 8),
+        child: PrismInlineIconButton(
+          icon: AppIcons.arrowBack,
+          iconSize: 20,
+          tooltip: context.l10n.back,
+          // The null here lags a frame behind the final digit, so
+          // the tap re-checks.
+          onPressed: _isSubmitting
+              ? null
+              : () {
+                  if (!_isSubmitting) Navigator.of(context).pop();
+                },
+        ),
+      ),
+    );
+
+    final header = <Widget>[
+      Text(
+        _title(context),
+        style: theme.textTheme.headlineMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        _subtitle(context),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ];
+
+    final dots = AnimatedBuilder(
+      animation: _shakeAnimation,
+      builder: (context, child) => Transform.translate(
+        offset: Offset(_shakeAnimation.value, 0),
+        child: child,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(_pinLength, (i) {
+          final filled = i < _pin.length;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: AnimatedBuilder(
+              animation: _dotScaleAnim,
+              builder: (context, child) => Transform.scale(
+                scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                child: child,
+              ),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: filled
+                      ? accentColor
+                      : accentColor.withValues(alpha: 0.15),
                 ),
               ),
             ),
-            const Spacer(flex: 2),
-            Text(
-              _title(context),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _subtitle(context),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 40),
-            AnimatedBuilder(
-              animation: _shakeAnimation,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(_shakeAnimation.value, 0),
-                child: child,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_pinLength, (i) {
-                  final filled = i < _pin.length;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: AnimatedBuilder(
-                      animation: _dotScaleAnim,
-                      builder: (context, child) => Transform.scale(
-                        scale: i == _lastFilledDotIndex
-                            ? _dotScaleAnim.value
-                            : 1.0,
-                        child: child,
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: filled
-                              ? accentColor
-                              : accentColor.withValues(alpha: 0.15),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            const Spacer(flex: 2),
+          );
+        }),
+      ),
+    );
+
+    final pad = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Column(
+        children: [
+          for (var row = 0; row < 4; row++)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Column(
-                children: [
-                  for (var row = 0; row < 4; row++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: _buildRow(context, row),
-                      ),
-                    ),
-                ],
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _buildRow(context, row),
               ),
             ),
-            const Spacer(),
-          ],
+        ],
+      ),
+    );
+
+    // The pad grows with the digit's line box, so the fit is measured against
+    // the height actually available (keyboard included) instead of guessed from
+    // the text scale: a short window can overflow at 1x, a tall one can fit at
+    // 3x. When the content fits, IntrinsicHeight hands the column a tight
+    // viewport height and the Spacer weights below reproduce the existing
+    // centred layout exactly; when it does not, the same children scroll and the
+    // whole flow stays reachable.
+    final content = Column(
+      children: [
+        backButton,
+        const Spacer(flex: 2),
+        ...header,
+        const SizedBox(height: 40),
+        dots,
+        const Spacer(flex: 2),
+        pad,
+        const Spacer(),
+      ],
+    );
+
+    final screen = Material(
+      color: theme.scaffoldBackgroundColor,
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (!constraints.maxHeight.isFinite) return content;
+            final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+            final availableHeight = math.max(
+              0.0,
+              constraints.maxHeight - keyboardInset,
+            );
+            return SizedBox(
+              height: availableHeight,
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: availableHeight),
+                  child: IntrinsicHeight(child: content),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -5,8 +5,11 @@ import 'dart:io';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter_riverpod/misc.dart' show ProviderException;
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_plurality/core/database/app_database.dart';
@@ -17,6 +20,7 @@ import 'package:prism_plurality/core/reset/native_reset_keys.dart';
 import 'package:prism_plurality/core/services/files/prism_file_dialog_service.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
+import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/sync/pk_front_orphan_projection_repair.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart' as sync;
@@ -174,6 +178,51 @@ const _memberRefAllowlist = <(String, String)>{
   // aliases (entity_table='members') ARE cleared by _resetMembers.
   ('pk_identity_sync_aliases', 'member_id'),
 };
+
+/// Fake of the flutter_local_notifications platform channel for reset tests.
+///
+/// The habits reset now retracts the reminder series of every habit row it
+/// deletes, through the real habit notification service and the real local
+/// notification service. Without a platform those cancellations fail and the
+/// reset reports that truthfully, so a reset test needs the channel faked — not
+/// the service.
+class _NotificationChannelFake {
+  static const _channel = MethodChannel(
+    'dexterous.com/flutter/local_notifications',
+  );
+
+  /// Notification IDs the reset actually cancelled.
+  final List<int> cancelledIds = [];
+
+  /// Installs the fake and pins the platform to iOS so the plugin resolves its
+  /// iOS implementation, as it would on a phone.
+  void install() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    IOSFlutterLocalNotificationsPlugin.registerWith();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, _handle);
+  }
+
+  /// Removes the handler and the platform override, so later tests in this file
+  /// see no fake notification platform.
+  void uninstall() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, null);
+    debugDefaultTargetPlatformOverride = null;
+  }
+
+  Future<Object?> _handle(MethodCall call) async {
+    switch (call.method) {
+      case 'initialize':
+        return true;
+      case 'cancel':
+        cancelledIds.add(call.arguments as int);
+        return null;
+      default:
+        return null;
+    }
+  }
+}
 
 class _PausedNotificationResetDatabase extends AppDatabase {
   _PausedNotificationResetDatabase() : super(NativeDatabase.memory());
@@ -872,8 +921,34 @@ void main() {
       final harness = await _ResetHarness.create();
       addTearDown(harness.dispose);
 
+      // The reset retracts the deleted rows' reminders through the real
+      // notification service, so the platform channel must exist; nothing about
+      // the reset or the notification services is mocked.
+      final notifications = _NotificationChannelFake();
+      notifications.install();
+      addTearDown(notifications.uninstall);
+
       await harness.seedAllData();
       await harness.reset(ResetCategory.habits);
+
+      // The seeded habit's owned series (base..base+N-1) must be cancelled even
+      // though its row never had notifications enabled: the reset captures every
+      // row it deletes.
+      const habitIdBase = 3000000;
+      const habitIdMod = 100000;
+      final habitBase = habitIdBase + ('habit-1'.hashCode.abs() % habitIdMod);
+      expect(
+        notifications.cancelledIds.toSet(),
+        {
+          for (
+            var i = 0;
+            i < LocalNotificationService.maxIntervalOccurrences;
+            i++
+          )
+            habitBase + i,
+        },
+        reason: 'the reset must retract the seeded habit reminder series',
+      );
 
       final reopened = await harness.reopenDatabase();
       addTearDown(reopened.close);

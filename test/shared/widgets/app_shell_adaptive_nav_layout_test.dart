@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +24,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_theme.dart';
+import 'package:prism_plurality/shared/theme/prism_text_scaler.dart';
 import 'package:prism_plurality/shared/utils/nav_bar_layout.dart';
 import '../../helpers/fake_repositories.dart' show FakeAppPreferenceRepository;
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -1215,6 +1217,711 @@ void main() {
       semantics.dispose();
     }
   });
+
+  // ---------------------------------------------------------------------
+  // Desktop sidebar at Windows accessibility text sizes:
+  // labels were laid out on one unconstrained line and clipped by a fixed
+  // 38pt row height, so the panel showed cut-off text. These are real
+  // AppShell tests: they measure the actual RenderParagraph boxes of the
+  // sidebar labels at the combined system + app text scale.
+  // ---------------------------------------------------------------------
+
+  testWidgets(
+    'desktop sidebar keeps its default panel and row metrics at scale 1',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final shell = await _pumpDesktopSidebarShell(
+          tester,
+          windowSize: const Size(1280, 900),
+          textScaler: const TextScaler.linear(1),
+        );
+
+        // Default-size design is unchanged: 200pt panel, 38pt rows.
+        expect(_sidebarPanelRect(tester).width, 200.0);
+
+        final viewportRect = _sidebarViewportRect(tester);
+        for (final label in shell.labels) {
+          _expectSidebarLabelFits(
+            tester,
+            label,
+            viewportRect: viewportRect,
+            scaleDescription: '1x',
+            expectedTextScaler: const TextScaler.linear(1),
+          );
+          expect(
+            _sidebarTextMetrics(_sidebarLabelParagraph(tester, label)).lines,
+            1,
+            reason: '"$label" fits on one line at the default text size.',
+          );
+          expect(
+            _sidebarItemRect(tester, label).height,
+            38.0,
+            reason: 'Sidebar rows keep their 38pt default height at 1x.',
+          );
+        }
+
+        // Tab order and localized labels are unchanged.
+        final renderedLabels = [
+          for (final element
+              in find
+                  .descendant(
+                    of: _sidebarScrollView(),
+                    matching: find.byType(Text),
+                  )
+                  .evaluate())
+            (element.widget as Text).data,
+        ];
+        expect(renderedLabels, shell.labels);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'desktop sidebar wraps labels and grows rows at 3.375x text scale',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final shell = await _pumpDesktopSidebarShell(
+          tester,
+          windowSize: const Size(1280, 900),
+          // Windows 225% accessibility scaling times the app's 1.5 font
+          // preference, composed the way lib/app.dart composes it.
+          textScaler: const PrismTextScaler(TextScaler.linear(2.25), 1.5),
+          chatUnreadCount: 2,
+        );
+
+        final viewportRect = _sidebarViewportRect(tester);
+        for (final label in shell.labels) {
+          _expectSidebarLabelFits(
+            tester,
+            label,
+            viewportRect: viewportRect,
+            scaleDescription: '3.375x',
+            expectedTextScaler: const PrismTextScaler(
+              TextScaler.linear(2.25),
+              1.5,
+            ),
+          );
+          final paragraph = _sidebarLabelParagraph(tester, label);
+          expect(
+            paragraph.size.height,
+            greaterThan(30.0),
+            reason:
+                '"$label" still renders at the scaled text size; there is no '
+                'shrink-to-fit cap on sidebar labels.',
+          );
+          expect(
+            _sidebarItemRect(tester, label).height,
+            greaterThanOrEqualTo(38.0),
+            reason: 'Rows never shrink below their default 38pt height.',
+          );
+        }
+
+        final panelRect = _sidebarPanelRect(tester);
+        expect(
+          panelRect.width,
+          greaterThan(200.0),
+          reason:
+              'The panel grows with the label text scale so scaled labels '
+              'need fewer mid-word wraps.',
+        );
+        expect(
+          panelRect.width,
+          lessThanOrEqualTo(320.5),
+          reason: 'The panel width stays bounded at large text sizes.',
+        );
+
+        final contentRect = tester.getRect(
+          find.byKey(const ValueKey('route_body_home')),
+        );
+        expect(
+          contentRect.left,
+          greaterThanOrEqualTo(panelRect.right - 0.5),
+          reason: 'Sidebar and content must not overlap.',
+        );
+        expect(
+          contentRect.width,
+          greaterThanOrEqualTo(1280 * 0.5),
+          reason: 'A wider panel must not starve the main content column.',
+        );
+
+        // Badge presence and the declared accessibility contract survive the
+        // layout change; asserted separately from the geometry above.
+        final chatLabel = _shellLabel(shell, AppShellTabId.chat);
+        final chatItem = _sidebarItemFinder(chatLabel);
+        expect(
+          find.descendant(of: chatItem, matching: find.text('2')),
+          findsOneWidget,
+          reason: 'The unread chat badge still renders inside the row.',
+        );
+
+        final groupSemantics = _sidebarGroupSemantics(tester);
+        expect(
+          groupSemantics.container,
+          isTrue,
+          reason: 'The sidebar is still a semantics container.',
+        );
+        expect(
+          groupSemantics.properties.label,
+          AppLocalizations.of(
+            tester.element(find.byType(AppShell)),
+          ).mainNavigation,
+          reason: 'The sidebar still announces itself as the main navigation.',
+        );
+        for (var index = 0; index < shell.labels.length; index++) {
+          final label = shell.labels[index];
+          final itemSemantics = _sidebarItemSemantics(tester, label);
+          expect(
+            itemSemantics.properties.label,
+            label,
+            reason: 'The "$label" row still exposes its localized label.',
+          );
+          expect(
+            itemSemantics.properties.button,
+            isTrue,
+            reason: 'The "$label" row is still a button.',
+          );
+          expect(
+            itemSemantics.properties.selected,
+            index == 0,
+            reason: 'Only the current destination is announced as selected.',
+          );
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'desktop sidebar wraps a long custom terminology label at 4.5x scale',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final shell = await _pumpDesktopSidebarShell(
+          tester,
+          windowSize: const Size(1280, 900),
+          // Beyond the app's 1.5 cap on purpose: a stress case for future
+          // scalers and narrow panels.
+          textScaler: const PrismTextScaler(TextScaler.linear(2.25), 2.0),
+          settings: const SystemSettings(
+            terminology: SystemTerminology.custom,
+            customTerminology: 'Systemmitglied',
+            customPluralTerminology: 'Systemmitglieder',
+          ),
+        );
+
+        final membersLabel = _shellLabel(shell, AppShellTabId.members);
+        expect(membersLabel, 'Systemmitglieder');
+
+        final viewportRect = _sidebarViewportRect(tester);
+        for (final label in shell.labels) {
+          _expectSidebarLabelFits(
+            tester,
+            label,
+            viewportRect: viewportRect,
+            scaleDescription: '4.5x',
+            expectedTextScaler: const PrismTextScaler(
+              TextScaler.linear(2.25),
+              2.0,
+            ),
+          );
+        }
+
+        // A long word has to break across lines instead of painting past the
+        // panel edge.
+        expect(
+          _sidebarTextMetrics(
+            _sidebarLabelParagraph(tester, membersLabel),
+          ).lines,
+          greaterThanOrEqualTo(2),
+          reason:
+              'A 16-character custom terminology label cannot fit on one line '
+              'at 4.5x in a bounded panel, so it must wrap.',
+        );
+
+        final panelRect = _sidebarPanelRect(tester);
+        expect(panelRect.width, lessThanOrEqualTo(320.5));
+        expect(
+          tester.getRect(find.byKey(const ValueKey('route_body_home'))).width,
+          greaterThanOrEqualTo(1280 * 0.5),
+          reason: 'The main content column stays usable at the stress scale.',
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'desktop sidebar keeps Settings reachable on a short narrow window at 3.375x',
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final shell = await _pumpDesktopSidebarShell(
+          tester,
+          windowSize: const Size(768, 480),
+          textScaler: const PrismTextScaler(TextScaler.linear(2.25), 1.5),
+          // The order from the report, with Settings at the bottom of the
+          // list, so the last row is the one that has to stay reachable.
+          displayOrder: const [
+            AppShellTabId.members,
+            AppShellTabId.home,
+            AppShellTabId.notes,
+            AppShellTabId.chat,
+            AppShellTabId.boards,
+            AppShellTabId.sleep,
+            AppShellTabId.media,
+            AppShellTabId.polls,
+            AppShellTabId.statistics,
+            AppShellTabId.timeline,
+            AppShellTabId.groups,
+            AppShellTabId.settings,
+          ],
+        );
+
+        final panelRect = _sidebarPanelRect(tester);
+        expect(panelRect.width, greaterThanOrEqualTo(200.0));
+        expect(
+          panelRect.width,
+          lessThanOrEqualTo(768 * 0.45),
+          reason: 'The panel stays bounded on a narrow desktop window.',
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('route_body_home'))).width,
+          greaterThanOrEqualTo(768 * 0.55),
+          reason: 'Main content keeps the majority of a narrow desktop window.',
+        );
+
+        final viewportRect = _sidebarViewportRect(tester);
+        for (final label in shell.labels) {
+          _expectSidebarLabelFits(
+            tester,
+            label,
+            viewportRect: viewportRect,
+            scaleDescription: '3.375x on a 768pt window',
+            expectedTextScaler: const PrismTextScaler(
+              TextScaler.linear(2.25),
+              1.5,
+            ),
+          );
+        }
+
+        // The list is taller than the panel here, so Settings starts clipped
+        // below the fold and must be reachable by scrolling.
+        final settingsLabel = _shellLabel(shell, AppShellTabId.settings);
+        expect(
+          _sidebarItemRect(tester, settingsLabel).bottom,
+          greaterThan(viewportRect.bottom),
+          reason: 'At this scale the sidebar content overflows its panel.',
+        );
+
+        expect(find.byType(SingleChildScrollView), findsOneWidget);
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -4000),
+        );
+        await tester.pumpAndSettle();
+
+        final scrolledViewport = _sidebarViewportRect(tester);
+        final settingsRect = _sidebarItemRect(tester, settingsLabel);
+        expect(
+          settingsRect.top,
+          greaterThanOrEqualTo(scrolledViewport.top - 0.5),
+          reason: 'Scrolling reaches the bottom of the sidebar.',
+        );
+        expect(
+          settingsRect.bottom,
+          lessThanOrEqualTo(scrolledViewport.bottom + 0.5),
+          reason: 'The Settings row is fully visible after scrolling.',
+        );
+
+        await tester.tap(find.text(settingsLabel));
+        await tester.pumpAndSettle();
+
+        expect(
+          shell.router.routeInformationProvider.value.uri.path,
+          AppRoutePaths.settings,
+          reason: 'Tapping Settings navigates to the settings branch.',
+        );
+        expect(
+          find.byKey(const ValueKey('route_body_settings')),
+          findsOneWidget,
+          reason: 'The settings branch renders its own content.',
+        );
+
+        // Selection moved to Settings and away from Home.
+        final theme = Theme.of(tester.element(find.byType(AppShell)));
+        expect(
+          _sidebarItemIconColor(tester, settingsLabel),
+          theme.colorScheme.primary,
+          reason: 'The selected destination is tinted with the accent color.',
+        );
+        expect(
+          _sidebarItemIconColor(tester, _shellLabel(shell, AppShellTabId.home)),
+          isNot(theme.colorScheme.primary),
+          reason: 'The previously selected destination is no longer selected.',
+        );
+        expect(
+          _sidebarItemSemantics(tester, settingsLabel).properties.selected,
+          isTrue,
+          reason: 'The Settings destination is announced as selected.',
+        );
+        expect(
+          _sidebarItemSemantics(
+            tester,
+            _shellLabel(shell, AppShellTabId.home),
+          ).properties.selected,
+          isFalse,
+          reason: 'Home is announced as not selected after navigating away.',
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+}
+
+typedef _DesktopSidebarShell = ({
+  List<AppShellTab> tabs,
+  List<String> labels,
+  GoRouter router,
+});
+
+/// Pumps the real [AppShell] on a desktop-sized Windows window with the app's
+/// composed text scaler, and returns the tab list, the rendered labels and the
+/// router so tests can assert navigation.
+Future<_DesktopSidebarShell> _pumpDesktopSidebarShell(
+  WidgetTester tester, {
+  required Size windowSize,
+  required TextScaler textScaler,
+  SystemSettings settings = const SystemSettings(),
+  int chatUnreadCount = 0,
+  List<AppShellTabId>? displayOrder,
+}) async {
+  tester.view.physicalSize = windowSize;
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  // Branches follow branchIndex, like the real router; the sidebar renders
+  // the configured tab order, which is user-reorderable.
+  final displayIds = displayOrder ?? [for (final tab in appShellTabs) tab.id];
+  final tabs = [
+    for (final id in displayIds) appShellTabs.firstWhere((tab) => tab.id == id),
+  ];
+  final router = GoRouter(
+    initialLocation: AppRoutePaths.home,
+    routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) => AppShell(
+          navigationShell: navigationShell,
+          routePath: state.uri.path,
+        ),
+        branches: [
+          for (final tab in appShellTabs)
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: tab.rootLocation,
+                  builder: (context, state) => Scaffold(
+                    body: Container(key: ValueKey('route_body_${tab.id.name}')),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        activeNavBarTabsProvider.overrideWithValue(tabs),
+        appPreferenceRepositoryProvider.overrideWithValue(
+          FakeAppPreferenceRepository(),
+        ),
+        navBarOverflowTabsProvider.overrideWithValue(const <AppShellTab>[]),
+        systemSettingsProvider.overrideWith((ref) => Stream.value(settings)),
+        isPinSetProvider.overrideWith((ref) async => false),
+        syncStatusProvider.overrideWith(_FakeSyncStatusNotifier.new),
+        pkAutoPollProvider.overrideWith(_FakePkAutoPollNotifier.new),
+        pluralKitSyncProvider.overrideWith(_FakePluralKitSyncNotifier.new),
+        habitsBadgeEnabledProvider.overrideWith((ref) => false),
+        activeSessionsProvider.overrideWith((ref) => Stream.value(const [])),
+        allMembersProvider.overrideWith((ref) => Stream.value(const [])),
+        unreadConversationCountProvider.overrideWith((ref) => chatUnreadCount),
+        frontingMigrationGateProvider.overrideWith(
+          (ref) => FrontingMigrationGateStatus.complete,
+        ),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        theme: ThemeData(fontFamily: 'OpenDyslexic'),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: child!,
+        ),
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  final appShellContext = tester.element(find.byType(AppShell));
+  final terminology = resolveTerminology(
+    AppLocalizations.of(appShellContext),
+    settings.terminology,
+    customSingular: settings.customTerminology,
+    customPlural: settings.customPluralTerminology,
+    useEnglish: settings.terminologyUseEnglish,
+  );
+  final labels = [
+    for (final tab in tabs)
+      tab.localizedLabel(
+        appShellContext,
+        terminologyPlural: terminology.plural,
+      ),
+  ];
+  return (tabs: tabs, labels: labels, router: router);
+}
+
+/// The desktop sidebar's scroll view.
+///
+/// It is the only [SingleChildScrollView] inside [AppShell], so structural
+/// lookups scoped to the app shell cannot reach the content beside the panel.
+/// Deliberately not keyed off the "Main navigation" semantics label: this
+/// harness does not surface that group node through `find.bySemanticsLabel`
+/// even though the nav bar's equivalent node is found, so scoping must not
+/// depend on the semantics tree.
+Finder _sidebarScrollView() {
+  final scrollView = find.descendant(
+    of: find.byType(AppShell),
+    matching: find.byType(SingleChildScrollView),
+  );
+  expect(
+    scrollView,
+    findsOneWidget,
+    reason: 'The desktop shell renders exactly one sidebar scroll view.',
+  );
+  return scrollView;
+}
+
+/// The floating panel: the [Container] that wraps the sidebar scroll view.
+Rect _sidebarPanelRect(WidgetTester tester) {
+  final panel = find
+      .ancestor(of: _sidebarScrollView(), matching: find.byType(Container))
+      .first;
+  expect(
+    panel,
+    findsOneWidget,
+    reason: 'The sidebar panel wraps its scroll view.',
+  );
+  return tester.getRect(panel);
+}
+
+/// The sidebar scroll viewport; this is the rectangle that clips the panel.
+Rect _sidebarViewportRect(WidgetTester tester) =>
+    tester.getRect(_sidebarScrollView());
+
+/// The sidebar's declared accessibility group.
+///
+/// The contract is read from the widget that publishes it, not from the
+/// semantics tree, for the reason in [_sidebarScrollView].
+Semantics _sidebarGroupSemantics(WidgetTester tester) {
+  final finder = find
+      .ancestor(of: _sidebarScrollView(), matching: find.byType(Semantics))
+      .first;
+  expect(
+    finder,
+    findsOneWidget,
+    reason: 'The sidebar publishes a semantics group.',
+  );
+  return tester.widget<Semantics>(finder);
+}
+
+/// The declared accessibility contract of one sidebar destination.
+Semantics _sidebarItemSemantics(WidgetTester tester, String label) {
+  final finder = find
+      .ancestor(of: find.text(label), matching: find.byType(Semantics))
+      .first;
+  expect(
+    finder,
+    findsOneWidget,
+    reason: 'The "$label" row publishes semantics.',
+  );
+  return tester.widget<Semantics>(finder);
+}
+
+Finder _sidebarItemFinder(String label) {
+  final item = find
+      .ancestor(of: find.text(label), matching: find.byType(GestureDetector))
+      .first;
+  expect(item, findsOneWidget, reason: 'Expected a sidebar row for "$label".');
+  return item;
+}
+
+Rect _sidebarItemRect(WidgetTester tester, String label) =>
+    tester.getRect(_sidebarItemFinder(label));
+
+RenderParagraph _sidebarLabelParagraph(WidgetTester tester, String label) {
+  final finder = find.text(label);
+  expect(
+    finder,
+    findsOneWidget,
+    reason: 'Expected one sidebar label "$label".',
+  );
+  return tester.renderObject<RenderParagraph>(finder);
+}
+
+Color? _sidebarItemIconColor(WidgetTester tester, String label) {
+  final icon = find
+      .descendant(of: _sidebarItemFinder(label), matching: find.byType(Icon))
+      .first;
+  expect(icon, findsOneWidget);
+  return tester.widget<Icon>(icon).color;
+}
+
+String _shellLabel(_DesktopSidebarShell shell, AppShellTabId id) {
+  final index = shell.tabs.indexWhere((tab) => tab.id == id);
+  expect(index, isNonNegative, reason: 'Tab $id belongs to the shell.');
+  return shell.labels[index];
+}
+
+/// Re-lays out a sidebar label's paragraph at the width it was given, so the
+/// height and line count it *needs* can be compared with the box it got.
+({double height, int lines}) _sidebarTextMetrics(RenderParagraph paragraph) {
+  final maxWidth = paragraph.constraints.maxWidth;
+  final layoutWidth = maxWidth.isFinite ? maxWidth : paragraph.size.width;
+  final painter = TextPainter(
+    text: paragraph.text,
+    textAlign: paragraph.textAlign,
+    textDirection: paragraph.textDirection,
+    textScaler: paragraph.textScaler,
+    maxLines: paragraph.maxLines,
+    locale: paragraph.locale,
+    strutStyle: paragraph.strutStyle,
+    textHeightBehavior: paragraph.textHeightBehavior,
+    textWidthBasis: paragraph.textWidthBasis,
+  )..layout(maxWidth: layoutWidth);
+  final metrics = (
+    height: painter.height,
+    lines: painter.computeLineMetrics().length,
+  );
+  painter.dispose();
+  return metrics;
+}
+
+/// Asserts one sidebar label is fully painted inside its row and the panel.
+void _expectSidebarLabelFits(
+  WidgetTester tester,
+  String label, {
+  required Rect viewportRect,
+  required String scaleDescription,
+  required TextScaler expectedTextScaler,
+}) {
+  final paragraph = _sidebarLabelParagraph(tester, label);
+  final labelRect = tester.getRect(find.text(label));
+  final itemRect = _sidebarItemRect(tester, label);
+  final metrics = _sidebarTextMetrics(paragraph);
+  expect(paragraph.text.style?.fontSize, 13);
+  expect(
+    paragraph.textScaler.scale(13),
+    expectedTextScaler.scale(13),
+    reason: 'The sidebar must keep the requested system and Prism text scale.',
+  );
+
+  // Nav labels may use as many lines as they need: no ellipsis, no line cap
+  // and no clipping overflow hiding the problem.
+  expect(
+    paragraph.maxLines,
+    isNull,
+    reason: '"$label" at $scaleDescription must not cap its line count.',
+  );
+  expect(
+    paragraph.overflow,
+    isNot(TextOverflow.ellipsis),
+    reason: '"$label" at $scaleDescription must not be truncated.',
+  );
+  expect(
+    paragraph.softWrap,
+    isTrue,
+    reason: '"$label" at $scaleDescription must wrap instead of clipping.',
+  );
+
+  // The row has to be as tall as the text needs; a fixed height clips glyphs.
+  expect(
+    paragraph.size.height,
+    greaterThanOrEqualTo(metrics.height - 0.5),
+    reason:
+        '"$label" at $scaleDescription is laid out in '
+        '${paragraph.size.height}px but its text needs ${metrics.height}px, '
+        'so the row clips its glyphs.',
+  );
+
+  // The label box stays inside its row...
+  expect(
+    labelRect.left,
+    greaterThanOrEqualTo(itemRect.left - 0.5),
+    reason: '"$label" at $scaleDescription paints past the left of its row.',
+  );
+  expect(
+    labelRect.right,
+    lessThanOrEqualTo(itemRect.right + 0.5),
+    reason: '"$label" at $scaleDescription paints past the right of its row.',
+  );
+  expect(
+    labelRect.top,
+    greaterThanOrEqualTo(itemRect.top - 0.5),
+    reason: '"$label" at $scaleDescription paints above its row.',
+  );
+  expect(
+    labelRect.bottom,
+    lessThanOrEqualTo(itemRect.bottom + 0.5),
+    reason: '"$label" at $scaleDescription paints below its row.',
+  );
+
+  // ...and inside the scroll viewport, whose edge clips it against the panel.
+  expect(
+    labelRect.left,
+    greaterThanOrEqualTo(viewportRect.left - 0.5),
+    reason: '"$label" at $scaleDescription is clipped at the panel edge.',
+  );
+  expect(
+    labelRect.right,
+    lessThanOrEqualTo(viewportRect.right + 0.5),
+    reason: '"$label" at $scaleDescription is clipped at the panel edge.',
+  );
+
+  // Every glyph box stays inside the paragraph, so no word runs past the panel.
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(baseOffset: 0, extentOffset: label.length),
+  );
+  expect(
+    boxes,
+    isNotEmpty,
+    reason: 'No glyph boxes were reported for "$label".',
+  );
+  final widestGlyphRight = boxes
+      .map((box) => box.right)
+      .fold<double>(0, (widest, right) => right > widest ? right : widest);
+  expect(
+    widestGlyphRight,
+    lessThanOrEqualTo(paragraph.size.width + 0.5),
+    reason:
+        '"$label" at $scaleDescription paints glyphs outside its own box, so '
+        'they are clipped.',
+  );
 }
 
 Color _floatingNavBarDecorationColor(WidgetTester tester) {

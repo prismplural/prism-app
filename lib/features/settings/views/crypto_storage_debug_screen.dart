@@ -359,10 +359,16 @@ class _EngineStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // `OverflowBar` instead of a `Row`: label and value sit side by side while they
+    // fit (unchanged at the default size) and the value takes its own end-aligned
+    // line when the pair no longer fits, so nothing is clipped at the card edge.
     Widget row(String label, String value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: OverflowBar(
+        alignment: MainAxisAlignment.spaceBetween,
+        spacing: 12,
+        overflowSpacing: 2,
+        overflowAlignment: OverflowBarAlignment.end,
         children: [
           Text(
             label,

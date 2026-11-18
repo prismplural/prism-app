@@ -2461,9 +2461,15 @@ class _BackLink extends StatelessWidget {
         children: [
           Icon(AppIcons.arrowBackIos, size: 14, color: linkColor),
           const SizedBox(width: 4),
-          Text(
-            context.l10n.onboardingImportOtherOptions,
-            style: theme.textTheme.bodyMedium?.copyWith(color: linkColor),
+          // The label was a non-flex child of a min-size Row: at 1.5x it needed
+          // ~23dp more than the body had and the row overflowed sideways. It
+          // wraps at the requested size instead; the tap target and the label are
+          // unchanged.
+          Flexible(
+            child: Text(
+              context.l10n.onboardingImportOtherOptions,
+              style: theme.textTheme.bodyMedium?.copyWith(color: linkColor),
+            ),
           ),
         ],
       ),
@@ -2486,8 +2492,11 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
+    // Minimum, not a fixed height: PrismButton's own padding plus a two-line
+    // label does not fit in 52dp once text is scaled, and a tight box lays the
+    // label out below its own line box. At default text this is still 52dp.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 52),
       child: PrismButton(
         label: label,
         onPressed: onPressed,

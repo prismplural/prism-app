@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart' show Emoji;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
@@ -30,6 +32,8 @@ import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/utils/proxy_tag_matcher.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
+import 'package:prism_plurality/features/chat/emoji/emoji_name_completion.dart';
+import 'package:prism_plurality/features/chat/widgets/emoji_name_completion_overlay.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
 import 'package:prism_plurality/features/chat/widgets/voice_recorder.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -94,6 +98,15 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   String _mentionFilter = '';
   bool _mentionMenuVisible = false;
   final _mentionOverlayKey = GlobalKey<MentionOverlayState>();
+  final _emojiOverlayController = OverlayPortalController();
+  final _emojiOverlayKey = GlobalKey<EmojiNameCompletionOverlayState>();
+
+  /// Live `:name` completion token for the draft, or null when the caret is not
+  /// at the end of one. Computed on text/selection changes, exactly like the
+  /// mention filter, so the popup cannot reopen on an unrelated rebuild.
+  EmojiCompletionTrigger? _emojiTrigger;
+  List<Emoji> _emojiMatches = const <Emoji>[];
+  bool _emojiCompletionVisible = false;
   Uint8List? _stagedImageBytes;
   bool _isRecording = false;
 
@@ -217,14 +230,20 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     if (_mentionOverlayController.isShowing) {
       _mentionOverlayController.hide();
     }
+    if (_emojiOverlayController.isShowing) {
+      _emojiOverlayController.hide();
+    }
     _mentionMenuVisible = false;
     _mentionFilter = '';
+    _emojiCompletionVisible = false;
+    _emojiTrigger = null;
+    _emojiMatches = const <Emoji>[];
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  /// Detect `@` trigger and manage the mention overlay.
+  /// Detect `@` and `:name` triggers and manage their overlays.
   void _onTextChanged() {
     if (!mounted) return;
     _draftCache.write(widget.conversationId, _controller.value);
@@ -240,9 +259,24 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       }
     }
 
+    // The mention chooser keeps priority: a draft cannot hold both triggers at
+    // one caret, and if it somehow could, `@` wins.
+    final nextEmojiTrigger = nextMentionVisible
+        ? null
+        : detectEmojiCompletionTrigger(
+            nextText,
+            selection,
+            composing: _controller.value.composing,
+          );
+    final nextEmojiMatches = nextEmojiTrigger == null
+        ? const <Emoji>[]
+        : searchEmojiNames(nextEmojiTrigger.prefix);
+
     if (_lastText == nextText &&
         _mentionMenuVisible == nextMentionVisible &&
-        _mentionFilter == nextMentionFilter) {
+        _mentionFilter == nextMentionFilter &&
+        _emojiCompletionVisible == nextEmojiMatches.isNotEmpty &&
+        _emojiTrigger == nextEmojiTrigger) {
       return;
     }
 
@@ -250,6 +284,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       _lastText = nextText;
       _mentionMenuVisible = nextMentionVisible;
       _mentionFilter = nextMentionFilter;
+      _emojiTrigger = nextEmojiTrigger;
+      _emojiMatches = nextEmojiMatches;
+      // No matches must not leave an empty obstructing overlay.
+      _emojiCompletionVisible = nextEmojiMatches.isNotEmpty;
     });
   }
 
@@ -306,7 +344,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     });
   }
 
-  double _mentionOverlayAvailableWidth(BuildContext context) {
+  double _composerOverlayAvailableWidth(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final renderBox =
         _mentionFieldKey.currentContext?.findRenderObject() as RenderBox?;
@@ -326,6 +364,129 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       _mentionMenuVisible = false;
       _mentionFilter = '';
     });
+  }
+
+  /// Height left above the composer field for inline completion popups.
+  ///
+  /// The field's top edge is the ceiling: when the view resizes for the
+  /// keyboard the field moves up and this shrinks with it. Returns 0 when the
+  /// field sits near the top, so a popup is never drawn off-screen.
+  double _composerOverlayAvailableHeight(BuildContext context) {
+    const double gap = 12;
+    final media = MediaQuery.maybeOf(context);
+    final renderBox =
+        _mentionFieldKey.currentContext?.findRenderObject() as RenderBox?;
+    final screenHeight = media?.size.height ?? 0;
+    final fieldTop = renderBox?.localToGlobal(Offset.zero).dy ?? screenHeight;
+    final safeTop = media?.padding.top ?? 0;
+    // The field already sits above the keyboard whenever the view resizes, so
+    // its top edge is the real ceiling for the popup.
+    return math.max(0.0, fieldTop - safeTop - gap);
+  }
+
+  void _syncEmojiCompletionPortal(bool shouldShow) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (shouldShow) {
+        if (!_emojiOverlayController.isShowing) {
+          _emojiOverlayController.show();
+        }
+      } else if (_emojiOverlayController.isShowing) {
+        _emojiOverlayController.hide();
+      }
+    });
+  }
+
+  /// Escape and completion dismissal affect the popup only, never the draft.
+  void _dismissEmojiCompletion() {
+    if (_emojiOverlayController.isShowing) {
+      _emojiOverlayController.hide();
+    }
+    if (!_emojiCompletionVisible && _emojiMatches.isEmpty) return;
+    setState(() {
+      _emojiCompletionVisible = false;
+      _emojiMatches = const <Emoji>[];
+    });
+  }
+
+  /// Replace the live `:name` token with the chosen Unicode emoji.
+  ///
+  /// Text before the colon and after the caret is untouched; the caret lands
+  /// directly after the glyph and no trailing space is added.
+  void _onEmojiSelected(Emoji emoji) {
+    final trigger = _emojiTrigger;
+    if (trigger == null) {
+      _dismissEmojiCompletion();
+      return;
+    }
+    final text = _controller.text;
+    // The caret can move between computing the popup and a stale tap landing.
+    // Only edit when the token is still exactly the one that was matched.
+    if (detectEmojiCompletionTrigger(
+          text,
+          _controller.selection,
+          composing: _controller.value.composing,
+        ) !=
+        trigger) {
+      _dismissEmojiCompletion();
+      return;
+    }
+
+    final newText = text.replaceRange(trigger.start, trigger.end, emoji.emoji);
+    final caret = trigger.start + emoji.emoji.length;
+
+    // Detach the listener across the programmatic edit so the popup does not
+    // reopen for the text that replaces it, then resync `_lastText` for the
+    // proxy-tag match and `_canSend`.
+    _controller.removeListener(_onTextChanged);
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: caret),
+    );
+    _controller.addListener(_onTextChanged);
+
+    // The listener was detached across the edit, so persist the new draft here
+    // rather than waiting for the next keystroke.
+    _draftCache.write(widget.conversationId, _controller.value);
+
+    _emojiTrigger = null;
+    _emojiMatches = const <Emoji>[];
+    _emojiCompletionVisible = false;
+    if (_emojiOverlayController.isShowing) {
+      _emojiOverlayController.hide();
+    }
+    _focusNode.requestFocus();
+    setState(() => _lastText = _controller.text);
+  }
+
+  /// Keyboard handling for the composer's inline completion surfaces.
+  ///
+  /// The mention chooser keeps priority over `:name` emoji completion, and a
+  /// consumed event is reported as handled so `_GlassTextField`'s desktop
+  /// Enter-to-send branch never sees an Enter that selected a row.
+  bool _handleComposerKeyEvent(KeyEvent event) {
+    if (_mentionMenuVisible) {
+      final consumed =
+          _mentionOverlayKey.currentState?.handleKeyEvent(event) ?? false;
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.escape) {
+        _dismissMentionOverlay();
+        return true;
+      }
+      if (consumed) return true;
+    }
+
+    if (_emojiCompletionVisible) {
+      final consumed =
+          _emojiOverlayKey.currentState?.handleKeyEvent(event) ?? false;
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.escape) {
+        _dismissEmojiCompletion();
+        return true;
+      }
+      if (consumed) return true;
+    }
+    return false;
   }
 
   void _onMemberSelected(Member member) {
@@ -705,12 +866,15 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     _controller.clear();
     _controller.addListener(_onTextChanged);
     _dismissMentionOverlay();
+    _dismissEmojiCompletion();
     _focusNode.requestFocus();
     setState(() {
       _stagedImageBytes = null;
       _lastText = '';
       _suppressedTag = null;
       _effectiveMatch = null;
+      _emojiTrigger = null;
+      _emojiMatches = const <Emoji>[];
     });
   }
 
@@ -826,7 +990,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         !_isRecording &&
         (mentionCandidates.isNotEmpty ||
             MentionOverlay.hasBroadcastAliasMatches(_mentionFilter));
+    final showEmojiCompletion =
+        _emojiCompletionVisible &&
+        !showMentionOverlay &&
+        !_isSending &&
+        _emojiMatches.isNotEmpty;
     _syncMentionOverlayPortal(showMentionOverlay);
+    _syncEmojiCompletionPortal(showEmojiCompletion);
     final memberMap = {for (final m in members) m.id: m};
     final prefer = ref.watch(memberNamePreferDisplayProvider);
     _controller.updateMentionMembers(memberMap, preferDisplayName: prefer);
@@ -1020,7 +1190,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                                     members: mentionCandidates,
                                     filter: _mentionFilter,
                                     availableWidth:
-                                        _mentionOverlayAvailableWidth(context),
+                                        _composerOverlayAvailableWidth(context),
                                     onSelect: _onMemberSelected,
                                     onBroadcastSelect:
                                         _onBroadcastMentionSelected,
@@ -1028,32 +1198,49 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                                 ),
                               );
                             },
-                            child: CompositedTransformTarget(
-                              key: _mentionFieldKey,
-                              link: _layerLink,
-                              child: _GlassTextField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                minHeight: inputHeight,
-                                onChanged: (_) => setState(() {}),
-                                onSend: _sendMessage,
-                                onContentInserted: _handleInsertedContent,
-                                onPasteImage: _pasteImageFromClipboard,
-                                onKeyEvent: _mentionMenuVisible
-                                    ? (event) {
-                                        final consumed =
-                                            _mentionOverlayKey.currentState
-                                                ?.handleKeyEvent(event) ??
-                                            false;
-                                        if (event is KeyDownEvent &&
-                                            event.logicalKey ==
-                                                LogicalKeyboardKey.escape) {
-                                          _dismissMentionOverlay();
-                                          return true;
-                                        }
-                                        return consumed;
-                                      }
-                                    : null,
+                            child: OverlayPortal(
+                              controller: _emojiOverlayController,
+                              overlayChildBuilder: (context) {
+                                return CompositedTransformFollower(
+                                  link: _layerLink,
+                                  showWhenUnlinked: false,
+                                  targetAnchor: Alignment.topLeft,
+                                  followerAnchor: Alignment.bottomLeft,
+                                  offset: const Offset(0, -8),
+                                  child: TextFieldTapRegion(
+                                    child: EmojiNameCompletionOverlay(
+                                      key: _emojiOverlayKey,
+                                      matches: _emojiMatches,
+                                      availableWidth:
+                                          _composerOverlayAvailableWidth(
+                                            context,
+                                          ),
+                                      availableHeight:
+                                          _composerOverlayAvailableHeight(
+                                            context,
+                                          ),
+                                      onSelect: _onEmojiSelected,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: CompositedTransformTarget(
+                                key: _mentionFieldKey,
+                                link: _layerLink,
+                                child: _GlassTextField(
+                                  controller: _controller,
+                                  focusNode: _focusNode,
+                                  minHeight: inputHeight,
+                                  onChanged: (_) => setState(() {}),
+                                  onSend: _sendMessage,
+                                  onContentInserted: _handleInsertedContent,
+                                  onPasteImage: _pasteImageFromClipboard,
+                                  onKeyEvent:
+                                      _mentionMenuVisible ||
+                                          _emojiCompletionVisible
+                                      ? _handleComposerKeyEvent
+                                      : null,
+                                ),
                               ),
                             ),
                           ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/markdown/markdown_preview.dart';
@@ -34,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -197,6 +199,11 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
         list: (context, isWide) {
           setListDetailWide(isWide);
           return PrismPageScaffold(
+            // The notes header is a bar plus a filter bar and grows with the text
+            // scale. When a short viewport (landscape, keyboard up) cannot give it
+            // room for both itself and the list, it scrolls with the content
+            // instead of squeezing the list away. Ordinary bars keep the default.
+            topBarMinBodyExtent: 120,
             topBar: _NotesTopBar(
               title: l10n.memberSectionNotes,
               showBackButton: widget.showBackButton,
@@ -481,7 +488,8 @@ class _NotesListScreenState extends ConsumerState<NotesListScreen>
   }
 }
 
-class _NotesTopBar extends StatelessWidget implements PreferredSizeWidget {
+class _NotesTopBar extends StatelessWidget
+    implements PreferredSizeWidget, PrismScaledHeight {
   const _NotesTopBar({
     required this.title,
     required this.showBackButton,
@@ -507,55 +515,81 @@ class _NotesTopBar extends StatelessWidget implements PreferredSizeWidget {
     PrismTokens.topBarHeight + (filterBar?.preferredSize.height ?? 0),
   );
 
+  /// Bar plus the height the filter bar itself needs at the ambient text scale,
+  /// so the pinned band contains the search field and the member-chip strip
+  /// instead of clipping them.
   @override
-  Widget build(BuildContext context) {
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    final bar = _buildBar(
+      context,
+    ).preferredHeightFor(context, availableWidth: availableWidth);
+    final filter = filterBar;
+    if (filter == null) return bar;
+    // The filter bar is inset by its own horizontal padding, so it measures
+    // against the width it is really given.
+    final inset = filter is NotesFilterBar
+        ? NotesFilterBar.horizontalPadding
+        : 0.0;
+    return bar +
+        prismScaledHeightOf(
+          context,
+          filter,
+          availableWidth: availableWidth == null
+              ? null
+              : math.max(0.0, availableWidth - inset * 2),
+        );
+  }
+
+  PrismTopBar _buildBar(BuildContext context) {
     final l10n = context.l10n;
     final activeTint = Theme.of(context).colorScheme.primary;
     final inModalSideSheet = ModalSideSheetMarker.of(context);
 
+    return PrismTopBar(
+      title: title,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showBackButton) ...[
+            PrismTopBarAction(
+              icon: inModalSideSheet ? AppIcons.close : AppIcons.arrowBack,
+              tooltip: inModalSideSheet ? l10n.close : l10n.back,
+              onPressed: () => closeDetailSurface(context),
+            ),
+            const SizedBox(width: 8),
+          ],
+          PrismTopBarAction(
+            icon: AppIcons.filterList,
+            tooltip: l10n.memberNoteFilterByMember,
+            tint: memberFilterActive ? activeTint : null,
+            accentIcon: memberFilterActive,
+            onPressed: onOpenMemberFilter,
+          ),
+          const SizedBox(width: 8),
+          PrismTopBarAction(
+            icon: AppIcons.search,
+            tooltip: l10n.memberNoteSearchNotes,
+            tint: searchActive ? activeTint : null,
+            accentIcon: searchActive,
+            onPressed: onToggleSearch,
+          ),
+        ],
+      ),
+      actions: [
+        PrismTopBarAction(
+          icon: AppIcons.add,
+          tooltip: l10n.memberAddNoteTooltip,
+          onPressed: onCreateNote,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        PrismTopBar(
-          title: title,
-          leading: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showBackButton) ...[
-                PrismTopBarAction(
-                  icon: inModalSideSheet ? AppIcons.close : AppIcons.arrowBack,
-                  tooltip: inModalSideSheet ? l10n.close : l10n.back,
-                  onPressed: () => closeDetailSurface(context),
-                ),
-                const SizedBox(width: 8),
-              ],
-              PrismTopBarAction(
-                icon: AppIcons.filterList,
-                tooltip: l10n.memberNoteFilterByMember,
-                tint: memberFilterActive ? activeTint : null,
-                accentIcon: memberFilterActive,
-                onPressed: onOpenMemberFilter,
-              ),
-              const SizedBox(width: 8),
-              PrismTopBarAction(
-                icon: AppIcons.search,
-                tooltip: l10n.memberNoteSearchNotes,
-                tint: searchActive ? activeTint : null,
-                accentIcon: searchActive,
-                onPressed: onToggleSearch,
-              ),
-            ],
-          ),
-          actions: [
-            PrismTopBarAction(
-              icon: AppIcons.add,
-              tooltip: l10n.memberAddNoteTooltip,
-              onPressed: onCreateNote,
-            ),
-          ],
-        ),
-        ?filterBar,
-      ],
+      children: [_buildBar(context), ?filterBar],
     );
   }
 }

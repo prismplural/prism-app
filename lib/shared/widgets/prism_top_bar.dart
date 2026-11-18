@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -5,14 +7,35 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/embedded_pane_marker.dart';
 import 'package:prism_plurality/shared/widgets/list_detail_layout.dart';
 import 'package:prism_plurality/shared/widgets/modal_side_sheet_marker.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
 /// Shared top-bar layout for standard Prism pages.
 ///
-/// The title is always centered on screen (not between leading/trailing) when
-/// [centerTitle] is true. Use [actions] for multiple trailing buttons — they
-/// are automatically spaced.
-class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
+/// The title is centered on screen (not between leading/trailing) when
+/// [centerTitle] is true; `NavigationToolbar` measures the real action widths
+/// and only moves the title when centering it would run underneath them. Use
+/// [actions] for multiple trailing buttons — they are automatically spaced.
+///
+/// The bar is [height] tall whenever its content fits there, and grows with the
+/// ambient text scale when it does not: the title is always laid out at the size
+/// the user asked for (one line, ellipsised, with the full string in its
+/// semantics) instead of being shrunk to fit.
+///
+/// Two heights exist and they are not interchangeable:
+///  * [preferredSize] is a constant minimum ([height], 66dp by default). It is
+///    what a `PreferredSizeWidget` getter can report without a `BuildContext`.
+///  * [preferredHeightFor] is the height this bar actually needs at the ambient
+///    text scale (content height, excluding the safe-area top).
+///
+/// A parent that reserves an extent must use the second one: [SliverPinnedTopBar]
+/// (and therefore every [PrismPageScaffold] screen) asks it while building, and a
+/// fixed slot such as `Scaffold.appBar` needs
+/// `prismScaledPreferredSize(context, bar)`. Mounting this widget directly in
+/// `Scaffold.appBar` reserves only the minimum and clips at large text — that is
+/// the limitation the adapter exists for, not something a getter can fix.
+class PrismTopBar extends StatelessWidget
+    implements PreferredSizeWidget, PrismScaledHeight {
   const PrismTopBar({
     super.key,
     required this.title,
@@ -37,12 +60,13 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
   /// Single trailing widget. For multiple actions prefer [actions].
   final Widget? trailing;
 
-  /// Multiple trailing action widgets, automatically spaced 8px apart.
+  /// Multiple trailing action widgets, automatically spaced.
   final List<Widget>? actions;
 
   /// Optional override for the title text style.
   final TextStyle? titleStyle;
 
+  /// Minimum bar height. Preserved exactly whenever the content fits here.
   final double height;
   final EdgeInsets horizontalPadding;
   final bool centerTitle;
@@ -52,8 +76,80 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
   /// side sheets.
   final bool showBackButton;
 
+  /// Space above and below the title block once the bar has to grow past
+  /// [height]. It also absorbs sub-pixel differences between the measured line
+  /// box and the painted one, so the bar never clamps its own title.
+  static const double _grownVerticalPadding = 12;
+
   @override
   Size get preferredSize => Size.fromHeight(height);
+
+  TextStyle _resolvedTitleStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= PrismTokens.desktopBreakpoint;
+    return titleStyle ??
+        theme.textTheme.headlineLarge?.copyWith(
+          fontSize: isDesktop ? 18 : 22,
+          height: 1,
+        ) ??
+        const TextStyle();
+  }
+
+  TextStyle _resolvedSubtitleStyle(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
+          fontWeight: FontWeight.w500,
+          fontSize: 11,
+          height: 1,
+        ) ??
+        const TextStyle();
+  }
+
+  @override
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    // Measure the strings this bar will really paint: a title resolved to a
+    // fallback face (emoji, CJK, Arabic) can have a taller line box than the
+    // primary face, and reserving less would clip it.
+    final titleLine = prismLineHeight(
+      context,
+      _resolvedTitleStyle(context),
+      text: title,
+    );
+    final subtitleLine = subtitle == null
+        ? 0.0
+        : 3 +
+              prismLineHeight(
+                context,
+                _resolvedSubtitleStyle(context),
+                text: subtitle!,
+              );
+    // Width does not enter: the title is a single ellipsised line, so its height
+    // depends only on the scaler and the style.
+    // Fallback faces (emoji, CJK, Arabic) can paint outside their line box; the
+    // bars reserve that measured escape above and below instead of shrinking the
+    // text or clipping it. Ordinary Latin text escapes by nothing, so the 12dp
+    // default breathing is what applies then.
+    final inkEscape = math.max(
+      prismTextInkEscape(context, _resolvedTitleStyle(context), text: title),
+      subtitle == null
+          ? 0.0
+          : prismTextInkEscape(
+              context,
+              _resolvedSubtitleStyle(context),
+              text: subtitle!,
+            ),
+    );
+    final breathing = math.max(_grownVerticalPadding, inkEscape * 2 + 2);
+    return math.max(
+      height,
+      math.max(
+        PrismTokens.topBarActionSize,
+        titleLine + subtitleLine + breathing,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,63 +180,29 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
             : null);
 
     final effectiveTrailing = trailing ?? _buildActions();
-
-    final titleBlock = _TitleBlock(
-      title: title,
-      subtitle: subtitle,
-      centerTitle: centerTitle,
-      titleStyle: titleStyle,
-    );
+    final barHeight = preferredHeightFor(context);
 
     return SafeArea(
       bottom: false,
       child: SizedBox(
-        height: height,
+        height: barHeight,
         child: Padding(
           padding: horizontalPadding,
-          child: Align(
-            alignment: Alignment.center,
-            child: centerTitle
-                ? Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Title centered on the full bar width.
-                      titleBlock,
-                      // Leading and trailing positioned at edges.
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (effectiveLeading != null)
-                            effectiveLeading
-                          else
-                            _slot(null),
-                          const Spacer(),
-                          if (effectiveTrailing != null)
-                            effectiveTrailing
-                          else
-                            _slot(null),
-                        ],
-                      ),
-                    ],
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _slot(effectiveLeading),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: titleBlock,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      if (effectiveTrailing != null)
-                        effectiveTrailing
-                      else
-                        _slot(null),
-                    ],
-                  ),
+          child: NavigationToolbar(
+            centerMiddle: centerTitle,
+            leading: effectiveLeading == null
+                ? null
+                : _slot(effectiveLeading, barHeight),
+            middle: _TitleBlock(
+              title: title,
+              subtitle: subtitle,
+              centerTitle: centerTitle,
+              titleStyle: _resolvedTitleStyle(context),
+              subtitleStyle: _resolvedSubtitleStyle(context),
+            ),
+            trailing: effectiveTrailing == null
+                ? null
+                : _slot(effectiveTrailing, barHeight),
           ),
         ),
       ),
@@ -161,10 +223,15 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  Widget _slot(Widget? child) {
-    return SizedBox.square(
-      dimension: PrismTokens.topBarActionSize,
-      child: child ?? const SizedBox.shrink(),
+  /// A toolbar slot: as wide as [child], as tall as the bar, child centered.
+  ///
+  /// `NavigationToolbar` lays its leading child out with the bar's exact height;
+  /// the inner `Center` keeps the 44dp action at its real size and vertically
+  /// centered, which is where it has always been.
+  Widget _slot(Widget child, double barHeight) {
+    return SizedBox(
+      height: barHeight,
+      child: Center(widthFactor: 1, child: child),
     );
   }
 }
@@ -174,20 +241,19 @@ class _TitleBlock extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.centerTitle,
-    this.titleStyle,
+    required this.titleStyle,
+    required this.subtitleStyle,
   });
 
   final String title;
   final String? subtitle;
   final bool centerTitle;
-  final TextStyle? titleStyle;
+  final TextStyle titleStyle;
+  final TextStyle subtitleStyle;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final alignment = centerTitle ? TextAlign.center : TextAlign.left;
-    final isDesktop =
-        MediaQuery.sizeOf(context).width >= PrismTokens.desktopBreakpoint;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -195,20 +261,14 @@ class _TitleBlock extends StatelessWidget {
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.start,
       children: [
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: alignment,
-            style:
-                titleStyle ??
-                theme.textTheme.headlineLarge?.copyWith(
-                  fontSize: isDesktop ? 18 : 22,
-                  height: 1,
-                ),
-          ),
+        // Full size, one line, ellipsised: the paragraph keeps the whole string
+        // in its semantics, and nothing scales the user's text size down.
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: alignment,
+          style: titleStyle,
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 3),
@@ -217,12 +277,7 @@ class _TitleBlock extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: alignment,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.82),
-              fontWeight: FontWeight.w500,
-              fontSize: 11,
-              height: 1,
-            ),
+            style: subtitleStyle,
           ),
         ],
       ],

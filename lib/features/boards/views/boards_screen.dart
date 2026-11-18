@@ -30,6 +30,7 @@ import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 
 // ---------------------------------------------------------------------------
 // SharedPreferences key — persists the last viewed sub-tab index.
@@ -183,16 +184,23 @@ class _BoardsScreenState extends ConsumerState<BoardsScreen> {
 // Top bar
 // ---------------------------------------------------------------------------
 
-class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
+class _BoardsTopBar extends StatelessWidget
+    implements PreferredSizeWidget, PrismScaledHeight {
   const _BoardsTopBar({required this.onComposeTap});
 
   final VoidCallback onComposeTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(PrismTokens.topBarHeight);
 
   @override
-  Widget build(BuildContext context) {
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    return _buildBar(
+      context,
+    ).preferredHeightFor(context, availableWidth: availableWidth);
+  }
+
+  PrismTopBar _buildBar(BuildContext context) {
     return PrismTopBar(
       title: context.l10n.boardsScreenTitle,
       leading: const _BoardsMemberFilterButton(),
@@ -206,6 +214,9 @@ class _BoardsTopBar extends StatelessWidget implements PreferredSizeWidget {
       ],
     );
   }
+
+  @override
+  Widget build(BuildContext context) => _buildBar(context);
 }
 
 // ---------------------------------------------------------------------------

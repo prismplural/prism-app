@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -234,8 +235,14 @@ class _StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // A stock `OverflowBar`: the pair stays on one line exactly as before while it
+    // fits, and the value moves to its own line at the end when it does not, instead
+    // of both keeping their intrinsic width and running past the card.
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      spacing: 12,
+      overflowSpacing: 4,
+      overflowAlignment: OverflowBarAlignment.end,
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
         valueAsync.when(
@@ -259,6 +266,24 @@ class _StatRow extends StatelessWidget {
   }
 }
 
+/// Width of one line of [text] at the ambient text scale and [style].
+double _singleLineWidth(BuildContext context, String text, TextStyle? style) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: prismTextStyleForMeasurement(context, style),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    textHeightBehavior: prismTextHeightBehaviorFor(context),
+    locale: Localizations.maybeLocaleOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
 class _TopFronterRow extends ConsumerWidget {
   const _TopFronterRow({
     required this.rank,
@@ -274,42 +299,93 @@ class _TopFronterRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final prefer = ref.watch(memberNamePreferDisplayProvider);
-    final name =
-        member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown';
+    final name = member?.effectiveName(preferDisplayName: prefer) ?? 'Unknown';
     final emoji = member?.emoji ?? '\u2754';
+
+    final rankStyle = theme.textTheme.titleSmall?.copyWith(
+      fontWeight: FontWeight.bold,
+      color: theme.colorScheme.primary,
+    );
+    final countStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final countLabel = context.l10n.statisticsSessions(sessionCount);
+    // The numeral is sized from the glyphs it paints, with 24dp as the alignment
+    // floor: a constant 24dp box broke "#10" (and "#1" at 1.5x) onto two lines.
+    final rankWidth = _singleLineWidth(context, '#$rank', rankStyle) + 2;
+    final rankExtent = rankWidth < 24 ? 24.0 : rankWidth;
+
+    Widget rankBox() => SizedBox(
+      width: rankExtent,
+      child: Text('#$rank', style: rankStyle),
+    );
+
+    Widget avatar() => MemberAvatar(
+      emoji: emoji,
+      memberName: member?.effectiveName(preferDisplayName: prefer),
+      avatarImageData: member?.avatarImageData,
+      customColorEnabled: member?.customColorEnabled ?? false,
+      customColorHex: member?.customColorHex,
+      size: 36,
+    );
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              '#$rank',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Fit from what the row really renders: the numeral, avatar and gaps are
+          // non-shrinkable, the name already ellipsises, so the count stays inline
+          // exactly as before while it fits beside them and drops to its own
+          // end-aligned line only when it cannot.
+          final fixed =
+              rankExtent +
+              8 +
+              36 +
+              12 +
+              _singleLineWidth(context, countLabel, countStyle);
+          final fitsInline = fixed <= constraints.maxWidth;
+
+          if (fitsInline) {
+            return Row(
+              children: [
+                rankBox(),
+                const SizedBox(width: 8),
+                avatar(),
+                const SizedBox(width: 12),
+                Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
+                Text(countLabel, style: countStyle),
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  rankBox(),
+                  const SizedBox(width: 8),
+                  avatar(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          MemberAvatar(
-            emoji: emoji,
-            memberName: member?.effectiveName(preferDisplayName: prefer),
-            avatarImageData: member?.avatarImageData,
-            customColorEnabled: member?.customColorEnabled ?? false,
-            customColorHex: member?.customColorHex,
-            size: 36,
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(name, style: theme.textTheme.bodyMedium)),
-          Text(
-            context.l10n.statisticsSessions(sessionCount),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+              const SizedBox(height: 4),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: Text(countLabel, style: countStyle),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

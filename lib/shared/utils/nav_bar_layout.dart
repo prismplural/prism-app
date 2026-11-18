@@ -49,6 +49,36 @@ const double _kLabelWidthSafetyPadding = 8.0;
 /// labels.
 const double _kMinimumCollapsedItemWidth = 44.0;
 
+/// Height of one nav-bar label line at [textScaler].
+///
+/// The bar's row height, the label's offset below the row centre and the icon
+/// lift all have to agree on this value; a constant tuned for 1x text drifts
+/// apart from the real line box as soon as the label scales.
+double navBarLabelLineHeight({
+  required String label,
+  required TextStyle style,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+  Locale? locale,
+  TextHeightBehavior? textHeightBehavior,
+}) {
+  // [style] is the style the painted label is handed and must already be resolved for
+  // measurement by the context-bearing caller (ambient DefaultTextStyle merged, bold
+  // text applied); this helper stays context-free so the layout maths can run without
+  // one.
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: style),
+    textDirection: textDirection,
+    textScaler: textScaler,
+    locale: locale,
+    textHeightBehavior: textHeightBehavior,
+    maxLines: 1,
+  )..layout();
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
 TextStyle navBarLabelTextStyle(
   BuildContext context, {
   required bool isSelected,

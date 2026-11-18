@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/boards/widgets/board_actor_selector.dar
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/clamped_body.dart';
 import 'package:prism_plurality/shared/widgets/adaptive_detail_surface.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -21,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 
 /// Full paginated list of public board posts by or about a given member.
 ///
@@ -71,7 +73,7 @@ void _openMemberBoardPost(BuildContext context, String postId) {
 // ---------------------------------------------------------------------------
 
 class _MemberBoardTopBar extends StatelessWidget
-    implements PreferredSizeWidget {
+    implements PreferredSizeWidget, PrismScaledHeight {
   const _MemberBoardTopBar({
     required this.member,
     required this.memberName,
@@ -83,10 +85,19 @@ class _MemberBoardTopBar extends StatelessWidget
   final VoidCallback onComposeTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(PrismTokens.topBarHeight);
 
   @override
-  Widget build(BuildContext context) {
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    return _buildBar(
+      context,
+    ).preferredHeightFor(context, availableWidth: availableWidth);
+  }
+
+  @override
+  Widget build(BuildContext context) => _buildBar(context);
+
+  PrismTopBar _buildBar(BuildContext context) {
     final l10n = context.l10n;
 
     final leadingAvatar = member != null

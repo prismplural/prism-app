@@ -12,6 +12,7 @@ class PrismListRow extends StatefulWidget {
     required this.title,
     this.subtitle,
     this.leading,
+    this.leadingWidth,
     this.trailing,
     this.onTap,
     this.onLongPress,
@@ -27,6 +28,10 @@ class PrismListRow extends StatefulWidget {
   final Widget title;
   final Widget? subtitle;
   final Widget? leading;
+
+  /// Optional extent for leading content that grows with accessibility text.
+  /// Null preserves the normal 40dp (36dp dense) slot for existing callers.
+  final double? leadingWidth;
   final Widget? trailing;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -69,7 +74,7 @@ class _PrismListRowState extends State<PrismListRow> {
         children: [
           if (widget.leading != null) ...[
             SizedBox(
-              width: widget.dense ? 36 : 40,
+              width: widget.leadingWidth ?? (widget.dense ? 36 : 40),
               child: Center(child: widget.leading),
             ),
             const SizedBox(width: 12),
@@ -120,7 +125,9 @@ class _PrismListRowState extends State<PrismListRow> {
       ),
     );
 
-    if (!canPress && widget.onLongPress == null && widget.onSecondaryTap == null) {
+    if (!canPress &&
+        widget.onLongPress == null &&
+        widget.onSecondaryTap == null) {
       return child;
     }
 
