@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -299,13 +300,11 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
         canOfferBiometric && biometricAvailable && biometricEnabled;
 
     final textScale = MediaQuery.textScalerOf(context).scale(1);
-    // Above 1.3x, the centered Spacer layout overflows on phones (especially
-    // when nested in onboarding under a scaled parent header) and clips the
-    // bottom numpad row. Switch to a scrollable layout and tighten button
-    // sizing so the keypad keeps fitting unscrolled where possible.
-    final useScrollFallback = textScale > 1.3;
+    // Key size policy is unchanged: keys stay a little smaller once the text is
+    // large, which is what keeps the pad close to fitting without scrolling.
+    final compactKeys = textScale > 1.3;
     final sizeFloor = textScale > 1.5 ? 48.0 : 56.0;
-    final sizeCeil = useScrollFallback ? 64.0 : 72.0;
+    final sizeCeil = compactKeys ? 64.0 : 72.0;
     final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(
       sizeFloor,
       sizeCeil,
@@ -417,38 +416,52 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
       ),
     );
 
-    final Widget content;
-    if (useScrollFallback) {
-      content = SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: EdgeInsets.symmetric(vertical: widget.embedded ? 8 : 24),
-        child: Column(
-          children: [
-            ...headerChildren,
-            dots,
-            const SizedBox(height: 24),
-            numpad,
-          ],
-        ),
-      );
-    } else {
-      content = Column(
-        children: [
-          if (widget.embedded) const Spacer() else const Spacer(flex: 2),
-          ...headerChildren,
-          dots,
-          if (widget.embedded) const Spacer() else const Spacer(flex: 2),
-          numpad,
-          const Spacer(),
-        ],
-      );
-    }
+    // The fit is measured instead of guessed from the text scale: a short window
+    // overflows at 1x, and an open keyboard leaves less room at any scale. When the
+    // content fits, IntrinsicHeight hands the column a tight viewport height and the
+    // Spacer weights below reproduce the existing centred layout exactly; when it
+    // does not, the same children scroll instead of overflowing the bottom edge.
+    final content = Column(
+      children: [
+        if (widget.embedded) const Spacer() else const Spacer(flex: 2),
+        ...headerChildren,
+        dots,
+        if (widget.embedded) const Spacer() else const Spacer(flex: 2),
+        numpad,
+        const Spacer(),
+      ],
+    );
 
     final keyboardScope = NumpadKeyboardListener(
       onDigit: _onDigit,
       onBackspace: _onBackspace,
       enabled: !_isBusy && !_isLockedOut,
-      child: content,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (!constraints.maxHeight.isFinite) return content;
+          // Subtract the keyboard only when the parent has not already shrunk the
+          // body for it: a Scaffold with resizeToAvoidBottomInset does that itself,
+          // and subtracting twice would leave a gap and hide reachable keys.
+          final insets = MediaQuery.viewInsetsOf(context).bottom;
+          final windowHeight = MediaQuery.sizeOf(context).height;
+          final alreadyResized =
+              insets > 0 && constraints.maxHeight <= windowHeight - insets + 1;
+          final availableHeight = math.max(
+            0.0,
+            constraints.maxHeight - (alreadyResized ? 0.0 : insets),
+          );
+          return SizedBox(
+            height: availableHeight,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: availableHeight),
+                child: IntrinsicHeight(child: content),
+              ),
+            ),
+          );
+        },
+      ),
     );
 
     if (widget.embedded) return keyboardScope;

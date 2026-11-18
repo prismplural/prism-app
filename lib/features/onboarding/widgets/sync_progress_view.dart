@@ -124,75 +124,94 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
         ? state.restoreProgressFraction
         : null;
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PhaseSegments(currentIndex: phase.index, totalPhases: 4),
-            const SizedBox(height: 48),
-            AnimatedSwitcher(
-              duration: disableAnimations
-                  ? Duration.zero
-                  : const Duration(milliseconds: 300),
-              child: showSpinner
-                  ? PrismSpinner(
-                      key: const ValueKey('spinner'),
-                      color: theme.colorScheme.primary,
-                      size: 48,
-                      duration: const Duration(milliseconds: 2400),
-                    )
-                  : restoreProgressValue != null
-                  ? ClipRRect(
-                      key: const ValueKey('restore-progress'),
-                      borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(6),
-                      ),
-                      child: LinearProgressIndicator(
-                        value: restoreProgressValue,
-                        minHeight: 12,
-                      ),
-                    )
-                  : const PrismShimmerBar(key: ValueKey('shimmer')),
+    final Widget progressIndicator = showSpinner
+        ? PrismSpinner(
+            key: const ValueKey('spinner'),
+            color: theme.colorScheme.primary,
+            size: 48,
+            duration: const Duration(milliseconds: 2400),
+          )
+        : restoreProgressValue != null
+        ? ClipRRect(
+            key: const ValueKey('restore-progress'),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(6),
             ),
-            const SizedBox(height: 32),
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                title,
-                style: theme.textTheme.titleLarge,
-                textAlign: TextAlign.center,
+            child: LinearProgressIndicator(
+              value: restoreProgressValue,
+              minHeight: 12,
+            ),
+          )
+        : const PrismShimmerBar(key: ValueKey('shimmer'));
+
+    // The pairing progress column is taller than a compact phone at large text
+    // (196dp of bottom overflow at 3.375x on 320x568), and it sat in a
+    // non-scrolling Center: the phase segments, the count card and the
+    // reassurance copy were painted below the bottom edge with no way to reach
+    // them. It now scrolls; the centre alignment is kept for the case where it
+    // fits, so nothing moves at default text.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportHeight = constraints.maxHeight;
+        final minContentHeight = viewportHeight.isFinite && viewportHeight > 48
+            ? viewportHeight - 48
+            : 0.0;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minContentHeight),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PhaseSegments(currentIndex: phase.index, totalPhases: 4),
+                  const SizedBox(height: 48),
+                  AnimatedSwitcher(
+                    duration: disableAnimations
+                        ? Duration.zero
+                        : const Duration(milliseconds: 300),
+                    child: progressIndicator,
+                  ),
+                  const SizedBox(height: 32),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      title,
+                      style: theme.textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: mutedTextColor,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  Hero(
+                    tag: 'sync-progress-count-card',
+                    child: LiveCountCard(counts: state.liveCounts),
+                  ),
+                  const SizedBox(height: 16),
+                  if (showReassurance)
+                    Text(
+                      l10n.onboardingSyncReassurance,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: mutedTextColor,
+                      ),
+                      textAlign: TextAlign.center,
+                    )
+                  else
+                    const SizedBox.shrink(),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: mutedTextColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Hero(
-              tag: 'sync-progress-count-card',
-              child: LiveCountCard(counts: state.liveCounts),
-            ),
-            const SizedBox(height: 16),
-            if (showReassurance)
-              Text(
-                l10n.onboardingSyncReassurance,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: mutedTextColor,
-                ),
-                textAlign: TextAlign.center,
-              )
-            else
-              const SizedBox.shrink(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

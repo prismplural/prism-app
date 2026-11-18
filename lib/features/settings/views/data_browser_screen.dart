@@ -616,7 +616,14 @@ class _ExpandableRecord extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Row(
+      // A wrap, not a row: the subtitle's column bounds the list, but a `Row` lays
+      // its non-flex children out unbounded, so the monospace id plus the secondary
+      // field kept their intrinsic width and were clipped at the card edge. Here the
+      // secondary field moves to its own line when both no longer fit, at full size.
+      subtitle: Wrap(
+        spacing: 8,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             truncatedId,
@@ -626,15 +633,13 @@ class _ExpandableRecord extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          if (secondaryField.isNotEmpty) ...[
-            const SizedBox(width: 8),
+          if (secondaryField.isNotEmpty)
             Text(
               secondaryField,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ],
         ],
       ),
       contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),

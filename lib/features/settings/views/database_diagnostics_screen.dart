@@ -200,8 +200,14 @@ class _AddMemberPerfCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Title and the copy/clear actions stay on one line while they fit; at a
+              // large text size the actions get their own end-aligned line instead of
+              // being pushed past the card edge.
+              OverflowBar(
+                alignment: MainAxisAlignment.spaceBetween,
+                spacing: 12,
+                overflowSpacing: 4,
+                overflowAlignment: OverflowBarAlignment.end,
                 children: [
                   Text(
                     'Add-Member Timing',
@@ -284,8 +290,13 @@ class _CountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Same rule as the statistics rows: `OverflowBar` keeps the pair side by side
+    // while it fits and gives the count its own end-aligned line when it does not.
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      spacing: 12,
+      overflowSpacing: 4,
+      overflowAlignment: OverflowBarAlignment.end,
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
         countAsync.when(

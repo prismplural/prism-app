@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
@@ -5,6 +7,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -22,7 +25,8 @@ class NotesMemberFilter {
   final Widget? avatar;
 }
 
-class NotesFilterBar extends StatelessWidget implements PreferredSizeWidget {
+class NotesFilterBar extends StatelessWidget
+    implements PreferredSizeWidget, PrismScaledHeight {
   const NotesFilterBar({
     super.key,
     required this.showSearch,
@@ -46,11 +50,86 @@ class NotesFilterBar extends StatelessWidget implements PreferredSizeWidget {
   final List<NotesMemberFilter> memberFilters;
   final ValueChanged<String>? onClearMemberFilter;
 
+  /// Horizontal inset applied around the bar's content.
+  static const double horizontalPadding = 16;
+
+  /// Height of the search slot this bar used to reserve; still the minimum, so
+  /// 1x geometry is unchanged.
+  static const double searchSlotHeight = 60;
+
+  /// Bottom padding under the filter row.
+  static const double bottomPadding = 8;
+
+  /// The same value, kept for callers that read the slot arithmetic.
+  static const double searchSlotBottomPadding = bottomPadding;
+
+  /// Vertical content padding inside [PrismTextField] (12 + 12).
+  static const double _fieldVerticalPadding = 24;
+
+  /// Vertical padding inside a [PrismChip] (6 + 6).
+  static const double _chipVerticalPadding = 12;
+
+  /// A selected [PrismChip] draws a 1.5dp border, and `BoxDecoration.padding` adds
+  /// the border's dimensions to the chip's layout — so a filter chip is 3dp taller
+  /// than its padding plus content. Every chip in this bar is selected.
+  static const double _chipBorderWidth = 1.5;
+
+  /// Gap between the search field and the chip strip when both are shown.
+  static const double _chipGapAbove = 8;
+
   @override
   Size get preferredSize {
     final searchHeight = showSearch ? 60.0 : 0.0;
     final memberFilterHeight = memberFilters.isEmpty ? 0.0 : 44.0;
     return Size.fromHeight(searchHeight + memberFilterHeight);
+  }
+
+  /// Height the filter bar needs at the ambient text scale: the search field's
+  /// line box plus its content padding, the chip strip's tallest chip (label line
+  /// or the member avatar, which scales with the text as `MemberChip` does) plus
+  /// its padding, and the gaps. Never smaller than the fixed slot this bar used to
+  /// reserve, so nothing shrinks at normal text.
+  ///
+  /// Width does not enter: the field is single-line and the chip strip scrolls
+  /// horizontally, so both are one line whatever the width.
+  @override
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    final theme = Theme.of(context);
+    final fieldStyle = theme.textTheme.bodyLarge ?? const TextStyle();
+    final chipStyle = theme.textTheme.labelMedium ?? const TextStyle();
+    final scaler = MediaQuery.textScalerOf(context);
+
+    final field = showSearch
+        ? _fieldVerticalPadding +
+              prismLineHeight(
+                context,
+                fieldStyle,
+                text: searchQuery.isEmpty
+                    ? context.l10n.memberNoteSearchHint
+                    : searchQuery,
+              )
+        : 0.0;
+
+    var chip = 0.0;
+    if (memberFilters.isNotEmpty) {
+      var label = 0.0;
+      for (final filter in memberFilters) {
+        label = math.max(
+          label,
+          prismLineHeight(context, chipStyle, text: filter.label),
+        );
+      }
+      // `MemberChip` scales its 20dp avatar with the text scale; the chip's own
+      // border adds `_chipBorderWidth` on each side.
+      chip =
+          _chipVerticalPadding +
+          _chipBorderWidth * 2 +
+          math.max(label, scaler.scale(20));
+    }
+
+    final gap = showSearch && chip > 0 ? _chipGapAbove : 0.0;
+    final measured = field + gap + chip + bottomPadding;
+    return math.max(preferredSize.height, measured);
   }
 
   @override
@@ -60,7 +139,12 @@ class NotesFilterBar extends StatelessWidget implements PreferredSizeWidget {
     final l10n = context.l10n;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        horizontalPadding,
+        0,
+        horizontalPadding,
+        bottomPadding,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -91,7 +175,7 @@ class NotesFilterBar extends StatelessWidget implements PreferredSizeWidget {
 
           if (memberFilters.isNotEmpty)
             Padding(
-              padding: EdgeInsets.only(top: showSearch ? 8 : 0),
+              padding: EdgeInsets.only(top: showSearch ? _chipGapAbove : 0),
               child: Row(
                 children: [
                   Expanded(

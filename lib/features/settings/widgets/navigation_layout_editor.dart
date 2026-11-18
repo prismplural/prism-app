@@ -22,6 +22,7 @@ import 'package:prism_plurality/shared/utils/nav_bar_layout.dart'
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 
@@ -590,6 +591,56 @@ class _AvailableItem extends StatelessWidget {
   }
 }
 
+/// Width [text] needs on one line at the ambient scaler with [style].
+///
+/// Used to decide from the row's real width whether two static texts still fit
+/// side by side; it reads the same scaler the texts paint with, so no ratio or
+/// scale threshold is guessed.
+double _singleLineWidth(BuildContext context, String text, TextStyle? style) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: prismTextStyleForMeasurement(context, style),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    textHeightBehavior: prismTextHeightBehaviorFor(context),
+    locale: Localizations.maybeLocaleOf(context),
+    maxLines: 1,
+  )..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+/// Whether [text] is painted in full inside [maxWidth] within [maxLines] lines.
+///
+/// Mirrors the ellipsis policy of the widget it stands in for: the answer is false
+/// when a `maxLines`/ellipsis box of that size would have to truncate the text.
+bool _fitsWithin(
+  BuildContext context,
+  String text,
+  TextStyle? style, {
+  required double maxWidth,
+  required int maxLines,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: prismTextStyleForMeasurement(context, style),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    textHeightBehavior: prismTextHeightBehaviorFor(context),
+    locale: Localizations.maybeLocaleOf(context),
+    maxLines: maxLines,
+    ellipsis: '\u2026',
+  )..layout(maxWidth: maxWidth);
+  final fits = !painter.didExceedMaxLines;
+  painter.dispose();
+  return fits;
+}
+
 class _DisabledItem extends StatelessWidget {
   const _DisabledItem({
     required this.tab,
@@ -601,34 +652,98 @@ class _DisabledItem extends StatelessWidget {
   final String terminologyPlural;
   final VoidCallback? onTap;
 
+  /// Horizontal padding of this row (`PrismListRow.padding` below).
+  static const double _rowPadding = 16;
+
+  /// Leading slot plus its trailing gap, as `PrismListRow` lays it out.
+  static const double _leadingSlot = 40 + 12;
+
+  /// The gap `PrismListRow` inserts before a trailing child. It is part of the row's
+  /// fixed budget, so the inline fit has to subtract it too - without it the decision was
+  /// 12dp too generous and could keep the hint inline where the row then clips it.
+  static const double _trailingGap = 12;
+
+  /// Widest the hint is allowed to be while it stays beside the label, and the
+  /// line budget it has there - unchanged from the previous layout.
+  static const double _inlineHintMaxWidth = 104;
+  static const int _inlineHintMaxLines = 2;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return PrismListRow(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      leading: Icon(
-        tab.icon,
-        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-      ),
-      title: Text(
-        tab.localizedLabel(context, terminologyPlural: terminologyPlural),
-        style: TextStyle(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-        ),
-      ),
-      trailing: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 104),
-        child: Text(
-          context.l10n.navigationEnableInFeatures,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.end,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.primary.withValues(alpha: 0.7),
+    final label = tab.localizedLabel(
+      context,
+      terminologyPlural: terminologyPlural,
+    );
+    final hint = context.l10n.navigationEnableInFeatures;
+    // PrismListRow paints its title in bodyLarge with w600 and height 1.2, so the
+    // measurement has to use that base weight rather than the bare theme style.
+    final labelStyle = theme.textTheme.bodyLarge?.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+    );
+    final hintStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.primary.withValues(alpha: 0.7),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Natural fit, from the row's real width: the hint stays in the trailing
+        // slot, exactly as before, while a 104dp two-line box would paint it in
+        // full beside the destination name; otherwise it takes its own line under
+        // the name, where it has the whole row and wraps instead of being
+        // ellipsised into a fragment. The row is a fixed-width settings list, so
+        // the measurement is exact - no text-scale threshold is guessed.
+        final availableForContent =
+            constraints.maxWidth -
+            (_rowPadding * 2) -
+            _leadingSlot -
+            _trailingGap;
+        // Boundary guard: a degenerate row (no room left for content at all) can never
+        // hold the hint inline, whatever the measured widths say.
+        final hasRoomForContent = availableForContent > 0;
+        final labelWidth = _singleLineWidth(context, label, labelStyle);
+        final hintFitsInline =
+            hasRoomForContent &&
+            _fitsWithin(
+              context,
+              hint,
+              hintStyle,
+              maxWidth: _inlineHintMaxWidth,
+              maxLines: _inlineHintMaxLines,
+            ) &&
+            labelWidth + _inlineHintMaxWidth <= availableForContent;
+
+        return PrismListRow(
+          padding: const EdgeInsets.symmetric(horizontal: _rowPadding),
+          leading: Icon(
+            tab.icon,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
           ),
-        ),
-      ),
-      onTap: onTap,
+          title: Text(
+            label,
+            style: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          trailing: hintFitsInline
+              ? ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: _inlineHintMaxWidth,
+                  ),
+                  child: Text(
+                    hint,
+                    maxLines: _inlineHintMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: hintStyle,
+                  ),
+                )
+              : null,
+          subtitle: hintFitsInline ? null : Text(hint, style: hintStyle),
+          onTap: onTap,
+        );
+      },
     );
   }
 }

@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 
 /// Full-screen sheet for managing which groups a member belongs to.
 ///
@@ -130,7 +131,14 @@ class _ManageGroupsSheetState extends ConsumerState<ManageGroupsSheet> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxHeight < PrismTokens.topBarHeight) {
+        // The bar grows with the ambient text scale; compare against what it
+        // needs rather than the fixed 66dp.
+        final barHeight = prismScaledHeightOf(
+          context,
+          topBar,
+          availableWidth: constraints.maxWidth,
+        );
+        if (constraints.maxHeight < barHeight) {
           return CustomScrollView(
             controller: widget.scrollController,
             primary: widget.scrollController == null,

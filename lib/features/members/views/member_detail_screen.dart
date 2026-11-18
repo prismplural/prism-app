@@ -1012,8 +1012,14 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      // `OverflowBar`: the label and value stay on one line while they fit and the
+      // value moves to its own end-aligned line when they do not, so a long label or
+      // a long duration can no longer paint past the card.
+      child: OverflowBar(
+        alignment: MainAxisAlignment.spaceBetween,
+        spacing: 12,
+        overflowSpacing: 4,
+        overflowAlignment: OverflowBarAlignment.end,
         children: [
           Text(label, style: theme.textTheme.bodyMedium),
           Text(

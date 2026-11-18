@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/pin_numpad_metrics.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A glass numpad key with two-phase spring press feedback.
@@ -56,20 +57,25 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
     final mode = VisualEffectsModeX.of(context, ref);
     final useAnim = mode.useAnimations;
 
+    // Digits keep headlineMedium at the requested text size; the key grows to
+    // hold that glyph box on both axes instead of clipping it. Icon-only keys
+    // keep the square geometry (the icon is decorative and does not scale).
+    final digitStyle =
+        theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w500) ??
+        const TextStyle(fontSize: 28, fontWeight: FontWeight.w500);
+    final keyExtent = widget.label == null
+        ? (width: widget.size, height: widget.size)
+        : pinNumpadKeyExtent(context, size: widget.size, style: digitStyle);
+
     final Widget surface = TintedGlassSurface(
-      width: widget.size,
-      height: widget.size,
+      width: keyExtent.width,
+      height: keyExtent.height,
       borderRadius: BorderRadius.circular(
-        PrismShapes.of(context).radius(widget.size / 2),
+        PrismShapes.of(context).radius(keyExtent.width / 2),
       ),
       tint: _pressed ? Colors.white.withValues(alpha: 0.08) : null,
       child: widget.label != null
-          ? Text(
-              widget.label!,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            )
+          ? Text(widget.label!, style: digitStyle)
           : Icon(
               widget.icon,
               size: widget.size * 0.33,
@@ -117,8 +123,8 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
         onPointerUp: (_) => _release(),
         onPointerCancel: (_) => _release(),
         child: SizedBox(
-          width: widget.size,
-          height: widget.size,
+          width: keyExtent.width,
+          height: keyExtent.height,
           child: animated,
         ),
       ),

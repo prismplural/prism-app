@@ -19,6 +19,11 @@ import 'package:prism_plurality/features/members/widgets/member_profile_header.d
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_text_scaler.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/preferences/member_name_presentation.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
 import '../../../helpers/fake_repositories.dart';
@@ -191,6 +196,164 @@ double _bodyMediumSize(WidgetTester tester) =>
       tester.element(find.byType(MemberProfileHeader)),
     ).textTheme.bodyMedium?.fontSize ??
     14;
+
+/// The header's title role size, resolved the way the widget resolves it, so a
+/// scaler assertion reads the role the name uses for layout.
+double _titleSize(WidgetTester tester) =>
+    Theme.of(
+      tester.element(find.byType(MemberProfileHeader)),
+    ).textTheme.headlineSmall?.fontSize ??
+    24;
+
+/// The selection-run layout box of [label] inside the mention matched by [mention], in
+/// global coordinates.
+/// These are selection/layout bounds, not raster glyph-ink measurements.
+/// Bundled-font painting is not covered by this default-test-font fixture.
+///
+/// The mention builder emits its label as its own `Text.rich`, so that paragraph
+/// holds exactly the label and its selection boxes locate a point for a real pointer tap. The
+/// enclosing paragraph's centre lands on the pronoun text instead, which never
+/// reaches the mention's recognizer.
+Rect _mentionSelectionRect(WidgetTester tester, Finder mention, String label) {
+  final paragraph = tester.renderObject<RenderParagraph>(mention);
+  final start = paragraph.text.toPlainText().indexOf(label);
+  expect(
+    start,
+    isNonNegative,
+    reason: '$label must belong to its mention paragraph',
+  );
+  final boxes = paragraph.getBoxesForSelection(
+    TextSelection(baseOffset: start, extentOffset: start + label.length),
+  );
+  expect(boxes, isNotEmpty, reason: '$label must have selection boxes');
+  final local = boxes.first.toRect();
+  return Rect.fromPoints(
+    paragraph.localToGlobal(local.topLeft),
+    paragraph.localToGlobal(local.bottomRight),
+  );
+}
+
+/// Scrolls [mention] into view and taps the centre of its [label] selection-run box.
+Future<void> _tapMentionSelection(
+  WidgetTester tester,
+  Finder mention,
+  String label,
+) async {
+  await tester.ensureVisible(mention);
+  await tester.pump();
+  final point = _mentionSelectionRect(tester, mention, label).center;
+  final paragraph = tester.renderObject<RenderParagraph>(mention);
+  expect(
+    tester
+        .hitTestOnBinding(point)
+        .path
+        .any((entry) => identical(entry.target, paragraph)),
+    isTrue,
+    reason: 'the selected mention layout point must hit its real paragraph',
+  );
+  await tester.tapAt(point);
+  await tester.pumpAndSettle();
+}
+
+/// Pumps a header the way the member profile page hosts it — behind a real
+/// router, in a scrollable column, at [textScaler] — and returns the member ids
+/// its mention taps pushed.
+Future<List<String>> _pumpHeaderInRouter(
+  WidgetTester tester,
+  Member member, {
+  required List<Member> mentionMembers,
+  TextScaler textScaler = TextScaler.noScaling,
+  double width = _wideHeader,
+}) async {
+  final pushedMemberIds = <String>[];
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, _) => Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: width,
+              child: MemberProfileHeader(member: member),
+            ),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutePaths.members,
+        builder: (_, _) => const Scaffold(body: Text('members')),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, state) {
+              final id = state.pathParameters['id']!;
+              pushedMemberIds.add(id);
+              return Scaffold(body: Text('member-$id'));
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+  final appPrefs = FakeAppPreferenceRepository();
+  var databaseReads = 0;
+  addTearDown(() async {
+    // ProviderScope owns its container: unmounting cancels its subscriptions
+    // before the router and the fake preference stream controllers are closed.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    router.dispose();
+    await tester.runAsync(
+      () => appPrefs.close().timeout(const Duration(seconds: 5)),
+    );
+    // AsyncValue fallback must not mask an accidental DB-provider read.
+    expect(
+      databaseReads,
+      0,
+      reason: 'this fixture must never read the real DB',
+    );
+  });
+
+  await tester.pumpWidget(
+    ProviderScope(
+      // A fresh owned container for each baseline/scaled pump, not an override
+      // update on the previous fixture's container.
+      key: UniqueKey(),
+      overrides: [
+        memberNamePreferDisplayProvider.overrideWithValue(true),
+        memberNamePresentationProvider.overrideWithValue(
+          MemberNamePresentation.fullName,
+        ),
+        systemSettingsProvider.overrideWith(
+          (ref) => Stream.value(const SystemSettings()),
+        ),
+        frontingTermsSettingProvider.overrideWithValue(null),
+        appPreferenceRepositoryProvider.overrideWithValue(appPrefs),
+        databaseProvider.overrideWith((ref) {
+          databaseReads += 1;
+          throw StateError(
+            'Pronoun regression fixtures must not open a database',
+          );
+        }),
+        activeMemberListProvider.overrideWith(
+          (ref) => Stream.value(mentionMembers),
+        ),
+      ],
+      child: MaterialApp.router(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: child!,
+        ),
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return pushedMemberIds;
+}
 
 void main() {
   group('pronoun capsule', () {
@@ -757,6 +920,162 @@ void main() {
       expect(nameSpans.first.style?.fontStyle, FontStyle.italic);
       // Pronouns stay out of the name line and keep their own capsule.
       expect(_renderedText(tester, _capsule).trim(), 'xe/xem');
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('pronoun capsule mention at extreme text scale', () {
+    testWidgets('opens the mentioned member at a selection-run point at 3.375x', (
+      tester,
+    ) async {
+      final bob = _member(id: _bobId, name: 'Bob');
+      const pronouns = 'she/her @[$_bobId]';
+
+      // A 1x baseline from the same widget tree, so the scaled selection-run box is
+      // compared against what this very mention lays out.
+      await _pumpHeaderInRouter(
+        tester,
+        _member(pronouns: pronouns),
+        mentionMembers: [bob],
+      );
+      final baseMention = _insideCapsule(find.textContaining('@Bob'));
+      expect(baseMention, findsOneWidget);
+      final baseRect = _mentionSelectionRect(tester, baseMention, '@Bob');
+      expect(
+        tester.getRect(_capsule).contains(baseRect.center),
+        isTrue,
+        reason: 'the 1x baseline must be a real mention inside the capsule',
+      );
+
+      // Direct linear 3.375x is equivalent at every size to the production
+      // composition PrismTextScaler(TextScaler.linear(2.25), 1.5). The separate
+      // nonlinear case checks that composition cannot generally be reduced
+      // to one scale factor when the platform curve varies per font size.
+      final pushedMemberIds = await _pumpHeaderInRouter(
+        tester,
+        _member(pronouns: pronouns),
+        mentionMembers: [bob],
+        textScaler: const TextScaler.linear(3.375),
+      );
+
+      final bodySize = _bodyMediumSize(tester);
+      final scaler = MediaQuery.textScalerOf(tester.element(_capsule));
+      expect(
+        scaler.scale(bodySize),
+        closeTo(bodySize * 3.375, 0.001),
+        reason: 'the capsule itself, not an ancestor wrapper, sees 3.375x',
+      );
+
+      // 15 em of the scaled body role is 708.75 pt, wider than the 390 pt
+      // header, so the capsule leaves the avatar column.
+      expect(
+        tester.getRect(_capsule).left,
+        lessThanOrEqualTo(tester.getRect(find.byType(MemberAvatar)).left + 0.5),
+      );
+
+      final mention = _insideCapsule(find.textContaining('@Bob'));
+      expect(mention, findsOneWidget);
+      final paragraph = tester.renderObject<RenderParagraph>(mention);
+      expect(
+        paragraph.textScaler.scale(bodySize),
+        closeTo(bodySize * 3.375, 0.001),
+        reason: 'the mention paragraph layout uses the same scaler',
+      );
+      expect(paragraph.maxLines, isNull);
+      expect(paragraph.overflow, isNot(TextOverflow.ellipsis));
+
+      final rect = _mentionSelectionRect(tester, mention, '@Bob');
+      expect(rect.width, greaterThan(0));
+      expect(
+        rect.height / baseRect.height,
+        closeTo(3.375, 3.375 * 0.1),
+        reason:
+            'the mention selection-run box layout box must scale, not just its parent',
+      );
+      expect(
+        tester.getRect(_capsule).contains(rect.center),
+        isTrue,
+        reason: 'the mention selection-run point must be inside the capsule',
+      );
+
+      await _tapMentionSelection(tester, mention, '@Bob');
+
+      expect(pushedMemberIds, [_bobId]);
+      expect(find.text('member-$_bobId'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('opens the mentioned member under nonlinear composed scaling', (
+      tester,
+    ) async {
+      final bob = _member(id: _bobId, name: 'Bob');
+      const pronouns = 'she/her @[$_bobId]';
+      // What the app really builds: PrismTextScaler delegates to the platform
+      // scaler, then multiplies its result by the user's font-size factor
+      // (capped at 1.5 by FontFamily.maximumScale). With a nonlinear platform
+      // curve the composition is nonlinear too: 3x at the 14 pt body role and
+      // 2.1x at the 24 pt title role, so no single factor describes it.
+      const composedScaler = PrismTextScaler(_NonlinearTextScaler(), 1.5);
+
+      await _pumpHeaderInRouter(
+        tester,
+        _member(pronouns: pronouns),
+        mentionMembers: [bob],
+      );
+      final baseRect = _mentionSelectionRect(
+        tester,
+        _insideCapsule(find.textContaining('@Bob')),
+        '@Bob',
+      );
+
+      final pushedMemberIds = await _pumpHeaderInRouter(
+        tester,
+        _member(pronouns: pronouns),
+        mentionMembers: [bob],
+        textScaler: composedScaler,
+      );
+
+      final bodySize = _bodyMediumSize(tester);
+      final titleSize = _titleSize(tester);
+      final scaler = MediaQuery.textScalerOf(tester.element(_capsule));
+      expect(scaler, composedScaler);
+      expect(scaler.scale(bodySize), closeTo(bodySize * 3, 0.001));
+      expect(
+        scaler.scale(titleSize),
+        closeTo(titleSize * 1.4 * 1.5, 0.001),
+        reason: 'the composed provider scaler is nonlinear per size',
+      );
+      expect(
+        scaler.scale(titleSize),
+        lessThan(titleSize * scaler.scale(bodySize) / bodySize),
+        reason: 'a uniform 3.375x would scale the title role as far as body',
+      );
+
+      // 15 em of the 42 pt body role is 630 pt, still wider than the 390 pt
+      // header, so the capsule and its mention move under the avatar.
+      expect(
+        tester.getRect(_capsule).left,
+        lessThanOrEqualTo(tester.getRect(find.byType(MemberAvatar)).left + 0.5),
+      );
+
+      final mention = _insideCapsule(find.textContaining('@Bob'));
+      expect(mention, findsOneWidget);
+      final rect = _mentionSelectionRect(tester, mention, '@Bob');
+      expect(
+        rect.height / baseRect.height,
+        closeTo(3, 3 * 0.1),
+        reason: 'the mention layout must use the scaler measured at 14 pt',
+      );
+      expect(
+        tester.getRect(_capsule).contains(rect.center),
+        isTrue,
+        reason: 'the mention selection-run point must be inside the capsule',
+      );
+
+      await _tapMentionSelection(tester, mention, '@Bob');
+
+      expect(pushedMemberIds, [_bobId]);
+      expect(find.text('member-$_bobId'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

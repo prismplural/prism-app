@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Hero chart showing per-member fronting time as vertical bars sorted
@@ -33,9 +34,11 @@ class MemberRankingChart extends ConsumerStatefulWidget {
   static const double _gapPctToBar = 4;
   static const double _gapBarToAvatar = 8;
   static const double _gapAvatarToName = 4;
-  // Slot bounds: floor keeps the avatar (24px) plus minimal breathing room
-  // visible; ceiling stops a single very long name from inflating every
-  // column. Anything beyond the ceiling ellipsises rather than bloats.
+  // Slot bounds, expressed at the default text size and scaled by the label's own
+  // measured scale at build time: the floor keeps the avatar (24px) plus minimal
+  // breathing room visible and the "%"/time readout whole, and the ceiling stops
+  // one very long name from inflating every column. Anything beyond the ceiling
+  // still ellipsises rather than bloats.
   static const double _minSlotWidth = 40;
   static const double _maxSlotWidth = 88;
   // Horizontal padding inside each slot, applied to both sides of the
@@ -43,8 +46,7 @@ class MemberRankingChart extends ConsumerStatefulWidget {
   static const double _slotHorizontalPadding = 3;
 
   @override
-  ConsumerState<MemberRankingChart> createState() =>
-      _MemberRankingChartState();
+  ConsumerState<MemberRankingChart> createState() => _MemberRankingChartState();
 }
 
 class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
@@ -67,13 +69,25 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
     // subscriptions — fewer rebuilds, single network/db pass, and the same
     // map drives both name measurement and bar rendering.
     final ids = memberStats.map((s) => s.memberId).toList();
-    final memberMapAsync =
-        ref.watch(membersByIdsProvider(memberIdsKey(ids)));
-    final memberMap =
-        memberMapAsync.value ?? const <String, Member>{};
+    final memberMapAsync = ref.watch(membersByIdsProvider(memberIdsKey(ids)));
+    final memberMap = memberMapAsync.value ?? const <String, Member>{};
 
     final textScaler = MediaQuery.textScalerOf(context);
     final labelStyle = theme.textTheme.labelSmall;
+    final labelFontSize = labelStyle?.fontSize ?? 11;
+    // The label's own scale, measured through the ambient scaler (a nonlinear
+    // platform scaler does not scale every font size by one ratio), so the slot
+    // bounds follow the glyphs the chart actually paints instead of a constant.
+    final labelScale = labelFontSize > 0
+        ? textScaler.scale(labelFontSize) / labelFontSize
+        : 1.0;
+    // Bounds only, and never below the original geometry: the avatar inside a slot is
+    // a fixed 24dp and the readouts are the chart's smallest type, so a sub-1x text
+    // preference must not squeeze the columns under their 40/88dp bounds. The label
+    // text itself still paints at the requested 0.5x.
+    final boundsScale = labelScale < 1 ? 1.0 : labelScale;
+    final minSlotWidth = MemberRankingChart._minSlotWidth * boundsScale;
+    final maxSlotWidth = MemberRankingChart._maxSlotWidth * boundsScale;
 
     // Slot width: measure each visible name with the actual label style and
     // ambient text scaler, take the widest, then add side padding. Names
@@ -82,32 +96,35 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
     double widestName = 0;
     for (final stat in memberStats) {
       final name = _displayName(memberMap[stat.memberId]);
-      final width = _measureTextWidth(name, labelStyle, textScaler);
+      final width = _measureTextWidth(context, name, labelStyle);
       if (width > widestName) widestName = width;
     }
-    final slotWidth = (widestName +
-            MemberRankingChart._slotHorizontalPadding * 2)
-        .clamp(MemberRankingChart._minSlotWidth,
-            MemberRankingChart._maxSlotWidth);
+    final slotWidth =
+        (widestName + MemberRankingChart._slotHorizontalPadding * 2).clamp(
+          minSlotWidth,
+          maxSlotWidth,
+        );
 
     // Compute the chart row height precisely from the scaled text + fixed
     // pieces, so the ListView is exactly as tall as one bar slot. No
     // outer cardHeight, no Expanded → no dead space above the bars when
     // bottom-anchored.
-    final labelFontSize = labelStyle?.fontSize ?? 11;
     final labelLineMult = labelStyle?.height ?? 1.4;
     final scaledLabelHeight = textScaler.scale(labelFontSize) * labelLineMult;
     // 4px slack absorbs leading/baseline rounding so the column never
     // overflows the ListView; rendered text varies slightly by font.
     const overflowSlack = 4.0;
-    final rowHeight = scaledLabelHeight // % label
-        + MemberRankingChart._gapPctToBar
-        + MemberRankingChart._barHeight
-        + MemberRankingChart._gapBarToAvatar
-        + MemberRankingChart._avatarSize
-        + MemberRankingChart._gapAvatarToName
-        + scaledLabelHeight // member name
-        + overflowSlack;
+    final rowHeight =
+        scaledLabelHeight // % label
+        +
+        MemberRankingChart._gapPctToBar +
+        MemberRankingChart._barHeight +
+        MemberRankingChart._gapBarToAvatar +
+        MemberRankingChart._avatarSize +
+        MemberRankingChart._gapAvatarToName +
+        scaledLabelHeight // member name
+        +
+        overflowSlack;
 
     return PrismSurface(
       padding: const EdgeInsets.fromLTRB(16, 12, 0, 12),
@@ -125,8 +142,7 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
                   // "Per-{term} Colors" pattern in appearance settings.
                   // Axis hint below stays `singularLower` because that's
                   // the inline noun-modifier pattern.
-                  context.l10n
-                      .statisticsFrontingTimeByMember(terms.singular),
+                  context.l10n.statisticsFrontingTimeByMember(terms.singular),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     // Drop built-in line-height padding so the title sits as
@@ -139,8 +155,9 @@ class _MemberRankingChartState extends ConsumerState<MemberRankingChart> {
                 // system {term}-minutes, not wall-clock fronting time.
                 // See §4.3 of fronting-per-member-sessions.md.
                 Text(
-                  context.l10n
-                      .statisticsMemberMinutesAxisHint(terms.singularLower),
+                  context.l10n.statisticsMemberMinutesAxisHint(
+                    terms.singularLower,
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -183,18 +200,27 @@ String _displayName(Member? m) {
   return m.name;
 }
 
-double _measureTextWidth(
-  String text,
-  TextStyle? style,
-  TextScaler scaler,
-) {
+/// Width one line of [text] needs, measured the way the chart paints it.
+///
+/// The style goes through [prismTextStyleForMeasurement] so the ambient
+/// [DefaultTextStyle] merge and the bold-text accessibility flag are applied exactly as
+/// `Text` applies them, and the painter receives the inherited locale and height
+/// behaviour, so the measurement and the painted label resolve the same face.
+double _measureTextWidth(BuildContext context, String text, TextStyle? style) {
   final painter = TextPainter(
-    text: TextSpan(text: text, style: style),
-    textDirection: TextDirection.ltr,
+    text: TextSpan(
+      text: text,
+      style: prismTextStyleForMeasurement(context, style),
+    ),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    textHeightBehavior: prismTextHeightBehaviorFor(context),
+    locale: Localizations.maybeLocaleOf(context),
     maxLines: 1,
-    textScaler: scaler,
   )..layout();
-  return painter.width;
+  final width = painter.width;
+  painter.dispose();
+  return width;
 }
 
 class _MemberBar extends StatelessWidget {
@@ -224,14 +250,18 @@ class _MemberBar extends StatelessWidget {
     final brightness = theme.brightness;
     final name = _displayName(member);
 
-    final color = (member?.customColorEnabled ?? false) &&
-            member?.customColorHex != null
+    final color =
+        (member?.customColorEnabled ?? false) && member?.customColorHex != null
         ? AppColors.fromHex(member!.customColorHex!)
         : AppColors.generatedColor(
-            rowIndex, theme.colorScheme.primary, brightness);
+            rowIndex,
+            theme.colorScheme.primary,
+            brightness,
+          );
 
-    final fraction =
-        peakMinutes > 0 ? stat.totalTime.inMinutes / peakMinutes : 0.0;
+    final fraction = peakMinutes > 0
+        ? stat.totalTime.inMinutes / peakMinutes
+        : 0.0;
     final filledHeight = (barHeight * fraction).clamp(2.0, barHeight);
     // Bar width scales with the slot so a wider column doesn't leave the
     // bar looking lonely in the middle. Floor + ceiling keep the geometry
@@ -288,7 +318,8 @@ class _MemberBar extends StatelessWidget {
                         color: theme.colorScheme.surfaceContainerHighest
                             .withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(2)),
+                          PrismShapes.of(context).radius(2),
+                        ),
                       ),
                     ),
                     Container(
@@ -296,7 +327,8 @@ class _MemberBar extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: color,
                         borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(2)),
+                          PrismShapes.of(context).radius(2),
+                        ),
                       ),
                     ),
                   ],

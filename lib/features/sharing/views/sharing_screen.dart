@@ -170,7 +170,8 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
   Future<void> _showUseInvite(BuildContext context) async {
     final result = await PrismSheet.showFullScreen<bool>(
       context: context,
-      builder: (context, _) => const AcceptInviteSheet(),
+      builder: (context, scrollController) =>
+          AcceptInviteSheet(scrollController: scrollController),
     );
     if (result == true && context.mounted) {
       PrismToast.show(context, message: context.l10n.sharingRequestSent);

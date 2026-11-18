@@ -41,6 +41,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/utils/nav_bar_layout.dart';
 import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
 import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 
 /// Gap between overflow row and primary row when the nav bar is expanded.
 const _kNavBarRowGap = 6.0;
@@ -55,6 +56,10 @@ const _kNavBarSelectedItemPillHeight = 32.0;
 const _kNavBarSelectedItemPillTop = 8.0;
 const _kNavBarPrimaryPillHorizontalInset = 8.0;
 const _kNavBarIconOnlyIconOpticalOffsetY = 1.0;
+
+/// Legacy slot height for the label reveal lift. Only used as the default of
+/// [navBarLabelRevealLiftY] when a caller has no measured label line box; the
+/// live bar always passes the real measured height.
 const _kNavBarLabelRevealSlotHeight = kNavBarLabelFontSize + 4.0;
 
 /// Extra vertical breathing room around the icon + label stack so scaled text
@@ -190,26 +195,30 @@ class FrontingUpgradeSheetDecision {
       'shouldShow: $shouldShow, isDismissible: $isDismissible)';
 }
 
+/// Tallest single-line label box among [labels] at [textScaler]. Labels render
+/// with `maxLines: 1`, so the height does not depend on the slot width.
 double _measureNavBarLabelHeight({
   required List<String> labels,
-  required double slotWidth,
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
+  Locale? locale,
+  TextHeightBehavior? textHeightBehavior,
 }) {
   if (labels.isEmpty) return 0;
 
   var maxLabelHeight = 0.0;
-  final maxWidth = math.max(0.0, slotWidth);
 
   for (final label in labels) {
-    final painter = TextPainter(
-      text: TextSpan(text: label, style: labelStyle),
-      textDirection: textDirection,
+    final lineHeight = navBarLabelLineHeight(
+      label: label,
+      style: labelStyle,
       textScaler: textScaler,
-      maxLines: 1,
-    )..layout(maxWidth: maxWidth);
-    maxLabelHeight = math.max(maxLabelHeight, painter.height);
+      textDirection: textDirection,
+      locale: locale,
+      textHeightBehavior: textHeightBehavior,
+    );
+    maxLabelHeight = math.max(maxLabelHeight, lineHeight);
   }
 
   return maxLabelHeight;
@@ -217,26 +226,22 @@ double _measureNavBarLabelHeight({
 
 double _measurePrimaryNavBarRowHeight({
   required List<String> primaryLabels,
-  required double barWidth,
-  required bool usesOverflowMenu,
   required int primaryCount,
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
+  Locale? locale,
+  TextHeightBehavior? textHeightBehavior,
 }) {
   if (primaryCount <= 0) return kFloatingNavBarHeight;
 
-  final primarySlotWidth = math.max(
-    0.0,
-    (barWidth - (usesOverflowMenu ? 16.0 + _kMoreButtonWidth : 24.0)) /
-        primaryCount,
-  );
   final maxPrimaryLabelHeight = _measureNavBarLabelHeight(
     labels: primaryLabels,
-    slotWidth: primarySlotWidth,
     labelStyle: labelStyle,
     textScaler: textScaler,
     textDirection: textDirection,
+    locale: locale,
+    textHeightBehavior: textHeightBehavior,
   );
 
   return math.max(
@@ -283,11 +288,36 @@ double navBarPrimaryPillScaleY({
       layoutHeight;
 }
 
+/// Vertical space a measured row leaves for its label, i.e. what
+/// `_measurePrimaryNavBarRowHeight` reserved beyond the icon and the item
+/// padding. Rows measured without labels (label visibility `whenExpanded` or
+/// `never`) reserve none, and the item then keeps its icon where it was
+/// instead of lifting it out of the row.
 @visibleForTesting
-double navBarLabelRevealLiftY({required double labelVisibility}) {
-  return labelVisibility.clamp(0.0, 1.0).toDouble() *
-      _kNavBarLabelRevealSlotHeight /
-      2;
+double navBarReservedLabelHeight({
+  required double rowHeight,
+  required double iconHeight,
+}) {
+  final reserved =
+      rowHeight -
+      iconHeight -
+      _kNavBarItemVerticalPadding -
+      (_kNavBarBorderWidth * 2);
+  return math.max(0.0, reserved);
+}
+
+/// How far the icon cluster lifts to make room for a revealed label.
+///
+/// [labelHeight] is the label's measured line box. When omitted the historical
+/// 16dp slot constant is used, which keeps older call sites behaving exactly as
+/// before.
+@visibleForTesting
+double navBarLabelRevealLiftY({
+  required double labelVisibility,
+  double? labelHeight,
+}) {
+  final slotHeight = labelHeight ?? _kNavBarLabelRevealSlotHeight;
+  return labelVisibility.clamp(0.0, 1.0).toDouble() * slotHeight / 2;
 }
 
 @visibleForTesting
@@ -307,6 +337,7 @@ double navBarPrimaryPillTop({
   required double rowHeight,
   required bool prominentIcons,
   required double labelVisibility,
+  double? labelHeight,
 }) {
   if (!prominentIcons) return _kNavBarSelectedItemPillTop;
   final visibility = labelVisibility.clamp(0.0, 1.0).toDouble();
@@ -315,7 +346,11 @@ double navBarPrimaryPillTop({
     labelVisibility: visibility,
   );
   final centerY =
-      (rowHeight / 2) - navBarLabelRevealLiftY(labelVisibility: visibility);
+      (rowHeight / 2) -
+      navBarLabelRevealLiftY(
+        labelVisibility: visibility,
+        labelHeight: labelHeight,
+      );
   return (centerY - (pillHeight / 2)).clamp(0.0, rowHeight);
 }
 
@@ -324,6 +359,7 @@ double navBarPrimaryPillPaintOffsetY({
   required double rowHeight,
   required bool prominentIcons,
   required double labelVisibility,
+  double? labelHeight,
 }) {
   final layoutHeight = navBarPrimaryPillLayoutHeight(
     prominentIcons: prominentIcons,
@@ -336,6 +372,7 @@ double navBarPrimaryPillPaintOffsetY({
         rowHeight: rowHeight,
         prominentIcons: prominentIcons,
         labelVisibility: labelVisibility,
+        labelHeight: labelHeight,
       ) -
       navBarPrimaryPillLayoutTop(
         rowHeight: rowHeight,
@@ -376,23 +413,24 @@ double navBarEffectiveLabelVisibility({
 
 double _measureOverflowNavBarRowHeight({
   required List<String> overflowLabels,
-  required double barWidth,
   required int overflowColumns,
   required TextStyle labelStyle,
   required TextScaler textScaler,
   required TextDirection textDirection,
+  Locale? locale,
+  TextHeightBehavior? textHeightBehavior,
 }) {
   if (overflowLabels.isEmpty || overflowColumns <= 0) {
     return kFloatingNavBarHeight;
   }
 
-  final overflowSlotWidth = math.max(0.0, (barWidth - 24.0) / overflowColumns);
   final maxOverflowLabelHeight = _measureNavBarLabelHeight(
     labels: overflowLabels,
-    slotWidth: overflowSlotWidth,
     labelStyle: labelStyle,
     textScaler: textScaler,
     textDirection: textDirection,
+    locale: locale,
+    textHeightBehavior: textHeightBehavior,
   );
 
   return math.max(
@@ -443,6 +481,10 @@ class _NavLayoutSignature {
     required this.fontWeight,
     required this.labelVisibility,
     required this.labelStyleMode,
+    required this.boldText,
+    required this.locale,
+    required this.styleHash,
+    required this.textHeightBehaviorHash,
   });
 
   final double barWidth;
@@ -455,6 +497,14 @@ class _NavLayoutSignature {
   final NavBarLabelVisibility labelVisibility;
   final NavBarLabelStyle labelStyleMode;
 
+  /// Bold text and locale change the measured label height (the bold weight is
+  /// merged into the style, and the locale selects the face for some scripts), so
+  /// they belong in the key: without them a cached layout survives a toggle.
+  final bool boldText;
+  final Locale? locale;
+  final int styleHash;
+  final int textHeightBehaviorHash;
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
@@ -466,6 +516,10 @@ class _NavLayoutSignature {
         other.fontWeight == fontWeight &&
         other.labelVisibility == labelVisibility &&
         other.labelStyleMode == labelStyleMode &&
+        other.boldText == boldText &&
+        other.locale == locale &&
+        other.styleHash == styleHash &&
+        other.textHeightBehaviorHash == textHeightBehaviorHash &&
         _listEquals(other.primaryLabels, primaryLabels) &&
         _listEquals(other.overflowLabels, overflowLabels);
   }
@@ -479,6 +533,10 @@ class _NavLayoutSignature {
     fontWeight,
     labelVisibility,
     labelStyleMode,
+    boldText,
+    locale,
+    styleHash,
+    textHeightBehaviorHash,
     Object.hashAll(primaryLabels),
     Object.hashAll(overflowLabels),
   );
@@ -509,6 +567,8 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
   required TextDirection textDirection,
   NavBarLabelVisibility labelVisibility = NavBarLabelVisibility.always,
   NavBarLabelStyle labelStyleMode = NavBarLabelStyle.full,
+  Locale? locale,
+  TextHeightBehavior? textHeightBehavior,
 }) {
   assert(primaryTabs.length == primaryLabels.length);
   assert(overflowTabs.length == overflowLabels.length);
@@ -542,20 +602,21 @@ AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
       : const <String>[];
   final rowHeight = _measurePrimaryNavBarRowHeight(
     primaryLabels: visualPrimaryLabels,
-    barWidth: barWidth,
-    usesOverflowMenu: spec.usesOverflowMenu,
     primaryCount: split.primary.length,
     labelStyle: labelStyle,
     textScaler: textScaler,
     textDirection: textDirection,
+    locale: locale,
+    textHeightBehavior: textHeightBehavior,
   );
   final overflowRowHeight = _measureOverflowNavBarRowHeight(
     overflowLabels: visualOverflowLabels,
-    barWidth: barWidth,
     overflowColumns: spec.overflowColumns,
     labelStyle: labelStyle,
     textScaler: textScaler,
     textDirection: textDirection,
+    locale: locale,
+    textHeightBehavior: textHeightBehavior,
   );
 
   return AppShellMobileNavLayout(
@@ -875,6 +936,9 @@ class _AppShellState extends ConsumerState<AppShell>
     required TextDirection textDirection,
     required NavBarLabelVisibility labelVisibility,
     required NavBarLabelStyle labelStyleMode,
+    required Locale? locale,
+    required TextHeightBehavior? textHeightBehavior,
+    required bool boldText,
   }) {
     final signature = _NavLayoutSignature(
       barWidth: barWidth,
@@ -886,6 +950,10 @@ class _AppShellState extends ConsumerState<AppShell>
       fontWeight: labelStyle.fontWeight ?? FontWeight.w500,
       labelVisibility: labelVisibility,
       labelStyleMode: labelStyleMode,
+      boldText: boldText,
+      locale: locale,
+      styleHash: labelStyle.hashCode,
+      textHeightBehaviorHash: textHeightBehavior.hashCode,
     );
     final cached = _cachedNavLayout;
     if (cached != null && _cachedNavLayoutSignature == signature) {
@@ -902,6 +970,8 @@ class _AppShellState extends ConsumerState<AppShell>
       textDirection: textDirection,
       labelVisibility: labelVisibility,
       labelStyleMode: labelStyleMode,
+      locale: locale,
+      textHeightBehavior: textHeightBehavior,
     );
     _cachedNavLayoutSignature = signature;
     _cachedNavLayout = layout;
@@ -1305,11 +1375,19 @@ class _AppShellState extends ConsumerState<AppShell>
         overflowTabs: configuredOverflowTabs,
         primaryLabels: primaryLabels,
         overflowLabels: overflowLabels,
-        labelStyle: navBarLabelTextStyle(context, isSelected: true),
+        // Resolved here, where the context exists, with the same helper the painted
+        // Text uses; the layout maths downstream stays context-free.
+        labelStyle: prismTextStyleForMeasurement(
+          context,
+          navBarLabelTextStyle(context, isSelected: true),
+        ),
         textScaler: MediaQuery.textScalerOf(context),
         textDirection: Directionality.of(context),
         labelVisibility: labelVisibility,
         labelStyleMode: labelStyleMode,
+        locale: Localizations.maybeLocaleOf(context),
+        textHeightBehavior: prismTextHeightBehaviorFor(context),
+        boldText: MediaQuery.boldTextOf(context),
       );
       final currentVisibleIndex = mobileLayout.allTabs.indexWhere(
         (t) => t.branchIndex == widget.navigationShell.currentIndex,
@@ -1842,11 +1920,19 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                               rowHeight: widget.rowHeight,
                               prominentIcons: prominentIcons,
                             );
+                            // The pill tracks the icon centre, so it needs the
+                            // same measured label box the item lifts against.
+                            final reservedLabelHeight =
+                                navBarReservedLabelHeight(
+                                  rowHeight: widget.rowHeight,
+                                  iconHeight: kNavBarItemIconHeight,
+                                );
                             final pillPaintOffsetY =
                                 navBarPrimaryPillPaintOffsetY(
                                   rowHeight: widget.rowHeight,
                                   prominentIcons: prominentIcons,
                                   labelVisibility: labelVisibility,
+                                  labelHeight: reservedLabelHeight,
                                 );
                             final pillScaleY = navBarPrimaryPillScaleY(
                               prominentIcons: prominentIcons,
@@ -2169,10 +2255,15 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                     rowHeight: widget.rowHeight,
                     prominentIcons: prominentIcons,
                   );
+                  final reservedLabelHeight = navBarReservedLabelHeight(
+                    rowHeight: widget.rowHeight,
+                    iconHeight: kNavBarItemIconHeight,
+                  );
                   final pillPaintOffsetY = navBarPrimaryPillPaintOffsetY(
                     rowHeight: widget.rowHeight,
                     prominentIcons: prominentIcons,
                     labelVisibility: simpleLabelVisibility,
+                    labelHeight: reservedLabelHeight,
                   );
                   final pillScaleY = navBarPrimaryPillScaleY(
                     prominentIcons: prominentIcons,
@@ -2396,11 +2487,40 @@ class _NavBarItem extends StatelessWidget {
     final restingIconWidth = prominentIcon
         ? kNavBarIconOnlyItemIconHeight
         : kNavBarItemWidth;
+    // Measure the label's real line box: its offset and the icon lift have to
+    // agree with it, otherwise the constant 16dp slot drifts as text scales and
+    // the label is painted over the icon (or the icon out of the row).
+    final labelStyle = navBarLabelTextStyle(
+      context,
+      isSelected: isSelected,
+      color: isSelected
+          ? theme.colorScheme.onSurface
+          : _navInactiveLabelColor(theme),
+    );
+    final measuredLabelHeight = navBarLabelLineHeight(
+      label: label,
+      style: prismTextStyleForMeasurement(context, labelStyle),
+      textScaler: MediaQuery.textScalerOf(context),
+      textDirection: Directionality.of(context),
+      locale: Localizations.maybeLocaleOf(context),
+      textHeightBehavior: prismTextHeightBehaviorFor(context),
+    );
+    final labelHeight = math.min(
+      measuredLabelHeight,
+      // Both row measurers reserve space above the 32dp icon box, including
+      // for icon-only overflow slots, so the reservation is read the same way.
+      navBarReservedLabelHeight(
+        rowHeight: rowHeight,
+        iconHeight: kNavBarItemIconHeight,
+      ),
+    );
     final iconLift = navBarLabelRevealLiftY(
       labelVisibility: visibleLabelFactor,
+      labelHeight: labelHeight,
     );
-    final labelOffsetY =
-        (iconHeight / 2) + (_kNavBarLabelRevealSlotHeight / 2) - iconLift;
+    // Icon cluster sits directly above the label, both centred in the row, so
+    // the label's own offset below the row centre is half the icon box.
+    final labelOffsetY = (iconHeight / 2) + (labelHeight / 2) - iconLift;
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -2443,13 +2563,7 @@ class _NavBarItem extends StatelessWidget {
             child: _NavBarLabel(
               key: ValueKey('nav_label_${tab.id.name}'),
               label: label,
-              style: navBarLabelTextStyle(
-                context,
-                isSelected: isSelected,
-                color: isSelected
-                    ? theme.colorScheme.onSurface
-                    : _navInactiveLabelColor(theme),
-              ),
+              style: labelStyle,
               opacity: visibleLabelFactor,
             ),
           );
@@ -2569,7 +2683,22 @@ class _FloatingSidebar extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.only(left: 12, top: 12, bottom: 12),
             child: Container(
-              width: _kSidebarWidth,
+              // Grow with the actual label scaler, but keep most of the
+              // window available to the current screen.
+              width: math.min(
+                _kSidebarWidth *
+                    math.max(
+                      1.0,
+                      MediaQuery.textScalerOf(context).scale(13) / 13,
+                    ),
+                math.min(
+                  320.0,
+                  math.max(
+                    _kSidebarWidth,
+                    MediaQuery.sizeOf(context).width * 0.40,
+                  ),
+                ),
+              ),
               height: double.infinity,
               decoration: BoxDecoration(
                 color: Color.alphaBlend(
@@ -2702,8 +2831,8 @@ class _SidebarItemState extends State<_SidebarItem> {
           // Colors.transparent (a transparent black) flashed a dark tint
           // mid-fade and lagged the highlight onto adjacent rows on hover.
           child: Container(
-            height: _kSidebarItemHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            constraints: const BoxConstraints(minHeight: _kSidebarItemHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: fillColor,
               borderRadius: BorderRadius.circular(
@@ -2725,17 +2854,20 @@ class _SidebarItemState extends State<_SidebarItem> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  widget.tab.localizedLabel(
-                    context,
-                    terminologyPlural: widget.terminologyPlural,
-                  ),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: widget.isSelected
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: labelColor,
+                Flexible(
+                  child: Text(
+                    widget.tab.localizedLabel(
+                      context,
+                      terminologyPlural: widget.terminologyPlural,
+                    ),
+                    softWrap: true,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: widget.isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: labelColor,
+                    ),
                   ),
                 ),
               ],

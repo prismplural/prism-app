@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'habit_icon_metrics.dart';
 
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
@@ -76,6 +77,13 @@ class HabitRow extends StatelessWidget {
         ? Duration.zero
         : const Duration(milliseconds: 240);
     final shapes = PrismShapes.of(context);
+    final circleExtent = habitIconExtent(
+      context,
+      habit.icon,
+      fontSize: 20,
+      minimum: 44,
+    );
+    final targetExtent = circleExtent + 4;
 
     // Build the subtitle pill list. Frequency is no longer shown — only
     // weekly progress (if weekly-frequency) and streak (if > 0). If
@@ -115,6 +123,7 @@ class HabitRow extends StatelessWidget {
 
     return PrismListRow(
       onTap: onTap,
+      leadingWidth: targetExtent,
       leading: Semantics(
         button: true,
         enabled: onQuickComplete != null,
@@ -125,14 +134,14 @@ class HabitRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onQuickComplete,
           child: SizedBox(
-            width: 48,
-            height: 48,
+            width: targetExtent,
+            height: targetExtent,
             child: Center(
               child: AnimatedContainer(
                 duration: circleDuration,
                 curve: Curves.easeOut,
-                width: 44,
-                height: 44,
+                width: circleExtent,
+                height: circleExtent,
                 decoration: BoxDecoration(
                   shape: shapes.avatarShape(),
                   borderRadius: shapes.avatarBorderRadius(),

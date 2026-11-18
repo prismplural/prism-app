@@ -617,10 +617,15 @@ class _MemberMentionOverlayState extends ConsumerState<_MemberMentionOverlay> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () => widget.onSelect(member),
-                      child: SizedBox(
-                        height: 48,
+                      // Grow with the member name's line box: a fixed 48dp row
+                      // clipped the glyphs once the composed scale passed 3x.
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 48),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           child: Row(
                             children: [
                               MemberAvatar(

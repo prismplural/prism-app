@@ -27,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 
 /// Bottom sheet for creating a new conversation (DM or group).
 ///
@@ -586,7 +587,15 @@ class _CreateConversationSheetState
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxHeight < PrismTokens.topBarHeight) {
+              // Compare against the height the bar actually needs: it grows with
+              // the ambient text scale, so the fixed 66dp would route a bar that
+              // no longer fits into the Column branch.
+              final barHeight = prismScaledHeightOf(
+                context,
+                topBar,
+                availableWidth: constraints.maxWidth,
+              );
+              if (constraints.maxHeight < barHeight) {
                 return CustomScrollView(
                   controller: widget.scrollController,
                   slivers: buildBodySlivers(includeTopBar: true),

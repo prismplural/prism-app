@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -8,6 +9,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/utils/modal_insets.dart';
 import 'package:prism_plurality/shared/widgets/detail_side_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/sheet_presentation.dart';
 import 'package:prism_plurality/shared/widgets/unsaved_changes_guard.dart';
 
@@ -593,12 +595,19 @@ class _SheetChromeState extends State<_SheetChrome> {
 /// A top bar for full-screen sheets with close button, centered title, and
 /// an optional trailing widget (typically a [PrismGlassIconButton]).
 ///
-/// Matches [PrismTopBar] sizing: 44pt action slots, titleLarge at 22/w700.
+/// Matches [PrismTopBar] sizing: 44pt action slots, titleLarge at 22/w700, and a
+/// 66dp minimum. The bar grows with the ambient text scale instead of clamping
+/// its title: [preferredHeightFor] reports the height it needs and the bar is laid
+/// out at that height, keeping the title at the size the user asked for (one
+/// line, ellipsised, full string in semantics).
 ///
-/// When [titleWidget] is provided it replaces the text title in the center
-/// area, automatically inset by [PrismTokens.topBarActionSize] on each side.
+/// [titleWidget] replaces the text title in the middle slot. It gets the real
+/// width between the action slots (no fixed ceiling) and, when it implements
+/// [PrismScaledHeight], its height is measured with that same width so the bar
+/// contains it instead of clipping it. A widget that cannot report a height keeps
+/// sizing the bar by its own content.
 ///
-class PrismSheetTopBar extends StatelessWidget {
+class PrismSheetTopBar extends StatelessWidget implements PrismScaledHeight {
   const PrismSheetTopBar({
     super.key,
     required this.title,
@@ -612,55 +621,165 @@ class PrismSheetTopBar extends StatelessWidget {
   /// Optional trailing widget (e.g. a done/confirm button).
   final Widget? trailing;
 
-  /// When set, replaces the text title. Automatically inset by
-  /// [PrismTokens.topBarActionSize] on each side so it never overlaps the
-  /// leading/trailing action buttons.
+  /// When set, replaces the text title. Laid out between the action slots.
   final Widget? titleWidget;
 
   /// Replaces the default close button. Size to [PrismTokens.topBarActionSize].
   final Widget? leading;
 
+  /// Space above and below the title once the bar has to grow past
+  /// [PrismTokens.topBarHeight]. Also absorbs sub-pixel differences between the
+  /// measured line box and the painted one.
+  static const double _grownVerticalPadding = 12;
+
+  /// `NavigationToolbar`'s default spacing around the middle slot.
+  static const double _middleSpacing = 16;
+
+  TextStyle _titleStyle(BuildContext context) {
+    return Theme.of(context).textTheme.titleLarge?.copyWith(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+        ) ??
+        const TextStyle(fontSize: 22, fontWeight: FontWeight.w700);
+  }
+
+  /// Width the middle slot gets between the action slots.
+  ///
+  /// Computed from the action-slot geometry (`PrismGlassIconButton` at
+  /// [PrismTokens.topBarActionSize]) rather than from layout, because the height
+  /// has to be known before layout. It is the same arithmetic
+  /// `NavigationToolbar` applies to its middle child, and the middle is also
+  /// constrained to it, so measurement and layout cannot disagree.
+  double _middleWidth(BuildContext context, double? availableWidth) {
+    final width = availableWidth ?? MediaQuery.sizeOf(context).width;
+    final slots =
+        (leading == null ? 0.0 : PrismTokens.topBarActionSize) +
+        (trailing == null ? 0.0 : PrismTokens.topBarActionSize);
+    final reserved =
+        PrismTokens.topBarPadding.horizontal + slots + _middleSpacing * 2;
+    return math.max(0.0, width - reserved);
+  }
+
+  @override
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    final minimum = math.max(
+      PrismTokens.topBarHeight,
+      PrismTokens.topBarActionSize,
+    );
+    final widget = titleWidget;
+    if (widget == null) {
+      final style = _titleStyle(context);
+      final line = prismLineHeight(context, style, text: title);
+      // Reserve a fallback face's measured ink escape above and below; ordinary
+      // Latin text escapes by nothing and keeps the 12dp default breathing.
+      final inkEscape = prismTextInkEscape(context, style, text: title);
+      return math.max(
+        minimum,
+        line + math.max(_grownVerticalPadding, inkEscape * 2 + 2),
+      );
+    }
+    // Typed pattern: the widget is only known as a [Widget], so an `is` test
+    // cannot promote it to the interface.
+    if (widget case final PrismScaledHeight scaled) {
+      return math.max(
+        minimum,
+        scaled.preferredHeightFor(
+              context,
+              availableWidth: _middleWidth(context, availableWidth),
+            ) +
+            _grownVerticalPadding,
+      );
+    }
+    // An arbitrary widget sizes the middle slot by itself, so no taller
+    // prediction is possible; the layout below lets it.
+    return minimum;
+  }
+
+  Widget _leading(BuildContext context) {
+    return leading ??
+        PrismGlassIconButton(
+          icon: AppIcons.close,
+          size: PrismTokens.topBarActionSize,
+          onPressed: () => Navigator.of(context).maybePop(),
+          tooltip: context.l10n.close,
+          semanticLabel: context.l10n.close,
+        );
+  }
+
+  Widget _slotted(Widget child, double barHeight) {
+    return SizedBox(
+      height: barHeight,
+      child: Center(widthFactor: 1, child: child),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // Content-driven height, measured against the width the bar is actually
+    // given (a sheet may be narrower than the window).
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildBar(
+        context,
+        preferredHeightFor(context, availableWidth: constraints.maxWidth),
+        constraints.maxWidth,
+      ),
+    );
+  }
+
+  Widget _buildBar(
+    BuildContext context,
+    double barHeight,
+    double availableWidth,
+  ) {
+    final widget = titleWidget;
+    final measurableWidget = widget is PrismScaledHeight;
+
+    if (widget != null && !measurableWidget) {
+      // Content-driven: the caller's widget decides the middle slot's height, so
+      // nothing here may clamp it to a text-derived height.
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: PrismTokens.topBarHeight),
+        child: Padding(
+          padding: PrismTokens.topBarPadding,
+          child: Row(
+            children: [
+              _leading(context),
+              const SizedBox(width: _middleSpacing),
+              Expanded(
+                child: Align(alignment: Alignment.center, child: widget),
+              ),
+              const SizedBox(width: _middleSpacing),
+              if (trailing != null)
+                trailing!
+              else
+                const SizedBox.square(dimension: PrismTokens.topBarActionSize),
+            ],
+          ),
+        ),
+      );
+    }
 
     return SizedBox(
-      height: PrismTokens.topBarHeight,
+      height: barHeight,
       child: Padding(
         padding: PrismTokens.topBarPadding,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (titleWidget != null)
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: titleWidget,
-                ),
-              )
-            else
-              Text(
-                title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child:
-                  leading ??
-                  PrismGlassIconButton(
-                    icon: AppIcons.close,
-                    size: PrismTokens.topBarActionSize,
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    tooltip: context.l10n.close,
-                    semanticLabel: context.l10n.close,
+        child: NavigationToolbar(
+          leading: _slotted(_leading(context), barHeight),
+          middle: widget != null
+              ? ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: _middleWidth(context, availableWidth),
                   ),
-            ),
-            if (trailing != null)
-              Align(alignment: Alignment.centerRight, child: trailing!),
-          ],
+                  child: widget,
+                )
+              : Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: _titleStyle(context),
+                ),
+          trailing: trailing == null ? null : _slotted(trailing!, barHeight),
         ),
       ),
     );

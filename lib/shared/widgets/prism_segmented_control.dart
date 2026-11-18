@@ -1,8 +1,24 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
+
+/// Minimum painted height of the track at normal text. Preserved exactly: the
+/// outer box is this tall when the labels fit on one line.
+const double kPrismSegmentedControlMinHeight = 44.0;
+
+/// Hairline around the track. The border insets the labels by this much on each
+/// side, so the track's painted height is its content height plus twice this.
+const double _kTrackBorderWidth = 0.5;
+
+/// Gap between a segment label and its badge.
+const double _kBadgeGap = 6.0;
+const double _kBadgeMinSize = 18.0;
+const double _kBadgeHorizontalPadding = 6.0;
 
 /// A segment within a [PrismSegmentedControl].
 class PrismSegment<T> {
@@ -96,7 +112,8 @@ class PrismSegmentedControlColors {
 ///
 /// Replaces [SegmentedButton] with Prism's warm, glassy design language.
 /// All segments are single-select.
-class PrismSegmentedControl<T> extends StatefulWidget {
+class PrismSegmentedControl<T> extends StatefulWidget
+    implements PrismScaledHeight {
   const PrismSegmentedControl({
     super.key,
     required this.segments,
@@ -108,9 +125,137 @@ class PrismSegmentedControl<T> extends StatefulWidget {
   final T selected;
   final ValueChanged<T> onChanged;
 
+  /// Painted height of the track at the text scale in [context].
+  ///
+  /// Exactly what the widget renders: labels wrap at the width they really get
+  /// (two lines are allowed, then they ellipsise), badges keep their own line
+  /// box, and the track never goes below [kPrismSegmentedControlMinHeight] or
+  /// below its content plus the hairline border. Pass [availableWidth] when the
+  /// caller knows the cross-axis space; without it labels are measured as single
+  /// lines, which is the same result only when they do not wrap.
+  @override
+  double preferredHeightFor(BuildContext context, {double? availableWidth}) {
+    if (segments.isEmpty) return kPrismSegmentedControlMinHeight;
+
+    final theme = Theme.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final textDirection = Directionality.of(context);
+    final locale = Localizations.maybeLocaleOf(context);
+    final baseStyle = theme.textTheme.labelLarge ?? const TextStyle();
+    // The hairline is painted on top (foregroundDecoration), so it takes no space
+    // and each segment gets exactly its share of the caller's width.
+    final slotWidth = availableWidth == null
+        ? double.infinity
+        : math.max(0.0, availableWidth) / segments.length;
+
+    var contentHeight = 0.0;
+    for (final segment in segments) {
+      final badge = _measureBadge(
+        context,
+        theme,
+        segment,
+        textScaler,
+        textDirection,
+        locale,
+      );
+      final labelMaxWidth = slotWidth.isFinite
+          ? math.max(
+              1.0,
+              slotWidth - (badge == null ? 0.0 : badge.width + _kBadgeGap),
+            )
+          : double.infinity;
+      final labelHeight = _measureLabelHeight(
+        context,
+        label: segment.label,
+        style: baseStyle.copyWith(
+          fontWeight: segment.value == selected
+              ? FontWeight.w600
+              : FontWeight.w500,
+        ),
+        textScaler: textScaler,
+        textDirection: textDirection,
+        locale: locale,
+        maxWidth: labelMaxWidth,
+      );
+      contentHeight = math.max(
+        contentHeight,
+        badge == null ? labelHeight : math.max(labelHeight, badge.height),
+      );
+    }
+
+    return math.max(kPrismSegmentedControlMinHeight, contentHeight);
+  }
+
   @override
   State<PrismSegmentedControl<T>> createState() =>
       _PrismSegmentedControlState<T>();
+}
+
+Size? _measureBadge(
+  BuildContext context,
+  ThemeData theme,
+  PrismSegment<dynamic> segment,
+  TextScaler textScaler,
+  TextDirection textDirection,
+  Locale? locale,
+) {
+  final count = segment.badgeCount ?? 0;
+  if (count <= 0) return null;
+  final label = count <= 9 ? '$count' : '9+';
+  // The badge is painted at w600 with height 1.0; the prediction has to use the
+  // same style or its width - and the room it leaves the label - comes out wrong.
+  // The painted badge is labelSmall at w600 with height 1.0; the prediction has to
+  // start from the same style or the width it takes - and the room it leaves the
+  // label - comes out wrong.
+  final style = prismTextStyleForMeasurement(
+    context,
+    (theme.textTheme.labelSmall ?? const TextStyle()).merge(
+      const TextStyle(fontWeight: FontWeight.w600, height: 1.0),
+    ),
+  );
+  final painter = TextPainter(
+    text: TextSpan(text: label, style: style),
+    textDirection: textDirection,
+    textScaler: textScaler,
+    locale: locale,
+    textHeightBehavior: prismTextHeightBehaviorFor(context),
+    maxLines: 1,
+  )..layout();
+  final size = Size(
+    painter.width + _kBadgeHorizontalPadding * 2,
+    painter.height,
+  );
+  painter.dispose();
+  return Size(
+    math.max(_kBadgeMinSize, size.width),
+    math.max(_kBadgeMinSize, size.height),
+  );
+}
+
+double _measureLabelHeight(
+  BuildContext context, {
+  required String label,
+  required TextStyle style,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+  required Locale? locale,
+  required double maxWidth,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: prismTextStyleForMeasurement(context, style),
+    ),
+    textDirection: textDirection,
+    textScaler: textScaler,
+    locale: locale,
+    textHeightBehavior: prismTextHeightBehaviorFor(context),
+    textAlign: TextAlign.center,
+    maxLines: 2,
+  )..layout(maxWidth: maxWidth);
+  final height = painter.height;
+  painter.dispose();
+  return height;
 }
 
 class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
@@ -182,13 +327,25 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
     return Semantics(
       label: context.l10n.segmentedControl,
       child: Container(
-        height: 44,
+        // Sizes to its labels: the border insets them, so the painted height is
+        // exactly max(44, content + border) - the same value preferredHeightFor
+        // reports to callers that reserve space for this track.
         decoration: BoxDecoration(
           color: controlColors.trackColor,
           borderRadius: BorderRadius.circular(
             PrismShapes.of(context).radius(999),
           ),
-          border: Border.all(color: controlColors.trackBorderColor, width: 0.5),
+        ),
+        // Painted on top so the hairline does not inset the segments: the track's
+        // full height is tappable, and its painted height stays 44dp at normal text.
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(999),
+          ),
+          border: Border.all(
+            color: controlColors.trackBorderColor,
+            width: _kTrackBorderWidth,
+          ),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -245,43 +402,59 @@ class _PrismSegmentedControlState<T> extends State<PrismSegmentedControl<T>>
                             selected:
                                 widget.segments[i].value == widget.selected,
                             button: true,
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      widget.segments[i].label,
-                                      style: theme.textTheme.labelLarge
-                                          ?.copyWith(
-                                            color:
-                                                widget.segments[i].value ==
-                                                    widget.selected
-                                                ? theme.colorScheme.onSurface
-                                                : theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                            fontWeight:
-                                                widget.segments[i].value ==
-                                                    widget.selected
-                                                ? FontWeight.w600
-                                                : FontWeight.w500,
-                                          ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                            // The segment itself is the tap target, so it holds
+                            // the track's full minimum height while the label is
+                            // short, and grows when the label does.
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minHeight: kPrismSegmentedControlMinHeight,
+                              ),
+                              // heightFactor: 1 makes the segment take its own
+                              // content height even when the parent hands down a
+                              // finite max height (a Scaffold body, a pinned band, a
+                              // sheet column). Without it the Center fills that
+                              // parent and the track grows to the parent's height.
+                              child: Center(
+                                heightFactor: 1,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        widget.segments[i].label,
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              color:
+                                                  widget.segments[i].value ==
+                                                      widget.selected
+                                                  ? theme.colorScheme.onSurface
+                                                  : theme
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                              fontWeight:
+                                                  widget.segments[i].value ==
+                                                      widget.selected
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w500,
+                                            ),
+                                        maxLines: 2,
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
-                                  if ((widget.segments[i].badgeCount ?? 0) >
-                                      0) ...[
-                                    const SizedBox(width: 6),
-                                    _SegmentBadge(
-                                      count: widget.segments[i].badgeCount!,
-                                      semanticLabel:
-                                          widget.segments[i].badgeSemanticLabel,
-                                      theme: theme,
-                                    ),
+                                    if ((widget.segments[i].badgeCount ?? 0) >
+                                        0) ...[
+                                      const SizedBox(width: 6),
+                                      _SegmentBadge(
+                                        count: widget.segments[i].badgeCount!,
+                                        semanticLabel: widget
+                                            .segments[i]
+                                            .badgeSemanticLabel,
+                                        theme: theme,
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -340,7 +513,6 @@ class _SegmentBadge extends StatelessWidget {
     final pill = ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
       child: Container(
-        height: 18,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         alignment: Alignment.center,
         decoration: BoxDecoration(

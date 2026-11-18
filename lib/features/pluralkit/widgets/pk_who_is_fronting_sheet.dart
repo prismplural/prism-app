@@ -314,33 +314,50 @@ class PkWhoIsFrontingSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Title
-          Text(
-            l10n.pluralkitWhosFrontingTitle,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
+          // The sheet is non-dismissible (no drag, no barrier) and the cards
+          // already need more height than a compact phone has at large text,
+          // so the body scrolls. The defer action below stays pinned: it is
+          // the only safe, non-mutating way out and must never be the part
+          // that scrolls out of reach.
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Title
+                  Text(
+                    l10n.pluralkitWhosFrontingTitle,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Subtitle
+                  Text(
+                    l10n.pluralkitWhosFrontingSubtitle,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Option cards
+                  for (int i = 0; i < options.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 8),
+                    PkFronterChoiceCard(
+                      title: _title(context, options[i], nameMap),
+                      subtitle: _subtitle(context, options[i], nameMap),
+                      recommended: options[i].recommended,
+                      onTap: () => onResult(
+                        Set.unmodifiable(options[i].resolvedLocalIds),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          // Subtitle
-          Text(
-            l10n.pluralkitWhosFrontingSubtitle,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Option cards
-          for (int i = 0; i < options.length; i++) ...[
-            if (i > 0) const SizedBox(height: 8),
-            PkFronterChoiceCard(
-              title: _title(context, options[i], nameMap),
-              subtitle: _subtitle(context, options[i], nameMap),
-              recommended: options[i].recommended,
-              onTap: () =>
-                  onResult(Set.unmodifiable(options[i].resolvedLocalIds)),
-            ),
-          ],
           const SizedBox(height: 16),
           // Decide later
           PrismButton(

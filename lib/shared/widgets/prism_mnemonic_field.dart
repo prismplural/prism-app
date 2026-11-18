@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 /// Outcome of a pre-scan camera permission probe.
@@ -404,12 +405,127 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     _applyMnemonic(scannedMnemonic);
   }
 
+  /// One numbered word slot; [index] is 0-based, the label is 1-based.
+  Widget _buildWordSlot(int index, double ordinalWidth) {
+    return _WordSlotInput(
+      slotNumber: index + 1,
+      ordinalWidth: ordinalWidth,
+      controller: _slotControllers[index],
+      focusNode: _slotFocusNodes[index],
+      obscureText: _obscure,
+      wordSet: _wordSet,
+      enabled: widget.enabled,
+      autofocus: widget.autofocus && index == 0,
+      isLast: index == 11,
+      onChanged: (v) => _onSlotChanged(index, v),
+      onSubmitted: index < 11
+          ? (_) => _moveFocusToSlot(index + 1)
+          : (_) => widget.onSubmitted?.call(widget.controller.text),
+    );
+  }
+
+  /// A painter configured exactly like the text this field paints: the shared
+  /// measurement style (ambient DefaultTextStyle merged per `Text`'s rules,
+  /// `inherit: false` respected, the platform bold weight applied), the ambient
+  /// text scaler, the ambient direction, the locale and the inherited text-height
+  /// behaviour.
+  ///
+  /// Every extent in this file is measured through here, so a reserved height and
+  /// the glyphs it holds can never come from different faces.
+  ///
+  /// The painter is returned **owned by the caller**: it holds native layout state,
+  /// so every call site releases it in a `finally` as soon as the height or width it
+  /// was built for has been read.
+  static TextPainter _measurementPainter(
+    BuildContext context,
+    InlineSpan text, {
+    int? maxLines,
+    double maxWidth = double.infinity,
+  }) {
+    return TextPainter(
+      text: text,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.maybeLocaleOf(context),
+      maxLines: maxLines,
+      textHeightBehavior: prismTextHeightBehaviorFor(context),
+    )..layout(maxWidth: maxWidth);
+  }
+
+  /// Height the word-suggestion band reserves for one chip line.
+  ///
+  /// Unlike a hint, this value becomes the band's actual height, so it is measured
+  /// from the style the chips paint with - the same base style, resolved through
+  /// the shared contract - plus the band's 4dp list padding and the chip's 8dp
+  /// vertical padding on each side and the GlassSurface border dimensions. The
+  /// original 48dp band stays the floor.
+  static double _suggestionStripHeight(BuildContext context, TextStyle? style) {
+    final painter = _measurementPainter(
+      context,
+      TextSpan(text: 'Hg', style: prismTextStyleForMeasurement(context, style)),
+      maxLines: 1,
+    );
+    try {
+      // Container includes its decoration border in addition to explicit padding.
+      final borderInsets = Border.all(
+        width: PrismTokens.hairlineBorderWidth,
+      ).dimensions;
+      return math.max(48.0, painter.height + 24 + borderInsets.vertical);
+    } finally {
+      // The painter is owned by this call: it holds native layout state, so it is
+      // released as soon as the one number it was built for has been read.
+      painter.dispose();
+    }
+  }
+
+  /// Width the ordinal column needs for whichever label 1..12 is widest.
+  ///
+  /// Measured once per field build, for every label, with the style, direction
+  /// and inherited scaler the slots paint with - not from an assumed widest
+  /// "12", which a different font could beat, and not per slot. One fixed
+  /// budget keeps the twelve numbers in a single column, and it never touches a
+  /// controller, focus node or IME connection. Twelve short literals are the
+  /// whole cost, so no vocabulary or history is scanned. The original 18dp
+  /// column stays the floor for small text.
+  static double _measuredSlotOrdinalWidth(
+    BuildContext context,
+    TextStyle? style,
+  ) {
+    final resolved = prismTextStyleForMeasurement(context, style);
+    var widest = 0.0;
+    for (var slot = 1; slot <= 12; slot++) {
+      final painter = _measurementPainter(
+        context,
+        TextSpan(text: '$slot', style: resolved),
+        maxLines: 1,
+      );
+      try {
+        if (painter.width > widest) widest = painter.width;
+      } finally {
+        // Each iteration owns its painter; twelve of them would otherwise keep
+        // native layout state alive until the frame's garbage collection.
+        painter.dispose();
+      }
+    }
+    return math.max(18.0, widest + 2);
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    // One ordinal column width for the whole grid, measured once per build for
+    // every label 1..12 (never an assumed widest digit) with the style, scaler
+    // and direction the slots paint with. One fixed budget keeps the numbers in
+    // a single column; it is a pass over twelve literals, so no vocabulary or
+    // history is touched, and changing it never rebuilds a controller, focus
+    // node or IME connection.
+    final slotOrdinalWidth = _measuredSlotOrdinalWidth(
+      context,
+      _slotOrdinalTextStyle(theme),
+    );
     final validCount = _slotControllers
         .where((c) => _wordSet.contains(c.text.trim()))
         .length;
@@ -434,7 +550,18 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
           child: Material(
             color: Colors.transparent,
             child: SizedBox(
-              height: 48,
+              // The strip must fit one chip line at the inherited scale: a
+              // fixed 48dp band clipped the suggestion word at large text. The
+              // floor keeps the original band at default and small text.
+              height: _suggestionStripHeight(
+                context,
+                // The same base style the chips paint with (labelLarge plus the
+                // chip's own weight), so the reserved height belongs to the face
+                // and weight that are actually drawn.
+                Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+              ),
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(
@@ -534,31 +661,21 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
           const SizedBox(height: 10),
 
           // ── 2×6 word input grid ────────────────────────────────────────────
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisExtent: 40,
-              crossAxisSpacing: 6,
-              mainAxisSpacing: 6,
+          // Six rows of two self-sizing slots rather than a GridView with a
+          // fixed 40dp row extent: the word line box grows with the text scale,
+          // and a fixed extent sliced the word the user has to transcribe. The
+          // slot keeps a 40dp minimum, so default geometry is unchanged.
+          for (var row = 0; row < 6; row++) ...[
+            if (row > 0) const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: _buildWordSlot(row * 2, slotOrdinalWidth)),
+                const SizedBox(width: 6),
+                Expanded(child: _buildWordSlot(row * 2 + 1, slotOrdinalWidth)),
+              ],
             ),
-            itemCount: 12,
-            itemBuilder: (_, i) => _WordSlotInput(
-              slotNumber: i + 1,
-              controller: _slotControllers[i],
-              focusNode: _slotFocusNodes[i],
-              obscureText: _obscure,
-              wordSet: _wordSet,
-              enabled: widget.enabled,
-              autofocus: widget.autofocus && i == 0,
-              isLast: i == 11,
-              onChanged: (v) => _onSlotChanged(i, v),
-              onSubmitted: i < 11
-                  ? (_) => _moveFocusToSlot(i + 1)
-                  : (_) => widget.onSubmitted?.call(widget.controller.text),
-            ),
-          ),
+          ],
 
           if (hasError) ...[
             const SizedBox(height: 6),
@@ -844,9 +961,20 @@ class _CameraPermissionDialog extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Single numbered word slot: slot label + single-line TextField.
+/// The label style every slot ordinal renders with.
+///
+/// Shared so the column width is measured with exactly the style the number is
+/// painted in.
+TextStyle? _slotOrdinalTextStyle(ThemeData theme) =>
+    theme.textTheme.labelSmall?.copyWith(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
 class _WordSlotInput extends StatelessWidget {
   const _WordSlotInput({
     required this.slotNumber,
+    required this.ordinalWidth,
     required this.controller,
     required this.focusNode,
     required this.obscureText,
@@ -859,6 +987,10 @@ class _WordSlotInput extends StatelessWidget {
   });
 
   final int slotNumber;
+
+  /// Fixed width of the ordinal column for the whole grid, measured once by the
+  /// field for every label 1..12 at the inherited text scale.
+  final double ordinalWidth;
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool obscureText;
@@ -899,57 +1031,63 @@ class _WordSlotInput extends StatelessWidget {
       ),
     );
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 18,
-          child: Text(
-            '$slotNumber',
-            textAlign: TextAlign.right,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-              fontFeatures: const [FontFeature.tabularFigures()],
+    // The ordinal keeps its own glyph width: at 3.375x a fixed 18dp column
+    // clipped two-digit numbers, and the number is the only way to tell which
+    // word of the phrase you are typing. The width comes from the field's single
+    // measured budget for labels 1..12.
+    final slotLabelStyle = _slotOrdinalTextStyle(theme);
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 40),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: ordinalWidth,
+            child: Text(
+              '$slotNumber',
+              textAlign: TextAlign.right,
+              style: slotLabelStyle,
             ),
           ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            enabled: enabled,
-            autofocus: autofocus,
-            obscureText: obscureText,
-            keyboardType: TextInputType.visiblePassword,
-            autocorrect: false,
-            enableSuggestions: false,
-            enableIMEPersonalizedLearning: false,
-            textCapitalization: TextCapitalization.none,
-            maxLines: 1,
-            onChanged: onChanged,
-            onSubmitted: onSubmitted,
-            textInputAction: isLast
-                ? TextInputAction.done
-                : TextInputAction.next,
-            style: theme.textTheme.bodyMedium,
-            cursorColor: theme.colorScheme.primary,
-            inputFormatters: [_WordInputFormatter()],
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 6,
+          const SizedBox(width: 6),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              focusNode: focusNode,
+              enabled: enabled,
+              autofocus: autofocus,
+              obscureText: obscureText,
+              keyboardType: TextInputType.visiblePassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              enableIMEPersonalizedLearning: false,
+              textCapitalization: TextCapitalization.none,
+              maxLines: 1,
+              onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              textInputAction: isLast
+                  ? TextInputAction.done
+                  : TextInputAction.next,
+              style: theme.textTheme.bodyMedium,
+              cursorColor: theme.colorScheme.primary,
+              inputFormatters: [_WordInputFormatter()],
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                filled: true,
+                fillColor: fillColor,
+                border: baseBorder,
+                enabledBorder: baseBorder,
+                focusedBorder: focusedBorder,
               ),
-              filled: true,
-              fillColor: fillColor,
-              border: baseBorder,
-              enabledBorder: baseBorder,
-              focusedBorder: focusedBorder,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

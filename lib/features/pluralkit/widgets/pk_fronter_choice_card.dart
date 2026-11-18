@@ -45,54 +45,74 @@ class PkFronterChoiceCard extends StatelessWidget {
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 56),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // The recommendation badge is intrinsic (icon plus word) and is
+              // not a flexible child, so at large text the word alone can be
+              // wider than the whole card: the Expanded title then gets zero
+              // width and the row paints past its edge. Cap the badge to a
+              // share of the row so its word wraps at the requested size
+              // instead; the icon keeps its graphic size, nothing is scaled
+              // down, and the card's semantics still say "Recommended".
+              final badgeMaxWidth = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth * 0.45
+                  : double.infinity;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (recommended) ...[
-                const SizedBox(width: 8),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PhosphorIcon(
-                      key: const Key('pk_fronter_choice_card_recommended_icon'),
-                      AppIcons.checkCircle,
-                      color: theme.colorScheme.primary,
-                      size: 20,
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      recommendedLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.primary,
+                  ),
+                  if (recommended) ...[
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: badgeMaxWidth),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PhosphorIcon(
+                            key: const Key(
+                              'pk_fronter_choice_card_recommended_icon',
+                            ),
+                            AppIcons.checkCircle,
+                            color: theme.colorScheme.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            recommendedLabel,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-              ],
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),

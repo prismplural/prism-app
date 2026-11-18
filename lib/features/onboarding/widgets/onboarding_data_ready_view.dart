@@ -118,8 +118,11 @@ class OnboardingDataReadyView extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 32),
-          SizedBox(
-            height: 52,
+          // Minimum, not a fixed height: a tight 52dp box lays the label out
+          // below its own line box as soon as the text scales. Still 52dp at
+          // default text.
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 52),
             child: PrismButton(
               onPressed: onAction,
               label: actionLabel,

@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_scaled_height.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Full chat view for a single conversation.
@@ -182,25 +183,31 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         // Mark conversation as read when opened.
         _markAsReadIfNeeded();
 
-        return Scaffold(
-          appBar: PrismGlassAppBar(
-            title: _conversationTitle(context, ref, conversation),
-            leading: widget.showBackButton
-                ? PrismGlassIconButton(
-                    icon: AppIcons.arrowBackIosNewRounded,
-                    iconSize: 18,
-                    tooltip: context.l10n.back,
-                    onPressed: () => context.pop(),
-                  )
-                : null,
-            trailing: PrismGlassIconButton(
-              icon: AppIcons.infoOutlineRounded,
-              iconSize: 20,
-              tooltip: context.l10n.chatConversationInfo,
-              onPressed: () =>
-                  ConversationInfoSheet.show(context, widget.conversationId),
-            ),
+        // `Scaffold.appBar` caps its child at the declared preferred size and
+        // adds the status padding to that cap itself, so the declared height is
+        // the bar's *content* height (the bar's own SafeArea consumes the inset).
+        // Everywhere else the pinned sliver asks the bar directly.
+        final appBar = PrismGlassAppBar(
+          title: _conversationTitle(context, ref, conversation),
+          leading: widget.showBackButton
+              ? PrismGlassIconButton(
+                  icon: AppIcons.arrowBackIosNewRounded,
+                  iconSize: 18,
+                  tooltip: context.l10n.back,
+                  onPressed: () => context.pop(),
+                )
+              : null,
+          trailing: PrismGlassIconButton(
+            icon: AppIcons.infoOutlineRounded,
+            iconSize: 20,
+            tooltip: context.l10n.chatConversationInfo,
+            onPressed: () =>
+                ConversationInfoSheet.show(context, widget.conversationId),
           ),
+        );
+
+        return Scaffold(
+          appBar: prismScaledPreferredSize(context, appBar),
           body: GestureDetector(
             onTap: () => FocusScope.of(context).unfocus(),
             behavior: HitTestBehavior.translucent,
@@ -451,9 +458,7 @@ String _conversationTitle(
           .where((id) => id != speakingAs)
           .map(
             (id) =>
-                participantMap[id]?.effectiveName(
-                  preferDisplayName: prefer,
-                ) ??
+                participantMap[id]?.effectiveName(preferDisplayName: prefer) ??
                 context.l10n.unknown,
           )
           .toList();

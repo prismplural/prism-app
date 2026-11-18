@@ -320,6 +320,12 @@ class _JoinPromptView extends StatelessWidget {
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  // The label was a non-flex Row child: at 3.375x on a 320dp
+                  // phone it needed ~456dp inside a ~232dp line box and the row
+                  // overflowed to the right by 224dp. Flexible lets it wrap at
+                  // the requested size instead of being clipped or shrunk; the
+                  // tap target still hugs the text at default sizes.
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       showRelayConfiguration
@@ -329,11 +335,14 @@ class _JoinPromptView extends StatelessWidget {
                       color: fg.withValues(alpha: 0.72),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      context.l10n.syncSetupSelfHosted,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: fg.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        context.l10n.syncSetupSelfHosted,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: fg.withValues(alpha: 0.72),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -1031,8 +1040,12 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
+    // Minimum, not a fixed height: PrismButton's own padding plus a two-line
+    // label does not fit in 52dp once text is scaled, and a tight box lays the
+    // label out below its own line box (1.5x needed 64dp, max needed 144dp).
+    // At default text this is still exactly 52dp.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 52),
       child: PrismButton(
         onPressed: onPressed,
         label: label,
