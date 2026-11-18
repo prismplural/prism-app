@@ -28,7 +28,19 @@ class FieldInlineMarkdownText extends ConsumerWidget {
 
   final String data;
   final TextStyle? style;
-  final TextAlign textAlign;
+
+  /// Block text alignment for the rendered field.
+  ///
+  /// The default stays [TextAlign.start] for every existing caller: blocks keep
+  /// the start edge and the markdown body stretches to the width it is given,
+  /// which is what multi-block field values rely on.
+  ///
+  /// Passing `null` opts into [MarkdownText]'s fit-content policy instead: the
+  /// rendered blocks hug their content rather than filling the available width.
+  /// The profile header's pronoun capsule uses that so a short capsule reads as
+  /// a pill instead of a full-width bar. Null keeps the default start alignment,
+  /// including in right-to-left layouts; it is not a direction change.
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -25,6 +25,19 @@ void main() {
     child: MaterialApp(home: Scaffold(body: FieldInlineMarkdownText(data))),
   );
 
+  /// Same host, but with an explicit block alignment so a `null` opt-in can be
+  /// compared against the widget's default.
+  Widget hostWithAlignment(String data, TextAlign? textAlign) => ProviderScope(
+    overrides: [
+      activeMemberListProvider.overrideWith(
+        (ref) => Stream.value(const <Member>[]),
+      ),
+    ],
+    child: MaterialApp(
+      home: Scaffold(body: FieldInlineMarkdownText(data, textAlign: textAlign)),
+    ),
+  );
+
   List<double> spoilerOpacities(WidgetTester tester) => tester
       .widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity))
       .map((w) => w.opacity)
@@ -369,4 +382,36 @@ void main() {
       );
     },
   );
+
+  // -------------------------------------------------------------------------
+  // Block alignment (fit-content opt-in) tests
+  // -------------------------------------------------------------------------
+
+  testWidgets('default alignment keeps blocks at the available width', (
+    tester,
+  ) async {
+    const data = '# heading\n\nthey/them';
+    await tester.pumpWidget(host(data));
+
+    final field = tester.widget<FieldInlineMarkdownText>(
+      find.byType(FieldInlineMarkdownText),
+    );
+    // Existing callers keep the start alignment and full-width block layout.
+    expect(field.textAlign, TextAlign.start);
+    expect(tester.getSize(find.byType(Wrap).first).width, greaterThan(700));
+  });
+
+  testWidgets('null alignment opts into fit-content so blocks hug', (
+    tester,
+  ) async {
+    const data = '# heading\n\nthey/them';
+    await tester.pumpWidget(hostWithAlignment(data, null));
+
+    final field = tester.widget<FieldInlineMarkdownText>(
+      find.byType(FieldInlineMarkdownText),
+    );
+    expect(field.textAlign, isNull);
+    // Opt-in: the block container hugs its text instead of filling the width.
+    expect(tester.getSize(find.byType(Wrap).first).width, lessThan(400));
+  });
 }

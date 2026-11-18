@@ -124,28 +124,30 @@ void main() {
     },
   );
 
-  testWidgets('short multiline pronouns do not become part of the title', (
+  testWidgets('multiline pronouns stay out of the title in one capsule', (
     tester,
   ) async {
     const pronouns = 'elle\nshe\nthey';
     await _pumpIsolatedPronounHeader(tester, pronouns);
     final title = tester.widget<Text>(find.text('Alice'));
     expect(title.textSpan!.toPlainText(), 'Alice');
-    final preview = tester.widget<Text>(find.text(pronouns));
-    expect(preview.maxLines, 2);
-    expect(preview.overflow, TextOverflow.ellipsis);
+    // One integrated capsule under the name, shown in full: no line limit and
+    // no ellipsis (this replaces the old two-line chip preview).
+    expect(find.byKey(memberProfilePronounsCapsuleKey), findsOneWidget);
+    final rendered = tester.widget<Text>(find.text(pronouns));
+    expect(rendered.maxLines, isNull);
+    expect(rendered.overflow, isNot(TextOverflow.ellipsis));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('multiline header pronoun preview remains capped at two lines', (
-    tester,
-  ) async {
+  testWidgets('multiline header pronouns render in full', (tester) async {
     const pronouns =
         'elle / accords féminins\nshe / her\nthey / them\nother terms';
     await _pumpIsolatedPronounHeader(tester, pronouns);
-    final preview = tester.widget<Text>(find.text(pronouns));
-    expect(preview.maxLines, 2);
-    expect(preview.overflow, TextOverflow.ellipsis);
+    expect(find.byKey(memberProfilePronounsCapsuleKey), findsOneWidget);
+    final rendered = tester.widget<Text>(find.text(pronouns));
+    expect(rendered.maxLines, isNull);
+    expect(rendered.overflow, isNot(TextOverflow.ellipsis));
     expect(tester.takeException(), isNull);
   });
 
@@ -212,7 +214,9 @@ void main() {
     expect(aspectRatio.aspectRatio, 3);
   });
 
-  testWidgets('long pronoun chip wraps in the profile header', (tester) async {
+  testWidgets('long pronouns wrap in the classic header capsule', (
+    tester,
+  ) async {
     addTearDown(() => tester.view.resetPhysicalSize());
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
@@ -238,9 +242,10 @@ void main() {
 
     expect(tester.takeException(), isNull);
 
+    expect(find.byKey(memberProfilePronounsCapsuleKey), findsOneWidget);
     final pronounText = tester.widget<Text>(find.text(pronouns));
-    expect(pronounText.maxLines, 2);
-    expect(pronounText.overflow, TextOverflow.ellipsis);
+    expect(pronounText.maxLines, isNull);
+    expect(pronounText.overflow, isNot(TextOverflow.ellipsis));
     expect(tester.getSize(find.text(pronouns)).height, greaterThan(16));
   });
 
